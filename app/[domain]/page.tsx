@@ -53,7 +53,7 @@ export default async function HomePage({ params }: HomePageProps) {
             </Link>
           </nav>
           <Link
-            href={`/${tenantId}/(admin)/login`}
+            href={`/${tenantId}/admin/login`}
             className="px-4 py-2 rounded-lg font-medium"
             style={{
               backgroundColor: branding?.primary_color || '#3B82F6',
