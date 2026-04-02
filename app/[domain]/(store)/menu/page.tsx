@@ -40,7 +40,7 @@ export default async function MenuPage({ params }: MenuProps) {
             {categories.map(cat => (
               <a
                 key={cat.id}
-                href={`#cat-${cat.id}`}
+                href={`/${tenantId}/categoria/${cat.id}`}
                 className="px-4 py-1.5 rounded-full text-sm whitespace-nowrap border hover:opacity-80 transition-opacity"
                 style={{ borderColor: branding?.primary_color, color: branding?.primary_color }}
               >
