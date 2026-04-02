@@ -71,19 +71,46 @@ export async function POST(request: NextRequest) {
       break
     }
 
-    case 'customer.subscription.created':
-    case 'customer.subscription.updated': {
+    case 'customer.subscription.created': {
       const subscription = event.data.object as Stripe.Subscription
       const tenant_id = subscription.metadata?.tenant_id
       if (!tenant_id) break
 
-      const plan = subscription.items.data[0]?.price?.nickname || 'basic'
+      // Get plan name from metadata or price nickname
+      const plan = subscription.metadata?.plan_name ||
+                   subscription.items.data[0]?.price?.nickname ||
+                   'basic'
+
       await supabase
         .from('tenants')
         .update({
           subscription_stripe_id: subscription.id,
           subscription_plan: plan,
           status: subscription.status === 'active' ? 'active' : 'suspended',
+        })
+        .eq('id', tenant_id)
+      break
+    }
+
+    case 'customer.subscription.updated': {
+      const subscription = event.data.object as Stripe.Subscription
+      const tenant_id = subscription.metadata?.tenant_id
+      if (!tenant_id) break
+
+      const plan = subscription.metadata?.plan_name ||
+                   subscription.items.data[0]?.price?.nickname ||
+                   'basic'
+
+      // Check if subscription is past due
+      const isActive = subscription.status === 'active'
+      const isPastDue = subscription.status === 'past_due'
+
+      await supabase
+        .from('tenants')
+        .update({
+          subscription_stripe_id: subscription.id,
+          subscription_plan: plan,
+          status: isActive ? 'active' : isPastDue ? 'suspended' : 'suspended',
         })
         .eq('id', tenant_id)
       break
@@ -96,8 +123,52 @@ export async function POST(request: NextRequest) {
 
       await supabase
         .from('tenants')
-        .update({ status: 'suspended', subscription_plan: null })
+        .update({
+          status: 'suspended',
+          subscription_plan: null,
+          subscription_stripe_id: null,
+        })
         .eq('id', tenant_id)
+      break
+    }
+
+    case 'invoice.payment_failed': {
+      const invoice = event.data.object as Stripe.Invoice
+      if (!invoice.customer) break
+
+      // Find tenant by customer
+      const { data: tenant } = await supabase
+        .from('tenants')
+        .select('id')
+        .eq('stripe_customer_id', invoice.customer)
+        .single()
+
+      if (tenant) {
+        await supabase
+          .from('tenants')
+          .update({ status: 'suspended' })
+          .eq('id', tenant.id)
+      }
+      break
+    }
+
+    case 'invoice.payment_succeeded': {
+      const invoice = event.data.object as Stripe.Invoice
+      if (!invoice.customer || !invoice.subscription) break
+
+      // Find tenant by customer
+      const { data: tenant } = await supabase
+        .from('tenants')
+        .select('id')
+        .eq('stripe_customer_id', invoice.customer)
+        .single()
+
+      if (tenant) {
+        await supabase
+          .from('tenants')
+          .update({ status: 'active' })
+          .eq('id', tenant.id)
+      }
       break
     }
   }

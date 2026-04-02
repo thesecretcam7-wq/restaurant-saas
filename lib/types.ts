@@ -8,6 +8,7 @@ export interface Tenant {
   status: 'trial' | 'active' | 'suspended' | 'cancelled';
   subscription_plan: 'free' | 'basic' | 'pro' | 'premium' | null;
   subscription_stripe_id: string | null;
+  stripe_customer_id: string | null;
   stripe_account_id: string | null;
   stripe_account_status: 'verified' | 'pending' | 'failed' | null;
   owner_email: string;

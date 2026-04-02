@@ -69,9 +69,44 @@ export async function getRestaurantSettings(tenantId: string) {
   return data as RestaurantSettings
 }
 
-export async function getTenantContext(tenantId: string) {
-  const [tenant, branding, settings] = await Promise.all([
-    getTenantById(tenantId),
+export async function getTenantBySlug(slug: string) {
+  const supabase = await createClient()
+
+  const { data, error } = await supabase
+    .from('tenants')
+    .select('*')
+    .eq('slug', slug)
+    .single()
+
+  if (error) {
+    console.error('Error fetching tenant by slug:', error)
+    return null
+  }
+
+  return data as Tenant
+}
+
+export async function getTenantContext(tenantIdOrSlug: string) {
+  // Intentar como UUID primero
+  let tenant = await getTenantById(tenantIdOrSlug)
+
+  // Si no es UUID válido, intentar como slug
+  if (!tenant) {
+    tenant = await getTenantBySlug(tenantIdOrSlug)
+  }
+
+  const tenantId = tenant?.id
+
+  if (!tenantId) {
+    return {
+      tenant: null,
+      branding: null,
+      settings: null,
+      isLoading: false,
+    }
+  }
+
+  const [branding, settings] = await Promise.all([
     getTenantBranding(tenantId),
     getRestaurantSettings(tenantId),
   ])

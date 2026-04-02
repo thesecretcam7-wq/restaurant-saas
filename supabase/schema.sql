@@ -11,6 +11,7 @@ CREATE TABLE tenants (
   status TEXT DEFAULT 'trial' CHECK (status IN ('trial', 'active', 'suspended', 'cancelled')),
   subscription_plan TEXT CHECK (subscription_plan IN ('free', 'basic', 'pro', 'premium')),
   subscription_stripe_id TEXT,
+  stripe_customer_id TEXT,
   stripe_account_id TEXT,
   stripe_account_status TEXT CHECK (stripe_account_status IN ('verified', 'pending', 'failed')),
   owner_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
