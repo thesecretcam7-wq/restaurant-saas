@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { useParams } from 'next/navigation'
 
 interface RestaurantForm {
   display_name: string
@@ -15,6 +16,9 @@ interface RestaurantForm {
 }
 
 export default function RestaurantConfigPage() {
+  const params = useParams()
+  const tenantId = params.domain as string
+
   const [form, setForm] = useState<RestaurantForm>({
     display_name: 'Pizzería Test',
     description: 'La mejor pizzería de la ciudad',
@@ -40,11 +44,26 @@ export default function RestaurantConfigPage() {
     setMessage('')
 
     try {
-      // Aquí irá la llamada a API
-      await new Promise(resolve => setTimeout(resolve, 1000))
-      setMessage('✅ Información del restaurante actualizada')
+      const response = await fetch('/api/tenant/restaurant', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          tenantId,
+          ...form,
+        }),
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        setMessage(`❌ ${data.error || 'Error al guardar los cambios'}`)
+        return
+      }
+
+      setMessage('✅ ' + (data.message || 'Información del restaurante actualizada'))
       setTimeout(() => setMessage(''), 3000)
     } catch (error) {
+      console.error('Error:', error)
       setMessage('❌ Error al guardar los cambios')
     } finally {
       setSaving(false)

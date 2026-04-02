@@ -50,18 +50,26 @@ export default function BrandingPage() {
     setMessage('')
 
     try {
-      // Aquí irá la llamada a API para guardar
-      // const response = await fetch(`/api/tenant/${tenantId}/branding`, {
-      //   method: 'PUT',
-      //   headers: { 'Content-Type': 'application/json' },
-      //   body: JSON.stringify(form),
-      // })
+      const response = await fetch('/api/tenant/branding', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          tenantId,
+          ...form,
+        }),
+      })
 
-      // Por ahora, simulamos el guardado
-      await new Promise(resolve => setTimeout(resolve, 1000))
-      setMessage('✅ Cambios guardados exitosamente')
+      const data = await response.json()
+
+      if (!response.ok) {
+        setMessage(`❌ ${data.error || 'Error al guardar los cambios'}`)
+        return
+      }
+
+      setMessage('✅ ' + (data.message || 'Cambios guardados exitosamente'))
       setTimeout(() => setMessage(''), 3000)
     } catch (error) {
+      console.error('Error:', error)
       setMessage('❌ Error al guardar los cambios')
     } finally {
       setSaving(false)
