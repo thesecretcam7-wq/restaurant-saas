@@ -6,9 +6,11 @@ import Link from 'next/link'
 const SECTIONS = [
   { href: 'branding',    label: 'Branding', desc: 'Logo, colores, tipografía', icon: '🎨' },
   { href: 'restaurante', label: 'Restaurante', desc: 'Nombre, contacto, ubicación', icon: '🏪' },
+  { href: 'horarios',    label: 'Horarios', desc: 'Días y horas de atención', icon: '🕐' },
   { href: 'delivery',    label: 'Delivery y Pagos', desc: 'Tarifas, métodos de pago, IVA', icon: '🚗' },
   { href: 'reservas',    label: 'Reservas', desc: 'Mesas, capacidad, anticipación', icon: '📅' },
-  { href: 'planes',      label: 'Plan y Suscripción', desc: 'Gestiona tu plan actual', icon: '💳' },
+  { href: 'stripe',      label: 'Stripe / Pagos', desc: 'Conecta tu cuenta Stripe', icon: '💳' },
+  { href: 'planes',      label: 'Plan y Suscripción', desc: 'Gestiona tu plan actual', icon: '⭐' },
 ]
 
 export default function ConfiguracionLayout({ children }: { children: React.ReactNode }) {
