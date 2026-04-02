@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/server'
 
 interface Props {
   params: Promise<{ domain: string }>
@@ -16,7 +16,7 @@ const STATUS_LABELS: Record<string, { label: string; color: string }> = {
 export default async function ReservasAdminPage({ params, searchParams }: Props) {
   const { domain: tenantId } = await params
   const { date, status } = await searchParams
-  const supabase = await createClient()
+  const supabase = await createServiceClient()
 
   const today = new Date().toISOString().split('T')[0]
   const filterDate = date || today

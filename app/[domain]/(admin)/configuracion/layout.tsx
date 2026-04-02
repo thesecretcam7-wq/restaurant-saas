@@ -1,11 +1,13 @@
 'use client'
 
-import { useParams } from 'next/navigation'
+import { useParams, usePathname } from 'next/navigation'
 
 const CONFIG_SECTIONS = [
-  { href: 'branding', label: '🎨 Personalización', icon: '🎨' },
-  { href: 'restaurante', label: '🏪 Restaurante', icon: '🏪' },
-  { href: 'planes', label: '💳 Planes', icon: '💳' },
+  { href: 'branding', label: '🎨 Personalización' },
+  { href: 'restaurante', label: '🏪 Restaurante' },
+  { href: 'delivery', label: '🚗 Delivery y Pagos' },
+  { href: 'reservas', label: '📅 Reservas' },
+  { href: 'planes', label: '💳 Planes' },
 ]
 
 export default function ConfigurationLayout({
@@ -15,11 +17,10 @@ export default function ConfigurationLayout({
 }) {
   const params = useParams()
   const tenantId = params.domain as string
-  const currentPath = typeof window !== 'undefined' ? window.location.pathname : ''
+  const pathname = usePathname()
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Encabezado */}
       <div className="bg-white border-b border-gray-200">
         <div className="max-w-6xl mx-auto px-4 py-6">
           <h1 className="text-2xl font-bold text-gray-900">⚙️ Configuración</h1>
@@ -29,11 +30,10 @@ export default function ConfigurationLayout({
 
       <div className="max-w-6xl mx-auto px-4 py-8">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-          {/* Menú lateral */}
           <aside className="md:col-span-1">
             <nav className="bg-white rounded-lg border border-gray-200 overflow-hidden">
               {CONFIG_SECTIONS.map(section => {
-                const isActive = currentPath.includes(section.href)
+                const isActive = pathname?.includes(`/configuracion/${section.href}`)
                 return (
                   <a
                     key={section.href}
@@ -51,7 +51,6 @@ export default function ConfigurationLayout({
             </nav>
           </aside>
 
-          {/* Contenido principal */}
           <main className="md:col-span-3">
             {children}
           </main>

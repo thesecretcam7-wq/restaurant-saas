@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/server'
 
 interface PedidosProps {
   params: Promise<{ domain: string }>
@@ -17,7 +17,7 @@ const STATUS_LABELS: Record<string, { label: string; color: string }> = {
 export default async function PedidosPage({ params, searchParams }: PedidosProps) {
   const { domain: tenantId } = await params
   const { status } = await searchParams
-  const supabase = await createClient()
+  const supabase = await createServiceClient()
 
   let query = supabase
     .from('orders')

@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/server'
 import Link from 'next/link'
 
 interface ProductosProps {
@@ -7,7 +7,7 @@ interface ProductosProps {
 
 export default async function ProductosPage({ params }: ProductosProps) {
   const { domain: tenantId } = await params
-  const supabase = await createClient()
+  const supabase = await createServiceClient()
 
   const [categoriesRes, itemsRes] = await Promise.all([
     supabase.from('menu_categories').select('*').eq('tenant_id', tenantId).order('sort_order'),

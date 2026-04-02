@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/server'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import OrderStatusActions from './OrderStatusActions'
@@ -25,7 +25,7 @@ const STATUS_LABELS: Record<string, { label: string; color: string }> = {
 
 export default async function PedidoDetailPage({ params }: PedidoDetailProps) {
   const { domain: tenantId, id } = await params
-  const supabase = await createClient()
+  const supabase = await createServiceClient()
 
   const { data: order } = await supabase
     .from('orders')
