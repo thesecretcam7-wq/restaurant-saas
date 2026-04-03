@@ -10,6 +10,7 @@ const SECTIONS = [
   { href: 'delivery',    label: 'Delivery y Pagos', desc: 'Tarifas, métodos de pago, IVA', icon: '🚗' },
   { href: 'reservas',    label: 'Reservas', desc: 'Mesas, capacidad, anticipación', icon: '📅' },
   { href: 'stripe',      label: 'Stripe / Pagos', desc: 'Conecta tu cuenta Stripe', icon: '💳' },
+  { href: 'dominio',     label: 'Dominio', desc: 'Conecta tu dominio propio', icon: '🌐' },
   { href: 'planes',      label: 'Plan y Suscripción', desc: 'Gestiona tu plan actual', icon: '⭐' },
 ]
 
