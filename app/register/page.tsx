@@ -47,7 +47,7 @@ export default function RegisterPage() {
       }
 
       // Redirect to admin dashboard
-      router.push(`/${data.tenant.id}/admin/dashboard`)
+      router.push(`/${data.tenant.slug}/admin/dashboard`)
     } catch {
       setError('Error de conexión')
     } finally {

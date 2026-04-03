@@ -29,7 +29,7 @@ export default function LoginPage() {
         return
       }
 
-      router.push(`/${data.tenant.id}/admin/dashboard`)
+      router.push(`/${data.tenant.slug}/admin/dashboard`)
     } catch {
       setError('Error de conexión')
     } finally {
