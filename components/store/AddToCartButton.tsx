@@ -6,29 +6,52 @@ interface Props {
   item: { id: string; name: string; price: number; image_url?: string }
   tenantId: string
   color?: string
+  small?: boolean
 }
 
-export default function AddToCartButton({ item, tenantId, color = '#3B82F6' }: Props) {
-  const { addItem, items } = useCartStore()
+export default function AddToCartButton({ item, tenantId, color = '#3B82F6', small }: Props) {
+  const { addItem, removeItem, items } = useCartStore()
   const qty = items.find(i => i.item_id === item.id)?.qty || 0
 
   const add = (e: React.MouseEvent) => {
     e.preventDefault()
+    e.stopPropagation()
     addItem({ item_id: item.id, name: item.name, price: item.price, image_url: item.image_url, qty: 1 }, tenantId)
   }
 
+  const remove = (e: React.MouseEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    removeItem(item.id)
+  }
+
+  if (qty === 0) {
+    return (
+      <button
+        onClick={add}
+        className={`rounded-full text-white flex items-center justify-center font-bold shadow-md active:scale-90 transition-transform flex-shrink-0 ${small ? 'w-8 h-8 text-base' : 'w-10 h-10 text-xl'}`}
+        style={{ backgroundColor: color }}
+      >
+        +
+      </button>
+    )
+  }
+
   return (
-    <button
-      onClick={add}
-      className="relative w-10 h-10 rounded-full text-white flex items-center justify-center text-xl flex-shrink-0 hover:opacity-90 transition-opacity"
-      style={{ backgroundColor: color }}
-    >
-      +
-      {qty > 0 && (
-        <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs w-5 h-5 rounded-full flex items-center justify-center font-bold">
-          {qty}
-        </span>
-      )}
-    </button>
+    <div className={`flex items-center gap-1.5 rounded-full px-1.5 shadow-md flex-shrink-0 ${small ? 'h-8' : 'h-10'}`} style={{ backgroundColor: color }}>
+      <button
+        onClick={remove}
+        className={`text-white font-bold flex items-center justify-center active:scale-90 transition-transform ${small ? 'w-6 h-6 text-sm' : 'w-7 h-7 text-base'}`}
+      >
+        −
+      </button>
+      <span className={`text-white font-extrabold min-w-[16px] text-center ${small ? 'text-xs' : 'text-sm'}`}>{qty}</span>
+      <button
+        onClick={add}
+        className={`text-white font-bold flex items-center justify-center active:scale-90 transition-transform ${small ? 'w-6 h-6 text-sm' : 'w-7 h-7 text-base'}`}
+      >
+        +
+      </button>
+    </div>
   )
 }

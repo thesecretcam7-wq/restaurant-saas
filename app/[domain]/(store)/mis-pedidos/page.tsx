@@ -5,14 +5,17 @@ import Link from 'next/link'
 
 interface Props { params: Promise<{ domain: string }> }
 
-const STATUS_INFO: Record<string, { label: string; color: string; icon: string }> = {
-  pending:    { label: 'Pendiente',  color: 'bg-yellow-100 text-yellow-700', icon: '⏳' },
-  confirmed:  { label: 'Confirmado', color: 'bg-blue-100 text-blue-700',    icon: '✅' },
-  preparing:  { label: 'Preparando', color: 'bg-orange-100 text-orange-700', icon: '👨‍🍳' },
-  on_the_way: { label: 'En camino',  color: 'bg-indigo-100 text-indigo-700', icon: '🚗' },
-  delivered:  { label: 'Entregado',  color: 'bg-green-100 text-green-700',  icon: '🎉' },
-  cancelled:  { label: 'Cancelado',  color: 'bg-red-100 text-red-600',      icon: '❌' },
+const STATUS: Record<string, { label: string; bg: string; dot: string; icon: string }> = {
+  pending:    { label: 'Pendiente',    bg: '#FEF3C7', dot: '#F59E0B', icon: '⏳' },
+  confirmed:  { label: 'Confirmado',   bg: '#DBEAFE', dot: '#3B82F6', icon: '✅' },
+  preparing:  { label: 'Preparando',   bg: '#FEE2E2', dot: '#EF4444', icon: '👨‍🍳' },
+  on_the_way: { label: 'En camino',    bg: '#EDE9FE', dot: '#8B5CF6', icon: '🚗' },
+  delivered:  { label: 'Entregado',    bg: '#D1FAE5', dot: '#10B981', icon: '🎉' },
+  cancelled:  { label: 'Cancelado',    bg: '#F1F5F9', dot: '#94A3B8', icon: '✕' },
 }
+
+const STEPS = ['pending', 'confirmed', 'preparing', 'on_the_way', 'delivered']
+const STEP_LABELS = ['Recibido', 'Confirmado', 'Preparando', 'En camino', 'Entregado']
 
 export default function MisPedidosPage({ params }: Props) {
   const { domain: tenantId } = use(params)
@@ -20,6 +23,8 @@ export default function MisPedidosPage({ params }: Props) {
   const [orders, setOrders] = useState<any[] | null>(null)
   const [loading, setLoading] = useState(false)
   const [searched, setSearched] = useState(false)
+
+  const primary = 'var(--primary-color, #3B82F6)'
 
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -40,88 +45,114 @@ export default function MisPedidosPage({ params }: Props) {
   return (
     <div className="min-h-screen bg-gray-50">
       <header className="bg-white border-b">
-        <div className="max-w-lg mx-auto px-4 h-14 flex items-center gap-4">
-          <Link href={`/${tenantId}/menu`} className="text-gray-500 hover:text-gray-700">←</Link>
-          <h1 className="font-semibold">Mis Pedidos</h1>
+        <div className="max-w-lg mx-auto px-4 h-14 flex items-center gap-3">
+          <Link href={`/${tenantId}`} className="w-9 h-9 rounded-full bg-gray-100 flex items-center justify-center">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#374151" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M19 12H5M12 19l-7-7 7-7"/>
+            </svg>
+          </Link>
+          <h1 className="font-extrabold text-gray-900">Mis Pedidos</h1>
         </div>
       </header>
 
-      <main className="max-w-lg mx-auto px-4 py-8 space-y-4">
-        <div className="bg-white rounded-xl border p-5">
-          <h2 className="font-semibold text-gray-900 mb-1">Buscar mis pedidos</h2>
-          <p className="text-sm text-gray-500 mb-4">Ingresa tu número de teléfono para ver el estado de tus pedidos</p>
+      <main className="max-w-lg mx-auto px-4 py-5 space-y-4">
+        {/* Search card */}
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="w-10 h-10 rounded-xl flex items-center justify-center text-xl" style={{ backgroundColor: 'var(--primary-color, #3B82F6)15', color: primary }}>
+              📋
+            </div>
+            <div>
+              <p className="font-extrabold text-gray-900 text-sm">Buscar mis pedidos</p>
+              <p className="text-xs text-gray-400">Ingresa el teléfono con el que pediste</p>
+            </div>
+          </div>
           <form onSubmit={handleSearch} className="flex gap-2">
             <input
               type="tel"
               value={phone}
               onChange={e => setPhone(e.target.value)}
               placeholder="Ej: 3001234567"
-              className="flex-1 px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="flex-1 px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:bg-white transition-all"
               required
             />
             <button
               type="submit"
               disabled={loading}
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 disabled:bg-blue-300"
+              className="px-5 py-3 rounded-xl text-white font-bold text-sm active:scale-95 transition-transform disabled:opacity-50"
+              style={{ backgroundColor: primary }}
             >
               {loading ? '...' : 'Buscar'}
             </button>
           </form>
         </div>
 
+        {/* Results */}
         {searched && !loading && orders !== null && (
           orders.length === 0 ? (
-            <div className="bg-white rounded-xl border p-8 text-center">
-              <p className="text-3xl mb-2">📦</p>
-              <p className="text-gray-600 font-medium">No encontramos pedidos</p>
-              <p className="text-gray-400 text-sm mt-1">Verifica que el número sea el mismo que usaste al pedir</p>
+            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-10 text-center">
+              <div className="text-5xl mb-3">📦</div>
+              <p className="font-bold text-gray-900 mb-1">Sin pedidos encontrados</p>
+              <p className="text-sm text-gray-400">Verifica que el número sea el mismo que usaste</p>
             </div>
           ) : (
             <div className="space-y-3">
               {orders.map((order: any) => {
-                const status = STATUS_INFO[order.status] || { label: order.status, color: 'bg-gray-100 text-gray-600', icon: '📦' }
+                const st = STATUS[order.status] || STATUS['pending']
+                const currentStep = STEPS.indexOf(order.status)
+                const isCancelled = order.status === 'cancelled'
+
                 return (
-                  <div key={order.id} className="bg-white rounded-xl border p-4">
-                    <div className="flex items-start justify-between mb-3">
+                  <div key={order.id} className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+                    {/* Header */}
+                    <div className="flex items-center justify-between p-4 pb-3">
                       <div>
-                        <p className="font-semibold text-gray-900">{order.order_number}</p>
+                        <p className="font-extrabold text-gray-900 font-mono text-sm">{order.order_number}</p>
                         <p className="text-xs text-gray-400 mt-0.5">
                           {new Date(order.created_at).toLocaleString('es-CO', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
                         </p>
                       </div>
-                      <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${status.color}`}>
-                        {status.icon} {status.label}
+                      <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold" style={{ backgroundColor: st.bg, color: st.dot }}>
+                        <span>{st.icon}</span> {st.label}
                       </span>
                     </div>
 
-                    {/* Progress bar */}
-                    {order.status !== 'cancelled' && (
-                      <div className="flex gap-1 mb-3">
-                        {['pending', 'confirmed', 'preparing', 'on_the_way', 'delivered'].map((s, i) => {
-                          const steps = ['pending', 'confirmed', 'preparing', 'on_the_way', 'delivered']
-                          const currentIdx = steps.indexOf(order.status)
-                          return (
-                            <div
-                              key={s}
-                              className={`flex-1 h-1.5 rounded-full ${i <= currentIdx ? 'bg-blue-500' : 'bg-gray-200'}`}
-                            />
-                          )
-                        })}
+                    {/* Progress steps */}
+                    {!isCancelled && (
+                      <div className="px-4 pb-3">
+                        <div className="flex items-center gap-0">
+                          {STEPS.map((s, i) => (
+                            <div key={s} className="flex items-center flex-1 last:flex-none">
+                              <div className="flex flex-col items-center gap-1">
+                                <div
+                                  className="w-2 h-2 rounded-full transition-all"
+                                  style={{ backgroundColor: i <= currentStep ? 'var(--primary-color, #3B82F6)' : '#E2E8F0' }}
+                                />
+                                <span className="text-[8px] text-gray-400 font-medium whitespace-nowrap">{STEP_LABELS[i]}</span>
+                              </div>
+                              {i < STEPS.length - 1 && (
+                                <div className="flex-1 h-0.5 mb-3 mx-0.5 transition-all" style={{ backgroundColor: i < currentStep ? 'var(--primary-color, #3B82F6)' : '#E2E8F0' }} />
+                              )}
+                            </div>
+                          ))}
+                        </div>
                       </div>
                     )}
 
-                    <div className="space-y-1 text-sm">
+                    {/* Items */}
+                    <div className="px-4 pb-3 border-t border-gray-50 pt-3 space-y-1.5">
                       {(order.items as any[]).map((item: any, i: number) => (
-                        <div key={i} className="flex justify-between text-gray-600">
+                        <div key={i} className="flex justify-between text-sm text-gray-600">
                           <span>{item.qty}× {item.name}</span>
-                          <span>${(item.price * item.qty).toLocaleString('es-CO')}</span>
+                          <span className="font-medium">${(item.price * item.qty).toLocaleString('es-CO')}</span>
                         </div>
                       ))}
                     </div>
 
-                    <div className="flex justify-between font-semibold text-gray-900 mt-3 pt-3 border-t">
-                      <span>Total</span>
-                      <span>${Number(order.total).toLocaleString('es-CO')}</span>
+                    {/* Total */}
+                    <div className="flex justify-between items-center px-4 py-3 bg-gray-50 border-t border-gray-100">
+                      <span className="text-sm font-bold text-gray-600">Total pagado</span>
+                      <span className="font-extrabold text-base" style={{ color: primary }}>${Number(order.total).toLocaleString('es-CO')}</span>
                     </div>
                   </div>
                 )
