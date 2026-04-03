@@ -1,4 +1,6 @@
 import { createServiceClient } from '@/lib/supabase/server'
+import { getTenantPlanInfo } from '@/lib/checkPlan'
+import UpgradeGate from '@/components/admin/UpgradeGate'
 
 interface Props {
   params: Promise<{ domain: string }>
@@ -17,6 +19,7 @@ export default async function ReservasAdminPage({ params, searchParams }: Props)
   const { domain: tenantId } = await params
   const { date, status } = await searchParams
   const supabase = await createServiceClient()
+  const planInfo = await getTenantPlanInfo(tenantId)
 
   const today = new Date().toISOString().split('T')[0]
   const filterDate = date || today
@@ -32,7 +35,7 @@ export default async function ReservasAdminPage({ params, searchParams }: Props)
 
   const { data: reservations } = await query
 
-  return (
+  const reservasContent = (
     <div>
       <div className="flex items-center justify-between mb-8">
         <div>
@@ -97,6 +100,17 @@ export default async function ReservasAdminPage({ params, searchParams }: Props)
         )}
       </div>
     </div>
+  )
+
+  return (
+    <UpgradeGate
+      tenantId={tenantId}
+      feature="Sistema de reservas"
+      requiredPlan="pro"
+      currentPlan={planInfo.planId}
+    >
+      {reservasContent}
+    </UpgradeGate>
   )
 }
 

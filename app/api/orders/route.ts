@@ -1,10 +1,17 @@
 import { createServiceClient } from '@/lib/supabase/server'
+import { canCreateOrder } from '@/lib/checkPlan'
 import { NextRequest, NextResponse } from 'next/server'
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
     const { tenantId, items, customerInfo, deliveryType, deliveryAddress, notes, paymentMethod } = body
+
+    // Plan limit: check monthly order count
+    const orderCheck = await canCreateOrder(tenantId)
+    if (!orderCheck.allowed) {
+      return NextResponse.json({ error: orderCheck.reason, limitReached: true, used: orderCheck.used, limit: orderCheck.limit }, { status: 403 })
+    }
 
     const supabase = await createServiceClient()
 

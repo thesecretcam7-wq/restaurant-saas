@@ -1,4 +1,5 @@
 import { createServiceClient } from '@/lib/supabase/server'
+import { getTenantPlanInfo, getMonthlyOrderCount } from '@/lib/checkPlan'
 import Link from 'next/link'
 
 interface DashboardProps {
@@ -12,12 +13,14 @@ export default async function DashboardPage({ params }: DashboardProps) {
   const today = new Date()
   const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1).toISOString()
 
-  const [ordersRes, revenueRes, reservationsRes, customersRes, recentOrdersRes] = await Promise.all([
+  const [ordersRes, revenueRes, reservationsRes, customersRes, recentOrdersRes, planInfo, monthOrders] = await Promise.all([
     supabase.from('orders').select('id', { count: 'exact', head: true }).eq('tenant_id', tenantId),
     supabase.from('orders').select('total').eq('tenant_id', tenantId).eq('payment_status', 'paid').gte('created_at', startOfMonth),
     supabase.from('reservations').select('id', { count: 'exact', head: true }).eq('tenant_id', tenantId).eq('status', 'confirmed'),
     supabase.from('customers').select('id', { count: 'exact', head: true }).eq('tenant_id', tenantId),
     supabase.from('orders').select('*').eq('tenant_id', tenantId).order('created_at', { ascending: false }).limit(5),
+    getTenantPlanInfo(tenantId),
+    getMonthlyOrderCount(tenantId),
   ])
 
   const totalOrders = ordersRes.count || 0
@@ -25,6 +28,11 @@ export default async function DashboardPage({ params }: DashboardProps) {
   const confirmedReservations = reservationsRes.count || 0
   const totalCustomers = customersRes.count || 0
   const recentOrders = recentOrdersRes.data || []
+
+  const orderLimit = planInfo.limits.orders_per_month
+  const orderLimitFinite = orderLimit !== Infinity
+  const orderPct = orderLimitFinite ? Math.min((monthOrders / orderLimit) * 100, 100) : 0
+  const orderLimitWarning = orderLimitFinite && orderPct >= 80
 
   const STATUS_COLORS: Record<string, string> = {
     pending: 'bg-yellow-100 text-yellow-700',
@@ -52,6 +60,50 @@ export default async function DashboardPage({ params }: DashboardProps) {
       <div className="mb-8">
         <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
         <p className="text-gray-500 text-sm mt-1">Resumen de tu restaurante</p>
+      </div>
+
+      {/* Plan status banner */}
+      <div className={`rounded-xl border p-4 mb-6 flex flex-col sm:flex-row sm:items-center gap-4 ${orderLimitWarning ? 'bg-orange-50 border-orange-200' : 'bg-white'}`}>
+        <div className="flex-1">
+          <div className="flex items-center gap-2 mb-1">
+            <span className="text-sm font-semibold text-gray-700">Plan {planInfo.label}</span>
+            {planInfo.isTrial && planInfo.trialActive && (
+              <span className="px-2 py-0.5 bg-blue-100 text-blue-700 text-xs font-medium rounded-full">Prueba gratuita</span>
+            )}
+            {!planInfo.isActive && (
+              <span className="px-2 py-0.5 bg-red-100 text-red-700 text-xs font-medium rounded-full">Inactivo</span>
+            )}
+          </div>
+          {orderLimitFinite ? (
+            <div>
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-xs text-gray-500">Pedidos este mes</span>
+                <span className={`text-xs font-semibold ${orderLimitWarning ? 'text-orange-600' : 'text-gray-600'}`}>
+                  {monthOrders} / {orderLimit}
+                </span>
+              </div>
+              <div className="h-1.5 bg-gray-200 rounded-full overflow-hidden">
+                <div
+                  className={`h-full rounded-full transition-all ${orderPct >= 100 ? 'bg-red-500' : orderPct >= 80 ? 'bg-orange-500' : 'bg-blue-500'}`}
+                  style={{ width: `${orderPct}%` }}
+                />
+              </div>
+              {orderLimitWarning && (
+                <p className="text-xs text-orange-600 mt-1">
+                  {orderPct >= 100 ? 'Límite alcanzado. Los nuevos pedidos serán rechazados.' : `Casi en el límite — ${orderLimit - monthOrders} pedidos restantes.`}
+                </p>
+              )}
+            </div>
+          ) : (
+            <p className="text-xs text-gray-500">Pedidos ilimitados este mes</p>
+          )}
+        </div>
+        <Link
+          href={`/${tenantId}/admin/configuracion/planes`}
+          className={`flex-shrink-0 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${orderLimitWarning ? 'bg-orange-500 hover:bg-orange-600 text-white' : 'bg-gray-100 hover:bg-gray-200 text-gray-700'}`}
+        >
+          {orderLimitWarning ? 'Actualizar plan' : 'Ver plan'}
+        </Link>
       </div>
 
       {/* Stats */}

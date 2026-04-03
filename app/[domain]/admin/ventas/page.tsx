@@ -1,4 +1,6 @@
 import { createServiceClient } from '@/lib/supabase/server'
+import { getTenantPlanInfo } from '@/lib/checkPlan'
+import UpgradeGate from '@/components/admin/UpgradeGate'
 
 interface Props {
   params: Promise<{ domain: string }>
@@ -7,6 +9,7 @@ interface Props {
 export default async function VentasPage({ params }: Props) {
   const { domain: tenantId } = await params
   const supabase = await createServiceClient()
+  const planInfo = await getTenantPlanInfo(tenantId)
 
   const now = new Date()
   const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString()
@@ -63,7 +66,7 @@ export default async function VentasPage({ params }: Props) {
 
   const maxDay = Math.max(...dayRevenue, 1)
 
-  return (
+  const analyticsContent = (
     <div>
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-gray-900">Ventas</h1>
@@ -181,5 +184,16 @@ export default async function VentasPage({ params }: Props) {
         </div>
       </div>
     </div>
+  )
+
+  return (
+    <UpgradeGate
+      tenantId={tenantId}
+      feature="Analíticas de ventas"
+      requiredPlan="pro"
+      currentPlan={planInfo.planId}
+    >
+      {analyticsContent}
+    </UpgradeGate>
   )
 }

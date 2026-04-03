@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { checkFeature } from '@/lib/checkPlan'
 
 const supabase = () => createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -63,6 +64,12 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   const { tenantId, domain } = await request.json()
   if (!tenantId || !domain) return NextResponse.json({ error: 'Faltan datos' }, { status: 400 })
+
+  // Plan check: custom domain feature
+  const featureCheck = await checkFeature(tenantId, 'custom_domain')
+  if (!featureCheck.allowed) {
+    return NextResponse.json({ error: featureCheck.reason, upgradeRequired: true }, { status: 403 })
+  }
 
   // Validar formato del dominio
   const domainRegex = /^([a-zA-Z0-9]([a-zA-Z0-9\-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z]{2,}$/
