@@ -35,13 +35,23 @@ export async function GET(request: NextRequest) {
     )
 
     // Find tenant by domain
-    const { data: tenant, error } = await supabase
+    // Try by primary_domain first, then by slug
+    let { data: tenant, error } = await supabase
       .from('tenants')
       .select('id, status, subscription_plan, subscription_stripe_id, created_at')
       .eq('primary_domain', domain)
-      .single()
+      .maybeSingle()
 
-    if (error || !tenant) {
+    if (!tenant) {
+      const { data: tenantBySlug } = await supabase
+        .from('tenants')
+        .select('id, status, subscription_plan, subscription_stripe_id, created_at')
+        .eq('slug', domain)
+        .maybeSingle()
+      tenant = tenantBySlug
+    }
+
+    if (!tenant) {
       return NextResponse.json(
         {
           hasActiveSubscription: false,
