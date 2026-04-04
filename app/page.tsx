@@ -242,7 +242,7 @@ export default function LandingPage() {
             {[
               {
                 name: 'Básico',
-                price: '$29.900',
+                price: '€29',
                 period: '/mes',
                 desc: 'Para restaurantes que empiezan',
                 features: ['Menú digital', 'Pedidos online', 'Hasta 100 pedidos/mes', 'Soporte por email'],
@@ -251,16 +251,16 @@ export default function LandingPage() {
               },
               {
                 name: 'Pro',
-                price: '$59.900',
+                price: '€79',
                 period: '/mes',
                 desc: 'El más popular',
-                features: ['Todo lo de Básico', 'Pedidos ilimitados', 'Reservas', 'Delivery', 'Analytics', 'Dominio propio'],
+                features: ['Todo lo de Básico', 'Pedidos ilimitados', 'Reservas', 'Delivery', 'Analytics', 'Dominio propio', 'Sistema mesero/cocina'],
                 cta: 'Empezar gratis',
                 highlight: true,
               },
               {
                 name: 'Premium',
-                price: '$99.900',
+                price: '€199',
                 period: '/mes',
                 desc: 'Para cadenas y franquicias',
                 features: ['Todo lo de Pro', 'Múltiples sucursales', 'API acceso', 'Soporte prioritario 24/7', 'Onboarding personalizado'],
@@ -293,7 +293,7 @@ export default function LandingPage() {
                     </li>
                   ))}
                 </ul>
-                <Link href="/register"
+                <Link href={plan.name === 'Premium' ? '/contacto' : '/registrar'}
                   className={`block w-full py-3 rounded-xl text-sm font-bold text-center transition-all active:scale-95 ${plan.highlight
                     ? 'bg-orange-500 hover:bg-orange-400 text-white shadow-lg shadow-orange-500/25'
                     : 'bg-white/5 hover:bg-white/10 text-white border border-white/10'}`}>
@@ -302,7 +302,12 @@ export default function LandingPage() {
               </div>
             ))}
           </div>
-          <p className="text-center text-xs text-gray-500 mt-6">Todos los planes incluyen 14 días de prueba gratis · Sin tarjeta de crédito</p>
+          <div className="text-center mt-6 space-y-2">
+            <p className="text-xs text-gray-500">Todos los planes incluyen 14 días de prueba gratis · Sin tarjeta de crédito</p>
+            <Link href="/planes" className="inline-block text-xs text-orange-400 hover:text-orange-300 underline underline-offset-2">
+              Ver comparación completa de planes →
+            </Link>
+          </div>
         </div>
       </section>
 

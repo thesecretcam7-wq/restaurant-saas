@@ -1,6 +1,5 @@
 'use client'
 
-import { formatPrice } from '@/lib/currency'
 import Link from 'next/link'
 import { useState, useEffect } from 'react'
 
@@ -8,59 +7,54 @@ const PLANS = [
   {
     id: 'basic',
     name: 'Básico',
-    description: 'Para empezar',
     price: 29,
-    currency: 'EUR',
-    period: 'mes',
+    desc: 'Para restaurantes que empiezan',
     features: [
-      'Hasta 50 productos',
-      'Panel de control',
-      'Gestión de pedidos',
+      'Menú digital ilimitado',
+      'Hasta 100 pedidos/mes',
+      'Panel de administración',
       'Soporte por email',
-      'Dominio gratis',
+      'Dominio gratis incluido',
+      'PWA instalable',
     ],
-    cta: 'Empezar ahora',
-    highlighted: false,
+    cta: 'Empezar gratis',
+    highlight: false,
   },
   {
     id: 'pro',
-    name: 'Profesional',
-    description: 'Más popular',
+    name: 'Pro',
     price: 79,
-    currency: 'EUR',
-    period: 'mes',
+    desc: 'El más popular — todo lo que necesitas',
     features: [
-      'Productos ilimitados',
-      'Panel avanzado',
-      'Gestión de pedidos y reservas',
+      'Todo en Básico',
+      'Pedidos ilimitados',
+      'Sistema de reservas',
       'Delivery integrado',
-      'Soporte prioritario',
-      'Analítica avanzada',
+      'Analytics avanzado',
       'Dominio personalizado',
-      'API acceso',
+      'Sistema mesero / cocina',
+      'Soporte prioritario',
     ],
-    cta: 'Seleccionar plan',
-    highlighted: true,
+    cta: 'Empezar gratis',
+    highlight: true,
   },
   {
     id: 'premium',
     name: 'Premium',
-    description: 'Para crecer',
     price: 199,
-    currency: 'EUR',
-    period: 'mes',
+    desc: 'Para cadenas y franquicias',
     features: [
-      'Todo en Profesional',
-      'Multi-ubicación',
+      'Todo en Pro',
+      'Múltiples sucursales',
       'Gestión de staff',
       'Programas de lealtad',
+      'API access completo',
       'Integraciones personalizadas',
       'Soporte 24/7 dedicado',
-      'Consultoría incluida',
-      'SLA garantizado',
+      'Onboarding personalizado',
     ],
-    cta: 'Contactar ventas',
-    highlighted: false,
+    cta: 'Hablar con ventas',
+    highlight: false,
   },
 ]
 
@@ -72,265 +66,262 @@ interface CurrencyInfo {
   countryCode: string
 }
 
+function formatPrice(amount: number, currency: CurrencyInfo | null, yearly: boolean): string {
+  let price = amount
+  if (yearly) price = amount * 12 * 0.9
+  if (currency && currency.rate && currency.currency !== 'EUR') {
+    price = price * currency.rate
+  }
+
+  if (!currency || currency.currency === 'EUR') {
+    return `€${Math.round(price).toLocaleString('es-ES')}`
+  }
+  if (['COP', 'CLP', 'JPY', 'VND', 'IDR'].includes(currency.currency)) {
+    return `${currency.symbol} ${Math.round(price).toLocaleString('es-CO')}`
+  }
+  return `${currency.symbol} ${price.toFixed(2)}`
+}
+
 export default function PlanesPage() {
-  const [billingPeriod, setBillingPeriod] = useState<'monthly' | 'yearly'>('monthly')
-  const [currencyInfo, setCurrencyInfo] = useState<CurrencyInfo | null>(null)
-  const [loading, setLoading] = useState(true)
+  const [yearly, setYearly] = useState(false)
+  const [currency, setCurrency] = useState<CurrencyInfo | null>(null)
 
   useEffect(() => {
-    const fetchCurrency = async () => {
-      try {
-        const response = await fetch('/api/currency-rates')
-        const data = await response.json()
-        setCurrencyInfo(data)
-      } catch (error) {
-        console.error('Error fetching currency:', error)
-        // Default a EUR si hay error
-        setCurrencyInfo({
-          currency: 'EUR',
-          symbol: '€',
-          name: 'Euro',
-          rate: 1,
-          countryCode: 'EU',
-        })
-      } finally {
-        setLoading(false)
-      }
-    }
-
-    fetchCurrency()
+    fetch('/api/currency-rates')
+      .then(r => r.json())
+      .then(d => setCurrency(d))
+      .catch(() => {})
   }, [])
 
-  const getPrice = (basePrice: number) => {
-    let price = basePrice
-    if (billingPeriod === 'yearly') {
-      price = basePrice * 12 * 0.9 // 10% descuento anual
-    }
-    // Convertir a moneda local
-    if (currencyInfo && currencyInfo.rate) {
-      return Math.round(price * currencyInfo.rate * 100) / 100
-    }
-    return price
-  }
-
-  const formatPriceDisplay = (price: number) => {
-    if (currencyInfo && currencyInfo.currency !== 'EUR') {
-      // Formato personalizado para cada moneda
-      if (currencyInfo.currency === 'COP') {
-        return `${currencyInfo.symbol} ${Math.round(price).toLocaleString('es-CO')}`
-      } else if (currencyInfo.currency === 'JPY') {
-        return `${currencyInfo.symbol} ${Math.round(price).toLocaleString('ja-JP')}`
-      } else if (['USD', 'CAD', 'AUD'].includes(currencyInfo.currency)) {
-        return `${currencyInfo.symbol} ${price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-      } else {
-        return `${currencyInfo.symbol} ${price.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-      }
-    }
-    return formatPrice(price, 'EUR')
-  }
-
-  const handleSelectPlan = (planId: string) => {
-    if (planId === 'premium') {
-      window.location.href = 'mailto:ventas@restaurantsaas.com?subject=Interés en plan Premium'
-    } else {
-      window.location.href = `/registrar?plan=${planId}`
-    }
-  }
-
   return (
-    <div className="min-h-screen bg-gradient-to-b from-slate-50 to-white">
-      {/* Header */}
-      <header className="bg-white border-b border-slate-200">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center text-white font-bold">R</div>
-              <span className="font-bold text-slate-900">Restaurant SaaS</span>
-            </div>
-            <div className="flex gap-4">
-              <Link href="/" className="text-slate-600 hover:text-slate-900">Inicio</Link>
-              <Link href="/planes" className="text-blue-600 font-semibold">Planes</Link>
-              <Link href="/contacto" className="text-slate-600 hover:text-slate-900">Contacto</Link>
-            </div>
+    <div className="min-h-screen bg-[#0A0A0A] text-white">
+
+      {/* NAVBAR */}
+      <nav className="fixed top-0 left-0 right-0 z-50 border-b border-white/5 bg-[#0A0A0A]/80 backdrop-blur-xl">
+        <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
+          <Link href="/" className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-orange-400 to-orange-600 flex items-center justify-center text-sm font-black">R</div>
+            <span className="font-bold text-white text-lg tracking-tight">RestaurantOS</span>
+          </Link>
+          <div className="hidden md:flex items-center gap-8 text-sm text-gray-400">
+            <Link href="/#features" className="hover:text-white transition-colors">Funciones</Link>
+            <Link href="/#how" className="hover:text-white transition-colors">Cómo funciona</Link>
+            <Link href="/planes" className="text-orange-400 font-semibold">Precios</Link>
+          </div>
+          <div className="flex items-center gap-3">
+            <Link href="/login" className="text-sm text-gray-400 hover:text-white transition-colors hidden md:block">Iniciar sesión</Link>
+            <Link href="/registrar" className="px-4 py-2 rounded-lg bg-orange-500 hover:bg-orange-400 text-white text-sm font-bold transition-colors">
+              Empezar gratis
+            </Link>
           </div>
         </div>
-      </header>
+      </nav>
 
-      {/* Hero */}
-      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 sm:py-24">
-        <div className="text-center mb-12">
-          <h1 className="text-4xl sm:text-5xl font-bold text-slate-900 mb-4">
-            Planes para tu restaurante
-          </h1>
-          <p className="text-xl text-slate-600 mb-2">
-            Elige el plan perfecto para gestionar tu restaurante online
-          </p>
-          {currencyInfo && !loading && (
-            <p className="text-sm text-slate-500 mb-8">
-              Precios en <span className="font-semibold">{currencyInfo.name}</span> ({currencyInfo.symbol}) - Detectado para {currencyInfo.countryCode}
-              {currencyInfo.currency !== 'EUR' && ' • Basado en tasas de cambio actuales'}
+      <div className="pt-32 pb-24 px-6">
+        <div className="max-w-5xl mx-auto">
+
+          {/* HEADER */}
+          <div className="text-center mb-16">
+            <p className="text-orange-400 text-sm font-semibold uppercase tracking-widest mb-4">Precios</p>
+            <h1 className="text-5xl md:text-6xl font-black tracking-tight mb-4">
+              Simple y transparente
+            </h1>
+            <p className="text-gray-400 text-lg max-w-xl mx-auto mb-2">
+              Sin comisiones por venta. Pagas solo el plan. Cancela cuando quieras.
             </p>
-          )}
+            {currency && (
+              <p className="text-sm text-gray-500">
+                Precios en <span className="text-orange-400 font-semibold">{currency.name} ({currency.symbol})</span>
+                {currency.currency !== 'EUR' && ' · Basado en tasas actuales'}
+                {' · Detectado para '}{currency.countryCode}
+              </p>
+            )}
 
-          {/* Billing Toggle */}
-          <div className="flex items-center justify-center gap-4 mb-12">
-            <button
-              onClick={() => setBillingPeriod('monthly')}
-              className={`px-6 py-2 rounded-lg font-semibold transition-colors ${
-                billingPeriod === 'monthly'
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
-              }`}
-            >
-              Mensual
-            </button>
-            <button
-              onClick={() => setBillingPeriod('yearly')}
-              className={`px-6 py-2 rounded-lg font-semibold transition-colors ${
-                billingPeriod === 'yearly'
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
-              }`}
-            >
-              Anual <span className="ml-2 text-sm text-green-600 font-bold">-10%</span>
-            </button>
+            {/* Toggle mensual/anual */}
+            <div className="flex items-center justify-center gap-3 mt-8">
+              <button
+                onClick={() => setYearly(false)}
+                className={`px-5 py-2 rounded-lg text-sm font-semibold transition-all ${!yearly ? 'bg-white text-black' : 'text-gray-400 hover:text-white'}`}
+              >
+                Mensual
+              </button>
+              <button
+                onClick={() => setYearly(true)}
+                className={`px-5 py-2 rounded-lg text-sm font-semibold transition-all flex items-center gap-2 ${yearly ? 'bg-white text-black' : 'text-gray-400 hover:text-white'}`}
+              >
+                Anual
+                <span className="px-2 py-0.5 rounded-full bg-orange-500 text-white text-xs font-bold">−10%</span>
+              </button>
+            </div>
           </div>
-        </div>
 
-        {/* Pricing Cards */}
-        <div className="grid md:grid-cols-3 gap-8 max-w-6xl mx-auto">
-          {PLANS.map((plan) => {
-            const displayPrice = getPrice(plan.price)
-            const yearlyTotal = billingPeriod === 'yearly' ? displayPrice * 12 : null
-
-            return (
+          {/* CARDS */}
+          <div className="grid md:grid-cols-3 gap-5 mb-12">
+            {PLANS.map(plan => (
               <div
                 key={plan.id}
-                className={`rounded-2xl overflow-hidden transition-all ${
-                  plan.highlighted
-                    ? 'ring-2 ring-blue-600 shadow-2xl scale-105'
-                    : 'shadow-lg hover:shadow-xl'
-                } ${plan.highlighted ? 'bg-blue-50' : 'bg-white'}`}
+                className={`rounded-2xl p-7 border relative flex flex-col transition-all ${
+                  plan.highlight
+                    ? 'bg-orange-500/10 border-orange-500/40 shadow-2xl shadow-orange-500/10 scale-[1.02]'
+                    : 'bg-white/[0.02] border-white/10 hover:border-white/20'
+                }`}
               >
-                {/* Header */}
-                <div className={`px-6 py-8 ${plan.highlighted ? 'bg-gradient-to-r from-blue-600 to-blue-700' : 'bg-slate-50'}`}>
-                  {plan.highlighted && (
-                    <div className="inline-block bg-yellow-400 text-slate-900 text-xs font-bold px-3 py-1 rounded-full mb-3">
+                {plan.highlight && (
+                  <div className="absolute -top-4 left-1/2 -translate-x-1/2">
+                    <span className="px-4 py-1.5 rounded-full bg-orange-500 text-white text-xs font-black tracking-wide shadow-lg shadow-orange-500/40">
                       MÁS POPULAR
-                    </div>
-                  )}
-                  <h3 className={`text-2xl font-bold mb-1 ${plan.highlighted ? 'text-white' : 'text-slate-900'}`}>
-                    {plan.name}
-                  </h3>
-                  <p className={`text-sm ${plan.highlighted ? 'text-blue-100' : 'text-slate-600'}`}>
-                    {plan.description}
-                  </p>
-                </div>
-
-                {/* Pricing */}
-                <div className="px-6 py-8">
-                  <div className="mb-6">
-                    <div className="text-5xl font-bold text-slate-900">
-                      {formatPriceDisplay(displayPrice)}
-                    </div>
-                    <div className="text-slate-600 mt-2">
-                      por {plan.period}
-                      {billingPeriod === 'yearly' && yearlyTotal && (
-                        <div className="text-sm text-slate-500 mt-1">
-                          ({formatPriceDisplay(yearlyTotal)}/año)
-                        </div>
-                      )}
-                    </div>
+                    </span>
                   </div>
+                )}
 
-                  {/* Features */}
-                  <ul className="space-y-4 mb-8">
-                    {plan.features.map((feature, idx) => (
-                      <li key={idx} className="flex items-start gap-3">
-                        <svg className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
-                          <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                        </svg>
-                        <span className="text-slate-700">{feature}</span>
-                      </li>
-                    ))}
-                  </ul>
-
-                  {/* CTA Button */}
-                  <button
-                    onClick={() => handleSelectPlan(plan.id)}
-                    className={`w-full py-3 px-4 rounded-lg font-semibold transition-colors ${
-                      plan.highlighted
-                        ? 'bg-blue-600 hover:bg-blue-700 text-white'
-                        : 'bg-slate-100 hover:bg-slate-200 text-slate-900'
-                    }`}
-                  >
-                    {plan.cta}
-                  </button>
+                <div className="mb-6">
+                  <p className={`text-sm font-bold mb-1 ${plan.highlight ? 'text-orange-400' : 'text-gray-400'}`}>
+                    {plan.name}
+                  </p>
+                  <div className="flex items-end gap-1 mb-1">
+                    <span className="text-5xl font-black text-white">
+                      {formatPrice(plan.price, currency, yearly)}
+                    </span>
+                  </div>
+                  <p className="text-gray-500 text-sm">/mes {yearly && '· facturado anual'}</p>
+                  <p className="text-xs text-gray-600 mt-1">{plan.desc}</p>
                 </div>
+
+                <ul className="space-y-3 mb-8 flex-1">
+                  {plan.features.map(f => (
+                    <li key={f} className="flex items-center gap-2.5 text-sm text-gray-300">
+                      <svg className={`w-4 h-4 flex-shrink-0 ${plan.highlight ? 'text-orange-400' : 'text-gray-500'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                      </svg>
+                      {f}
+                    </li>
+                  ))}
+                </ul>
+
+                <Link
+                  href={plan.id === 'premium' ? 'mailto:ventas@restaurantos.com?subject=Plan Premium' : '/registrar'}
+                  className={`block w-full py-3.5 rounded-xl text-sm font-bold text-center transition-all active:scale-95 ${
+                    plan.highlight
+                      ? 'bg-orange-500 hover:bg-orange-400 text-white shadow-lg shadow-orange-500/30'
+                      : 'bg-white/5 hover:bg-white/10 text-white border border-white/10'
+                  }`}
+                >
+                  {plan.cta}
+                </Link>
               </div>
-            )
-          })}
-        </div>
-      </section>
+            ))}
+          </div>
 
-      {/* FAQ */}
-      <section className="bg-slate-50 py-16 sm:py-24 mt-16">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-          <h2 className="text-3xl font-bold text-slate-900 mb-12 text-center">Preguntas frecuentes</h2>
+          {/* TRIAL NOTE */}
+          <p className="text-center text-sm text-gray-500">
+            Todos los planes incluyen <span className="text-white font-semibold">14 días de prueba gratis</span> · Sin tarjeta de crédito · Cancela cuando quieras
+          </p>
 
-          <div className="space-y-8">
-            <div>
-              <h3 className="text-lg font-semibold text-slate-900 mb-2">¿Puedo cambiar de plan?</h3>
-              <p className="text-slate-600">Sí, puedes cambiar de plan en cualquier momento. Los cambios se aplican en tu próximo ciclo de facturación.</p>
+          {/* FEATURE COMPARISON */}
+          <div className="mt-24">
+            <h2 className="text-3xl font-black text-center mb-10">¿Qué incluye cada plan?</h2>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-white/10">
+                    <th className="text-left py-4 text-gray-400 font-medium w-1/2">Función</th>
+                    <th className="text-center py-4 text-gray-400 font-medium">Básico</th>
+                    <th className="text-center py-4 text-orange-400 font-bold">Pro</th>
+                    <th className="text-center py-4 text-gray-400 font-medium">Premium</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-white/5">
+                  {[
+                    ['Menú digital', true, true, true],
+                    ['Pedidos online', '100/mes', 'Ilimitados', 'Ilimitados'],
+                    ['Panel administración', true, true, true],
+                    ['Sistema de reservas', false, true, true],
+                    ['Delivery integrado', false, true, true],
+                    ['Analytics avanzado', false, true, true],
+                    ['Dominio personalizado', false, true, true],
+                    ['Sistema mesero / cocina', false, true, true],
+                    ['Múltiples sucursales', false, false, true],
+                    ['API access', false, false, true],
+                    ['Onboarding personalizado', false, false, true],
+                    ['Soporte', 'Email', 'Prioritario', '24/7 dedicado'],
+                  ].map(([feature, basic, pro, premium]) => (
+                    <tr key={feature as string} className="hover:bg-white/[0.02] transition-colors">
+                      <td className="py-3.5 text-gray-300">{feature as string}</td>
+                      <td className="py-3.5 text-center">{renderCell(basic)}</td>
+                      <td className="py-3.5 text-center">{renderCell(pro, true)}</td>
+                      <td className="py-3.5 text-center">{renderCell(premium)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
+          </div>
 
-            <div>
-              <h3 className="text-lg font-semibold text-slate-900 mb-2">¿Hay período de prueba?</h3>
-              <p className="text-slate-600">Ofrecemos 14 días de prueba gratuita en cualquier plan. No se requiere tarjeta de crédito.</p>
+          {/* FAQ */}
+          <div className="mt-24 max-w-2xl mx-auto">
+            <h2 className="text-3xl font-black text-center mb-10">Preguntas frecuentes</h2>
+            <div className="space-y-5">
+              {[
+                ['¿Hay período de prueba?', '14 días gratis en cualquier plan. Sin tarjeta de crédito. Sin compromisos.'],
+                ['¿Puedo cambiar de plan?', 'Sí, puedes subir o bajar de plan en cualquier momento desde tu panel. Los cambios aplican en el siguiente ciclo.'],
+                ['¿Qué pasa si cancelo?', 'Puedes cancelar cuando quieras. No hay penalidades ni cargos ocultos.'],
+                ['¿Cómo funciona el pago?', 'Procesamos pagos con Stripe. Aceptamos tarjetas de crédito/débito de todos los países.'],
+                ['¿Puedo conectar mi propio dominio?', 'Sí, desde el plan Pro puedes conectar tu dominio propio (ej: mipizzeria.com) con instrucciones paso a paso.'],
+              ].map(([q, a]) => (
+                <div key={q} className="border border-white/10 rounded-2xl p-6 bg-white/[0.02]">
+                  <p className="font-bold text-white mb-2">{q}</p>
+                  <p className="text-gray-400 text-sm leading-relaxed">{a}</p>
+                </div>
+              ))}
             </div>
+          </div>
 
-            <div>
-              <h3 className="text-lg font-semibold text-slate-900 mb-2">¿Qué métodos de pago aceptan?</h3>
-              <p className="text-slate-600">Aceptamos tarjetas de crédito, transferencia bancaria y PayPal. Los pagos se procesan de forma segura con Stripe.</p>
-            </div>
-
-            <div>
-              <h3 className="text-lg font-semibold text-slate-900 mb-2">¿Hay descuentos para facturación anual?</h3>
-              <p className="text-slate-600">Sí, ofrecemos un 10% de descuento si pagas por año completo en lugar de mes a mes.</p>
-            </div>
-
-            <div>
-              <h3 className="text-lg font-semibold text-slate-900 mb-2">¿Necesito contrato a largo plazo?</h3>
-              <p className="text-slate-600">No, puedes cancelar en cualquier momento sin penalidades. Somos flexibles.</p>
+          {/* CTA FINAL */}
+          <div className="mt-24 text-center">
+            <div className="inline-block p-px rounded-2xl bg-gradient-to-r from-orange-500/50 to-orange-600/50">
+              <div className="bg-[#0A0A0A] rounded-2xl px-12 py-10">
+                <h2 className="text-3xl font-black mb-3">¿Listo para empezar?</h2>
+                <p className="text-gray-400 mb-7">14 días gratis. Sin tarjeta. Sin sorpresas.</p>
+                <Link
+                  href="/registrar"
+                  className="inline-block px-8 py-4 bg-orange-500 hover:bg-orange-400 text-white font-bold rounded-xl transition-all text-lg shadow-xl shadow-orange-500/30 active:scale-95"
+                >
+                  Crear mi restaurante gratis →
+                </Link>
+              </div>
             </div>
           </div>
         </div>
-      </section>
+      </div>
 
-      {/* CTA */}
-      <section className="py-16 sm:py-24">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <h2 className="text-3xl font-bold text-slate-900 mb-6">
-            ¿Listo para empezar?
-          </h2>
-          <p className="text-xl text-slate-600 mb-8">
-            Gestiona tu restaurante en línea con Restaurant SaaS
-          </p>
-          <Link
-            href="/registrar"
-            className="inline-block px-8 py-4 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg transition-colors text-lg"
-          >
-            Registrarse ahora
-          </Link>
-        </div>
-      </section>
-
-      {/* Footer */}
-      <footer className="bg-slate-900 text-white py-12">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <p className="text-slate-400">© 2026 Restaurant SaaS. Todos los derechos reservados.</p>
+      {/* FOOTER */}
+      <footer className="border-t border-white/5 py-8 px-6">
+        <div className="max-w-6xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
+          <div className="flex items-center gap-2">
+            <div className="w-6 h-6 rounded bg-gradient-to-br from-orange-400 to-orange-600 flex items-center justify-center text-xs font-black">R</div>
+            <span className="text-sm text-gray-500">RestaurantOS © 2026</span>
+          </div>
+          <div className="flex items-center gap-6 text-sm text-gray-500">
+            <Link href="/" className="hover:text-white transition-colors">Inicio</Link>
+            <Link href="/planes" className="hover:text-white transition-colors">Precios</Link>
+            <Link href="/registrar" className="hover:text-white transition-colors">Registrarse</Link>
+          </div>
         </div>
       </footer>
     </div>
   )
+}
+
+function renderCell(value: boolean | string, highlight = false) {
+  if (value === true) {
+    return (
+      <svg className={`w-5 h-5 mx-auto ${highlight ? 'text-orange-400' : 'text-gray-400'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+        <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+      </svg>
+    )
+  }
+  if (value === false) {
+    return <span className="text-gray-700">—</span>
+  }
+  return <span className={`text-xs font-semibold ${highlight ? 'text-orange-400' : 'text-gray-400'}`}>{value}</span>
 }
