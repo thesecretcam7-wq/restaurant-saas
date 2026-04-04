@@ -1,4 +1,5 @@
 import { createServiceClient } from '@/lib/supabase/server'
+import { formatPrice } from '@/lib/currency'
 import { getTenantContext } from '@/lib/tenant'
 import AddToCartButton from '@/components/store/AddToCartButton'
 
@@ -93,7 +94,7 @@ function MenuItemCard({ item, tenantId, branding }: { item: any; tenantId: strin
         <p className="font-semibold text-gray-900">{item.name}</p>
         {item.description && <p className="text-sm text-gray-500 mt-0.5 line-clamp-2">{item.description}</p>}
         <p className="font-bold mt-2" style={{ color: branding?.primary_color }}>
-          ${Number(item.price).toLocaleString('es-CO')}
+          {formatPrice(item.price)}
         </p>
       </div>
       <AddToCartButton item={item} tenantId={tenantId} color={branding?.primary_color} />

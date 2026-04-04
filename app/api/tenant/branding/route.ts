@@ -77,25 +77,50 @@ export async function PUT(request: NextRequest) {
 export async function GET(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams
-    const tenantId = searchParams.get('tenantId')
+    const tenantIdParam = searchParams.get('tenantId')
+    const domainParam = searchParams.get('domain')
+
+    let tenantId = tenantIdParam
+
+    // If domain is provided, resolve it to tenantId
+    if (!tenantId && domainParam) {
+      const supabase = await createServiceClient()
+      const { data: tenantData } = await supabase
+        .from('tenants')
+        .select('id')
+        .eq('slug', domainParam)
+        .single()
+
+      if (tenantData) {
+        tenantId = tenantData.id
+      }
+    }
 
     if (!tenantId) {
       return NextResponse.json(
-        { error: 'Tenant ID is required' },
+        { error: 'Tenant ID or domain is required' },
         { status: 400 }
       )
     }
 
     const supabase = await createServiceClient()
 
-    const { data, error } = await supabase
-      .from('tenant_branding')
-      .select('*')
-      .eq('tenant_id', tenantId)
-      .single()
+    // Fetch branding and tenant data together
+    const [{ data: brandingData, error: brandingError }, { data: tenantData }] = await Promise.all([
+      supabase
+        .from('tenant_branding')
+        .select('*')
+        .eq('tenant_id', tenantId)
+        .single(),
+      supabase
+        .from('tenants')
+        .select('stripe_account_id, stripe_account_status, status, subscription_plan')
+        .eq('id', tenantId)
+        .single(),
+    ])
 
-    if (error) {
-      console.error('Error fetching branding:', error)
+    if (brandingError) {
+      console.error('Error fetching branding:', brandingError)
       return NextResponse.json(
         { error: 'Error al obtener la configuración' },
         { status: 500 }
@@ -104,7 +129,11 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      data,
+      ...brandingData,
+      stripe_account_id: tenantData?.stripe_account_id,
+      stripe_account_status: tenantData?.stripe_account_status,
+      subscription_status: tenantData?.status,
+      subscription_plan: tenantData?.subscription_plan,
     })
   } catch (error) {
     console.error('Branding GET API error:', error)

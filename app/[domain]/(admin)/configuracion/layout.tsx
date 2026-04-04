@@ -7,6 +7,7 @@ const CONFIG_SECTIONS = [
   { href: 'restaurante', label: '🏪 Restaurante' },
   { href: 'delivery', label: '🚗 Delivery y Pagos' },
   { href: 'reservas', label: '📅 Reservas' },
+  { href: 'integraciones', label: '🔗 Integraciones' },
   { href: 'planes', label: '💳 Planes' },
 ]
 

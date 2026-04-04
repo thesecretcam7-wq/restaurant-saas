@@ -1,3 +1,4 @@
+import { formatPrice } from '@/lib/currency'
 import type { RestaurantSettings } from '@/lib/types'
 
 interface Props {
@@ -50,8 +51,8 @@ export default function InfoSection({ settings, primary, borderRadius, cardClass
               <div>
                 <p className="text-xs text-gray-400 font-medium">Delivery</p>
                 <p className="text-sm text-gray-800 font-medium">
-                  {settings.delivery_time_minutes} min · {settings.delivery_fee > 0 ? `$${Number(settings.delivery_fee).toLocaleString('es-CO')} envío` : 'Envío gratis'}
-                  {settings.delivery_min_order > 0 ? ` · Mínimo $${Number(settings.delivery_min_order).toLocaleString('es-CO')}` : ''}
+                  {settings.delivery_time_minutes} min · {settings.delivery_fee > 0 ? `${formatPrice(settings.delivery_fee)} envío` : 'Envío gratis'}
+                  {settings.delivery_min_order > 0 ? ` · Mínimo ${formatPrice(settings.delivery_min_order)}` : ''}
                 </p>
               </div>
             </div>

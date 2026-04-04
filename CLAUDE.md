@@ -102,7 +102,7 @@ restaurant-saas/
 - **Dynamic branding**: Each tenant has custom colors, fonts, logo
 - **Stripe Connect**: Each tenant gets own Stripe account
 
-## Current Progress (As of April 2, 2026)
+## Current Progress (As of April 4, 2026)
 ✅ Phase 1: Core Infrastructure
 - [x] Next.js 16 setup
 - [x] Database schema with RLS
@@ -110,23 +110,27 @@ restaurant-saas/
 - [x] Dynamic branding layout
 - [x] Types defined
 
-🔄 Phase 2: Authentication & Payments
-- [ ] Admin login/register pages
-- [ ] Stripe Connected Accounts setup
-- [ ] Webhook handlers
-- [ ] Subscription management
+✅ Phase 2: Authentication & Payments
+- [x] Admin login/register pages
+- [x] Stripe Connected Accounts setup
+- [x] Webhook handlers
+- [x] Subscription management
+- [x] Integrations page (Stripe status)
 
-⏳ Phase 3: Admin Panel
+✅ Phase 3: Admin Panel (Partial)
+- [x] Dashboard with menu links
+- [x] Order management (list & detail)
+- [x] Configuration pages (branding, restaurant, delivery, reservas, planes, integraciones)
 - [ ] Product management
-- [ ] Order management
 - [ ] Reservation calendar
 - [ ] Dashboard & analytics
 
-⏳ Phase 4: Store Frontend
-- [ ] Menu display
-- [ ] Shopping cart
-- [ ] Checkout flow
-- [ ] Order tracking
+✅ Phase 4: Store Frontend
+- [x] Menu display with 3 layouts
+- [x] Shopping cart
+- [x] Checkout flow
+- [x] Order tracking
+- [x] Dynamic home page with page builder
 
 ## Important Notes for Next Developer
 1. **RLS is critical**: All database policies must validate tenant ownership

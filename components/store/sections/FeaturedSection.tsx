@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import { formatPrice } from '@/lib/currency'
 import AddToCartButton from '@/components/store/AddToCartButton'
 
 interface Props {
@@ -41,7 +42,7 @@ export default function FeaturedSection({ tenantId, items, primary, title, borde
             <div className="p-2.5">
               <p className="text-xs font-bold text-gray-900 line-clamp-1">{item.name}</p>
               <div className="flex items-center justify-between mt-1.5">
-                <p className="text-sm font-extrabold" style={{ color: primary }}>${Number(item.price).toLocaleString('es-CO')}</p>
+                <p className="text-sm font-extrabold" style={{ color: primary }}>{formatPrice(item.price)}</p>
                 <AddToCartButton item={item} tenantId={tenantId} color={primary} small />
               </div>
             </div>

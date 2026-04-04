@@ -46,6 +46,9 @@ export interface RestaurantSettings {
   email: string | null;
   city: string | null;
   country: string;
+  country_code?: string;
+  currency?: string;
+  currency_symbol?: string;
   timezone: string;
   delivery_enabled: boolean;
   delivery_fee: number;

@@ -2,6 +2,54 @@ import { createServiceClient } from '@/lib/supabase/server'
 import { canCreateOrder } from '@/lib/checkPlan'
 import { NextRequest, NextResponse } from 'next/server'
 
+export async function GET(request: NextRequest) {
+  try {
+    const searchParams = request.nextUrl.searchParams
+    const domain = searchParams.get('domain')
+    const status = searchParams.get('status')
+    const limit = searchParams.get('limit') || '50'
+
+    if (!domain) {
+      return NextResponse.json({ error: 'Domain is required' }, { status: 400 })
+    }
+
+    const supabase = await createServiceClient()
+
+    // Get tenant ID from domain/slug
+    const { data: tenant } = await supabase
+      .from('tenants')
+      .select('id')
+      .eq('slug', domain)
+      .single()
+
+    if (!tenant) {
+      return NextResponse.json({ error: 'Tenant not found' }, { status: 404 })
+    }
+
+    let query = supabase
+      .from('orders')
+      .select('*')
+      .eq('tenant_id', tenant.id)
+      .order('created_at', { ascending: false })
+      .limit(parseInt(limit))
+
+    if (status) {
+      query = query.eq('status', status)
+    }
+
+    const { data: orders, error } = await query
+
+    if (error) {
+      return NextResponse.json({ error: error.message }, { status: 500 })
+    }
+
+    return NextResponse.json({ orders: orders || [] })
+  } catch (err) {
+    console.error('Orders GET error:', err)
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+  }
+}
+
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()

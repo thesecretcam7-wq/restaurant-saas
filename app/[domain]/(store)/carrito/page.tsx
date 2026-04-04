@@ -1,6 +1,7 @@
 'use client'
 
 import { use } from 'react'
+import { formatPrice } from '@/lib/currency'
 import { useCartStore } from '@/lib/store/cart'
 import Link from 'next/link'
 
@@ -63,8 +64,8 @@ export default function CarritoPage({ params }: Props) {
               )}
               <div className="flex-1 min-w-0">
                 <p className="font-bold text-gray-900 text-sm line-clamp-1">{item.name}</p>
-                <p className="text-xs text-gray-400 mt-0.5">${item.price.toLocaleString('es-CO')} c/u</p>
-                <p className="font-extrabold text-sm mt-1 text-gray-900">${(item.price * item.qty).toLocaleString('es-CO')}</p>
+                <p className="text-xs text-gray-400 mt-0.5">{formatPrice(item.price)} c/u</p>
+                <p className="font-extrabold text-sm mt-1 text-gray-900">{formatPrice(item.price * item.qty)}</p>
               </div>
               <div className="flex flex-col items-end gap-2">
                 <button
@@ -101,7 +102,7 @@ export default function CarritoPage({ params }: Props) {
           <h3 className="font-bold text-gray-900 text-sm mb-3">Resumen</h3>
           <div className="flex justify-between text-sm text-gray-500">
             <span>Subtotal</span>
-            <span className="font-semibold text-gray-700">${total().toLocaleString('es-CO')}</span>
+            <span className="font-semibold text-gray-700">{formatPrice(total())}</span>
           </div>
           <div className="flex justify-between text-sm text-gray-500">
             <span>Envío</span>
@@ -109,7 +110,7 @@ export default function CarritoPage({ params }: Props) {
           </div>
           <div className="border-t border-gray-100 pt-2 flex justify-between">
             <span className="font-extrabold text-gray-900">Total estimado</span>
-            <span className="font-extrabold text-gray-900 text-lg">${total().toLocaleString('es-CO')}</span>
+            <span className="font-extrabold text-gray-900 text-lg">{formatPrice(total())}</span>
           </div>
         </div>
 

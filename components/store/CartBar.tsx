@@ -1,6 +1,7 @@
 'use client'
 
 import { useCartStore } from '@/lib/store/cart'
+import { formatPrice } from '@/lib/currency'
 import Link from 'next/link'
 
 export default function CartBar({ tenantId, primaryColor }: { tenantId: string; primaryColor?: string }) {
@@ -21,7 +22,7 @@ export default function CartBar({ tenantId, primaryColor }: { tenantId: string; 
           <span className="w-6 h-6 bg-white/25 rounded-full text-xs font-extrabold flex items-center justify-center">{count}</span>
           <span className="font-semibold text-sm">Ver pedido</span>
         </span>
-        <span className="font-extrabold text-sm">${total().toLocaleString('es-CO')}</span>
+        <span className="font-extrabold text-sm">{formatPrice(total())}</span>
       </Link>
     </div>
   )

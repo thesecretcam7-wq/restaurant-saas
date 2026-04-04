@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
+import { formatPrice, formatPriceWithCurrency, getCurrencyByCountry } from '@/lib/currency'
 import { getTenantContext } from '@/lib/tenant'
 import { getPageConfig, getBorderRadius, getCardClasses, getButtonClasses } from '@/lib/pageConfig'
 import AddToCartButton from '@/components/store/AddToCartButton'
@@ -22,8 +23,18 @@ export default async function MenuPage({ params }: MenuProps) {
   const categories = categoriesRes.data || []
   const items = itemsRes.data || []
   const branding = context.branding
+  const settings = context.settings
   const primary = branding?.primary_color || '#3B82F6'
   const featured = items.filter(i => i.featured)
+
+  // Get currency from settings or detect from country
+  const currencyInfo = settings?.currency
+    ? {
+        code: settings.currency,
+        symbol: settings.currency_symbol || '$',
+        locale: settings.country_code ? getCurrencyByCountry(settings.country_code).locale : 'es-CO',
+      }
+    : getCurrencyByCountry(settings?.country_code || 'CO')
 
   const pageConfig = getPageConfig(branding?.page_config)
   const layout = pageConfig.appearance.menu_layout
@@ -98,7 +109,7 @@ export default async function MenuPage({ params }: MenuProps) {
                     <p className="font-bold text-gray-900 text-sm line-clamp-1">{item.name}</p>
                     {item.description && <p className="text-xs text-gray-400 mt-0.5 line-clamp-2 flex-1">{item.description}</p>}
                     <div className="flex items-center justify-between mt-2 gap-2">
-                      <p className="font-extrabold text-sm" style={{ color: primary }}>${Number(item.price).toLocaleString('es-CO')}</p>
+                      <p className="font-extrabold text-sm" style={{ color: primary }}>{formatPriceWithCurrency(item.price, currencyInfo.code, currencyInfo.locale)}</p>
                       <AddToCartButton item={item} tenantId={tenantId} color={primary} small />
                     </div>
                   </div>
@@ -121,19 +132,19 @@ export default async function MenuPage({ params }: MenuProps) {
               {layout === 'grid' ? (
                 <div className="grid grid-cols-2 gap-3">
                   {catItems.map(item => (
-                    <MenuGridItem key={item.id} item={item} tenantId={tenantId} primary={primary} br={br} cardCls={cardCls} />
+                    <MenuGridItem key={item.id} item={item} tenantId={tenantId} primary={primary} br={br} cardCls={cardCls} currencyInfo={currencyInfo} />
                   ))}
                 </div>
               ) : layout === 'compact' ? (
                 <div className={`overflow-hidden divide-y divide-gray-50 ${cardCls}`} style={{ borderRadius: br }}>
                   {catItems.map(item => (
-                    <MenuCompactItem key={item.id} item={item} tenantId={tenantId} primary={primary} />
+                    <MenuCompactItem key={item.id} item={item} tenantId={tenantId} primary={primary} currencyInfo={currencyInfo} />
                   ))}
                 </div>
               ) : (
                 <div className="space-y-2.5">
                   {catItems.map(item => (
-                    <MenuListItem key={item.id} item={item} tenantId={tenantId} primary={primary} br={br} cardCls={cardCls} />
+                    <MenuListItem key={item.id} item={item} tenantId={tenantId} primary={primary} br={br} cardCls={cardCls} currencyInfo={currencyInfo} />
                   ))}
                 </div>
               )}
@@ -150,7 +161,7 @@ export default async function MenuPage({ params }: MenuProps) {
               <h2 className="text-base font-extrabold text-gray-900 mb-3">Otros</h2>
               <div className="space-y-2.5">
                 {uncategorized.map(item => (
-                  <MenuListItem key={item.id} item={item} tenantId={tenantId} primary={primary} br={br} cardCls={cardCls} />
+                  <MenuListItem key={item.id} item={item} tenantId={tenantId} primary={primary} br={br} cardCls={cardCls} currencyInfo={currencyInfo} />
                 ))}
               </div>
             </section>
@@ -172,7 +183,7 @@ export default async function MenuPage({ params }: MenuProps) {
 }
 
 /* ─── LIST layout (default) ─── */
-function MenuListItem({ item, tenantId, primary, br, cardCls }: { item: any; tenantId: string; primary: string; br: string; cardCls: string }) {
+function MenuListItem({ item, tenantId, primary, br, cardCls, currencyInfo }: { item: any; tenantId: string; primary: string; br: string; cardCls: string; currencyInfo: any }) {
   return (
     <div className={`flex items-center gap-3 p-3 overflow-hidden ${cardCls}`} style={{ borderRadius: br }}>
       {item.image_url ? (
@@ -187,7 +198,7 @@ function MenuListItem({ item, tenantId, primary, br, cardCls }: { item: any; ten
       <div className="flex-1 min-w-0 py-0.5">
         <p className="font-bold text-gray-900 text-sm line-clamp-1">{item.name}</p>
         {item.description && <p className="text-xs text-gray-400 mt-0.5 line-clamp-2">{item.description}</p>}
-        <p className="font-extrabold text-sm mt-1.5" style={{ color: primary }}>${Number(item.price).toLocaleString('es-CO')}</p>
+        <p className="font-extrabold text-sm mt-1.5" style={{ color: primary }}>{formatPriceWithCurrency(item.price, currencyInfo.code, currencyInfo.locale)}</p>
       </div>
       <div className="flex-shrink-0">
         <AddToCartButton item={item} tenantId={tenantId} color={primary} small />
@@ -197,7 +208,7 @@ function MenuListItem({ item, tenantId, primary, br, cardCls }: { item: any; ten
 }
 
 /* ─── GRID layout ─── */
-function MenuGridItem({ item, tenantId, primary, br, cardCls }: { item: any; tenantId: string; primary: string; br: string; cardCls: string }) {
+function MenuGridItem({ item, tenantId, primary, br, cardCls, currencyInfo }: { item: any; tenantId: string; primary: string; br: string; cardCls: string; currencyInfo: any }) {
   return (
     <div className={`overflow-hidden flex flex-col ${cardCls}`} style={{ borderRadius: br }}>
       {item.image_url ? (
@@ -209,7 +220,7 @@ function MenuGridItem({ item, tenantId, primary, br, cardCls }: { item: any; ten
         <p className="font-bold text-gray-900 text-xs line-clamp-1">{item.name}</p>
         {item.description && <p className="text-[10px] text-gray-400 mt-0.5 line-clamp-2 flex-1">{item.description}</p>}
         <div className="flex items-center justify-between mt-2 gap-1">
-          <p className="font-extrabold text-sm" style={{ color: primary }}>${Number(item.price).toLocaleString('es-CO')}</p>
+          <p className="font-extrabold text-sm" style={{ color: primary }}>{formatPriceWithCurrency(item.price, currencyInfo.code, currencyInfo.locale)}</p>
           <AddToCartButton item={item} tenantId={tenantId} color={primary} small />
         </div>
       </div>
@@ -218,14 +229,14 @@ function MenuGridItem({ item, tenantId, primary, br, cardCls }: { item: any; ten
 }
 
 /* ─── COMPACT layout ─── */
-function MenuCompactItem({ item, tenantId, primary }: { item: any; tenantId: string; primary: string }) {
+function MenuCompactItem({ item, tenantId, primary, currencyInfo }: { item: any; tenantId: string; primary: string; currencyInfo: any }) {
   return (
     <div className="flex items-center justify-between gap-3 px-4 py-3">
       <div className="flex-1 min-w-0">
         <p className="font-semibold text-gray-900 text-sm">{item.name}</p>
         {item.description && <p className="text-xs text-gray-400 mt-0.5 line-clamp-1">{item.description}</p>}
       </div>
-      <p className="font-extrabold text-sm flex-shrink-0" style={{ color: primary }}>${Number(item.price).toLocaleString('es-CO')}</p>
+      <p className="font-extrabold text-sm flex-shrink-0" style={{ color: primary }}>{formatPriceWithCurrency(item.price, currencyInfo.code, currencyInfo.locale)}</p>
       <div className="flex-shrink-0">
         <AddToCartButton item={item} tenantId={tenantId} color={primary} small />
       </div>

@@ -2,6 +2,7 @@
 
 import { useParams, useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
+import { formatPrice } from '@/lib/currency'
 import { SubscriptionPlan } from '@/lib/types'
 
 export default function PlanesPage() {
@@ -127,7 +128,7 @@ export default function PlanesPage() {
             <div className="px-6 py-8">
               <div className="mb-6">
                 <span className="text-4xl font-bold text-slate-900">
-                  ${plan.monthly_price}
+                  {formatPrice(plan.monthly_price, 'EUR')}
                 </span>
                 <span className="text-slate-600 ml-2">/mes</span>
               </div>
