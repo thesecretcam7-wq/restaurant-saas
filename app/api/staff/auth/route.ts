@@ -18,7 +18,7 @@ export async function POST(request: NextRequest) {
     // Get tenant
     const { data: tenant } = await supabase
       .from('tenants')
-      .select('id, subscription_plan, status')
+      .select('id, subscription_plan, status, created_at')
       .eq('slug', domain)
       .single()
 
