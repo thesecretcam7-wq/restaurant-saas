@@ -14,15 +14,15 @@ export interface PlanLimits {
 
 export const PLANS: Record<PlanId, { label: string; price: string; limits: PlanLimits }> = {
   trial: {
-    label: 'Prueba Gratuita',
+    label: 'Prueba Gratuita (14 días)',
     price: 'Gratis',
     limits: {
-      orders_per_month: 50,
+      orders_per_month: Infinity,
       reservations: true,
       delivery: true,
       analytics: true,
       custom_domain: false,
-      multiple_locations: false,
+      multiple_locations: true,
     },
   },
   basic: {

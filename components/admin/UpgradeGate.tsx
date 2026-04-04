@@ -9,7 +9,7 @@ interface Props {
   children: React.ReactNode
 }
 
-const PLAN_ORDER: PlanId[] = ['trial', 'basic', 'pro', 'premium']
+const PLAN_ORDER: PlanId[] = ['basic', 'pro', 'premium', 'trial']
 
 const PLAN_ICONS: Record<PlanId, string> = {
   trial: '🎯',

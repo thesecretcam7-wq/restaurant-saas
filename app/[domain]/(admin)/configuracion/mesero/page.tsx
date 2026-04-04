@@ -24,7 +24,7 @@ export default function MeseroConfigPage() {
         fetch(`/api/restaurant-settings?domain=${tenantId}`).catch(() => null),
       ])
       const status = await statusRes.json()
-      setIsPro(['pro', 'premium'].includes(status.plan || ''))
+      setIsPro(['pro', 'premium'].includes(status.plan || '') || status.isTrialActive)
 
       if (settingsRes && settingsRes.ok) {
         const s = await settingsRes.json()

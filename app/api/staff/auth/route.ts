@@ -26,9 +26,14 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Restaurante no encontrado' }, { status: 404 })
     }
 
-    // Check plan: only pro and premium
+    // Check plan: pro, premium, or active trial
     const allowedPlans = ['pro', 'premium']
-    if (!allowedPlans.includes(tenant.subscription_plan || '')) {
+    const isTrial = tenant.status === 'trial'
+    const isTrialActive = isTrial && tenant.created_at
+      ? (Date.now() - new Date(tenant.created_at).getTime()) < 14 * 24 * 60 * 60 * 1000
+      : false
+
+    if (!isTrialActive && !allowedPlans.includes(tenant.subscription_plan || '')) {
       return NextResponse.json(
         { error: 'Esta función requiere plan Pro o Premium', requiresUpgrade: true },
         { status: 403 }
