@@ -31,6 +31,7 @@ export interface TenantBranding {
   tagline: string | null;
   custom_texts: Record<string, string>;
   favicon_url: string | null;
+  page_config: Record<string, any> | null;
   created_at: string;
   updated_at: string;
 }

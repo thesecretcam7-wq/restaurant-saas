@@ -4,6 +4,7 @@ import { useParams, usePathname } from 'next/navigation'
 import Link from 'next/link'
 
 const SECTIONS = [
+  { href: 'pagina',      label: 'Personalizar Página', desc: 'Hero, secciones, estilos, redes', icon: '✨' },
   { href: 'branding',    label: 'Branding', desc: 'Logo, colores, tipografía', icon: '🎨' },
   { href: 'restaurante', label: 'Restaurante', desc: 'Nombre, contacto, ubicación', icon: '🏪' },
   { href: 'horarios',    label: 'Horarios', desc: 'Días y horas de atención', icon: '🕐' },
