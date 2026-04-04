@@ -9,7 +9,7 @@ export default function LandingPage() {
         <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
           <div className="flex items-center gap-2.5">
             <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-orange-400 to-orange-600 flex items-center justify-center text-sm font-black">R</div>
-            <span className="font-bold text-white text-lg tracking-tight">RestaurantOS</span>
+            <span className="font-bold text-white text-lg tracking-tight">Restaurant.SV</span>
           </div>
           <div className="hidden md:flex items-center gap-8 text-sm text-gray-400">
             <a href="#features" className="hover:text-white transition-colors">Funciones</a>
@@ -338,7 +338,7 @@ export default function LandingPage() {
         <div className="max-w-6xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-2">
             <div className="w-6 h-6 rounded bg-gradient-to-br from-orange-400 to-orange-600 flex items-center justify-center text-xs font-black">R</div>
-            <span className="font-bold text-white text-sm">RestaurantOS</span>
+            <span className="font-bold text-white text-sm">Restaurant.SV</span>
           </div>
           <div className="flex items-center gap-6 text-xs text-gray-500">
             <a href="#features" className="hover:text-gray-300 transition-colors">Funciones</a>
@@ -346,7 +346,7 @@ export default function LandingPage() {
             <a href="mailto:soporte@restaurantos.com" className="hover:text-gray-300 transition-colors">Soporte</a>
             <Link href="/login" className="hover:text-gray-300 transition-colors">Iniciar sesión</Link>
           </div>
-          <p className="text-xs text-gray-600">© 2026 RestaurantOS. Todos los derechos reservados.</p>
+          <p className="text-xs text-gray-600">© 2026 Restaurant.SV. Todos los derechos reservados.</p>
         </div>
       </footer>
 

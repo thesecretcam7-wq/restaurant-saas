@@ -45,7 +45,7 @@ export default function LoginPage() {
           <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: 'linear-gradient(135deg, #F97316, #EA580C)' }}>
             <span className="text-white text-sm font-black">R</span>
           </div>
-          <span className="text-white font-bold text-lg tracking-tight">Restaurant<span className="text-[#F97316]">SaaS</span></span>
+          <span className="text-white font-bold text-lg tracking-tight">Restaurant.SV</span>
         </Link>
         <Link href="/register" className="text-sm text-white/60 hover:text-white transition-colors">
           ¿Sin cuenta? <span className="text-[#F97316] font-medium">Regístrate gratis</span>

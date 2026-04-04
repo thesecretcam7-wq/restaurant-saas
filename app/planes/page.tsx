@@ -101,7 +101,7 @@ export default function PlanesPage() {
         <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
           <Link href="/" className="flex items-center gap-2.5">
             <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-orange-400 to-orange-600 flex items-center justify-center text-sm font-black">R</div>
-            <span className="font-bold text-white text-lg tracking-tight">RestaurantOS</span>
+            <span className="font-bold text-white text-lg tracking-tight">Restaurant.SV</span>
           </Link>
           <div className="hidden md:flex items-center gap-8 text-sm text-gray-400">
             <Link href="/#features" className="hover:text-white transition-colors">Funciones</Link>
@@ -299,7 +299,7 @@ export default function PlanesPage() {
         <div className="max-w-6xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-2">
             <div className="w-6 h-6 rounded bg-gradient-to-br from-orange-400 to-orange-600 flex items-center justify-center text-xs font-black">R</div>
-            <span className="text-sm text-gray-500">RestaurantOS © 2026</span>
+            <span className="text-sm text-gray-500">Restaurant.SV © 2026</span>
           </div>
           <div className="flex items-center gap-6 text-sm text-gray-500">
             <Link href="/" className="hover:text-white transition-colors">Inicio</Link>

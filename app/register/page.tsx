@@ -69,7 +69,7 @@ export default function RegisterPage() {
           <div className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ background: 'linear-gradient(135deg, #F97316, #EA580C)' }}>
             <span className="text-white text-base font-black">R</span>
           </div>
-          <span className="text-white font-bold text-xl tracking-tight">Restaurant<span className="text-[#F97316]">SaaS</span></span>
+          <span className="text-white font-bold text-xl tracking-tight">Restaurant.SV</span>
         </Link>
 
         {/* Hero copy */}
@@ -127,7 +127,7 @@ export default function RegisterPage() {
             <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: 'linear-gradient(135deg, #F97316, #EA580C)' }}>
               <span className="text-white text-sm font-black">R</span>
             </div>
-            <span className="text-white font-bold text-lg tracking-tight">Restaurant<span className="text-[#F97316]">SaaS</span></span>
+            <span className="text-white font-bold text-lg tracking-tight">Restaurant.SV</span>
           </Link>
           <Link href="/login" className="text-sm text-white/60 hover:text-white transition-colors">
             <span className="text-[#F97316] font-medium">Iniciar sesión</span>
