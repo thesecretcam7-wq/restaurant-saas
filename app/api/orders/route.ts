@@ -53,7 +53,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const { tenantId, items, customerInfo, deliveryType, deliveryAddress, notes, paymentMethod } = body
+    const { tenantId, items, customerInfo, deliveryType, deliveryAddress, notes, paymentMethod, tableNumber, waiterName } = body
 
     // Plan limit: check monthly order count
     const orderCheck = await canCreateOrder(tenantId)
@@ -92,6 +92,8 @@ export async function POST(request: NextRequest) {
         payment_status: 'pending',
         delivery_type: deliveryType,
         delivery_address: deliveryAddress || null,
+        table_number: tableNumber || null,
+        waiter_name: waiterName || null,
         notes: notes || null,
         status: 'pending',
       })

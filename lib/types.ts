@@ -62,6 +62,8 @@ export interface RestaurantSettings {
   tax_rate: number;
   featured_image_url: string | null;
   operating_hours: Record<string, { open: string; close: string }>;
+  waiter_pin: string | null;
+  kitchen_pin: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -124,12 +126,14 @@ export interface Order {
   tax: number;
   delivery_fee: number;
   total: number;
-  status: 'pending' | 'confirmed' | 'preparing' | 'on_the_way' | 'delivered' | 'cancelled';
+  status: 'pending' | 'confirmed' | 'preparing' | 'ready' | 'on_the_way' | 'delivered' | 'cancelled';
   payment_method: 'stripe' | 'cash' | null;
   payment_status: 'pending' | 'paid' | 'failed';
   stripe_payment_intent_id: string | null;
-  delivery_type: 'pickup' | 'delivery';
+  delivery_type: 'pickup' | 'delivery' | 'dine-in';
   delivery_address: string | null;
+  table_number: number | null;
+  waiter_name: string | null;
   notes: string | null;
   created_at: string;
   updated_at: string;
