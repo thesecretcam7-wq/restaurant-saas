@@ -1,5 +1,6 @@
 import { createServiceClient } from '@/lib/supabase/server'
 import { getTenantPlanInfo } from '@/lib/checkPlan'
+import { getTenantIdFromSlug } from '@/lib/tenant'
 import UpgradeGate from '@/components/admin/UpgradeGate'
 
 interface Props {
@@ -16,8 +17,12 @@ const STATUS_LABELS: Record<string, { label: string; color: string }> = {
 }
 
 export default async function ReservasAdminPage({ params, searchParams }: Props) {
-  const { domain: tenantId } = await params
+  const { domain: slug } = await params
   const { date, status } = await searchParams
+  const tenantId = await getTenantIdFromSlug(slug)
+  if (!tenantId) {
+    return <div className="p-8 text-center text-gray-500">Restaurante no encontrado</div>
+  }
   const supabase = await createServiceClient()
   const planInfo = await getTenantPlanInfo(tenantId)
 

@@ -9,8 +9,15 @@ interface NuevoProductoProps {
   params: Promise<{ domain: string }>
 }
 
+async function getTenantIdFromSlugClient(slug: string) {
+  const supabase = createClient()
+  const { data } = await supabase.from('tenants').select('id').eq('slug', slug).single()
+  return data?.id || null
+}
+
 export default function NuevoProductoPage({ params }: NuevoProductoProps) {
-  const { domain: tenantId } = use(params)
+  const { domain: slug } = use(params)
+  const [tenantId, setTenantId] = useState<string | null>(null)
   const router = useRouter()
   const [categories, setCategories] = useState<any[]>([])
   const [loading, setLoading] = useState(false)
@@ -26,6 +33,15 @@ export default function NuevoProductoPage({ params }: NuevoProductoProps) {
   })
 
   useEffect(() => {
+    const initializeTenantId = async () => {
+      const resolvedTenantId = await getTenantIdFromSlugClient(slug)
+      setTenantId(resolvedTenantId)
+    }
+    initializeTenantId()
+  }, [slug])
+
+  useEffect(() => {
+    if (!tenantId) return
     const supabase = createClient()
     supabase.from('menu_categories').select('id, name').eq('tenant_id', tenantId).then(({ data }) => {
       setCategories(data || [])
@@ -52,6 +68,7 @@ export default function NuevoProductoPage({ params }: NuevoProductoProps) {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (!tenantId) return
     setLoading(true)
 
     const supabase = createClient()

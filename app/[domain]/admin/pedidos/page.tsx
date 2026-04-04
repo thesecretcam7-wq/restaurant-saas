@@ -1,4 +1,5 @@
 import { createServiceClient } from '@/lib/supabase/server'
+import { getTenantIdFromSlug } from '@/lib/tenant'
 
 interface PedidosProps {
   params: Promise<{ domain: string }>
@@ -15,9 +16,14 @@ const STATUS_LABELS: Record<string, { label: string; color: string }> = {
 }
 
 export default async function PedidosPage({ params, searchParams }: PedidosProps) {
-  const { domain: tenantId } = await params
+  const { domain: slug } = await params
   const { status } = await searchParams
   const supabase = await createServiceClient()
+
+  const tenantId = await getTenantIdFromSlug(slug)
+  if (!tenantId) {
+    return <div className="p-8 text-center text-gray-500">Restaurante no encontrado</div>
+  }
 
   let query = supabase
     .from('orders')

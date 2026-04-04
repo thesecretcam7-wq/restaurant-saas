@@ -8,8 +8,15 @@ const GOOGLE_FONTS = ['Inter', 'Roboto', 'Open Sans', 'Lato', 'Montserrat', 'Pla
 
 interface BrandingProps { params: Promise<{ domain: string }> }
 
+async function getTenantIdFromSlugClient(slug: string) {
+  const supabase = createClient()
+  const { data } = await supabase.from('tenants').select('id').eq('slug', slug).single()
+  return data?.id || null
+}
+
 export default function BrandingPage({ params }: BrandingProps) {
-  const { domain: tenantId } = use(params)
+  const { domain: slug } = use(params)
+  const [tenantId, setTenantId] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [uploadingLogo, setUploadingLogo] = useState(false)
@@ -25,6 +32,15 @@ export default function BrandingPage({ params }: BrandingProps) {
   })
 
   useEffect(() => {
+    const initializeTenantId = async () => {
+      const resolvedTenantId = await getTenantIdFromSlugClient(slug)
+      setTenantId(resolvedTenantId)
+    }
+    initializeTenantId()
+  }, [slug])
+
+  useEffect(() => {
+    if (!tenantId) return
     const supabase = createClient()
     Promise.all([
       supabase.from('tenant_branding').select('*').eq('tenant_id', tenantId).single(),

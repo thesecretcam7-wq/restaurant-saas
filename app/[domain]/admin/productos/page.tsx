@@ -1,4 +1,5 @@
 import { createServiceClient } from '@/lib/supabase/server'
+import { getTenantIdFromSlug } from '@/lib/tenant'
 import Link from 'next/link'
 
 interface ProductosProps {
@@ -6,7 +7,11 @@ interface ProductosProps {
 }
 
 export default async function ProductosPage({ params }: ProductosProps) {
-  const { domain: tenantId } = await params
+  const { domain: slug } = await params
+  const tenantId = await getTenantIdFromSlug(slug)
+  if (!tenantId) {
+    return <div className="p-8 text-center text-gray-500">Restaurante no encontrado</div>
+  }
   const supabase = await createServiceClient()
 
   const [categoriesRes, itemsRes] = await Promise.all([

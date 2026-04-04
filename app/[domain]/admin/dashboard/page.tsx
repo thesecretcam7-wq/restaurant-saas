@@ -7,9 +7,28 @@ interface DashboardProps {
 }
 
 export default async function DashboardPage({ params }: DashboardProps) {
-  const { domain: tenantId } = await params
+  const { domain: slug } = await params
   const supabase = await createServiceClient()
 
+  // Look up tenant by slug to get ID
+  const { data: tenant } = await supabase
+    .from('tenants')
+    .select('id')
+    .eq('slug', slug)
+    .single()
+
+  if (!tenant) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <p className="text-2xl font-bold text-gray-900">Restaurante no encontrado</p>
+          <p className="text-gray-500 mt-2">No pudimos encontrar ese restaurante</p>
+        </div>
+      </div>
+    )
+  }
+
+  const tenantId = tenant.id
   const today = new Date()
   const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1).toISOString()
 

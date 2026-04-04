@@ -86,6 +86,11 @@ export async function getTenantBySlug(slug: string) {
   return data as Tenant
 }
 
+export async function getTenantIdFromSlug(slug: string): Promise<string | null> {
+  const tenant = await getTenantBySlug(slug)
+  return tenant?.id || null
+}
+
 export async function getTenantContext(tenantIdOrSlug: string) {
   // Intentar como UUID primero
   let tenant = await getTenantById(tenantIdOrSlug)

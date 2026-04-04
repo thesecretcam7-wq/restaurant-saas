@@ -9,22 +9,22 @@ interface AdminLayoutProps {
 }
 
 export default async function AdminLayout({ children, params }: AdminLayoutProps) {
-  const { domain: tenantId } = await params
+  const { domain: slug } = await params
   const supabase = await createClient()
 
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect(`/login`)
 
-  // Verify this user owns this tenant
+  // Look up tenant by slug, then verify ownership
   const { data: tenant } = await supabase
     .from('tenants')
-    .select('id, organization_name, status')
-    .eq('id', tenantId)
-    .eq('owner_id', user.id)
+    .select('id, organization_name, status, owner_id')
+    .eq('slug', slug)
     .single()
 
-  if (!tenant) redirect(`/login`)
+  if (!tenant || tenant.owner_id !== user.id) redirect(`/login`)
 
+  const tenantId = tenant.id
   const context = await getTenantContext(tenantId)
   const branding = context.branding
 

@@ -1,4 +1,5 @@
 import { createServiceClient } from '@/lib/supabase/server'
+import { getTenantIdFromSlug } from '@/lib/tenant'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import OrderStatusActions from './OrderStatusActions'
@@ -24,7 +25,11 @@ const STATUS_LABELS: Record<string, { label: string; color: string }> = {
 }
 
 export default async function PedidoDetailPage({ params }: PedidoDetailProps) {
-  const { domain: tenantId, id } = await params
+  const { domain: slug, id } = await params
+  const tenantId = await getTenantIdFromSlug(slug)
+  if (!tenantId) {
+    return <div className="p-8 text-center text-gray-500">Restaurante no encontrado</div>
+  }
   const supabase = await createServiceClient()
 
   const { data: order } = await supabase

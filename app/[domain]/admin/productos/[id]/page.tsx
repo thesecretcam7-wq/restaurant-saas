@@ -9,8 +9,17 @@ interface EditProductoProps {
   params: Promise<{ domain: string; id: string }>
 }
 
+async function getTenantIdFromSlugClient(slug: string) {
+  // For client components, we need to call an API or use the context
+  // Since this is a client component, we'll query Supabase directly
+  const supabase = createClient()
+  const { data } = await supabase.from('tenants').select('id').eq('slug', slug).single()
+  return data?.id || null
+}
+
 export default function EditProductoPage({ params }: EditProductoProps) {
-  const { domain: tenantId, id } = use(params)
+  const { domain: slug, id } = use(params)
+  const [tenantId, setTenantId] = useState<string | null>(null)
   const router = useRouter()
   const [categories, setCategories] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
@@ -29,6 +38,15 @@ export default function EditProductoPage({ params }: EditProductoProps) {
   })
 
   useEffect(() => {
+    const initializeTenantId = async () => {
+      const resolvedTenantId = await getTenantIdFromSlugClient(slug)
+      setTenantId(resolvedTenantId)
+    }
+    initializeTenantId()
+  }, [slug])
+
+  useEffect(() => {
+    if (!tenantId) return
     const supabase = createClient()
     Promise.all([
       supabase.from('menu_categories').select('id, name').eq('tenant_id', tenantId),
@@ -95,7 +113,7 @@ export default function EditProductoPage({ params }: EditProductoProps) {
     router.push(`/${tenantId}/admin/productos`)
   }
 
-  if (loading) {
+  if (!tenantId || loading) {
     return (
       <div className="flex items-center justify-center py-20">
         <div className="w-8 h-8 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin" />
