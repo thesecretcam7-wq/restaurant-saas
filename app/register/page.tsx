@@ -21,12 +21,33 @@ export default function RegisterPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
+
+    // Validaciones del lado del cliente
+    if (!form.restaurantName.trim()) {
+      setError('El nombre del restaurante es requerido')
+      return
+    }
+    if (!form.email.trim()) {
+      setError('El email es requerido')
+      return
+    }
+    if (!form.password || form.password.length < 8) {
+      setError('La contraseña debe tener al menos 8 caracteres')
+      return
+    }
     if (form.password !== form.confirmPassword) {
       setError('Las contraseñas no coinciden')
       return
     }
+
     setLoading(true)
     try {
+      console.log('📝 Iniciando registro con:', {
+        email: form.email,
+        restaurantName: form.restaurantName,
+        ownerName: form.ownerName,
+      })
+
       const res = await fetch('/api/auth/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -37,11 +58,30 @@ export default function RegisterPage() {
           ownerName: form.ownerName,
         }),
       })
+
+      console.log('📡 Response status:', res.status)
+
       const data = await res.json()
-      if (!res.ok) { setError(data.error || 'Error al registrar'); return }
+      console.log('📦 Response data:', data)
+
+      if (!res.ok) {
+        const errorMsg = data.error || `Error al registrar (${res.status})`
+        console.error('❌ Error:', errorMsg)
+        setError(errorMsg)
+        return
+      }
+
+      if (!data.tenant || !data.tenant.slug) {
+        console.error('❌ Error: No se recibió tenant en la respuesta')
+        setError('Error: No se creó el restaurante correctamente')
+        return
+      }
+
+      console.log('✅ Registro exitoso, redirigiendo a:', `/${data.tenant.slug}/admin/dashboard`)
       router.push(`/${data.tenant.slug}/admin/dashboard`)
-    } catch {
-      setError('Error de conexión. Intenta de nuevo.')
+    } catch (error) {
+      console.error('❌ Exception:', error)
+      setError(`Error de conexión: ${error instanceof Error ? error.message : 'Intenta de nuevo'}`)
     } finally {
       setLoading(false)
     }
