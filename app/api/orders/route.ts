@@ -13,7 +13,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Domain is required' }, { status: 400 })
     }
 
-    const supabase = await createServiceClient()
+    const supabase = createServiceClient()
 
     // Get tenant ID from domain/slug
     const { data: tenant } = await supabase
@@ -61,7 +61,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: orderCheck.reason, limitReached: true, used: orderCheck.used, limit: orderCheck.limit }, { status: 403 })
     }
 
-    const supabase = await createServiceClient()
+    const supabase = createServiceClient()
 
     const { data: settings } = await supabase
       .from('restaurant_settings')

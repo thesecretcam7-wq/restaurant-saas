@@ -13,7 +13,7 @@ export default async function VentasPage({ params }: Props) {
   if (!tenantId) {
     return <div className="p-8 text-center text-gray-500">Restaurante no encontrado</div>
   }
-  const supabase = await createServiceClient()
+  const supabase = createServiceClient()
   const planInfo = await getTenantPlanInfo(tenantId)
 
   const now = new Date()

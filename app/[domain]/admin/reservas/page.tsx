@@ -23,7 +23,7 @@ export default async function ReservasAdminPage({ params, searchParams }: Props)
   if (!tenantId) {
     return <div className="p-8 text-center text-gray-500">Restaurante no encontrado</div>
   }
-  const supabase = await createServiceClient()
+  const supabase = createServiceClient()
   const planInfo = await getTenantPlanInfo(tenantId)
 
   const today = new Date().toISOString().split('T')[0]

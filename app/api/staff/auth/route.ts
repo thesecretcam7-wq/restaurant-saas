@@ -13,7 +13,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Rol inválido' }, { status: 400 })
     }
 
-    const supabase = await createServiceClient()
+    const supabase = createServiceClient()
 
     // Get tenant
     const { data: tenant } = await supabase

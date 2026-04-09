@@ -18,7 +18,7 @@ const STATUS_LABELS: Record<string, { label: string; color: string }> = {
 export default async function PedidosPage({ params, searchParams }: PedidosProps) {
   const { domain: slug } = await params
   const { status } = await searchParams
-  const supabase = await createServiceClient()
+  const supabase = createServiceClient()
 
   const tenantId = await getTenantIdFromSlug(slug)
   if (!tenantId) {

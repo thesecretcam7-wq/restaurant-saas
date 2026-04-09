@@ -30,7 +30,7 @@ export default async function PedidoDetailPage({ params }: PedidoDetailProps) {
   if (!tenantId) {
     return <div className="p-8 text-center text-gray-500">Restaurante no encontrado</div>
   }
-  const supabase = await createServiceClient()
+  const supabase = createServiceClient()
 
   const { data: order } = await supabase
     .from('orders')

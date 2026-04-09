@@ -5,7 +5,7 @@ interface Props { params: Promise<{ domain: string }> }
 
 export default async function StripeConnectPage({ params }: Props) {
   const { domain: tenantId } = await params
-  const supabase = await createServiceClient()
+  const supabase = createServiceClient()
 
   const { data: tenant } = await supabase
     .from('tenants')

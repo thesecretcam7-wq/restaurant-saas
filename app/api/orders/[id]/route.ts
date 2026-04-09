@@ -10,7 +10,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       return NextResponse.json({ error: 'Order ID is required' }, { status: 400 })
     }
 
-    const supabase = await createServiceClient()
+    const supabase = createServiceClient()
 
     const { data: order, error } = await supabase
       .from('orders')
@@ -44,7 +44,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       return NextResponse.json({ error: 'Status is required' }, { status: 400 })
     }
 
-    const supabase = await createServiceClient()
+    const supabase = createServiceClient()
 
     const { data: order, error } = await supabase
       .from('orders')

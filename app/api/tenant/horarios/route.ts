@@ -6,7 +6,7 @@ export async function PUT(request: NextRequest) {
     const { tenantId, operating_hours } = await request.json()
     if (!tenantId) return NextResponse.json({ error: 'Tenant ID requerido' }, { status: 400 })
 
-    const supabase = await createServiceClient()
+    const supabase = createServiceClient()
     const { data, error } = await supabase
       .from('restaurant_settings')
       .update({ operating_hours, updated_at: new Date().toISOString() })
@@ -25,7 +25,7 @@ export async function GET(request: NextRequest) {
   const tenantId = request.nextUrl.searchParams.get('tenantId')
   if (!tenantId) return NextResponse.json({ error: 'Tenant ID requerido' }, { status: 400 })
 
-  const supabase = await createServiceClient()
+  const supabase = createServiceClient()
   const { data } = await supabase
     .from('restaurant_settings')
     .select('operating_hours')

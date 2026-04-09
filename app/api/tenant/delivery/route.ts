@@ -22,7 +22,7 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: 'El tiempo de entrega debe ser al menos 1 minuto' }, { status: 400 })
     }
 
-    const supabase = await createServiceClient()
+    const supabase = createServiceClient()
     const { data: updated, error } = await supabase
       .from('restaurant_settings')
       .update({
@@ -54,7 +54,7 @@ export async function GET(request: NextRequest) {
     const tenantId = request.nextUrl.searchParams.get('tenantId')
     if (!tenantId) return NextResponse.json({ error: 'Tenant ID is required' }, { status: 400 })
 
-    const supabase = await createServiceClient()
+    const supabase = createServiceClient()
     const { data, error } = await supabase
       .from('restaurant_settings')
       .select('delivery_enabled, delivery_fee, delivery_min_order, delivery_time_minutes, cash_payment_enabled, tax_rate')

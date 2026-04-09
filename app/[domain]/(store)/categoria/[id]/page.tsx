@@ -9,7 +9,7 @@ interface CategoryPageProps {
 
 export default async function CategoryPage({ params }: CategoryPageProps) {
   const { domain: tenantId, id: categoryId } = await params
-  const supabase = await createServiceClient()
+  const supabase = createServiceClient()
   const context = await getTenantContext(tenantId)
 
   if (!context.tenant) {

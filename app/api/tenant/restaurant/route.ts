@@ -61,7 +61,7 @@ export async function PUT(request: NextRequest) {
       )
     }
 
-    const supabase = await createServiceClient()
+    const supabase = createServiceClient()
 
     const { data, error } = await supabase
       .from('restaurant_settings')
@@ -115,7 +115,7 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    const supabase = await createServiceClient()
+    const supabase = createServiceClient()
 
     const { data, error } = await supabase
       .from('restaurant_settings')

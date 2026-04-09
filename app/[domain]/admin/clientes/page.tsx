@@ -14,7 +14,7 @@ export default async function ClientesPage({ params, searchParams }: Props) {
   if (!tenantId) {
     return <div className="p-8 text-center text-gray-500">Restaurante no encontrado</div>
   }
-  const supabase = await createServiceClient()
+  const supabase = createServiceClient()
 
   let query = supabase
     .from('customers')

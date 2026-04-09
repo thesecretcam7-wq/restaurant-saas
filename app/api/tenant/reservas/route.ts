@@ -18,7 +18,7 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: 'Los asientos por mesa deben ser al menos 1' }, { status: 400 })
     }
 
-    const supabase = await createServiceClient()
+    const supabase = createServiceClient()
     const { data: updated, error } = await supabase
       .from('restaurant_settings')
       .update({
@@ -49,7 +49,7 @@ export async function GET(request: NextRequest) {
     const tenantId = request.nextUrl.searchParams.get('tenantId')
     if (!tenantId) return NextResponse.json({ error: 'Tenant ID is required' }, { status: 400 })
 
-    const supabase = await createServiceClient()
+    const supabase = createServiceClient()
     const { data, error } = await supabase
       .from('restaurant_settings')
       .select('reservations_enabled, total_tables, seats_per_table, reservation_advance_hours')

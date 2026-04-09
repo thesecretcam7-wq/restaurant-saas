@@ -8,7 +8,7 @@ interface DashboardProps {
 
 export default async function DashboardPage({ params }: DashboardProps) {
   const { domain: slug } = await params
-  const supabase = await createServiceClient()
+  const supabase = createServiceClient()
 
   // Look up tenant by slug to get ID
   const { data: tenant } = await supabase

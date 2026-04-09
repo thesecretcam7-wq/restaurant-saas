@@ -33,7 +33,7 @@ export async function PUT(request: NextRequest) {
       }
     }
 
-    const supabase = await createServiceClient()
+    const supabase = createServiceClient()
 
     const { data, error } = await supabase
       .from('tenant_branding')
@@ -84,7 +84,7 @@ export async function GET(request: NextRequest) {
 
     // If domain is provided, resolve it to tenantId
     if (!tenantId && domainParam) {
-      const supabase = await createServiceClient()
+      const supabase = createServiceClient()
       const { data: tenantData } = await supabase
         .from('tenants')
         .select('id')
@@ -103,7 +103,7 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    const supabase = await createServiceClient()
+    const supabase = createServiceClient()
 
     // Fetch branding and tenant data together
     const [{ data: brandingData, error: brandingError }, { data: tenantData }] = await Promise.all([

@@ -6,7 +6,7 @@ export async function GET(request: NextRequest) {
     const domain = request.nextUrl.searchParams.get('domain')
     if (!domain) return NextResponse.json({ error: 'Domain required' }, { status: 400 })
 
-    const supabase = await createServiceClient()
+    const supabase = createServiceClient()
 
     const { data: tenant } = await supabase
       .from('tenants')
@@ -42,7 +42,7 @@ export async function PATCH(request: NextRequest) {
       if (key in fields) updateData[key] = fields[key]
     }
 
-    const supabase = await createServiceClient()
+    const supabase = createServiceClient()
 
     const { data: tenant } = await supabase
       .from('tenants')

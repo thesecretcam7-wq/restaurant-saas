@@ -9,7 +9,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Faltan parámetros' }, { status: 400 })
   }
 
-  const supabase = await createServiceClient()
+  const supabase = createServiceClient()
   const { data: orders } = await supabase
     .from('orders')
     .select('id, order_number, status, items, total, created_at, delivery_type, payment_method')
