@@ -11,9 +11,12 @@ export async function POST(request: NextRequest) {
       ownerName,
     } = body
 
+    console.log('📝 [Register] Received data:', { email, restaurantName, ownerName })
+
     if (!email || !password || !restaurantName) {
+      console.error('❌ [Register] Missing required fields')
       return NextResponse.json(
-        { error: 'Missing required fields' },
+        { error: 'Campos requeridos: email, contraseña, nombre del restaurante' },
         { status: 400 }
       )
     }
@@ -26,6 +29,7 @@ export async function POST(request: NextRequest) {
     )
 
     // Create auth user
+    console.log('🔐 [Register] Creating auth user:', email)
     const { data: authData, error: authError } = await supabase.auth.admin.createUser({
       email,
       password,
@@ -33,11 +37,14 @@ export async function POST(request: NextRequest) {
     })
 
     if (authError) {
+      console.error('❌ [Register] Auth error:', authError.message)
       return NextResponse.json(
-        { error: authError.message },
+        { error: `Error de autenticación: ${authError.message}` },
         { status: 400 }
       )
     }
+
+    console.log('✅ [Register] Auth user created:', authData.user.id)
 
     // Create tenant
     let slug = restaurantName
@@ -45,8 +52,11 @@ export async function POST(request: NextRequest) {
       .replace(/\s+/g, '-')
       .replace(/[^a-z0-9-]/g, '')
 
+    console.log('📝 [Register] Generated slug:', slug)
+
     // Validate slug is not empty
     if (!slug || slug.length === 0) {
+      console.error('❌ [Register] Slug is empty')
       await supabase.auth.admin.deleteUser(authData.user.id)
       return NextResponse.json(
         { error: 'El nombre del restaurante debe contener al menos un carácter válido (letras o números)' },
@@ -54,6 +64,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    console.log('🏪 [Register] Creating tenant:', { restaurantName, slug })
     const { data: tenantData, error: tenantError } = await supabase
       .from('tenants')
       .insert({
@@ -68,13 +79,16 @@ export async function POST(request: NextRequest) {
       .single()
 
     if (tenantError) {
+      console.error('❌ [Register] Tenant error:', tenantError.message)
       // Clean up auth user if tenant creation fails
       await supabase.auth.admin.deleteUser(authData.user.id)
       return NextResponse.json(
-        { error: tenantError.message },
+        { error: `Error al crear tenant: ${tenantError.message}` },
         { status: 400 }
       )
     }
+
+    console.log('✅ [Register] Tenant created:', tenantData.id)
 
     // Create default branding
     const { error: brandingError } = await supabase
@@ -119,15 +133,17 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    console.log('✅ [Register] SUCCESS! Returning tenant:', tenantData.slug)
     return NextResponse.json({
       success: true,
       tenant: tenantData,
       message: 'Registered successfully',
     })
   } catch (error) {
-    console.error('Register error:', error)
+    console.error('❌ [Register] Exception:', error)
+    const errorMsg = error instanceof Error ? error.message : 'Unknown error'
     return NextResponse.json(
-      { error: 'Internal server error' },
+      { error: `Error interno: ${errorMsg}` },
       { status: 500 }
     )
   }
