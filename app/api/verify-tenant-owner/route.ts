@@ -47,15 +47,29 @@ export async function GET(request: NextRequest) {
     }
 
     // Buscar tenant: si el parámetro es un UUID buscamos por ID, si no por slug
+    // Buscar tenant: si el parámetro es UUID buscamos por id, si no por slug
     const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(slug)
-    const query = supabase
-      .from('tenants')
-      .select('id, owner_id, subscription_plan')
-      .single()
 
-    const { data: tenant, error: tenantError } = isUUID
-      ? await query.eq('id', slug)
-      : await query.eq('slug', slug)
+    let tenant = null
+    let tenantError = null
+
+    if (isUUID) {
+      const result = await supabase
+        .from('tenants')
+        .select('id, owner_id, subscription_plan')
+        .eq('id', slug)
+        .single()
+      tenant = result.data
+      tenantError = result.error
+    } else {
+      const result = await supabase
+        .from('tenants')
+        .select('id, owner_id, subscription_plan')
+        .eq('slug', slug)
+        .single()
+      tenant = result.data
+      tenantError = result.error
+    }
 
     if (tenantError || !tenant) {
       console.error('[verify-tenant-owner] Tenant not found:', slug, '| isUUID:', isUUID)
