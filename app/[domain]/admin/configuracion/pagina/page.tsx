@@ -643,7 +643,7 @@ export default function PageBuilderPage() {
         <div className="space-y-5">
           <Card title="Footer">
             <div className="space-y-3">
-              <Toggle label='Mostrar "Powered by Restaurant SaaS"' checked={config.footer.show_powered_by} onChange={v => updateFooter('show_powered_by', v)} />
+              <Toggle label='Mostrar "Powered by Restaurant.SV"' checked={config.footer.show_powered_by} onChange={v => updateFooter('show_powered_by', v)} />
               <InputField
                 label="Texto personalizado en el footer"
                 value={config.footer.custom_text}

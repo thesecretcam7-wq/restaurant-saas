@@ -9,27 +9,27 @@ const geistSans = Geist({
 });
 
 export const metadata: Metadata = {
-  title: "Restaurant SaaS",
+  title: "Restaurant.SV",
   description: "Gestiona tu restaurante desde cualquier dispositivo",
-  applicationName: "Restaurant SaaS",
+  applicationName: "Restaurant.SV",
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
-    title: "Restaurant SaaS",
+    title: "Restaurant.SV",
   },
   formatDetection: { telephone: false },
   openGraph: {
     type: "website",
-    title: "Restaurant SaaS",
+    title: "Restaurant.SV",
     description: "La plataforma todo-en-uno para restaurantes",
   },
 };
 
 export const viewport: Viewport = {
-  themeColor: "#3B82F6",
+  themeColor: "#F97316",
   width: "device-width",
   initialScale: 1,
-  maximumScale:1,
+  maximumScale: 1,
   userScalable: false,
 };
 

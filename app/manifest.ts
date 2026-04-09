@@ -2,14 +2,14 @@ import type { MetadataRoute } from 'next'
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: 'Restaurant SaaS - Gestión Profesional',
-    short_name: 'Restaurant SaaS',
+    name: 'Restaurant.SV - Gestión Profesional',
+    short_name: 'Restaurant.SV',
     description: 'Plataforma completa para gestionar tu restaurante: pedidos, menú, pagos, reservas y análisis',
     start_url: '/',
     scope: '/',
     display: 'standalone',
-    background_color: '#ffffff',
-    theme_color: '#667eea',
+    background_color: '#0A0A0A',
+    theme_color: '#F97316',
     orientation: 'portrait-primary',
     icons: [
       {

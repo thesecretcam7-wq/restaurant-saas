@@ -213,7 +213,7 @@ export default async function HomePage({ params }: HomePageProps) {
       {/* Footer */}
       <div className="mt-8 mb-4 text-center space-y-1">
         {footer.custom_text && <p className="text-xs text-gray-400">{footer.custom_text}</p>}
-        {footer.show_powered_by && <p className="text-[10px] text-gray-300">Powered by Restaurant SaaS</p>}
+        {footer.show_powered_by && <p className="text-[10px] text-gray-300">Powered by Restaurant.SV</p>}
       </div>
 
       <BottomNav tenantId={tenantId} primaryColor={primary} />

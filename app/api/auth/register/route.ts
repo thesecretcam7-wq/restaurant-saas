@@ -40,10 +40,19 @@ export async function POST(request: NextRequest) {
     }
 
     // Create tenant
-    const slug = restaurantName
+    let slug = restaurantName
       .toLowerCase()
       .replace(/\s+/g, '-')
       .replace(/[^a-z0-9-]/g, '')
+
+    // Validate slug is not empty
+    if (!slug || slug.length === 0) {
+      await supabase.auth.admin.deleteUser(authData.user.id)
+      return NextResponse.json(
+        { error: 'El nombre del restaurante debe contener al menos un carácter válido (letras o números)' },
+        { status: 400 }
+      )
+    }
 
     const { data: tenantData, error: tenantError } = await supabase
       .from('tenants')
@@ -68,21 +77,30 @@ export async function POST(request: NextRequest) {
     }
 
     // Create default branding
-    await supabase
+    const { error: brandingError } = await supabase
       .from('tenant_branding')
       .insert({
         tenant_id: tenantData.id,
-        primary_color: '#3B82F6',
+        primary_color: '#0A0A0A',
         secondary_color: '#1F2937',
-        accent_color: '#F59E0B',
-        background_color: '#FFFFFF',
+        accent_color: '#F97316',
+        background_color: '#0A0A0A',
         font_family: 'Inter',
         app_name: restaurantName,
         tagline: 'Bienvenido',
       })
 
+    if (brandingError) {
+      await supabase.auth.admin.deleteUser(authData.user.id)
+      await supabase.from('tenants').delete().eq('id', tenantData.id)
+      return NextResponse.json(
+        { error: 'Error al crear branding: ' + brandingError.message },
+        { status: 400 }
+      )
+    }
+
     // Create default restaurant settings
-    await supabase
+    const { error: settingsError } = await supabase
       .from('restaurant_settings')
       .insert({
         tenant_id: tenantData.id,
@@ -90,6 +108,16 @@ export async function POST(request: NextRequest) {
         country: 'CO',
         timezone: 'America/Bogota',
       })
+
+    if (settingsError) {
+      await supabase.auth.admin.deleteUser(authData.user.id)
+      await supabase.from('tenants').delete().eq('id', tenantData.id)
+      await supabase.from('tenant_branding').delete().eq('tenant_id', tenantData.id)
+      return NextResponse.json(
+        { error: 'Error al crear configuración: ' + settingsError.message },
+        { status: 400 }
+      )
+    }
 
     return NextResponse.json({
       success: true,
