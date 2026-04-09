@@ -2,7 +2,7 @@ import { Tenant, TenantBranding, RestaurantSettings } from './types'
 import { createServiceClient } from './supabase/server'
 
 export async function getTenantByDomain(domain: string) {
-  const supabase = await createServiceClient()
+  const supabase = createServiceClient()
 
   const { data, error } = await supabase
     .from('tenants')
@@ -19,7 +19,7 @@ export async function getTenantByDomain(domain: string) {
 }
 
 export async function getTenantById(tenantId: string) {
-  const supabase = await createServiceClient()
+  const supabase = createServiceClient()
 
   const { data, error } = await supabase
     .from('tenants')
@@ -36,7 +36,7 @@ export async function getTenantById(tenantId: string) {
 }
 
 export async function getTenantBranding(tenantId: string) {
-  const supabase = await createServiceClient()
+  const supabase = createServiceClient()
 
   const { data, error } = await supabase
     .from('tenant_branding')
@@ -53,7 +53,7 @@ export async function getTenantBranding(tenantId: string) {
 }
 
 export async function getRestaurantSettings(tenantId: string) {
-  const supabase = await createServiceClient()
+  const supabase = createServiceClient()
 
   const { data, error } = await supabase
     .from('restaurant_settings')
@@ -70,7 +70,7 @@ export async function getRestaurantSettings(tenantId: string) {
 }
 
 export async function getTenantBySlug(slug: string) {
-  const supabase = await createServiceClient()
+  const supabase = createServiceClient()
 
   const { data, error } = await supabase
     .from('tenants')
