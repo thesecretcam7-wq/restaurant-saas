@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createServerClient } from '@supabase/ssr'
+import { createClient } from '@supabase/supabase-js'
 
 // Configuración - Dominio base de la plataforma
 // Ejemplos:
@@ -81,17 +81,10 @@ export async function middleware(request: NextRequest) {
 
 async function getTenantByDomain(domain: string) {
   try {
-    const supabase = createServerClient(
+    const supabase = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.SUPABASE_SERVICE_ROLE_KEY!,
-      {
-        cookies: {
-          getAll() {
-            return []
-          },
-          setAll() {},
-        },
-      }
+      { auth: { autoRefreshToken: false, persistSession: false } }
     )
 
     const { data, error } = await supabase
@@ -115,17 +108,10 @@ async function getTenantByDomain(domain: string) {
 
 async function getTenantBySlug(slug: string) {
   try {
-    const supabase = createServerClient(
+    const supabase = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.SUPABASE_SERVICE_ROLE_KEY!,
-      {
-        cookies: {
-          getAll() {
-            return []
-          },
-          setAll() {},
-        },
-      }
+      { auth: { autoRefreshToken: false, persistSession: false } }
     )
 
     const { data, error } = await supabase
