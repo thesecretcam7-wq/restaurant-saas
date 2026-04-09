@@ -1,5 +1,4 @@
-import { createServerClient } from '@supabase/ssr'
-import { cookies } from 'next/headers'
+import { createClient } from '@supabase/supabase-js'
 import { NextRequest, NextResponse } from 'next/server'
 
 export async function GET(request: NextRequest) {
@@ -14,41 +13,42 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    const cookieStore = await cookies()
-    const supabase = createServerClient(
+    // Usar createClient directo (sin SSR) con service role key para bypasear RLS
+    const supabase = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.SUPABASE_SERVICE_ROLE_KEY!,
-      {
-        cookies: {
-          getAll() {
-            return cookieStore.getAll()
-          },
-          setAll(cookiesToSet) {
-            try {
-              cookiesToSet.forEach(({ name, value, options }) =>
-                cookieStore.set(name, value, options)
-              )
-            } catch {}
-          },
-        },
-      }
+      { auth: { autoRefreshToken: false, persistSession: false } }
     )
 
-    // Find tenant by domain
-    // Try by primary_domain first, then by slug
-    let { data: tenant, error } = await supabase
-      .from('tenants')
-      .select('id, status, subscription_plan, subscription_stripe_id, created_at')
-      .eq('primary_domain', domain)
-      .maybeSingle()
+    // Buscar tenant: si el domain es UUID buscamos por id, si no por slug o primary_domain
+    const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(domain)
 
-    if (!tenant) {
-      const { data: tenantBySlug } = await supabase
+    let tenant = null
+
+    if (isUUID) {
+      const { data } = await supabase
         .from('tenants')
         .select('id, status, subscription_plan, subscription_stripe_id, created_at')
-        .eq('slug', domain)
+        .eq('id', domain)
         .maybeSingle()
-      tenant = tenantBySlug
+      tenant = data
+    } else {
+      // Buscar por primary_domain primero, luego por slug
+      const { data: byDomain } = await supabase
+        .from('tenants')
+        .select('id, status, subscription_plan, subscription_stripe_id, created_at')
+        .eq('primary_domain', domain)
+        .maybeSingle()
+      tenant = byDomain
+
+      if (!tenant) {
+        const { data: bySlug } = await supabase
+          .from('tenants')
+          .select('id, status, subscription_plan, subscription_stripe_id, created_at')
+          .eq('slug', domain)
+          .maybeSingle()
+        tenant = bySlug
+      }
     }
 
     if (!tenant) {
