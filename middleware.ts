@@ -94,7 +94,12 @@ async function getTenantByDomain(domain: string) {
       .single()
 
     if (error) {
-      console.error(`[Middleware] Error fetching tenant with domain "${domain}":`, error.message)
+      console.error(`[Middleware] Error fetching tenant with domain "${domain}":`, {
+        code: error.code,
+        message: error.message,
+        details: error.details,
+        status: error.status,
+      })
       return null
     }
 
@@ -108,20 +113,29 @@ async function getTenantByDomain(domain: string) {
 
 async function getTenantBySlug(slug: string) {
   try {
+    console.log(`[Middleware] getTenantBySlug: looking for slug="${slug}"`)
     const supabase = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.SUPABASE_SERVICE_ROLE_KEY!,
       { auth: { autoRefreshToken: false, persistSession: false } }
     )
 
+    console.log(`[Middleware] getTenantBySlug: Supabase client created, URL=${process.env.NEXT_PUBLIC_SUPABASE_URL}`)
     const { data, error } = await supabase
       .from('tenants')
       .select('id, slug')
       .eq('slug', slug)
       .single()
 
+    console.log(`[Middleware] getTenantBySlug: Query result - data=${JSON.stringify(data)}, hasError=${!!error}`)
+
     if (error) {
-      console.error(`[Middleware] Error fetching tenant with slug "${slug}":`, error.message)
+      console.error(`[Middleware] Error fetching tenant with slug "${slug}":`, {
+        code: error.code,
+        message: error.message,
+        details: error.details,
+        status: error.status,
+      })
       return null
     }
 
