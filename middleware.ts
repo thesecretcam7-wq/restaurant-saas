@@ -98,7 +98,6 @@ async function getTenantByDomain(domain: string) {
         code: error.code,
         message: error.message,
         details: error.details,
-        status: error.status,
       })
       return null
     }
@@ -134,7 +133,6 @@ async function getTenantBySlug(slug: string) {
         code: error.code,
         message: error.message,
         details: error.details,
-        status: error.status,
       })
       return null
     }
