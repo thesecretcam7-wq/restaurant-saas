@@ -26,8 +26,30 @@ export default function AdminLayout({
   useEffect(() => {
     if (!domain) return
 
-    const checkSubscription = async () => {
+    const checkAccess = async () => {
       try {
+        // 1. PRIMERO: Verificar que el usuario es propietario del restaurante
+        console.log(`[AdminLayout] Verifying ownership for domain: ${domain}`)
+
+        const ownerResponse = await fetch(`/api/verify-tenant-owner?slug=${domain}`)
+
+        if (!ownerResponse.ok) {
+          console.error('[AdminLayout] Ownership check failed:', ownerResponse.status)
+          router.push('/unauthorized')
+          return
+        }
+
+        const ownerData = await ownerResponse.json()
+
+        if (!ownerData.isOwner) {
+          console.error(`[AdminLayout] ❌ User is not owner of ${domain}`)
+          router.push('/unauthorized')
+          return
+        }
+
+        console.log(`[AdminLayout] ✅ Ownership verified for ${domain}`)
+
+        // 2. SEGUNDO: Verificar suscripción
         const response = await fetch(`/api/subscription-status?domain=${domain}`)
         if (!response.ok) throw new Error('Failed to fetch subscription status')
 
@@ -36,18 +58,23 @@ export default function AdminLayout({
 
         // Block access if no active subscription and not in trial
         if (!data.hasActiveSubscription) {
+          console.warn(`[AdminLayout] ⚠️ No active subscription for ${domain}`)
           router.push(`/${domain}/(admin)/subscription-blocked`)
+          return
         }
+
+        console.log(`[AdminLayout] ✅ All checks passed for ${domain}`)
       } catch (err) {
-        setError(err instanceof Error ? err.message : 'Error checking subscription')
+        console.error('[AdminLayout] Error during checks:', err)
+        setError(err instanceof Error ? err.message : 'Error checking access')
         // Redirect on error to be safe
-        router.push(`/${domain}/(admin)/subscription-blocked`)
+        router.push('/unauthorized')
       } finally {
         setIsLoading(false)
       }
     }
 
-    checkSubscription()
+    checkAccess()
   }, [domain, router])
 
   if (isLoading) {
