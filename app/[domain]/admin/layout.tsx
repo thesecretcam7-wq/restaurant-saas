@@ -15,12 +15,25 @@ export default async function AdminLayout({ children, params }: AdminLayoutProps
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect(`/login`)
 
-  // Look up tenant by slug, then verify ownership
-  const { data: tenant } = await supabase
-    .from('tenants')
-    .select('id, organization_name, status, owner_id')
-    .eq('slug', slug)
-    .single()
+  // Look up tenant: by id if UUID, by slug otherwise
+  const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(slug)
+
+  let tenant = null
+  if (isUUID) {
+    const result = await supabase
+      .from('tenants')
+      .select('id, organization_name, status, owner_id')
+      .eq('id', slug)
+      .single()
+    tenant = result.data
+  } else {
+    const result = await supabase
+      .from('tenants')
+      .select('id, organization_name, status, owner_id')
+      .eq('slug', slug)
+      .single()
+    tenant = result.data
+  }
 
   if (!tenant || tenant.owner_id !== user.id) redirect(`/login`)
 
