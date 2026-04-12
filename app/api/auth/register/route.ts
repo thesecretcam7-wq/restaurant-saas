@@ -1,4 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
+import { createServerClient } from '@supabase/ssr'
+import { cookies } from 'next/headers'
 import { NextRequest, NextResponse } from 'next/server'
 
 export async function POST(request: NextRequest) {
@@ -131,6 +133,37 @@ export async function POST(request: NextRequest) {
         { error: 'Error al crear configuración: ' + settingsError.message },
         { status: 400 }
       )
+    }
+
+    // Now create authenticated session with SSR client
+    const cookieStore = await cookies()
+    const authClient = createServerClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      {
+        cookies: {
+          getAll() { return cookieStore.getAll() },
+          setAll(cookiesToSet) {
+            try {
+              cookiesToSet.forEach(({ name, value, options }) =>
+                cookieStore.set(name, value, options)
+              )
+            } catch {}
+          },
+        },
+      }
+    )
+
+    console.log('🔐 [Register] Creating authenticated session')
+    const { data: sessionData, error: sessionError } = await authClient.auth.signInWithPassword({
+      email,
+      password,
+    })
+
+    if (sessionError) {
+      console.error('⚠️ [Register] Session creation failed (but user was created):', sessionError.message)
+      // Don't fail here - user exists, just no session in response
+      // Frontend will need to login
     }
 
     console.log('✅ [Register] SUCCESS! Returning tenant:', tenantData.slug)

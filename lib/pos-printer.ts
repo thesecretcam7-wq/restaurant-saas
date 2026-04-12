@@ -1,0 +1,343 @@
+/**
+ * Main printer utility for POS system
+ * Handles device discovery, connection, and printing
+ */
+
+import { createClient } from '@supabase/supabase-js';
+import { generateReceiptESCPOS, generateTestReceiptESCPOS } from './thermal-receipt';
+import type { ReceiptData, PrinterDevice } from '@/types/printer';
+
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+);
+
+/**
+ * Print receipt to a configured printer
+ * @param tenantId - Restaurant/tenant ID
+ * @param printerId - Printer device ID from database
+ * @param data - Receipt data with order details
+ * @throws Error if printer not found or connection fails
+ */
+export async function printReceipt(
+  tenantId: string,
+  printerId: string,
+  data: ReceiptData
+): Promise<void> {
+  try {
+    // 1. Get printer configuration from database
+    const { data: printer, error: printerError } = await supabase
+      .from('printer_devices')
+      .select('*')
+      .eq('id', printerId)
+      .eq('tenant_id', tenantId)
+      .single();
+
+    if (printerError || !printer) {
+      throw new Error('Printer not found or not configured');
+    }
+
+    // 2. Generate ESC/POS commands
+    const escPosData = generateReceiptESCPOS(data, {
+      paperWidth: printer.config.paper_width || 80,
+      copies: printer.config.copies || 1,
+      locale: data.currencyInfo.locale,
+    });
+
+    // 3. Browser-side printing via WebUSB
+    if (typeof navigator !== 'undefined' && 'usb' in navigator) {
+      await printViaWebUSB(printer, escPosData);
+    } else {
+      // Fallback to browser print dialog
+      console.warn('WebUSB not available, using browser print dialog');
+      printViaBrowserAPI(data);
+    }
+
+    // 4. Log successful print
+    await savePrinterLog(tenantId, printerId, 'print', 'success', {
+      orderNumber: data.orderNumber,
+      amount: data.total,
+    });
+
+    // Update device last_used_at
+    await supabase
+      .from('printer_devices')
+      .update({ last_used_at: new Date().toISOString() })
+      .eq('id', printerId)
+      .eq('tenant_id', tenantId);
+  } catch (error) {
+    // Log the error but don't throw - print failure shouldn't break the order
+    const errorMsg = error instanceof Error ? error.message : String(error);
+    console.error('Print error:', errorMsg);
+
+    await savePrinterLog(tenantId, printerId, 'print', 'failed', {
+      error: errorMsg,
+    });
+  }
+}
+
+/**
+ * Print via WebUSB (native printer connection)
+ */
+async function printViaWebUSB(printer: PrinterDevice, data: Uint8Array): Promise<void> {
+  try {
+    // Get authorized devices
+    const devices = await navigator.usb.getDevices();
+
+    // Find matching device by vendor/product IDs
+    const device = devices.find(
+      (d) => d.vendorId === printer.vendor_id && d.productId === printer.product_id
+    );
+
+    if (!device) {
+      throw new Error(
+        `Printer device not found. Please authorize it in printer settings.`
+      );
+    }
+
+    // Open device if not already open
+    if (!device.opened) {
+      await device.open();
+    }
+
+    // Find OUT endpoint
+    const configuration = device.configuration;
+    if (!configuration) {
+      throw new Error('Device configuration not available');
+    }
+
+    const interfaceData = configuration.interfaces[0];
+    if (!interfaceData) {
+      throw new Error('No interface found on device');
+    }
+
+    const alternate = interfaceData.alternates[0];
+    const outEndpoint = alternate?.endpoints.find((e) => e.direction === 'out');
+
+    if (!outEndpoint) {
+      throw new Error('No OUT endpoint found on printer device');
+    }
+
+    // Send data to printer
+    await device.transferOut(outEndpoint.endpointNumber, data);
+  } catch (error) {
+    throw new Error(`WebUSB print failed: ${error instanceof Error ? error.message : String(error)}`);
+  }
+}
+
+/**
+ * Fallback: Print via browser print dialog
+ * Generates HTML and opens print dialog
+ */
+function printViaBrowserAPI(data: ReceiptData): void {
+  try {
+    const html = generateReceiptHTML(data);
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) {
+      throw new Error('Could not open print window');
+    }
+
+    printWindow.document.write(html);
+    printWindow.document.close();
+
+    printWindow.onload = () => {
+      printWindow.print();
+      // Close after print (user can cancel)
+      setTimeout(() => {
+        printWindow.close();
+      }, 500);
+    };
+  } catch (error) {
+    console.error('Browser print failed:', error);
+  }
+}
+
+/**
+ * Generate HTML for browser printing (fallback)
+ */
+function generateReceiptHTML(data: ReceiptData): string {
+  const itemsHTML = data.items
+    .map(
+      (item) =>
+        `<tr>
+        <td>${item.name}</td>
+        <td class="number">${item.quantity}</td>
+        <td class="number">${(item.price * item.quantity).toFixed(2)} ${data.currencyInfo.symbol}</td>
+      </tr>`
+    )
+    .join('');
+
+  return `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="UTF-8">
+      <title>Recibo ${data.orderNumber}</title>
+      <style>
+        body {
+          font-family: 'Courier New', monospace;
+          font-size: 12px;
+          max-width: 80mm;
+          margin: 0;
+          padding: 10px;
+        }
+        .header {
+          text-align: center;
+          font-weight: bold;
+          margin-bottom: 10px;
+          font-size: 14px;
+        }
+        .number {
+          text-align: right;
+        }
+        table {
+          width: 100%;
+          border-collapse: collapse;
+          margin: 10px 0;
+        }
+        td {
+          padding: 4px 2px;
+          border-bottom: 1px solid #000;
+        }
+        .total-row {
+          font-weight: bold;
+          font-size: 14px;
+        }
+        .footer {
+          text-align: center;
+          margin-top: 10px;
+          font-size: 10px;
+        }
+        @media print {
+          body { margin: 0; padding: 0; }
+        }
+      </style>
+    </head>
+    <body>
+      <div class="header">Restaurant SaaS</div>
+      <div class="header">Orden: ${data.orderNumber}</div>
+      <hr>
+      <table>
+        <tr>
+          <th>Artículo</th>
+          <th class="number">Qty</th>
+          <th class="number">Total</th>
+        </tr>
+        ${itemsHTML}
+      </table>
+      <hr>
+      <table>
+        <tr>
+          <td>Subtotal:</td>
+          <td class="number">${data.subtotal.toFixed(2)} ${data.currencyInfo.symbol}</td>
+        </tr>
+        ${
+          data.discount > 0
+            ? `<tr>
+          <td>Descuento:</td>
+          <td class="number">-${data.discount.toFixed(2)} ${data.currencyInfo.symbol}</td>
+        </tr>`
+            : ''
+        }
+        <tr class="total-row">
+          <td>TOTAL:</td>
+          <td class="number">${data.total.toFixed(2)} ${data.currencyInfo.symbol}</td>
+        </tr>
+      </table>
+      <div class="footer">
+        <p>Gracias por su compra</p>
+      </div>
+    </body>
+    </html>
+  `;
+}
+
+/**
+ * Save printer log entry to database
+ */
+export async function savePrinterLog(
+  tenantId: string,
+  deviceId: string | null,
+  action: string,
+  status: 'success' | 'failed',
+  details?: Record<string, any>
+): Promise<void> {
+  try {
+    await supabase.from('printer_logs').insert({
+      tenant_id: tenantId,
+      device_id: deviceId,
+      action,
+      status,
+      details,
+    });
+  } catch (error) {
+    console.error('Failed to save printer log:', error);
+    // Don't throw - logging failures shouldn't affect operations
+  }
+}
+
+/**
+ * Test printer by printing a test receipt
+ */
+export async function testPrinterConnection(
+  tenantId: string,
+  printerId: string
+): Promise<{ success: boolean; message: string }> {
+  try {
+    const { data: printer } = await supabase
+      .from('printer_devices')
+      .select('*')
+      .eq('id', printerId)
+      .eq('tenant_id', tenantId)
+      .single();
+
+    if (!printer) {
+      return { success: false, message: 'Impresora no encontrada' };
+    }
+
+    const testData = generateTestReceiptESCPOS(printer.config.paper_width || 80);
+
+    if (typeof navigator !== 'undefined' && 'usb' in navigator) {
+      await printViaWebUSB(printer, testData);
+    } else {
+      throw new Error('WebUSB not available');
+    }
+
+    await savePrinterLog(tenantId, printerId, 'print', 'success', {
+      test: true,
+    });
+
+    return { success: true, message: 'Página de prueba impresa exitosamente' };
+  } catch (error) {
+    const errorMsg = error instanceof Error ? error.message : String(error);
+
+    await savePrinterLog(tenantId, printerId, 'print', 'failed', {
+      test: true,
+      error: errorMsg,
+    });
+
+    return { success: false, message: `Error al imprimir: ${errorMsg}` };
+  }
+}
+
+/**
+ * Get recent printer logs for troubleshooting
+ */
+export async function getPrinterLogs(
+  tenantId: string,
+  limit: number = 20
+): Promise<any[]> {
+  try {
+    const { data } = await supabase
+      .from('printer_logs')
+      .select('*')
+      .eq('tenant_id', tenantId)
+      .order('created_at', { ascending: false })
+      .limit(limit);
+
+    return data || [];
+  } catch (error) {
+    console.error('Failed to fetch printer logs:', error);
+    return [];
+  }
+}

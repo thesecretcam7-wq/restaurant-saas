@@ -199,3 +199,25 @@
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
 }
+
+/* POS Fullscreen mode - hide admin panel and optimize layout */
+html[data-pos-fullscreen="true"] {
+  overflow: hidden !important;
+}
+
+html[data-pos-fullscreen="true"] body {
+  overflow: hidden !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+html[data-pos-fullscreen="true"] aside {
+  display: none !important;
+}
+
+html[data-pos-fullscreen="true"] main {
+  margin-left: 0 !important;
+  padding: 0 !important;
+  width: 100% !important;
+  height: 100vh !important;
+}

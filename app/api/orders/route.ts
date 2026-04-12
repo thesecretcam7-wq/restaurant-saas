@@ -53,7 +53,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const { tenantId, items, customerInfo, deliveryType, deliveryAddress, notes, paymentMethod, tableNumber, waiterName } = body
+    const { tenantId, items, customerInfo, deliveryType, deliveryAddress, notes, paymentMethod, tableNumber, waiterName, table_id, waiter_id, amountPaid } = body
 
     // Plan limit: check monthly order count
     const orderCheck = await canCreateOrder(tenantId)
@@ -75,32 +75,61 @@ export async function POST(request: NextRequest) {
     const total = subtotal + tax + deliveryFee
 
     const orderNumber = `ORD-${Date.now()}`
+    const orderData: any = {
+      tenant_id: tenantId,
+      order_number: orderNumber,
+      customer_name: customerInfo.name,
+      customer_email: customerInfo.email || null,
+      customer_phone: customerInfo.phone,
+      items,
+      subtotal,
+      tax,
+      delivery_fee: deliveryFee,
+      total,
+      payment_method: paymentMethod,
+      payment_status: 'pending',
+      delivery_type: deliveryType,
+      delivery_address: deliveryAddress || null,
+      table_number: tableNumber || null,
+      waiter_name: waiterName || null,
+      notes: notes || null,
+      status: 'pending',
+    }
+
+    // Only add these fields if they exist in the schema
+    if (table_id) orderData.table_id = table_id
+    if (waiter_id) orderData.waiter_id = waiter_id
+
     const { data: order, error } = await supabase
       .from('orders')
-      .insert({
-        tenant_id: tenantId,
-        order_number: orderNumber,
-        customer_name: customerInfo.name,
-        customer_email: customerInfo.email || null,
-        customer_phone: customerInfo.phone,
-        items,
-        subtotal,
-        tax,
-        delivery_fee: deliveryFee,
-        total,
-        payment_method: paymentMethod,
-        payment_status: 'pending',
-        delivery_type: deliveryType,
-        delivery_address: deliveryAddress || null,
-        table_number: tableNumber || null,
-        waiter_name: waiterName || null,
-        notes: notes || null,
-        status: 'pending',
-      })
+      .insert(orderData)
       .select()
       .single()
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+    // Auto-create order_items so KDS can display the order in real-time
+    if (items && Array.isArray(items) && items.length > 0) {
+      const orderItemsData = items.map((item: any) => ({
+        order_id: order.id,
+        tenant_id: tenantId,
+        menu_item_id: item.menu_item_id || null,
+        name: item.name,
+        quantity: item.qty ?? item.quantity ?? 1,
+        price: item.price,
+        notes: item.notes || null,
+        status: 'pending',
+      }))
+
+      const { error: itemsError } = await supabase
+        .from('order_items')
+        .insert(orderItemsData)
+
+      if (itemsError) {
+        // Non-blocking: order is already saved, just log the error
+        console.error('Error creating order_items for KDS:', itemsError.message)
+      }
+    }
 
     return NextResponse.json({ orderId: order.id, orderNumber })
   } catch {

@@ -86,8 +86,15 @@ export async function getTenantBySlug(slug: string) {
   return data as Tenant
 }
 
-export async function getTenantIdFromSlug(slug: string): Promise<string | null> {
-  const tenant = await getTenantBySlug(slug)
+export async function getTenantIdFromSlug(slugOrId: string): Promise<string | null> {
+  // Try as UUID first
+  let tenant = await getTenantById(slugOrId)
+
+  // If not found, try as slug
+  if (!tenant) {
+    tenant = await getTenantBySlug(slugOrId)
+  }
+
   return tenant?.id || null
 }
 

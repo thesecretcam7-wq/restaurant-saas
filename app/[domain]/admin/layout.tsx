@@ -48,7 +48,9 @@ export default async function AdminLayout({ children, params }: AdminLayoutProps
     { href: `/${tenantId}/admin/reservas`, label: 'Reservas', icon: '📅' },
     { href: `/${tenantId}/admin/clientes`, label: 'Clientes', icon: '👥' },
     { href: `/${tenantId}/admin/ventas`, label: 'Ventas', icon: '📈' },
+    { href: `/${tenantId}/admin/cierres`, label: 'Cierres de Caja', icon: '🔒' },
     { href: `/${tenantId}/admin/configuracion/restaurante`, label: 'Configuración', icon: '⚙️' },
+    { href: `/${tenantId}/admin/pos`, label: 'TPV/POS', icon: '💳' },
   ]
 
   return (
@@ -84,7 +86,7 @@ export default async function AdminLayout({ children, params }: AdminLayoutProps
 
         <div className="p-3 border-t space-y-1">
           <Link
-            href={`/${tenantId}`}
+            href={`/${tenantId}/menu`}
             className="flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-gray-600 hover:bg-gray-100"
             target="_blank"
           >
@@ -104,7 +106,7 @@ export default async function AdminLayout({ children, params }: AdminLayoutProps
       </aside>
 
       {/* Main content */}
-      <main className="ml-64 flex-1 p-8 min-h-screen">
+      <main className="ml-64 flex-1 p-0 min-h-screen max-h-screen overflow-y-auto">
         {children}
       </main>
     </div>

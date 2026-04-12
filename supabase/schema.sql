@@ -17,6 +17,7 @@ CREATE TABLE tenants (
   owner_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
   owner_email TEXT NOT NULL,
   owner_name TEXT,
+  country VARCHAR(2) DEFAULT 'CO',
   created_at TIMESTAMPTZ DEFAULT now(),
   updated_at TIMESTAMPTZ DEFAULT now(),
   metadata JSONB DEFAULT '{}'
