@@ -32,7 +32,7 @@ export default async function DashboardPage({ params }: DashboardProps) {
     supabase.from('orders').select('total').eq('tenant_id', tenantId).eq('payment_status', 'paid').gte('created_at', startOfMonth),
     supabase.from('reservations').select('id', { count: 'exact', head: true }).eq('tenant_id', tenantId).eq('status', 'confirmed'),
     supabase.from('customers').select('id', { count: 'exact', head: true }).eq('tenant_id', tenantId),
-    supabase.from('orders').select('*').eq('tenant_id', tenantId).order('created_at', { ascending: false }).limit(20),
+    supabase.from('orders').select('*').eq('tenant_id', tenantId).eq('delivery_type', 'dine-in').order('created_at', { ascending: false }).limit(20),
     getTenantPlanInfo(tenantId),
     getMonthlyOrderCount(tenantId),
   ])
