@@ -8,11 +8,12 @@ const supabase = createClient(
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const body = await request.json();
     const { tenantId, movementType, quantity, notes, referenceId, createdBy } = body;
+    const { id } = await params;
 
     if (!tenantId || !movementType || !quantity) {
       return NextResponse.json(
@@ -25,7 +26,7 @@ export async function POST(
     const { data: inventory, error: inventoryError } = await supabase
       .from('inventory')
       .select('*')
-      .eq('id', params.id)
+      .eq('id', id)
       .eq('tenant_id', tenantId)
       .single();
 
@@ -108,10 +109,11 @@ export async function POST(
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const { searchParams } = new URL(request.url);
   const tenantId = searchParams.get('tenantId');
+  const { id } = await params;
 
   if (!tenantId) {
     return NextResponse.json({ error: 'Missing tenantId' }, { status: 400 });
@@ -121,7 +123,7 @@ export async function GET(
     const { data, error } = await supabase
       .from('stock_movements')
       .select('*')
-      .eq('inventory_id', params.id)
+      .eq('inventory_id', id)
       .eq('tenant_id', tenantId)
       .order('created_at', { ascending: false });
 
