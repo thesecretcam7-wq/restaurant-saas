@@ -166,7 +166,7 @@ export function POSTerminal({ tenantId, country = 'CO' }: { tenantId: string; co
   const [pendingPaymentData, setPendingPaymentData] = useState<{
     amountPaid?: number;
   } | null>(null);
-  const [printReceipt, setPrintReceipt] = useState(true);
+  const [enableReceiptPrint, setEnableReceiptPrint] = useState(true);
   const [paymentResetKey, setPaymentResetKey] = useState(0);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -546,7 +546,7 @@ export function POSTerminal({ tenantId, country = 'CO' }: { tenantId: string; co
     }
 
     // If print receipt is disabled, process directly
-    if (!printReceipt) {
+    if (!enableReceiptPrint) {
       setPendingPaymentData({ amountPaid });
       processPaymentAfterReceipt();
       return;
@@ -887,8 +887,8 @@ export function POSTerminal({ tenantId, country = 'CO' }: { tenantId: string; co
               <input
                 type="checkbox"
                 id="printReceipt"
-                checked={printReceipt}
-                onChange={(e) => setPrintReceipt(e.target.checked)}
+                checked={enableReceiptPrint}
+                onChange={(e) => setEnableReceiptPrint(e.target.checked)}
                 className="w-3 h-3 rounded bg-gray-700 border-gray-600 cursor-pointer"
               />
               <label htmlFor="printReceipt" className="text-xs text-gray-300 cursor-pointer flex-1">
