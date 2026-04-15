@@ -1,8 +1,8 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import { createClient } from '@supabase/supabase-js';
-import { ShoppingCart, Plus, Minus, Trash2, Search, DollarSign, CreditCard, Maximize2, Minimize2, Lock } from 'lucide-react';
+import { ShoppingCart, Plus, Minus, Trash2, Search, DollarSign, CreditCard, Maximize2, Minimize2, Lock, Clock, Truck, Store } from 'lucide-react';
 import { POSModeSelector } from './POSModeSelector';
 import { POSStaffSelector } from './POSStaffSelector';
 import { POSTableSelector } from './POSTableSelector';
@@ -45,6 +45,94 @@ interface Category {
 type POSMode = 'simple' | 'table';
 type PaymentMethod = 'cash' | 'stripe';
 
+interface IncomingOrder {
+  id: string;
+  order_number: string;
+  customer_name: string;
+  customer_phone: string;
+  delivery_type: 'delivery' | 'pickup';
+  delivery_address?: string;
+  total: number;
+  created_at: string;
+}
+
+// ─── Timer Hook ───────────────────────────────────────────────────────────────
+function useElapsedMinutes(createdAt: string): number {
+  const [minutes, setMinutes] = useState(() =>
+    Math.floor((Date.now() - new Date(createdAt).getTime()) / 60000)
+  );
+
+  useEffect(() => {
+    const calc = () =>
+      setMinutes(Math.floor((Date.now() - new Date(createdAt).getTime()) / 60000));
+    const interval = setInterval(calc, 30000);
+    return () => clearInterval(interval);
+  }, [createdAt]);
+
+  return minutes;
+}
+
+// ─── Urgency Helpers ─────────────────────────────────────────────────────────
+function getUrgencyBorder(minutes: number) {
+  if (minutes < 5) return 'border-green-500';
+  if (minutes < 10) return 'border-yellow-500';
+  return 'border-red-500';
+}
+
+function getTimerColor(minutes: number) {
+  if (minutes < 5) return 'text-green-400';
+  if (minutes < 10) return 'text-yellow-400';
+  return 'text-red-400';
+}
+
+// ─── Incoming Order Card ──────────────────────────────────────────────────────
+function IncomingOrderCard({ order }: { order: IncomingOrder }) {
+  const minutes = useElapsedMinutes(order.created_at);
+  const isDelivery = order.delivery_type === 'delivery';
+
+  return (
+    <div className={`border-2 rounded-lg p-3 flex flex-col gap-2 transition-all ${getUrgencyBorder(minutes)} bg-gray-800 text-xs`}>
+      <div className="flex items-start justify-between gap-2">
+        <div className="flex-1 min-w-0">
+          <p className="font-black text-white text-sm">{order.order_number}</p>
+          <p className="text-gray-300 text-xs truncate">{order.customer_name}</p>
+        </div>
+        <div className={`flex items-center gap-1 font-bold ${getTimerColor(minutes)}`}>
+          <Clock className="w-3 h-3" />
+          <span>{minutes}m</span>
+        </div>
+      </div>
+
+      <div className="flex items-center gap-2 text-gray-300">
+        {isDelivery ? (
+          <>
+            <Truck className="w-3 h-3 text-blue-400" />
+            <span className="text-xs">Delivery</span>
+          </>
+        ) : (
+          <>
+            <Store className="w-3 h-3 text-green-400" />
+            <span className="text-xs">Pickup</span>
+          </>
+        )}
+      </div>
+
+      {isDelivery && order.delivery_address && (
+        <p className="text-gray-400 text-xs truncate">📍 {order.delivery_address}</p>
+      )}
+
+      <div className="flex items-center justify-between text-gray-300">
+        <span className="text-xs">Total:</span>
+        <span className="font-bold text-green-400">${order.total.toFixed(2)}</span>
+      </div>
+
+      <a href={`tel:${order.customer_phone}`} className="text-xs text-blue-400 hover:underline">
+        {order.customer_phone}
+      </a>
+    </div>
+  );
+}
+
 export function POSTerminal({ tenantId, country = 'CO' }: { tenantId: string; country?: string }) {
   const currencyInfo = getCurrencyByCountry(country);
 
@@ -82,6 +170,45 @@ export function POSTerminal({ tenantId, country = 'CO' }: { tenantId: string; co
   const [showCashClosing, setShowCashClosing] = useState(false);
   const [cashClosingStats, setCashClosingStats] = useState<CashClosingStats | null>(null);
   const [closingLoading, setClosingLoading] = useState(false);
+
+  // Incoming Orders for delivery/pickup
+  const [incomingOrders, setIncomingOrders] = useState<IncomingOrder[]>([]);
+  const [showIncomingPanel, setShowIncomingPanel] = useState(false);
+  const [soundEnabled, setSoundEnabled] = useState(true);
+  const audioCtxRef = useRef<AudioContext | null>(null);
+  const knownOrderIds = useRef(new Set<string>());
+
+  // Initialize audio and play sound
+  const initAudio = useCallback(() => {
+    if (!audioCtxRef.current) {
+      try {
+        audioCtxRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
+      } catch (_) {}
+    }
+  }, []);
+
+  const playNewOrderSound = useCallback(() => {
+    if (!soundEnabled) return;
+    initAudio();
+    const ctx = audioCtxRef.current;
+    if (!ctx) return;
+
+    const beep = (start: number, freq: number, dur: number) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.frequency.value = freq;
+      osc.type = 'sine';
+      gain.gain.setValueAtTime(0.25, start);
+      gain.gain.exponentialRampToValueAtTime(0.001, start + dur);
+      osc.start(start);
+      osc.stop(start + dur);
+    };
+
+    beep(ctx.currentTime, 880, 0.15);
+    beep(ctx.currentTime + 0.2, 1100, 0.15);
+  }, [soundEnabled, initAudio]);
 
   useEffect(() => {
     fetchMenuData();
@@ -241,6 +368,66 @@ export function POSTerminal({ tenantId, country = 'CO' }: { tenantId: string; co
       });
     }
   }, [cart, discount, discountCode, tenantId]);
+
+  // Real-time subscription for incoming orders (delivery/pickup)
+  useEffect(() => {
+    if (!tenantId) return;
+
+    const subscription = supabase
+      .channel(`incoming-orders:${tenantId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'orders',
+          filter: `tenant_id=eq.${tenantId}`,
+        },
+        async (payload) => {
+          const newOrder = payload.new as IncomingOrder;
+          // Only show delivery/pickup orders
+          if (newOrder.delivery_type === 'delivery' || newOrder.delivery_type === 'pickup') {
+            const isNewOrder = !knownOrderIds.current.has(newOrder.id);
+            if (isNewOrder) {
+              playNewOrderSound();
+              knownOrderIds.current.add(newOrder.id);
+              setShowIncomingPanel(true);
+              // Re-fetch incoming orders to ensure data consistency
+              await fetchIncomingOrders();
+            }
+          }
+        }
+      )
+      .subscribe();
+
+    // Initial fetch
+    fetchIncomingOrders();
+
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, [tenantId, playNewOrderSound]);
+
+  async function fetchIncomingOrders() {
+    try {
+      const { data, error } = await supabase
+        .from('orders')
+        .select('*')
+        .eq('tenant_id', tenantId)
+        .or(`delivery_type.eq.delivery,delivery_type.eq.pickup`)
+        .eq('payment_status', 'pending')
+        .order('created_at', { ascending: false })
+        .limit(10);
+
+      if (!error && data) {
+        setIncomingOrders(data);
+        // Track all order IDs
+        data.forEach((order: IncomingOrder) => knownOrderIds.current.add(order.id));
+      }
+    } catch (error) {
+      console.error('Error fetching incoming orders:', error);
+    }
+  }
 
   async function fetchMenuData() {
     try {
@@ -617,20 +804,40 @@ export function POSTerminal({ tenantId, country = 'CO' }: { tenantId: string; co
 
         {/* Cart/Payment Section */}
         <div className={`${isFullscreen ? 'w-72' : 'w-72'} bg-gray-900 border-l border-gray-700 flex flex-col overflow-hidden`}>
-          {/* Cart Header */}
-          <div
-            onClick={() => setShowCartDrawer(true)}
-            className={`border-b border-gray-700 ${isFullscreen ? 'px-2 py-1.5' : 'px-2 py-1.5'} flex items-center gap-1 cursor-pointer hover:bg-gray-800 transition`}
-          >
-            <ShoppingCart className="w-6 h-6" />
-            <h2 className="text-lg font-bold flex-1">Carrito</h2>
-            <span className="bg-blue-600 px-3 py-1 rounded-lg text-xs font-bold">
-              {cart.length}
-            </span>
+          {/* Tabs: Cart vs Incoming Orders */}
+          <div className={`border-b border-gray-700 flex gap-0 ${isFullscreen ? 'px-0 py-0' : 'px-0 py-0'}`}>
+            <button
+              onClick={() => setShowIncomingPanel(false)}
+              className={`flex-1 flex items-center justify-center gap-1 py-2 px-2 border-b-2 transition text-xs font-bold ${
+                !showIncomingPanel
+                  ? 'border-blue-600 bg-gray-800 text-white'
+                  : 'border-gray-700 bg-gray-900 text-gray-400 hover:text-gray-300'
+              }`}
+            >
+              <ShoppingCart className="w-4 h-4" />
+              <span>Carrito ({cart.length})</span>
+            </button>
+            <button
+              onClick={() => setShowIncomingPanel(true)}
+              className={`flex-1 flex items-center justify-center gap-1 py-2 px-2 border-b-2 transition text-xs font-bold ${
+                showIncomingPanel
+                  ? 'border-blue-600 bg-gray-800 text-white'
+                  : 'border-gray-700 bg-gray-900 text-gray-400 hover:text-gray-300'
+              } ${incomingOrders.length > 0 ? 'relative' : ''}`}
+            >
+              <Truck className="w-4 h-4" />
+              <span>Entregas ({incomingOrders.length})</span>
+              {incomingOrders.length > 0 && (
+                <span className="absolute top-0 right-0 w-2 h-2 bg-red-500 rounded-full animate-pulse" />
+              )}
+            </button>
           </div>
 
-          {/* Discount Code */}
-          <div className={`border-b border-gray-700 ${isFullscreen ? 'px-2 py-1' : 'px-2 py-1'} space-y-1 text-xs`}>
+          {/* Cart Content - Only show when not in Incoming Panel */}
+          {!showIncomingPanel && (
+            <>
+              {/* Discount Code */}
+              <div className={`border-b border-gray-700 ${isFullscreen ? 'px-2 py-1' : 'px-2 py-1'} space-y-1 text-xs`}>
             <div className="flex gap-1">
               <input
                 type="text"
@@ -723,18 +930,41 @@ export function POSTerminal({ tenantId, country = 'CO' }: { tenantId: string; co
           </div>
 
           {/* Payment Component */}
-          <div className={`${isFullscreen ? 'px-2 py-1' : 'px-2 py-1'}`}>
-            <POSPayment
-              key={paymentResetKey}
-              total={total}
-              paymentMethod={paymentMethod}
-              onPaymentMethodChange={setPaymentMethod}
-              onProceedPayment={handleShowReceipt}
-              disabled={cart.length === 0 || (posMode === 'table' && (!selectedStaffId || !selectedTableId))}
-              loading={processingPayment}
-              country={country}
-            />
-          </div>
+              <div className={`${isFullscreen ? 'px-2 py-1' : 'px-2 py-1'}`}>
+                <POSPayment
+                  key={paymentResetKey}
+                  total={total}
+                  paymentMethod={paymentMethod}
+                  onPaymentMethodChange={setPaymentMethod}
+                  onProceedPayment={handleShowReceipt}
+                  disabled={cart.length === 0 || (posMode === 'table' && (!selectedStaffId || !selectedTableId))}
+                  loading={processingPayment}
+                  country={country}
+                />
+              </div>
+            </>
+          )}
+
+          {/* Incoming Orders Panel */}
+          {showIncomingPanel && (
+            <div className="flex-1 flex flex-col overflow-hidden">
+              {incomingOrders.length === 0 ? (
+                <div className="flex-1 flex items-center justify-center text-gray-400">
+                  <div className="text-center">
+                    <p className="text-3xl mb-2">📦</p>
+                    <p className="text-sm">No hay pedidos pendientes</p>
+                    <p className="text-xs text-gray-500 mt-1">Los pedidos de delivery/pickup aparecerán aquí</p>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex-1 overflow-y-auto p-2 space-y-2">
+                  {incomingOrders.map((order) => (
+                    <IncomingOrderCard key={order.id} order={order} />
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </div>
 
