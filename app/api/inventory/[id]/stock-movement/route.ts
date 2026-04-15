@@ -55,7 +55,7 @@ export async function POST(
       .insert([
         {
           tenant_id: tenantId,
-          inventory_id: params.id,
+          inventory_id: id,
           movement_type: movementType,
           quantity: Math.abs(quantity),
           notes,
@@ -72,7 +72,7 @@ export async function POST(
     const { data: updated, error: updateError } = await supabase
       .from('inventory')
       .update({ current_stock: newStock })
-      .eq('id', params.id)
+      .eq('id', id)
       .select()
       .single();
 
@@ -84,7 +84,7 @@ export async function POST(
       const { data: existingAlert } = await supabase
         .from('stock_alerts')
         .select('id')
-        .eq('inventory_id', params.id)
+        .eq('inventory_id', id)
         .eq('is_resolved', false)
         .eq('alert_type', 'low_stock')
         .single();
@@ -93,7 +93,7 @@ export async function POST(
         await supabase.from('stock_alerts').insert([
           {
             tenant_id: tenantId,
-            inventory_id: params.id,
+            inventory_id: id,
             alert_type: newStock === 0 ? 'out_of_stock' : 'low_stock',
           },
         ]);
