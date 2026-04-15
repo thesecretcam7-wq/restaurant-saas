@@ -182,14 +182,14 @@ function OrderCard({
           <p className="text-xl font-black text-white tracking-wide">{order.orderNumber}</p>
           <div className="flex items-center gap-2 mt-0.5 flex-wrap">
             {order.tableNumber && (
-              <span className="text-sm font-semibold text-gray-300">
+              <span className="text-sm font-semibold text-muted-foreground">
                 Mesa {order.tableNumber}
               </span>
             )}
             {order.waiterName && (
               <>
                 <span className="text-gray-600">·</span>
-                <span className="text-sm text-gray-400">{order.waiterName}</span>
+                <span className="text-sm text-muted-foreground">{order.waiterName}</span>
               </>
             )}
           </div>
@@ -202,7 +202,7 @@ function OrderCard({
       </div>
 
       {/* Items */}
-      <div className="space-y-1.5 border-t border-gray-700 pt-2">
+      <div className="space-y-1.5 border-t border-border pt-2">
         {order.items
           .filter((i) => i.status !== 'cancelled' && i.status !== 'delivered')
           .map((item) => (
@@ -253,7 +253,7 @@ function KDSColumn({
   loading: boolean;
 }) {
   return (
-    <div className="flex flex-col bg-gray-900/80 rounded-2xl overflow-hidden border border-gray-700">
+    <div className="flex flex-col bg-muted/80 rounded-2xl overflow-hidden border border-border">
       {/* Column Header */}
       <div className={`px-4 py-3 flex items-center justify-between ${headerColor}`}>
         <div className="flex items-center gap-2">
@@ -426,7 +426,7 @@ export function KDSScreen({ tenantId }: { tenantId: string }) {
       onClick={initAudio}
     >
       {/* ── Top Bar ── */}
-      <div className="flex items-center justify-between px-4 py-2 bg-gray-900 border-b border-gray-800 shrink-0">
+      <div className="flex items-center justify-between px-4 py-2 bg-muted border-b border-gray-800 shrink-0">
         <div className="flex items-center gap-2">
           <ChefHat className="w-6 h-6 text-orange-400" />
           <span className="font-black text-lg tracking-wide text-white">COCINA</span>
@@ -439,7 +439,7 @@ export function KDSScreen({ tenantId }: { tenantId: string }) {
           {/* Sound Toggle */}
           <button
             onClick={(e) => { e.stopPropagation(); setSoundEnabled((v) => !v); }}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gray-800 hover:bg-gray-700 text-sm font-medium transition"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-card hover:bg-muted text-sm font-medium transition"
             title={soundEnabled ? 'Silenciar alertas' : 'Activar alertas'}
           >
             {soundEnabled ? (
@@ -455,7 +455,7 @@ export function KDSScreen({ tenantId }: { tenantId: string }) {
           {/* Fullscreen Toggle */}
           <button
             onClick={(e) => { e.stopPropagation(); toggleFullscreen(); }}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gray-800 hover:bg-gray-700 text-sm font-medium transition text-gray-300"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-card hover:bg-muted text-sm font-medium transition text-muted-foreground"
             title={isFullscreen ? 'Salir de pantalla completa' : 'Pantalla completa'}
           >
             {isFullscreen ? (
@@ -471,7 +471,7 @@ export function KDSScreen({ tenantId }: { tenantId: string }) {
       </div>
 
       {/* ── Legend ── */}
-      <div className="flex items-center gap-4 px-4 py-1.5 bg-gray-900/50 border-b border-gray-800 shrink-0 text-xs text-gray-500">
+      <div className="flex items-center gap-4 px-4 py-1.5 bg-muted/50 border-b border-gray-800 shrink-0 text-xs text-gray-500">
         <div className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-green-500 inline-block" /> &lt;5 min</div>
         <div className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-yellow-500 inline-block" /> 5–10 min</div>
         <div className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-red-500 inline-block" /> &gt;10 min (urgente)</div>
@@ -505,7 +505,7 @@ export function KDSScreen({ tenantId }: { tenantId: string }) {
           title="LISTOS PARA ENTREGAR"
           orders={readyOrders}
           actionLabel="🎯 MARCAR ENTREGADO"
-          actionColor="bg-gray-600 hover:bg-gray-700"
+          actionColor="bg-gray-600 hover:bg-muted"
           headerColor="bg-green-900/60"
           icon={<CheckCircle2 className="w-5 h-5 text-green-400" />}
           onAction={(o) => updateOrderStatus(o, 'delivered')}

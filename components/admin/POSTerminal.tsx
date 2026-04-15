@@ -86,11 +86,11 @@ function IncomingOrderCard({ order }: { order: IncomingOrder }) {
   const isDelivery = order.delivery_type === 'delivery';
 
   return (
-    <div className={`border-2 rounded-lg p-3 flex flex-col gap-2 transition-all ${getUrgencyBorder(minutes)} bg-gray-800 text-xs`}>
+    <div className={`border-2 rounded-lg p-3 flex flex-col gap-2 transition-all ${getUrgencyBorder(minutes)} bg-card text-xs`}>
       <div className="flex items-start justify-between gap-2">
         <div className="flex-1 min-w-0">
           <p className="font-black text-white text-sm">{order.order_number}</p>
-          <p className="text-gray-300 text-xs truncate">{order.customer_name}</p>
+          <p className="text-muted-foreground text-xs truncate">{order.customer_name}</p>
         </div>
         <div className={`flex items-center gap-1 font-bold ${getTimerColor(minutes)}`}>
           <Clock className="w-3 h-3" />
@@ -98,7 +98,7 @@ function IncomingOrderCard({ order }: { order: IncomingOrder }) {
         </div>
       </div>
 
-      <div className="flex items-center gap-2 text-gray-300">
+      <div className="flex items-center gap-2 text-muted-foreground">
         {isDelivery ? (
           <>
             <Truck className="w-3 h-3 text-blue-400" />
@@ -113,10 +113,10 @@ function IncomingOrderCard({ order }: { order: IncomingOrder }) {
       </div>
 
       {isDelivery && order.delivery_address && (
-        <p className="text-gray-400 text-xs truncate">📍 {order.delivery_address}</p>
+        <p className="text-muted-foreground text-xs truncate">📍 {order.delivery_address}</p>
       )}
 
-      <div className="flex items-center justify-between text-gray-300">
+      <div className="flex items-center justify-between text-muted-foreground">
         <span className="text-xs">Total:</span>
         <span className="font-bold text-green-400">${order.total.toFixed(2)}</span>
       </div>
@@ -690,14 +690,14 @@ export function POSTerminal({ tenantId, country = 'CO' }: { tenantId: string; co
   const total = subtotal - discount;
 
   if (loading) {
-    return <div className="flex items-center justify-center h-screen bg-gray-900">Cargando TPV...</div>;
+    return <div className="flex items-center justify-center h-screen bg-muted">Cargando TPV...</div>;
   }
 
   return (
-    <div className={`${isFullscreen ? 'w-screen h-screen p-0 m-0 overflow-hidden flex flex-col' : 'h-full'} bg-gray-900 text-white flex`}>
+    <div className={`${isFullscreen ? 'w-screen h-screen p-0 m-0 overflow-hidden flex flex-col' : 'h-full'} bg-muted text-white flex`}>
       {/* Fullscreen Header - Logo and Controls */}
       {isFullscreen && (
-        <div className="bg-gray-900 border-b border-gray-700 px-4 py-2 flex items-center justify-between h-14">
+        <div className="bg-muted border-b border-border px-4 py-2 flex items-center justify-between h-14">
           <div className="flex items-center gap-3">
             {restaurantLogo && (
               <img src={restaurantLogo} alt={restaurantName} className="h-8 w-8 object-contain rounded" />
@@ -707,14 +707,14 @@ export function POSTerminal({ tenantId, country = 'CO' }: { tenantId: string; co
           <div className="flex items-center gap-2">
             <button
               onClick={() => setShowAdminMenu(true)}
-              className="bg-gray-700 hover:bg-gray-600 text-white rounded p-1.5 transition"
+              className="bg-gray-700 hover:bg-muted text-white rounded p-1.5 transition"
               title="Panel de administración"
             >
               <span className="text-base">⚙️</span>
             </button>
             <button
               onClick={toggleFullscreen}
-              className="bg-gray-700 hover:bg-gray-600 text-white rounded p-1.5 transition"
+              className="bg-gray-700 hover:bg-muted text-white rounded p-1.5 transition"
               title="Salir de pantalla completa (ESC)"
             >
               <Minimize2 className="w-4 h-4" />
@@ -725,17 +725,17 @@ export function POSTerminal({ tenantId, country = 'CO' }: { tenantId: string; co
 
       <div className={`flex-1 flex overflow-hidden ${isFullscreen ? 'gap-0' : 'gap-0'}`}>
         {/* Menu Section */}
-        <div className={`flex-1 flex flex-col bg-gray-800 overflow-hidden`}>
+        <div className={`flex-1 flex flex-col bg-card overflow-hidden`}>
           {/* Search and Controls - Sticky Header */}
-          <div className={`flex gap-2 items-center bg-gray-800 sticky top-0 z-10 border-b border-gray-700 ${isFullscreen ? 'px-4 py-3' : 'p-4 mb-2'}`}>
+          <div className={`flex gap-2 items-center bg-card sticky top-0 z-10 border-b border-border ${isFullscreen ? 'px-4 py-3' : 'p-4 mb-2'}`}>
             <div className="flex-1 relative">
-              <Search className="absolute left-3 top-3 w-5 h-5 text-gray-400" />
+              <Search className="absolute left-3 top-3 w-5 h-5 text-muted-foreground" />
               <input
                 type="text"
                 placeholder="Buscar producto..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 rounded-lg bg-gray-700 border border-gray-600 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none text-white"
+                className="w-full pl-10 pr-4 py-2 rounded-lg bg-gray-700 border border-border focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none text-white"
               />
             </div>
             {!isFullscreen && (
@@ -750,7 +750,7 @@ export function POSTerminal({ tenantId, country = 'CO' }: { tenantId: string; co
                 </button>
                 <button
                   onClick={toggleFullscreen}
-                  className="bg-gray-700 hover:bg-gray-600 text-white rounded-lg p-2 transition"
+                  className="bg-gray-700 hover:bg-muted text-white rounded-lg p-2 transition"
                   title="Pantalla completa"
                 >
                   <Maximize2 className="w-5 h-5" />
@@ -760,13 +760,13 @@ export function POSTerminal({ tenantId, country = 'CO' }: { tenantId: string; co
           </div>
 
           {/* Categories - Sticky */}
-          <div className={`flex gap-2 overflow-x-auto pb-2 sticky z-10 bg-gray-800 border-b border-gray-700 ${isFullscreen ? 'px-4 py-3' : 'px-4 py-2'}`}>
+          <div className={`flex gap-2 overflow-x-auto pb-2 sticky z-10 bg-card border-b border-border ${isFullscreen ? 'px-4 py-3' : 'px-4 py-2'}`}>
             <button
               onClick={() => setSelectedCategory(null)}
               className={`px-4 py-2 rounded-lg whitespace-nowrap transition text-sm font-medium ${
                 selectedCategory === null
                   ? 'bg-blue-600 text-white'
-                  : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                  : 'bg-gray-700 text-muted-foreground hover:bg-muted'
               }`}
             >
               Todos
@@ -778,7 +778,7 @@ export function POSTerminal({ tenantId, country = 'CO' }: { tenantId: string; co
                 className={`px-4 py-2 rounded-lg whitespace-nowrap transition text-sm font-medium ${
                   selectedCategory === cat.id
                     ? 'bg-blue-600 text-white'
-                    : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                    : 'bg-gray-700 text-muted-foreground hover:bg-muted'
                 }`}
               >
                 {cat.name}
@@ -811,15 +811,15 @@ export function POSTerminal({ tenantId, country = 'CO' }: { tenantId: string; co
         </div>
 
         {/* Cart/Payment Section */}
-        <div className={`${isFullscreen ? 'w-72' : 'w-72'} bg-gray-900 border-l border-gray-700 flex flex-col overflow-hidden`}>
+        <div className={`${isFullscreen ? 'w-72' : 'w-72'} bg-muted border-l border-border flex flex-col overflow-hidden`}>
           {/* Tabs: Cart vs Incoming Orders */}
-          <div className={`border-b border-gray-700 flex gap-0 ${isFullscreen ? 'px-0 py-0' : 'px-0 py-0'}`}>
+          <div className={`border-b border-border flex gap-0 ${isFullscreen ? 'px-0 py-0' : 'px-0 py-0'}`}>
             <button
               onClick={() => setShowIncomingPanel(false)}
               className={`flex-1 flex items-center justify-center gap-1 py-2 px-2 border-b-2 transition text-xs font-bold ${
                 !showIncomingPanel
-                  ? 'border-blue-600 bg-gray-800 text-white'
-                  : 'border-gray-700 bg-gray-900 text-gray-400 hover:text-gray-300'
+                  ? 'border-blue-600 bg-card text-white'
+                  : 'border-border bg-muted text-muted-foreground hover:text-muted-foreground'
               }`}
             >
               <ShoppingCart className="w-4 h-4" />
@@ -829,8 +829,8 @@ export function POSTerminal({ tenantId, country = 'CO' }: { tenantId: string; co
               onClick={() => setShowIncomingPanel(true)}
               className={`flex-1 flex items-center justify-center gap-1 py-2 px-2 border-b-2 transition text-xs font-bold ${
                 showIncomingPanel
-                  ? 'border-blue-600 bg-gray-800 text-white'
-                  : 'border-gray-700 bg-gray-900 text-gray-400 hover:text-gray-300'
+                  ? 'border-blue-600 bg-card text-white'
+                  : 'border-border bg-muted text-muted-foreground hover:text-muted-foreground'
               } ${incomingOrders.length > 0 ? 'relative' : ''}`}
             >
               <Truck className="w-4 h-4" />
@@ -845,14 +845,14 @@ export function POSTerminal({ tenantId, country = 'CO' }: { tenantId: string; co
           {!showIncomingPanel && (
             <>
               {/* Discount Code */}
-              <div className={`border-b border-gray-700 ${isFullscreen ? 'px-2 py-1' : 'px-2 py-1'} space-y-1 text-xs`}>
+              <div className={`border-b border-border ${isFullscreen ? 'px-2 py-1' : 'px-2 py-1'} space-y-1 text-xs`}>
             <div className="flex gap-1">
               <input
                 type="text"
                 placeholder="Código descuento"
                 value={discountCode}
                 onChange={(e) => setDiscountCode(e.target.value.toUpperCase())}
-                className="flex-1 px-2 py-1 rounded bg-gray-800 border border-gray-700 focus:border-blue-500 outline-none text-white text-xs"
+                className="flex-1 px-2 py-1 rounded bg-card border border-border focus:border-blue-500 outline-none text-white text-xs"
               />
               <button
                 onClick={applyDiscountCode}
@@ -867,10 +867,10 @@ export function POSTerminal({ tenantId, country = 'CO' }: { tenantId: string; co
           </div>
 
           {/* Totals */}
-          <div className={`border-b border-gray-700 ${isFullscreen ? 'px-2 py-1' : 'px-2 py-1'} space-y-1 bg-gray-800 text-sm`}>
+          <div className={`border-b border-border ${isFullscreen ? 'px-2 py-1' : 'px-2 py-1'} space-y-1 bg-card text-sm`}>
             <div className="space-y-1 text-xs">
               <div className="flex justify-between">
-                <span className="text-gray-400">Subtotal:</span>
+                <span className="text-muted-foreground">Subtotal:</span>
                 <span className="font-bold">{formatPriceWithCurrency(subtotal, currencyInfo.code, currencyInfo.locale)}</span>
               </div>
               {discount > 0 && (
@@ -880,28 +880,28 @@ export function POSTerminal({ tenantId, country = 'CO' }: { tenantId: string; co
                 </div>
               )}
             </div>
-            <div className="border-t border-gray-700 pt-2 flex justify-between text-base font-bold">
+            <div className="border-t border-border pt-2 flex justify-between text-base font-bold">
               <span>Total:</span>
               <span className="text-green-400">{formatPriceWithCurrency(total, currencyInfo.code, currencyInfo.locale)}</span>
             </div>
 
             {/* Print Receipt Toggle */}
-            <div className="pt-2 border-t border-gray-700 flex items-center gap-2">
+            <div className="pt-2 border-t border-border flex items-center gap-2">
               <input
                 type="checkbox"
                 id="printReceipt"
                 checked={enableReceiptPrint}
                 onChange={(e) => setEnableReceiptPrint(e.target.checked)}
-                className="w-3 h-3 rounded bg-gray-700 border-gray-600 cursor-pointer"
+                className="w-3 h-3 rounded bg-gray-700 border-border cursor-pointer"
               />
-              <label htmlFor="printReceipt" className="text-xs text-gray-300 cursor-pointer flex-1">
+              <label htmlFor="printReceipt" className="text-xs text-muted-foreground cursor-pointer flex-1">
                 Imprimir recibo
               </label>
             </div>
           </div>
 
           {/* Mode, Staff, Table Selectors */}
-          <div className={`border-b border-gray-700 ${isFullscreen ? 'px-2 py-1' : 'px-2 py-1'} space-y-1 text-xs`}>
+          <div className={`border-b border-border ${isFullscreen ? 'px-2 py-1' : 'px-2 py-1'} space-y-1 text-xs`}>
             <POSModeSelector
               mode={posMode}
               onModeChange={(newMode) => {
@@ -957,11 +957,11 @@ export function POSTerminal({ tenantId, country = 'CO' }: { tenantId: string; co
           {showIncomingPanel && (
             <div className="flex-1 flex flex-col overflow-hidden">
               {incomingOrders.length === 0 ? (
-                <div className="flex-1 flex items-center justify-center text-gray-400">
+                <div className="flex-1 flex items-center justify-center text-muted-foreground">
                   <div className="text-center">
                     <p className="text-3xl mb-2">📦</p>
                     <p className="text-sm">No hay pedidos pendientes</p>
-                    <p className="text-xs text-gray-500 mt-1">Los pedidos de delivery/pickup aparecerán aquí</p>
+                    <p className="text-xs text-muted-foreground mt-1">Los pedidos de delivery/pickup aparecerán aquí</p>
                   </div>
                 </div>
               ) : (

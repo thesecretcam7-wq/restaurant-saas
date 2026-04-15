@@ -17,7 +17,7 @@ export function POSModeSelector({ mode, onModeChange }: POSModeSelectorProps) {
         className={`flex-1 py-2 rounded-lg font-bold flex items-center justify-center gap-1 text-sm transition ${
           mode === 'simple'
             ? 'bg-green-600 text-white'
-            : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+            : 'bg-gray-700 text-muted-foreground hover:bg-gray-600'
         }`}
       >
         <ShoppingCart className="w-5 h-5" /> Para Llevar
@@ -27,7 +27,7 @@ export function POSModeSelector({ mode, onModeChange }: POSModeSelectorProps) {
         className={`flex-1 py-2 rounded-lg font-bold flex items-center justify-center gap-1 text-sm transition ${
           mode === 'table'
             ? 'bg-blue-600 text-white'
-            : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+            : 'bg-gray-700 text-muted-foreground hover:bg-gray-600'
         }`}
       >
         <Users className="w-5 h-5" /> Mesa

@@ -68,7 +68,7 @@ export function POSPayment({
           className={`py-2 rounded-lg font-bold flex items-center justify-center gap-1 text-sm transition ${
             paymentMethod === 'cash'
               ? 'bg-green-600 text-white'
-              : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+              : 'bg-gray-700 text-muted-foreground hover:bg-gray-600'
           } ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
         >
           <DollarSign className="w-5 h-5" />
@@ -80,7 +80,7 @@ export function POSPayment({
           className={`py-2 rounded-lg font-bold flex items-center justify-center gap-1 text-sm transition ${
             paymentMethod === 'stripe'
               ? 'bg-blue-600 text-white'
-              : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+              : 'bg-gray-700 text-muted-foreground hover:bg-gray-600'
           } ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
         >
           <CreditCard className="w-5 h-5" />
@@ -90,8 +90,8 @@ export function POSPayment({
 
       {/* Ingreso de Efectivo */}
       {paymentMethod === 'cash' && (
-        <div className="space-y-3 bg-gray-800 p-4 rounded-lg border border-gray-700">
-          <label className="text-xs font-medium text-gray-300">Cantidad Recibida</label>
+        <div className="space-y-3 bg-card p-4 rounded-lg border border-border">
+          <label className="text-xs font-medium text-muted-foreground">Cantidad Recibida</label>
           <input
             type="number"
             value={amountPaid}
@@ -121,7 +121,7 @@ export function POSPayment({
           {/* Cambio */}
           {paidAmount > 0 && (
             <div className={`p-3 rounded-lg ${change >= 0 ? 'bg-green-900' : 'bg-red-900'}`}>
-              <p className="text-xs text-gray-300 mb-1">Cambio</p>
+              <p className="text-xs text-muted-foreground mb-1">Cambio</p>
               <p className={`text-2xl font-bold ${change >= 0 ? 'text-green-400' : 'text-red-400'}`}>
                 {formatPriceWithCurrency(Math.abs(change), currencyInfo.code, currencyInfo.locale)}
               </p>
@@ -138,7 +138,7 @@ export function POSPayment({
         className={`w-full py-4 rounded-lg font-bold text-lg transition ${
           isValidPayment && !disabled && !loading
             ? 'bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white'
-            : 'bg-gray-600 text-gray-400 cursor-not-allowed'
+            : 'bg-gray-600 text-muted-foreground cursor-not-allowed'
         }`}
       >
         {loading ? 'Procesando...' : `PAGAR ${formatPriceWithCurrency(total, currencyInfo.code, currencyInfo.locale)}`}

@@ -46,12 +46,12 @@ export function POSCartDrawer({
 
       {/* Drawer Panel */}
       <div
-        className={`fixed top-0 right-0 h-full w-96 bg-gray-900 border-l border-gray-700 flex flex-col z-50 transition-transform duration-300 ease-out ${
+        className={`fixed top-0 right-0 h-full w-96 bg-muted border-l border-border flex flex-col z-50 transition-transform duration-300 ease-out ${
           isOpen ? 'translate-x-0' : 'translate-x-full'
         }`}
       >
         {/* Header */}
-        <div className="flex items-center justify-between border-b border-gray-700 px-4 py-3 flex-shrink-0">
+        <div className="flex items-center justify-between border-b border-border px-4 py-3 flex-shrink-0">
           <h2 className="text-lg font-bold text-white">Carrito</h2>
           <button
             onClick={onClose}
@@ -63,7 +63,7 @@ export function POSCartDrawer({
         </div>
 
         {/* Items List */}
-        <div className="flex-1 overflow-y-auto border-b border-gray-700">
+        <div className="flex-1 overflow-y-auto border-b border-border">
           {cartItems.length === 0 ? (
             <div className="text-center text-gray-500 text-sm p-4">
               Carrito vacío
@@ -73,7 +73,7 @@ export function POSCartDrawer({
               {cartItems.map((item) => (
                 <div
                   key={item.menu_item_id}
-                  className="bg-gray-800 rounded p-3 space-y-2 border border-gray-700"
+                  className="bg-card rounded p-3 space-y-2 border border-border"
                 >
                   {/* Item Header - Name and Price */}
                   <div className="flex justify-between items-start gap-2">
@@ -118,7 +118,7 @@ export function POSCartDrawer({
                   </div>
 
                   {/* Item Total */}
-                  <div className="flex justify-between items-center text-xs text-gray-300 border-t border-gray-600 pt-2">
+                  <div className="flex justify-between items-center text-xs text-muted-foreground border-t border-gray-600 pt-2">
                     <span>Subtotal:</span>
                     <span className="font-bold">
                       {formatPriceWithCurrency(item.price * item.quantity, currencyInfo.code, currencyInfo.locale)}
@@ -131,8 +131,8 @@ export function POSCartDrawer({
         </div>
 
         {/* Summary Footer */}
-        <div className="border-t border-gray-700 bg-gray-800 p-3 flex-shrink-0 space-y-2">
-          <div className="space-y-1 text-xs text-gray-300">
+        <div className="border-t border-border bg-card p-3 flex-shrink-0 space-y-2">
+          <div className="space-y-1 text-xs text-muted-foreground">
             <div className="flex justify-between">
               <span>Subtotal:</span>
               <span className="font-bold text-white">{formatPriceWithCurrency(subtotal, currencyInfo.code, currencyInfo.locale)}</span>
@@ -144,7 +144,7 @@ export function POSCartDrawer({
               </div>
             )}
           </div>
-          <div className="border-t border-gray-700 pt-2 flex justify-between text-base font-bold text-white">
+          <div className="border-t border-border pt-2 flex justify-between text-base font-bold text-white">
             <span>Total:</span>
             <span className="text-green-400">{formatPriceWithCurrency(total, currencyInfo.code, currencyInfo.locale)}</span>
           </div>
