@@ -36,7 +36,7 @@ export function getCartSessionId(): string {
 export async function saveCartToSupabase(
   tenantId: string,
   cartData: CartData,
-  supabase: ReturnType<typeof createClient>
+  supabase: any
 ): Promise<boolean> {
   try {
     if (!tenantId) return false;
@@ -105,7 +105,7 @@ export async function saveCartToSupabase(
 // Load cart from Supabase
 export async function loadCartFromSupabase(
   tenantId: string,
-  supabase: ReturnType<typeof createClient>
+  supabase: any
 ): Promise<CartData | null> {
   try {
     if (!tenantId) return null;
@@ -141,7 +141,7 @@ export async function loadCartFromSupabase(
 // Mark cart as abandoned (when payment is completed)
 export async function abandonCart(
   tenantId: string,
-  supabase: ReturnType<typeof createClient>
+  supabase: any
 ): Promise<boolean> {
   try {
     if (!tenantId) return false;
