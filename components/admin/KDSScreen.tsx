@@ -408,6 +408,9 @@ export function KDSScreen({ tenantId }: { tenantId: string }) {
           })
         )
       );
+      console.log('[KDS] Status updated successfully, refetching...');
+      // Refetch immediately after successful update
+      await fetchOrderItems();
     } catch (err) {
       console.error('KDS update error:', err);
     } finally {
