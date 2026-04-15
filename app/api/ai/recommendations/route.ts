@@ -10,7 +10,7 @@ export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const tenantId = searchParams.get('tenantId');
   const customerId = searchParams.get('customerId');
-  const type = searchParams.get('type') || 'popular'; // popular, personalized, trending
+  let type = searchParams.get('type') || 'popular'; // popular, personalized, trending
 
   if (!tenantId) {
     return NextResponse.json({ error: 'Missing tenantId' }, { status: 400 });
