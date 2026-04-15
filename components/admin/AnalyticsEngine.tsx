@@ -136,7 +136,7 @@ export function AnalyticsEngine({ tenantId }: { tenantId: string }) {
         totalOrders: orders.length,
         avgOrderValue,
         topProducts,
-        ordersPerHour: ordersPerHour.sort((a, b) => a.hour - b.hour),
+        ordersPerHour: ordersPerHour.sort((a: { hour: number; count: number }, b: { hour: number; count: number }) => a.hour - b.hour),
         paymentMethods,
         avgPrepTime,
         topCustomers: customers || [],
