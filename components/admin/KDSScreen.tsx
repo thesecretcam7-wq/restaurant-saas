@@ -305,6 +305,17 @@ export function KDSScreen({ tenantId }: { tenantId: string }) {
     return () => document.removeEventListener('fullscreenchange', onChange);
   }, []);
 
+  // ── Polling Fallback (si Realtime no funciona) ──
+  useEffect(() => {
+    // Re-fetch cada 10 segundos como fallback
+    const interval = setInterval(() => {
+      console.log('[KDS] Polling fallback - refetching data');
+      fetchOrderItems();
+    }, 10000);
+
+    return () => clearInterval(interval);
+  }, [fetchOrderItems]);
+
   async function toggleFullscreen() {
     try {
       if (!isFullscreen) await document.documentElement.requestFullscreen();
@@ -340,6 +351,7 @@ export function KDSScreen({ tenantId }: { tenantId: string }) {
         'postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'order_items', filter: `tenant_id=eq.${tenantId}` },
         async (payload) => {
+          console.log('[KDS] New order item:', payload.new);
           const newItem = payload.new as OrderItemWithOrder;
           const isNewOrder = !knownOrderIds.current.has(newItem.order_id);
           if (isNewOrder) {
@@ -353,25 +365,27 @@ export function KDSScreen({ tenantId }: { tenantId: string }) {
       .on(
         'postgres_changes',
         { event: 'UPDATE', schema: 'public', table: 'order_items', filter: `tenant_id=eq.${tenantId}` },
-        (payload) => {
-          const updated = payload.new as OrderItemWithOrder;
-          setItems((prev) =>
-            prev.map((item) =>
-              item.id === updated.id ? { ...item, ...updated } : item
-            )
-          );
+        async (payload) => {
+          console.log('[KDS] Order item updated:', payload.new);
+          // Re-fetch to get full data with order join (same as INSERT)
+          await fetchOrderItems();
         }
       )
       .on(
         'postgres_changes',
         { event: 'DELETE', schema: 'public', table: 'order_items', filter: `tenant_id=eq.${tenantId}` },
         (payload) => {
+          console.log('[KDS] Order item deleted:', payload.old);
           setItems((prev) => prev.filter((item) => item.id !== payload.old.id));
         }
       )
-      .subscribe();
+      .subscribe((status, err) => {
+        console.log('[KDS] Subscription status:', status);
+        if (err) console.error('[KDS] Subscription error:', err);
+      });
 
     return () => {
+      console.log('[KDS] Unsubscribing from realtime');
       subscription.unsubscribe();
     };
   }, [tenantId, fetchOrderItems, playNewOrder]);
