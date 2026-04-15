@@ -51,16 +51,7 @@ export default async function ReservasAdminPage({ params, searchParams }: Props)
 
       {/* Date navigation */}
       <div className="flex items-center gap-3 mb-6">
-        <input
-          type="date"
-          defaultValue={filterDate}
-          className="px-3 py-2 border rounded-lg text-sm"
-          onChange={e => {
-            const url = new URL(window.location.href)
-            url.searchParams.set('date', e.target.value)
-            window.location.href = url.toString()
-          }}
-        />
+        <p className="text-sm font-medium text-gray-700">Fecha: {filterDate}</p>
         <div className="flex gap-2">
           {Object.entries(STATUS_LABELS).map(([key, { label, color }]) => (
             <a key={key} href={`?date=${filterDate}&status=${key}`}

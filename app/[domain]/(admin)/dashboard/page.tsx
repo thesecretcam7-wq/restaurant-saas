@@ -90,6 +90,14 @@ export default function DashboardPage() {
       requiredPlan: 'free',
     },
     {
+      title: 'TPV/POS',
+      icon: '💳',
+      href: `/${domain}/admin/pos`,
+      description: 'Sistema de cobro y punto de venta',
+      feature: 'orders' as const,
+      requiredPlan: 'free',
+    },
+    {
       title: 'Analytics',
       icon: '📊',
       href: `/${domain}/admin/ventas`,

@@ -17,9 +17,7 @@ export default async function TenantLayout({
 
   if (!context.tenant) {
     return (
-      <html>
-        <body>
-          <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-slate-900 to-slate-800 px-4">
+      <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-slate-900 to-slate-800 px-4">
             <div className="max-w-md w-full bg-white rounded-lg shadow-2xl p-8">
               <div className="text-center mb-6">
                 <div className="text-5xl mb-4">🔍</div>
@@ -70,8 +68,6 @@ export default async function TenantLayout({
               </p>
             </div>
           </div>
-        </body>
-      </html>
     )
   }
 
@@ -87,25 +83,20 @@ export default async function TenantLayout({
     : {}
 
   return (
-    <html
-      lang="es"
-      style={cssVariables as React.CSSProperties}
-      className="scroll-smooth"
-    >
-      <head>
-        <title>{branding?.app_name || context.tenant.organization_name}</title>
-        <meta name="description" content={branding?.tagline || ''} />
-        {branding?.favicon_url && (
-          <link rel="icon" href={branding.favicon_url} />
-        )}
-        {branding?.font_url && (
-          <link href={branding.font_url} rel="stylesheet" />
-        )}
-      </head>
-      <body className="min-h-full flex flex-col bg-[var(--background-color)]">
+    <>
+      <style>{`
+        :root {
+          --primary-color: ${branding?.primary_color || '#000'};
+          --secondary-color: ${branding?.secondary_color || '#000'};
+          --accent-color: ${branding?.accent_color || '#000'};
+          --background-color: ${branding?.background_color || '#fff'};
+          --font-family: ${branding?.font_family || 'system-ui'};
+        }
+      `}</style>
+      <div className="min-h-full flex flex-col bg-[var(--background-color)]">
         {children}
         <Toaster position="bottom-right" />
-      </body>
-    </html>
+      </div>
+    </>
   )
 }

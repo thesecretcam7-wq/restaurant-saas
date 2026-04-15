@@ -1,8 +1,7 @@
 'use client'
 
 import { useParams } from 'next/navigation'
-import Link from 'next/link'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 
 interface Reservation {
   id: string
@@ -44,7 +43,7 @@ export default function ReservasPage() {
     if (domain) fetchReservations()
   }, [domain, selectedDate, filter])
 
-  const getStatusBadge = (status: string) => {
+  const getStatusBadge = useCallback((status: string) => {
     const config: Record<string, { bg: string; text: string; label: string }> = {
       pending: { bg: 'bg-yellow-100', text: 'text-yellow-800', label: 'Pendiente' },
       confirmed: { bg: 'bg-green-100', text: 'text-green-800', label: 'Confirmada' },
@@ -57,7 +56,23 @@ export default function ReservasPage() {
         {c.label}
       </span>
     )
-  }
+  }, [])
+
+  const handleConfirm = useCallback(async (reservationId: string) => {
+    await fetch(`/api/reservations/${reservationId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status: 'confirmed' }),
+    })
+    setReservations(r => r.map(res => res.id === reservationId ? { ...res, status: 'confirmed' } : res))
+  }, [])
+
+  const handleCancel = useCallback(async (reservationId: string) => {
+    if (confirm('¿Cancelar esta reserva?')) {
+      await fetch(`/api/reservations/${reservationId}`, { method: 'DELETE' })
+      setReservations(r => r.map(res => res.id === reservationId ? { ...res, status: 'cancelled' } : res))
+    }
+  }, [])
 
   return (
     <div className="space-y-6">
@@ -69,13 +84,7 @@ export default function ReservasPage() {
 
       {/* Date Selector */}
       <div className="flex gap-4 items-center">
-        <label className="text-sm font-semibold text-slate-900">Fecha:</label>
-        <input
-          type="date"
-          value={selectedDate}
-          onChange={e => setSelectedDate(e.target.value)}
-          className="px-4 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-        />
+        <label className="text-sm font-semibold text-slate-900">Fecha: {selectedDate}</label>
       </div>
 
       {/* Filters */}
@@ -149,14 +158,7 @@ export default function ReservasPage() {
                     <td className="px-6 py-4 text-sm space-x-2">
                       {reservation.status === 'pending' && (
                         <button
-                          onClick={async () => {
-                            await fetch(`/api/reservations/${reservation.id}`, {
-                              method: 'PATCH',
-                              headers: { 'Content-Type': 'application/json' },
-                              body: JSON.stringify({ status: 'confirmed' }),
-                            })
-                            setReservations(r => r.map(res => res.id === reservation.id ? { ...res, status: 'confirmed' } : res))
-                          }}
+                          onClick={() => handleConfirm(reservation.id)}
                           className="text-green-600 hover:text-green-700 font-medium"
                         >
                           Confirmar
@@ -164,12 +166,7 @@ export default function ReservasPage() {
                       )}
                       {reservation.status !== 'cancelled' && (
                         <button
-                          onClick={async () => {
-                            if (confirm('¿Cancelar esta reserva?')) {
-                              await fetch(`/api/reservations/${reservation.id}`, { method: 'DELETE' })
-                              setReservations(r => r.map(res => res.id === reservation.id ? { ...res, status: 'cancelled' } : res))
-                            }
-                          }}
+                          onClick={() => handleCancel(reservation.id)}
                           className="text-red-600 hover:text-red-700 font-medium"
                         >
                           Cancelar

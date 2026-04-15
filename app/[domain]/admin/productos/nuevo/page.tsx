@@ -9,10 +9,15 @@ interface NuevoProductoProps {
   params: Promise<{ domain: string }>
 }
 
-async function getTenantIdFromSlugClient(slug: string) {
+async function getTenantIdFromSlugClient(slugOrId: string) {
   const supabase = createClient()
-  const { data } = await supabase.from('tenants').select('id').eq('slug', slug).single()
-  return data?.id || null
+  // Primero intenta por slug
+  const { data: dataBySlug } = await supabase.from('tenants').select('id').eq('slug', slugOrId).single()
+  if (dataBySlug) return dataBySlug.id
+
+  // Si no encuentra por slug, intenta por ID (en caso de que sea un UUID)
+  const { data: dataById } = await supabase.from('tenants').select('id').eq('id', slugOrId).single()
+  return dataById?.id || null
 }
 
 export default function NuevoProductoPage({ params }: NuevoProductoProps) {
@@ -69,13 +74,21 @@ export default function NuevoProductoPage({ params }: NuevoProductoProps) {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!tenantId) return
+    if (!form.name.trim()) {
+      alert('El nombre del producto es obligatorio')
+      return
+    }
+    if (!form.price || parseFloat(form.price) <= 0) {
+      alert('El precio debe ser mayor a 0')
+      return
+    }
     setLoading(true)
 
     const supabase = createClient()
     const { error } = await supabase.from('menu_items').insert({
       tenant_id: tenantId,
-      name: form.name,
-      description: form.description || null,
+      name: form.name.trim(),
+      description: form.description.trim() || null,
       price: parseFloat(form.price),
       category_id: form.category_id || null,
       image_url: form.image_url || null,
@@ -84,7 +97,11 @@ export default function NuevoProductoPage({ params }: NuevoProductoProps) {
     })
 
     setLoading(false)
-    if (!error) router.push(`/${tenantId}/admin/productos`)
+    if (error) {
+      alert('Error al guardar el producto: ' + (error.message || 'Error desconocido'))
+      return
+    }
+    router.push(`/${tenantId}/admin/productos`)
   }
 
   return (

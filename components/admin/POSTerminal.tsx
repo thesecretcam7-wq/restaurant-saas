@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useRef, useCallback } from 'react';
+import { useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import { createClient } from '@supabase/supabase-js';
 import { ShoppingCart, Plus, Minus, Trash2, Search, DollarSign, CreditCard, Maximize2, Minimize2, Lock, Clock, Truck, Store } from 'lucide-react';
 import { POSModeSelector } from './POSModeSelector';
@@ -16,11 +16,6 @@ import { saveCartToSupabase, loadCartFromSupabase, abandonCart } from '@/lib/pos
 import { calculateCashClosingStats, saveCashClosing, CashClosingStats } from '@/lib/cash-closing';
 import { getCurrencyByCountry, formatPriceWithCurrency } from '@/lib/currency';
 import { printReceipt, savePrinterLog } from '@/lib/pos-printer';
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
 
 interface MenuItem {
   id: string;
@@ -135,6 +130,16 @@ function IncomingOrderCard({ order }: { order: IncomingOrder }) {
 
 export function POSTerminal({ tenantId, country = 'CO' }: { tenantId: string; country?: string }) {
   const currencyInfo = getCurrencyByCountry(country);
+
+  // Initialize Supabase client once inside component for proper type compatibility
+  const supabase = useMemo(
+    () =>
+      createClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+      ),
+    []
+  );
 
   const [menu, setMenu] = useState<MenuItem[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);

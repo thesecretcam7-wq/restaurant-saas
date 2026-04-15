@@ -1,21 +1,42 @@
 'use client'
 
-import { useState, use } from 'react'
+import { useState, useEffect, use } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import Link from 'next/link'
 
 interface Props { params: Promise<{ domain: string }> }
 
+async function getTenantIdFromSlugClient(slugOrId: string) {
+  const supabase = createClient()
+  // Primero intenta por slug
+  const { data: dataBySlug } = await supabase.from('tenants').select('id').eq('slug', slugOrId).single()
+  if (dataBySlug) return dataBySlug.id
+
+  // Si no encuentra por slug, intenta por ID (en caso de que sea un UUID)
+  const { data: dataById } = await supabase.from('tenants').select('id').eq('id', slugOrId).single()
+  return dataById?.id || null
+}
+
 export default function NuevaCategoriaPage({ params }: Props) {
-  const { domain: tenantId } = use(params)
+  const { domain: slug } = use(params)
+  const [tenantId, setTenantId] = useState<string | null>(null)
   const router = useRouter()
   const [form, setForm] = useState({ name: '', description: '', sort_order: '0' })
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
+  useEffect(() => {
+    const initializeTenantId = async () => {
+      const resolvedTenantId = await getTenantIdFromSlugClient(slug)
+      setTenantId(resolvedTenantId)
+    }
+    initializeTenantId()
+  }, [slug])
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (!tenantId) { setError('Restaurante no encontrado'); return }
     if (!form.name.trim()) { setError('El nombre es obligatorio'); return }
     setLoading(true)
     setError('')
@@ -28,7 +49,10 @@ export default function NuevaCategoriaPage({ params }: Props) {
       active: true,
     })
     setLoading(false)
-    if (err) { setError('Error al crear la categoría'); return }
+    if (err) {
+      setError(err.message || 'Error al crear la categoría')
+      return
+    }
     router.push(`/${tenantId}/admin/productos`)
   }
 

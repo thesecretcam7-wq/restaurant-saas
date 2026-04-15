@@ -53,7 +53,7 @@ self.addEventListener('fetch', (event) => {
         new Promise((_, reject) =>
           setTimeout(() => reject(new Error('API timeout')), 5000)
         ),
-      ]).catch(() => caches.match(request))
+      ]).catch(() => caches.match(request) || new Response('API unavailable', { status: 503 }))
     );
     return;
   }
