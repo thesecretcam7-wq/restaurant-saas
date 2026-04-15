@@ -52,7 +52,7 @@ export function PromotionsManager({ tenantId }: { tenantId: string }) {
       const [promoRes, codesRes] = await Promise.all([
         fetch(`/api/promotions?tenantId=${tenantId}`, { credentials: 'include' }),
         fetch(`/api/discount-codes?tenantId=${tenantId}`, { credentials: 'include' }).catch(
-          () => ({ ok: false })
+          () => new Response(JSON.stringify({}), { status: 400 })
         ),
       ]);
 
