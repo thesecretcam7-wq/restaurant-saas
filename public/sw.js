@@ -1,4 +1,4 @@
-const CACHE_NAME = 'restaurant-saas-v1';
+const CACHE_NAME = 'restaurant-saas-v2';
 const STATIC_ASSETS = ['/', '/menu', '/manifest.webmanifest'];
 
 // Install: Cache static assets
@@ -53,7 +53,12 @@ self.addEventListener('fetch', (event) => {
         new Promise((_, reject) =>
           setTimeout(() => reject(new Error('API timeout')), 5000)
         ),
-      ]).catch(() => caches.match(request) || new Response('API unavailable', { status: 503 }))
+      ]).catch(() =>
+        // caches.match returns a Promise, must await it before fallback
+        caches.match(request).then(
+          (cached) => cached || new Response('API unavailable', { status: 503 })
+        )
+      )
     );
     return;
   }
@@ -73,13 +78,15 @@ self.addEventListener('fetch', (event) => {
         });
         return response;
       })
-      .catch(() => {
-        // Return cached version if network fails
-        return caches.match(request) || new Response('Offline - Page not cached', {
-          status: 503,
-          statusText: 'Service Unavailable',
-        });
-      })
+      .catch(() =>
+        // caches.match returns a Promise, must await it before fallback
+        caches.match(request).then(
+          (cached) => cached || new Response('Offline - Page not cached', {
+            status: 503,
+            statusText: 'Service Unavailable',
+          })
+        )
+      )
   );
 });
 
