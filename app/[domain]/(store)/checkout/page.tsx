@@ -53,7 +53,7 @@ export default function CheckoutPage({ params }: Props) {
     setLoading(false)
   }
 
-  const inputCls = "w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:bg-white transition-all placeholder:text-gray-400"
+  const inputCls = "w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:bg-white transition-all placeholder:text-muted-foreground"
   const primary = 'var(--primary-color, #3B82F6)'
 
   return (
@@ -67,7 +67,7 @@ export default function CheckoutPage({ params }: Props) {
           </Link>
           <div>
             <h1 className="font-extrabold text-gray-900">Confirmar pedido</h1>
-            <p className="text-xs text-gray-400">{items.reduce((s, i) => s + i.qty, 0)} productos</p>
+            <p className="text-xs text-muted-foreground">{items.reduce((s, i) => s + i.qty, 0)} productos</p>
           </div>
         </div>
       </header>
@@ -103,7 +103,7 @@ export default function CheckoutPage({ params }: Props) {
                     style={form.delivery_type === opt.value ? { borderColor: primary, backgroundColor: `color-mix(in srgb, ${primary} 8%, white)` } : {}}>
                     <span className="block text-xl mb-1">{opt.icon}</span>
                     <span className="block text-sm font-bold text-gray-900">{opt.label}</span>
-                    <span className="block text-xs text-gray-400 mt-0.5">{opt.sub}</span>
+                    <span className="block text-xs text-muted-foreground mt-0.5">{opt.sub}</span>
                   </button>
                 ))}
               </div>
@@ -129,7 +129,7 @@ export default function CheckoutPage({ params }: Props) {
                   style={form.payment_method === opt.value ? { borderColor: primary, backgroundColor: `color-mix(in srgb, ${primary} 8%, white)` } : {}}>
                   <span className="block text-xl mb-1">{opt.icon}</span>
                   <span className="block text-sm font-bold text-gray-900">{opt.label}</span>
-                  <span className="block text-xs text-gray-400 mt-0.5">{opt.sub}</span>
+                  <span className="block text-xs text-muted-foreground mt-0.5">{opt.sub}</span>
                 </button>
               ))}
             </div>
@@ -166,7 +166,7 @@ export default function CheckoutPage({ params }: Props) {
             {loading ? 'Procesando...' : form.payment_method === 'stripe' ? '💳 Pagar con tarjeta' : '✅ Confirmar pedido'}
           </button>
 
-          <p className="text-center text-xs text-gray-400 pb-2">Tu información está protegida y segura</p>
+          <p className="text-center text-xs text-muted-foreground pb-2">Tu información está protegida y segura</p>
         </form>
       </main>
     </div>

@@ -77,20 +77,20 @@ export function ReceiptPreview({
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-gray-900 rounded-lg shadow-xl max-h-screen overflow-y-auto">
+      <div className="bg-muted rounded-lg shadow-xl max-h-screen overflow-y-auto">
         {/* Header */}
-        <div className="sticky top-0 bg-gray-800 border-b border-gray-700 p-4 flex justify-between items-center">
+        <div className="sticky top-0 bg-card border-b border-border p-4 flex justify-between items-center">
           <h2 className="text-xl font-bold text-white">Vista Previa de Recibo</h2>
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-white transition"
+            className="text-muted-foreground hover:text-white transition"
           >
             <X className="w-6 h-6" />
           </button>
         </div>
 
         {/* Receipt Preview */}
-        <div className="p-4 flex justify-center bg-gray-900">
+        <div className="p-4 flex justify-center bg-muted">
           <div className="bg-white rounded-lg shadow-lg overflow-hidden">
             <ReceiptTemplate
               restaurantName={restaurantName}
@@ -114,7 +114,7 @@ export function ReceiptPreview({
         </div>
 
         {/* Actions */}
-        <div className="sticky bottom-0 bg-gray-800 border-t border-gray-700 p-4 flex gap-3">
+        <div className="sticky bottom-0 bg-card border-t border-border p-4 flex gap-3">
           <button
             onClick={onClose}
             className="px-4 py-3 bg-gray-700 hover:bg-gray-600 text-white rounded-lg font-bold transition"
@@ -150,13 +150,13 @@ export function ReceiptPreview({
             position: static !important;
             background: white !important;
           }
-          .bg-gray-900, .bg-gray-800 {
+          .bg-muted, .bg-card {
             background: white !important;
           }
           .text-white {
             color: black !important;
           }
-          .border-gray-700 {
+          .border-border {
             border-color: black !important;
           }
           .shadow-lg, .shadow-xl {

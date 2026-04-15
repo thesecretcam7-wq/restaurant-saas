@@ -23,7 +23,7 @@ export default function CarritoPage({ params }: Props) {
         </div>
         <div className="text-center">
           <h2 className="text-xl font-extrabold text-gray-900 mb-1">Tu carrito está vacío</h2>
-          <p className="text-gray-400 text-sm">Agrega productos del menú para comenzar</p>
+          <p className="text-muted-foreground text-sm">Agrega productos del menú para comenzar</p>
         </div>
         <Link
           href={`/${tenantId}/menu`}
@@ -47,7 +47,7 @@ export default function CarritoPage({ params }: Props) {
           </Link>
           <div>
             <h1 className="font-extrabold text-gray-900">Tu pedido</h1>
-            <p className="text-xs text-gray-400">{items.reduce((s, i) => s + i.qty, 0)} productos</p>
+            <p className="text-xs text-muted-foreground">{items.reduce((s, i) => s + i.qty, 0)} productos</p>
           </div>
         </div>
       </header>
@@ -64,13 +64,13 @@ export default function CarritoPage({ params }: Props) {
               )}
               <div className="flex-1 min-w-0">
                 <p className="font-bold text-gray-900 text-sm line-clamp-1">{item.name}</p>
-                <p className="text-xs text-gray-400 mt-0.5">{formatPrice(item.price)} c/u</p>
+                <p className="text-xs text-muted-foreground mt-0.5">{formatPrice(item.price)} c/u</p>
                 <p className="font-extrabold text-sm mt-1 text-gray-900">{formatPrice(item.price * item.qty)}</p>
               </div>
               <div className="flex flex-col items-end gap-2">
                 <button
                   onClick={() => removeItem(item.item_id)}
-                  className="text-gray-300 hover:text-red-400 transition-colors"
+                  className="text-muted-foreground hover:text-red-400 transition-colors"
                 >
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                     <polyline points="3 6 5 6 21 6"/>
@@ -106,7 +106,7 @@ export default function CarritoPage({ params }: Props) {
           </div>
           <div className="flex justify-between text-sm text-gray-500">
             <span>Envío</span>
-            <span className="font-semibold text-gray-400">Se calcula al confirmar</span>
+            <span className="font-semibold text-muted-foreground">Se calcula al confirmar</span>
           </div>
           <div className="border-t border-gray-100 pt-2 flex justify-between">
             <span className="font-extrabold text-gray-900">Total estimado</span>

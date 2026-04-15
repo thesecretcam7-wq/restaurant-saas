@@ -153,7 +153,7 @@ export function InvoicesManager({ tenantId }: { tenantId: string }) {
 
         {invoices.length === 0 ? (
           <div className="bg-white rounded-lg shadow p-8 text-center">
-            <FileText className="w-16 h-16 text-gray-400 mx-auto mb-4 opacity-50" />
+            <FileText className="w-16 h-16 text-muted-foreground mx-auto mb-4 opacity-50" />
             <p className="text-gray-600 font-semibold">No hay facturas</p>
           </div>
         ) : (
@@ -207,7 +207,7 @@ export function InvoicesManager({ tenantId }: { tenantId: string }) {
                         Marcar Pagada
                       </button>
                     )}
-                    <button className="bg-gray-600 hover:bg-gray-700 text-white px-3 py-2 rounded text-sm font-semibold flex items-center gap-1 transition">
+                    <button className="bg-gray-600 hover:bg-muted text-white px-3 py-2 rounded text-sm font-semibold flex items-center gap-1 transition">
                       <Download className="w-4 h-4" /> Descargar
                     </button>
                   </div>

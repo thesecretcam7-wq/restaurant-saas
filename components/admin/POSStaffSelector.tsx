@@ -45,8 +45,8 @@ export function POSStaffSelector({
 
   if (loading) {
     return (
-      <div className="bg-gray-800 rounded-lg p-2 border border-gray-700">
-        <label className="flex items-center gap-1 text-xs font-medium text-gray-300 mb-1">
+      <div className="bg-card rounded-lg p-2 border border-border">
+        <label className="flex items-center gap-1 text-xs font-medium text-muted-foreground mb-1">
           <Users className="w-3 h-3" />
           {required ? 'Camarero *' : 'Camarero'}
         </label>
@@ -56,8 +56,8 @@ export function POSStaffSelector({
   }
 
   return (
-    <div className="bg-gray-800 rounded-lg p-2 border border-gray-700">
-      <label className="flex items-center gap-1 text-xs font-medium text-gray-300 mb-1">
+    <div className="bg-card rounded-lg p-2 border border-border">
+      <label className="flex items-center gap-1 text-xs font-medium text-muted-foreground mb-1">
         <Users className="w-4 h-4" />
         {required ? 'Camarero *' : 'Camarero'}
       </label>

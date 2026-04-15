@@ -64,7 +64,7 @@ export default function MisPedidosPage({ params }: Props) {
             </div>
             <div>
               <p className="font-extrabold text-gray-900 text-sm">Buscar mis pedidos</p>
-              <p className="text-xs text-gray-400">Ingresa el teléfono con el que pediste</p>
+              <p className="text-xs text-muted-foreground">Ingresa el teléfono con el que pediste</p>
             </div>
           </div>
           <form onSubmit={handleSearch} className="flex gap-2">
@@ -93,7 +93,7 @@ export default function MisPedidosPage({ params }: Props) {
             <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-10 text-center">
               <div className="text-5xl mb-3">📦</div>
               <p className="font-bold text-gray-900 mb-1">Sin pedidos encontrados</p>
-              <p className="text-sm text-gray-400">Verifica que el número sea el mismo que usaste</p>
+              <p className="text-sm text-muted-foreground">Verifica que el número sea el mismo que usaste</p>
             </div>
           ) : (
             <div className="space-y-3">
@@ -108,7 +108,7 @@ export default function MisPedidosPage({ params }: Props) {
                     <div className="flex items-center justify-between p-4 pb-3">
                       <div>
                         <p className="font-extrabold text-gray-900 font-mono text-sm">{order.order_number}</p>
-                        <p className="text-xs text-gray-400 mt-0.5">
+                        <p className="text-xs text-muted-foreground mt-0.5">
                           {new Date(order.created_at).toLocaleString('es-CO', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
                         </p>
                       </div>
@@ -128,7 +128,7 @@ export default function MisPedidosPage({ params }: Props) {
                                   className="w-2 h-2 rounded-full transition-all"
                                   style={{ backgroundColor: i <= currentStep ? 'var(--primary-color, #3B82F6)' : '#E2E8F0' }}
                                 />
-                                <span className="text-[8px] text-gray-400 font-medium whitespace-nowrap">{STEP_LABELS[i]}</span>
+                                <span className="text-[8px] text-muted-foreground font-medium whitespace-nowrap">{STEP_LABELS[i]}</span>
                               </div>
                               {i < STEPS.length - 1 && (
                                 <div className="flex-1 h-0.5 mb-3 mx-0.5 transition-all" style={{ backgroundColor: i < currentStep ? 'var(--primary-color, #3B82F6)' : '#E2E8F0' }} />

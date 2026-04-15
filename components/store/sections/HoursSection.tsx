@@ -47,7 +47,7 @@ export default function HoursSection({ settings, primary, title, borderRadius, c
                   {DAY_LABELS[day]}
                   {isToday && <span className="ml-1.5 text-xs font-medium" style={{ color: primary }}>Hoy</span>}
                 </span>
-                <span className={`text-sm font-medium ${dayHours ? 'text-gray-800' : 'text-gray-400'}`}>
+                <span className={`text-sm font-medium ${dayHours ? 'text-gray-800' : 'text-muted-foreground'}`}>
                   {dayHours ? `${dayHours.open} – ${dayHours.close}` : 'Cerrado'}
                 </span>
               </div>

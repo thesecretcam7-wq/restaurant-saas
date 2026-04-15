@@ -107,7 +107,7 @@ export default async function MenuPage({ params }: MenuProps) {
                   )}
                   <div className="p-3 flex flex-col flex-1">
                     <p className="font-bold text-gray-900 text-sm line-clamp-1">{item.name}</p>
-                    {item.description && <p className="text-xs text-gray-400 mt-0.5 line-clamp-2 flex-1">{item.description}</p>}
+                    {item.description && <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2 flex-1">{item.description}</p>}
                     <div className="flex items-center justify-between mt-2 gap-2">
                       <p className="font-extrabold text-sm" style={{ color: primary }}>{formatPriceWithCurrency(item.price, currencyInfo.code, currencyInfo.locale)}</p>
                       <AddToCartButton item={item} tenantId={tenantId} color={primary} small />
@@ -127,7 +127,7 @@ export default async function MenuPage({ params }: MenuProps) {
             <section key={cat.id} id={`cat-${cat.id}`} className="scroll-mt-28">
               <h2 className="text-base font-extrabold text-gray-900 mb-3 flex items-center justify-between">
                 {cat.name}
-                <span className="text-xs font-semibold text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full">{catItems.length}</span>
+                <span className="text-xs font-semibold text-muted-foreground bg-gray-100 px-2 py-0.5 rounded-full">{catItems.length}</span>
               </h2>
               {layout === 'grid' ? (
                 <div className="grid grid-cols-2 gap-3">
@@ -172,7 +172,7 @@ export default async function MenuPage({ params }: MenuProps) {
           <div className="flex flex-col items-center justify-center py-20 text-center">
             <div className="text-5xl mb-3">🍽️</div>
             <p className="text-gray-500 font-medium">El menú aún no está disponible</p>
-            <p className="text-gray-400 text-sm mt-1">Vuelve pronto</p>
+            <p className="text-muted-foreground text-sm mt-1">Vuelve pronto</p>
           </div>
         )}
       </main>
@@ -197,7 +197,7 @@ function MenuListItem({ item, tenantId, primary, br, cardCls, currencyInfo }: { 
       )}
       <div className="flex-1 min-w-0 py-0.5">
         <p className="font-bold text-gray-900 text-sm line-clamp-1">{item.name}</p>
-        {item.description && <p className="text-xs text-gray-400 mt-0.5 line-clamp-2">{item.description}</p>}
+        {item.description && <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{item.description}</p>}
         <p className="font-extrabold text-sm mt-1.5" style={{ color: primary }}>{formatPriceWithCurrency(item.price, currencyInfo.code, currencyInfo.locale)}</p>
       </div>
       <div className="flex-shrink-0">
@@ -218,7 +218,7 @@ function MenuGridItem({ item, tenantId, primary, br, cardCls, currencyInfo }: { 
       )}
       <div className="p-2.5 flex flex-col flex-1">
         <p className="font-bold text-gray-900 text-xs line-clamp-1">{item.name}</p>
-        {item.description && <p className="text-[10px] text-gray-400 mt-0.5 line-clamp-2 flex-1">{item.description}</p>}
+        {item.description && <p className="text-[10px] text-muted-foreground mt-0.5 line-clamp-2 flex-1">{item.description}</p>}
         <div className="flex items-center justify-between mt-2 gap-1">
           <p className="font-extrabold text-sm" style={{ color: primary }}>{formatPriceWithCurrency(item.price, currencyInfo.code, currencyInfo.locale)}</p>
           <AddToCartButton item={item} tenantId={tenantId} color={primary} small />
@@ -234,7 +234,7 @@ function MenuCompactItem({ item, tenantId, primary, currencyInfo }: { item: any;
     <div className="flex items-center justify-between gap-3 px-4 py-3">
       <div className="flex-1 min-w-0">
         <p className="font-semibold text-gray-900 text-sm">{item.name}</p>
-        {item.description && <p className="text-xs text-gray-400 mt-0.5 line-clamp-1">{item.description}</p>}
+        {item.description && <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1">{item.description}</p>}
       </div>
       <p className="font-extrabold text-sm flex-shrink-0" style={{ color: primary }}>{formatPriceWithCurrency(item.price, currencyInfo.code, currencyInfo.locale)}</p>
       <div className="flex-shrink-0">

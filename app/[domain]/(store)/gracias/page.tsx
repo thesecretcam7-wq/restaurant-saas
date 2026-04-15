@@ -40,7 +40,7 @@ export default async function GraciasPage({ params, searchParams }: Props) {
       <h1 className="text-2xl font-extrabold text-gray-900 mb-1 text-center">
         {order?.customer_name ? `¡Gracias, ${order.customer_name.split(' ')[0]}!` : '¡Pedido recibido!'}
       </h1>
-      <p className="text-gray-400 text-sm text-center mb-6 max-w-xs">
+      <p className="text-muted-foreground text-sm text-center mb-6 max-w-xs">
         Tu pedido está confirmado y pronto lo estaremos preparando con todo el amor 🍽️
       </p>
 
@@ -49,19 +49,19 @@ export default async function GraciasPage({ params, searchParams }: Props) {
           <h3 className="font-extrabold text-gray-900 text-sm">Detalles del pedido</h3>
           <div className="space-y-2">
             <div className="flex justify-between items-center">
-              <span className="text-sm text-gray-400">Número</span>
+              <span className="text-sm text-muted-foreground">Número</span>
               <span className="font-bold text-gray-900 font-mono text-sm">{order.order_number}</span>
             </div>
             <div className="flex justify-between items-center">
-              <span className="text-sm text-gray-400">Total</span>
+              <span className="text-sm text-muted-foreground">Total</span>
               <span className="font-extrabold text-lg" style={{ color: primary }}>${Number(order.total).toLocaleString('es-CO')}</span>
             </div>
             <div className="flex justify-between items-center">
-              <span className="text-sm text-gray-400">Pago</span>
+              <span className="text-sm text-muted-foreground">Pago</span>
               <span className="font-semibold text-sm text-gray-800">{order.payment_method === 'cash' ? '💵 Efectivo' : '💳 Tarjeta'}</span>
             </div>
             <div className="flex justify-between items-center">
-              <span className="text-sm text-gray-400">Estado</span>
+              <span className="text-sm text-muted-foreground">Estado</span>
               <span className="px-2.5 py-1 rounded-full text-xs font-bold" style={{ backgroundColor: `${primary}15`, color: primary }}>
                 En preparación
               </span>

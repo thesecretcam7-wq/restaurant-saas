@@ -58,7 +58,7 @@ export default function UpgradeGate({ tenantId, feature, requiredPlan, currentPl
           >
             Ver planes y actualizar
           </Link>
-          <p className="text-xs text-gray-400 mt-3">
+          <p className="text-xs text-muted-foreground mt-3">
             Plan actual: {PLANS[currentPlan].label}
           </p>
         </div>

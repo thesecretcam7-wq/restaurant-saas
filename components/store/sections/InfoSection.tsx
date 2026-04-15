@@ -22,7 +22,7 @@ export default function InfoSection({ settings, primary, borderRadius, cardClass
             <div className="flex items-center gap-3 px-4 py-3">
               <span className="text-lg">📍</span>
               <div>
-                <p className="text-xs text-gray-400 font-medium">Dirección</p>
+                <p className="text-xs text-muted-foreground font-medium">Dirección</p>
                 <p className="text-sm text-gray-800 font-medium">{settings.address}{settings.city ? `, ${settings.city}` : ''}</p>
               </div>
             </div>
@@ -31,7 +31,7 @@ export default function InfoSection({ settings, primary, borderRadius, cardClass
             <a href={`tel:${settings.phone}`} className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50 transition-colors">
               <span className="text-lg">📞</span>
               <div>
-                <p className="text-xs text-gray-400 font-medium">Teléfono</p>
+                <p className="text-xs text-muted-foreground font-medium">Teléfono</p>
                 <p className="text-sm font-medium" style={{ color: primary }}>{settings.phone}</p>
               </div>
             </a>
@@ -40,7 +40,7 @@ export default function InfoSection({ settings, primary, borderRadius, cardClass
             <a href={`mailto:${settings.email}`} className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50 transition-colors">
               <span className="text-lg">✉️</span>
               <div>
-                <p className="text-xs text-gray-400 font-medium">Email</p>
+                <p className="text-xs text-muted-foreground font-medium">Email</p>
                 <p className="text-sm font-medium" style={{ color: primary }}>{settings.email}</p>
               </div>
             </a>
@@ -49,7 +49,7 @@ export default function InfoSection({ settings, primary, borderRadius, cardClass
             <div className="flex items-center gap-3 px-4 py-3">
               <span className="text-lg">🚗</span>
               <div>
-                <p className="text-xs text-gray-400 font-medium">Delivery</p>
+                <p className="text-xs text-muted-foreground font-medium">Delivery</p>
                 <p className="text-sm text-gray-800 font-medium">
                   {settings.delivery_time_minutes} min · {settings.delivery_fee > 0 ? `${formatPrice(settings.delivery_fee)} envío` : 'Envío gratis'}
                   {settings.delivery_min_order > 0 ? ` · Mínimo ${formatPrice(settings.delivery_min_order)}` : ''}

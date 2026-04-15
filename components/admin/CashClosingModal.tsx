@@ -71,7 +71,7 @@ export function CashClosingModal({
           <button
             onClick={onClose}
             disabled={isSubmitting}
-            className="text-gray-400 hover:text-gray-600 disabled:opacity-50"
+            className="text-muted-foreground hover:text-gray-600 disabled:opacity-50"
           >
             <X className="w-6 h-6" />
           </button>

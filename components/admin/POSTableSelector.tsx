@@ -54,8 +54,8 @@ export function POSTableSelector({
 
   if (loading) {
     return (
-      <div className="bg-gray-800 rounded-lg p-2 border border-gray-700">
-        <label className="flex items-center gap-1 text-xs font-medium text-gray-300 mb-1">
+      <div className="bg-card rounded-lg p-2 border border-border">
+        <label className="flex items-center gap-1 text-xs font-medium text-muted-foreground mb-1">
           <Grid3x3 className="w-3 h-3" />
           {required ? 'Mesa *' : 'Mesa'}
         </label>
@@ -65,8 +65,8 @@ export function POSTableSelector({
   }
 
   return (
-    <div className="bg-gray-800 rounded-lg p-2 border border-gray-700">
-      <label className="flex items-center gap-1 text-xs font-medium text-gray-300 mb-1">
+    <div className="bg-card rounded-lg p-2 border border-border">
+      <label className="flex items-center gap-1 text-xs font-medium text-muted-foreground mb-1">
         <Grid3x3 className="w-3 h-3" />
         {required ? 'Mesa *' : 'Mesa'}
       </label>
@@ -82,7 +82,7 @@ export function POSTableSelector({
               className={`p-1 rounded font-bold text-xs transition ${
                 selectedTableId === table.id
                   ? 'bg-green-600 text-white border-2 border-green-400'
-                  : 'bg-gray-700 text-gray-300 hover:bg-gray-600 border-2 border-transparent'
+                  : 'bg-gray-700 text-muted-foreground hover:bg-gray-600 border-2 border-transparent'
               }`}
             >
               <div>Mesa {table.table_number}</div>

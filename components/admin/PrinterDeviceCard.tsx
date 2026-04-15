@@ -30,7 +30,7 @@ export function PrinterDeviceCard({
     : 'Nunca';
 
   return (
-    <div className="bg-gray-800 border border-gray-700 rounded-lg p-4 space-y-3">
+    <div className="bg-card border border-border rounded-lg p-4 space-y-3">
       {/* Header - Name and Status */}
       <div className="flex items-start justify-between gap-3">
         <div className="flex-1">
@@ -43,7 +43,7 @@ export function PrinterDeviceCard({
               </span>
             )}
           </div>
-          <p className="text-xs text-gray-400 mt-1">
+          <p className="text-xs text-muted-foreground mt-1">
             {device.device_type === 'receipt' && 'Impresora de Recibos'}
             {device.device_type === 'kitchen' && 'Impresora de Cocina'}
             {device.device_type === 'scale' && 'Báscula'}
@@ -60,7 +60,7 @@ export function PrinterDeviceCard({
       </div>
 
       {/* Device Info */}
-      <div className="text-xs text-gray-400 space-y-1 bg-gray-900 p-2 rounded">
+      <div className="text-xs text-muted-foreground space-y-1 bg-muted p-2 rounded">
         {device.vendor_id && (
           <p>Vendor ID: {device.vendor_id}</p>
         )}
@@ -73,7 +73,7 @@ export function PrinterDeviceCard({
       </div>
 
       {/* Configuration Preview */}
-      <div className="text-xs text-gray-300 bg-gray-900 p-2 rounded space-y-1">
+      <div className="text-xs text-muted-foreground bg-muted p-2 rounded space-y-1">
         <p>Ancho de papel: {device.config.paper_width}mm</p>
         <p>Copias: {device.config.copies}</p>
         <p>Auto-imprimir: {device.config.auto_print ? 'Habilitado' : 'Deshabilitado'}</p>
