@@ -601,12 +601,15 @@ export function POSTerminal({ tenantId, country = 'CO' }: { tenantId: string; co
       await abandonCart(tenantId, supabase);
 
       // Attempt to print receipt if printer is configured
+      let settings: any = null;
       try {
-        const { data: settings } = await supabase
+        const result = await supabase
           .from('restaurant_settings')
           .select('default_receipt_printer_id, printer_auto_print')
           .eq('tenant_id', tenantId)
           .single();
+
+        settings = result.data;
 
         if (settings?.printer_auto_print && settings?.default_receipt_printer_id) {
           // Get the order data for receipt
