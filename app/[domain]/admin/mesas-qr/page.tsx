@@ -150,7 +150,7 @@ export default function QRCodesPage() {
                 <Download className="w-4 h-4" /> Descargar
               </button>
               <button
-                onClick={() => generateQRForTable(qr.tables?.table_number)}
+                onClick={() => generateQRForTable(String(qr.tables?.table_number || ''))}
                 className="w-full bg-gray-200 hover:bg-gray-300 text-gray-700 py-2 rounded text-sm font-semibold flex items-center justify-center gap-1 transition"
               >
                 <RefreshCw className="w-4 h-4" /> Regenerar
