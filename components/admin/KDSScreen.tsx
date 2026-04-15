@@ -305,17 +305,6 @@ export function KDSScreen({ tenantId }: { tenantId: string }) {
     return () => document.removeEventListener('fullscreenchange', onChange);
   }, []);
 
-  // ── Polling Fallback (si Realtime no funciona) ──
-  useEffect(() => {
-    // Re-fetch cada 10 segundos como fallback
-    const interval = setInterval(() => {
-      console.log('[KDS] Polling fallback - refetching data');
-      fetchOrderItems();
-    }, 10000);
-
-    return () => clearInterval(interval);
-  }, [fetchOrderItems]);
-
   async function toggleFullscreen() {
     try {
       if (!isFullscreen) await document.documentElement.requestFullscreen();
@@ -389,6 +378,15 @@ export function KDSScreen({ tenantId }: { tenantId: string }) {
       subscription.unsubscribe();
     };
   }, [tenantId, fetchOrderItems, playNewOrder]);
+
+  // ── Polling Fallback (si Realtime no funciona) ──
+  useEffect(() => {
+    const interval = setInterval(() => {
+      console.log('[KDS] Polling fallback - refetching data');
+      fetchOrderItems();
+    }, 10000);
+    return () => clearInterval(interval);
+  }, [fetchOrderItems]);
 
   // ── Update all items in an order ──
   async function updateOrderStatus(order: KDSOrder, targetStatus: string) {
