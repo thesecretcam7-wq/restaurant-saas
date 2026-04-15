@@ -3,6 +3,39 @@
 import { useState, useCallback, useEffect } from 'react';
 import type { WebUSBDevice, PrinterRequestOptions } from '@/types/printer';
 
+// WebUSB API type declarations
+declare global {
+  interface USBDevice {
+    opened: boolean;
+    vendorId: number;
+    productId: number;
+    serialNumber?: string;
+    manufacturer?: string;
+    product?: string;
+    productName?: string;
+    configuration?: any;
+    open(): Promise<void>;
+    close(): Promise<void>;
+    selectConfiguration(configurationValue: number): Promise<void>;
+    claimInterface(interfaceNumber: number): Promise<void>;
+    releaseInterface(interfaceNumber: number): Promise<void>;
+    transferOut(endpointNumber: number, data: BufferSource | Uint8Array): Promise<any>;
+    transferIn(endpointNumber: number, length: number): Promise<any>;
+    reset(): Promise<void>;
+  }
+
+  interface USB {
+    requestDevice(options?: any): Promise<USBDevice | null>;
+    getDevices(): Promise<USBDevice[]>;
+    addEventListener(type: string, listener: EventListener): void;
+    removeEventListener(type: string, listener: EventListener): void;
+  }
+
+  interface Navigator {
+    usb?: USB;
+  }
+}
+
 // Common thermal printer vendor/product IDs
 const KNOWN_PRINTERS = [
   { vendor: 0x04b8, name: 'Epson' },        // Epson
@@ -37,6 +70,7 @@ export function useWebUSB(): UseWebUSBReturn {
 
     const loadDevices = async () => {
       try {
+        if (!navigator.usb) return;
         const authorizedDevices = await navigator.usb.getDevices();
         setDevices(authorizedDevices);
       } catch (err) {
@@ -58,9 +92,16 @@ export function useWebUSB(): UseWebUSBReturn {
 
       try {
         setError(null);
+        if (!navigator.usb) {
+          setError('WebUSB no disponible');
+          return null;
+        }
+
         const filters = options?.filters || KNOWN_PRINTERS.map((p) => ({ vendorId: p.vendor }));
 
         const device = await navigator.usb.requestDevice({ filters });
+
+        if (!device) return null;
 
         // Add to devices list
         setDevices((prev) => {
@@ -122,14 +163,14 @@ export function useWebUSB(): UseWebUSBReturn {
 
       // Find the first OUT endpoint (typically endpoint 1)
       const outEndpoint = device.configuration?.interfaces[0]?.alternates[0]?.endpoints.find(
-        (e) => e.direction === 'out'
+        (e: any) => e.direction === 'out'
       );
 
       if (!outEndpoint) {
         throw new Error('No OUT endpoint found on device');
       }
 
-      await device.transferOut(outEndpoint.endpointNumber, data);
+      await device.transferOut(outEndpoint.endpointNumber, data as BufferSource);
     } catch (err) {
       const errorMsg = `Error enviando datos: ${(err as any).message}`;
       setError(errorMsg);
@@ -139,7 +180,7 @@ export function useWebUSB(): UseWebUSBReturn {
 
   // Get already authorized devices
   const getAuthorizedDevices = useCallback(async (): Promise<USBDevice[]> => {
-    if (!isSupported) return [];
+    if (!isSupported || !navigator.usb) return [];
 
     try {
       const authorizedDevices = await navigator.usb.getDevices();

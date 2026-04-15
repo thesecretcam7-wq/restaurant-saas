@@ -7,6 +7,39 @@ import { createClient } from '@supabase/supabase-js';
 import { generateReceiptESCPOS, generateTestReceiptESCPOS } from './thermal-receipt';
 import type { ReceiptData, PrinterDevice } from '@/types/printer';
 
+// WebUSB API type declarations
+declare global {
+  interface USBDevice {
+    opened: boolean;
+    vendorId: number;
+    productId: number;
+    serialNumber?: string;
+    manufacturer?: string;
+    product?: string;
+    productName?: string;
+    configuration?: any;
+    open(): Promise<void>;
+    close(): Promise<void>;
+    selectConfiguration(configurationValue: number): Promise<void>;
+    claimInterface(interfaceNumber: number): Promise<void>;
+    releaseInterface(interfaceNumber: number): Promise<void>;
+    transferOut(endpointNumber: number, data: BufferSource | Uint8Array): Promise<any>;
+    transferIn(endpointNumber: number, length: number): Promise<any>;
+    reset(): Promise<void>;
+  }
+
+  interface USB {
+    requestDevice(options?: any): Promise<USBDevice | null>;
+    getDevices(): Promise<USBDevice[]>;
+    addEventListener(type: string, listener: EventListener): void;
+    removeEventListener(type: string, listener: EventListener): void;
+  }
+
+  interface Navigator {
+    usb?: USB;
+  }
+}
+
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
@@ -82,11 +115,14 @@ export async function printReceipt(
 async function printViaWebUSB(printer: PrinterDevice, data: Uint8Array): Promise<void> {
   try {
     // Get authorized devices
+    if (!navigator.usb) {
+      throw new Error('WebUSB no está disponible en este navegador');
+    }
     const devices = await navigator.usb.getDevices();
 
     // Find matching device by vendor/product IDs
     const device = devices.find(
-      (d) => d.vendorId === printer.vendor_id && d.productId === printer.product_id
+      (d: USBDevice) => d.vendorId === printer.vendor_id && d.productId === printer.product_id
     );
 
     if (!device) {
@@ -112,14 +148,14 @@ async function printViaWebUSB(printer: PrinterDevice, data: Uint8Array): Promise
     }
 
     const alternate = interfaceData.alternates[0];
-    const outEndpoint = alternate?.endpoints.find((e) => e.direction === 'out');
+    const outEndpoint = alternate?.endpoints.find((e: any) => e.direction === 'out');
 
     if (!outEndpoint) {
       throw new Error('No OUT endpoint found on printer device');
     }
 
     // Send data to printer
-    await device.transferOut(outEndpoint.endpointNumber, data);
+    await device.transferOut(outEndpoint.endpointNumber, data as BufferSource);
   } catch (error) {
     throw new Error(`WebUSB print failed: ${error instanceof Error ? error.message : String(error)}`);
   }
