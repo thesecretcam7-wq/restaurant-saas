@@ -136,6 +136,11 @@ function useSound() {
 
   const unlockSound = useCallback(() => {
     initAudio();
+    const ctx = audioCtxRef.current;
+    // Resume audio context if suspended (iOS requirement)
+    if (ctx && ctx.state === 'suspended') {
+      ctx.resume().catch(err => console.error('Resume audio context failed:', err));
+    }
     setSoundPermissionGranted(true);
     setSoundEnabled(true);
   }, [initAudio]);
@@ -146,17 +151,27 @@ function useSound() {
     const ctx = audioCtxRef.current;
     if (!ctx) return;
 
+    // Ensure audio context is running
+    if (ctx.state === 'suspended') {
+      ctx.resume().catch(err => console.error('Resume audio context failed:', err));
+    }
+
     const beep = (start: number, freq: number, dur: number) => {
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-      osc.frequency.value = freq;
-      osc.type = 'sine';
-      gain.gain.setValueAtTime(1.0, start); // 100% volume
-      gain.gain.exponentialRampToValueAtTime(0.001, start + dur);
-      osc.start(start);
-      osc.stop(start + dur);
+      try {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.frequency.value = freq;
+        osc.type = 'sine';
+        // Set to maximum volume
+        gain.gain.setValueAtTime(1.0, start);
+        gain.gain.exponentialRampToValueAtTime(0.01, start + dur);
+        osc.start(start);
+        osc.stop(start + dur);
+      } catch (err) {
+        console.error('Beep error:', err);
+      }
     };
 
     let time = ctx.currentTime;
@@ -360,6 +375,15 @@ export function KDSScreen({ tenantId }: { tenantId: string }) {
         const sentinel = await (navigator as any).wakeLock.request('screen');
         wakeLockRef.current = sentinel;
         setWakeLockActive(true);
+        console.log('Wake Lock activated successfully');
+
+        // Handle release event (battery saver, user action, etc)
+        const handleRelease = () => {
+          console.log('Wake Lock released by system');
+          wakeLockRef.current = null;
+          setWakeLockActive(false);
+        };
+        sentinel.addEventListener('release', handleRelease);
 
         // Release wake lock on visibility change
         const handleVisibilityChange = async () => {
@@ -368,21 +392,33 @@ export function KDSScreen({ tenantId }: { tenantId: string }) {
               await wakeLockRef.current.release();
               wakeLockRef.current = null;
               setWakeLockActive(false);
+              console.log('Wake Lock released on tab hide');
             } catch (_) {}
           } else if (!document.hidden && !wakeLockRef.current) {
             try {
               const newSentinel = await (navigator as any).wakeLock.request('screen');
               wakeLockRef.current = newSentinel;
               setWakeLockActive(true);
-            } catch (_) {}
+              console.log('Wake Lock re-activated on tab show');
+              newSentinel.addEventListener('release', handleRelease);
+            } catch (err) {
+              console.error('Re-activate wake lock failed:', err);
+            }
           }
         };
 
         document.addEventListener('visibilitychange', handleVisibilityChange);
-        return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+        return () => {
+          document.removeEventListener('visibilitychange', handleVisibilityChange);
+          sentinel.removeEventListener('release', handleRelease);
+        };
+      } else {
+        console.warn('Wake Lock API not supported');
+        setWakeLockActive(false);
       }
     } catch (err) {
       console.error('Wake Lock error:', err);
+      setWakeLockActive(false);
     }
   }
 
@@ -593,6 +629,10 @@ export function KDSScreen({ tenantId }: { tenantId: string }) {
             onClick={(e) => {
               e.stopPropagation();
               unlockSound();
+              // Test sound immediately
+              setTimeout(() => {
+                playNewOrder();
+              }, 300);
             }}
             className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg font-medium text-sm transition"
           >
