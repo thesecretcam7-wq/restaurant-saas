@@ -26,16 +26,48 @@ CREATE TABLE tenants (
 -- 2. TENANT BRANDING TABLE
 CREATE TABLE tenant_branding (
   tenant_id UUID PRIMARY KEY REFERENCES tenants(id) ON DELETE CASCADE,
+  -- Colors
   primary_color VARCHAR(7) DEFAULT '#3B82F6',
   secondary_color VARCHAR(7) DEFAULT '#1F2937',
   accent_color VARCHAR(7) DEFAULT '#F59E0B',
   background_color VARCHAR(7) DEFAULT '#FFFFFF',
+  button_primary_color VARCHAR(7) DEFAULT '#3B82F6',
+  button_secondary_color VARCHAR(7) DEFAULT '#E5E7EB',
+  text_primary_color VARCHAR(7) DEFAULT '#1F2937',
+  text_secondary_color VARCHAR(7) DEFAULT '#6B7280',
+  border_color VARCHAR(7) DEFAULT '#E5E7EB',
+  -- Typography
   font_family TEXT DEFAULT 'Inter',
+  heading_font TEXT DEFAULT 'Inter',
   font_url TEXT,
+  heading_font_url TEXT,
+  heading_font_size INT DEFAULT 28,
+  body_font_size INT DEFAULT 16,
+  -- Styling
+  border_radius INT DEFAULT 8,
+  button_border_radius INT DEFAULT 6,
+  shadow_intensity TEXT DEFAULT 'medium',
+  button_style TEXT DEFAULT 'solid',
+  -- Brand Content
   app_name TEXT,
   tagline TEXT,
-  custom_texts JSONB DEFAULT '{}',
+  hero_image_url TEXT,
+  description TEXT,
   favicon_url TEXT,
+  -- Social & Contact
+  instagram_url TEXT,
+  facebook_url TEXT,
+  whatsapp_number TEXT,
+  contact_email TEXT,
+  contact_phone TEXT,
+  -- Features Messaging
+  booking_description TEXT,
+  delivery_description TEXT,
+  featured_text TEXT,
+  -- Additional
+  custom_texts JSONB DEFAULT '{}',
+  custom_css TEXT,
+  page_config JSONB DEFAULT '{}',
   created_at TIMESTAMPTZ DEFAULT now(),
   updated_at TIMESTAMPTZ DEFAULT now()
 );
@@ -218,11 +250,21 @@ CREATE POLICY "Tenant owner can read branding" ON tenant_branding
     tenant_id IN (SELECT id FROM tenants WHERE owner_id = auth.uid())
   );
 
+CREATE POLICY "Tenant owner can insert branding" ON tenant_branding
+  FOR INSERT WITH CHECK (
+    tenant_id IN (SELECT id FROM tenants WHERE owner_id = auth.uid())
+  );
+
 CREATE POLICY "Tenant owner can update branding" ON tenant_branding
   FOR UPDATE USING (
     tenant_id IN (SELECT id FROM tenants WHERE owner_id = auth.uid())
   )
   WITH CHECK (
+    tenant_id IN (SELECT id FROM tenants WHERE owner_id = auth.uid())
+  );
+
+CREATE POLICY "Tenant owner can delete branding" ON tenant_branding
+  FOR DELETE USING (
     tenant_id IN (SELECT id FROM tenants WHERE owner_id = auth.uid())
   );
 
@@ -232,11 +274,21 @@ CREATE POLICY "Tenant owner can read settings" ON restaurant_settings
     tenant_id IN (SELECT id FROM tenants WHERE owner_id = auth.uid())
   );
 
+CREATE POLICY "Tenant owner can insert settings" ON restaurant_settings
+  FOR INSERT WITH CHECK (
+    tenant_id IN (SELECT id FROM tenants WHERE owner_id = auth.uid())
+  );
+
 CREATE POLICY "Tenant owner can update settings" ON restaurant_settings
   FOR UPDATE USING (
     tenant_id IN (SELECT id FROM tenants WHERE owner_id = auth.uid())
   )
   WITH CHECK (
+    tenant_id IN (SELECT id FROM tenants WHERE owner_id = auth.uid())
+  );
+
+CREATE POLICY "Tenant owner can delete settings" ON restaurant_settings
+  FOR DELETE USING (
     tenant_id IN (SELECT id FROM tenants WHERE owner_id = auth.uid())
   );
 

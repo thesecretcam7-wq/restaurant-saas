@@ -3,7 +3,7 @@
 import { useParams, usePathname } from 'next/navigation'
 
 const CONFIG_SECTIONS = [
-  { href: 'branding', label: '🎨 Personalización' },
+  { href: 'personalizacion', label: '🎨 Personalización' },
   { href: 'restaurante', label: '🏪 Restaurante' },
   { href: 'delivery', label: '🚗 Delivery y Pagos' },
   { href: 'reservas', label: '📅 Reservas' },

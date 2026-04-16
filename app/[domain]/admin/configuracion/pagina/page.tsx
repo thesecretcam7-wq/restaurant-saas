@@ -297,6 +297,33 @@ export default function PageBuilderPage() {
             </div>
           </Card>
 
+          {/* Hero Image Upload - Only show for fullImage style */}
+          {config.hero.style === 'fullImage' && (
+            <Card title="Imagen del Hero">
+              <div className="space-y-3">
+                {config.hero.image_url && (
+                  <div className="relative">
+                    <img src={config.hero.image_url} alt="Hero" className="w-full h-48 rounded-xl object-cover" />
+                  </div>
+                )}
+                <label className="block">
+                  <input type="file" accept="image/*" className="hidden" onChange={async e => {
+                    const file = e.target.files?.[0]
+                    if (!file) return
+                    setUploadingImage('hero')
+                    const url = await uploadImage(file, 'hero')
+                    if (url) updateHero('image_url', url)
+                    setUploadingImage(null)
+                  }} />
+                  <span className="inline-block px-4 py-2.5 border rounded-xl text-sm cursor-pointer hover:bg-gray-50 font-medium text-gray-600 bg-white transition-colors">
+                    {uploadingImage === 'hero' ? 'Subiendo imagen...' : 'Subir imagen'}
+                  </span>
+                </label>
+                <p className="text-xs text-gray-400">Recomendado: 1920x600px, máx 5MB</p>
+              </div>
+            </Card>
+          )}
+
           {/* Hero Options */}
           <Card title="Opciones">
             <div className="space-y-3">
