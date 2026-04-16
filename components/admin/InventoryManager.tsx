@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { createClient } from '@supabase/supabase-js';
 import { AlertTriangle, Plus, Minus, TrendingDown, AlertCircle } from 'lucide-react';
+import { NumericKeyboard } from './NumericKeyboard';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -35,6 +36,7 @@ export function InventoryManager({ tenantId }: { tenantId: string }) {
   const [selectedItem, setSelectedItem] = useState<string | null>(null);
   const [movementType, setMovementType] = useState<'purchase' | 'sale' | 'adjustment'>('purchase');
   const [quantity, setQuantity] = useState(0);
+  const [showNumericKeyboard, setShowNumericKeyboard] = useState(false);
 
   useEffect(() => {
     fetchInventory();
@@ -241,7 +243,7 @@ export function InventoryManager({ tenantId }: { tenantId: string }) {
 
         {/* Stock Movement Modal */}
         {selectedItem && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-40">
             <div className="bg-white rounded-lg p-8 max-w-md w-full mx-4">
               <h2 className="text-2xl font-bold text-gray-900 mb-6">Registrar Movimiento de Stock</h2>
               <div className="space-y-4">
@@ -261,20 +263,20 @@ export function InventoryManager({ tenantId }: { tenantId: string }) {
                 </div>
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-2">
-                    Cantidad
+                    Cantidad Recibida
                   </label>
-                  <input
-                    type="number"
-                    value={quantity}
-                    onChange={(e) => setQuantity(parseInt(e.target.value) || 0)}
-                    placeholder="Cantidad"
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
-                  />
+                  <button
+                    onClick={() => setShowNumericKeyboard(true)}
+                    className="w-full px-4 py-3 border-2 border-blue-500 rounded-lg text-2xl font-bold text-blue-600 hover:bg-blue-50 transition"
+                  >
+                    {quantity > 0 ? quantity : 'Ingresa cantidad'}
+                  </button>
                 </div>
                 <div className="flex gap-3 pt-4">
                   <button
                     onClick={recordStockMovement}
-                    className="flex-1 bg-green-600 hover:bg-green-700 text-white font-semibold py-2 rounded-lg transition"
+                    className="flex-1 bg-green-600 hover:bg-green-700 text-white font-semibold py-2 rounded-lg transition disabled:opacity-50 disabled:cursor-not-allowed"
+                    disabled={quantity === 0}
                   >
                     Registrar
                   </button>
@@ -282,6 +284,7 @@ export function InventoryManager({ tenantId }: { tenantId: string }) {
                     onClick={() => {
                       setSelectedItem(null);
                       setQuantity(0);
+                      setShowNumericKeyboard(false);
                     }}
                     className="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-900 font-semibold py-2 rounded-lg transition"
                   >
@@ -292,6 +295,19 @@ export function InventoryManager({ tenantId }: { tenantId: string }) {
             </div>
           </div>
         )}
+
+        {/* Numeric Keyboard Modal */}
+        <NumericKeyboard
+          isOpen={showNumericKeyboard}
+          title="Ingresa Cantidad Recibida"
+          initialValue={quantity}
+          onConfirm={(value) => {
+            setQuantity(value);
+            setShowNumericKeyboard(false);
+          }}
+          onCancel={() => setShowNumericKeyboard(false)}
+          allowDecimal={false}
+        />
 
         {/* Inventory Table */}
         <div className="bg-white rounded-lg shadow overflow-hidden">
