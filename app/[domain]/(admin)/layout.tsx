@@ -79,10 +79,10 @@ export default function AdminLayout({
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-slate-50">
-        <div className="text-center">
-          <div className="w-8 h-8 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-slate-600">Verificando suscripción...</p>
+      <div className="flex items-center justify-center min-h-screen bg-gradient-to-b from-gray-50 to-white">
+        <div className="text-center space-y-4">
+          <div className="w-12 h-12 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin mx-auto"></div>
+          <p className="text-gray-700 font-medium">Verificando suscripción...</p>
         </div>
       </div>
     )
@@ -90,12 +90,12 @@ export default function AdminLayout({
 
   if (error) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-slate-50">
-        <div className="text-center">
-          <p className="text-red-600 mb-4">Error: {error}</p>
+      <div className="flex items-center justify-center min-h-screen bg-gradient-to-b from-gray-50 to-white">
+        <div className="text-center space-y-4 bg-white p-8 rounded-xl shadow-sm border border-gray-100">
+          <p className="text-red-600 font-semibold mb-4">Error: {error}</p>
           <button
             onClick={() => router.push(`/${domain}/(admin)/subscription-blocked`)}
-            className="bg-blue-600 text-white px-4 py-2 rounded"
+            className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2.5 rounded-lg font-semibold transition-colors"
           >
             Volver
           </button>
@@ -108,15 +108,14 @@ export default function AdminLayout({
   return (
     <>
       {subscriptionStatus?.isTrialActive && (
-        <div className="bg-amber-50 border-b border-amber-200 px-4 py-3">
+        <div className="bg-gradient-to-r from-orange-50 to-amber-50 border-b border-orange-200 px-4 py-4 shadow-sm">
           <div className="max-w-7xl mx-auto flex items-center justify-between">
-            <p className="text-sm text-amber-800">
-              <span className="font-semibold">Período de Prueba:</span> {subscriptionStatus.trialDaysLeft}{' '}
-              días restantes. Contrata un plan pronto para continuar accediendo.
+            <p className="text-sm text-orange-900 font-semibold">
+              ⏰ Período de Prueba: <span className="font-black text-orange-700">{subscriptionStatus.trialDaysLeft} días</span> restantes. Contrata un plan para continuar.
             </p>
             <button
               onClick={() => router.push(`/${domain}/admin/configuracion/planes`)}
-              className="text-sm bg-amber-600 hover:bg-amber-700 text-white px-4 py-2 rounded transition-colors"
+              className="text-sm bg-orange-600 hover:bg-orange-700 text-white px-5 py-2 rounded-lg font-semibold transition-colors shadow-sm"
             >
               Ver Planes
             </button>
