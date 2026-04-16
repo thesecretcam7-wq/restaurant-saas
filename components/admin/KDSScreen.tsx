@@ -315,12 +315,14 @@ function OrderCard({
   actionLabel,
   actionColor,
   loading,
+  onPlayTestSound,
 }: {
   order: KDSOrder;
   onAction: (order: KDSOrder) => void;
   actionLabel: string;
   actionColor: string;
   loading: boolean;
+  onPlayTestSound?: () => void;
 }) {
   const minutes = useElapsedMinutes(order.createdAt);
 
@@ -346,10 +348,24 @@ function OrderCard({
             )}
           </div>
         </div>
-        {/* Timer */}
-        <div className={`flex items-center gap-1 font-bold text-lg ${getTimerColor(minutes)}`}>
-          <Clock className="w-4 h-4" />
-          <span>{minutes}m</span>
+        {/* Timer and Test Sound Button */}
+        <div className="flex items-center gap-2">
+          <div className={`flex items-center gap-1 font-bold text-lg ${getTimerColor(minutes)}`}>
+            <Clock className="w-4 h-4" />
+            <span>{minutes}m</span>
+          </div>
+          {onPlayTestSound && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onPlayTestSound();
+              }}
+              className="px-2 py-1 bg-purple-600/60 hover:bg-purple-600 rounded-md text-xs font-semibold text-white transition active:scale-95"
+              title="Probar sonido"
+            >
+              🔊 Test
+            </button>
+          )}
         </div>
       </div>
 
@@ -394,6 +410,7 @@ function KDSColumn({
   icon,
   onAction,
   loading,
+  onPlayTestSound,
 }: {
   title: string;
   orders: KDSOrder[];
@@ -403,6 +420,7 @@ function KDSColumn({
   icon: React.ReactNode;
   onAction: (order: KDSOrder) => void;
   loading: boolean;
+  onPlayTestSound?: () => void;
 }) {
   return (
     <div className="flex flex-col bg-muted/80 rounded-2xl overflow-hidden border border-border">
@@ -433,6 +451,7 @@ function KDSColumn({
               actionLabel={actionLabel}
               actionColor={actionColor}
               loading={loading}
+              onPlayTestSound={onPlayTestSound}
             />
           ))
         )}
@@ -788,6 +807,7 @@ export function KDSScreen({ tenantId }: { tenantId: string }) {
           icon={<span className="text-lg">🔴</span>}
           onAction={(o) => updateOrderStatus(o, 'preparing')}
           loading={actionLoading}
+          onPlayTestSound={playNewOrder}
         />
 
         <KDSColumn
@@ -799,6 +819,7 @@ export function KDSScreen({ tenantId }: { tenantId: string }) {
           icon={<span className="text-lg">🔵</span>}
           onAction={(o) => updateOrderStatus(o, 'ready')}
           loading={actionLoading}
+          onPlayTestSound={playNewOrder}
         />
 
         <KDSColumn
@@ -810,6 +831,7 @@ export function KDSScreen({ tenantId }: { tenantId: string }) {
           icon={<CheckCircle2 className="w-5 h-5 text-green-400" />}
           onAction={(o) => updateOrderStatus(o, 'delivered')}
           loading={actionLoading}
+          onPlayTestSound={playNewOrder}
         />
       </div>
     </div>
