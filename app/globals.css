@@ -49,35 +49,66 @@
 }
 
 :root {
+  /* Eccofood Brand Colors - Professional & Modern */
+  /* Primary: Professional Blue (#0066FF) */
+  --primary: #0066FF;
+  --primary-dark: #0052CC;
+  --primary-light: #E6F0FF;
+  --primary-50: #F0F7FF;
+  --primary-100: #E6F0FF;
+  --primary-200: #CCE1FF;
+  --primary-600: #0052CC;
+
+  /* Secondary: Success Green (#10B981) */
+  --secondary: #10B981;
+  --secondary-dark: #059669;
+  --secondary-light: #D1FAE5;
+  --secondary-50: #F0FDF4;
+  --secondary-100: #DCFCE7;
+  --secondary-200: #BBF7D0;
+
+  /* Accent: Warm Orange (#F97316) */
+  --accent: #F97316;
+  --accent-dark: #D97706;
+  --accent-light: #FED7AA;
+  --accent-50: #FEF3C7;
+  --accent-100: #FED7AA;
+
+  /* Semantic Colors */
+  --success: #06B6D4;
+  --danger: #DC2626;
+  --warning: #FBBF24;
+
   /* Light Mode - Clean & Professional */
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.167 0.005 264.359);
-  --card: oklch(0.98 0.001 0);
-  --card-foreground: oklch(0.167 0.005 264.359);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.167 0.005 264.359);
-  --primary: oklch(0.583 0.163 257.538);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.593 0.158 142.495);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.945 0.004 0);
-  --muted-foreground: oklch(0.5 0.006 0);
-  --accent: oklch(0.623 0.214 30.092);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.925 0.001 0);
-  --input: oklch(0.97 0.001 0);
-  --ring: oklch(0.583 0.163 257.538);
-  --chart-1: oklch(0.583 0.163 257.538);
-  --chart-2: oklch(0.593 0.158 142.495);
-  --chart-3: oklch(0.623 0.214 30.092);
-  --chart-4: oklch(0.577 0.245 27.325);
-  --chart-5: oklch(0.52 0.138 281.288);
+  --background: #FFFFFF;
+  --foreground: #1F2937;
+  --card: #FAFBFC;
+  --card-foreground: #1F2937;
+  --popover: #FFFFFF;
+  --popover-foreground: #1F2937;
+  --primary-foreground: #FFFFFF;
+  --secondary-foreground: #FFFFFF;
+  --muted: #F3F4F6;
+  --muted-foreground: #6B7280;
+  --accent-foreground: #FFFFFF;
+  --destructive: #DC2626;
+  --border: #E5E7EB;
+  --input: #F9FAFB;
+  --ring: #0066FF;
+
+  /* Chart Colors */
+  --chart-1: #0066FF;
+  --chart-2: #10B981;
+  --chart-3: #F97316;
+  --chart-4: #DC2626;
+  --chart-5: #06B6D4;
+
+  /* Spacing & Radius */
   --radius: 0.5rem;
-  --sidebar: oklch(0.965 0.001 0);
-  --sidebar-foreground: oklch(0.167 0.005 264.359);
-  --sidebar-primary: oklch(0.583 0.163 257.538);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
+  --sidebar: #F9FAFB;
+  --sidebar-foreground: #1F2937;
+  --sidebar-primary: #0066FF;
+  --sidebar-primary-foreground: #FFFFFF;
   --sidebar-accent: oklch(0.623 0.214 30.092);
   --sidebar-accent-foreground: oklch(0.985 0 0);
   --sidebar-border: oklch(0.925 0.001 0);
