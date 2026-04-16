@@ -81,22 +81,28 @@ export default function BrandingPage({ params }: BrandingProps) {
   const handleSave = async () => {
     setSaving(true)
     const supabase = createClient()
-    const [r1, r2] = await Promise.all([
-      supabase.from('tenant_branding').update({
-        app_name: form.app_name,
-        tagline: form.tagline,
-        primary_color: form.primary_color,
-        secondary_color: form.secondary_color,
-        accent_color: form.accent_color,
-        background_color: form.background_color,
-        font_family: form.font_family,
-        font_url: `https://fonts.googleapis.com/css2?family=${form.font_family.replace(' ', '+')}:wght@400;600;700&display=swap`,
-      }).eq('tenant_id', tenantId),
-      supabase.from('tenants').update({ logo_url: form.logo_url || null }).eq('id', tenantId),
-    ])
-    setSaving(false)
-    if (!r1.error && !r2.error) toast.success('Cambios guardados')
-    else toast.error('Error al guardar')
+    try {
+      const [r1, r2] = await Promise.all([
+        supabase.from('tenant_branding').upsert({
+          tenant_id: tenantId,
+          app_name: form.app_name,
+          tagline: form.tagline,
+          primary_color: form.primary_color,
+          secondary_color: form.secondary_color,
+          accent_color: form.accent_color,
+          background_color: form.background_color,
+          font_family: form.font_family,
+          font_url: `https://fonts.googleapis.com/css2?family=${form.font_family.replace(' ', '+')}:wght@400;600;700&display=swap`,
+        }, { onConflict: 'tenant_id' }),
+        supabase.from('tenants').update({ logo_url: form.logo_url || null }).eq('id', tenantId),
+      ])
+      setSaving(false)
+      if (!r1.error && !r2.error) toast.success('Cambios guardados')
+      else toast.error('Error al guardar: ' + (r1.error?.message || r2.error?.message))
+    } catch (err) {
+      setSaving(false)
+      toast.error('Error al guardar')
+    }
   }
 
   if (loading) return <div className="flex items-center justify-center h-64 text-gray-400">Cargando...</div>
