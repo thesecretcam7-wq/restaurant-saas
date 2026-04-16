@@ -76,28 +76,34 @@ export default function RestauranteConfigPage({ params }: Props) {
   const handleSave = async () => {
     setSaving(true)
     const supabase = createClient()
-    const { error } = await supabase.from('restaurant_settings').update({
-      display_name: form.display_name,
-      description: form.description || null,
-      address: form.address || null,
-      phone: form.phone || null,
-      email: form.email || null,
-      city: form.city || null,
-      country: form.country,
-      timezone: form.timezone,
-      delivery_enabled: form.delivery_enabled,
-      delivery_fee: parseFloat(form.delivery_fee),
-      delivery_min_order: parseFloat(form.delivery_min_order),
-      delivery_time_minutes: parseInt(form.delivery_time_minutes),
-      reservations_enabled: form.reservations_enabled,
-      total_tables: parseInt(form.total_tables),
-      seats_per_table: parseInt(form.seats_per_table),
-      cash_payment_enabled: form.cash_payment_enabled,
-      tax_rate: parseFloat(form.tax_rate),
-    }).eq('tenant_id', tenantId)
-    setSaving(false)
-    if (!error) toast.success('Configuración guardada')
-    else toast.error('Error al guardar')
+    try {
+      const { error } = await supabase.from('restaurant_settings').upsert({
+        tenant_id: tenantId,
+        display_name: form.display_name,
+        description: form.description || null,
+        address: form.address || null,
+        phone: form.phone || null,
+        email: form.email || null,
+        city: form.city || null,
+        country: form.country,
+        timezone: form.timezone,
+        delivery_enabled: form.delivery_enabled,
+        delivery_fee: parseFloat(form.delivery_fee),
+        delivery_min_order: parseFloat(form.delivery_min_order),
+        delivery_time_minutes: parseInt(form.delivery_time_minutes),
+        reservations_enabled: form.reservations_enabled,
+        total_tables: parseInt(form.total_tables),
+        seats_per_table: parseInt(form.seats_per_table),
+        cash_payment_enabled: form.cash_payment_enabled,
+        tax_rate: parseFloat(form.tax_rate),
+      }, { onConflict: 'tenant_id' })
+      setSaving(false)
+      if (!error) toast.success('Configuración guardada')
+      else toast.error('Error al guardar: ' + error.message)
+    } catch (err) {
+      setSaving(false)
+      toast.error('Error al guardar')
+    }
   }
 
   if (loading) return <div className="flex items-center justify-center h-64 text-gray-400">Cargando...</div>

@@ -133,10 +133,14 @@ export default function PrintersConfigPage() {
       if (!response.ok) throw new Error('Error al actualizar');
 
       // Update local settings
-      await supabase
+      const { error } = await supabase
         .from('restaurant_settings')
-        .update({ default_receipt_printer_id: deviceId })
-        .eq('tenant_id', tenantId);
+        .upsert({
+          tenant_id: tenantId,
+          default_receipt_printer_id: deviceId,
+        }, { onConflict: 'tenant_id' });
+
+      if (error) throw error;
 
       // Update devices list
       setDevices(
