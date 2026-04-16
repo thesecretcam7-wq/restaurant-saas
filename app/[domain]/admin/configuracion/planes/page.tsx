@@ -1,13 +1,14 @@
 'use client'
 
-import { useParams, useRouter } from 'next/navigation'
+import { use, useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { SubscriptionPlan } from '@/lib/types'
 
-export default function PlanesPage() {
-  const params = useParams()
+interface Props { params: Promise<{ domain: string }> }
+
+export default function PlanesPage({ params }: Props) {
+  const { domain } = use(params)
   const router = useRouter()
-  const domain = params.domain as string
   const [plans, setPlans] = useState<SubscriptionPlan[]>([])
   const [currentPlan, setCurrentPlan] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
