@@ -125,6 +125,7 @@ function useSound() {
   const audioCtxRef = useRef<AudioContext | null>(null);
   const [soundEnabled, setSoundEnabled] = useState(false); // Require explicit permission
   const [soundPermissionGranted, setSoundPermissionGranted] = useState(false);
+  const [audioStatus, setAudioStatus] = useState<string>('');
 
   const initAudio = useCallback(() => {
     if (!audioCtxRef.current) {
@@ -141,7 +142,11 @@ function useSound() {
     if (ctx && ctx.state === 'suspended') {
       ctx.resume().then(() => {
         console.log('Audio context resumed successfully');
-      }).catch(err => console.error('Resume audio context failed:', err));
+        setAudioStatus('✅ Contexto resumido');
+      }).catch(err => {
+        console.error('Resume audio context failed:', err);
+        setAudioStatus(`❌ Error: ${err}`);
+      });
     }
     setSoundPermissionGranted(true);
     setSoundEnabled(true);
@@ -238,6 +243,8 @@ function useSound() {
     setSoundEnabled,
     soundPermissionGranted,
     setSoundPermissionGranted,
+    audioStatus,
+    setAudioStatus,
     playNewOrder,
     playDelayedAlert,
     unlockSound,
@@ -385,13 +392,13 @@ export function KDSScreen({ tenantId }: { tenantId: string }) {
   const [actionLoading, setActionLoading] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [wakeLockActive, setWakeLockActive] = useState(false);
-  const [audioStatus, setAudioStatus] = useState<string>('');
   const wakeLockRef = useRef<WakeLockSentinel | null>(null);
   const delayedAlertedOrders = useRef(new Set<string>());
   const {
     soundEnabled,
     setSoundEnabled,
     soundPermissionGranted,
+    audioStatus,
     playNewOrder,
     playDelayedAlert,
     unlockSound,

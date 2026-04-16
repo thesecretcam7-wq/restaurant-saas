@@ -51,7 +51,7 @@ export default async function HomePage({ params }: HomePageProps) {
   const secondary = branding?.secondary_color || '#1F2937'
   const appName = branding?.app_name || tenant.organization_name
   const tagline = branding?.tagline || settings?.description || ''
-  const heroImage = settings?.featured_image_url
+  const heroImage = (branding as any)?.page_config?.hero?.image_url || (branding as any)?.hero?.image_url
 
   // Style helpers
   const br = getBorderRadius(appearance.border_radius)

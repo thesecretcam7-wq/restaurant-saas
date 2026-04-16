@@ -38,10 +38,11 @@ export async function getTenantById(tenantId: string) {
 export async function getTenantBranding(tenantId: string) {
   const supabase = createServiceClient()
 
+  // Fetch tenant with metadata instead of broken tenant_branding table
   const { data, error } = await supabase
-    .from('tenant_branding')
-    .select('*')
-    .eq('tenant_id', tenantId)
+    .from('tenants')
+    .select('metadata')
+    .eq('id', tenantId)
     .single()
 
   if (error) {
@@ -49,7 +50,8 @@ export async function getTenantBranding(tenantId: string) {
     return null
   }
 
-  return data as TenantBranding
+  // Return metadata as branding object
+  return data?.metadata as TenantBranding
 }
 
 export async function getRestaurantSettings(tenantId: string) {

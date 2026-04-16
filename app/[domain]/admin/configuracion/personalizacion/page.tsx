@@ -22,7 +22,6 @@ export default function PersonalizacionPage({ params }: PersonalizacionProps) {
     tagline: '',
     description: '',
     logo_url: '',
-    hero_image_url: '',
     favicon_url: '',
     // Colors
     primary_color: '#3B82F6',
@@ -63,17 +62,14 @@ export default function PersonalizacionPage({ params }: PersonalizacionProps) {
     const loadData = async () => {
       try {
         const supabase = createClient()
-        const [brandingRes, tenantRes] = await Promise.all([
-          supabase.from('tenant_branding').select('*').eq('tenant_id', tenantId).single(),
-          supabase.from('tenants').select('logo_url').eq('id', tenantId).single(),
-        ])
+        const tenantRes = await supabase.from('tenants').select('metadata, logo_url').eq('id', tenantId).single()
 
-        if (brandingRes.data) {
-          setForm(f => ({ ...f, ...brandingRes.data }))
+        if (tenantRes.data?.metadata) {
+          setForm(f => ({ ...f, ...tenantRes.data.metadata }))
         }
         if (tenantRes.data?.logo_url) setForm(f => ({ ...f, logo_url: tenantRes.data.logo_url }))
       } catch (err) {
-        // Table doesn't exist yet
+        console.error('Error loading branding:', err)
       } finally {
         setLoading(false)
       }
@@ -115,7 +111,6 @@ export default function PersonalizacionPage({ params }: PersonalizacionProps) {
             tagline: form.tagline,
             description: form.description,
             logo_url: form.logo_url,
-            hero_image_url: form.hero_image_url,
             favicon_url: form.favicon_url,
             primary_color: form.primary_color,
             secondary_color: form.secondary_color,
@@ -251,7 +246,6 @@ export default function PersonalizacionPage({ params }: PersonalizacionProps) {
               <h3 className="font-semibold mb-4">Imágenes</h3>
               <div className="space-y-6">
                 {imageUploadField('Logo', 'logo_url')}
-                {imageUploadField('Imagen Hero / Banner', 'hero_image_url')}
                 {imageUploadField('Favicon', 'favicon_url')}
               </div>
             </div>
