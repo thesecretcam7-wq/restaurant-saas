@@ -87,90 +87,92 @@ export default function RegisterPage() {
     }
   }
 
-  const features = [
-    { icon: '🚀', text: 'Lista en minutos, sin código' },
-    { icon: '💳', text: 'Pagos directos a tu cuenta' },
-    { icon: '📱', text: 'App móvil para tus clientes' },
-    { icon: '🎨', text: '100% personalizable' },
+  const benefits = [
+    { icon: '⚡', text: 'Listo en minutos, sin configuración compleja' },
+    { icon: '💳', text: 'Pagos directos a tu cuenta Stripe' },
+    { icon: '📱', text: 'Tus clientes disfrutan una app profesional' },
+    { icon: '🎨', text: 'Personalizable con tu marca completa' },
   ]
 
   return (
-    <div className="min-h-screen bg-[#0A0A0A] flex flex-col lg:flex-row">
-      {/* Background glows */}
-      <div className="fixed inset-0 pointer-events-none overflow-hidden">
-        <div className="absolute top-[-10%] right-[20%] w-[500px] h-[500px] rounded-full opacity-[0.07]" style={{ background: 'radial-gradient(circle, #F97316, transparent 70%)' }} />
-        <div className="absolute bottom-[10%] left-[-5%] w-[400px] h-[400px] rounded-full opacity-[0.05]" style={{ background: 'radial-gradient(circle, #F97316, transparent 70%)' }} />
+    <div className="min-h-screen bg-background text-foreground overflow-x-hidden">
+      {/* Background gradients */}
+      <div className="fixed inset-0 pointer-events-none overflow-hidden -z-10">
+        <div className="absolute top-[-10%] right-[15%] w-[500px] h-[500px] rounded-full opacity-[0.08]" style={{ background: 'radial-gradient(circle, #0066FF, transparent 70%)' }} />
+        <div className="absolute bottom-[5%] left-[-5%] w-[400px] h-[400px] rounded-full opacity-[0.06]" style={{ background: 'radial-gradient(circle, #10B981, transparent 70%)' }} />
       </div>
 
       {/* Left panel — only on large screens */}
-      <div className="hidden lg:flex lg:w-[45%] xl:w-[42%] flex-col justify-between p-12 relative z-10 border-r border-white/[0.06]">
+      <div className="hidden lg:flex lg:w-[50%] flex-col justify-between p-12 relative border-r border-border">
         {/* Logo */}
-        <Link href="/" className="flex items-center gap-2.5">
-          <div className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ background: 'linear-gradient(135deg, #F97316, #EA580C)' }}>
-            <span className="text-white text-base font-black">R</span>
+        <Link href="/" className="flex items-center gap-2.5 group animate-fade-in">
+          <div className="w-9 h-9 rounded-md bg-gradient-to-br from-primary to-secondary flex items-center justify-center text-xs font-black text-white group-hover:shadow-lg group-hover:shadow-primary/30 transition-all">
+            E
           </div>
-          <span className="text-white font-bold text-xl tracking-tight">Restaurant.SV</span>
+          <span className="text-foreground font-bold text-xl tracking-tight">Eccofood</span>
         </Link>
 
         {/* Hero copy */}
         <div>
-          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-[#F97316]/20 bg-[#F97316]/5 mb-6">
-            <span className="w-1.5 h-1.5 rounded-full bg-[#F97316] animate-pulse" />
-            <span className="text-xs text-[#F97316] font-medium">14 días gratis, sin tarjeta</span>
+          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-primary/30 bg-primary/10 mb-6 animate-fade-in" style={{ animationDelay: '100ms' }}>
+            <span className="w-2 h-2 rounded-full bg-primary animate-pulse" />
+            <span className="text-xs text-primary font-semibold">14 días gratis, sin tarjeta</span>
           </div>
 
-          <h2 className="text-4xl font-black text-white leading-tight mb-4">
-            Tu restaurante online<br />
-            <span style={{ background: 'linear-gradient(90deg, #F97316, #FB923C)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
-              en 3 minutos
+          <h2 className="text-5xl font-black text-foreground leading-tight mb-4 animate-slide-up" style={{ animationDelay: '100ms' }}>
+            Tu restaurante prospera<br />
+            <span className="bg-gradient-to-r from-primary via-secondary to-accent bg-clip-text text-transparent">
+              con Eccofood
             </span>
           </h2>
-          <p className="text-white/50 text-base leading-relaxed mb-10">
-            Menú digital, pedidos online, reservas y pagos integrados. Todo en un solo lugar.
+          <p className="text-muted-foreground text-lg leading-relaxed mb-10 animate-slide-up" style={{ animationDelay: '150ms' }}>
+            Menú digital, pedidos online, reservas y pagos integrados. Todo con tu marca, tu dominio y sin comisiones.
           </p>
 
-          <div className="space-y-3.5">
-            {features.map((f, i) => (
-              <div key={i} className="flex items-center gap-3">
-                <span className="w-9 h-9 rounded-xl flex items-center justify-center text-lg flex-shrink-0" style={{ background: 'rgba(249,115,22,0.1)' }}>
-                  {f.icon}
+          <div className="space-y-4">
+            {benefits.map((b, i) => (
+              <div key={i} className="flex items-center gap-3 animate-slide-up" style={{ animationDelay: `${200 + i * 50}ms` }}>
+                <span className="w-10 h-10 rounded-lg flex items-center justify-center text-lg flex-shrink-0 bg-primary/10">
+                  {b.icon}
                 </span>
-                <span className="text-white/70 text-sm font-medium">{f.text}</span>
+                <span className="text-foreground text-sm font-medium">{b.text}</span>
               </div>
             ))}
           </div>
         </div>
 
         {/* Testimonial */}
-        <div className="p-5 rounded-2xl border border-white/[0.08]" style={{ background: 'rgba(255,255,255,0.03)' }}>
+        <div className="p-6 rounded-xl border border-primary/20 bg-primary/5 backdrop-blur-sm animate-scale-in">
           <div className="flex gap-0.5 mb-3">
-            {[1,2,3,4,5].map(s => <span key={s} className="text-[#F97316]">★</span>)}
+            {[1, 2, 3, 4, 5].map(s => <span key={s} className="text-secondary">★</span>)}
           </div>
-          <p className="text-white/60 text-sm leading-relaxed italic mb-3">
-            &ldquo;Duplicamos los pedidos en el primer mes. La plataforma es increíblemente fácil de usar.&rdquo;
+          <p className="text-foreground text-sm leading-relaxed italic mb-4">
+            "Duplicamos nuestros pedidos en el primer mes. Eccofood es increíblemente fácil de usar y nuestros clientes aman la experiencia."
           </p>
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-white" style={{ background: 'linear-gradient(135deg, #F97316, #EA580C)' }}>CM</div>
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-full flex items-center justify-center text-xs font-bold text-white bg-gradient-to-br from-primary to-secondary">
+              JM
+            </div>
             <div>
-              <p className="text-white text-xs font-semibold">Carlos M.</p>
-              <p className="text-white/40 text-xs">Pizzería Roma, Bogotá</p>
+              <p className="text-foreground text-sm font-semibold">Juan Martínez</p>
+              <p className="text-muted-foreground text-xs">La Parrilla Gourmet, Madrid</p>
             </div>
           </div>
         </div>
       </div>
 
       {/* Right panel — form */}
-      <div className="flex-1 flex flex-col relative z-10">
+      <div className="flex-1 flex flex-col">
         {/* Mobile nav */}
-        <nav className="lg:hidden px-6 py-5 flex items-center justify-between border-b border-white/[0.06]">
+        <nav className="lg:hidden px-6 py-5 flex items-center justify-between border-b border-border">
           <Link href="/" className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: 'linear-gradient(135deg, #F97316, #EA580C)' }}>
-              <span className="text-white text-sm font-black">R</span>
+            <div className="w-8 h-8 rounded-md bg-gradient-to-br from-primary to-secondary flex items-center justify-center text-xs font-black text-white">
+              E
             </div>
-            <span className="text-white font-bold text-lg tracking-tight">Restaurant.SV</span>
+            <span className="text-foreground font-bold text-lg tracking-tight">Eccofood</span>
           </Link>
-          <Link href="/login" className="text-sm text-white/60 hover:text-white transition-colors">
-            <span className="text-[#F97316] font-medium">Iniciar sesión</span>
+          <Link href="/login" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
+            <span className="text-primary font-semibold">Iniciar sesión</span>
           </Link>
         </nav>
 
@@ -178,42 +180,42 @@ export default function RegisterPage() {
         <div className="flex-1 flex items-center justify-center px-6 py-10">
           <div className="w-full max-w-[440px]">
             {/* Header */}
-            <div className="mb-7">
-              <h1 className="text-2xl font-black text-white mb-1.5">Crea tu cuenta gratis</h1>
-              <p className="text-white/50 text-sm">Sin tarjeta de crédito · 14 días de prueba</p>
+            <div className="mb-8">
+              <h1 className="text-3xl font-black text-foreground mb-2">Crea tu cuenta gratis</h1>
+              <p className="text-muted-foreground">Sin tarjeta de crédito · 14 días de acceso completo</p>
             </div>
 
             {/* Card */}
-            <div className="rounded-2xl border border-white/[0.08] p-7" style={{ background: 'rgba(255,255,255,0.03)', backdropFilter: 'blur(20px)' }}>
+            <div className="rounded-xl border border-border bg-card/50 backdrop-blur-sm p-8 shadow-md">
 
               {error && (
-                <div className="mb-5 flex items-center gap-2.5 p-3.5 rounded-xl bg-red-500/10 border border-red-500/20">
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#EF4444" strokeWidth="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
-                  <p className="text-red-400 text-sm">{error}</p>
+                <div className="mb-6 flex items-start gap-3 p-4 rounded-lg bg-red-500/10 border border-red-500/20">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-red-600 flex-shrink-0 mt-0.5"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+                  <p className="text-red-600 text-sm font-medium">{error}</p>
                 </div>
               )}
 
-              <form onSubmit={handleSubmit} className="space-y-4">
+              <form onSubmit={handleSubmit} className="space-y-5">
                 {/* Row: restaurant + owner */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-xs font-semibold text-white/60 mb-1.5 uppercase tracking-wide">Restaurante *</label>
+                    <label className="block text-xs font-semibold text-muted-foreground mb-2 uppercase tracking-wide">Restaurante *</label>
                     <input
                       type="text"
                       required
                       value={form.restaurantName}
                       onChange={e => setForm(f => ({ ...f, restaurantName: e.target.value }))}
-                      className="w-full px-3.5 py-3 rounded-xl bg-white/[0.06] border border-white/[0.10] text-white placeholder-white/25 text-sm outline-none transition-all focus:border-[#F97316]/50 focus:bg-white/[0.08]"
+                      className="w-full px-4 py-2.5 rounded-lg bg-background border border-border text-foreground placeholder-muted-foreground text-sm outline-none transition-all focus:border-primary/50 focus:ring-2 focus:ring-primary/20"
                       placeholder="Pizzería Roma"
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-semibold text-white/60 mb-1.5 uppercase tracking-wide">Tu nombre</label>
+                    <label className="block text-xs font-semibold text-muted-foreground mb-2 uppercase tracking-wide">Tu nombre</label>
                     <input
                       type="text"
                       value={form.ownerName}
                       onChange={e => setForm(f => ({ ...f, ownerName: e.target.value }))}
-                      className="w-full px-3.5 py-3 rounded-xl bg-white/[0.06] border border-white/[0.10] text-white placeholder-white/25 text-sm outline-none transition-all focus:border-[#F97316]/50 focus:bg-white/[0.08]"
+                      className="w-full px-4 py-2.5 rounded-lg bg-background border border-border text-foreground placeholder-muted-foreground text-sm outline-none transition-all focus:border-primary/50 focus:ring-2 focus:ring-primary/20"
                       placeholder="Carlos Martínez"
                     />
                   </div>
@@ -221,20 +223,20 @@ export default function RegisterPage() {
 
                 {/* Email */}
                 <div>
-                  <label className="block text-xs font-semibold text-white/60 mb-1.5 uppercase tracking-wide">Email *</label>
+                  <label className="block text-xs font-semibold text-muted-foreground mb-2 uppercase tracking-wide">Email *</label>
                   <input
                     type="email"
                     required
                     value={form.email}
                     onChange={e => setForm(f => ({ ...f, email: e.target.value }))}
-                    className="w-full px-3.5 py-3 rounded-xl bg-white/[0.06] border border-white/[0.10] text-white placeholder-white/25 text-sm outline-none transition-all focus:border-[#F97316]/50 focus:bg-white/[0.08]"
+                    className="w-full px-4 py-2.5 rounded-lg bg-background border border-border text-foreground placeholder-muted-foreground text-sm outline-none transition-all focus:border-primary/50 focus:ring-2 focus:ring-primary/20"
                     placeholder="carlos@restaurante.com"
                   />
                 </div>
 
                 {/* Password */}
                 <div>
-                  <label className="block text-xs font-semibold text-white/60 mb-1.5 uppercase tracking-wide">Contraseña *</label>
+                  <label className="block text-xs font-semibold text-muted-foreground mb-2 uppercase tracking-wide">Contraseña *</label>
                   <div className="relative">
                     <input
                       type={showPass ? 'text' : 'password'}
@@ -242,10 +244,10 @@ export default function RegisterPage() {
                       minLength={8}
                       value={form.password}
                       onChange={e => setForm(f => ({ ...f, password: e.target.value }))}
-                      className="w-full px-3.5 py-3 pr-11 rounded-xl bg-white/[0.06] border border-white/[0.10] text-white placeholder-white/25 text-sm outline-none transition-all focus:border-[#F97316]/50 focus:bg-white/[0.08]"
+                      className="w-full px-4 py-2.5 pr-11 rounded-lg bg-background border border-border text-foreground placeholder-muted-foreground text-sm outline-none transition-all focus:border-primary/50 focus:ring-2 focus:ring-primary/20"
                       placeholder="Mínimo 8 caracteres"
                     />
-                    <button type="button" onClick={() => setShowPass(v => !v)} className="absolute right-3.5 top-1/2 -translate-y-1/2 text-white/30 hover:text-white/60 transition-colors">
+                    <button type="button" onClick={() => setShowPass(v => !v)} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors">
                       {showPass
                         ? <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/><path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
                         : <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
@@ -256,23 +258,23 @@ export default function RegisterPage() {
 
                 {/* Confirm Password */}
                 <div>
-                  <label className="block text-xs font-semibold text-white/60 mb-1.5 uppercase tracking-wide">Confirmar contraseña *</label>
+                  <label className="block text-xs font-semibold text-muted-foreground mb-2 uppercase tracking-wide">Confirmar contraseña *</label>
                   <div className="relative">
                     <input
                       type={showConfirm ? 'text' : 'password'}
                       required
                       value={form.confirmPassword}
                       onChange={e => setForm(f => ({ ...f, confirmPassword: e.target.value }))}
-                      className={`w-full px-3.5 py-3 pr-11 rounded-xl bg-white/[0.06] border text-white placeholder-white/25 text-sm outline-none transition-all focus:bg-white/[0.08] ${
+                      className={`w-full px-4 py-2.5 pr-11 rounded-lg bg-background border text-foreground placeholder-muted-foreground text-sm outline-none transition-all focus:ring-2 ${
                         form.confirmPassword && form.password !== form.confirmPassword
-                          ? 'border-red-500/50 focus:border-red-500/70'
+                          ? 'border-red-500/50 focus:border-red-500 focus:ring-red-500/20'
                           : form.confirmPassword && form.password === form.confirmPassword
-                            ? 'border-green-500/50 focus:border-green-500/70'
-                            : 'border-white/[0.10] focus:border-[#F97316]/50'
+                            ? 'border-secondary/50 focus:border-secondary focus:ring-secondary/20'
+                            : 'border-border focus:border-primary/50 focus:ring-primary/20'
                       }`}
                       placeholder="Repite la contraseña"
                     />
-                    <button type="button" onClick={() => setShowConfirm(v => !v)} className="absolute right-3.5 top-1/2 -translate-y-1/2 text-white/30 hover:text-white/60 transition-colors">
+                    <button type="button" onClick={() => setShowConfirm(v => !v)} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors">
                       {showConfirm
                         ? <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/><path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
                         : <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
@@ -280,7 +282,7 @@ export default function RegisterPage() {
                     </button>
                   </div>
                   {form.confirmPassword && form.password !== form.confirmPassword && (
-                    <p className="text-red-400 text-xs mt-1">Las contraseñas no coinciden</p>
+                    <p className="text-red-600 text-xs mt-1.5 font-medium">Las contraseñas no coinciden</p>
                   )}
                 </div>
 
@@ -288,11 +290,7 @@ export default function RegisterPage() {
                 <button
                   type="submit"
                   disabled={loading}
-                  className="w-full py-3.5 rounded-xl font-bold text-sm text-white transition-all active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed mt-1"
-                  style={{
-                    background: loading ? 'rgba(249,115,22,0.5)' : 'linear-gradient(135deg, #F97316, #EA580C)',
-                    boxShadow: loading ? 'none' : '0 0 28px rgba(249,115,22,0.3)',
-                  }}
+                  className="w-full py-3 rounded-lg font-bold text-sm text-white transition-all active:scale-95 disabled:opacity-60 disabled:cursor-not-allowed mt-2 bg-gradient-to-r from-primary to-secondary hover:from-primary/90 hover:to-secondary/90 shadow-lg shadow-primary/25 hover:shadow-xl hover:shadow-primary/40"
                 >
                   {loading ? (
                     <span className="flex items-center justify-center gap-2">
@@ -303,19 +301,19 @@ export default function RegisterPage() {
                 </button>
 
                 {/* Terms */}
-                <p className="text-center text-xs text-white/25 leading-relaxed">
+                <p className="text-center text-xs text-muted-foreground leading-relaxed">
                   Al registrarte aceptas nuestros{' '}
-                  <span className="text-white/40 underline cursor-pointer">Términos de servicio</span>{' '}
+                  <span className="text-foreground font-medium cursor-pointer hover:underline">Términos de servicio</span>{' '}
                   y{' '}
-                  <span className="text-white/40 underline cursor-pointer">Política de privacidad</span>
+                  <span className="text-foreground font-medium cursor-pointer hover:underline">Política de privacidad</span>
                 </p>
               </form>
             </div>
 
             {/* Footer link */}
-            <p className="text-center text-sm text-white/40 mt-5">
+            <p className="text-center text-sm text-muted-foreground mt-6">
               ¿Ya tienes cuenta?{' '}
-              <Link href="/login" className="text-[#F97316] hover:text-[#FB923C] font-medium transition-colors">
+              <Link href="/login" className="text-primary hover:text-primary/80 font-semibold transition-colors">
                 Iniciar sesión
               </Link>
             </p>
