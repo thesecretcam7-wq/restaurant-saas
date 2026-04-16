@@ -12,6 +12,7 @@ export interface HeroConfig {
   show_info_pills: boolean
   show_logo: boolean
   gradient_angle: number                 // 135 default
+  image_url?: string                     // Hero image for fullImage style
 }
 
 export interface SectionConfig {
