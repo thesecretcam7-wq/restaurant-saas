@@ -4,6 +4,9 @@ import { useEffect, useRef, useState, useCallback } from 'react';
 import { createClient } from '@supabase/supabase-js';
 import { Maximize2, Minimize2, Volume2, VolumeX, Clock, CheckCircle2, ChefHat } from 'lucide-react';
 
+// Type for Wake Lock Sentinel
+type WakeLockSentinel = any;
+
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
@@ -120,7 +123,8 @@ function groupItemsByOrder(items: OrderItemWithOrder[]): KDSOrder[] {
 // ─── Sound ───────────────────────────────────────────────────────────────────
 function useSound() {
   const audioCtxRef = useRef<AudioContext | null>(null);
-  const [soundEnabled, setSoundEnabled] = useState(true);
+  const [soundEnabled, setSoundEnabled] = useState(false); // Require explicit permission
+  const [soundPermissionGranted, setSoundPermissionGranted] = useState(false);
 
   const initAudio = useCallback(() => {
     if (!audioCtxRef.current) {
@@ -130,7 +134,13 @@ function useSound() {
     }
   }, []);
 
-  const playNewOrder = useCallback(() => {
+  const unlockSound = useCallback(() => {
+    initAudio();
+    setSoundPermissionGranted(true);
+    setSoundEnabled(true);
+  }, [initAudio]);
+
+  const playBeeps = useCallback((frequencies: number[], duration: number = 0.15, gap: number = 0.2) => {
     if (!soundEnabled) return;
     initAudio();
     const ctx = audioCtxRef.current;
@@ -143,17 +153,37 @@ function useSound() {
       gain.connect(ctx.destination);
       osc.frequency.value = freq;
       osc.type = 'sine';
-      gain.gain.setValueAtTime(0.25, start);
+      gain.gain.setValueAtTime(1.0, start); // 100% volume
       gain.gain.exponentialRampToValueAtTime(0.001, start + dur);
       osc.start(start);
       osc.stop(start + dur);
     };
 
-    beep(ctx.currentTime, 880, 0.15);
-    beep(ctx.currentTime + 0.2, 1100, 0.15);
+    let time = ctx.currentTime;
+    frequencies.forEach((freq) => {
+      beep(time, freq, duration);
+      time += duration + gap;
+    });
   }, [soundEnabled, initAudio]);
 
-  return { soundEnabled, setSoundEnabled, playNewOrder, initAudio };
+  const playNewOrder = useCallback(() => {
+    playBeeps([880, 1100], 0.15, 0.2); // 2 quick beeps
+  }, [playBeeps]);
+
+  const playDelayedAlert = useCallback(() => {
+    playBeeps([600, 600, 600], 0.2, 0.3); // 3 slower beeps at 600Hz
+  }, [playBeeps]);
+
+  return {
+    soundEnabled,
+    setSoundEnabled,
+    soundPermissionGranted,
+    setSoundPermissionGranted,
+    playNewOrder,
+    playDelayedAlert,
+    unlockSound,
+    initAudio,
+  };
 }
 
 // ─── Order Card ───────────────────────────────────────────────────────────────
@@ -295,7 +325,18 @@ export function KDSScreen({ tenantId }: { tenantId: string }) {
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
-  const { soundEnabled, setSoundEnabled, playNewOrder, initAudio } = useSound();
+  const [wakeLockActive, setWakeLockActive] = useState(false);
+  const wakeLockRef = useRef<WakeLockSentinel | null>(null);
+  const delayedAlertedOrders = useRef(new Set<string>());
+  const {
+    soundEnabled,
+    setSoundEnabled,
+    soundPermissionGranted,
+    playNewOrder,
+    playDelayedAlert,
+    unlockSound,
+    initAudio,
+  } = useSound();
   const knownOrderIds = useRef(new Set<string>());
 
   // ── Fullscreen ──
@@ -311,6 +352,62 @@ export function KDSScreen({ tenantId }: { tenantId: string }) {
       else await document.exitFullscreen();
     } catch (_) {}
   }
+
+  // ── Wake Lock ──
+  async function activateWakeLock() {
+    try {
+      if ('wakeLock' in navigator) {
+        const sentinel = await (navigator as any).wakeLock.request('screen');
+        wakeLockRef.current = sentinel;
+        setWakeLockActive(true);
+
+        // Release wake lock on visibility change
+        const handleVisibilityChange = async () => {
+          if (document.hidden && wakeLockRef.current) {
+            try {
+              await wakeLockRef.current.release();
+              wakeLockRef.current = null;
+              setWakeLockActive(false);
+            } catch (_) {}
+          } else if (!document.hidden && !wakeLockRef.current) {
+            try {
+              const newSentinel = await (navigator as any).wakeLock.request('screen');
+              wakeLockRef.current = newSentinel;
+              setWakeLockActive(true);
+            } catch (_) {}
+          }
+        };
+
+        document.addEventListener('visibilitychange', handleVisibilityChange);
+        return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+      }
+    } catch (err) {
+      console.error('Wake Lock error:', err);
+    }
+  }
+
+  // ── Delayed Order Alerts ──
+  useEffect(() => {
+    const checkDelayedOrders = () => {
+      // Compute orders being prepared
+      const activeItems = items.filter(
+        (i) => i.status !== 'delivered' && i.status !== 'cancelled'
+      );
+      const allOrders = groupItemsByOrder(activeItems);
+      const preparingOrders = allOrders.filter((o) => o.kdsStatus === 'preparing');
+
+      preparingOrders.forEach((order) => {
+        const minutes = Math.floor((Date.now() - new Date(order.createdAt).getTime()) / 60000);
+        if (minutes > 15 && !delayedAlertedOrders.current.has(order.orderId)) {
+          playDelayedAlert();
+          delayedAlertedOrders.current.add(order.orderId);
+        }
+      });
+    };
+
+    const interval = setInterval(checkDelayedOrders, 30000); // Check every 30 seconds
+    return () => clearInterval(interval);
+  }, [items, playDelayedAlert]);
 
   // ── Fetch ──
   const fetchOrderItems = useCallback(async () => {
@@ -484,6 +581,43 @@ export function KDSScreen({ tenantId }: { tenantId: string }) {
           </button>
         </div>
       </div>
+
+      {/* ── Permission Banners ── */}
+      {!soundPermissionGranted && (
+        <div className="bg-red-950/80 border-b border-red-900 px-4 py-3 flex items-center justify-between shrink-0">
+          <div className="flex items-center gap-3">
+            <span className="text-2xl">🔊</span>
+            <span className="text-sm font-medium text-white">Se requieren permisos de sonido para alertas de órdenes</span>
+          </div>
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              unlockSound();
+            }}
+            className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg font-medium text-sm transition"
+          >
+            Permitir Sonido 🔊
+          </button>
+        </div>
+      )}
+
+      {!wakeLockActive && (
+        <div className="bg-orange-950/80 border-b border-orange-900 px-4 py-3 flex items-center justify-between shrink-0">
+          <div className="flex items-center gap-3">
+            <span className="text-2xl">🔒</span>
+            <span className="text-sm font-medium text-white">Se requieren permisos para mantener la pantalla encendida</span>
+          </div>
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              activateWakeLock();
+            }}
+            className="px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-lg font-medium text-sm transition"
+          >
+            Bloquear Pantalla 🔒
+          </button>
+        </div>
+      )}
 
       {/* ── Legend ── */}
       <div className="flex items-center gap-4 px-4 py-1.5 bg-muted/50 border-b border-gray-800 shrink-0 text-xs text-gray-500">
