@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { X, Backspace } from 'lucide-react';
+import { X, Delete } from 'lucide-react';
 
 interface NumericKeyboardProps {
   isOpen: boolean;
@@ -211,7 +211,7 @@ export function NumericKeyboard({
               onClick={handleBackspace}
               className="bg-red-100 hover:bg-red-200 text-red-700 font-bold py-4 rounded-lg active:scale-95 transition flex items-center justify-center"
             >
-              <Backspace className="w-6 h-6" />
+              <Delete className="w-6 h-6" />
             </button>
           </div>
 
