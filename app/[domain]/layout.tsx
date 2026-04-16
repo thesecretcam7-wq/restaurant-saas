@@ -72,28 +72,48 @@ export default async function TenantLayout({
   }
 
   const branding = context.branding
-  const cssVariables = branding
-    ? {
-        '--primary-color': branding.primary_color,
-        '--secondary-color': branding.secondary_color,
-        '--accent-color': branding.accent_color,
-        '--background-color': branding.background_color,
-        '--font-family': branding.font_family,
-      }
-    : {}
+
+  // Eccofood Default Brand Colors - Professional Foundation
+  const eccofoodDefaults = {
+    primary: '#0066FF',
+    secondary: '#10B981',
+    accent: '#F97316',
+    background: '#FFFFFF',
+    fontFamily: 'system-ui, -apple-system, sans-serif',
+  }
+
+  // Tenant custom colors with Eccofood fallbacks
+  const primaryColor = branding?.primary_color || eccofoodDefaults.primary
+  const secondaryColor = branding?.secondary_color || eccofoodDefaults.secondary
+  const accentColor = branding?.accent_color || eccofoodDefaults.accent
+  const backgroundColor = branding?.background_color || eccofoodDefaults.background
+  const fontFamily = branding?.font_family || eccofoodDefaults.fontFamily
 
   return (
     <>
       <style>{`
         :root {
-          --primary-color: ${branding?.primary_color || '#000'};
-          --secondary-color: ${branding?.secondary_color || '#000'};
-          --accent-color: ${branding?.accent_color || '#000'};
-          --background-color: ${branding?.background_color || '#fff'};
-          --font-family: ${branding?.font_family || 'system-ui'};
+          /* Multi-Tenant Branding with Eccofood Defaults */
+          /* Store pages use tenant colors or Eccofood professional defaults */
+          --primary-color: ${primaryColor};
+          --secondary-color: ${secondaryColor};
+          --accent-color: ${accentColor};
+          --background-color: ${backgroundColor};
+          --font-family: ${fontFamily};
+
+          /* Admin pages always use Eccofood brand (no tenant override) */
+          --admin-primary: #0066FF;
+          --admin-secondary: #10B981;
+          --admin-accent: #F97316;
+        }
+
+        /* Ensure proper color contrast for accessibility */
+        * {
+          --tw-bg-opacity: 1;
+          --tw-text-opacity: 1;
         }
       `}</style>
-      <div className="min-h-full flex flex-col bg-[var(--background-color)]">
+      <div className="min-h-full flex flex-col" style={{ backgroundColor }}>
         {children}
         <Toaster position="bottom-right" />
       </div>

@@ -1,5 +1,16 @@
 'use client'
 
+/**
+ * ADMIN LAYOUT - ECCOFOOD BRAND ENFORCEMENT
+ *
+ * Admin interfaces ALWAYS use Eccofood professional branding.
+ * Tenant custom colors are NOT applied to admin panels.
+ * This maintains professional consistency and prevents brand dilution.
+ *
+ * CSS Note: Admin pages use --admin-primary, --admin-secondary, --admin-accent
+ * which are hardcoded to Eccofood colors and cannot be overridden by tenants.
+ */
+
 import { useRouter, useParams } from 'next/navigation'
 import { useEffect, useState } from 'react'
 
