@@ -47,34 +47,37 @@ export default function RestauranteConfigPage({ params }: Props) {
 
   useEffect(() => {
     if (!tenantId) return
-    const supabase = createClient()
-    supabase.from('restaurant_settings').select('*').eq('tenant_id', tenantId).single().then(({ data }) => {
-      if (data) {
-        setForm({
-          display_name: data.display_name || '',
-          description: data.description || '',
-          address: data.address || '',
-          phone: data.phone || '',
-          email: data.email || '',
-          city: data.city || '',
-          country: data.country || 'CO',
-          timezone: data.timezone || 'America/Bogota',
-          delivery_enabled: data.delivery_enabled,
-          delivery_fee: String(data.delivery_fee),
-          delivery_min_order: String(data.delivery_min_order),
-          delivery_time_minutes: String(data.delivery_time_minutes),
-          reservations_enabled: data.reservations_enabled,
-          total_tables: String(data.total_tables),
-          seats_per_table: String(data.seats_per_table),
-          cash_payment_enabled: data.cash_payment_enabled,
-          tax_rate: String(data.tax_rate),
-        })
+    const loadSettings = async () => {
+      try {
+        const { data } = await createClient().from('restaurant_settings').select('*').eq('tenant_id', tenantId).single()
+        if (data) {
+          setForm({
+            display_name: data.display_name || '',
+            description: data.description || '',
+            address: data.address || '',
+            phone: data.phone || '',
+            email: data.email || '',
+            city: data.city || '',
+            country: data.country || 'CO',
+            timezone: data.timezone || 'America/Bogota',
+            delivery_enabled: data.delivery_enabled,
+            delivery_fee: String(data.delivery_fee),
+            delivery_min_order: String(data.delivery_min_order),
+            delivery_time_minutes: String(data.delivery_time_minutes),
+            reservations_enabled: data.reservations_enabled,
+            total_tables: String(data.total_tables),
+            seats_per_table: String(data.seats_per_table),
+            cash_payment_enabled: data.cash_payment_enabled,
+            tax_rate: String(data.tax_rate),
+          })
+        }
+      } catch (err) {
+        // Tabla no existe aún, valores por defecto están bien
+      } finally {
+        setLoading(false)
       }
-      setLoading(false)
-    }).catch(() => {
-      // Tabla no existe aún, valores por defecto están bien
-      setLoading(false)
-    })
+    }
+    loadSettings()
   }, [tenantId])
 
   const handleSave = async () => {
