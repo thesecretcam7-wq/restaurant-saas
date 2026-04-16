@@ -1,6 +1,7 @@
 'use client'
 
-import { use, useRouter } from 'next/navigation'
+import { use } from 'react'
+import { useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { SubscriptionPlan } from '@/lib/types'
 
