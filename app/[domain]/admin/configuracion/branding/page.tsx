@@ -41,29 +41,34 @@ export default function BrandingPage({ params }: BrandingProps) {
 
   useEffect(() => {
     if (!tenantId) return
-    const supabase = createClient()
-    Promise.all([
-      supabase.from('tenant_branding').select('*').eq('tenant_id', tenantId).single(),
-      supabase.from('tenants').select('logo_url').eq('id', tenantId).single(),
-    ]).then(([{ data: branding }, { data: tenant }]) => {
-      if (branding) {
-        setForm(f => ({
-          ...f,
-          app_name: branding.app_name || '',
-          tagline: branding.tagline || '',
-          primary_color: branding.primary_color,
-          secondary_color: branding.secondary_color,
-          accent_color: branding.accent_color,
-          background_color: branding.background_color,
-          font_family: branding.font_family,
-        }))
+    const loadBrandingData = async () => {
+      try {
+        const supabase = createClient()
+        const [brandingRes, tenantRes] = await Promise.all([
+          supabase.from('tenant_branding').select('*').eq('tenant_id', tenantId).single(),
+          supabase.from('tenants').select('logo_url').eq('id', tenantId).single(),
+        ])
+
+        if (brandingRes.data) {
+          setForm(f => ({
+            ...f,
+            app_name: brandingRes.data.app_name || '',
+            tagline: brandingRes.data.tagline || '',
+            primary_color: brandingRes.data.primary_color,
+            secondary_color: brandingRes.data.secondary_color,
+            accent_color: brandingRes.data.accent_color,
+            background_color: brandingRes.data.background_color,
+            font_family: brandingRes.data.font_family,
+          }))
+        }
+        if (tenantRes.data?.logo_url) setForm(f => ({ ...f, logo_url: tenantRes.data.logo_url }))
+      } catch (err) {
+        // Tabla no existe aún, valores por defecto están bien
+      } finally {
+        setLoading(false)
       }
-      if (tenant?.logo_url) setForm(f => ({ ...f, logo_url: tenant.logo_url }))
-      setLoading(false)
-    }).catch(() => {
-      // Tabla no existe aún, valores por defecto están bien
-      setLoading(false)
-    })
+    }
+    loadBrandingData()
   }, [tenantId])
 
   const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
