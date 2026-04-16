@@ -139,21 +139,34 @@ function useSound() {
     const ctx = audioCtxRef.current;
     // Resume audio context if suspended (iOS requirement)
     if (ctx && ctx.state === 'suspended') {
-      ctx.resume().catch(err => console.error('Resume audio context failed:', err));
+      ctx.resume().then(() => {
+        console.log('Audio context resumed successfully');
+      }).catch(err => console.error('Resume audio context failed:', err));
     }
     setSoundPermissionGranted(true);
     setSoundEnabled(true);
+    console.log('Sound permission granted, enabled:', true);
   }, [initAudio]);
 
   const playBeeps = useCallback((frequencies: number[], duration: number = 0.15, gap: number = 0.2) => {
     if (!soundEnabled) return;
+
+    console.log('Playing beeps:', frequencies, 'soundEnabled:', soundEnabled);
+
     initAudio();
     const ctx = audioCtxRef.current;
-    if (!ctx) return;
+    if (!ctx) {
+      console.error('No audio context available');
+      return;
+    }
+
+    console.log('Audio context state:', ctx.state);
 
     // Ensure audio context is running
     if (ctx.state === 'suspended') {
-      ctx.resume().catch(err => console.error('Resume audio context failed:', err));
+      ctx.resume().then(() => {
+        console.log('Audio context resumed for playback');
+      }).catch(err => console.error('Resume audio context failed:', err));
     }
 
     const beep = (start: number, freq: number, dur: number) => {
@@ -164,9 +177,13 @@ function useSound() {
         gain.connect(ctx.destination);
         osc.frequency.value = freq;
         osc.type = 'sine';
-        // Set to maximum volume
-        gain.gain.setValueAtTime(1.0, start);
+
+        // Aumentar volumen aún más (máximo posible)
+        gain.gain.setValueAtTime(0.95, start);
         gain.gain.exponentialRampToValueAtTime(0.01, start + dur);
+
+        console.log(`Beep: freq=${freq}, start=${start}, duration=${dur}`);
+
         osc.start(start);
         osc.stop(start + dur);
       } catch (err) {
@@ -174,19 +191,33 @@ function useSound() {
       }
     };
 
-    let time = ctx.currentTime;
-    frequencies.forEach((freq) => {
-      beep(time, freq, duration);
-      time += duration + gap;
-    });
+    try {
+      let time = ctx.currentTime;
+      frequencies.forEach((freq, idx) => {
+        console.log(`Creating beep ${idx + 1}/${frequencies.length}: ${freq}Hz`);
+        beep(time, freq, duration);
+        time += duration + gap;
+      });
+      console.log('Beeps scheduled successfully');
+    } catch (err) {
+      console.error('Error scheduling beeps:', err);
+    }
   }, [soundEnabled, initAudio]);
 
   const playNewOrder = useCallback(() => {
     playBeeps([880, 1100], 0.15, 0.2); // 2 quick beeps
+    // Vibration as fallback for Android
+    if ('vibrate' in navigator) {
+      navigator.vibrate([100, 50, 100]); // vibrate pattern: 100ms on, 50ms off, 100ms on
+    }
   }, [playBeeps]);
 
   const playDelayedAlert = useCallback(() => {
     playBeeps([600, 600, 600], 0.2, 0.3); // 3 slower beeps at 600Hz
+    // Stronger vibration for delayed alert
+    if ('vibrate' in navigator) {
+      navigator.vibrate([200, 100, 200, 100, 200]); // stronger vibration pattern
+    }
   }, [playBeeps]);
 
   return {
