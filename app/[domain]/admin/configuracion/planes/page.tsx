@@ -8,33 +8,27 @@ import { SubscriptionPlan } from '@/lib/types'
 interface Props { params: Promise<{ domain: string }> }
 
 export default function PlanesPage({ params }: Props) {
-  const { domain } = use(params)
+  const { domain: tenantId } = use(params)
   const router = useRouter()
   const [plans, setPlans] = useState<SubscriptionPlan[]>([])
   const [currentPlan, setCurrentPlan] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [processing, setProcessing] = useState(false)
-  const [tenantId, setTenantId] = useState<string | null>(null)
 
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const statusRes = await fetch(`/api/subscription-status?domain=${domain}`)
-        const statusData = await statusRes.json()
-        setTenantId(statusData.tenantId)
-        setCurrentPlan(statusData.plan)
-
         const plansRes = await fetch(`/api/subscription-plans`)
         const plansData = await plansRes.json()
         setPlans(plansData)
+        setLoading(false)
       } catch (error) {
         console.error('Error fetching data:', error)
-      } finally {
         setLoading(false)
       }
     }
-    if (domain) fetchData()
-  }, [domain])
+    if (tenantId) fetchData()
+  }, [tenantId])
 
   const handleSelectPlan = async (planName: string) => {
     if (!tenantId) return
