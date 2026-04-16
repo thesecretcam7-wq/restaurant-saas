@@ -580,15 +580,29 @@ export function KDSScreen({ tenantId }: { tenantId: string }) {
       );
       if (!res.ok) throw new Error('Failed to fetch');
       const data: OrderItemWithOrder[] = await res.json();
+
+      // Detect new orders and play sound
+      const newOrderIds = new Set<string>();
+      data.forEach((item) => {
+        if (!knownOrderIds.current.has(item.order_id)) {
+          newOrderIds.add(item.order_id);
+          knownOrderIds.current.add(item.order_id);
+        }
+      });
+
+      // Play sound if new orders detected
+      if (newOrderIds.size > 0) {
+        console.log('[KDS] New orders detected via polling:', newOrderIds.size);
+        playNewOrder();
+      }
+
       setItems(data);
-      // Track known order IDs
-      data.forEach((item) => knownOrderIds.current.add(item.order_id));
     } catch (err) {
       console.error('KDS fetch error:', err);
     } finally {
       setLoading(false);
     }
-  }, [tenantId]);
+  }, [tenantId, playNewOrder]);
 
   // ── Realtime ──
   useEffect(() => {
@@ -600,10 +614,12 @@ export function KDSScreen({ tenantId }: { tenantId: string }) {
         'postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'order_items', filter: `tenant_id=eq.${tenantId}` },
         async (payload) => {
-          console.log('[KDS] New order item:', payload.new);
+          console.log('[KDS] 🔔 REALTIME EVENT RECEIVED - New order item:', payload.new);
           const newItem = payload.new as OrderItemWithOrder;
           const isNewOrder = !knownOrderIds.current.has(newItem.order_id);
+          console.log(`[KDS] Is new order? ${isNewOrder} | Order ID: ${newItem.order_id}`);
           if (isNewOrder) {
+            console.log('[KDS] 🔊 Playing sound from REALTIME event');
             playNewOrder();
             knownOrderIds.current.add(newItem.order_id);
           }
@@ -644,7 +660,7 @@ export function KDSScreen({ tenantId }: { tenantId: string }) {
     const interval = setInterval(() => {
       console.log('[KDS] Polling fallback - refetching data');
       fetchOrderItems();
-    }, 10000);
+    }, 3000); // Más agresivo: cada 3 segundos
     return () => clearInterval(interval);
   }, [fetchOrderItems]);
 
