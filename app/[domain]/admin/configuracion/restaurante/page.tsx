@@ -47,7 +47,8 @@ export default function RestauranteConfigPage({ params }: Props) {
 
   useEffect(() => {
     if (!tenantId) return
-    createClient().from('restaurant_settings').select('*').eq('tenant_id', tenantId).single().then(({ data }) => {
+    const supabase = createClient()
+    supabase.from('restaurant_settings').select('*').eq('tenant_id', tenantId).single().then(({ data }) => {
       if (data) {
         setForm({
           display_name: data.display_name || '',
