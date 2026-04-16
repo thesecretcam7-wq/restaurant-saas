@@ -123,7 +123,7 @@ function groupItemsByOrder(items: OrderItemWithOrder[]): KDSOrder[] {
 // ─── Sound ───────────────────────────────────────────────────────────────────
 function useSound() {
   const audioCtxRef = useRef<AudioContext | null>(null);
-  const [soundEnabled, setSoundEnabled] = useState(false); // Require explicit permission
+  const [soundEnabled, setSoundEnabled] = useState(false);
   const [soundPermissionGranted, setSoundPermissionGranted] = useState(false);
   const [audioStatus, setAudioStatus] = useState<string>('');
 
@@ -138,7 +138,6 @@ function useSound() {
   const unlockSound = useCallback(() => {
     initAudio();
     const ctx = audioCtxRef.current;
-    // Resume audio context if suspended (iOS requirement)
     if (ctx && ctx.state === 'suspended') {
       ctx.resume().then(() => {
         console.log('Audio context resumed successfully');
@@ -150,8 +149,66 @@ function useSound() {
     }
     setSoundPermissionGranted(true);
     setSoundEnabled(true);
-    console.log('Sound permission granted, enabled:', true);
+    console.log('Sound permission granted');
   }, [initAudio]);
+
+  // Generar sonido de alerta en base64 para HTMLAudioElement fallback
+  const generateToneDataUrl = useCallback((frequency: number, duration: number) => {
+    const sampleRate = 8000;
+    const samples = Math.round((sampleRate * duration) / 1000);
+    const audioData = new Float32Array(samples);
+
+    for (let i = 0; i < samples; i++) {
+      const t = i / sampleRate;
+      audioData[i] = Math.sin(2 * Math.PI * frequency * t) * 0.5;
+    }
+
+    // Convertir a WAV y retornar como data URL
+    const wavBlob = createWavBlob(audioData, sampleRate);
+    return URL.createObjectURL(wavBlob);
+  }, []);
+
+  const createWavBlob = (audioData: Float32Array, sampleRate: number) => {
+    const frameLength = audioData.length;
+    const numberOfChannels = 1;
+    const sampleRateHz = sampleRate;
+    const bitsPerSample = 16;
+    const byteRate = sampleRateHz * numberOfChannels * (bitsPerSample / 8);
+    const blockAlign = numberOfChannels * (bitsPerSample / 8);
+
+    const wavArrayBuffer = new ArrayBuffer(44 + frameLength * 2);
+    const view = new DataView(wavArrayBuffer);
+
+    // RIFF header
+    const writeString = (offset: number, string: string) => {
+      for (let i = 0; i < string.length; i++) {
+        view.setUint8(offset + i, string.charCodeAt(i));
+      }
+    };
+
+    writeString(0, 'RIFF');
+    view.setUint32(4, 44 + frameLength * 2 - 8, true);
+    writeString(8, 'WAVE');
+    writeString(12, 'fmt ');
+    view.setUint32(16, 16, true);
+    view.setUint16(20, 1, true); // PCM
+    view.setUint16(22, numberOfChannels, true);
+    view.setUint32(24, sampleRateHz, true);
+    view.setUint32(28, byteRate, true);
+    view.setUint16(32, blockAlign, true);
+    view.setUint16(34, bitsPerSample, true);
+    writeString(36, 'data');
+    view.setUint32(40, frameLength * 2, true);
+
+    // Escribir samples de audio
+    let offset = 44;
+    for (let i = 0; i < frameLength; i++) {
+      view.setInt16(offset, audioData[i] < 0 ? audioData[i] * 0x8000 : audioData[i] * 0x7FFF, true);
+      offset += 2;
+    }
+
+    return new Blob([wavArrayBuffer], { type: 'audio/wav' });
+  };
 
   const playBeeps = useCallback((frequencies: number[], duration: number = 0.15, gap: number = 0.2) => {
     if (!soundEnabled) {
@@ -160,67 +217,66 @@ function useSound() {
     }
 
     setAudioStatus('🔄 Reproduciendo sonido...');
-    console.log('Playing beeps:', frequencies, 'soundEnabled:', soundEnabled);
+    console.log('Playing beeps:', frequencies);
 
+    // Intenta con Web Audio API primero
     initAudio();
     const ctx = audioCtxRef.current;
-    if (!ctx) {
-      setAudioStatus('❌ No hay audio context');
-      console.error('No audio context available');
-      return;
-    }
 
-    console.log('Audio context state:', ctx.state);
-    setAudioStatus(`📊 Contexto: ${ctx.state}`);
-
-    // Ensure audio context is running
-    if (ctx.state === 'suspended') {
-      ctx.resume().then(() => {
-        console.log('Audio context resumed for playback');
-        setAudioStatus('✅ Contexto resumido');
-      }).catch(err => {
-        console.error('Resume audio context failed:', err);
-        setAudioStatus(`❌ Error: ${err}`);
-      });
-    }
-
-    const beep = (start: number, freq: number, dur: number) => {
+    if (ctx && ctx.state !== 'closed') {
       try {
-        const osc = ctx.createOscillator();
-        const gain = ctx.createGain();
-        osc.connect(gain);
-        gain.connect(ctx.destination);
-        osc.frequency.value = freq;
-        osc.type = 'sine';
+        if (ctx.state === 'suspended') {
+          ctx.resume().catch(() => {});
+        }
 
-        // Aumentar volumen aún más (máximo posible)
-        gain.gain.setValueAtTime(0.95, start);
-        gain.gain.exponentialRampToValueAtTime(0.01, start + dur);
+        const beep = (start: number, freq: number, dur: number) => {
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+          osc.frequency.value = freq;
+          osc.type = 'sine';
+          gain.gain.setValueAtTime(0.95, start);
+          gain.gain.exponentialRampToValueAtTime(0.01, start + dur);
+          osc.start(start);
+          osc.stop(start + dur);
+        };
 
-        console.log(`Beep: freq=${freq}, start=${start}, duration=${dur}`);
+        let time = ctx.currentTime;
+        frequencies.forEach((freq) => {
+          beep(time, freq, duration);
+          time += duration + gap;
+        });
 
-        osc.start(start);
-        osc.stop(start + dur);
+        setAudioStatus('✅ Sonido reproducido (Web Audio)');
+        console.log('Beeps scheduled with Web Audio API');
+        return;
       } catch (err) {
-        console.error('Beep error:', err);
-        setAudioStatus(`❌ Error beep: ${err}`);
+        console.error('Web Audio API error:', err);
       }
-    };
+    }
 
+    // Fallback: Usar HTMLAudioElement para Android
     try {
-      let time = ctx.currentTime;
+      setAudioStatus('🔄 Intentando con HTML Audio...');
       frequencies.forEach((freq, idx) => {
-        console.log(`Creating beep ${idx + 1}/${frequencies.length}: ${freq}Hz`);
-        beep(time, freq, duration);
-        time += duration + gap;
+        setTimeout(() => {
+          const dataUrl = generateToneDataUrl(freq, duration * 1000);
+          const audio = new Audio(dataUrl);
+          audio.volume = 1.0;
+          audio.play().catch(err => {
+            console.error('HTML Audio play error:', err);
+            setAudioStatus(`❌ Error de audio: ${err}`);
+          });
+        }, (duration + gap) * 1000 * idx);
       });
-      console.log('Beeps scheduled successfully');
-      setAudioStatus('✅ Sonido reproducido');
+
+      setAudioStatus('✅ Sonido reproducido (HTML Audio)');
     } catch (err) {
-      console.error('Error scheduling beeps:', err);
+      console.error('Fallback error:', err);
       setAudioStatus(`❌ Error: ${err}`);
     }
-  }, [soundEnabled, initAudio]);
+  }, [soundEnabled, initAudio, generateToneDataUrl]);
 
   const playNewOrder = useCallback(() => {
     playBeeps([880, 1100], 0.15, 0.2); // 2 quick beeps
