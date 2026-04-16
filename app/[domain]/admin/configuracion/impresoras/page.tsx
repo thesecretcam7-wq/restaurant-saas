@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { use, useState, useEffect } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { createClient } from '@supabase/supabase-js';
 import { Plus, AlertCircle, CheckCircle } from 'lucide-react';
@@ -9,14 +9,17 @@ import { useWebUSB } from '@/lib/hooks/useWebUSB';
 import { testPrinterConnection, getPrinterLogs } from '@/lib/pos-printer';
 import type { PrinterDevice } from '@/types/printer';
 
+interface Props {
+  params: Promise<{ domain: string }>
+}
+
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 );
 
-export default function PrintersConfigPage() {
-  const searchParams = useSearchParams();
-  const domain = searchParams.get('domain');
+export default function PrintersConfigPage({ params }: Props) {
+  const { domain } = use(params);
 
   const [tenantId, setTenantId] = useState<string | null>(null);
   const [devices, setDevices] = useState<PrinterDevice[]>([]);
