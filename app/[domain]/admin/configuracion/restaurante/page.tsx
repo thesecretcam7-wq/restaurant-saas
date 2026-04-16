@@ -6,15 +6,8 @@ import toast from 'react-hot-toast'
 
 interface Props { params: Promise<{ domain: string }> }
 
-async function getTenantIdFromSlugClient(slug: string) {
-  const supabase = createClient()
-  const { data } = await supabase.from('tenants').select('id').eq('slug', slug).single()
-  return data?.id || null
-}
-
 export default function RestauranteConfigPage({ params }: Props) {
-  const { domain: slug } = use(params)
-  const [tenantId, setTenantId] = useState<string | null>(null)
+  const { domain: tenantId } = use(params)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [form, setForm] = useState({
@@ -36,14 +29,6 @@ export default function RestauranteConfigPage({ params }: Props) {
     cash_payment_enabled: true,
     tax_rate: '0',
   })
-
-  useEffect(() => {
-    const initializeTenantId = async () => {
-      const resolvedTenantId = await getTenantIdFromSlugClient(slug)
-      setTenantId(resolvedTenantId)
-    }
-    initializeTenantId()
-  }, [slug])
 
   useEffect(() => {
     if (!tenantId) return
