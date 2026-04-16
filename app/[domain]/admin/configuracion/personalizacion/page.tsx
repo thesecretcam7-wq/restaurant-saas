@@ -428,25 +428,69 @@ export default function PersonalizacionPage({ params }: PersonalizacionProps) {
 
       {/* Diseño de Página */}
       {activeTab === 'pagina' && (
-        <div className="bg-white rounded-xl border p-6">
-          <h3 className="font-semibold text-lg mb-4">Configuración de Página</h3>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">JSON de Configuración</label>
-            <textarea
-              value={JSON.stringify(form.page_config, null, 2)}
-              onChange={e => {
-                try {
-                  setForm(f => ({ ...f, page_config: JSON.parse(e.target.value) }))
-                } catch (err) {
-                  // Invalid JSON, don't update
-                }
-              }}
-              className="w-full px-3 py-2 border rounded-lg font-mono text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-              rows={12}
-              placeholder='{"sections": []}'
-            />
+        <div className="space-y-6">
+          <div className="bg-white rounded-xl border p-6">
+            <h3 className="font-semibold text-lg mb-4">📄 Diseño de tu Página</h3>
+            <p className="text-gray-600 text-sm mb-6">Configura qué secciones mostrar en tu página web de restaurante</p>
+
+            <div className="space-y-3">
+              <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
+                <p className="text-sm font-medium text-blue-900 mb-3">✨ Consejo: Para cambiar el diseño de tu página en detalle, ve a la sección <strong>"Personalizar Página"</strong> en el menú lateral</p>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <button className="p-4 border-2 rounded-xl hover:border-blue-500 hover:bg-blue-50 transition-all text-left">
+                  <div className="font-medium text-gray-900 mb-1">🎨 Hero & Banner</div>
+                  <div className="text-xs text-gray-500">Imagen principal, títulos</div>
+                </button>
+
+                <button className="p-4 border-2 rounded-xl hover:border-blue-500 hover:bg-blue-50 transition-all text-left">
+                  <div className="font-medium text-gray-900 mb-1">⭐ Destacados</div>
+                  <div className="text-xs text-gray-500">Productos más populares</div>
+                </button>
+
+                <button className="p-4 border-2 rounded-xl hover:border-blue-500 hover:bg-blue-50 transition-all text-left">
+                  <div className="font-medium text-gray-900 mb-1">📍 Información</div>
+                  <div className="text-xs text-gray-500">Ubicación, horarios, contacto</div>
+                </button>
+
+                <button className="p-4 border-2 rounded-xl hover:border-blue-500 hover:bg-blue-50 transition-all text-left">
+                  <div className="font-medium text-gray-900 mb-1">🎯 Acciones</div>
+                  <div className="text-xs text-gray-500">Botones menú, reservar, delivery</div>
+                </button>
+              </div>
+            </div>
           </div>
-          <p className="text-xs text-gray-400 mt-2">Configuración avanzada de diseño de página</p>
+
+          <div className="bg-white rounded-xl border p-6">
+            <h3 className="font-semibold text-lg mb-4">🔗 Links de Redirección</h3>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">URL de Menú Completo</label>
+                <input
+                  type="url"
+                  placeholder="https://tudominio.com/menu"
+                  className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">URL para Reservar</label>
+                <input
+                  type="url"
+                  placeholder="https://reservas.tudominio.com"
+                  className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">URL para Delivery</label>
+                <input
+                  type="url"
+                  placeholder="https://delivery.tudominio.com"
+                  className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                />
+              </div>
+            </div>
+          </div>
         </div>
       )}
 
