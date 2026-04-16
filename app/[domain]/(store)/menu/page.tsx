@@ -43,20 +43,26 @@ export default async function MenuPage({ params }: MenuProps) {
   const btnCls = getButtonClasses(pageConfig.appearance.button_style)
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <header className="sticky top-0 z-20 bg-white/95 backdrop-blur-lg shadow-sm">
-        <div className="max-w-lg mx-auto px-4 h-14 flex items-center justify-between">
-          <div className="flex items-center gap-2.5">
+    <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white">
+      {/* Header - Professional */}
+      <header className="sticky top-0 z-20 bg-white/98 backdrop-blur-xl shadow-md border-b border-gray-100">
+        <div className="max-w-lg mx-auto px-4 h-16 flex items-center justify-between">
+          <div className="flex items-center gap-3">
             {context.tenant?.logo_url && (
-              <img src={context.tenant.logo_url} alt="" className="w-8 h-8 object-cover" style={{ borderRadius: `calc(${br} * 0.5)` }} />
+              <div className="relative">
+                <div className="absolute inset-0 scale-110 rounded-full opacity-10" style={{ backgroundColor: primary }} />
+                <img src={context.tenant.logo_url} alt="" className="w-10 h-10 object-cover relative shadow-sm" style={{ borderRadius: `calc(${br} * 0.5)` }} />
+              </div>
             )}
-            <h1 className="font-extrabold text-gray-900 text-base">
-              {branding?.app_name || context.tenant?.organization_name}
-            </h1>
+            <div>
+              <h1 className="font-black text-gray-900 text-base tracking-tight">
+                {branding?.app_name || context.tenant?.organization_name}
+              </h1>
+              <p className="text-xs text-gray-500 font-medium">Menú</p>
+            </div>
           </div>
-          <Link href={`/${tenantId}/carrito`} className="relative p-2 hover:bg-gray-100 rounded-xl transition-colors">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#374151" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <Link href={`/${tenantId}/carrito`} className="relative p-2.5 hover:bg-gray-100 active:bg-gray-200 rounded-xl transition-all" title="Carrito">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={primary} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
               <path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/>
               <line x1="3" y1="6" x2="21" y2="6"/>
               <path d="M16 10a4 4 0 0 1-8 0"/>
@@ -64,13 +70,13 @@ export default async function MenuPage({ params }: MenuProps) {
           </Link>
         </div>
 
-        {/* Category pills */}
+        {/* Category pills - Professional */}
         {categories.length > 0 && (
-          <div className="max-w-lg mx-auto flex gap-2 px-4 pb-3 overflow-x-auto scrollbar-hide">
+          <div className="max-w-lg mx-auto flex gap-2 px-4 pb-4 overflow-x-auto scrollbar-hide border-b border-gray-100">
             <a
               href="#top"
-              className={`px-3.5 py-1.5 text-xs font-semibold whitespace-nowrap border-2 transition-colors ${btnCls}`}
-              style={{ borderColor: primary, backgroundColor: primary, color: '#fff' }}
+              className={`px-4 py-2 text-xs font-bold whitespace-nowrap rounded-full transition-all shadow-sm hover:shadow-md active:scale-95 ${btnCls}`}
+              style={{ backgroundColor: primary, color: '#fff' }}
             >
               Todo
             </a>
@@ -78,7 +84,7 @@ export default async function MenuPage({ params }: MenuProps) {
               <a
                 key={cat.id}
                 href={`#cat-${cat.id}`}
-                className={`px-3.5 py-1.5 text-xs font-semibold whitespace-nowrap border-2 bg-white transition-colors ${btnCls}`}
+                className={`px-4 py-2 text-xs font-semibold whitespace-nowrap rounded-full bg-white border transition-all hover:border-current ${btnCls}`}
                 style={{ borderColor: `${primary}40`, color: primary }}
               >
                 {cat.name}
@@ -88,13 +94,16 @@ export default async function MenuPage({ params }: MenuProps) {
         )}
       </header>
 
-      <main id="top" className="max-w-lg mx-auto px-4 py-5 space-y-8">
-        {/* Featured */}
+      <main id="top" className="max-w-lg mx-auto px-4 py-6 space-y-8">
+        {/* Featured - Professional */}
         {featured.length > 0 && (
-          <section>
-            <h2 className="text-base font-extrabold text-gray-900 mb-3 flex items-center gap-1.5">
-              <span>⭐</span> Destacados
-            </h2>
+          <section className="scroll-mt-20">
+            <div className="flex items-center gap-2 mb-4">
+              <div className="w-1 h-6 rounded-full" style={{ backgroundColor: primary }} />
+              <h2 className="text-lg font-black text-gray-900 tracking-tight">
+                ⭐ Lo más pedido
+              </h2>
+            </div>
             <div className="grid grid-cols-2 gap-3">
               {featured.map(item => (
                 <div key={item.id} className={`overflow-hidden flex flex-col ${cardCls}`} style={{ borderRadius: br }}>

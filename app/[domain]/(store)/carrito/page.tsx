@@ -13,41 +13,42 @@ export default function CarritoPage({ params }: Props) {
 
   if (items.length === 0) {
     return (
-      <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center gap-5 p-6">
-        <div className="w-24 h-24 rounded-full bg-gray-100 flex items-center justify-center">
-          <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#CBD5E1" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+      <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white flex flex-col items-center justify-center gap-6 p-6">
+        <div className="w-28 h-28 rounded-2xl bg-gradient-to-br from-blue-50 to-blue-100 flex items-center justify-center shadow-sm">
+          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#3B82F6" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
             <path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/>
             <line x1="3" y1="6" x2="21" y2="6"/>
             <path d="M16 10a4 4 0 0 1-8 0"/>
           </svg>
         </div>
-        <div className="text-center">
-          <h2 className="text-xl font-extrabold text-gray-900 mb-1">Tu carrito está vacío</h2>
-          <p className="text-muted-foreground text-sm">Agrega productos del menú para comenzar</p>
+        <div className="text-center max-w-xs">
+          <h2 className="text-2xl font-black text-gray-900 mb-2 tracking-tight">Tu carrito está vacío</h2>
+          <p className="text-gray-600 text-sm font-medium">Agrega deliciosos productos del menú para comenzar tu pedido</p>
         </div>
         <Link
           href={`/${tenantId}/menu`}
-          className="px-8 py-3.5 rounded-2xl text-white font-bold text-sm bg-blue-500 shadow-lg active:scale-95 transition-transform"
+          className="px-8 py-3.5 rounded-xl text-white font-bold text-sm shadow-lg hover:shadow-xl active:scale-95 transition-all"
+          style={{ backgroundColor: '#0066FF' }}
         >
-          Ir al menú
+          Explorar menú
         </Link>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <header className="bg-white border-b">
-        <div className="max-w-lg mx-auto px-4 h-14 flex items-center gap-3">
-          <Link href={`/${tenantId}/menu`} className="w-9 h-9 rounded-full bg-gray-100 flex items-center justify-center">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#374151" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+    <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white">
+      {/* Header - Professional */}
+      <header className="bg-white/98 backdrop-blur-lg border-b border-gray-100 shadow-sm sticky top-0 z-10">
+        <div className="max-w-lg mx-auto px-4 h-16 flex items-center gap-3">
+          <Link href={`/${tenantId}/menu`} className="w-10 h-10 rounded-lg bg-gray-100 hover:bg-gray-200 active:bg-gray-300 flex items-center justify-center transition-colors" title="Volver">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#374151" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
               <path d="M19 12H5M12 19l-7-7 7-7"/>
             </svg>
           </Link>
-          <div>
-            <h1 className="font-extrabold text-gray-900">Tu pedido</h1>
-            <p className="text-xs text-muted-foreground">{items.reduce((s, i) => s + i.qty, 0)} productos</p>
+          <div className="flex-1">
+            <h1 className="font-black text-gray-900 tracking-tight">Tu pedido</h1>
+            <p className="text-xs text-gray-500 font-medium">{items.reduce((s, i) => s + i.qty, 0)} {items.reduce((s, i) => s + i.qty, 0) === 1 ? 'producto' : 'productos'}</p>
           </div>
         </div>
       </header>

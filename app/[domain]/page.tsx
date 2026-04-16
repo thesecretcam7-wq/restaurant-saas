@@ -70,31 +70,34 @@ export default async function HomePage({ params }: HomePageProps) {
   const heroSubtitle = hero.subtitle_text || tagline
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-[72px]">
+    <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white pb-[72px]">
       {/* ─── HERO ─────────────────────────────────── */}
       {hero.style === 'minimal' ? (
-        /* Minimal Hero */
-        <div className="bg-white px-4 pt-12 pb-8 border-b relative">
+        /* Minimal Hero - Professional */
+        <div className="bg-white px-4 pt-12 pb-8 border-b border-gray-100 shadow-sm relative">
           <div className="max-w-lg mx-auto">
             <div className="absolute top-4 right-4 z-10">
               <Link href={`/${tenantId}/admin/login`} className="px-3 py-1.5 rounded-full text-xs font-medium bg-gray-100 text-gray-500 hover:bg-gray-200 transition-colors">Admin</Link>
             </div>
-            <div className="flex items-center gap-4 mb-4">
+            <div className="flex items-center gap-4 mb-6">
               {hero.show_logo && tenant.logo_url && (
-                <img src={tenant.logo_url} alt={appName} className="w-16 h-16 object-cover shadow-sm" style={{ borderRadius: br }} />
+                <div className="relative">
+                  <div className="absolute inset-0 scale-110 rounded-full opacity-10" style={{ backgroundColor: primary }} />
+                  <img src={tenant.logo_url} alt={appName} className="w-20 h-20 object-cover shadow-md relative" style={{ borderRadius: br }} />
+                </div>
               )}
               <div>
-                <h1 className="text-2xl font-extrabold text-gray-900 leading-tight">{heroTitle}</h1>
-                {heroSubtitle && <p className="text-sm text-gray-500 mt-0.5">{heroSubtitle}</p>}
+                <h1 className="text-3xl font-black text-gray-900 leading-tight tracking-tight">{heroTitle}</h1>
+                {heroSubtitle && <p className="text-sm text-gray-600 mt-1.5 font-medium">{heroSubtitle}</p>}
               </div>
             </div>
             {hero.show_info_pills && <InfoPills settings={settings} primary={primary} />}
-            <div className="flex gap-3 mt-5">
-              <Link href={`/${tenantId}/menu`} className={`flex-1 py-3 text-sm font-bold text-center text-white shadow-md active:scale-[0.97] transition-transform ${btnCls}`} style={{ backgroundColor: primary }}>
+            <div className="flex gap-3 mt-6">
+              <Link href={`/${tenantId}/menu`} className={`flex-1 py-3 text-sm font-bold text-center text-white shadow-md hover:shadow-lg active:scale-[0.97] transition-all ${btnCls}`} style={{ backgroundColor: primary }}>
                 {hero.cta_primary_text}
               </Link>
               {settings?.reservations_enabled && (
-                <Link href={`/${tenantId}/reservas`} className={`flex-1 py-3 text-sm font-bold text-center border-2 active:scale-[0.97] transition-transform ${btnCls}`} style={{ borderColor: primary, color: primary }}>
+                <Link href={`/${tenantId}/reservas`} className={`flex-1 py-3 text-sm font-bold text-center border-2 hover:bg-gray-50 active:scale-[0.97] transition-all ${btnCls}`} style={{ borderColor: primary, color: primary }}>
                   {hero.cta_secondary_text}
                 </Link>
               )}
@@ -131,50 +134,51 @@ export default async function HomePage({ params }: HomePageProps) {
           </div>
         </div>
       ) : (
-        /* Full Image / Gradient / Parallax Hero */
-        <div className="relative overflow-hidden" style={{ height: heroH, minHeight: '320px' }}>
+        /* Full Image / Gradient / Parallax Hero - Professional */
+        <div className="relative overflow-hidden" style={{ height: heroH, minHeight: '360px' }}>
           {heroImage ? (
             <img src={heroImage} alt={appName} className={`w-full h-full object-cover ${hero.style === 'parallax' ? 'scale-110' : ''}`} />
           ) : (
             <div className="w-full h-full" style={{
               background: hero.style === 'gradient'
-                ? `linear-gradient(${hero.gradient_angle}deg, ${primary}ee 0%, ${secondary}dd 50%, #0f172a 100%)`
-                : `linear-gradient(135deg, ${primary}dd 0%, ${primary}99 50%, #0f172a 100%)`,
+                ? `linear-gradient(${hero.gradient_angle || 135}deg, ${primary} 0%, ${secondary || '#10B981'}cc 50%, #0f172a 100%)`
+                : `linear-gradient(135deg, ${primary}f2 0%, ${primary}cc 40%, #1e3a8a 100%)`,
             }} />
           )}
-          <div className="absolute inset-0" style={{
-            background: `linear-gradient(to bottom, rgba(0,0,0,${hero.overlay_opacity * 0.003}) 0%, rgba(0,0,0,${hero.overlay_opacity * 0.008}) 50%, rgba(0,0,0,${hero.overlay_opacity * 0.015}) 100%)`,
+          <div className="absolute inset-0 backdrop-blur-[0.5px]" style={{
+            background: `linear-gradient(to bottom, rgba(0,0,0,0.1) 0%, rgba(0,0,0,0.2) 50%, rgba(0,0,0,0.35) 100%)`,
           }} />
-          <div className="absolute top-4 right-4 z-10">
-            <Link href={`/${tenantId}/admin/login`} className="px-3 py-1.5 rounded-full text-xs font-medium bg-white/20 backdrop-blur-sm text-white border border-white/30 hover:bg-white/30 transition-colors">Admin</Link>
+          <div className="absolute top-6 right-6 z-10">
+            <Link href={`/${tenantId}/admin/login`} className="px-4 py-2 rounded-lg text-xs font-semibold bg-white/20 backdrop-blur-md text-white border border-white/40 hover:bg-white/30 transition-all shadow-sm">Admin</Link>
           </div>
-          <div className="absolute bottom-0 left-0 right-0 p-6 pb-8">
+          <div className="absolute inset-0 flex flex-col justify-end p-6 pb-8 max-w-lg mx-auto">
             {hero.show_logo && tenant.logo_url && (
-              <div className="mb-3">
-                <img src={tenant.logo_url} alt={appName} className="w-16 h-16 object-cover shadow-lg border-2 border-white/30" style={{ borderRadius: br }} />
+              <div className="mb-5 relative">
+                <div className="absolute inset-0 scale-125 rounded-2xl opacity-20 blur" style={{ backgroundColor: '#fff' }} />
+                <img src={tenant.logo_url} alt={appName} className="w-20 h-20 object-cover shadow-xl border-3 border-white/40 relative rounded-2xl" />
               </div>
             )}
-            <h1 className="text-3xl font-extrabold text-white mb-1 leading-tight">{heroTitle}</h1>
-            {heroSubtitle && <p className="text-white/80 text-sm mb-4 line-clamp-2">{heroSubtitle}</p>}
+            <h1 className="text-4xl font-black text-white mb-2 leading-tight tracking-tight drop-shadow-lg">{heroTitle}</h1>
+            {heroSubtitle && <p className="text-white/90 text-base mb-6 font-semibold line-clamp-3 drop-shadow">{heroSubtitle}</p>}
             {hero.show_info_pills && (
-              <div className="flex flex-wrap gap-2 mb-5">
+              <div className="flex flex-wrap gap-3 mb-6">
                 {settings?.delivery_enabled && (
-                  <span className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-white/20 backdrop-blur-sm text-white text-xs font-medium">🚗 {settings.delivery_time_minutes ?? 30} min</span>
+                  <span className="flex items-center gap-2 px-4 py-2 rounded-full bg-white/20 backdrop-blur-md text-white text-sm font-semibold border border-white/30">🚗 {settings.delivery_time_minutes ?? 30} min</span>
                 )}
                 {settings?.city && (
-                  <span className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-white/20 backdrop-blur-sm text-white text-xs font-medium">📍 {settings.city}</span>
+                  <span className="flex items-center gap-2 px-4 py-2 rounded-full bg-white/20 backdrop-blur-md text-white text-sm font-semibold border border-white/30">📍 {settings.city}</span>
                 )}
                 {settings?.cash_payment_enabled && (
-                  <span className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-white/20 backdrop-blur-sm text-white text-xs font-medium">💳 Efectivo y tarjeta</span>
+                  <span className="flex items-center gap-2 px-4 py-2 rounded-full bg-white/20 backdrop-blur-md text-white text-sm font-semibold border border-white/30">💳 Múltiples métodos</span>
                 )}
               </div>
             )}
             <div className="flex gap-3">
-              <Link href={`/${tenantId}/menu`} className={`flex-1 py-3.5 text-sm font-bold text-center shadow-lg active:scale-[0.97] transition-transform ${btnCls}`} style={{ backgroundColor: primary, color: '#fff' }}>
+              <Link href={`/${tenantId}/menu`} className={`flex-1 py-4 text-sm font-bold text-center text-white shadow-xl hover:shadow-2xl active:scale-[0.97] transition-all ${btnCls}`} style={{ backgroundColor: primary }}>
                 {hero.cta_primary_text}
               </Link>
               {settings?.reservations_enabled && (
-                <Link href={`/${tenantId}/reservas`} className={`flex-1 py-3.5 text-sm font-bold text-center bg-white/20 backdrop-blur-sm text-white border border-white/40 active:scale-[0.97] transition-transform ${btnCls}`}>
+                <Link href={`/${tenantId}/reservas`} className={`flex-1 py-4 text-sm font-bold text-center bg-white/25 backdrop-blur-md text-white border border-white/50 hover:bg-white/35 active:scale-[0.97] transition-all ${btnCls}`}>
                   {hero.cta_secondary_text}
                 </Link>
               )}
@@ -210,10 +214,21 @@ export default async function HomePage({ params }: HomePageProps) {
         }
       })}
 
-      {/* Footer */}
-      <div className="mt-8 mb-4 text-center space-y-1">
-        {footer.custom_text && <p className="text-xs text-gray-400">{footer.custom_text}</p>}
-        {footer.show_powered_by && <p className="text-[10px] text-gray-300">Powered by Restaurant.SV</p>}
+      {/* Professional Footer */}
+      <div className="mt-12 pt-8 border-t border-gray-200 bg-gradient-to-b from-white to-gray-50 px-4">
+        <div className="max-w-lg mx-auto space-y-4 pb-4">
+          <div className="text-center space-y-2">
+            {footer.custom_text && <p className="text-sm font-medium text-gray-700">{footer.custom_text}</p>}
+            <p className="text-xs text-gray-500 leading-relaxed">
+              Todos los derechos reservados © {new Date().getFullYear()} {appName}
+            </p>
+          </div>
+          {footer.show_powered_by && (
+            <div className="pt-2 text-center border-t border-gray-200">
+              <p className="text-xs text-gray-400 font-medium">Impulsado por <span className="text-blue-600 font-semibold">Eccofood</span></p>
+            </div>
+          )}
+        </div>
       </div>
 
       <BottomNav tenantId={tenantId} primaryColor={primary} />
@@ -226,10 +241,14 @@ function InfoPills({ settings, primary }: { settings: any; primary: string }) {
   return (
     <div className="flex flex-wrap gap-2">
       {settings.delivery_enabled && (
-        <span className="flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium" style={{ backgroundColor: `${primary}12`, color: primary }}>🚗 {settings.delivery_time_minutes ?? 30} min</span>
+        <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold shadow-sm" style={{ backgroundColor: `${primary}15`, color: primary, border: `1px solid ${primary}30` }}>
+          🚗 {settings.delivery_time_minutes ?? 30} min
+        </span>
       )}
       {settings.city && (
-        <span className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-gray-100 text-gray-600 text-xs font-medium">📍 {settings.city}</span>
+        <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-gray-100 text-gray-700 text-xs font-semibold border border-gray-200">
+          📍 {settings.city}
+        </span>
       )}
     </div>
   )
