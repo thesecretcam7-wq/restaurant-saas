@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { DollarSign, CreditCard } from 'lucide-react';
 import { calculateChange, getSuggestedBillAmounts, formatCurrency } from '@/lib/pos-utils';
 import { getCurrencyByCountry, formatPriceWithCurrency } from '@/lib/currency';
+import { NumericKeyboard } from './NumericKeyboard';
 
 type PaymentMethod = 'cash' | 'stripe';
 
@@ -29,6 +30,7 @@ export function POSPayment({
   const currencyInfo = getCurrencyByCountry(country);
   const [amountPaid, setAmountPaid] = useState<string>('');
   const [change, setChange] = useState<number>(0);
+  const [showNumericKeyboard, setShowNumericKeyboard] = useState(false);
 
   const suggestedAmounts = getSuggestedBillAmounts(total);
   const paidAmount = amountPaid ? Number(amountPaid) : 0;
@@ -44,6 +46,12 @@ export function POSPayment({
   const handleSuggestedAmount = (amount: number) => {
     setAmountPaid(amount.toString());
     setChange(calculateChange(total, amount));
+  };
+
+  const handleConfirmPaymentAmount = (value: number) => {
+    setAmountPaid(value.toString());
+    setChange(calculateChange(total, value));
+    setShowNumericKeyboard(false);
   };
 
   const isValidPayment = paymentMethod === 'stripe' || (paymentMethod === 'cash' && paidAmount >= total);
@@ -92,15 +100,13 @@ export function POSPayment({
       {paymentMethod === 'cash' && (
         <div className="space-y-3 bg-card p-4 rounded-lg border border-border">
           <label className="text-xs font-medium text-muted-foreground">Cantidad Recibida</label>
-          <input
-            type="number"
-            value={amountPaid}
-            onChange={(e) => handleAmountChange(e.target.value)}
-            placeholder="0.00"
-            className="w-full px-2 py-1 bg-gray-700 border border-gray-600 rounded text-xs text-white focus:border-green-500 focus:outline-none"
-            min="0"
-            step="0.01"
-          />
+          <button
+            onClick={() => setShowNumericKeyboard(true)}
+            className="w-full px-2 py-2 bg-gray-700 border-2 border-green-600 hover:bg-gray-600 rounded-lg text-center text-lg font-bold text-green-400 transition hover:border-green-500"
+            title="Toca para ingresar cantidad"
+          >
+            {amountPaid ? formatPriceWithCurrency(Number(amountPaid), currencyInfo.code, currencyInfo.locale) : 'Ingresa cantidad'}
+          </button>
 
           {/* Billetes Sugeridos */}
           <div className="space-y-2">
@@ -147,6 +153,16 @@ export function POSPayment({
       {paymentMethod === 'cash' && paidAmount && change < 0 && (
         <p className="text-xs text-red-400 text-center">El monto no es suficiente</p>
       )}
+
+      {/* Numeric Keyboard Modal */}
+      <NumericKeyboard
+        isOpen={showNumericKeyboard}
+        title="Cantidad Recibida"
+        initialValue={amountPaid ? Number(amountPaid) : 0}
+        onConfirm={handleConfirmPaymentAmount}
+        onCancel={() => setShowNumericKeyboard(false)}
+        allowDecimal={true}
+      />
     </div>
   );
 }

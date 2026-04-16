@@ -65,27 +65,33 @@ export default function BottomNav({ tenantId, primaryColor }: { tenantId: string
 
   return (
     <nav
-      className="fixed bottom-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-xl border-t border-gray-100"
-      style={{ boxShadow: '0 -4px 24px rgba(0,0,0,0.08)', paddingBottom: 'env(safe-area-inset-bottom)' }}
+      className="fixed bottom-0 left-0 right-0 z-50 bg-white/98 backdrop-blur-xl border-t border-gray-200"
+      style={{ boxShadow: '0 -4px 24px rgba(0,0,0,0.1)', paddingBottom: 'env(safe-area-inset-bottom)' }}
     >
       <div className="max-w-lg mx-auto flex">
         {tabs.map(({ href, label, Icon, active, badge }) => (
-          <Link key={href} href={href} className="flex-1 flex flex-col items-center py-2.5 gap-0.5 relative">
+          <Link
+            key={href}
+            href={href}
+            className={`flex-1 flex flex-col items-center py-3 gap-1 relative transition-all duration-200 ${
+              active ? 'bg-gray-50/50' : ''
+            }`}
+          >
             <div className="relative">
               {active && (
-                <span className="absolute inset-0 scale-150 rounded-full opacity-10" style={{ backgroundColor: color }} />
+                <span className="absolute inset-0 scale-150 rounded-full opacity-15" style={{ backgroundColor: color }} />
               )}
               <Icon active={active} color={color} />
               {badge ? (
                 <span
-                  className="absolute -top-1.5 -right-1.5 min-w-[17px] h-[17px] text-white text-[9px] font-bold rounded-full flex items-center justify-center px-1"
-                  style={{ backgroundColor: '#EF4444' }}
+                  className="absolute -top-2 -right-2 min-w-[18px] h-[18px] text-white text-[9px] font-black rounded-full flex items-center justify-center px-1 shadow-md"
+                  style={{ backgroundColor: '#DC2626' }}
                 >
                   {badge > 9 ? '9+' : badge}
                 </span>
               ) : null}
             </div>
-            <span className="text-[10px] font-semibold tracking-wide" style={{ color: active ? color : '#94A3B8' }}>
+            <span className="text-[11px] font-bold tracking-wide" style={{ color: active ? color : '#9CA3AF' }}>
               {label}
             </span>
           </Link>

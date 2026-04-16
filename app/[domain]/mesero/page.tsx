@@ -197,13 +197,18 @@ export default function MeseroPage() {
   // --- UPGRADE SCREEN ---
   if (requiresUpgrade) {
     return (
-      <div className="min-h-screen bg-gray-950 flex items-center justify-center p-6">
+      <div className="min-h-screen bg-gradient-to-br from-gray-950 via-amber-950/20 to-gray-950 flex items-center justify-center p-6">
         <div className="text-center max-w-sm">
-          <div className="text-6xl mb-4">🔒</div>
-          <h1 className="text-2xl font-bold text-white mb-2">Plan Pro requerido</h1>
-          <p className="text-gray-400 mb-6">El sistema de mesero está disponible en planes Pro y Premium.</p>
-          <a href={`/${tenantId}/configuracion/planes`} className="inline-block bg-blue-600 text-white font-bold px-6 py-3 rounded-xl">
-            Ver planes
+          <div className="inline-flex items-center justify-center w-20 h-20 rounded-2xl bg-gradient-to-br from-amber-500 to-orange-600 mb-6 shadow-lg">
+            <span className="text-4xl">🔒</span>
+          </div>
+          <h1 className="text-3xl font-black text-white mb-3 tracking-wide">Plan Premium Requerido</h1>
+          <p className="text-gray-400 mb-8">El sistema de mesero está disponible en planes Pro y Premium.</p>
+          <a
+            href={`/${tenantId}/configuracion/planes`}
+            className="inline-block bg-gradient-to-r from-blue-600 to-blue-700 text-white font-bold px-8 py-3 rounded-xl transition-all duration-200 hover:shadow-lg hover:-translate-y-0.5 shadow-md"
+          >
+            Ver Planes Disponibles
           </a>
         </div>
       </div>
@@ -213,47 +218,52 @@ export default function MeseroPage() {
   // --- PIN SCREEN ---
   if (step === 'pin') {
     return (
-      <div className="min-h-screen bg-gray-950 flex flex-col items-center justify-center p-6">
+      <div className="min-h-screen bg-gradient-to-br from-gray-950 via-gray-900 to-gray-950 flex flex-col items-center justify-center p-6">
         <div className="w-full max-w-xs">
-          <div className="text-center mb-8">
-            <div className="text-5xl mb-3">👨‍🍳</div>
-            <h1 className="text-2xl font-bold text-white">Acceso Mesero</h1>
-            <p className="text-gray-400 text-sm mt-1">Ingresa tu PIN de 4-6 dígitos</p>
+          {/* Header with brand */}
+          <div className="text-center mb-10">
+            <div className="inline-flex items-center justify-center w-20 h-20 rounded-2xl bg-gradient-to-br from-blue-600 to-indigo-700 mb-4 mx-auto shadow-lg">
+              <span className="text-4xl">👨‍🍳</span>
+            </div>
+            <h1 className="text-3xl font-black text-white mb-2 tracking-wide">Acceso Mesero</h1>
+            <p className="text-gray-400 text-sm">Ingresa tu PIN de seguridad</p>
           </div>
 
           {/* PIN display */}
-          <div className="flex justify-center gap-3 mb-6">
+          <div className="flex justify-center gap-2.5 mb-8">
             {Array.from({ length: 6 }).map((_, i) => (
               <div
                 key={i}
-                className={`w-10 h-10 rounded-full border-2 flex items-center justify-center transition-all ${
+                className={`w-11 h-11 rounded-xl border-2 flex items-center justify-center transition-all duration-200 ${
                   i < pin.length
-                    ? 'bg-blue-500 border-blue-500'
-                    : 'border-gray-600 bg-transparent'
+                    ? 'bg-gradient-to-br from-blue-600 to-blue-700 border-blue-500 shadow-lg'
+                    : 'border-gray-600 bg-gray-800/50 border-opacity-40'
                 }`}
               >
-                {i < pin.length && <div className="w-3 h-3 bg-white rounded-full" />}
+                {i < pin.length && <div className="w-3 h-3 bg-white rounded-full animate-scale-in" />}
               </div>
             ))}
           </div>
 
           {pinError && (
-            <p className="text-red-400 text-center text-sm mb-4">{pinError}</p>
+            <div className="bg-red-500/20 border border-red-500/30 rounded-lg px-4 py-3 mb-6 text-red-300 text-sm text-center font-medium">
+              {pinError}
+            </div>
           )}
 
           {/* Keypad */}
-          <div className="grid grid-cols-3 gap-3 mb-6">
+          <div className="grid grid-cols-3 gap-2.5 mb-6">
             {KEYPAD.map((key, i) => (
               <button
                 key={i}
                 onClick={() => handleKeypad(key)}
                 disabled={key === '' || pinLoading}
-                className={`h-14 rounded-2xl text-xl font-semibold transition-all active:scale-95 ${
+                className={`h-14 rounded-xl text-xl font-bold transition-all active:scale-95 ${
                   key === ''
                     ? 'invisible'
                     : key === '⌫'
-                    ? 'bg-gray-700 text-white hover:bg-gray-600'
-                    : 'bg-gray-800 text-white hover:bg-gray-700'
+                    ? 'bg-red-600 hover:bg-red-700 text-white shadow-lg'
+                    : 'bg-gray-800 hover:bg-gray-700 text-white border border-gray-700 hover:border-gray-600 shadow-md'
                 }`}
               >
                 {key}
@@ -264,8 +274,11 @@ export default function MeseroPage() {
           <button
             onClick={handlePinSubmit}
             disabled={pin.length < 4 || pinLoading}
-            className="w-full h-14 rounded-2xl font-bold text-white text-lg transition-all disabled:opacity-40"
-            style={{ backgroundColor: primary }}
+            className="w-full h-14 rounded-xl font-black text-white text-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
+            style={{
+              backgroundColor: pin.length >= 4 && !pinLoading ? primary : '#6B7280',
+              background: pin.length >= 4 && !pinLoading ? `linear-gradient(135deg, ${primary} 0%, #1e3a8a 100%)` : undefined
+            }}
           >
             {pinLoading ? 'Verificando...' : 'Entrar'}
           </button>
@@ -277,18 +290,32 @@ export default function MeseroPage() {
   // --- DONE SCREEN ---
   if (step === 'done') {
     return (
-      <div className="min-h-screen bg-gray-950 flex flex-col items-center justify-center p-6">
-        <div className="text-center">
-          <div className="text-7xl mb-4 animate-bounce">✅</div>
-          <h1 className="text-2xl font-bold text-white mb-2">¡Pedido enviado!</h1>
-          <p className="text-gray-400 mb-2">Mesa {tableNumber}</p>
-          <p className="text-gray-500 text-sm mb-8">El pedido ya está en cocina</p>
+      <div className="min-h-screen bg-gradient-to-br from-gray-950 via-green-950/20 to-gray-950 flex flex-col items-center justify-center p-6">
+        <div className="text-center max-w-sm">
+          {/* Success Icon */}
+          <div className="inline-flex items-center justify-center w-24 h-24 rounded-full bg-gradient-to-br from-green-500 to-emerald-600 mb-6 shadow-2xl animate-scale-in">
+            <span className="text-5xl">✅</span>
+          </div>
+
+          {/* Message */}
+          <h1 className="text-3xl font-black text-white mb-3 tracking-wide">¡Pedido Confirmado!</h1>
+          <div className="bg-blue-500/20 border border-blue-500/30 rounded-xl px-4 py-3 mb-6">
+            <p className="text-blue-300 font-bold">Mesa {tableNumber}</p>
+            <p className="text-blue-200 text-sm mt-1">El pedido está en la cocina</p>
+          </div>
+
+          {/* Info */}
+          <p className="text-gray-400 mb-8 text-sm">Tu mesa ha sido notificada. Prepárate para la siguiente orden.</p>
+
+          {/* Action Button */}
           <button
             onClick={handleNewOrder}
-            className="w-full max-w-xs h-14 rounded-2xl font-bold text-white text-lg"
-            style={{ backgroundColor: primary }}
+            className="w-full h-14 rounded-xl font-black text-white text-lg transition-all duration-200 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
+            style={{
+              background: `linear-gradient(135deg, ${primary} 0%, #1e3a8a 100%)`
+            }}
           >
-            Nuevo pedido
+            Nuevo Pedido
           </button>
         </div>
       </div>
@@ -298,27 +325,38 @@ export default function MeseroPage() {
   // --- TABLE SELECTION ---
   if (step === 'table') {
     return (
-      <div className="min-h-screen bg-gray-950 p-6">
-        <div className="max-w-sm mx-auto">
-          <div className="flex items-center justify-between mb-6">
-            <h1 className="text-xl font-bold text-white">Seleccionar mesa</h1>
-            <button
-              onClick={() => { localStorage.removeItem(`staff_session_${tenantId}`); setStep('pin'); setPin('') }}
-              className="text-gray-500 text-sm"
-            >
-              Salir
-            </button>
+      <div className="min-h-screen bg-gradient-to-br from-gray-950 via-gray-900 to-gray-950 p-6 flex flex-col">
+        {/* Header */}
+        <div className="flex items-center justify-between mb-8 max-w-4xl mx-auto w-full">
+          <div>
+            <p className="text-blue-400 text-xs font-bold tracking-widest mb-1">DINING</p>
+            <h1 className="text-3xl font-black text-white tracking-wide">Selecciona Mesa</h1>
           </div>
-          <div className="grid grid-cols-4 gap-3">
-            {Array.from({ length: totalTables }, (_, i) => i + 1).map(num => (
-              <button
-                key={num}
-                onClick={() => { setTableNumber(num); setStep('menu') }}
-                className="h-16 rounded-2xl bg-gray-800 text-white font-bold text-lg hover:bg-gray-700 active:scale-95 transition-all"
-              >
-                {num}
-              </button>
-            ))}
+          <button
+            onClick={() => { localStorage.removeItem(`staff_session_${tenantId}`); setStep('pin'); setPin('') }}
+            className="px-4 py-2.5 rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-300 hover:text-white text-sm font-semibold transition-all"
+          >
+            Salir
+          </button>
+        </div>
+
+        {/* Table Grid */}
+        <div className="flex-1 flex items-center justify-center">
+          <div className="max-w-2xl w-full">
+            <div className="grid grid-cols-4 md:grid-cols-5 gap-4">
+              {Array.from({ length: totalTables }, (_, i) => i + 1).map(num => (
+                <button
+                  key={num}
+                  onClick={() => { setTableNumber(num); setStep('menu') }}
+                  className="h-20 rounded-2xl bg-gradient-to-br from-gray-800 to-gray-900 hover:from-blue-700/40 hover:to-blue-900/40 text-white font-bold text-xl active:scale-95 transition-all border-2 border-gray-700 hover:border-blue-500 shadow-lg hover:shadow-blue-500/20"
+                >
+                  <div className="flex flex-col items-center justify-center h-full">
+                    <span className="text-2xl">🍽️</span>
+                    <span className="text-sm font-bold mt-1">{num}</span>
+                  </div>
+                </button>
+              ))}
+            </div>
           </div>
         </div>
       </div>
@@ -330,27 +368,36 @@ export default function MeseroPage() {
     return (
       <div className="min-h-screen bg-gray-950 flex flex-col">
         {/* Header */}
-        <div className="sticky top-0 z-10 bg-gray-900 border-b border-gray-800 px-4 py-3">
+        <div className="sticky top-0 z-10 bg-gradient-to-r from-blue-600/20 to-indigo-600/20 border-b border-gray-700 backdrop-blur-sm px-6 py-4">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <button onClick={() => setStep('table')} className="text-gray-400 mr-1">←</button>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => setStep('table')}
+                className="text-gray-300 hover:text-white text-xl transition-colors"
+                title="Volver a seleccionar mesa"
+              >
+                ←
+              </button>
               <div>
-                <p className="text-white font-bold text-sm">Mesa {tableNumber}</p>
-                <p className="text-gray-400 text-xs">{cartCount} items · {formatPriceWithCurrency(cartTotal, currencyInfo.code, currencyInfo.locale)}</p>
+                <p className="text-white font-black text-base">🍽️ Mesa {tableNumber}</p>
+                <p className="text-gray-400 text-xs font-medium">{cartCount} items · {formatPriceWithCurrency(cartTotal, currencyInfo.code, currencyInfo.locale)}</p>
               </div>
             </div>
             {cartCount > 0 && step === 'menu' && (
               <button
                 onClick={() => setStep('confirm')}
-                className="px-4 py-2 rounded-xl text-white text-sm font-bold"
+                className="px-5 py-2.5 rounded-lg text-white text-sm font-bold transition-all duration-200 hover:shadow-lg shadow-md"
                 style={{ backgroundColor: primary }}
               >
-                Ver pedido ({cartCount})
+                Confirmar ({cartCount})
               </button>
             )}
             {step === 'confirm' && (
-              <button onClick={() => setStep('menu')} className="text-gray-400 text-sm">
-                + Agregar más
+              <button
+                onClick={() => setStep('menu')}
+                className="px-5 py-2.5 rounded-lg bg-blue-600 text-white text-sm font-bold transition-all duration-200 hover:shadow-lg shadow-md"
+              >
+                + Agregar
               </button>
             )}
           </div>

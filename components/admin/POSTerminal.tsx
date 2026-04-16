@@ -697,27 +697,33 @@ export function POSTerminal({ tenantId, country = 'CO' }: { tenantId: string; co
     <div className={`${isFullscreen ? 'w-screen h-screen p-0 m-0 overflow-hidden flex flex-col' : 'h-full'} bg-muted text-white flex`}>
       {/* Fullscreen Header - Logo and Controls */}
       {isFullscreen && (
-        <div className="bg-muted border-b border-border px-4 py-2 flex items-center justify-between h-14">
-          <div className="flex items-center gap-3">
-            {restaurantLogo && (
-              <img src={restaurantLogo} alt={restaurantName} className="h-8 w-8 object-contain rounded" />
-            )}
-            <h1 className="text-base font-bold text-white">{restaurantName}</h1>
+        {/* TPV Header - Eccofood Brand */}
+        <div className="bg-gradient-to-r from-blue-600 via-blue-700 to-indigo-700 border-b border-blue-900/50 px-6 py-4 flex items-center justify-between shadow-lg">
+          <div className="flex items-center gap-4">
+            <div className="bg-white/10 backdrop-blur-sm rounded-xl p-2.5 border border-white/20">
+              <DollarSign className="w-6 h-6 text-white" />
+            </div>
+            <div>
+              <p className="text-white/60 text-xs font-semibold tracking-wider">PUNTO DE VENTA</p>
+              <h1 className="text-white font-black text-lg tracking-wide">{restaurantName}</h1>
+            </div>
           </div>
           <div className="flex items-center gap-2">
             <button
               onClick={() => setShowAdminMenu(true)}
-              className="bg-gray-700 hover:bg-muted text-white rounded p-1.5 transition"
+              className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-white/10 hover:bg-white/20 backdrop-blur-sm border border-white/20 text-white text-sm font-semibold transition-all duration-200"
               title="Panel de administración"
             >
-              <span className="text-base">⚙️</span>
+              <span>⚙️</span>
+              <span className="hidden sm:inline">Admin</span>
             </button>
             <button
               onClick={toggleFullscreen}
-              className="bg-gray-700 hover:bg-muted text-white rounded p-1.5 transition"
-              title="Salir de pantalla completa (ESC)"
+              className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-white/10 hover:bg-white/20 backdrop-blur-sm border border-white/20 text-white text-sm font-semibold transition-all duration-200"
+              title={isFullscreen ? 'Salir de pantalla completa (ESC)' : 'Pantalla completa'}
             >
-              <Minimize2 className="w-4 h-4" />
+              {isFullscreen ? <Minimize2 className="w-5 h-5" /> : <Maximize2 className="w-5 h-5" />}
+              <span className="hidden sm:inline">{isFullscreen ? 'Salir' : 'Fullscreen'}</span>
             </button>
           </div>
         </div>
@@ -727,15 +733,15 @@ export function POSTerminal({ tenantId, country = 'CO' }: { tenantId: string; co
         {/* Menu Section */}
         <div className={`flex-1 flex flex-col bg-card overflow-hidden`}>
           {/* Search and Controls - Sticky Header */}
-          <div className={`flex gap-2 items-center bg-card sticky top-0 z-10 border-b border-border ${isFullscreen ? 'px-4 py-3' : 'p-4 mb-2'}`}>
+          <div className={`flex gap-3 items-center bg-card sticky top-0 z-10 border-b border-border backdrop-blur-sm ${isFullscreen ? 'px-4 py-3' : 'p-4'}`}>
             <div className="flex-1 relative">
-              <Search className="absolute left-3 top-3 w-5 h-5 text-muted-foreground" />
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground pointer-events-none" />
               <input
                 type="text"
                 placeholder="Buscar producto..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 rounded-lg bg-gray-700 border border-border focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none text-white"
+                className="w-full pl-12 pr-4 py-2.5 rounded-lg bg-gray-800 border border-gray-700 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none text-white text-sm font-medium transition-all"
               />
             </div>
             {!isFullscreen && (
@@ -743,30 +749,32 @@ export function POSTerminal({ tenantId, country = 'CO' }: { tenantId: string; co
                 <button
                   onClick={handleOpenCashClosing}
                   disabled={closingLoading}
-                  className="bg-orange-600 hover:bg-orange-700 text-white rounded-lg p-2 transition disabled:opacity-50"
+                  className="flex items-center gap-2 px-3 py-2.5 bg-orange-600 hover:bg-orange-700 text-white rounded-lg font-semibold text-sm transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
                   title="Cerrar caja diaria"
                 >
                   <Lock className="w-5 h-5" />
+                  <span className="hidden sm:inline">Cerrar</span>
                 </button>
                 <button
                   onClick={toggleFullscreen}
-                  className="bg-gray-700 hover:bg-muted text-white rounded-lg p-2 transition"
+                  className="flex items-center gap-2 px-3 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold text-sm transition-all duration-200"
                   title="Pantalla completa"
                 >
                   <Maximize2 className="w-5 h-5" />
+                  <span className="hidden sm:inline">Pantalla</span>
                 </button>
               </>
             )}
           </div>
 
           {/* Categories - Sticky */}
-          <div className={`flex gap-2 overflow-x-auto pb-2 sticky z-10 bg-card border-b border-border ${isFullscreen ? 'px-4 py-3' : 'px-4 py-2'}`}>
+          <div className={`flex gap-2 overflow-x-auto pb-2 sticky z-10 bg-gradient-to-r from-gray-900/80 to-gray-800/80 border-b border-gray-800 backdrop-blur-sm ${isFullscreen ? 'px-4 py-3' : 'px-4 py-2.5'}`}>
             <button
               onClick={() => setSelectedCategory(null)}
-              className={`px-4 py-2 rounded-lg whitespace-nowrap transition text-sm font-medium ${
+              className={`px-4 py-2.5 rounded-lg whitespace-nowrap transition text-sm font-bold tracking-wide ${
                 selectedCategory === null
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-gray-700 text-muted-foreground hover:bg-muted'
+                  ? 'bg-gradient-to-r from-blue-600 to-blue-700 text-white shadow-lg'
+                  : 'bg-gray-800 text-gray-300 hover:bg-gray-700 border border-gray-700'
               }`}
             >
               Todos
@@ -775,10 +783,10 @@ export function POSTerminal({ tenantId, country = 'CO' }: { tenantId: string; co
               <button
                 key={cat.id}
                 onClick={() => setSelectedCategory(cat.id)}
-                className={`px-4 py-2 rounded-lg whitespace-nowrap transition text-sm font-medium ${
+                className={`px-4 py-2.5 rounded-lg whitespace-nowrap transition text-sm font-bold tracking-wide ${
                   selectedCategory === cat.id
-                    ? 'bg-blue-600 text-white'
-                    : 'bg-gray-700 text-muted-foreground hover:bg-muted'
+                    ? 'bg-gradient-to-r from-blue-600 to-blue-700 text-white shadow-lg'
+                    : 'bg-gray-800 text-gray-300 hover:bg-gray-700 border border-gray-700'
                 }`}
               >
                 {cat.name}
@@ -787,23 +795,23 @@ export function POSTerminal({ tenantId, country = 'CO' }: { tenantId: string; co
           </div>
 
           {/* Menu Grid */}
-          <div className={`flex-1 overflow-y-auto ${isFullscreen ? 'px-4 py-3' : 'p-4'}`}>
-            <div className={`grid gap-2 h-fit ${isFullscreen ? 'grid-cols-8' : 'grid-cols-5 md:grid-cols-6 lg:grid-cols-7'}`}>
+          <div className={`flex-1 overflow-y-auto bg-gradient-to-b from-gray-900/50 to-gray-950 ${isFullscreen ? 'px-4 py-3' : 'p-4'}`}>
+            <div className={`grid gap-3 h-fit ${isFullscreen ? 'grid-cols-8' : 'grid-cols-5 md:grid-cols-6 lg:grid-cols-7'}`}>
               {filteredMenu.map((item) => (
                 <button
                   key={item.id}
                   onClick={() => addToCart(item)}
-                  className="bg-gray-700 hover:bg-blue-600 rounded-lg p-2 text-left transition transform hover:scale-105 active:scale-95 h-fit flex flex-col justify-between"
+                  className="bg-gradient-to-br from-gray-800 to-gray-900 hover:from-blue-700/40 hover:to-blue-900/40 rounded-xl p-2.5 text-left transition-all duration-200 transform hover:scale-105 active:scale-95 h-fit flex flex-col justify-between border border-gray-700 hover:border-blue-500 group"
                 >
                   {item.image_url && (
                     <img
                       src={item.image_url}
                       alt={item.name}
-                      className={`w-full object-contain rounded mb-1 ${isFullscreen ? 'h-16' : 'max-h-20'}`}
+                      className={`w-full object-contain rounded-lg mb-2 group-hover:scale-110 transition-transform duration-200 ${isFullscreen ? 'h-16' : 'max-h-20'}`}
                     />
                   )}
-                  <p className="font-bold text-xs truncate flex-1">{item.name}</p>
-                  <p className="text-green-400 font-bold text-xs">{formatPriceWithCurrency(item.price, currencyInfo.code, currencyInfo.locale)}</p>
+                  <p className="font-bold text-xs truncate flex-1 text-white group-hover:text-blue-300 transition-colors">{item.name}</p>
+                  <p className="text-green-400 font-bold text-xs mt-1">{formatPriceWithCurrency(item.price, currencyInfo.code, currencyInfo.locale)}</p>
                 </button>
               ))}
             </div>
@@ -811,32 +819,34 @@ export function POSTerminal({ tenantId, country = 'CO' }: { tenantId: string; co
         </div>
 
         {/* Cart/Payment Section */}
-        <div className={`${isFullscreen ? 'w-72' : 'w-72'} bg-muted border-l border-border flex flex-col overflow-hidden`}>
+        <div className={`${isFullscreen ? 'w-72' : 'w-72'} bg-gradient-to-b from-gray-900 to-gray-950 border-l border-gray-800 flex flex-col overflow-hidden shadow-xl`}>
           {/* Tabs: Cart vs Incoming Orders */}
-          <div className={`border-b border-border flex gap-0 ${isFullscreen ? 'px-0 py-0' : 'px-0 py-0'}`}>
+          <div className={`border-b border-gray-800 flex gap-0 bg-gray-950/50 backdrop-blur-sm ${isFullscreen ? 'px-0 py-0' : 'px-0 py-0'}`}>
             <button
               onClick={() => setShowIncomingPanel(false)}
-              className={`flex-1 flex items-center justify-center gap-1 py-2 px-2 border-b-2 transition text-xs font-bold ${
+              className={`flex-1 flex items-center justify-center gap-2 py-3 px-2 border-b-2 transition text-xs font-bold tracking-wide ${
                 !showIncomingPanel
-                  ? 'border-blue-600 bg-card text-white'
-                  : 'border-border bg-muted text-muted-foreground hover:text-muted-foreground'
+                  ? 'border-blue-600 bg-blue-600/20 text-white'
+                  : 'border-transparent bg-transparent text-gray-400 hover:text-gray-300'
               }`}
             >
               <ShoppingCart className="w-4 h-4" />
-              <span>Carrito ({cart.length})</span>
+              <span>Carrito</span>
+              <span className="ml-auto bg-blue-600 text-white rounded-full px-2 py-0.5 text-xs font-bold">{cart.length}</span>
             </button>
             <button
               onClick={() => setShowIncomingPanel(true)}
-              className={`flex-1 flex items-center justify-center gap-1 py-2 px-2 border-b-2 transition text-xs font-bold ${
+              className={`flex-1 flex items-center justify-center gap-2 py-3 px-2 border-b-2 transition text-xs font-bold tracking-wide relative ${
                 showIncomingPanel
-                  ? 'border-blue-600 bg-card text-white'
-                  : 'border-border bg-muted text-muted-foreground hover:text-muted-foreground'
-              } ${incomingOrders.length > 0 ? 'relative' : ''}`}
+                  ? 'border-blue-600 bg-blue-600/20 text-white'
+                  : 'border-transparent bg-transparent text-gray-400 hover:text-gray-300'
+              }`}
             >
               <Truck className="w-4 h-4" />
-              <span>Entregas ({incomingOrders.length})</span>
+              <span>Entregas</span>
+              <span className="ml-auto bg-blue-600 text-white rounded-full px-2 py-0.5 text-xs font-bold">{incomingOrders.length}</span>
               {incomingOrders.length > 0 && (
-                <span className="absolute top-0 right-0 w-2 h-2 bg-red-500 rounded-full animate-pulse" />
+                <span className="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full animate-pulse" />
               )}
             </button>
           </div>
@@ -867,22 +877,22 @@ export function POSTerminal({ tenantId, country = 'CO' }: { tenantId: string; co
           </div>
 
           {/* Totals */}
-          <div className={`border-b border-border ${isFullscreen ? 'px-2 py-1' : 'px-2 py-1'} space-y-1 bg-card text-sm`}>
-            <div className="space-y-1 text-xs">
+          <div className={`border-b border-gray-800 ${isFullscreen ? 'px-3 py-2' : 'px-3 py-2'} space-y-2 bg-gray-950/50 text-sm backdrop-blur-sm`}>
+            <div className="space-y-1.5 text-xs">
               <div className="flex justify-between">
-                <span className="text-muted-foreground">Subtotal:</span>
-                <span className="font-bold">{formatPriceWithCurrency(subtotal, currencyInfo.code, currencyInfo.locale)}</span>
+                <span className="text-gray-400">Subtotal:</span>
+                <span className="font-semibold text-gray-200">{formatPriceWithCurrency(subtotal, currencyInfo.code, currencyInfo.locale)}</span>
               </div>
               {discount > 0 && (
-                <div className="flex justify-between text-green-400">
-                  <span>Descuento:</span>
-                  <span className="font-bold">-{formatPriceWithCurrency(discount, currencyInfo.code, currencyInfo.locale)}</span>
+                <div className="flex justify-between bg-green-500/20 px-2 py-1.5 rounded-lg border border-green-500/30">
+                  <span className="text-green-400 font-medium">Descuento:</span>
+                  <span className="font-bold text-green-300">-{formatPriceWithCurrency(discount, currencyInfo.code, currencyInfo.locale)}</span>
                 </div>
               )}
             </div>
-            <div className="border-t border-border pt-2 flex justify-between text-base font-bold">
-              <span>Total:</span>
-              <span className="text-green-400">{formatPriceWithCurrency(total, currencyInfo.code, currencyInfo.locale)}</span>
+            <div className="border-t border-gray-700 pt-2 flex justify-between text-base font-black bg-gradient-to-r from-green-600/20 to-emerald-600/20 px-2 py-2 rounded-lg border border-green-600/30">
+              <span className="text-white">Total:</span>
+              <span className="text-green-400 text-lg">{formatPriceWithCurrency(total, currencyInfo.code, currencyInfo.locale)}</span>
             </div>
 
             {/* Print Receipt Toggle */}

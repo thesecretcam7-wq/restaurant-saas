@@ -98,134 +98,135 @@ export function NumericKeyboard({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
+    <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-3xl shadow-2xl w-full max-w-sm overflow-hidden">
         {/* Header */}
-        <div className="bg-gradient-to-r from-blue-600 to-blue-700 text-white px-6 py-4 flex items-center justify-between">
-          <h2 className="text-xl font-bold">{title}</h2>
+        <div className="bg-gradient-to-r from-blue-600 via-blue-700 to-indigo-700 text-white px-6 py-6 flex items-center justify-between">
+          <h2 className="text-2xl font-bold">{title}</h2>
           <button
             onClick={onCancel}
-            className="hover:bg-blue-800 p-2 rounded-lg transition"
+            className="hover:bg-white/20 p-2 rounded-lg transition"
             aria-label="Cerrar"
           >
-            <X className="w-5 h-5" />
+            <X className="w-6 h-6" />
           </button>
         </div>
 
         {/* Display */}
-        <div className="bg-gray-50 px-6 py-4 border-b">
+        <div className="bg-gradient-to-b from-gray-50 to-white px-6 py-6 border-b-2 border-gray-200">
+          <div className="text-center mb-2 text-xs text-gray-500 font-semibold uppercase tracking-wide">Cantidad</div>
           <input
             type="text"
             value={input}
             onChange={(e) => setInput(e.target.value.replace(/[^\d.]/g, '').slice(0, maxLength))}
-            className="w-full text-right text-4xl font-bold text-gray-900 bg-white border-2 border-gray-300 rounded-lg p-4 focus:outline-none focus:border-blue-500"
+            className="w-full text-center text-6xl font-black text-blue-600 bg-white border-3 border-blue-300 rounded-2xl p-6 focus:outline-none focus:border-blue-600 focus:ring-4 focus:ring-blue-100 transition-all"
             readOnly={false}
           />
         </div>
 
         {/* Keypad */}
-        <div className="p-4 space-y-3">
+        <div className="p-6 space-y-3 bg-gray-50">
           {/* Row 1: 7 8 9 */}
-          <div className="grid grid-cols-3 gap-2">
+          <div className="grid grid-cols-3 gap-3">
             <button
               onClick={() => handleNumberClick('7')}
-              className="bg-gray-100 hover:bg-gray-200 text-2xl font-bold py-4 rounded-lg active:scale-95 transition"
+              className="bg-white hover:bg-blue-50 border-2 border-gray-200 hover:border-blue-400 text-5xl font-black text-gray-800 py-6 rounded-xl active:scale-95 transition shadow-sm"
             >
               7
             </button>
             <button
               onClick={() => handleNumberClick('8')}
-              className="bg-gray-100 hover:bg-gray-200 text-2xl font-bold py-4 rounded-lg active:scale-95 transition"
+              className="bg-white hover:bg-blue-50 border-2 border-gray-200 hover:border-blue-400 text-5xl font-black text-gray-800 py-6 rounded-xl active:scale-95 transition shadow-sm"
             >
               8
             </button>
             <button
               onClick={() => handleNumberClick('9')}
-              className="bg-gray-100 hover:bg-gray-200 text-2xl font-bold py-4 rounded-lg active:scale-95 transition"
+              className="bg-white hover:bg-blue-50 border-2 border-gray-200 hover:border-blue-400 text-5xl font-black text-gray-800 py-6 rounded-xl active:scale-95 transition shadow-sm"
             >
               9
             </button>
           </div>
 
           {/* Row 2: 4 5 6 */}
-          <div className="grid grid-cols-3 gap-2">
+          <div className="grid grid-cols-3 gap-3">
             <button
               onClick={() => handleNumberClick('4')}
-              className="bg-gray-100 hover:bg-gray-200 text-2xl font-bold py-4 rounded-lg active:scale-95 transition"
+              className="bg-white hover:bg-blue-50 border-2 border-gray-200 hover:border-blue-400 text-5xl font-black text-gray-800 py-6 rounded-xl active:scale-95 transition shadow-sm"
             >
               4
             </button>
             <button
               onClick={() => handleNumberClick('5')}
-              className="bg-gray-100 hover:bg-gray-200 text-2xl font-bold py-4 rounded-lg active:scale-95 transition"
+              className="bg-white hover:bg-blue-50 border-2 border-gray-200 hover:border-blue-400 text-5xl font-black text-gray-800 py-6 rounded-xl active:scale-95 transition shadow-sm"
             >
               5
             </button>
             <button
               onClick={() => handleNumberClick('6')}
-              className="bg-gray-100 hover:bg-gray-200 text-2xl font-bold py-4 rounded-lg active:scale-95 transition"
+              className="bg-white hover:bg-blue-50 border-2 border-gray-200 hover:border-blue-400 text-5xl font-black text-gray-800 py-6 rounded-xl active:scale-95 transition shadow-sm"
             >
               6
             </button>
           </div>
 
           {/* Row 3: 1 2 3 */}
-          <div className="grid grid-cols-3 gap-2">
+          <div className="grid grid-cols-3 gap-3">
             <button
               onClick={() => handleNumberClick('1')}
-              className="bg-gray-100 hover:bg-gray-200 text-2xl font-bold py-4 rounded-lg active:scale-95 transition"
+              className="bg-white hover:bg-blue-50 border-2 border-gray-200 hover:border-blue-400 text-5xl font-black text-gray-800 py-6 rounded-xl active:scale-95 transition shadow-sm"
             >
               1
             </button>
             <button
               onClick={() => handleNumberClick('2')}
-              className="bg-gray-100 hover:bg-gray-200 text-2xl font-bold py-4 rounded-lg active:scale-95 transition"
+              className="bg-white hover:bg-blue-50 border-2 border-gray-200 hover:border-blue-400 text-5xl font-black text-gray-800 py-6 rounded-xl active:scale-95 transition shadow-sm"
             >
               2
             </button>
             <button
               onClick={() => handleNumberClick('3')}
-              className="bg-gray-100 hover:bg-gray-200 text-2xl font-bold py-4 rounded-lg active:scale-95 transition"
+              className="bg-white hover:bg-blue-50 border-2 border-gray-200 hover:border-blue-400 text-5xl font-black text-gray-800 py-6 rounded-xl active:scale-95 transition shadow-sm"
             >
               3
             </button>
           </div>
 
-          {/* Row 4: 0 . Backspace */}
-          <div className="grid grid-cols-3 gap-2">
+          {/* Row 4: 0 . Delete */}
+          <div className="grid grid-cols-3 gap-3">
             <button
               onClick={() => handleNumberClick('0')}
-              className="bg-gray-100 hover:bg-gray-200 text-2xl font-bold py-4 rounded-lg active:scale-95 transition col-span-1"
+              className="bg-white hover:bg-blue-50 border-2 border-gray-200 hover:border-blue-400 text-5xl font-black text-gray-800 py-6 rounded-xl active:scale-95 transition shadow-sm"
             >
               0
             </button>
             {allowDecimal && (
               <button
                 onClick={handleDecimalClick}
-                className="bg-gray-100 hover:bg-gray-200 text-2xl font-bold py-4 rounded-lg active:scale-95 transition"
+                className="bg-white hover:bg-blue-50 border-2 border-gray-200 hover:border-blue-400 text-5xl font-black text-gray-800 py-6 rounded-xl active:scale-95 transition shadow-sm"
               >
                 .
               </button>
             )}
             <button
               onClick={handleBackspace}
-              className="bg-red-100 hover:bg-red-200 text-red-700 font-bold py-4 rounded-lg active:scale-95 transition flex items-center justify-center"
+              className="bg-red-50 hover:bg-red-100 border-2 border-red-300 hover:border-red-500 text-red-600 font-bold py-6 rounded-xl active:scale-95 transition shadow-sm flex items-center justify-center"
             >
-              <Delete className="w-6 h-6" />
+              <Delete className="w-8 h-8" />
             </button>
           </div>
 
           {/* Action Buttons */}
-          <div className="grid grid-cols-2 gap-2 pt-2 border-t">
+          <div className="grid grid-cols-2 gap-3 pt-2 border-t-2 border-gray-200">
             <button
               onClick={handleClear}
-              className="bg-orange-500 hover:bg-orange-600 text-white font-bold py-3 rounded-lg active:scale-95 transition"
+              className="bg-orange-500 hover:bg-orange-600 text-white font-bold text-lg py-4 rounded-xl active:scale-95 transition shadow-md"
             >
               Limpiar
             </button>
             <button
               onClick={handleConfirm}
-              className="bg-green-600 hover:bg-green-700 text-white font-bold py-3 rounded-lg active:scale-95 transition"
+              className="bg-green-600 hover:bg-green-700 text-white font-bold text-lg py-4 rounded-xl active:scale-95 transition shadow-md"
             >
               ✓ Confirmar
             </button>
@@ -233,7 +234,7 @@ export function NumericKeyboard({
 
           <button
             onClick={onCancel}
-            className="w-full bg-gray-300 hover:bg-gray-400 text-gray-900 font-bold py-3 rounded-lg active:scale-95 transition"
+            className="w-full bg-gray-400 hover:bg-gray-500 text-white font-bold text-lg py-4 rounded-xl active:scale-95 transition shadow-md"
           >
             Cancelar
           </button>

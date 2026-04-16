@@ -1,7 +1,9 @@
 'use client';
 
+import { useState } from 'react';
 import { X, Plus, Minus, Trash2 } from 'lucide-react';
 import { getCurrencyByCountry, formatPriceWithCurrency } from '@/lib/currency';
+import { NumericKeyboard } from './NumericKeyboard';
 
 interface CartItem {
   menu_item_id: string;
@@ -33,6 +35,24 @@ export function POSCartDrawer({
 }: POSCartDrawerProps) {
   const currencyInfo = getCurrencyByCountry(country);
   const total = subtotal - discount;
+  const [showNumericKeyboard, setShowNumericKeyboard] = useState(false);
+  const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
+  const [editingQuantity, setEditingQuantity] = useState(0);
+
+  const handleEditQuantity = (itemId: string, currentQuantity: number) => {
+    setSelectedItemId(itemId);
+    setEditingQuantity(currentQuantity);
+    setShowNumericKeyboard(true);
+  };
+
+  const handleConfirmQuantity = (value: number) => {
+    if (selectedItemId && value > 0) {
+      onUpdateQuantity(selectedItemId, value);
+    }
+    setShowNumericKeyboard(false);
+    setSelectedItemId(null);
+    setEditingQuantity(0);
+  };
 
   return (
     <>
@@ -95,23 +115,27 @@ export function POSCartDrawer({
                   </div>
 
                   {/* Quantity Controls */}
-                  <div className="flex items-center gap-2 bg-gray-700 rounded p-1">
+                  <div className="flex items-center gap-2">
                     <button
                       onClick={() => {
                         if (item.quantity > 1) {
                           onUpdateQuantity(item.menu_item_id, item.quantity - 1);
                         }
                       }}
-                      className="flex-1 hover:bg-gray-600 rounded py-1 transition"
+                      className="flex-1 bg-gray-700 hover:bg-gray-600 rounded py-1 transition"
                     >
                       <Minus className="w-4 h-4 mx-auto text-white" />
                     </button>
-                    <span className="px-3 font-bold text-sm text-white min-w-max">
+                    <button
+                      onClick={() => handleEditQuantity(item.menu_item_id, item.quantity)}
+                      className="flex-1 bg-blue-600 hover:bg-blue-700 rounded py-2 px-3 font-bold text-sm text-white transition text-center"
+                      title="Toca para editar cantidad"
+                    >
                       {item.quantity}
-                    </span>
+                    </button>
                     <button
                       onClick={() => onUpdateQuantity(item.menu_item_id, item.quantity + 1)}
-                      className="flex-1 hover:bg-gray-600 rounded py-1 transition"
+                      className="flex-1 bg-gray-700 hover:bg-gray-600 rounded py-1 transition"
                     >
                       <Plus className="w-4 h-4 mx-auto text-white" />
                     </button>
@@ -150,6 +174,20 @@ export function POSCartDrawer({
           </div>
         </div>
       </div>
+
+      {/* Numeric Keyboard Modal */}
+      <NumericKeyboard
+        isOpen={showNumericKeyboard}
+        title="Editar Cantidad"
+        initialValue={editingQuantity}
+        onConfirm={handleConfirmQuantity}
+        onCancel={() => {
+          setShowNumericKeyboard(false);
+          setSelectedItemId(null);
+          setEditingQuantity(0);
+        }}
+        allowDecimal={false}
+      />
     </>
   );
 }
