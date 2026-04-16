@@ -695,9 +695,8 @@ export function POSTerminal({ tenantId, country = 'CO' }: { tenantId: string; co
 
   return (
     <div className={`${isFullscreen ? 'w-screen h-screen p-0 m-0 overflow-hidden flex flex-col' : 'h-full'} bg-muted text-white flex`}>
-      {/* Fullscreen Header - Logo and Controls */}
+      {/* Fullscreen Header - Logo and Controls - TPV Header with Eccofood Brand */}
       {isFullscreen && (
-        {/* TPV Header - Eccofood Brand */}
         <div className="bg-gradient-to-r from-blue-600 via-blue-700 to-indigo-700 border-b border-blue-900/50 px-6 py-4 flex items-center justify-between shadow-lg">
           <div className="flex items-center gap-4">
             <div className="bg-white/10 backdrop-blur-sm rounded-xl p-2.5 border border-white/20">
