@@ -1,6 +1,7 @@
 'use client'
 
 import { use, useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import toast from 'react-hot-toast'
 
@@ -9,6 +10,7 @@ const GOOGLE_FONTS = ['Inter', 'Roboto', 'Open Sans', 'Lato', 'Montserrat', 'Pla
 interface PersonalizacionProps { params: Promise<{ domain: string }> }
 
 export default function PersonalizacionPage({ params }: PersonalizacionProps) {
+  const router = useRouter()
   const { domain: tenantId } = use(params)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -435,26 +437,38 @@ export default function PersonalizacionPage({ params }: PersonalizacionProps) {
 
             <div className="space-y-3">
               <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
-                <p className="text-sm font-medium text-blue-900 mb-3">✨ Consejo: Para cambiar el diseño de tu página en detalle, ve a la sección <strong>"Personalizar Página"</strong> en el menú lateral</p>
+                <p className="text-sm font-medium text-blue-900 mb-3">✨ Haz clic en cualquier botón para configurar esa sección de tu página</p>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
-                <button className="p-4 border-2 rounded-xl hover:border-blue-500 hover:bg-blue-50 transition-all text-left">
+                <button
+                  onClick={() => router.push(`/${tenantId}/admin/configuracion/pagina`)}
+                  className="p-4 border-2 border-gray-200 rounded-xl hover:border-blue-500 hover:bg-blue-50 transition-all text-left cursor-pointer"
+                >
                   <div className="font-medium text-gray-900 mb-1">🎨 Hero & Banner</div>
                   <div className="text-xs text-gray-500">Imagen principal, títulos</div>
                 </button>
 
-                <button className="p-4 border-2 rounded-xl hover:border-blue-500 hover:bg-blue-50 transition-all text-left">
+                <button
+                  onClick={() => router.push(`/${tenantId}/admin/configuracion/pagina`)}
+                  className="p-4 border-2 border-gray-200 rounded-xl hover:border-blue-500 hover:bg-blue-50 transition-all text-left cursor-pointer"
+                >
                   <div className="font-medium text-gray-900 mb-1">⭐ Destacados</div>
                   <div className="text-xs text-gray-500">Productos más populares</div>
                 </button>
 
-                <button className="p-4 border-2 rounded-xl hover:border-blue-500 hover:bg-blue-50 transition-all text-left">
+                <button
+                  onClick={() => router.push(`/${tenantId}/admin/configuracion/pagina`)}
+                  className="p-4 border-2 border-gray-200 rounded-xl hover:border-blue-500 hover:bg-blue-50 transition-all text-left cursor-pointer"
+                >
                   <div className="font-medium text-gray-900 mb-1">📍 Información</div>
                   <div className="text-xs text-gray-500">Ubicación, horarios, contacto</div>
                 </button>
 
-                <button className="p-4 border-2 rounded-xl hover:border-blue-500 hover:bg-blue-50 transition-all text-left">
+                <button
+                  onClick={() => router.push(`/${tenantId}/admin/configuracion/pagina`)}
+                  className="p-4 border-2 border-gray-200 rounded-xl hover:border-blue-500 hover:bg-blue-50 transition-all text-left cursor-pointer"
+                >
                   <div className="font-medium text-gray-900 mb-1">🎯 Acciones</div>
                   <div className="text-xs text-gray-500">Botones menú, reservar, delivery</div>
                 </button>
