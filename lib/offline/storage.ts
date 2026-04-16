@@ -13,7 +13,7 @@ const STORES = {
   PENDING_OPERATIONS: 'pending_operations',
 }
 
-interface OfflineOrder {
+export interface OfflineOrder {
   id: string
   orderId: string
   orderNumber: string
@@ -27,7 +27,7 @@ interface OfflineOrder {
   syncedAt?: string
 }
 
-interface PendingOperation {
+export interface PendingOperation {
   id: string
   type: 'create' | 'update' | 'delete'
   table: string
