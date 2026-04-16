@@ -60,6 +60,9 @@ export default function BrandingPage({ params }: BrandingProps) {
       }
       if (tenant?.logo_url) setForm(f => ({ ...f, logo_url: tenant.logo_url }))
       setLoading(false)
+    }).catch(() => {
+      // Tabla no existe aún, valores por defecto están bien
+      setLoading(false)
     })
   }, [tenantId])
 

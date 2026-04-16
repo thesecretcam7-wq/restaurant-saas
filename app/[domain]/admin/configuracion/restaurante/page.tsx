@@ -70,6 +70,9 @@ export default function RestauranteConfigPage({ params }: Props) {
         })
       }
       setLoading(false)
+    }).catch(() => {
+      // Tabla no existe aún, valores por defecto están bien
+      setLoading(false)
     })
   }, [tenantId])
 
