@@ -149,24 +149,34 @@ function useSound() {
   }, [initAudio]);
 
   const playBeeps = useCallback((frequencies: number[], duration: number = 0.15, gap: number = 0.2) => {
-    if (!soundEnabled) return;
+    if (!soundEnabled) {
+      setAudioStatus('❌ Sonido deshabilitado');
+      return;
+    }
 
+    setAudioStatus('🔄 Reproduciendo sonido...');
     console.log('Playing beeps:', frequencies, 'soundEnabled:', soundEnabled);
 
     initAudio();
     const ctx = audioCtxRef.current;
     if (!ctx) {
+      setAudioStatus('❌ No hay audio context');
       console.error('No audio context available');
       return;
     }
 
     console.log('Audio context state:', ctx.state);
+    setAudioStatus(`📊 Contexto: ${ctx.state}`);
 
     // Ensure audio context is running
     if (ctx.state === 'suspended') {
       ctx.resume().then(() => {
         console.log('Audio context resumed for playback');
-      }).catch(err => console.error('Resume audio context failed:', err));
+        setAudioStatus('✅ Contexto resumido');
+      }).catch(err => {
+        console.error('Resume audio context failed:', err);
+        setAudioStatus(`❌ Error: ${err}`);
+      });
     }
 
     const beep = (start: number, freq: number, dur: number) => {
@@ -188,6 +198,7 @@ function useSound() {
         osc.stop(start + dur);
       } catch (err) {
         console.error('Beep error:', err);
+        setAudioStatus(`❌ Error beep: ${err}`);
       }
     };
 
@@ -199,8 +210,10 @@ function useSound() {
         time += duration + gap;
       });
       console.log('Beeps scheduled successfully');
+      setAudioStatus('✅ Sonido reproducido');
     } catch (err) {
       console.error('Error scheduling beeps:', err);
+      setAudioStatus(`❌ Error: ${err}`);
     }
   }, [soundEnabled, initAudio]);
 
@@ -372,6 +385,7 @@ export function KDSScreen({ tenantId }: { tenantId: string }) {
   const [actionLoading, setActionLoading] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [wakeLockActive, setWakeLockActive] = useState(false);
+  const [audioStatus, setAudioStatus] = useState<string>('');
   const wakeLockRef = useRef<WakeLockSentinel | null>(null);
   const delayedAlertedOrders = useRef(new Set<string>());
   const {
@@ -654,7 +668,10 @@ export function KDSScreen({ tenantId }: { tenantId: string }) {
         <div className="bg-red-950/80 border-b border-red-900 px-4 py-3 flex items-center justify-between shrink-0">
           <div className="flex items-center gap-3">
             <span className="text-2xl">🔊</span>
-            <span className="text-sm font-medium text-white">Se requieren permisos de sonido para alertas de órdenes</span>
+            <div>
+              <span className="text-sm font-medium text-white">Se requieren permisos de sonido para alertas de órdenes</span>
+              {audioStatus && <p className="text-xs text-red-300 mt-1">{audioStatus}</p>}
+            </div>
           </div>
           <button
             onClick={(e) => {
