@@ -19,37 +19,13 @@ const supabase = createClient(
 );
 
 export default function PrintersConfigPage({ params }: Props) {
-  const { domain } = use(params);
+  const { domain: tenantId } = use(params);
 
-  const [tenantId, setTenantId] = useState<string | null>(null);
   const [devices, setDevices] = useState<PrinterDevice[]>([]);
   const [loading, setLoading] = useState(false);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
 
   const webusb = useWebUSB();
-
-  // Load tenant from domain
-  useEffect(() => {
-    const loadTenant = async () => {
-      if (!domain) return;
-
-      try {
-        const { data } = await supabase
-          .from('tenants')
-          .select('id')
-          .eq('slug', domain)
-          .single();
-
-        if (data) {
-          setTenantId(data.id);
-        }
-      } catch (error) {
-        console.error('Error loading tenant:', error);
-      }
-    };
-
-    loadTenant();
-  }, [domain]);
 
   // Load devices
   useEffect(() => {
