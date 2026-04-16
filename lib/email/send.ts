@@ -21,7 +21,7 @@ export async function sendEmail(
     }
 
     const apiKey = process.env.RESEND_API_KEY
-    const fromAddress = fromEmail || process.env.RESEND_FROM_EMAIL || 'noreply@restaurant-saas.com'
+    const fromAddress = fromEmail || process.env.RESEND_FROM_EMAIL || 'noreply@eccofood.com'
 
     if (!apiKey) {
       console.warn('[Email] RESEND_API_KEY not configured. Email will not be sent.')

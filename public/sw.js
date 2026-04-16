@@ -1,4 +1,4 @@
-const CACHE_NAME = 'restaurant-saas-v2';
+const CACHE_NAME = 'eccofood-v2';
 const STATIC_ASSETS = ['/', '/menu', '/manifest.webmanifest'];
 
 // Install: Cache static assets

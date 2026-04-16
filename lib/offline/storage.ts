@@ -3,7 +3,7 @@
  * Handles local data persistence and sync management
  */
 
-const DB_NAME = 'restaurant-saas-offline'
+const DB_NAME = 'eccofood-offline'
 const DB_VERSION = 1
 const STORES = {
   ORDERS: 'orders',

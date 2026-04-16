@@ -3,10 +3,10 @@ import { createClient } from '@supabase/supabase-js'
 
 // Configuración - Dominio base de la plataforma
 // Ejemplos:
-// - Vercel: restaurant-saas-inky.vercel.app
+// - Vercel: eccofood.vercel.app
 // - Local: localhost:3000
 // - Custom: miplatforma.com
-const BASE_DOMAIN = process.env.NEXT_PUBLIC_BASE_DOMAIN || 'restaurant-saas-inky.vercel.app'
+const BASE_DOMAIN = process.env.NEXT_PUBLIC_BASE_DOMAIN || 'eccofood.vercel.app'
 const SLUG_PATH_REGEX = /^\/([a-zA-Z0-9-]+)(?:\/|$)/
 
 console.log(`[Middleware] BASE_DOMAIN configured: ${BASE_DOMAIN}`)

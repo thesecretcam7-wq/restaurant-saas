@@ -1,4 +1,4 @@
-# Restaurant SaaS - Development Notes
+# Eccofood - Development Notes
 
 ## Project Overview
 Multi-tenant SaaS platform for restaurants - similar to Shopify but for restaurants.
@@ -22,7 +22,7 @@ Multi-tenant SaaS platform for restaurants - similar to Shopify but for restaura
 ## Project Structure
 
 ```
-restaurant-saas/
+eccofood/
 ├── app/
 │   ├── [domain]/                 # Tenant-specific routes
 │   │   ├── layout.tsx            # Dynamic branding layout
