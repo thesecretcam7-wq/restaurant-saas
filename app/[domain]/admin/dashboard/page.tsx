@@ -69,14 +69,22 @@ export default async function DashboardPage({ params }: DashboardProps) {
         <p className="text-gray-500 text-sm mt-1">Resumen de tu restaurante</p>
       </div>
 
-      {/* KDS Quick Access */}
-      <div className="mb-6">
+      {/* Quick Access Buttons */}
+      <div className="mb-6 flex flex-wrap gap-3">
         <Link
           href={`/${tenantId}/admin/kds`}
           className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white font-semibold rounded-lg transition-all shadow-md hover:shadow-lg"
         >
           <span className="text-lg">🍳</span>
           Abrir Kitchen Display System (KDS)
+        </Link>
+        <Link
+          href={`/${tenantId}/kitchen`}
+          className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-700 hover:to-emerald-800 text-white font-semibold rounded-lg transition-all shadow-md hover:shadow-lg"
+          target="_blank"
+        >
+          <span className="text-lg">📋</span>
+          Abrir Comandero
         </Link>
       </div>
 
