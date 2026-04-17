@@ -87,12 +87,12 @@ export default async function DashboardPage({ params }: DashboardProps) {
           Abrir Comandero
         </Link>
         <Link
-          href={`/${tenantId}/staff`}
+          href={`/${tenantId}/acceso`}
           className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 text-white font-semibold rounded-lg transition-all shadow-md hover:shadow-lg"
           target="_blank"
         >
           <span className="text-lg">👤</span>
-          Portal de Personal
+          Acceso de Personal
         </Link>
       </div>
 
