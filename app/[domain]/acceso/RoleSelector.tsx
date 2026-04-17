@@ -17,14 +17,6 @@ export function RoleSelector({ tenantId, tenantName, tenantSlug, logoUrl }: Prop
 
   const roles = [
     {
-      id: 'admin',
-      label: 'Administrador',
-      icon: <Lock className="w-10 h-10" />,
-      desc: 'Panel de control completo',
-      color: 'from-slate-600 to-slate-700',
-      bg: 'bg-slate-950',
-    },
-    {
       id: 'cocinero',
       label: 'Cocinero',
       icon: <ChefHat className="w-10 h-10" />,
@@ -48,15 +40,19 @@ export function RoleSelector({ tenantId, tenantName, tenantSlug, logoUrl }: Prop
       color: 'from-indigo-600 to-indigo-700',
       bg: 'bg-indigo-950',
     },
+    {
+      id: 'admin',
+      label: 'Administrador',
+      icon: <Lock className="w-10 h-10" />,
+      desc: 'Panel de control',
+      color: 'from-slate-600 to-slate-700',
+      bg: 'bg-slate-950',
+    },
   ];
 
   function handleSelect(roleId: string) {
     setSelectedRole(roleId);
-    if (roleId === 'admin') {
-      router.push(`/${tenantId}/admin/login`);
-    } else {
-      router.push(`/${tenantId}/acceso/login/${roleId}`);
-    }
+    router.push(`/${tenantId}/acceso/login/${roleId}`);
   }
 
   return (
@@ -69,8 +65,8 @@ export function RoleSelector({ tenantId, tenantName, tenantSlug, logoUrl }: Prop
             <ChefHat className="w-10 h-10 text-white" />
           </div>
         )}
-        <p className="text-white font-bold text-2xl">{tenantName}</p>
-        <p className="text-gray-400 text-sm mt-1">¿Quién eres?</p>
+        <p className="text-gray-400 text-sm">Bienvenido a</p>
+        <p className="text-white font-bold text-3xl">{tenantName}</p>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 w-full max-w-lg">
