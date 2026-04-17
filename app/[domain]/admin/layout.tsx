@@ -48,25 +48,22 @@ export default async function AdminLayout({ children, params }: AdminLayoutProps
 
   if (!tenant || tenant.owner_id !== user.id) redirect(`/login`)
 
-  // If accessed via UUID and tenant has slug, redirect to slug version
-  if (isUUID && tenant.slug) {
-    redirect(`/${tenant.slug}/admin/dashboard`)
-  }
-
   const tenantId = tenant.id
   const context = await getTenantContext(tenantId)
   const branding = context.branding
 
+  const tenantSlug = tenant.slug || slug
+
   const navLinks = [
-    { href: `/${slug}/admin/dashboard`, label: 'Dashboard', icon: '📊' },
-    { href: `/${slug}/admin/pedidos`, label: 'Pedidos', icon: '🛍️' },
-    { href: `/${slug}/admin/productos`, label: 'Productos', icon: '🍽️' },
-    { href: `/${slug}/admin/reservas`, label: 'Reservas', icon: '📅' },
-    { href: `/${slug}/admin/clientes`, label: 'Clientes', icon: '👥' },
-    { href: `/${slug}/admin/ventas`, label: 'Ventas', icon: '📈' },
-    { href: `/${slug}/admin/cierres`, label: 'Cierres de Caja', icon: '🔒' },
-    { href: `/${slug}/admin/configuracion/restaurante`, label: 'Configuración', icon: '⚙️' },
-    { href: `/${slug}/admin/pos`, label: 'TPV/POS', icon: '💳' },
+    { href: `/${tenantSlug}/admin/dashboard`, label: 'Dashboard', icon: '📊' },
+    { href: `/${tenantSlug}/admin/pedidos`, label: 'Pedidos', icon: '🛍️' },
+    { href: `/${tenantSlug}/admin/productos`, label: 'Productos', icon: '🍽️' },
+    { href: `/${tenantSlug}/admin/reservas`, label: 'Reservas', icon: '📅' },
+    { href: `/${tenantSlug}/admin/clientes`, label: 'Clientes', icon: '👥' },
+    { href: `/${tenantSlug}/admin/ventas`, label: 'Ventas', icon: '📈' },
+    { href: `/${tenantSlug}/admin/cierres`, label: 'Cierres de Caja', icon: '🔒' },
+    { href: `/${tenantSlug}/admin/configuracion/restaurante`, label: 'Configuración', icon: '⚙️' },
+    { href: `/${tenantSlug}/admin/pos`, label: 'TPV/POS', icon: '💳' },
   ]
 
   return (
@@ -102,7 +99,7 @@ export default async function AdminLayout({ children, params }: AdminLayoutProps
 
         <div className="p-3 border-t space-y-1">
           <Link
-            href={`/${slug}/menu`}
+            href={`/${tenantSlug}/menu`}
             className="flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-gray-600 hover:bg-gray-100"
             target="_blank"
           >
