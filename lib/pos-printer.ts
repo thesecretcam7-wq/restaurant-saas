@@ -40,7 +40,7 @@ declare global {
   }
 }
 
-const supabase = createClient(
+const getSupabase = () => createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 );
@@ -59,7 +59,7 @@ export async function printReceipt(
 ): Promise<void> {
   try {
     // 1. Get printer configuration from database
-    const { data: printer, error: printerError } = await supabase
+    const { data: printer, error: printerError } = await getSupabase()
       .from('printer_devices')
       .select('*')
       .eq('id', printerId)
@@ -93,7 +93,7 @@ export async function printReceipt(
     });
 
     // Update device last_used_at
-    await supabase
+    await getSupabase()
       .from('printer_devices')
       .update({ last_used_at: new Date().toISOString() })
       .eq('id', printerId)
@@ -299,7 +299,7 @@ export async function savePrinterLog(
   details?: Record<string, any>
 ): Promise<void> {
   try {
-    await supabase.from('printer_logs').insert({
+    await getSupabase().from('printer_logs').insert({
       tenant_id: tenantId,
       device_id: deviceId,
       action,
@@ -320,7 +320,7 @@ export async function testPrinterConnection(
   printerId: string
 ): Promise<{ success: boolean; message: string }> {
   try {
-    const { data: printer } = await supabase
+    const { data: printer } = await getSupabase()
       .from('printer_devices')
       .select('*')
       .eq('id', printerId)
@@ -364,7 +364,7 @@ export async function getPrinterLogs(
   limit: number = 20
 ): Promise<any[]> {
   try {
-    const { data } = await supabase
+    const { data } = await getSupabase()
       .from('printer_logs')
       .select('*')
       .eq('tenant_id', tenantId)
