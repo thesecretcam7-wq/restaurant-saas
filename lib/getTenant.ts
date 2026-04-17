@@ -10,7 +10,7 @@ export async function getTenantBySlugOrId(slugOrId: string) {
     // Search by ID
     const { data } = await supabase
       .from('tenants')
-      .select('id')
+      .select('id, slug')
       .eq('id', slugOrId)
       .single()
     return data
@@ -18,7 +18,7 @@ export async function getTenantBySlugOrId(slugOrId: string) {
     // Search by slug
     const { data } = await supabase
       .from('tenants')
-      .select('id')
+      .select('id, slug')
       .eq('slug', slugOrId)
       .single()
     return data

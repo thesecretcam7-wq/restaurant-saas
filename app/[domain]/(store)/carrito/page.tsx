@@ -124,7 +124,7 @@ export default function CarritoPage({ params }: Props) {
         </div>
 
         <Link
-          href={`/${tenant?.slug || tenantId}/checkout`}
+          href={`/${tenantSlug}/checkout`}
           className="flex items-center justify-between w-full px-5 py-4 rounded-2xl text-white font-bold shadow-xl active:scale-95 transition-transform bg-blue-500"
         >
           <span className="text-sm">Continuar con el pedido</span>
