@@ -11,6 +11,10 @@ import { NextRequest, NextResponse } from 'next/server'
  * { isOwner: false }
  */
 export async function GET(request: NextRequest) {
+  const supabase = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  );
   try {
     const slug = request.nextUrl.searchParams.get('slug')
 
