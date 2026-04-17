@@ -6,6 +6,10 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!
+    );
     const { id } = await params;
     const body = await request.json();
     const { tenantId, status, started_at, completed_at, prepared_by } = body;
