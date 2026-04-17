@@ -24,7 +24,7 @@ export default function AdminLoginPage({ params }: Props) {
       })
       const data = await res.json()
       if (!res.ok) { setError(data.error || 'Error al iniciar sesión'); return }
-      router.push(`/${data.tenant.slug}/admin/dashboard`)
+      router.push(`/${data.tenant.slug}/acceso`)
     } catch {
       setError('Error de conexión')
     } finally {
