@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { ChefHat, Monitor, ClipboardList, CreditCard, LogOut, Delete } from 'lucide-react';
 
 interface Props {
@@ -13,6 +14,7 @@ interface Props {
 const SESSION_KEY = 'staff_authed';
 
 export function StaffClient({ tenantId, tenantName, tenantSlug, logoUrl }: Props) {
+  const router = useRouter();
   const [authed, setAuthed] = useState(false);
   const [pin, setPin] = useState('');
   const [loading, setLoading] = useState(false);
@@ -29,7 +31,6 @@ export function StaffClient({ tenantId, tenantName, tenantSlug, logoUrl }: Props
     setLoading(true);
     setError('');
     try {
-      // Try waiter PIN first, then kitchen PIN
       for (const role of ['waiter', 'kitchen']) {
         const res = await fetch('/api/staff/auth', {
           method: 'POST',
@@ -37,6 +38,12 @@ export function StaffClient({ tenantId, tenantName, tenantSlug, logoUrl }: Props
           body: JSON.stringify({ domain: tenantSlug, pin: p, role }),
         });
         if (res.ok) {
+          // Set httpOnly cookie so admin panel blocks access on this device
+          await fetch('/api/staff/session', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ tenantId }),
+          });
           sessionStorage.setItem(SESSION_KEY, tenantId);
           setAuthed(true);
           return;
@@ -56,6 +63,13 @@ export function StaffClient({ tenantId, tenantName, tenantSlug, logoUrl }: Props
     }
   }
 
+  async function logout() {
+    await fetch('/api/staff/session', { method: 'DELETE' });
+    sessionStorage.removeItem(SESSION_KEY);
+    setAuthed(false);
+    setPin('');
+  }
+
   function pressKey(key: string) {
     if (loading) return;
     setError('');
@@ -68,18 +82,11 @@ export function StaffClient({ tenantId, tenantName, tenantSlug, logoUrl }: Props
     if (next.length >= 6) validatePin(next);
   }
 
-  function logout() {
-    sessionStorage.removeItem(SESSION_KEY);
-    setAuthed(false);
-    setPin('');
-  }
-
   if (checking) return null;
 
   if (!authed) {
     return (
       <div className="min-h-screen bg-gray-950 flex flex-col items-center justify-center p-6">
-        {/* Logo / Restaurant */}
         <div className="mb-8 text-center">
           {logoUrl ? (
             <img src={logoUrl} alt={tenantName} className="w-16 h-16 rounded-2xl object-cover mx-auto mb-3" />
@@ -92,15 +99,12 @@ export function StaffClient({ tenantId, tenantName, tenantSlug, logoUrl }: Props
           <p className="text-gray-400 text-sm mt-1">Acceso de Personal</p>
         </div>
 
-        {/* PIN display */}
         <div className="flex gap-3 mb-6">
           {Array.from({ length: 6 }).map((_, i) => (
             <div
               key={i}
               className={`w-10 h-10 rounded-full border-2 flex items-center justify-center transition-colors ${
-                i < pin.length
-                  ? 'bg-emerald-500 border-emerald-500'
-                  : 'border-gray-600 bg-gray-800'
+                i < pin.length ? 'bg-emerald-500 border-emerald-500' : 'border-gray-600 bg-gray-800'
               }`}
             >
               {i < pin.length && <div className="w-3 h-3 bg-white rounded-full" />}
@@ -108,15 +112,9 @@ export function StaffClient({ tenantId, tenantName, tenantSlug, logoUrl }: Props
           ))}
         </div>
 
-        {error && (
-          <p className="text-red-400 text-sm mb-4 text-center">{error}</p>
-        )}
+        {error && <p className="text-red-400 text-sm mb-4 text-center">{error}</p>}
+        {loading && <p className="text-gray-400 text-sm mb-4">Verificando...</p>}
 
-        {loading && (
-          <p className="text-gray-400 text-sm mb-4">Verificando...</p>
-        )}
-
-        {/* Numpad */}
         <div className="grid grid-cols-3 gap-3 w-64">
           {['1','2','3','4','5','6','7','8','9','','0','del'].map((key) => {
             if (key === '') return <div key="empty" />;
@@ -137,17 +135,14 @@ export function StaffClient({ tenantId, tenantName, tenantSlug, logoUrl }: Props
           })}
         </div>
 
-        <p className="text-gray-600 text-xs mt-8 text-center">
-          Ingresa tu PIN de 4–6 dígitos
-        </p>
+        <p className="text-gray-600 text-xs mt-8 text-center">Ingresa tu PIN de 4–6 dígitos</p>
       </div>
     );
   }
 
-  // Launcher
   const tools = [
     {
-      href: `/${tenantId}/staff/pos`,
+      path: `/${tenantId}/staff/pos`,
       icon: <CreditCard className="w-10 h-10" />,
       label: 'TPV',
       desc: 'Punto de venta y cobros',
@@ -155,7 +150,7 @@ export function StaffClient({ tenantId, tenantName, tenantSlug, logoUrl }: Props
       bg: 'bg-indigo-950',
     },
     {
-      href: `/${tenantId}/staff/kds`,
+      path: `/${tenantId}/staff/kds`,
       icon: <Monitor className="w-10 h-10" />,
       label: 'KDS',
       desc: 'Display de cocina',
@@ -163,7 +158,7 @@ export function StaffClient({ tenantId, tenantName, tenantSlug, logoUrl }: Props
       bg: 'bg-orange-950',
     },
     {
-      href: `/${tenantId}/kitchen`,
+      path: `/${tenantId}/kitchen`,
       icon: <ClipboardList className="w-10 h-10" />,
       label: 'Comandero',
       desc: 'Tomar pedidos de mesa',
@@ -200,21 +195,19 @@ export function StaffClient({ tenantId, tenantName, tenantSlug, logoUrl }: Props
       <div className="flex-1 flex flex-col items-center justify-center p-6 gap-4">
         <p className="text-gray-400 text-sm mb-2">Selecciona una herramienta</p>
         {tools.map(tool => (
-          <a
-            key={tool.href}
-            href={tool.href}
-            target="_blank"
-            rel="noopener noreferrer"
+          <button
+            key={tool.path}
+            onClick={() => router.push(tool.path)}
             className={`w-full max-w-sm ${tool.bg} border border-white/10 rounded-2xl p-5 flex items-center gap-5 active:scale-95 transition-transform`}
           >
             <div className={`w-16 h-16 bg-gradient-to-br ${tool.color} rounded-2xl flex items-center justify-center text-white flex-shrink-0`}>
               {tool.icon}
             </div>
-            <div>
+            <div className="text-left">
               <p className="text-white font-bold text-lg">{tool.label}</p>
               <p className="text-gray-400 text-sm">{tool.desc}</p>
             </div>
-          </a>
+          </button>
         ))}
       </div>
     </div>

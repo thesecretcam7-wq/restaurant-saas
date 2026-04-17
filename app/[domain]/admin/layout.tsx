@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { getTenantContext } from '@/lib/tenant'
+import { cookies } from 'next/headers'
 
 interface AdminLayoutProps {
   children: React.ReactNode
@@ -13,7 +14,11 @@ export default async function AdminLayout({ children, params }: AdminLayoutProps
   const supabase = await createClient()
 
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) redirect(`/login`)
+  if (!user) {
+    const cookieStore = await cookies()
+    if (cookieStore.get('staff_session')?.value) redirect(`/${slug}/staff`)
+    redirect(`/login`)
+  }
 
   // Look up tenant: by id if UUID, by slug otherwise
   const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(slug)
