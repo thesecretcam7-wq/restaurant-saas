@@ -34,7 +34,7 @@ const TOOL_CONFIG = {
     icon: <Monitor className="w-10 h-10" />,
     color: 'from-orange-500 to-orange-600',
     bg: 'bg-orange-950',
-    href: (id: string) => `/${id}/staff/kds`,
+    href: (slug: string) => `/${slug}/staff/kds`,
   },
   comandero: {
     label: 'Comandero',
@@ -42,7 +42,7 @@ const TOOL_CONFIG = {
     icon: <ClipboardList className="w-10 h-10" />,
     color: 'from-emerald-600 to-emerald-700',
     bg: 'bg-emerald-950',
-    href: (id: string) => `/${id}/kitchen`,
+    href: (slug: string) => `/${slug}/kitchen`,
   },
   tpv: {
     label: 'TPV',
@@ -50,7 +50,7 @@ const TOOL_CONFIG = {
     icon: <CreditCard className="w-10 h-10" />,
     color: 'from-indigo-600 to-indigo-700',
     bg: 'bg-indigo-950',
-    href: (id: string) => `/${id}/staff/pos`,
+    href: (slug: string) => `/${slug}/staff/pos`,
   },
 };
 
@@ -63,7 +63,7 @@ export function RolePortal({ tenantId, tenantName, tenantSlug, logoUrl, role }: 
     const storedRole = sessionStorage.getItem('staff_role');
     const storedTenant = sessionStorage.getItem('staff_tenant');
     if (storedRole !== role || storedTenant !== tenantId) {
-      router.push(`/${tenantId}/acceso`);
+      router.push(`/${tenantSlug}/acceso`);
     }
     setChecking(false);
   }, [tenantId, role, router]);
@@ -72,7 +72,7 @@ export function RolePortal({ tenantId, tenantName, tenantSlug, logoUrl, role }: 
     await fetch('/api/staff/session', { method: 'DELETE' });
     sessionStorage.removeItem('staff_role');
     sessionStorage.removeItem('staff_tenant');
-    router.push(`/${tenantId}/acceso`);
+    router.push(`/${tenantSlug}/acceso`);
   }
 
   if (checking) return null;
@@ -108,7 +108,7 @@ export function RolePortal({ tenantId, tenantName, tenantSlug, logoUrl, role }: 
           return (
             <a
               key={toolKey}
-              href={tool.href(tenantId)}
+              href={tool.href(tenantSlug)}
               className={`w-full max-w-sm ${tool.bg} border border-white/10 rounded-2xl p-5 flex items-center gap-5 active:scale-95 transition-transform`}
             >
               <div className={`w-16 h-16 bg-gradient-to-br ${tool.color} rounded-2xl flex items-center justify-center text-white flex-shrink-0`}>

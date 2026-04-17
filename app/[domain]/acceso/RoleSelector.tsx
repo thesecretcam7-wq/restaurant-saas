@@ -52,7 +52,7 @@ export function RoleSelector({ tenantId, tenantName, tenantSlug, logoUrl }: Prop
 
   function handleSelect(roleId: string) {
     setSelectedRole(roleId);
-    router.push(`/${tenantId}/acceso/login/${roleId}`);
+    router.push(`/${tenantSlug}/acceso/login/${roleId}`);
   }
 
   return (

@@ -91,7 +91,7 @@ export function RoleLoginClient({ tenantId, tenantName, tenantSlug, logoUrl, rol
         });
 
         // Redirect to portal
-        router.push(`/${tenantId}/acceso/portal/${role}`);
+        router.push(`/${tenantSlug}/acceso/portal/${role}`);
         return;
       }
 
