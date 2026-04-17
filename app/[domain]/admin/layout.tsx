@@ -27,20 +27,25 @@ export default async function AdminLayout({ children, params }: AdminLayoutProps
   if (isUUID) {
     const result = await supabase
       .from('tenants')
-      .select('id, organization_name, status, owner_id')
+      .select('id, slug, organization_name, status, owner_id')
       .eq('id', slug)
       .single()
     tenant = result.data
   } else {
     const result = await supabase
       .from('tenants')
-      .select('id, organization_name, status, owner_id')
+      .select('id, slug, organization_name, status, owner_id')
       .eq('slug', slug)
       .single()
     tenant = result.data
   }
 
   if (!tenant || tenant.owner_id !== user.id) redirect(`/login`)
+
+  // If accessed via UUID and tenant has slug, redirect to slug version
+  if (isUUID && tenant.slug) {
+    redirect(`/${tenant.slug}/admin/dashboard`)
+  }
 
   const tenantId = tenant.id
   const context = await getTenantContext(tenantId)
