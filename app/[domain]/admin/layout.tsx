@@ -30,6 +30,9 @@ export default async function AdminLayout({ children, params }: AdminLayoutProps
       .select('id, slug, organization_name, status, owner_id')
       .eq('id', slug)
       .single()
+    if (result.error) {
+      console.error('Admin layout error fetching tenant by ID:', result.error)
+    }
     tenant = result.data
   } else {
     const result = await supabase
@@ -37,6 +40,9 @@ export default async function AdminLayout({ children, params }: AdminLayoutProps
       .select('id, slug, organization_name, status, owner_id')
       .eq('slug', slug)
       .single()
+    if (result.error) {
+      console.error('Admin layout error fetching tenant by slug:', result.error)
+    }
     tenant = result.data
   }
 

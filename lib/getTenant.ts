@@ -8,19 +8,27 @@ export async function getTenantBySlugOrId(slugOrId: string) {
 
   if (isUUID) {
     // Search by ID
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('tenants')
       .select('id, slug')
       .eq('id', slugOrId)
       .single()
+    if (error) {
+      console.error('Error fetching tenant by ID:', error)
+      return null
+    }
     return data
   } else {
     // Search by slug
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('tenants')
       .select('id, slug')
       .eq('slug', slugOrId)
       .single()
+    if (error) {
+      console.error('Error fetching tenant by slug:', error)
+      return null
+    }
     return data
   }
 }

@@ -177,7 +177,7 @@ export default async function DashboardPage({ params }: DashboardProps) {
             {recentOrders.map(order => (
               <Link
                 key={order.id}
-                href={`/${tenantId}/admin/pedidos/${order.id}`}
+                href={`/${tenant.slug || tenantId}/admin/pedidos/${order.id}`}
                 className="flex items-center gap-4 px-5 py-3 hover:bg-gray-50 transition-colors"
               >
                 <div className="flex-1 min-w-0">
