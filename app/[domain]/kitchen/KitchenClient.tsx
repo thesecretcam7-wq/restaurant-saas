@@ -197,7 +197,7 @@ export function KitchenClient({ tenantId, tenantName }: Props) {
                       </span>
                     )}
                     {item.image_url && (
-                      <img src={item.image_url} alt={item.name} className="w-full h-14 object-contain rounded-lg mb-1" />
+                      <img src={item.image_url} alt={item.name} className="w-full h-auto object-contain rounded-lg mb-1" />
                     )}
                     <p className="text-white text-sm font-semibold leading-tight line-clamp-2">{item.name}</p>
                     <p className="text-emerald-400 text-sm font-bold mt-1">${item.price.toLocaleString('es-CO')}</p>
