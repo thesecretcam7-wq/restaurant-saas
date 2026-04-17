@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import { createClient } from '@supabase/supabase-js';
-import { ShoppingCart, Plus, Minus, Trash2, Search, DollarSign, CreditCard, Maximize2, Minimize2, Lock, Clock, Truck, Store } from 'lucide-react';
+import { ShoppingCart, Plus, Minus, Trash2, Search, DollarSign, CreditCard, Maximize2, Minimize2, Lock, Clock, Truck, Store, UtensilsCrossed } from 'lucide-react';
 import { POSModeSelector } from './POSModeSelector';
 import { POSStaffSelector } from './POSStaffSelector';
 import { POSTableSelector } from './POSTableSelector';
@@ -49,6 +49,18 @@ interface IncomingOrder {
   delivery_address?: string;
   total: number;
   created_at: string;
+}
+
+interface DineInOrder {
+  id: string;
+  order_number: string;
+  table_number: number | null;
+  waiter_name: string | null;
+  total: number;
+  payment_status: string;
+  status: string;
+  created_at: string;
+  items: { name: string; qty: number; price: number; item_id?: string }[];
 }
 
 // ─── Timer Hook ───────────────────────────────────────────────────────────────
@@ -180,6 +192,9 @@ export function POSTerminal({ tenantId, country = 'CO' }: { tenantId: string; co
   const [incomingOrders, setIncomingOrders] = useState<IncomingOrder[]>([]);
   const [showIncomingPanel, setShowIncomingPanel] = useState(false);
   const [soundEnabled, setSoundEnabled] = useState(true);
+  // Dine-in orders from comandero
+  const [dineInOrders, setDineInOrders] = useState<DineInOrder[]>([]);
+  const [showDineInPanel, setShowDineInPanel] = useState(false);
   const audioCtxRef = useRef<AudioContext | null>(null);
   const knownOrderIds = useRef(new Set<string>());
 
@@ -390,16 +405,18 @@ export function POSTerminal({ tenantId, country = 'CO' }: { tenantId: string; co
         },
         async (payload) => {
           const newOrder = payload.new as IncomingOrder;
-          // Only show delivery/pickup orders
           if (newOrder.delivery_type === 'delivery' || newOrder.delivery_type === 'pickup') {
             const isNewOrder = !knownOrderIds.current.has(newOrder.id);
             if (isNewOrder) {
               playNewOrderSound();
               knownOrderIds.current.add(newOrder.id);
               setShowIncomingPanel(true);
-              // Re-fetch incoming orders to ensure data consistency
               await fetchIncomingOrders();
             }
+          } else if ((newOrder as any).delivery_type === 'dine-in') {
+            playNewOrderSound();
+            setShowDineInPanel(true);
+            await fetchDineInOrders();
           }
         }
       )
@@ -407,6 +424,7 @@ export function POSTerminal({ tenantId, country = 'CO' }: { tenantId: string; co
 
     // Initial fetch
     fetchIncomingOrders();
+    fetchDineInOrders();
 
     return () => {
       subscription.unsubscribe();
@@ -426,13 +444,46 @@ export function POSTerminal({ tenantId, country = 'CO' }: { tenantId: string; co
 
       if (!error && data) {
         setIncomingOrders(data);
-        // Track all order IDs
         data.forEach((order: IncomingOrder) => knownOrderIds.current.add(order.id));
       }
     } catch (error) {
       console.error('Error fetching incoming orders:', error);
     }
   }
+
+  async function fetchDineInOrders() {
+    try {
+      const { data, error } = await supabase
+        .from('orders')
+        .select('*')
+        .eq('tenant_id', tenantId)
+        .eq('delivery_type', 'dine-in')
+        .eq('payment_status', 'pending')
+        .order('created_at', { ascending: false })
+        .limit(20);
+
+      if (!error && data) {
+        setDineInOrders(data as DineInOrder[]);
+      }
+    } catch (error) {
+      console.error('Error fetching dine-in orders:', error);
+    }
+  }
+
+  function loadDineInToCart(order: DineInOrder) {
+    const cartItems: CartItem[] = (order.items || []).map((item) => ({
+      menu_item_id: item.item_id || item.name,
+      name: item.name,
+      price: item.price,
+      quantity: item.qty,
+    }));
+    setCart(cartItems);
+    setPosMode('table');
+    if (order.table_number) setSelectedTableNumber(order.table_number);
+    setShowDineInPanel(false);
+    setShowIncomingPanel(false);
+  }
+
 
   async function fetchMenuData() {
     try {
@@ -822,9 +873,9 @@ export function POSTerminal({ tenantId, country = 'CO' }: { tenantId: string; co
           {/* Tabs: Cart vs Incoming Orders */}
           <div className={`border-b border-gray-800 flex gap-0 bg-gray-950/50 backdrop-blur-sm ${isFullscreen ? 'px-0 py-0' : 'px-0 py-0'}`}>
             <button
-              onClick={() => setShowIncomingPanel(false)}
+              onClick={() => { setShowIncomingPanel(false); setShowDineInPanel(false); }}
               className={`flex-1 flex items-center justify-center gap-2 py-3 px-2 border-b-2 transition text-xs font-bold tracking-wide ${
-                !showIncomingPanel
+                !showIncomingPanel && !showDineInPanel
                   ? 'border-blue-600 bg-blue-600/20 text-white'
                   : 'border-transparent bg-transparent text-gray-400 hover:text-gray-300'
               }`}
@@ -834,9 +885,9 @@ export function POSTerminal({ tenantId, country = 'CO' }: { tenantId: string; co
               <span className="ml-auto bg-blue-600 text-white rounded-full px-2 py-0.5 text-xs font-bold">{cart.length}</span>
             </button>
             <button
-              onClick={() => setShowIncomingPanel(true)}
+              onClick={() => { setShowIncomingPanel(true); setShowDineInPanel(false); }}
               className={`flex-1 flex items-center justify-center gap-2 py-3 px-2 border-b-2 transition text-xs font-bold tracking-wide relative ${
-                showIncomingPanel
+                showIncomingPanel && !showDineInPanel
                   ? 'border-blue-600 bg-blue-600/20 text-white'
                   : 'border-transparent bg-transparent text-gray-400 hover:text-gray-300'
               }`}
@@ -848,10 +899,67 @@ export function POSTerminal({ tenantId, country = 'CO' }: { tenantId: string; co
                 <span className="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full animate-pulse" />
               )}
             </button>
+            <button
+              onClick={() => { setShowDineInPanel(true); setShowIncomingPanel(false); }}
+              className={`flex-1 flex items-center justify-center gap-2 py-3 px-2 border-b-2 transition text-xs font-bold tracking-wide relative ${
+                showDineInPanel
+                  ? 'border-emerald-500 bg-emerald-500/20 text-white'
+                  : 'border-transparent bg-transparent text-gray-400 hover:text-gray-300'
+              }`}
+            >
+              <UtensilsCrossed className="w-4 h-4" />
+              <span>Mesas</span>
+              <span className="ml-auto bg-emerald-600 text-white rounded-full px-2 py-0.5 text-xs font-bold">{dineInOrders.length}</span>
+              {dineInOrders.length > 0 && (
+                <span className="absolute top-2 right-2 w-2 h-2 bg-emerald-400 rounded-full animate-pulse" />
+              )}
+            </button>
           </div>
 
-          {/* Cart Content - Only show when not in Incoming Panel */}
-          {!showIncomingPanel && (
+          {/* Mesas / Dine-in Panel */}
+          {showDineInPanel && (
+            <div className="flex-1 flex flex-col overflow-hidden">
+              {dineInOrders.length === 0 ? (
+                <div className="flex-1 flex items-center justify-center text-gray-500">
+                  <div className="text-center">
+                    <p className="text-3xl mb-2">🍽️</p>
+                    <p className="text-sm">Sin mesas pendientes</p>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex-1 overflow-y-auto p-2 space-y-2">
+                  {dineInOrders.map((order) => (
+                    <div key={order.id} className="bg-gray-800 border border-gray-700 rounded-xl p-3">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-white font-bold text-sm">Mesa {order.table_number ?? '—'}</span>
+                        <span className="text-gray-400 text-xs">{order.order_number}</span>
+                      </div>
+                      {order.waiter_name && (
+                        <p className="text-gray-400 text-xs mb-2">Mesero: {order.waiter_name}</p>
+                      )}
+                      <div className="space-y-0.5 mb-3">
+                        {(order.items || []).map((item, i) => (
+                          <p key={i} className="text-gray-300 text-xs">{item.qty}x {item.name}</p>
+                        ))}
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-emerald-400 font-bold text-sm">${Number(order.total).toLocaleString('es-CO')}</span>
+                        <button
+                          onClick={() => loadDineInToCart(order)}
+                          className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded-lg transition-colors"
+                        >
+                          Cobrar
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Cart Content - Only show when not in Incoming Panel or Dine-in Panel */}
+          {!showIncomingPanel && !showDineInPanel && (
             <>
               {/* Discount Code */}
               <div className={`border-b border-border ${isFullscreen ? 'px-2 py-1' : 'px-2 py-1'} space-y-1 text-xs`}>
