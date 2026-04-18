@@ -8,7 +8,7 @@ interface Props {
 export default async function RoleLoginPage({ params }: Props) {
   const { domain: slug, role } = await params
 
-  if (!['cocinero', 'camarero', 'cajero'].includes(role)) {
+  if (!['cocinero', 'camarero', 'cajero', 'admin'].includes(role)) {
     return (
       <div className="min-h-screen bg-gray-950 flex items-center justify-center text-red-400 text-xl">
         Rol inválido

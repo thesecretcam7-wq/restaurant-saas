@@ -31,9 +31,10 @@ El propietario accede con **email + contraseña**. Para crear la cuenta demo:
 
 | Rol | Nombre | PIN | Permisos |
 |-----|--------|-----|----------|
-| **Camarero** | Juan Camarero | `1234` | Dashboard, Mesas |
-| **Cocinero** | Miguel Cocinero | `5678` | Dashboard, Menú |
-| **Cajero** | Carlos Cajero | `9999` | Dashboard, Caja |
+| **Camarero** | Juan Camarero Demo | `1234` | Dashboard, Mesas |
+| **Cocinero** | Miguel Cocinero Demo | `5678` | Dashboard, Menú |
+| **Cajero** | Carlos Cajero Demo | `9999` | Dashboard, Caja |
+| **Administrador** | Admin Demo | `0000` | Panel Completo |
 
 ## Cómo Acceder
 

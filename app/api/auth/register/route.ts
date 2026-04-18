@@ -219,6 +219,7 @@ export async function POST(request: NextRequest) {
         { name: 'Juan Camarero Demo', role: 'camarero', pin: '1234' },
         { name: 'Miguel Cocinero Demo', role: 'cocinero', pin: '5678' },
         { name: 'Carlos Cajero Demo', role: 'cajero', pin: '9999' },
+        { name: 'Admin Demo', role: 'admin', pin: '0000' },
       ]
 
       for (const staff of demoStaffRoles) {
