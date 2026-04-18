@@ -59,7 +59,8 @@ export async function POST(request: NextRequest) {
       .single()
 
     if (staffMember) {
-      return NextResponse.json({ success: true, role: staffMember.role, tenantId: tenant.id })
+      const permissions = await getPermissionsByRole(supabase, staffMember.role)
+      return NextResponse.json({ success: true, role: staffMember.role, tenantId: tenant.id, permissions })
     }
 
     // Fallback to old generic PIN system
