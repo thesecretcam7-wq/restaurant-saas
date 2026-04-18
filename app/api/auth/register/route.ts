@@ -51,8 +51,8 @@ export async function POST(request: NextRequest) {
     // Create tenant
     let slug = restaurantName
       .toLowerCase()
-      .replace(/\s+/g, '-')
-      .replace(/[^a-z0-9-]/g, '')
+      .replace(/\s+/g, '')
+      .replace(/[^a-z0-9]/g, '')
 
     console.log('📝 [Register] Generated slug:', slug)
 
