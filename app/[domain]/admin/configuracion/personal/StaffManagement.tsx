@@ -6,7 +6,7 @@ import { Plus, Trash2, Edit2, Check, X } from 'lucide-react';
 interface StaffMember {
   id: string;
   name: string;
-  role: 'cocinero' | 'camarero' | 'cajero';
+  role: 'cocinero' | 'camarero' | 'cajero' | 'admin';
   pin: string;
   is_active: boolean;
   created_at: string;
@@ -21,6 +21,7 @@ const ROLE_LABELS = {
   cocinero: { label: 'Cocinero', color: 'bg-orange-100 text-orange-700' },
   camarero: { label: 'Camarero', color: 'bg-emerald-100 text-emerald-700' },
   cajero: { label: 'Cajero', color: 'bg-indigo-100 text-indigo-700' },
+  admin: { label: 'Administrador', color: 'bg-purple-100 text-purple-700' },
 };
 
 export function StaffManagement({ tenantId, initialStaff }: Props) {
