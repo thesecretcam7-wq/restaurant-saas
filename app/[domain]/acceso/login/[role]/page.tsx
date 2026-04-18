@@ -33,6 +33,14 @@ export default async function RoleLoginPage({ params }: Props) {
     )
   }
 
+  // Fetch staff members for this tenant
+  const { data: staffMembers } = await supabase
+    .from('staff_members')
+    .select('id, name, role')
+    .eq('tenant_id', tenant.id)
+    .eq('is_active', true)
+    .order('name')
+
   return (
     <RoleLoginClient
       tenantId={tenant.id}
@@ -40,6 +48,7 @@ export default async function RoleLoginPage({ params }: Props) {
       tenantSlug={slug}
       logoUrl={tenant.logo_url}
       role={role as 'cocinero' | 'camarero' | 'cajero'}
+      staffMembers={staffMembers || []}
     />
   )
 }
