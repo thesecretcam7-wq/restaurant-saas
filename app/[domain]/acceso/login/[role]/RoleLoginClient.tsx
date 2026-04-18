@@ -102,12 +102,14 @@ export function RoleLoginClient({ tenantId, tenantName, tenantSlug, logoUrl, rol
           body: JSON.stringify({ tenantId, role, staffId, staffName }),
         });
 
-        // Redirect admin directly to admin panel, others to role portal
-        if (role === 'admin') {
-          router.push(`/${tenantSlug}/admin/dashboard`);
-        } else {
-          router.push(`/${tenantSlug}/acceso/portal/${role}`);
-        }
+        // Redirect directly to each role's primary tool (skip the tool selector)
+        const roleDestinations: Record<string, string> = {
+          admin: `/${tenantSlug}/admin/dashboard`,
+          cocinero: `/${tenantSlug}/staff/kds`,
+          camarero: `/${tenantSlug}/kitchen`,
+          cajero: `/${tenantSlug}/staff/pos`,
+        };
+        router.push(roleDestinations[role] || `/${tenantSlug}/acceso/portal/${role}`);
         return;
       }
 
