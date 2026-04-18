@@ -10,7 +10,9 @@ interface Props {
 export default async function GraciasPage({ params, searchParams }: Props) {
   const { domain: tenantId } = await params
   const { order: orderId } = await searchParams
-  const { branding } = await getTenantContext(tenantId)
+  const context = await getTenantContext(tenantId)
+  const { branding } = context
+  const tenantSlug = context.tenant?.slug || tenantId
   const primary = branding?.primary_color || '#3B82F6'
 
   let order = null
@@ -72,7 +74,7 @@ export default async function GraciasPage({ params, searchParams }: Props) {
 
       <div className="w-full max-w-sm space-y-3">
         <Link
-          href={`/${tenantId}/mis-pedidos`}
+          href={`/${tenantSlug}/mis-pedidos`}
           className="flex items-center justify-center gap-2 w-full py-3.5 rounded-2xl text-white font-bold text-sm shadow-lg active:scale-95 transition-transform"
           style={{ backgroundColor: primary }}
         >
@@ -85,7 +87,7 @@ export default async function GraciasPage({ params, searchParams }: Props) {
           Seguir mi pedido
         </Link>
         <Link
-          href={`/${tenantId}/menu`}
+          href={`/${tenantSlug}/menu`}
           className="flex items-center justify-center w-full py-3.5 rounded-2xl text-gray-600 font-bold text-sm bg-white border border-gray-200 active:scale-95 transition-transform"
         >
           Pedir algo más

@@ -8,12 +8,14 @@ interface Props {
 
 export default async function StoreLayout({ children, params }: Props) {
   const { domain: tenantId } = await params
-  const { branding } = await getTenantContext(tenantId)
+  const context = await getTenantContext(tenantId)
+  const { branding } = context
+  const tenantSlug = context.tenant?.slug || tenantId
 
   return (
     <div className="pb-[72px]">
       {children}
-      <BottomNav tenantId={tenantId} primaryColor={branding?.primary_color} />
+      <BottomNav tenantId={tenantSlug} primaryColor={branding?.primary_color} />
     </div>
   )
 }
