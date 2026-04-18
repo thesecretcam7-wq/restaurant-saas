@@ -33,11 +33,12 @@ export default async function RoleLoginPage({ params }: Props) {
     )
   }
 
-  // Fetch staff members for this tenant
+  // Fetch staff members for this tenant filtered by the selected role
   const { data: staffMembers } = await supabase
     .from('staff_members')
     .select('id, name, role')
     .eq('tenant_id', tenant.id)
+    .eq('role', role)
     .eq('is_active', true)
     .order('name')
 
