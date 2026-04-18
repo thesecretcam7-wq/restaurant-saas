@@ -95,11 +95,11 @@ export function RoleLoginClient({ tenantId, tenantName, tenantSlug, logoUrl, rol
         sessionStorage.setItem('staff_name', staffName);
         sessionStorage.setItem('staff_id', staffId);
 
-        // Set httpOnly cookie
+        // Set httpOnly cookie with role and permissions
         await fetch('/api/staff/session', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ tenantId }),
+          body: JSON.stringify({ tenantId, role, staffId, staffName }),
         });
 
         // Redirect admin directly to admin panel, others to role portal
