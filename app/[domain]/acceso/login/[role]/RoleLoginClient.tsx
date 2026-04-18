@@ -102,8 +102,12 @@ export function RoleLoginClient({ tenantId, tenantName, tenantSlug, logoUrl, rol
           body: JSON.stringify({ tenantId }),
         });
 
-        // Redirect to portal
-        router.push(`/${tenantSlug}/acceso/portal/${role}`);
+        // Redirect admin directly to admin panel, others to role portal
+        if (role === 'admin') {
+          router.push(`/${tenantSlug}/admin/dashboard`);
+        } else {
+          router.push(`/${tenantSlug}/acceso/portal/${role}`);
+        }
         return;
       }
 
