@@ -21,7 +21,7 @@ export default async function RoleLoginPage({ params }: Props) {
 
   const { data: tenant } = await supabase
     .from('tenants')
-    .select('id, organization_name, logo_url')
+    .select('id, slug, organization_name, logo_url')
     .eq(isUUID ? 'id' : 'slug', slug)
     .single()
 
@@ -46,7 +46,7 @@ export default async function RoleLoginPage({ params }: Props) {
     <RoleLoginClient
       tenantId={tenant.id}
       tenantName={tenant.organization_name}
-      tenantSlug={slug}
+      tenantSlug={tenant.slug || slug}
       logoUrl={tenant.logo_url}
       role={role as 'cocinero' | 'camarero' | 'cajero' | 'admin'}
       staffMembers={staffMembers || []}
