@@ -216,10 +216,10 @@ export async function POST(request: NextRequest) {
 
       // Create demo staff members
       const demoStaffRoles = [
-        { name: 'Juan Camarero Demo', role: 'camarero', pin: '1234' },
-        { name: 'Miguel Cocinero Demo', role: 'cocinero', pin: '5678' },
-        { name: 'Carlos Cajero Demo', role: 'cajero', pin: '9999' },
-        { name: 'Admin Demo', role: 'admin', pin: '0000' },
+        { name: 'Juan Camarero Demo', role: 'camarero', pin: '123456' },
+        { name: 'Miguel Cocinero Demo', role: 'cocinero', pin: '567890' },
+        { name: 'Carlos Cajero Demo', role: 'cajero', pin: '999999' },
+        { name: 'Admin Demo', role: 'admin', pin: '000000' },
       ]
 
       for (const staff of demoStaffRoles) {
