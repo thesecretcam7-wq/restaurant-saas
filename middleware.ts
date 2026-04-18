@@ -18,8 +18,8 @@ export async function middleware(request: NextRequest) {
 
   console.log(`[Middleware] Request: ${hostname}${pathname}`)
 
-  // Validar permisos en rutas /admin
-  if (pathname.includes('/admin')) {
+  // Validar permisos en rutas /admin (excluyendo rutas de acceso/login)
+  if (pathname.includes('/admin') && !pathname.includes('/acceso')) {
     const staffSessionCookie = request.cookies.get('staff_session')?.value
     let staffSession = null
     if (staffSessionCookie) {
