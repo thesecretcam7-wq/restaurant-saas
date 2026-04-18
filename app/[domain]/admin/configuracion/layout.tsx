@@ -6,6 +6,7 @@ import Link from 'next/link'
 const SECTIONS = [
   { href: 'personalizacion', label: 'Personalización', desc: 'Logo, colores, marca, página, contacto', icon: '🎨' },
   { href: 'restaurante', label: 'Restaurante', desc: 'Nombre, contacto, ubicación', icon: '🏪' },
+  { href: 'personal',    label: 'Personal', desc: 'Gestiona empleados y PINs', icon: '👥' },
   { href: 'horarios',    label: 'Horarios', desc: 'Días y horas de atención', icon: '🕐' },
   { href: 'delivery',    label: 'Delivery y Pagos', desc: 'Tarifas, métodos de pago, IVA', icon: '🚗' },
   { href: 'reservas',    label: 'Reservas', desc: 'Mesas, capacidad, anticipación', icon: '📅' },

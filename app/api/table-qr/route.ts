@@ -2,16 +2,15 @@ import { createClient } from '@supabase/supabase-js';
 import { NextRequest, NextResponse } from 'next/server';
 import QRCode from 'qrcode';
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
-
 function generateUniqueCode() {
   return Math.random().toString(36).substring(2, 15).toUpperCase();
 }
 
 export async function GET(request: NextRequest) {
+  const supabase = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  );
   const { searchParams } = new URL(request.url);
   const tenantId = searchParams.get('tenantId');
 
@@ -36,6 +35,10 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  const supabase = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  );
   try {
     const body = await request.json();
     const { tenantId, tableId, siteUrl } = body;

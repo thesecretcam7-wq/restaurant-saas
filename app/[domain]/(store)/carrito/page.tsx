@@ -1,6 +1,6 @@
 'use client'
 
-import { use } from 'react'
+import { use, useState, useEffect } from 'react'
 import { formatPrice } from '@/lib/currency'
 import { useCartStore } from '@/lib/store/cart'
 import Link from 'next/link'
@@ -10,6 +10,14 @@ interface Props { params: Promise<{ domain: string }> }
 export default function CarritoPage({ params }: Props) {
   const { domain: tenantId } = use(params)
   const { items, removeItem, updateQty, total } = useCartStore()
+  const [tenantSlug, setTenantSlug] = useState(tenantId)
+
+  useEffect(() => {
+    fetch(`/api/settings/${tenantId}`)
+      .then(r => r.json())
+      .then(data => data.tenant_slug && setTenantSlug(data.tenant_slug))
+      .catch(() => {})
+  }, [tenantId])
 
   if (items.length === 0) {
     return (
@@ -26,7 +34,7 @@ export default function CarritoPage({ params }: Props) {
           <p className="text-gray-600 text-sm font-medium">Agrega deliciosos productos del menú para comenzar tu pedido</p>
         </div>
         <Link
-          href={`/${tenantId}/menu`}
+          href={`/${tenantSlug}/menu`}
           className="px-8 py-3.5 rounded-xl text-white font-bold text-sm shadow-lg hover:shadow-xl active:scale-95 transition-all"
           style={{ backgroundColor: '#0066FF' }}
         >
@@ -116,7 +124,7 @@ export default function CarritoPage({ params }: Props) {
         </div>
 
         <Link
-          href={`/${tenantId}/checkout`}
+          href={`/${tenantSlug}/checkout`}
           className="flex items-center justify-between w-full px-5 py-4 rounded-2xl text-white font-bold shadow-xl active:scale-95 transition-transform bg-blue-500"
         >
           <span className="text-sm">Continuar con el pedido</span>

@@ -69,14 +69,30 @@ export default async function DashboardPage({ params }: DashboardProps) {
         <p className="text-gray-500 text-sm mt-1">Resumen de tu restaurante</p>
       </div>
 
-      {/* KDS Quick Access */}
-      <div className="mb-6">
+      {/* Quick Access Buttons */}
+      <div className="mb-6 flex flex-wrap gap-3">
         <Link
-          href={`/${tenantId}/admin/kds`}
+          href={`/${tenant.slug || tenantId}/admin/kds`}
           className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white font-semibold rounded-lg transition-all shadow-md hover:shadow-lg"
         >
           <span className="text-lg">🍳</span>
           Abrir Kitchen Display System (KDS)
+        </Link>
+        <Link
+          href={`/${tenant.slug || tenantId}/kitchen`}
+          className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-700 hover:to-emerald-800 text-white font-semibold rounded-lg transition-all shadow-md hover:shadow-lg"
+          target="_blank"
+        >
+          <span className="text-lg">📋</span>
+          Abrir Comandero
+        </Link>
+        <Link
+          href={`/${tenant.slug || tenantId}/acceso`}
+          className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 text-white font-semibold rounded-lg transition-all shadow-md hover:shadow-lg"
+          target="_blank"
+        >
+          <span className="text-lg">👤</span>
+          Acceso de Personal
         </Link>
       </div>
 
@@ -117,7 +133,7 @@ export default async function DashboardPage({ params }: DashboardProps) {
           )}
         </div>
         <Link
-          href={`/${tenantId}/admin/configuracion/planes`}
+          href={`/${tenant.slug || tenantId}/admin/configuracion/planes`}
           className={`flex-shrink-0 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${orderLimitWarning ? 'bg-orange-500 hover:bg-orange-600 text-white' : 'bg-gray-100 hover:bg-gray-200 text-gray-700'}`}
         >
           {orderLimitWarning ? 'Actualizar plan' : 'Ver plan'}
@@ -161,7 +177,7 @@ export default async function DashboardPage({ params }: DashboardProps) {
             {recentOrders.map(order => (
               <Link
                 key={order.id}
-                href={`/${tenantId}/admin/pedidos/${order.id}`}
+                href={`/${tenant.slug || tenantId}/admin/pedidos/${order.id}`}
                 className="flex items-center gap-4 px-5 py-3 hover:bg-gray-50 transition-colors"
               >
                 <div className="flex-1 min-w-0">

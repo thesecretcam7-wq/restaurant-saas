@@ -1,6 +1,7 @@
 'use client'
 
 import { use, useState } from 'react'
+import { usePathname } from 'next/navigation'
 import Link from 'next/link'
 
 interface Props { params: Promise<{ domain: string }> }
@@ -19,6 +20,8 @@ const STEP_LABELS = ['Recibido', 'Confirmado', 'Preparando', 'En camino', 'Entre
 
 export default function MisPedidosPage({ params }: Props) {
   const { domain: tenantId } = use(params)
+  const pathname = usePathname()
+  const tenantSlug = pathname.split('/')[1] || tenantId
   const [phone, setPhone] = useState('')
   const [orders, setOrders] = useState<any[] | null>(null)
   const [loading, setLoading] = useState(false)
@@ -46,7 +49,7 @@ export default function MisPedidosPage({ params }: Props) {
     <div className="min-h-screen bg-gray-50">
       <header className="bg-white border-b">
         <div className="max-w-lg mx-auto px-4 h-14 flex items-center gap-3">
-          <Link href={`/${tenantId}`} className="w-9 h-9 rounded-full bg-gray-100 flex items-center justify-center">
+          <Link href={`/${tenantSlug}`} className="w-9 h-9 rounded-full bg-gray-100 flex items-center justify-center">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#374151" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
               <path d="M19 12H5M12 19l-7-7 7-7"/>
             </svg>

@@ -36,16 +36,22 @@ export default async function AdminLayout({ children, params }: AdminLayoutProps
   if (isUUID) {
     const result = await supabase
       .from('tenants')
-      .select('id, organization_name, status, owner_id')
+      .select('id, slug, organization_name, status, owner_id')
       .eq('id', slug)
       .single()
+    if (result.error) {
+      console.error('Admin layout error fetching tenant by ID:', result.error)
+    }
     tenant = result.data
   } else {
     const result = await supabase
       .from('tenants')
-      .select('id, organization_name, status, owner_id')
+      .select('id, slug, organization_name, status, owner_id')
       .eq('slug', slug)
       .single()
+    if (result.error) {
+      console.error('Admin layout error fetching tenant by slug:', result.error)
+    }
     tenant = result.data
   }
 
@@ -61,16 +67,18 @@ export default async function AdminLayout({ children, params }: AdminLayoutProps
   const context = await getTenantContext(tenantId)
   const branding = context.branding
 
+  const tenantSlug = tenant.slug || slug
+
   const navLinks = [
-    { href: `/${tenantId}/admin/dashboard`, label: 'Dashboard', icon: '📊' },
-    { href: `/${tenantId}/admin/pedidos`, label: 'Pedidos', icon: '🛍️' },
-    { href: `/${tenantId}/admin/productos`, label: 'Productos', icon: '🍽️' },
-    { href: `/${tenantId}/admin/reservas`, label: 'Reservas', icon: '📅' },
-    { href: `/${tenantId}/admin/clientes`, label: 'Clientes', icon: '👥' },
-    { href: `/${tenantId}/admin/ventas`, label: 'Ventas', icon: '📈' },
-    { href: `/${tenantId}/admin/cierres`, label: 'Cierres de Caja', icon: '🔒' },
-    { href: `/${tenantId}/admin/configuracion/restaurante`, label: 'Configuración', icon: '⚙️' },
-    { href: `/${tenantId}/admin/pos`, label: 'TPV/POS', icon: '💳' },
+    { href: `/${tenantSlug}/admin/dashboard`, label: 'Dashboard', icon: '📊' },
+    { href: `/${tenantSlug}/admin/pedidos`, label: 'Pedidos', icon: '🛍️' },
+    { href: `/${tenantSlug}/admin/productos`, label: 'Productos', icon: '🍽️' },
+    { href: `/${tenantSlug}/admin/reservas`, label: 'Reservas', icon: '📅' },
+    { href: `/${tenantSlug}/admin/clientes`, label: 'Clientes', icon: '👥' },
+    { href: `/${tenantSlug}/admin/ventas`, label: 'Ventas', icon: '📈' },
+    { href: `/${tenantSlug}/admin/cierres`, label: 'Cierres de Caja', icon: '🔒' },
+    { href: `/${tenantSlug}/admin/configuracion/restaurante`, label: 'Configuración', icon: '⚙️' },
+    { href: `/${tenantSlug}/admin/pos`, label: 'TPV/POS', icon: '💳' },
   ]
 
   return (
@@ -106,7 +114,7 @@ export default async function AdminLayout({ children, params }: AdminLayoutProps
 
         <div className="p-3 border-t space-y-1">
           <Link
-            href={`/${tenantId}/menu`}
+            href={`/${tenantSlug}/menu`}
             className="flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-gray-600 hover:bg-gray-100"
             target="_blank"
           >

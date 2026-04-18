@@ -49,7 +49,20 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Get restaurant settings to check PIN
+    // Try to find staff member by PIN first
+    const { data: staffMember } = await supabase
+      .from('staff_members')
+      .select('id, role, is_active')
+      .eq('tenant_id', tenant.id)
+      .eq('pin', pin)
+      .eq('is_active', true)
+      .single()
+
+    if (staffMember) {
+      return NextResponse.json({ success: true, role: staffMember.role, tenantId: tenant.id })
+    }
+
+    // Fallback to old generic PIN system
     const { data: settings } = await supabase
       .from('restaurant_settings')
       .select('waiter_pin, kitchen_pin')
@@ -62,14 +75,7 @@ export async function POST(request: NextRequest) {
 
     const expectedPin = role === 'waiter' ? settings.waiter_pin : settings.kitchen_pin
 
-    if (!expectedPin) {
-      return NextResponse.json(
-        { error: 'PIN no configurado. Configúralo en el panel de administración.' },
-        { status: 400 }
-      )
-    }
-
-    if (pin !== expectedPin) {
+    if (!expectedPin || pin !== expectedPin) {
       return NextResponse.json({ error: 'PIN incorrecto' }, { status: 401 })
     }
 

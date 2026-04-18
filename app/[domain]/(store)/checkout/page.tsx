@@ -12,6 +12,7 @@ export default function CheckoutPage({ params }: Props) {
   const router = useRouter()
   const { items, total, clearCart } = useCartStore()
   const [settings, setSettings] = useState<any>(null)
+  const [tenantSlug, setTenantSlug] = useState(tenantId)
   const [loading, setLoading] = useState(false)
   const [form, setForm] = useState({
     name: '', phone: '', email: '',
@@ -21,7 +22,12 @@ export default function CheckoutPage({ params }: Props) {
 
   useEffect(() => {
     if (items.length === 0) router.replace(`/${tenantId}/menu`)
-    fetch(`/api/settings/${tenantId}`).then(r => r.json()).then(setSettings)
+    fetch(`/api/settings/${tenantId}`)
+      .then(r => r.json())
+      .then(data => {
+        setSettings(data)
+        if (data.tenant_slug) setTenantSlug(data.tenant_slug)
+      })
   }, [tenantId, items.length, router])
 
   const subtotal = total()
@@ -60,7 +66,7 @@ export default function CheckoutPage({ params }: Props) {
     <div className="min-h-screen bg-gray-50">
       <header className="bg-white border-b">
         <div className="max-w-lg mx-auto px-4 h-14 flex items-center gap-3">
-          <Link href={`/${tenantId}/carrito`} className="w-9 h-9 rounded-full bg-gray-100 flex items-center justify-center">
+          <Link href={`/${tenantSlug}/carrito`} className="w-9 h-9 rounded-full bg-gray-100 flex items-center justify-center">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#374151" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
               <path d="M19 12H5M12 19l-7-7 7-7"/>
             </svg>
