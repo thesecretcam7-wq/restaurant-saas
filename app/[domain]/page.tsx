@@ -18,8 +18,8 @@ interface HomePageProps {
 }
 
 export default async function HomePage({ params }: HomePageProps) {
-  const { domain: tenantId } = await params
-  const context = await getTenantContext(tenantId)
+  const { domain } = await params
+  const context = await getTenantContext(domain)
   const { tenant, settings, branding } = context
 
   if (!tenant) {
@@ -42,7 +42,7 @@ export default async function HomePage({ params }: HomePageProps) {
   const { data: featured } = await supabase
     .from('menu_items')
     .select('*')
-    .eq('tenant_id', tenantId)
+    .eq('tenant_id', tenant.id)
     .eq('featured', true)
     .eq('available', true)
     .limit(8)
@@ -77,7 +77,7 @@ export default async function HomePage({ params }: HomePageProps) {
         <div className="bg-white px-4 pt-12 pb-8 border-b border-gray-100 shadow-sm relative">
           <div className="max-w-lg mx-auto">
             <div className="absolute top-4 right-4 z-10">
-              <Link href={`/${tenantId}/admin/login`} className="px-3 py-1.5 rounded-full text-xs font-medium bg-gray-100 text-gray-500 hover:bg-gray-200 transition-colors">Admin</Link>
+              <Link href={`/${tenant.slug}/admin/login`} className="px-3 py-1.5 rounded-full text-xs font-medium bg-gray-100 text-gray-500 hover:bg-gray-200 transition-colors">Admin</Link>
             </div>
             <div className="flex items-center gap-4 mb-6">
               {hero.show_logo && tenant.logo_url && (
@@ -93,11 +93,11 @@ export default async function HomePage({ params }: HomePageProps) {
             </div>
             {hero.show_info_pills && <InfoPills settings={settings} primary={primary} />}
             <div className="flex gap-3 mt-6">
-              <Link href={`/${tenantId}/menu`} className={`flex-1 py-3 text-sm font-bold text-center text-white shadow-md hover:shadow-lg active:scale-[0.97] transition-all ${btnCls}`} style={{ backgroundColor: primary }}>
+              <Link href={`/${tenant.slug}/menu`} className={`flex-1 py-3 text-sm font-bold text-center text-white shadow-md hover:shadow-lg active:scale-[0.97] transition-all ${btnCls}`} style={{ backgroundColor: primary }}>
                 {hero.cta_primary_text}
               </Link>
               {settings?.reservations_enabled && (
-                <Link href={`/${tenantId}/reservas`} className={`flex-1 py-3 text-sm font-bold text-center border-2 hover:bg-gray-50 active:scale-[0.97] transition-all ${btnCls}`} style={{ borderColor: primary, color: primary }}>
+                <Link href={`/${tenant.slug}/reservas`} className={`flex-1 py-3 text-sm font-bold text-center border-2 hover:bg-gray-50 active:scale-[0.97] transition-all ${btnCls}`} style={{ borderColor: primary, color: primary }}>
                   {hero.cta_secondary_text}
                 </Link>
               )}
@@ -117,7 +117,7 @@ export default async function HomePage({ params }: HomePageProps) {
             </div>
             <div className="col-span-3 flex flex-col justify-center p-6 relative">
               <div className="absolute top-4 right-4">
-                <Link href={`/${tenantId}/admin/login`} className="px-3 py-1.5 rounded-full text-xs font-medium bg-gray-100 text-gray-500">Admin</Link>
+                <Link href={`/${tenant.slug}/admin/login`} className="px-3 py-1.5 rounded-full text-xs font-medium bg-gray-100 text-gray-500">Admin</Link>
               </div>
               {hero.show_logo && tenant.logo_url && (
                 <img src={tenant.logo_url} alt={appName} className="w-14 h-14 object-cover mb-3 shadow-sm" style={{ borderRadius: br }} />
@@ -126,7 +126,7 @@ export default async function HomePage({ params }: HomePageProps) {
               {heroSubtitle && <p className="text-sm text-gray-500 mb-4">{heroSubtitle}</p>}
               {hero.show_info_pills && <InfoPills settings={settings} primary={primary} />}
               <div className="flex gap-3 mt-5">
-                <Link href={`/${tenantId}/menu`} className={`flex-1 py-3 text-sm font-bold text-center text-white shadow-md active:scale-[0.97] transition-transform ${btnCls}`} style={{ backgroundColor: primary }}>
+                <Link href={`/${tenant.slug}/menu`} className={`flex-1 py-3 text-sm font-bold text-center text-white shadow-md active:scale-[0.97] transition-transform ${btnCls}`} style={{ backgroundColor: primary }}>
                   {hero.cta_primary_text}
                 </Link>
               </div>
@@ -174,11 +174,11 @@ export default async function HomePage({ params }: HomePageProps) {
               </div>
             )}
             <div className="flex gap-3">
-              <Link href={`/${tenantId}/menu`} className={`flex-1 py-4 text-sm font-bold text-center text-white shadow-xl hover:shadow-2xl active:scale-[0.97] transition-all ${btnCls}`} style={{ backgroundColor: primary }}>
+              <Link href={`/${tenant.slug}/menu`} className={`flex-1 py-4 text-sm font-bold text-center text-white shadow-xl hover:shadow-2xl active:scale-[0.97] transition-all ${btnCls}`} style={{ backgroundColor: primary }}>
                 {hero.cta_primary_text}
               </Link>
               {settings?.reservations_enabled && (
-                <Link href={`/${tenantId}/reservas`} className={`flex-1 py-4 text-sm font-bold text-center bg-white/25 backdrop-blur-md text-white border border-white/50 hover:bg-white/35 active:scale-[0.97] transition-all ${btnCls}`}>
+                <Link href={`/${tenant.slug}/reservas`} className={`flex-1 py-4 text-sm font-bold text-center bg-white/25 backdrop-blur-md text-white border border-white/50 hover:bg-white/35 active:scale-[0.97] transition-all ${btnCls}`}>
                   {hero.cta_secondary_text}
                 </Link>
               )}
@@ -194,7 +194,7 @@ export default async function HomePage({ params }: HomePageProps) {
           case 'banner':
             return <div key={section.id} className="pt-4"><BannerSection banner={banner} borderRadius={br} /></div>
           case 'featured':
-            return <FeaturedSection key={section.id} tenantId={tenantId} items={featured || []} primary={primary} title={sTitle || 'Lo más pedido'} borderRadius={br} cardClasses={cardCls} animations={anim} />
+            return <FeaturedSection key={section.id} tenantId={tenant.slug} items={featured || []} primary={primary} title={sTitle || 'Lo más pedido'} borderRadius={br} cardClasses={cardCls} animations={anim} />
           case 'about':
             return <AboutSection key={section.id} about={about} borderRadius={br} cardClasses={cardCls} />
           case 'info':
@@ -206,7 +206,7 @@ export default async function HomePage({ params }: HomePageProps) {
           case 'testimonials':
             return <TestimonialsSection key={section.id} testimonials={testimonials} primary={primary} title={sTitle || 'Opiniones'} borderRadius={br} cardClasses={cardCls} />
           case 'actions':
-            return settings ? <ActionsSection key={section.id} tenantId={tenantId} settings={settings} primary={primary} borderRadius={br} /> : null
+            return settings ? <ActionsSection key={section.id} tenantId={tenant.slug} settings={settings} primary={primary} borderRadius={br} /> : null
           case 'social':
             return <SocialSection key={section.id} social={social} primary={primary} title={sTitle || 'Síguenos'} borderRadius={br} />
           default:
@@ -231,7 +231,7 @@ export default async function HomePage({ params }: HomePageProps) {
         </div>
       </div>
 
-      <BottomNav tenantId={tenantId} primaryColor={primary} />
+      <BottomNav tenantId={tenant.slug} primaryColor={primary} />
     </div>
   )
 }
