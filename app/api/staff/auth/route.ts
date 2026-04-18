@@ -36,14 +36,8 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Map API roles to database roles
-    const roleMap: { [key: string]: string } = {
-      'kitchen': 'cocinero',
-      'waiter': 'camarero', // camarero uses waiter apiRole
-      'admin': 'admin',
-    }
-
-    const dbRole = roleMap[role] || role
+    // Roles match directly between API and database now
+    const dbRole = role
 
     // Find staff member by PIN and role
     const { data: staff, error: staffError } = await supabase

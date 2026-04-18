@@ -22,15 +22,15 @@ interface Props {
 const ROLE_CONFIG = {
   cocinero: {
     label: 'Cocinero',
-    apiRole: 'kitchen',
+    apiRole: 'cocinero',
   },
   camarero: {
     label: 'Camarero',
-    apiRole: 'waiter',
+    apiRole: 'camarero',
   },
   cajero: {
     label: 'Cajero',
-    apiRole: 'waiter',
+    apiRole: 'cajero',
   },
   admin: {
     label: 'Administrador',
