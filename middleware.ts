@@ -18,6 +18,29 @@ export async function middleware(request: NextRequest) {
 
   console.log(`[Middleware] Request: ${hostname}${pathname}`)
 
+  // Validar permisos en rutas /admin
+  if (pathname.includes('/admin')) {
+    const staffSessionCookie = request.cookies.get('staff_session')?.value
+    let staffSession = null
+    if (staffSessionCookie) {
+      try {
+        staffSession = JSON.parse(staffSessionCookie)
+      } catch (e) {
+        // Invalid session
+      }
+    }
+
+    if (staffSession) {
+      const permissions = staffSession.permissions || []
+      const hasAdminAccess = permissions.some((p: string) => p.startsWith('admin_'))
+
+      if (!hasAdminAccess) {
+        console.log(`[Middleware] Staff session without admin permissions, redirecting to /unauthorized`)
+        return NextResponse.redirect(new URL('/unauthorized', request.url))
+      }
+    }
+  }
+
   // CASO 1: Acceso por dominio personalizado (ej: mirestaurante.com)
   if (!hostname.includes(BASE_DOMAIN)) {
     console.log(`[Middleware] Case 1: Custom domain detected: ${hostname}`)

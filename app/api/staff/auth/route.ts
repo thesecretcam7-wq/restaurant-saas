@@ -1,6 +1,15 @@
 import { createServiceClient } from '@/lib/supabase/server'
 import { NextRequest, NextResponse } from 'next/server'
 
+async function getPermissionsByRole(supabase: any, role: string): Promise<string[]> {
+  const { data } = await supabase
+    .from('staff_role_permissions')
+    .select('admin_permissions(key)')
+    .eq('role', role)
+
+  return data?.map((p: any) => p.admin_permissions.key) || []
+}
+
 export async function POST(request: NextRequest) {
   try {
     const { domain, pin, role } = await request.json()
@@ -9,7 +18,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Faltan campos requeridos' }, { status: 400 })
     }
 
-    if (!['waiter', 'kitchen'].includes(role)) {
+    if (!['waiter', 'kitchen', 'chef', 'manager', 'cashier', 'bartender', 'kitchen_prep'].includes(role)) {
       return NextResponse.json({ error: 'Rol inválido' }, { status: 400 })
     }
 
@@ -64,7 +73,15 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'PIN incorrecto' }, { status: 401 })
     }
 
-    return NextResponse.json({ success: true, role, tenantId: tenant.id })
+    // Get permissions based on role
+    const permissions = await getPermissionsByRole(supabase, role)
+
+    return NextResponse.json({
+      success: true,
+      role,
+      tenantId: tenant.id,
+      permissions
+    })
   } catch (err) {
     console.error('Staff auth error:', err)
     return NextResponse.json({ error: 'Error interno' }, { status: 500 })

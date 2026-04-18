@@ -177,11 +177,20 @@ export default function CocinaPage() {
       if (data.success) {
         await loadConfig()
         const dbId = data.tenantId || tenantDbId
-        localStorage.setItem(`kitchen_session_${tenantId}`, JSON.stringify({
+        const sessionData = {
           role: 'kitchen',
+          permissions: data.permissions || [],
           expires: Date.now() + 24 * 60 * 60 * 1000,
           dbId,
-        }))
+          tenantId: data.tenantId,
+        }
+
+        // Guardar en localStorage
+        localStorage.setItem(`kitchen_session_${tenantId}`, JSON.stringify(sessionData))
+
+        // Guardar también en cookie para que el servidor pueda acceder
+        document.cookie = `staff_session=${JSON.stringify(sessionData)}; path=/; max-age=${24 * 60 * 60}`
+
         await loadOrders(dbId)
         setupRealtime(dbId)
         setKitchenStep('display')

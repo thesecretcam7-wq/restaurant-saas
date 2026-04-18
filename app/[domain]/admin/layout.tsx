@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { getTenantContext } from '@/lib/tenant'
+import { cookies } from 'next/headers'
 
 interface AdminLayoutProps {
   children: React.ReactNode
@@ -11,9 +12,22 @@ interface AdminLayoutProps {
 export default async function AdminLayout({ children, params }: AdminLayoutProps) {
   const { domain: slug } = await params
   const supabase = await createClient()
+  const cookieStore = await cookies()
 
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) redirect(`/login`)
+
+  // Check for staff session cookie
+  const staffSessionCookie = cookieStore.get('staff_session')?.value
+  let staffSession = null
+  if (staffSessionCookie) {
+    try {
+      staffSession = JSON.parse(staffSessionCookie)
+    } catch (e) {
+      // Invalid session cookie
+    }
+  }
+
+  if (!user && !staffSession) redirect(`/login`)
 
   // Look up tenant: by id if UUID, by slug otherwise
   const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(slug)
@@ -35,7 +49,13 @@ export default async function AdminLayout({ children, params }: AdminLayoutProps
     tenant = result.data
   }
 
-  if (!tenant || tenant.owner_id !== user.id) redirect(`/login`)
+  if (!tenant) redirect(`/login`)
+
+  // Check authorization: owner or staff with admin permissions
+  const isOwner = user && tenant.owner_id === user.id
+  const isStaffWithAdminAccess = staffSession && staffSession.permissions?.some((p: string) => p.startsWith('admin_'))
+
+  if (!isOwner && !isStaffWithAdminAccess) redirect(`/unauthorized`)
 
   const tenantId = tenant.id
   const context = await getTenantContext(tenantId)
