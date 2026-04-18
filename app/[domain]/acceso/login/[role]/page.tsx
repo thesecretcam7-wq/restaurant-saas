@@ -47,7 +47,7 @@ export default async function RoleLoginPage({ params }: Props) {
       tenantName={tenant.organization_name}
       tenantSlug={slug}
       logoUrl={tenant.logo_url}
-      role={role as 'cocinero' | 'camarero' | 'cajero'}
+      role={role as 'cocinero' | 'camarero' | 'cajero' | 'admin'}
       staffMembers={staffMembers || []}
     />
   )
