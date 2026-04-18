@@ -70,7 +70,7 @@ export default async function AdminLayout({ children, params }: AdminLayoutProps
   const tenantSlug = tenant.slug || slug
 
   // Get all tenants for the owner (for tenant switcher)
-  let userTenants = []
+  let userTenants: { id: string; slug: string; organization_name: string }[] = []
   if (isOwner && user) {
     const { data: tenantsData } = await supabase
       .from('tenants')
