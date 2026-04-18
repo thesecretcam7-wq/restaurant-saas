@@ -149,7 +149,7 @@ export default async function HomePage({ params }: HomePageProps) {
             background: `linear-gradient(to bottom, rgba(0,0,0,0.1) 0%, rgba(0,0,0,0.2) 50%, rgba(0,0,0,0.35) 100%)`,
           }} />
           <div className="absolute top-6 right-6 z-10">
-            <Link href={`/${tenantId}/admin/login`} className="px-4 py-2 rounded-lg text-xs font-semibold bg-white/20 backdrop-blur-md text-white border border-white/40 hover:bg-white/30 transition-all shadow-sm">Admin</Link>
+            <Link href={`/${tenant.slug}/admin/login`} className="px-4 py-2 rounded-lg text-xs font-semibold bg-white/20 backdrop-blur-md text-white border border-white/40 hover:bg-white/30 transition-all shadow-sm">Admin</Link>
           </div>
           <div className="absolute inset-0 flex flex-col justify-end p-6 pb-8 max-w-lg mx-auto">
             {hero.show_logo && tenant.logo_url && (
