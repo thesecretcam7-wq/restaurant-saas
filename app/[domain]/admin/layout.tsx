@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { getTenantContext } from '@/lib/tenant'
+import { StaffNameDisplay } from '@/components/admin/StaffNameDisplay'
 import { cookies } from 'next/headers'
 
 interface AdminLayoutProps {
@@ -150,6 +151,7 @@ export default async function AdminLayout({ children, params }: AdminLayoutProps
         </nav>
 
         <div className="p-3 border-t space-y-1">
+          <StaffNameDisplay />
           <Link
             href={`/${tenantSlug}/menu`}
             className="flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-gray-600 hover:bg-gray-100"
