@@ -1,21 +1,40 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { cookies } from 'next/headers'
 
 export async function POST(request: NextRequest) {
-  const { tenantId } = await request.json()
-  if (!tenantId) return NextResponse.json({ error: 'Falta tenantId' }, { status: 400 })
+  try {
+    const body = await request.json()
+    const { tenantId } = body
 
-  const res = NextResponse.json({ success: true })
-  res.cookies.set('staff_session', tenantId, {
-    httpOnly: true,
-    sameSite: 'strict',
-    path: '/',
-    maxAge: 60 * 60 * 12, // 12 hours
-  })
-  return res
-}
+    if (!tenantId) {
+      return NextResponse.json(
+        { error: 'Missing tenantId' },
+        { status: 400 }
+      )
+    }
 
-export async function DELETE() {
-  const res = NextResponse.json({ success: true })
-  res.cookies.delete('staff_session')
-  return res
+    const cookieStore = await cookies()
+
+    // Set httpOnly session cookie (can be read by server)
+    const sessionData = {
+      tenantId,
+      createdAt: new Date().toISOString(),
+    }
+
+    cookieStore.set('staff_session', JSON.stringify(sessionData), {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      maxAge: 86400, // 24 hours
+      path: '/',
+    })
+
+    return NextResponse.json({ success: true })
+  } catch (error) {
+    console.error('Session endpoint error:', error)
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 }
+    )
+  }
 }
