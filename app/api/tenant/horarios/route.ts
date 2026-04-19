@@ -8,12 +8,29 @@ export async function PUT(request: NextRequest) {
 
     const supabase = createServiceClient()
 
+    // tenantId might be a slug, so we need to get the actual UUID
+    let actualTenantId = tenantId
+    if (!tenantId.includes('-')) {
+      // If it doesn't contain a hyphen, it's likely a slug, not a UUID
+      // Look up the tenant by slug
+      const { data: tenantData } = await supabase
+        .from('tenants')
+        .select('id')
+        .eq('slug', tenantId)
+        .single()
+
+      if (!tenantData) {
+        return NextResponse.json({ error: 'Tenant no encontrado' }, { status: 404 })
+      }
+      actualTenantId = tenantData.id
+    }
+
     // Use upsert: insert if not exists, update if exists
     const { data, error } = await supabase
       .from('restaurant_settings')
       .upsert(
         {
-          tenant_id: tenantId,
+          tenant_id: actualTenantId,
           operating_hours,
           updated_at: new Date().toISOString()
         },
