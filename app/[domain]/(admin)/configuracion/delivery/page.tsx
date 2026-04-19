@@ -23,7 +23,7 @@ const DEFAULTS: DeliveryForm = {
 
 export default function DeliveryConfigPage() {
   const params = useParams()
-  const tenantId = params.domain as string
+  const tenantSlug = params.domain as string
 
   const [form, setForm] = useState<DeliveryForm>(DEFAULTS)
   const [saving, setSaving] = useState(false)
@@ -31,8 +31,8 @@ export default function DeliveryConfigPage() {
   const [message, setMessage] = useState('')
 
   useEffect(() => {
-    if (!tenantId) return
-    fetch(`/api/tenant/delivery?tenantId=${tenantId}`)
+    if (!tenantSlug) return
+    fetch(`/api/tenant/delivery?tenantSlug=${tenantSlug}`)
       .then(r => r.json())
       .then(data => {
         if (data.data) {
@@ -48,7 +48,7 @@ export default function DeliveryConfigPage() {
       })
       .catch(() => {})
       .finally(() => setLoading(false))
-  }, [tenantId])
+  }, [tenantSlug])
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -58,7 +58,7 @@ export default function DeliveryConfigPage() {
       const response = await fetch('/api/tenant/delivery', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ tenantId, ...form }),
+        body: JSON.stringify({ tenantSlug, ...form }),
       })
       const data = await response.json()
       if (!response.ok) {

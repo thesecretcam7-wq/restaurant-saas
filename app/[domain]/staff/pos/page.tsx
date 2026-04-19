@@ -15,10 +15,11 @@ export default function StaffPOSPage() {
   useEffect(() => {
     async function resolveTenant() {
       const supabase = createClient();
+      const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(slug);
       const { data } = await supabase
         .from('tenants')
         .select('id, country')
-        .eq('slug', slug)
+        .eq(isUUID ? 'id' : 'slug', slug)
         .single();
 
       if (data) {

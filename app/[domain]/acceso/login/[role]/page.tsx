@@ -8,7 +8,7 @@ interface Props {
 export default async function RoleLoginPage({ params }: Props) {
   const { domain: slug, role } = await params
 
-  if (!['cocinero', 'camarero', 'cajero'].includes(role)) {
+  if (!['cocinero', 'camarero', 'cajero', 'admin'].includes(role)) {
     return (
       <div className="min-h-screen bg-gray-950 flex items-center justify-center text-red-400 text-xl">
         Rol inválido
@@ -21,7 +21,7 @@ export default async function RoleLoginPage({ params }: Props) {
 
   const { data: tenant } = await supabase
     .from('tenants')
-    .select('id, organization_name, logo_url')
+    .select('id, slug, organization_name, logo_url')
     .eq(isUUID ? 'id' : 'slug', slug)
     .single()
 
@@ -33,13 +33,23 @@ export default async function RoleLoginPage({ params }: Props) {
     )
   }
 
+  // Fetch staff members for this tenant filtered by the selected role
+  const { data: staffMembers } = await supabase
+    .from('staff_members')
+    .select('id, name, role')
+    .eq('tenant_id', tenant.id)
+    .eq('role', role)
+    .eq('is_active', true)
+    .order('name')
+
   return (
     <RoleLoginClient
       tenantId={tenant.id}
       tenantName={tenant.organization_name}
-      tenantSlug={slug}
+      tenantSlug={tenant.slug || slug}
       logoUrl={tenant.logo_url}
-      role={role as 'cocinero' | 'camarero' | 'cajero'}
+      role={role as 'cocinero' | 'camarero' | 'cajero' | 'admin'}
+      staffMembers={staffMembers || []}
     />
   )
 }

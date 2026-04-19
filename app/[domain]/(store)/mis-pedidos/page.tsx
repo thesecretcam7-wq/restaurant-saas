@@ -1,7 +1,6 @@
 'use client'
 
 import { use, useState } from 'react'
-import { usePathname } from 'next/navigation'
 import Link from 'next/link'
 
 interface Props { params: Promise<{ domain: string }> }
@@ -19,9 +18,7 @@ const STEPS = ['pending', 'confirmed', 'preparing', 'on_the_way', 'delivered']
 const STEP_LABELS = ['Recibido', 'Confirmado', 'Preparando', 'En camino', 'Entregado']
 
 export default function MisPedidosPage({ params }: Props) {
-  const { domain: tenantId } = use(params)
-  const pathname = usePathname()
-  const tenantSlug = pathname.split('/')[1] || tenantId
+  const { domain: tenantSlug } = use(params)
   const [phone, setPhone] = useState('')
   const [orders, setOrders] = useState<any[] | null>(null)
   const [loading, setLoading] = useState(false)
@@ -35,7 +32,7 @@ export default function MisPedidosPage({ params }: Props) {
     setLoading(true)
     setSearched(true)
     try {
-      const res = await fetch(`/api/orders/track?tenantId=${tenantId}&phone=${encodeURIComponent(phone.trim())}`)
+      const res = await fetch(`/api/orders/track?tenantId=${tenantSlug}&phone=${encodeURIComponent(phone.trim())}`)
       const data = await res.json()
       setOrders(data.orders || [])
     } catch {

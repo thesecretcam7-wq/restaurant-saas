@@ -121,10 +121,19 @@ export default function MeseroPage() {
       })
       const data = await res.json()
       if (data.success) {
-        localStorage.setItem(`staff_session_${tenantId}`, JSON.stringify({
+        const sessionData = {
           role: 'waiter',
+          permissions: data.permissions || [],
           expires: Date.now() + 12 * 60 * 60 * 1000,
-        }))
+          tenantId: data.tenantId,
+        }
+
+        // Guardar en localStorage
+        localStorage.setItem(`staff_session_${tenantId}`, JSON.stringify(sessionData))
+
+        // Guardar también en cookie para que el servidor pueda acceder
+        document.cookie = `staff_session=${JSON.stringify(sessionData)}; path=/; max-age=${12 * 60 * 60}`
+
         await loadMenuData()
         setStep('table')
       } else if (data.requiresUpgrade) {
@@ -333,7 +342,12 @@ export default function MeseroPage() {
             <h1 className="text-3xl font-black text-white tracking-wide">Selecciona Mesa</h1>
           </div>
           <button
-            onClick={() => { localStorage.removeItem(`staff_session_${tenantId}`); setStep('pin'); setPin('') }}
+            onClick={() => {
+              localStorage.removeItem(`staff_session_${tenantId}`)
+              document.cookie = 'staff_session=; path=/; max-age=0'
+              setStep('pin')
+              setPin('')
+            }}
             className="px-4 py-2.5 rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-300 hover:text-white text-sm font-semibold transition-all"
           >
             Salir

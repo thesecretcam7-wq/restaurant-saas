@@ -4,26 +4,33 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ChefHat, ArrowLeft, Delete } from 'lucide-react';
 
+interface StaffMember {
+  id: string;
+  name: string;
+  role: string;
+}
+
 interface Props {
   tenantId: string;
   tenantName: string;
   tenantSlug: string;
   logoUrl: string | null;
   role: 'cocinero' | 'camarero' | 'cajero' | 'admin';
+  staffMembers: StaffMember[];
 }
 
 const ROLE_CONFIG = {
   cocinero: {
     label: 'Cocinero',
-    apiRole: 'kitchen',
+    apiRole: 'cocinero',
   },
   camarero: {
     label: 'Camarero',
-    apiRole: 'waiter',
+    apiRole: 'camarero',
   },
   cajero: {
     label: 'Cajero',
-    apiRole: 'waiter',
+    apiRole: 'cajero',
   },
   admin: {
     label: 'Administrador',
@@ -31,20 +38,24 @@ const ROLE_CONFIG = {
   },
 };
 
-export function RoleLoginClient({ tenantId, tenantName, tenantSlug, logoUrl, role }: Props) {
+export function RoleLoginClient({ tenantId, tenantName, tenantSlug, logoUrl, role, staffMembers }: Props) {
   const router = useRouter();
-  const [name, setName] = useState('');
+  const [staffId, setStaffId] = useState('');
+  const [staffName, setStaffName] = useState('');
   const [pin, setPin] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [phase, setPhase] = useState<'name' | 'pin'>('name');
+  const [phase, setPhase] = useState<'select' | 'pin'>('select');
   const config = ROLE_CONFIG[role as keyof typeof ROLE_CONFIG];
 
-  async function handleNameSubmit() {
-    if (!name.trim()) {
-      setError('Ingresa tu nombre');
+  async function handleStaffSelect(selectedId: string) {
+    const selected = staffMembers.find(s => s.id === selectedId);
+    if (!selected) {
+      setError('Selecciona un empleado válido');
       return;
     }
+    setStaffId(selectedId);
+    setStaffName(selected.name);
     setError('');
     setPhase('pin');
   }
@@ -72,7 +83,7 @@ export function RoleLoginClient({ tenantId, tenantName, tenantSlug, logoUrl, rol
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             tenantId,
-            employee_name: name,
+            employee_name: staffName,
             role,
             pin: p,
           }),
@@ -81,17 +92,24 @@ export function RoleLoginClient({ tenantId, tenantName, tenantSlug, logoUrl, rol
         // Store session
         sessionStorage.setItem('staff_role', role);
         sessionStorage.setItem('staff_tenant', tenantId);
-        sessionStorage.setItem('staff_name', name);
+        sessionStorage.setItem('staff_name', staffName);
+        sessionStorage.setItem('staff_id', staffId);
 
-        // Set httpOnly cookie
+        // Set httpOnly cookie with role and permissions
         await fetch('/api/staff/session', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ tenantId }),
+          body: JSON.stringify({ tenantId, role, staffId, staffName }),
         });
 
-        // Redirect to portal
-        router.push(`/${tenantSlug}/acceso/portal/${role}`);
+        // Redirect directly to each role's primary tool (skip the tool selector)
+        const roleDestinations: Record<string, string> = {
+          admin: `/${tenantSlug}/admin/dashboard`,
+          cocinero: `/${tenantSlug}/staff/kds`,
+          camarero: `/${tenantSlug}/kitchen`,
+          cajero: `/${tenantSlug}/staff/pos`,
+        };
+        router.push(roleDestinations[role] || `/${tenantSlug}/acceso/portal/${role}`);
         return;
       }
 
@@ -125,9 +143,11 @@ export function RoleLoginClient({ tenantId, tenantName, tenantSlug, logoUrl, rol
       <button
         onClick={() => {
           if (phase === 'pin') {
-            setPhase('name');
+            setPhase('select');
             setPin('');
             setError('');
+            setStaffId('');
+            setStaffName('');
           } else {
             router.back();
           }
@@ -149,24 +169,26 @@ export function RoleLoginClient({ tenantId, tenantName, tenantSlug, logoUrl, rol
         <p className="text-gray-400 text-sm mt-1">{tenantName}</p>
       </div>
 
-      {phase === 'name' ? (
+      {phase === 'select' ? (
         <div className="w-full max-w-sm space-y-4">
-          <input
-            type="text"
-            placeholder="Tu nombre"
-            value={name}
-            onChange={e => setName(e.target.value)}
-            onKeyPress={e => e.key === 'Enter' && handleNameSubmit()}
+          <p className="text-white text-center text-sm mb-4">Selecciona tu nombre</p>
+          <select
+            value={staffId}
+            onChange={e => handleStaffSelect(e.target.value)}
             autoFocus
-            className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-emerald-500 text-center text-lg"
-          />
-          {error && <p className="text-red-400 text-sm text-center">{error}</p>}
-          <button
-            onClick={handleNameSubmit}
-            className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg transition-colors"
+            className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:border-emerald-500 text-center text-lg"
           >
-            Continuar
-          </button>
+            <option value="">-- Elige tu nombre --</option>
+            {staffMembers.map(staff => (
+              <option key={staff.id} value={staff.id}>
+                {staff.name}
+              </option>
+            ))}
+          </select>
+          {error && <p className="text-red-400 text-sm text-center">{error}</p>}
+          {staffMembers.length === 0 && (
+            <p className="text-red-400 text-sm text-center">No hay empleados registrados</p>
+          )}
         </div>
       ) : (
         <>

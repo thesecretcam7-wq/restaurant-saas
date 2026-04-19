@@ -51,8 +51,8 @@ export async function POST(request: NextRequest) {
     // Create tenant
     let slug = restaurantName
       .toLowerCase()
-      .replace(/\s+/g, '-')
-      .replace(/[^a-z0-9-]/g, '')
+      .replace(/\s+/g, '')
+      .replace(/[^a-z0-9]/g, '')
 
     console.log('📝 [Register] Generated slug:', slug)
 
@@ -164,6 +164,75 @@ export async function POST(request: NextRequest) {
       console.error('⚠️ [Register] Session creation failed (but user was created):', sessionError.message)
       // Don't fail here - user exists, just no session in response
       // Frontend will need to login
+    }
+
+    // Create demo tenant automatically
+    console.log('🎮 [Register] Creating demo tenant for user')
+    const demoSlug = `demo-${tenantData.id.substring(0, 8)}`
+
+    const { data: demoTenantData, error: demoTenantError } = await supabase
+      .from('tenants')
+      .insert({
+        organization_name: `Demo - ${restaurantName}`,
+        slug: demoSlug,
+        owner_id: authData.user.id,
+        owner_email: email,
+        owner_name: ownerName || '',
+        status: 'trial',
+      })
+      .select()
+      .single()
+
+    if (demoTenantError) {
+      console.error('⚠️ [Register] Demo tenant creation failed:', demoTenantError.message)
+    } else {
+      console.log('✅ [Register] Demo tenant created:', demoTenantData.id)
+
+      // Create demo branding
+      await supabase
+        .from('tenant_branding')
+        .insert({
+          tenant_id: demoTenantData.id,
+          primary_color: '#10b981',
+          secondary_color: '#3b82f6',
+          accent_color: '#f97316',
+          background_color: '#ffffff',
+          font_family: 'Inter',
+          app_name: 'Demo - ' + restaurantName,
+          tagline: 'Restaurante Demo',
+        })
+
+      // Create demo restaurant settings
+      await supabase
+        .from('restaurant_settings')
+        .insert({
+          tenant_id: demoTenantData.id,
+          display_name: 'Restaurante Demo',
+          country: 'CO',
+          timezone: 'America/Bogota',
+          waiter_pin: '1234',
+          kitchen_pin: '5678',
+        })
+
+      // Create demo staff members
+      const demoStaffRoles = [
+        { name: 'Juan Camarero Demo', role: 'camarero', pin: '123456' },
+        { name: 'Miguel Cocinero Demo', role: 'cocinero', pin: '567890' },
+        { name: 'Carlos Cajero Demo', role: 'cajero', pin: '999999' },
+        { name: 'Admin Demo', role: 'admin', pin: '000000' },
+      ]
+
+      for (const staff of demoStaffRoles) {
+        await supabase.from('staff_members').insert({
+          tenant_id: demoTenantData.id,
+          name: staff.name,
+          role: staff.role,
+          pin: staff.pin,
+          is_active: true,
+        })
+      }
+
+      console.log('✅ [Register] Demo tenant and staff created')
     }
 
     console.log('✅ [Register] SUCCESS! Returning tenant:', tenantData.slug)

@@ -6,7 +6,7 @@ import Link from 'next/link'
 
 export default function MeseroConfigPage() {
   const params = useParams()
-  const tenantId = params.domain as string
+  const tenantSlug = params.domain as string
 
   const [waiterPin, setWaiterPin] = useState('')
   const [kitchenPin, setKitchenPin] = useState('')
@@ -20,8 +20,8 @@ export default function MeseroConfigPage() {
   useEffect(() => {
     const load = async () => {
       const [statusRes, settingsRes] = await Promise.all([
-        fetch(`/api/subscription-status?domain=${tenantId}`),
-        fetch(`/api/restaurant-settings?domain=${tenantId}`).catch(() => null),
+        fetch(`/api/subscription-status?domain=${tenantSlug}`),
+        fetch(`/api/restaurant-settings?domain=${tenantSlug}`).catch(() => null),
       ])
       const status = await statusRes.json()
       setIsPro(['pro', 'premium'].includes(status.plan || '') || status.isTrialActive)
@@ -34,7 +34,7 @@ export default function MeseroConfigPage() {
       setLoading(false)
     }
     load()
-  }, [tenantId])
+  }, [tenantSlug])
 
   const handleSave = async () => {
     if (waiterPin && (waiterPin.length < 4 || waiterPin.length > 6)) {
@@ -51,7 +51,7 @@ export default function MeseroConfigPage() {
       await fetch('/api/restaurant-settings', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ domain: tenantId, waiter_pin: waiterPin || null, kitchen_pin: kitchenPin || null }),
+        body: JSON.stringify({ domain: tenantSlug, waiter_pin: waiterPin || null, kitchen_pin: kitchenPin || null }),
       })
       setSaved(true)
       setTimeout(() => setSaved(false), 3000)
@@ -77,7 +77,7 @@ export default function MeseroConfigPage() {
             El sistema de mesero y cocina está disponible en los planes <strong>Pro</strong> y <strong>Premium</strong>.
           </p>
           <Link
-            href={`/${tenantId}/configuracion/planes`}
+            href={`/${tenantSlug}/admin/configuracion/planes`}
             className="inline-block bg-blue-600 text-white font-bold px-6 py-3 rounded-xl hover:bg-blue-700 transition-colors"
           >
             Ver planes
@@ -92,7 +92,7 @@ export default function MeseroConfigPage() {
       <div className="max-w-2xl mx-auto px-4 py-8">
         {/* Header */}
         <div className="mb-8">
-          <Link href={`/${tenantId}/configuracion`} className="text-slate-400 text-sm hover:text-slate-600 flex items-center gap-1 mb-4">
+          <Link href={`/${tenantSlug}/admin/configuracion`} className="text-slate-400 text-sm hover:text-slate-600 flex items-center gap-1 mb-4">
             ← Volver a configuración
           </Link>
           <div className="flex items-center gap-3">
@@ -110,8 +110,8 @@ export default function MeseroConfigPage() {
           <div className="text-sm text-blue-800">
             <p className="font-semibold mb-1">¿Cómo funciona?</p>
             <ul className="space-y-1 text-blue-700">
-              <li>• <strong>Mesero</strong> abre <code className="bg-blue-100 px-1 rounded">/{tenantId}/mesero</code> en su teléfono</li>
-              <li>• <strong>Cocina</strong> abre <code className="bg-blue-100 px-1 rounded">/{tenantId}/cocina</code> en la pantalla</li>
+              <li>• <strong>Mesero</strong> abre <code className="bg-blue-100 px-1 rounded">/{tenantSlug}/mesero</code> en su teléfono</li>
+              <li>• <strong>Cocina</strong> abre <code className="bg-blue-100 px-1 rounded">/{tenantSlug}/cocina</code> en la pantalla</li>
               <li>• Los pedidos aparecen en cocina en tiempo real</li>
               <li>• Cocina puede marcar pedidos como "preparando" o "listo"</li>
             </ul>
@@ -150,7 +150,7 @@ export default function MeseroConfigPage() {
             <div className="mt-4 p-3 bg-slate-50 rounded-xl">
               <p className="text-xs text-slate-500 font-medium mb-1">URL para meseros:</p>
               <code className="text-xs text-blue-600">
-                {typeof window !== 'undefined' ? window.location.origin : ''}/{tenantId}/mesero
+                {typeof window !== 'undefined' ? window.location.origin : ''}/{tenantSlug}/mesero
               </code>
             </div>
           </div>
@@ -186,7 +186,7 @@ export default function MeseroConfigPage() {
             <div className="mt-4 p-3 bg-slate-50 rounded-xl">
               <p className="text-xs text-slate-500 font-medium mb-1">URL para cocina:</p>
               <code className="text-xs text-orange-600">
-                {typeof window !== 'undefined' ? window.location.origin : ''}/{tenantId}/cocina
+                {typeof window !== 'undefined' ? window.location.origin : ''}/{tenantSlug}/cocina
               </code>
             </div>
           </div>
@@ -203,7 +203,7 @@ export default function MeseroConfigPage() {
           {/* Quick access links */}
           <div className="grid grid-cols-2 gap-3">
             <a
-              href={`/${tenantId}/mesero`}
+              href={`/${tenantSlug}/mesero`}
               target="_blank"
               rel="noopener noreferrer"
               className="flex items-center justify-center gap-2 py-3 bg-white border-2 border-slate-200 rounded-2xl text-slate-700 font-semibold hover:border-blue-400 transition-colors text-sm"
@@ -211,7 +211,7 @@ export default function MeseroConfigPage() {
               📱 Abrir mesero
             </a>
             <a
-              href={`/${tenantId}/cocina`}
+              href={`/${tenantSlug}/cocina`}
               target="_blank"
               rel="noopener noreferrer"
               className="flex items-center justify-center gap-2 py-3 bg-white border-2 border-slate-200 rounded-2xl text-slate-700 font-semibold hover:border-orange-400 transition-colors text-sm"

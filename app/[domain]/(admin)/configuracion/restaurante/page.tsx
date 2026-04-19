@@ -38,7 +38,7 @@ const TIMEZONES = [
 
 export default function RestaurantConfigPage() {
   const params = useParams()
-  const tenantId = params.domain as string
+  const tenantSlug = params.domain as string
 
   const [form, setForm] = useState<RestaurantForm>(DEFAULTS)
   const [saving, setSaving] = useState(false)
@@ -46,8 +46,8 @@ export default function RestaurantConfigPage() {
   const [message, setMessage] = useState('')
 
   useEffect(() => {
-    if (!tenantId) return
-    fetch(`/api/tenant/restaurant?tenantId=${tenantId}`)
+    if (!tenantSlug) return
+    fetch(`/api/tenant/restaurant?tenantSlug=${tenantSlug}`)
       .then(r => r.json())
       .then(data => {
         if (data.data) {
@@ -66,7 +66,7 @@ export default function RestaurantConfigPage() {
       })
       .catch(() => {})
       .finally(() => setLoading(false))
-  }, [tenantId])
+  }, [tenantSlug])
 
   const handleChange = (field: keyof RestaurantForm, value: string | boolean) => {
     setForm(prev => ({ ...prev, [field]: value }))
@@ -80,7 +80,7 @@ export default function RestaurantConfigPage() {
       const response = await fetch('/api/tenant/restaurant', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ tenantId, ...form }),
+        body: JSON.stringify({ tenantSlug, ...form }),
       })
       const data = await response.json()
       if (!response.ok) {

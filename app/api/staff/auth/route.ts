@@ -1,78 +1,73 @@
-import { createServiceClient } from '@/lib/supabase/server'
+import { createClient } from '@supabase/supabase-js'
 import { NextRequest, NextResponse } from 'next/server'
 
 export async function POST(request: NextRequest) {
   try {
-    const { domain, pin, role } = await request.json()
+    const body = await request.json()
+    const { domain, pin, role } = body
 
     if (!domain || !pin || !role) {
-      return NextResponse.json({ error: 'Faltan campos requeridos' }, { status: 400 })
-    }
-
-    if (!['waiter', 'kitchen'].includes(role)) {
-      return NextResponse.json({ error: 'Rol inválido' }, { status: 400 })
-    }
-
-    const supabase = createServiceClient()
-
-    // Get tenant
-    const { data: tenant } = await supabase
-      .from('tenants')
-      .select('id, subscription_plan, status, created_at')
-      .eq('slug', domain)
-      .single()
-
-    if (!tenant) {
-      return NextResponse.json({ error: 'Restaurante no encontrado' }, { status: 404 })
-    }
-
-    // Check plan: pro, premium, or active trial
-    const allowedPlans = ['pro', 'premium']
-    const isTrial = tenant.status === 'trial'
-    const isTrialActive = isTrial && tenant.created_at
-      ? (Date.now() - new Date(tenant.created_at).getTime()) < 14 * 24 * 60 * 60 * 1000
-      : false
-
-    if (!isTrialActive && !allowedPlans.includes(tenant.subscription_plan || '')) {
       return NextResponse.json(
-        { error: 'Esta función requiere plan Pro o Premium', requiresUpgrade: true },
-        { status: 403 }
+        { error: 'Missing required fields' },
+        { status: 400 }
       )
     }
 
-    // Try to find staff member by PIN first
-    const { data: staffMember } = await supabase
+    // Create service client
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!,
+      { auth: { autoRefreshToken: false, persistSession: false } }
+    )
+
+    // Get tenant by slug or id
+    const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(domain)
+
+    const { data: tenant, error: tenantError } = await supabase
+      .from('tenants')
+      .select('id')
+      .eq(isUUID ? 'id' : 'slug', domain)
+      .single()
+
+    if (tenantError || !tenant) {
+      return NextResponse.json(
+        { error: 'Restaurant not found' },
+        { status: 404 }
+      )
+    }
+
+    // Roles match directly between API and database now
+    const dbRole = role
+
+    // Find staff member by PIN and role
+    const { data: staff, error: staffError } = await supabase
       .from('staff_members')
-      .select('id, role, is_active')
+      .select('id, name, role, is_active')
       .eq('tenant_id', tenant.id)
       .eq('pin', pin)
+      .eq('role', dbRole)
       .eq('is_active', true)
       .single()
 
-    if (staffMember) {
-      return NextResponse.json({ success: true, role: staffMember.role, tenantId: tenant.id })
+    if (staffError || !staff) {
+      console.error('Staff auth error:', staffError)
+      return NextResponse.json(
+        { error: 'Invalid PIN' },
+        { status: 401 }
+      )
     }
 
-    // Fallback to old generic PIN system
-    const { data: settings } = await supabase
-      .from('restaurant_settings')
-      .select('waiter_pin, kitchen_pin')
-      .eq('tenant_id', tenant.id)
-      .single()
-
-    if (!settings) {
-      return NextResponse.json({ error: 'Configuración no encontrada' }, { status: 404 })
-    }
-
-    const expectedPin = role === 'waiter' ? settings.waiter_pin : settings.kitchen_pin
-
-    if (!expectedPin || pin !== expectedPin) {
-      return NextResponse.json({ error: 'PIN incorrecto' }, { status: 401 })
-    }
-
-    return NextResponse.json({ success: true, role, tenantId: tenant.id })
-  } catch (err) {
-    console.error('Staff auth error:', err)
-    return NextResponse.json({ error: 'Error interno' }, { status: 500 })
+    return NextResponse.json({
+      success: true,
+      staff_id: staff.id,
+      staff_name: staff.name,
+      role: staff.role,
+    })
+  } catch (error) {
+    console.error('Staff auth exception:', error)
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 }
+    )
   }
 }

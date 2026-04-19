@@ -21,7 +21,7 @@ export default async function RolePortalPage({ params }: Props) {
 
   const { data: tenant } = await supabase
     .from('tenants')
-    .select('id, organization_name, logo_url')
+    .select('id, slug, organization_name, logo_url')
     .eq(isUUID ? 'id' : 'slug', slug)
     .single()
 
@@ -33,5 +33,5 @@ export default async function RolePortalPage({ params }: Props) {
     )
   }
 
-  return <RolePortal tenantId={tenant.id} tenantName={tenant.organization_name} tenantSlug={slug} logoUrl={tenant.logo_url} role={role as 'cocinero' | 'camarero' | 'cajero'} />
+  return <RolePortal tenantId={tenant.id} tenantName={tenant.organization_name} tenantSlug={tenant.slug || slug} logoUrl={tenant.logo_url} role={role as 'cocinero' | 'camarero' | 'cajero'} />
 }

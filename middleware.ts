@@ -18,6 +18,29 @@ export async function middleware(request: NextRequest) {
 
   console.log(`[Middleware] Request: ${hostname}${pathname}`)
 
+  // Validar permisos en rutas /admin (excluyendo rutas de acceso/login)
+  if (pathname.includes('/admin') && !pathname.includes('/acceso')) {
+    const staffSessionCookie = request.cookies.get('staff_session')?.value
+    let staffSession = null
+    if (staffSessionCookie) {
+      try {
+        staffSession = JSON.parse(staffSessionCookie)
+      } catch (e) {
+        // Invalid session
+      }
+    }
+
+    if (staffSession) {
+      const permissions = staffSession.permissions || []
+      const hasAdminAccess = permissions.some((p: string) => p.startsWith('admin_'))
+
+      if (!hasAdminAccess) {
+        console.log(`[Middleware] Staff session without admin permissions, redirecting to /unauthorized`)
+        return NextResponse.redirect(new URL('/unauthorized', request.url))
+      }
+    }
+  }
+
   // CASO 1: Acceso por dominio personalizado (ej: mirestaurante.com)
   if (!hostname.includes(BASE_DOMAIN)) {
     console.log(`[Middleware] Case 1: Custom domain detected: ${hostname}`)
@@ -25,9 +48,9 @@ export async function middleware(request: NextRequest) {
     const tenant = await getTenantByDomain(hostname)
 
     if (tenant) {
-      console.log(`[Middleware] Case 1: Rewriting to /${tenant.id}${pathname}`)
-      // Reescribir a /{tenant-id}{pathname}
-      url.pathname = `/${tenant.id}${pathname}`
+      console.log(`[Middleware] Case 1: Rewriting to /${tenant.slug}${pathname}`)
+      // Reescribir a /{tenant-slug}{pathname}
+      url.pathname = `/${tenant.slug}${pathname}`
       return NextResponse.rewrite(url)
     }
   }
@@ -38,20 +61,21 @@ export async function middleware(request: NextRequest) {
     const slug = slugMatch[1]
     console.log(`[Middleware] Case 2: Slug found: "${slug}"`)
 
-    // Si ya tiene formato UUID, dejarlo como está
+    // Si ya tiene formato UUID, buscar tenant por ID y reescribir a slug
+    let tenant
     if (isUUID(slug)) {
-      console.log(`[Middleware] Case 2: Slug is UUID, passing through`)
-      return NextResponse.next()
+      console.log(`[Middleware] Case 2: Slug is UUID, looking up by ID`)
+      tenant = await getTenantById(slug)
+    } else {
+      // Buscar tenant por slug
+      tenant = await getTenantBySlug(slug)
     }
-
-    // Buscar tenant por slug
-    const tenant = await getTenantBySlug(slug)
 
     if (tenant) {
       const restPath = pathname.slice(slug.length + 1) || '/'
-      console.log(`[Middleware] Case 2: Rewriting to /${tenant.id}${restPath}`)
-      // Reescribir a /{tenant-id}{resto-del-path}
-      url.pathname = `/${tenant.id}${restPath}`
+      console.log(`[Middleware] Case 2: Rewriting to /${tenant.slug}${restPath}`)
+      // Reescribir a /{tenant-slug}{resto-del-path}
+      url.pathname = `/${tenant.slug}${restPath}`
       return NextResponse.rewrite(url)
     } else {
       console.log(`[Middleware] Case 2: Tenant not found for slug "${slug}"`)
@@ -66,9 +90,9 @@ export async function middleware(request: NextRequest) {
     const tenant = await getTenantBySlug(subdomain)
 
     if (tenant) {
-      console.log(`[Middleware] Case 3: Rewriting to /${tenant.id}${pathname}`)
-      // Reescribir a /{tenant-id}{pathname}
-      url.pathname = `/${tenant.id}${pathname}`
+      console.log(`[Middleware] Case 3: Rewriting to /${tenant.slug}${pathname}`)
+      // Reescribir a /{tenant-slug}{pathname}
+      url.pathname = `/${tenant.slug}${pathname}`
       return NextResponse.rewrite(url)
     } else {
       console.log(`[Middleware] Case 3: Tenant not found for subdomain "${subdomain}"`)
@@ -141,6 +165,38 @@ async function getTenantBySlug(slug: string) {
     return data
   } catch (error) {
     console.error(`[Middleware] Exception fetching tenant by slug "${slug}":`, error)
+    return null
+  }
+}
+
+async function getTenantById(id: string) {
+  try {
+    console.log(`[Middleware] getTenantById: looking for id="${id}"`)
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!,
+      { auth: { autoRefreshToken: false, persistSession: false } }
+    )
+
+    const { data, error } = await supabase
+      .from('tenants')
+      .select('id, slug')
+      .eq('id', id)
+      .single()
+
+    if (error) {
+      console.error(`[Middleware] Error fetching tenant with id "${id}":`, {
+        code: error.code,
+        message: error.message,
+        details: error.details,
+      })
+      return null
+    }
+
+    console.log(`[Middleware] Found tenant with id "${id}":`, data)
+    return data
+  } catch (error) {
+    console.error(`[Middleware] Exception fetching tenant by id "${id}":`, error)
     return null
   }
 }

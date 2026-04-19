@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { getTenantContext } from '@/lib/tenant'
+import { StaffNameDisplay } from '@/components/admin/StaffNameDisplay'
 import { cookies } from 'next/headers'
 
 interface AdminLayoutProps {
@@ -12,13 +13,22 @@ interface AdminLayoutProps {
 export default async function AdminLayout({ children, params }: AdminLayoutProps) {
   const { domain: slug } = await params
   const supabase = await createClient()
+  const cookieStore = await cookies()
 
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) {
-    const cookieStore = await cookies()
-    if (cookieStore.get('staff_session')?.value) redirect(`/${slug}/staff`)
-    redirect(`/login`)
+
+  // Check for staff session cookie
+  const staffSessionCookie = cookieStore.get('staff_session')?.value
+  let staffSession = null
+  if (staffSessionCookie) {
+    try {
+      staffSession = JSON.parse(staffSessionCookie)
+    } catch (e) {
+      // Invalid session cookie
+    }
   }
+
+  if (!user && !staffSession) redirect(`/login`)
 
   // Look up tenant: by id if UUID, by slug otherwise
   const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(slug)
@@ -46,13 +56,30 @@ export default async function AdminLayout({ children, params }: AdminLayoutProps
     tenant = result.data
   }
 
-  if (!tenant || tenant.owner_id !== user.id) redirect(`/login`)
+  if (!tenant) redirect(`/login`)
+
+  // Check authorization: owner or staff with admin permissions
+  const isOwner = user && tenant.owner_id === user.id
+  const isStaffWithAdminAccess = staffSession && staffSession.permissions?.some((p: string) => p.startsWith('admin_'))
+
+  if (!isOwner && !isStaffWithAdminAccess) redirect(`/unauthorized`)
 
   const tenantId = tenant.id
   const context = await getTenantContext(tenantId)
   const branding = context.branding
 
   const tenantSlug = tenant.slug || slug
+
+  // Get all tenants for the owner (for tenant switcher)
+  let userTenants: { id: string; slug: string; organization_name: string }[] = []
+  if (isOwner && user) {
+    const { data: tenantsData } = await supabase
+      .from('tenants')
+      .select('id, slug, organization_name')
+      .eq('owner_id', user.id)
+      .order('created_at', { ascending: false })
+    userTenants = tenantsData || []
+  }
 
   const navLinks = [
     { href: `/${tenantSlug}/admin/dashboard`, label: 'Dashboard', icon: '📊' },
@@ -64,6 +91,7 @@ export default async function AdminLayout({ children, params }: AdminLayoutProps
     { href: `/${tenantSlug}/admin/cierres`, label: 'Cierres de Caja', icon: '🔒' },
     { href: `/${tenantSlug}/admin/configuracion/restaurante`, label: 'Configuración', icon: '⚙️' },
     { href: `/${tenantSlug}/admin/pos`, label: 'TPV/POS', icon: '💳' },
+    { href: `/${tenantSlug}/admin/cuenta/cambiar-contrasena`, label: 'Cambiar Contraseña', icon: '🔑', divider: true },
   ]
 
   return (
@@ -85,19 +113,45 @@ export default async function AdminLayout({ children, params }: AdminLayoutProps
         </div>
 
         <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
+          {/* Tenant Switcher */}
+          {isOwner && userTenants.length > 1 && (
+            <div className="mb-4 pb-4 border-b">
+              <p className="text-xs font-semibold text-gray-500 px-3 mb-2">MIS RESTAURANTES</p>
+              <div className="space-y-1">
+                {userTenants.map(t => (
+                  <Link
+                    key={t.id}
+                    href={`/${t.slug}/admin/dashboard`}
+                    className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors ${
+                      t.slug === tenantSlug
+                        ? 'bg-blue-100 text-blue-700 font-semibold'
+                        : 'text-gray-600 hover:bg-gray-100'
+                    }`}
+                  >
+                    <span>{t.organization_name.includes('Demo') ? '🎮' : '🏪'}</span>
+                    <span className="truncate">{t.organization_name}</span>
+                  </Link>
+                ))}
+              </div>
+            </div>
+          )}
+
           {navLinks.map(link => (
-            <Link
-              key={link.href}
-              href={link.href}
-              className="flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-gray-700 hover:bg-gray-100 transition-colors"
-            >
-              <span>{link.icon}</span>
-              <span>{link.label}</span>
-            </Link>
+            <div key={link.href}>
+              {link.divider && <div className="my-2 border-t" />}
+              <Link
+                href={link.href}
+                className="flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-gray-700 hover:bg-gray-100 transition-colors"
+              >
+                <span>{link.icon}</span>
+                <span>{link.label}</span>
+              </Link>
+            </div>
           ))}
         </nav>
 
         <div className="p-3 border-t space-y-1">
+          <StaffNameDisplay />
           <Link
             href={`/${tenantSlug}/menu`}
             className="flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-gray-600 hover:bg-gray-100"
