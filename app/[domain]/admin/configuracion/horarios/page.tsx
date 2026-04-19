@@ -67,16 +67,18 @@ export default function HorariosPage({ params }: Props) {
     for (const day of DAYS) {
       if (schedule[day.key].enabled) {
         operating_hours[day.key] = {}
-        if (schedule[day.key].turno_mañana?.enabled) {
+        const turno_mañana = schedule[day.key].turno_mañana
+        const turno_tarde = schedule[day.key].turno_tarde
+        if (turno_mañana?.enabled) {
           operating_hours[day.key].turno_mañana = {
-            open: schedule[day.key].turno_mañana.open,
-            close: schedule[day.key].turno_mañana.close
+            open: turno_mañana.open,
+            close: turno_mañana.close
           }
         }
-        if (schedule[day.key].turno_tarde?.enabled) {
+        if (turno_tarde?.enabled) {
           operating_hours[day.key].turno_tarde = {
-            open: schedule[day.key].turno_tarde.open,
-            close: schedule[day.key].turno_tarde.close
+            open: turno_tarde.open,
+            close: turno_tarde.close
           }
         }
       }
