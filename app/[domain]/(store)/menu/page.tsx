@@ -16,7 +16,7 @@ export default async function MenuPage({ params }: MenuProps) {
   const context = await getTenantContext(tenantId)
 
   const [categoriesRes, itemsRes] = await Promise.all([
-    supabase.from('menu_categories').select('*').eq('tenant_id', tenantId).eq('active', true).order('sort_order'),
+    supabase.from('menu_categories').select('*').eq('tenant_id', tenantId).order('sort_order'),
     supabase.from('menu_items').select('*').eq('tenant_id', tenantId).eq('available', true).order('featured', { ascending: false }),
   ])
 
