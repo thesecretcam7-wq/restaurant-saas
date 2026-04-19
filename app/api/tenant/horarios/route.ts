@@ -8,44 +8,28 @@ export async function PUT(request: NextRequest) {
 
     const supabase = createServiceClient()
 
-    // First, try to update existing record
-    const { data: existingData, error: checkError } = await supabase
+    // Use upsert: insert if not exists, update if exists
+    const { data, error } = await supabase
       .from('restaurant_settings')
-      .select('id')
-      .eq('tenant_id', tenantId)
-      .single()
-
-    let result
-    if (existingData) {
-      // Update existing record
-      result = await supabase
-        .from('restaurant_settings')
-        .update({ operating_hours, updated_at: new Date().toISOString() })
-        .eq('tenant_id', tenantId)
-        .select()
-        .single()
-    } else {
-      // Insert new record
-      result = await supabase
-        .from('restaurant_settings')
-        .insert({
+      .upsert(
+        {
           tenant_id: tenantId,
           operating_hours,
-          created_at: new Date().toISOString(),
           updated_at: new Date().toISOString()
-        })
-        .select()
-        .single()
-    }
+        },
+        { onConflict: 'tenant_id' }
+      )
+      .select()
+      .single()
 
-    if (result.error) {
-      console.error('Error saving hours:', result.error)
-      return NextResponse.json({ error: 'Error al guardar horarios' }, { status: 500 })
+    if (error) {
+      console.error('Error saving hours:', error)
+      return NextResponse.json({ error: `Error al guardar: ${error.message}` }, { status: 500 })
     }
-    return NextResponse.json({ success: true, data: result.data, message: 'Horarios actualizados' })
+    return NextResponse.json({ success: true, data, message: 'Horarios actualizados' })
   } catch (error) {
     console.error('PUT /api/tenant/horarios error:', error)
-    return NextResponse.json({ error: 'Error interno al guardar horarios' }, { status: 500 })
+    return NextResponse.json({ error: `Error interno: ${error instanceof Error ? error.message : 'Unknown'}` }, { status: 500 })
   }
 }
 
