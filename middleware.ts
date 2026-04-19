@@ -61,14 +61,15 @@ export async function middleware(request: NextRequest) {
     const slug = slugMatch[1]
     console.log(`[Middleware] Case 2: Slug found: "${slug}"`)
 
-    // Si ya tiene formato UUID, dejarlo como está
+    // Si ya tiene formato UUID, buscar tenant por ID y reescribir a slug
+    let tenant
     if (isUUID(slug)) {
-      console.log(`[Middleware] Case 2: Slug is UUID, passing through`)
-      return NextResponse.next()
+      console.log(`[Middleware] Case 2: Slug is UUID, looking up by ID`)
+      tenant = await getTenantById(slug)
+    } else {
+      // Buscar tenant por slug
+      tenant = await getTenantBySlug(slug)
     }
-
-    // Buscar tenant por slug
-    const tenant = await getTenantBySlug(slug)
 
     if (tenant) {
       const restPath = pathname.slice(slug.length + 1) || '/'
@@ -164,6 +165,38 @@ async function getTenantBySlug(slug: string) {
     return data
   } catch (error) {
     console.error(`[Middleware] Exception fetching tenant by slug "${slug}":`, error)
+    return null
+  }
+}
+
+async function getTenantById(id: string) {
+  try {
+    console.log(`[Middleware] getTenantById: looking for id="${id}"`)
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!,
+      { auth: { autoRefreshToken: false, persistSession: false } }
+    )
+
+    const { data, error } = await supabase
+      .from('tenants')
+      .select('id, slug')
+      .eq('id', id)
+      .single()
+
+    if (error) {
+      console.error(`[Middleware] Error fetching tenant with id "${id}":`, {
+        code: error.code,
+        message: error.message,
+        details: error.details,
+      })
+      return null
+    }
+
+    console.log(`[Middleware] Found tenant with id "${id}":`, data)
+    return data
+  } catch (error) {
+    console.error(`[Middleware] Exception fetching tenant by id "${id}":`, error)
     return null
   }
 }
