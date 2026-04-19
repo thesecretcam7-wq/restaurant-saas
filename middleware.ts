@@ -1,55 +1,77 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { createServerClient } from '@supabase/ssr'
 
-// Configuración - Dominio base de la plataforma
-// Ejemplos:
-// - Vercel: eccofood.vercel.app
-// - Local: localhost:3000
-// - Custom: miplatforma.com
 const BASE_DOMAIN = process.env.NEXT_PUBLIC_BASE_DOMAIN || 'eccofood.vercel.app'
 const SLUG_PATH_REGEX = /^\/([a-zA-Z0-9-]+)(?:\/|$)/
-
-console.log(`[Middleware] BASE_DOMAIN configured: ${BASE_DOMAIN}`)
 
 export async function middleware(request: NextRequest) {
   const url = request.nextUrl.clone()
   const hostname = request.headers.get('host') || ''
   const pathname = url.pathname
 
-  console.log(`[Middleware] Request: ${hostname}${pathname}`)
+  // ─── PROTECCIÓN DE RUTAS ADMIN ───────────────────────────────────────────
+  // Cualquier ruta que contenga /admin pero no sea la página de login
+  const isAdminRoute = pathname.includes('/admin') || pathname.includes('/dashboard') || pathname.includes('/productos') || pathname.includes('/pedidos') || pathname.includes('/reservas') || pathname.includes('/clientes') || pathname.includes('/ventas') || pathname.includes('/configuracion') || pathname.includes('/tpv') || pathname.includes('/kds') || pathname.includes('/comandero')
+  const isLoginRoute = pathname.includes('/acceso')
 
-  // Validar permisos en rutas /admin (excluyendo rutas de acceso/login)
-  if (pathname.includes('/admin') && !pathname.includes('/acceso')) {
+  if (isAdminRoute && !isLoginRoute) {
+    // Verificar sesión de Supabase via cookie
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
+    const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+
+    let response = NextResponse.next({ request })
+
+    const supabase = createServerClient(supabaseUrl, supabaseAnonKey, {
+      cookies: {
+        getAll() {
+          return request.cookies.getAll()
+        },
+        setAll(cookiesToSet) {
+          cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value))
+          response = NextResponse.next({ request })
+          cookiesToSet.forEach(({ name, value, options }) =>
+            response.cookies.set(name, value, options)
+          )
+        },
+      },
+    })
+
+    const { data: { user } } = await supabase.auth.getUser()
+
+    if (!user) {
+      // Sin sesión: detectar el slug del tenant y redirigir a su login
+      const slugMatch = pathname.match(SLUG_PATH_REGEX)
+      const slug = slugMatch?.[1] || ''
+      const loginUrl = new URL(`/${slug}/acceso`, request.url)
+      loginUrl.searchParams.set('redirect', pathname)
+      return NextResponse.redirect(loginUrl)
+    }
+
+    // Con sesión: verificar permisos de staff si aplica
     const staffSessionCookie = request.cookies.get('staff_session')?.value
-    let staffSession = null
     if (staffSessionCookie) {
       try {
-        staffSession = JSON.parse(staffSessionCookie)
-      } catch (e) {
-        // Invalid session
+        const staffSession = JSON.parse(staffSessionCookie)
+        const permissions = staffSession.permissions || []
+        const hasAdminAccess = permissions.some((p: string) => p.startsWith('admin_'))
+        if (!hasAdminAccess) {
+          return NextResponse.redirect(new URL('/unauthorized', request.url))
+        }
+      } catch {
+        // Cookie inválida, continuar con la sesión de Supabase normal
       }
     }
 
-    if (staffSession) {
-      const permissions = staffSession.permissions || []
-      const hasAdminAccess = permissions.some((p: string) => p.startsWith('admin_'))
-
-      if (!hasAdminAccess) {
-        console.log(`[Middleware] Staff session without admin permissions, redirecting to /unauthorized`)
-        return NextResponse.redirect(new URL('/unauthorized', request.url))
-      }
-    }
+    return response
   }
+
+  // ─── ROUTING MULTI-TENANT ────────────────────────────────────────────────
 
   // CASO 1: Acceso por dominio personalizado (ej: mirestaurante.com)
   if (!hostname.includes(BASE_DOMAIN)) {
-    console.log(`[Middleware] Case 1: Custom domain detected: ${hostname}`)
-    // Buscar tenant por dominio personalizado
     const tenant = await getTenantByDomain(hostname)
-
     if (tenant) {
-      console.log(`[Middleware] Case 1: Rewriting to /${tenant.slug}${pathname}`)
-      // Reescribir a /{tenant-slug}{pathname}
       url.pathname = `/${tenant.slug}${pathname}`
       return NextResponse.rewrite(url)
     }
@@ -59,47 +81,30 @@ export async function middleware(request: NextRequest) {
   const slugMatch = pathname.match(SLUG_PATH_REGEX)
   if (slugMatch) {
     const slug = slugMatch[1]
-    console.log(`[Middleware] Case 2: Slug found: "${slug}"`)
-
-    // Si ya tiene formato UUID, buscar tenant por ID y reescribir a slug
     let tenant
     if (isUUID(slug)) {
-      console.log(`[Middleware] Case 2: Slug is UUID, looking up by ID`)
       tenant = await getTenantById(slug)
     } else {
-      // Buscar tenant por slug
       tenant = await getTenantBySlug(slug)
     }
 
     if (tenant) {
       const restPath = pathname.slice(slug.length + 1) || '/'
-      console.log(`[Middleware] Case 2: Rewriting to /${tenant.slug}${restPath}`)
-      // Reescribir a /{tenant-slug}{resto-del-path}
       url.pathname = `/${tenant.slug}${restPath}`
       return NextResponse.rewrite(url)
-    } else {
-      console.log(`[Middleware] Case 2: Tenant not found for slug "${slug}"`)
     }
   }
 
   // CASO 3: Acceso por subdominio (ej: mirestaurante.miplatforma.com)
   const subdomain = extractSubdomain(hostname, BASE_DOMAIN)
   if (subdomain && subdomain !== 'www' && subdomain !== 'app') {
-    console.log(`[Middleware] Case 3: Subdomain detected: ${subdomain}`)
-    // Buscar tenant por slug (el subdominio actúa como slug)
     const tenant = await getTenantBySlug(subdomain)
-
     if (tenant) {
-      console.log(`[Middleware] Case 3: Rewriting to /${tenant.slug}${pathname}`)
-      // Reescribir a /{tenant-slug}{pathname}
       url.pathname = `/${tenant.slug}${pathname}`
       return NextResponse.rewrite(url)
-    } else {
-      console.log(`[Middleware] Case 3: Tenant not found for subdomain "${subdomain}"`)
     }
   }
 
-  console.log(`[Middleware] No cases matched, passing through`)
   return NextResponse.next()
 }
 
@@ -110,120 +115,51 @@ async function getTenantByDomain(domain: string) {
       process.env.SUPABASE_SERVICE_ROLE_KEY!,
       { auth: { autoRefreshToken: false, persistSession: false } }
     )
-
-    const { data, error } = await supabase
-      .from('tenants')
-      .select('id, slug')
-      .eq('primary_domain', domain)
-      .single()
-
-    if (error) {
-      console.error(`[Middleware] Error fetching tenant with domain "${domain}":`, {
-        code: error.code,
-        message: error.message,
-        details: error.details,
-      })
-      return null
-    }
-
-    console.log(`[Middleware] Found tenant with domain "${domain}":`, data)
+    const { data } = await supabase.from('tenants').select('id, slug').eq('primary_domain', domain).single()
     return data
-  } catch (error) {
-    console.error(`[Middleware] Exception fetching tenant by domain "${domain}":`, error)
+  } catch {
     return null
   }
 }
 
 async function getTenantBySlug(slug: string) {
   try {
-    console.log(`[Middleware] getTenantBySlug: looking for slug="${slug}"`)
     const supabase = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.SUPABASE_SERVICE_ROLE_KEY!,
       { auth: { autoRefreshToken: false, persistSession: false } }
     )
-
-    console.log(`[Middleware] getTenantBySlug: Supabase client created, URL=${process.env.NEXT_PUBLIC_SUPABASE_URL}`)
-    const { data, error } = await supabase
-      .from('tenants')
-      .select('id, slug')
-      .eq('slug', slug)
-      .single()
-
-    console.log(`[Middleware] getTenantBySlug: Query result - data=${JSON.stringify(data)}, hasError=${!!error}`)
-
-    if (error) {
-      console.error(`[Middleware] Error fetching tenant with slug "${slug}":`, {
-        code: error.code,
-        message: error.message,
-        details: error.details,
-      })
-      return null
-    }
-
-    console.log(`[Middleware] Found tenant with slug "${slug}":`, data)
+    const { data } = await supabase.from('tenants').select('id, slug').eq('slug', slug).single()
     return data
-  } catch (error) {
-    console.error(`[Middleware] Exception fetching tenant by slug "${slug}":`, error)
+  } catch {
     return null
   }
 }
 
 async function getTenantById(id: string) {
   try {
-    console.log(`[Middleware] getTenantById: looking for id="${id}"`)
     const supabase = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.SUPABASE_SERVICE_ROLE_KEY!,
       { auth: { autoRefreshToken: false, persistSession: false } }
     )
-
-    const { data, error } = await supabase
-      .from('tenants')
-      .select('id, slug')
-      .eq('id', id)
-      .single()
-
-    if (error) {
-      console.error(`[Middleware] Error fetching tenant with id "${id}":`, {
-        code: error.code,
-        message: error.message,
-        details: error.details,
-      })
-      return null
-    }
-
-    console.log(`[Middleware] Found tenant with id "${id}":`, data)
+    const { data } = await supabase.from('tenants').select('id, slug').eq('id', id).single()
     return data
-  } catch (error) {
-    console.error(`[Middleware] Exception fetching tenant by id "${id}":`, error)
+  } catch {
     return null
   }
 }
 
 function extractSubdomain(hostname: string, baseDomain: string): string | null {
-  if (!hostname.includes(baseDomain)) {
-    return null
-  }
-
+  if (!hostname.includes(baseDomain)) return null
   const subdomain = hostname.replace(`.${baseDomain}`, '').replace(baseDomain, '')
-
-  if (subdomain === hostname) {
-    return null // No hay subdominio
-  }
-
-  return subdomain || null
+  return subdomain === hostname ? null : subdomain || null
 }
 
 function isUUID(str: string): boolean {
-  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
-  return uuidRegex.test(str)
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str)
 }
 
-// Configurar qué rutas usan middleware
 export const config = {
-  matcher: [
-    // Todas las rutas excepto APIs y archivos estáticos
-    '/((?!api|_next/static|_next/image|favicon.ico).*)',
-  ],
+  matcher: ['/((?!api|_next/static|_next/image|favicon.ico).*)'],
 }
