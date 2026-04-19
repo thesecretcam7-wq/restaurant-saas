@@ -26,6 +26,16 @@ export default async function MenuPage({ params }: MenuProps) {
       supabase.from('menu_items').select('*').eq('tenant_id', tenantId).eq('available', true).order('featured', { ascending: false }),
     ])
 
+    if (categoriesRes.error) {
+      console.error('Error fetching categories:', categoriesRes.error)
+      throw new Error(`Failed to fetch categories: ${categoriesRes.error.message}`)
+    }
+
+    if (itemsRes.error) {
+      console.error('Error fetching items:', itemsRes.error)
+      throw new Error(`Failed to fetch items: ${itemsRes.error.message}`)
+    }
+
   const allCategories = categoriesRes.data || []
   const items = itemsRes.data || []
   const categories = allCategories.filter(cat => items.some(i => i.category_id === cat.id))
