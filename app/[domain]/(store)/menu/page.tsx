@@ -85,24 +85,25 @@ export default async function MenuPage({ params }: MenuProps) {
               onClick={(e) => {
                 e.preventDefault();
                 const allSections = document.querySelectorAll('main > section');
-                const featured = document.querySelector('[data-featured]');
+                const featured = document.querySelector('[data-featured]') as HTMLElement | null;
 
                 // Show all sections including featured
                 if (featured) featured.style.display = 'block';
-                allSections.forEach(s => s.style.display = 'block');
+                allSections.forEach(s => (s as HTMLElement).style.display = 'block');
 
                 // Reset button styles
                 const buttons = document.querySelectorAll('header a[href^="#cat-"], header a[href="#top"]');
                 buttons.forEach(btn => {
                   const href = btn.getAttribute('href');
+                  const btnElement = btn as HTMLElement;
                   if (href === '#top') {
-                    btn.style.backgroundColor = primary;
-                    btn.style.color = 'white';
-                    btn.style.borderColor = primary;
+                    btnElement.style.backgroundColor = primary;
+                    btnElement.style.color = 'white';
+                    btnElement.style.borderColor = primary;
                   } else {
-                    btn.style.backgroundColor = 'white';
-                    btn.style.color = primary;
-                    btn.style.borderColor = primary + '40';
+                    btnElement.style.backgroundColor = 'white';
+                    btnElement.style.color = primary;
+                    btnElement.style.borderColor = primary + '40';
                   }
                 });
 
@@ -121,12 +122,12 @@ export default async function MenuPage({ params }: MenuProps) {
                   e.preventDefault();
                   const catId = cat.id;
                   const allSections = document.querySelectorAll('main > section');
-                  const featured = document.querySelector('[data-featured]');
-                  const selectedSection = document.querySelector(`#cat-${catId}`);
+                  const featured = document.querySelector('[data-featured]') as HTMLElement | null;
+                  const selectedSection = document.querySelector(`#cat-${catId}`) as HTMLElement | null;
 
                   // Hide all sections and featured
                   if (featured) featured.style.display = 'none';
-                  allSections.forEach(s => s.style.display = 'none');
+                  allSections.forEach(s => (s as HTMLElement).style.display = 'none');
 
                   // Show only selected category
                   if (selectedSection) {
@@ -137,14 +138,15 @@ export default async function MenuPage({ params }: MenuProps) {
                   // Update button styles
                   const buttons = document.querySelectorAll('header a[href^="#cat-"]');
                   buttons.forEach(btn => {
+                    const btnElement = btn as HTMLElement;
                     if (btn.getAttribute('href') === `#cat-${catId}`) {
-                      btn.style.backgroundColor = primary;
-                      btn.style.color = 'white';
-                      btn.style.borderColor = primary;
+                      btnElement.style.backgroundColor = primary;
+                      btnElement.style.color = 'white';
+                      btnElement.style.borderColor = primary;
                     } else {
-                      btn.style.backgroundColor = 'white';
-                      btn.style.color = primary;
-                      btn.style.borderColor = primary + '40';
+                      btnElement.style.backgroundColor = 'white';
+                      btnElement.style.color = primary;
+                      btnElement.style.borderColor = primary + '40';
                     }
                   });
                 }}
