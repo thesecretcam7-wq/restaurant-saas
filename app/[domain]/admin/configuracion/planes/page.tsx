@@ -7,6 +7,46 @@ import { SubscriptionPlan } from '@/lib/types'
 
 interface Props { params: Promise<{ domain: string }> }
 
+interface SystemFeature {
+  name: string
+  description: string
+  icon: string
+}
+
+const SYSTEM_FEATURES: SystemFeature[] = [
+  { name: 'POS', icon: '💳', description: 'Sistema de Punto de Venta' },
+  { name: 'TPV', icon: '🖥️', description: 'Terminal de Pago Virtual' },
+  { name: 'Comandera', icon: '📋', description: 'Control de Meseros' },
+  { name: 'KDS', icon: '👨‍🍳', description: 'Pantalla de Cocina' }
+]
+
+const planHighlights: { [key: string]: string[] } = {
+  basic: [
+    '✓ POS y TPV completos',
+    '✓ Hasta 100 productos',
+    '✓ Reportes básicos',
+    '✓ Soporte por email',
+    '✓ Integración Stripe'
+  ],
+  pro: [
+    '✓ POS, TPV y Comandera',
+    '✓ Hasta 500 productos',
+    '✓ Analytics avanzados',
+    '✓ Soporte prioritario',
+    '✓ Custom domain',
+    '✓ API access'
+  ],
+  premium: [
+    '✓ Sistema completo POS + TPV + Comandera + KDS',
+    '✓ Productos ilimitados',
+    '✓ Analytics avanzados + IA',
+    '✓ Soporte 24/7 dedicado',
+    '✓ Custom domain',
+    '✓ API access + webhooks',
+    '✓ Integración multi-sucursal'
+  ]
+}
+
 export default function PlanesPage({ params }: Props) {
   const { domain: tenantId } = use(params)
   const router = useRouter()
@@ -50,9 +90,21 @@ export default function PlanesPage({ params }: Props) {
   }
 
   const planDescriptions: { [key: string]: string } = {
-    basic: 'Ideal para restaurantes pequeños que recién empiezan',
-    pro: 'Perfecto para restaurantes medianos con múltiples servicios',
-    premium: 'Solución completa con soporte dedicado y todas las características'
+    basic: 'Gestión eficiente con POS y TPV. Ideal para negocios que inician su transformación digital',
+    pro: 'Solución integral con Comandera incluida. Para restaurantes con operaciones en crecimiento',
+    premium: 'Ecosistema completo: POS + TPV + Comandera + KDS. Máximo control y eficiencia operacional'
+  }
+
+  const planSubtitles: { [key: string]: string } = {
+    basic: 'Comienza tu transformación digital',
+    pro: 'Crece con confianza y control',
+    premium: 'Domina tu operación completa'
+  }
+
+  const systemsIncluded: { [key: string]: string[] } = {
+    basic: ['POS', 'TPV'],
+    pro: ['POS', 'TPV', 'Comandera'],
+    premium: ['POS', 'TPV', 'Comandera', 'KDS']
   }
 
   const featureLabels: { [key: string]: string } = {
@@ -101,53 +153,103 @@ export default function PlanesPage({ params }: Props) {
       )}
 
       <div className="grid sm:grid-cols-3 gap-6">
-        {plans.map(plan => (
-          <div key={plan.id} className={`bg-white rounded-xl border-2 overflow-hidden transition-all ${
-            currentPlan === plan.name
-              ? 'ring-2 ring-blue-600 border-blue-600'
-              : 'border-gray-200 hover:border-gray-300'
-          }`}>
-            <div className="p-6">
-              <h3 className="text-xl font-bold capitalize text-gray-900 mb-1">{plan.name}</h3>
-              <p className="text-sm text-gray-600 mb-4">{planDescriptions[plan.name]}</p>
+        {plans.map(plan => {
+          const systems = systemsIncluded[plan.name] || []
+          const highlights = planHighlights[plan.name] || []
 
-              <div className="mb-6 pb-6 border-b">
-                <p className="text-3xl font-bold text-gray-900">${plan.monthly_price}</p>
-                <p className="text-sm text-gray-500">por mes</p>
+          return (
+            <div key={plan.id} className={`bg-white rounded-xl border-2 overflow-hidden transition-all shadow-md hover:shadow-lg ${
+              currentPlan === plan.name
+                ? 'ring-2 ring-blue-600 border-blue-600'
+                : 'border-gray-200 hover:border-gray-300'
+            }`}>
+              {currentPlan === plan.name && (
+                <div className="bg-blue-600 px-6 py-2 text-white text-xs font-semibold text-center">
+                  PLAN ACTUAL
+                </div>
+              )}
+              <div className="p-6">
+                <h3 className="text-xl font-bold capitalize text-gray-900 mb-1">{plan.name}</h3>
+                <p className="text-sm text-gray-600 mb-6">{planDescriptions[plan.name]}</p>
+
+                <div className="mb-8 pb-8 border-b">
+                  <p className="text-4xl font-bold text-gray-900">${plan.monthly_price}</p>
+                  <p className="text-sm text-gray-500">por mes</p>
+                </div>
+
+                {/* Systems Showcase */}
+                <div className="mb-8">
+                  <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-4">Sistemas Incluidos</h4>
+                  <div className="grid grid-cols-2 gap-3">
+                    {SYSTEM_FEATURES.map(feature => {
+                      const isIncluded = systems.includes(feature.name)
+                      return (
+                        <div
+                          key={feature.name}
+                          className={`p-3 rounded-lg text-center transition-all ${
+                            isIncluded
+                              ? 'bg-blue-50 border-2 border-blue-200'
+                              : 'bg-gray-50 border-2 border-gray-100 opacity-40'
+                          }`}
+                        >
+                          <div className="text-2xl mb-1">{feature.icon}</div>
+                          <p className="text-xs font-bold text-gray-900">{feature.name}</p>
+                          <p className={`text-xs mt-1 ${isIncluded ? 'text-blue-700' : 'text-gray-500'}`}>
+                            {isIncluded ? '✓ Incluido' : 'No incluido'}
+                          </p>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+
+                {/* Key Highlights */}
+                <div className="mb-8">
+                  <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-4">Características</h4>
+                  <ul className="space-y-2">
+                    {highlights.map((highlight, idx) => (
+                      <li key={idx} className="flex gap-2 text-sm">
+                        <span className="text-green-600 font-bold flex-shrink-0">✓</span>
+                        <span className="text-gray-700">{highlight.replace('✓ ', '')}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+
+                {/* Technical Details */}
+                <div className="mb-8 p-4 bg-gray-50 rounded-lg">
+                  <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">Detalles Técnicos</h4>
+                  <ul className="space-y-2 text-xs">
+                    {plan.features && Object.entries(plan.features).slice(0, 4).map(([key, value]) => {
+                      const label = featureLabels[key] || key.replace(/_/g, ' ')
+                      const displayValue = featureValues[key] ? featureValues[key](value) :
+                        (typeof value === 'number' ? value : String(value))
+
+                      return (
+                        <li key={key} className="flex justify-between text-gray-700">
+                          <span>{label}:</span>
+                          <span className="font-medium text-gray-900">{displayValue}</span>
+                        </li>
+                      )
+                    })}
+                  </ul>
+                </div>
+
+                <button
+                  onClick={() => handleSelectPlan(plan.name)}
+                  disabled={processing || currentPlan === plan.name}
+                  className={`w-full py-3 rounded-lg text-sm font-bold transition-all ${
+                    currentPlan === plan.name
+                      ? 'bg-gray-100 text-gray-500 cursor-not-allowed'
+                      : 'bg-blue-600 hover:bg-blue-700 text-white shadow-md hover:shadow-lg'
+                  }`}
+                >
+                  {processing ? 'Procesando...' : currentPlan === plan.name ? 'Plan Actual' : 'Seleccionar Plan'}
+                </button>
               </div>
-
-              <ul className="space-y-3 mb-6">
-                {plan.features && Object.entries(plan.features).map(([key, value]) => {
-                  const label = featureLabels[key] || key.replace(/_/g, ' ')
-                  const displayValue = featureValues[key] ? featureValues[key](value) :
-                    (typeof value === 'number' ? value : String(value))
-
-                  return (
-                    <li key={key} className="flex gap-3 text-sm">
-                      <span className="text-blue-600 font-bold flex-shrink-0 mt-0.5">✓</span>
-                      <div className="flex-1">
-                        <span className="text-gray-700">{label}:</span>
-                        <span className="text-gray-900 font-medium ml-1">{displayValue}</span>
-                      </div>
-                    </li>
-                  )
-                })}
-              </ul>
-
-              <button
-                onClick={() => handleSelectPlan(plan.name)}
-                disabled={processing || currentPlan === plan.name}
-                className={`w-full py-3 rounded-lg text-sm font-medium transition-colors ${
-                  currentPlan === plan.name
-                    ? 'bg-gray-100 text-gray-500 cursor-not-allowed'
-                    : 'bg-blue-600 hover:bg-blue-700 text-white'
-                }`}
-              >
-                {processing ? 'Procesando...' : currentPlan === plan.name ? 'Plan actual' : 'Seleccionar'}
-              </button>
             </div>
-          </div>
-        ))}
+          )
+        })}
       </div>
 
       <div className="mt-8 bg-blue-50 border border-blue-200 rounded-lg p-6">
