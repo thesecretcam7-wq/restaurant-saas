@@ -12,10 +12,11 @@ export default async function TenantLayout({
   children,
   params,
 }: TenantLayoutProps) {
-  const { domain: tenantId } = await params
-  const context = await getTenantContext(tenantId)
+  try {
+    const { domain: tenantId } = await params
+    const context = await getTenantContext(tenantId)
 
-  if (!context.tenant) {
+    if (!context.tenant) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-slate-900 to-slate-800 px-4">
             <div className="max-w-md w-full bg-white rounded-lg shadow-2xl p-8">
@@ -118,5 +119,29 @@ export default async function TenantLayout({
         <Toaster position="bottom-right" />
       </div>
     </>
-  )
+    )
+  } catch (error) {
+    console.error('TenantLayout error:', error)
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-slate-900 to-slate-800 px-4">
+        <div className="max-w-md w-full bg-white rounded-lg shadow-2xl p-8">
+          <div className="text-center mb-6">
+            <div className="text-5xl mb-4">⚠️</div>
+            <h1 className="text-2xl font-bold text-slate-900 mb-2">
+              Error al Cargar
+            </h1>
+          </div>
+          <p className="text-slate-600 text-sm mb-6">
+            Hubo un problema al cargar el restaurante. Por favor intenta más tarde.
+          </p>
+          <a
+            href="/"
+            className="block w-full text-center bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-lg transition-colors"
+          >
+            Ir a Inicio
+          </a>
+        </div>
+      </div>
+    )
+  }
 }
