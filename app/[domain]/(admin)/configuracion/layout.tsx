@@ -17,7 +17,7 @@ export default function ConfigurationLayout({
   children: React.ReactNode
 }) {
   const params = useParams()
-  const tenantId = params.domain as string
+  const tenantSlug = params.domain as string
   const pathname = usePathname()
 
   return (
@@ -38,7 +38,7 @@ export default function ConfigurationLayout({
                 return (
                   <a
                     key={section.href}
-                    href={`/${tenantId}/configuracion/${section.href}`}
+                    href={`/${tenantSlug}/admin/configuracion/${section.href}`}
                     className={`block px-4 py-3 border-b last:border-b-0 transition-colors ${
                       isActive
                         ? 'bg-blue-50 border-l-4 border-l-blue-600 text-blue-600 font-semibold'

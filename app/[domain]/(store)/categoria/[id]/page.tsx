@@ -8,9 +8,9 @@ interface CategoryPageProps {
 }
 
 export default async function CategoryPage({ params }: CategoryPageProps) {
-  const { domain: tenantId, id: categoryId } = await params
+  const { domain, id: categoryId } = await params
   const supabase = createServiceClient()
-  const context = await getTenantContext(tenantId)
+  const context = await getTenantContext(domain)
 
   if (!context.tenant) {
     return (
@@ -24,8 +24,8 @@ export default async function CategoryPage({ params }: CategoryPageProps) {
   }
 
   const [categoryRes, itemsRes] = await Promise.all([
-    supabase.from('menu_categories').select('*').eq('id', categoryId).eq('tenant_id', tenantId).single(),
-    supabase.from('menu_items').select('*').eq('tenant_id', tenantId).eq('category_id', categoryId).eq('available', true).order('featured', { ascending: false }),
+    supabase.from('menu_categories').select('*').eq('id', categoryId).eq('tenant_id', context.tenant?.id).single(),
+    supabase.from('menu_items').select('*').eq('tenant_id', context.tenant?.id).eq('category_id', categoryId).eq('available', true).order('featured', { ascending: false }),
   ])
 
   const category = categoryRes.data
@@ -37,7 +37,7 @@ export default async function CategoryPage({ params }: CategoryPageProps) {
       <div className="min-h-screen flex items-center justify-center bg-gray-100">
         <div className="text-center">
           <h1 className="text-2xl font-bold text-gray-900 mb-2">Categoría No Encontrada</h1>
-          <a href={`/${tenantId}`} className="text-blue-600 hover:underline">Volver al menú</a>
+          <a href={`/${context.tenant?.slug || domain}`} className="text-blue-600 hover:underline">Volver al menú</a>
         </div>
       </div>
     )
@@ -73,7 +73,7 @@ export default async function CategoryPage({ params }: CategoryPageProps) {
         ) : (
           <div className="space-y-3">
             {items.map(item => (
-              <MenuItemCard key={item.id} item={item} tenantId={tenantId} branding={branding} />
+              <MenuItemCard key={item.id} item={item} tenantSlug={context.tenant?.slug || domain} branding={branding} />
             ))}
           </div>
         )}
@@ -82,7 +82,7 @@ export default async function CategoryPage({ params }: CategoryPageProps) {
   )
 }
 
-function MenuItemCard({ item, tenantId, branding }: { item: any; tenantId: string; branding: any }) {
+function MenuItemCard({ item, tenantSlug, branding }: { item: any; tenantSlug: string; branding: any }) {
   return (
     <div className="bg-white rounded-xl border overflow-hidden flex items-center gap-4 p-3 hover:shadow-md transition-shadow">
       {item.image_url ? (
@@ -97,7 +97,7 @@ function MenuItemCard({ item, tenantId, branding }: { item: any; tenantId: strin
           {formatPrice(item.price)}
         </p>
       </div>
-      <AddToCartButton item={item} tenantId={tenantId} color={branding?.primary_color} />
+      <AddToCartButton item={item} tenantId={tenantSlug} color={branding?.primary_color} />
     </div>
   )
 }

@@ -8,11 +8,10 @@ import Link from 'next/link'
 interface Props { params: Promise<{ domain: string }> }
 
 export default function CheckoutPage({ params }: Props) {
-  const { domain: tenantId } = use(params)
+  const { domain: tenantSlug } = use(params)
   const router = useRouter()
   const { items, total, clearCart } = useCartStore()
   const [settings, setSettings] = useState<any>(null)
-  const [tenantSlug, setTenantSlug] = useState(tenantId)
   const [loading, setLoading] = useState(false)
   const [form, setForm] = useState({
     name: '', phone: '', email: '',
@@ -21,14 +20,13 @@ export default function CheckoutPage({ params }: Props) {
   })
 
   useEffect(() => {
-    if (items.length === 0) router.replace(`/${tenantId}/menu`)
-    fetch(`/api/settings/${tenantId}`)
+    if (items.length === 0) router.replace(`/${tenantSlug}/menu`)
+    fetch(`/api/settings/${tenantSlug}`)
       .then(r => r.json())
       .then(data => {
         setSettings(data)
-        if (data.tenant_slug) setTenantSlug(data.tenant_slug)
       })
-  }, [tenantId, items.length, router])
+  }, [tenantSlug, items.length, router])
 
   const subtotal = total()
   const taxRate = settings?.tax_rate || 0
@@ -43,7 +41,7 @@ export default function CheckoutPage({ params }: Props) {
       const res = await fetch('/api/stripe/checkout', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ tenantId, items, customerInfo: { name: form.name, phone: form.phone, email: form.email }, deliveryType: form.delivery_type, deliveryAddress: form.delivery_address, notes: form.notes }),
+        body: JSON.stringify({ tenantId: tenantSlug, items, customerInfo: { name: form.name, phone: form.phone, email: form.email }, deliveryType: form.delivery_type, deliveryAddress: form.delivery_address, notes: form.notes }),
       })
       const data = await res.json()
       if (data.url) { clearCart(); window.location.href = data.url }
@@ -51,10 +49,10 @@ export default function CheckoutPage({ params }: Props) {
       const res = await fetch('/api/orders', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ tenantId, items, customerInfo: { name: form.name, phone: form.phone, email: form.email }, deliveryType: form.delivery_type, deliveryAddress: form.delivery_address, notes: form.notes, paymentMethod: 'cash' }),
+        body: JSON.stringify({ tenantId: tenantSlug, items, customerInfo: { name: form.name, phone: form.phone, email: form.email }, deliveryType: form.delivery_type, deliveryAddress: form.delivery_address, notes: form.notes, paymentMethod: 'cash' }),
       })
       const data = await res.json()
-      if (data.orderId) { clearCart(); router.push(`/${tenantId}/gracias?order=${data.orderId}`) }
+      if (data.orderId) { clearCart(); router.push(`/${tenantSlug}/gracias?order=${data.orderId}`) }
     }
     setLoading(false)
   }
