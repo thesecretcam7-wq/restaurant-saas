@@ -19,7 +19,7 @@ const DEFAULTS: ReservasForm = {
 
 export default function ReservasConfigPage() {
   const params = useParams()
-  const tenantId = params.domain as string
+  const tenantSlug = params.domain as string
 
   const [form, setForm] = useState<ReservasForm>(DEFAULTS)
   const [saving, setSaving] = useState(false)
@@ -27,8 +27,8 @@ export default function ReservasConfigPage() {
   const [message, setMessage] = useState('')
 
   useEffect(() => {
-    if (!tenantId) return
-    fetch(`/api/tenant/reservas?tenantId=${tenantId}`)
+    if (!tenantSlug) return
+    fetch(`/api/tenant/reservas?tenantSlug=${tenantSlug}`)
       .then(r => r.json())
       .then(data => {
         if (data.data) {
@@ -42,7 +42,7 @@ export default function ReservasConfigPage() {
       })
       .catch(() => {})
       .finally(() => setLoading(false))
-  }, [tenantId])
+  }, [tenantSlug])
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -52,7 +52,7 @@ export default function ReservasConfigPage() {
       const response = await fetch('/api/tenant/reservas', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ tenantId, ...form }),
+        body: JSON.stringify({ tenantSlug, ...form }),
       })
       const data = await response.json()
       if (!response.ok) {

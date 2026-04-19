@@ -48,9 +48,9 @@ export async function middleware(request: NextRequest) {
     const tenant = await getTenantByDomain(hostname)
 
     if (tenant) {
-      console.log(`[Middleware] Case 1: Rewriting to /${tenant.id}${pathname}`)
-      // Reescribir a /{tenant-id}{pathname}
-      url.pathname = `/${tenant.id}${pathname}`
+      console.log(`[Middleware] Case 1: Rewriting to /${tenant.slug}${pathname}`)
+      // Reescribir a /{tenant-slug}{pathname}
+      url.pathname = `/${tenant.slug}${pathname}`
       return NextResponse.rewrite(url)
     }
   }
@@ -72,9 +72,9 @@ export async function middleware(request: NextRequest) {
 
     if (tenant) {
       const restPath = pathname.slice(slug.length + 1) || '/'
-      console.log(`[Middleware] Case 2: Rewriting to /${tenant.id}${restPath}`)
-      // Reescribir a /{tenant-id}{resto-del-path}
-      url.pathname = `/${tenant.id}${restPath}`
+      console.log(`[Middleware] Case 2: Rewriting to /${tenant.slug}${restPath}`)
+      // Reescribir a /{tenant-slug}{resto-del-path}
+      url.pathname = `/${tenant.slug}${restPath}`
       return NextResponse.rewrite(url)
     } else {
       console.log(`[Middleware] Case 2: Tenant not found for slug "${slug}"`)
@@ -89,9 +89,9 @@ export async function middleware(request: NextRequest) {
     const tenant = await getTenantBySlug(subdomain)
 
     if (tenant) {
-      console.log(`[Middleware] Case 3: Rewriting to /${tenant.id}${pathname}`)
-      // Reescribir a /{tenant-id}{pathname}
-      url.pathname = `/${tenant.id}${pathname}`
+      console.log(`[Middleware] Case 3: Rewriting to /${tenant.slug}${pathname}`)
+      // Reescribir a /{tenant-slug}{pathname}
+      url.pathname = `/${tenant.slug}${pathname}`
       return NextResponse.rewrite(url)
     } else {
       console.log(`[Middleware] Case 3: Tenant not found for subdomain "${subdomain}"`)

@@ -35,7 +35,7 @@ const DEFAULTS: BrandingForm = {
 
 export default function BrandingPage() {
   const params = useParams()
-  const tenantId = params.domain as string
+  const tenantSlug = params.domain as string
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const [form, setForm] = useState<BrandingForm>(DEFAULTS)
@@ -45,8 +45,8 @@ export default function BrandingPage() {
   const [message, setMessage] = useState('')
 
   useEffect(() => {
-    if (!tenantId) return
-    fetch(`/api/tenant/branding?tenantId=${tenantId}`)
+    if (!tenantSlug) return
+    fetch(`/api/tenant/branding?tenantSlug=${tenantSlug}`)
       .then(r => r.json())
       .then(data => {
         if (data.data) {
@@ -64,7 +64,7 @@ export default function BrandingPage() {
       })
       .catch(() => {})
       .finally(() => setLoading(false))
-  }, [tenantId])
+  }, [tenantSlug])
 
   const handleChange = (field: keyof BrandingForm, value: string) => {
     setForm(prev => ({ ...prev, [field]: value }))
@@ -77,7 +77,7 @@ export default function BrandingPage() {
     const formData = new FormData()
     formData.append('file', file)
     formData.append('bucket', 'images')
-    formData.append('path', `logos/${tenantId}/logo.${file.name.split('.').pop()}`)
+    formData.append('path', `logos/${tenantSlug}/logo.${file.name.split('.').pop()}`)
     try {
       const res = await fetch('/api/upload', { method: 'POST', body: formData })
       const data = await res.json()
@@ -98,7 +98,7 @@ export default function BrandingPage() {
       const response = await fetch('/api/tenant/branding', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ tenantId, ...form }),
+        body: JSON.stringify({ tenantSlug, ...form }),
       })
       const data = await response.json()
       if (!response.ok) {
