@@ -41,7 +41,7 @@ export default function CarritoPage({ params }: Props) {
       {/* Header - Professional */}
       <header className="bg-white/98 backdrop-blur-lg border-b border-gray-100 shadow-sm sticky top-0 z-10">
         <div className="max-w-lg mx-auto px-4 h-16 flex items-center gap-3">
-          <Link href={`/${tenantId}/menu`} className="w-10 h-10 rounded-lg bg-gray-100 hover:bg-gray-200 active:bg-gray-300 flex items-center justify-center transition-colors" title="Volver">
+          <Link href={`/${tenantSlug}/menu`} className="w-10 h-10 rounded-lg bg-gray-100 hover:bg-gray-200 active:bg-gray-300 flex items-center justify-center transition-colors" title="Volver">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#374151" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
               <path d="M19 12H5M12 19l-7-7 7-7"/>
             </svg>
