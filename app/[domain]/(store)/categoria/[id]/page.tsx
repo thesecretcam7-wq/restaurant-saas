@@ -49,8 +49,8 @@ export default async function CategoryPage({ params }: CategoryPageProps) {
       <header className="sticky top-0 z-10 bg-white/90 backdrop-blur border-b">
         <div className="max-w-4xl mx-auto px-4 py-4">
           <div className="flex items-center justify-between mb-3">
-            <a href={`/${context.tenant?.slug || tenantId}`} className="text-2xl">←</a>
-            <a href={`/${context.tenant?.slug || tenantId}/carrito`} className="relative p-2">
+            <a href={`/${context.tenant?.slug || domain}`} className="text-2xl">←</a>
+            <a href={`/${context.tenant?.slug || domain}/carrito`} className="relative p-2">
               <span className="text-xl">🛒</span>
             </a>
           </div>
