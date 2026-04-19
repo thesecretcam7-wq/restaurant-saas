@@ -1,9 +1,10 @@
 import { createClient } from '@/lib/supabase/server'
-import { formatPrice, formatPriceWithCurrency, getCurrencyByCountry } from '@/lib/currency'
+import { formatPriceWithCurrency, getCurrencyByCountry } from '@/lib/currency'
 import { getTenantContext } from '@/lib/tenant'
 import { getPageConfig, getBorderRadius, getCardClasses, getButtonClasses } from '@/lib/pageConfig'
 import AddToCartButton from '@/components/store/AddToCartButton'
 import CartBar from '@/components/store/CartBar'
+import CategoryFilterBar from '@/components/store/CategoryFilterBar'
 import Link from 'next/link'
 
 interface MenuProps {
@@ -88,87 +89,7 @@ export default async function MenuPage({ params }: MenuProps) {
           </Link>
         </div>
 
-        {/* Category pills - Professional with client filtering */}
-        {categories.length > 0 && (
-          <div className="max-w-lg mx-auto flex gap-2 px-4 pb-4 overflow-x-auto scrollbar-hide border-b border-gray-100">
-            <a
-              href="#top"
-              onClick={(e) => {
-                e.preventDefault();
-                const allSections = document.querySelectorAll('main > section');
-                const featured = document.querySelector('[data-featured]') as HTMLElement | null;
-
-                // Show all sections including featured
-                if (featured) featured.style.display = 'block';
-                allSections.forEach(s => (s as HTMLElement).style.display = 'block');
-
-                // Reset button styles
-                const buttons = document.querySelectorAll('header a[href^="#cat-"], header a[href="#top"]');
-                buttons.forEach(btn => {
-                  const href = btn.getAttribute('href');
-                  const btnElement = btn as HTMLElement;
-                  if (href === '#top') {
-                    btnElement.style.backgroundColor = primary;
-                    btnElement.style.color = 'white';
-                    btnElement.style.borderColor = primary;
-                  } else {
-                    btnElement.style.backgroundColor = 'white';
-                    btnElement.style.color = primary;
-                    btnElement.style.borderColor = primary + '40';
-                  }
-                });
-
-                window.scrollTo({ top: 0, behavior: 'smooth' });
-              }}
-              className={`px-4 py-2 text-xs font-bold whitespace-nowrap rounded-full bg-white border transition-all hover:border-current ${btnCls}`}
-              style={{ backgroundColor: primary, color: 'white', borderColor: primary }}
-            >
-              Todo
-            </a>
-            {categories.map(cat => (
-              <a
-                key={cat.id}
-                href={`#cat-${cat.id}`}
-                onClick={(e) => {
-                  e.preventDefault();
-                  const catId = cat.id;
-                  const allSections = document.querySelectorAll('main > section');
-                  const featured = document.querySelector('[data-featured]') as HTMLElement | null;
-                  const selectedSection = document.querySelector(`#cat-${catId}`) as HTMLElement | null;
-
-                  // Hide all sections and featured
-                  if (featured) featured.style.display = 'none';
-                  allSections.forEach(s => (s as HTMLElement).style.display = 'none');
-
-                  // Show only selected category
-                  if (selectedSection) {
-                    selectedSection.style.display = 'block';
-                    selectedSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                  }
-
-                  // Update button styles
-                  const buttons = document.querySelectorAll('header a[href^="#cat-"]');
-                  buttons.forEach(btn => {
-                    const btnElement = btn as HTMLElement;
-                    if (btn.getAttribute('href') === `#cat-${catId}`) {
-                      btnElement.style.backgroundColor = primary;
-                      btnElement.style.color = 'white';
-                      btnElement.style.borderColor = primary;
-                    } else {
-                      btnElement.style.backgroundColor = 'white';
-                      btnElement.style.color = primary;
-                      btnElement.style.borderColor = primary + '40';
-                    }
-                  });
-                }}
-                className={`px-4 py-2 text-xs font-semibold whitespace-nowrap rounded-full bg-white border transition-all hover:border-current ${btnCls}`}
-                style={{ borderColor: `${primary}40`, color: primary }}
-              >
-                {cat.name}
-              </a>
-            ))}
-          </div>
-        )}
+        <CategoryFilterBar categories={categories} primary={primary} btnCls={btnCls} />
       </header>
 
       <main id="top" className="max-w-lg mx-auto px-4 py-6 space-y-8">
