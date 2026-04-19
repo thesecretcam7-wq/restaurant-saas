@@ -14,11 +14,20 @@ const DAYS = [
   { key: 'sunday',    label: 'Domingo' },
 ]
 
-type DaySchedule = { open: string; close: string; enabled: boolean }
+interface DaySchedule {
+  enabled: boolean
+  turno_mañana?: { open: string; close: string; enabled: boolean }
+  turno_tarde?: { open: string; close: string; enabled: boolean }
+}
+
 type Schedule = Record<string, DaySchedule>
 
 const DEFAULT_SCHEDULE: Schedule = Object.fromEntries(
-  DAYS.map(d => [d.key, { open: '08:00', close: '22:00', enabled: d.key !== 'sunday' }])
+  DAYS.map(d => [d.key, {
+    enabled: d.key !== 'sunday',
+    turno_mañana: { open: '08:00', close: '14:00', enabled: d.key !== 'sunday' },
+    turno_tarde: { open: '17:00', close: '22:00', enabled: false }
+  }])
 )
 
 export default function HorariosPage({ params }: Props) {
@@ -54,10 +63,22 @@ export default function HorariosPage({ params }: Props) {
     setSaving(true)
     setMessage('')
 
-    const operating_hours: Record<string, { open: string; close: string }> = {}
+    const operating_hours: Record<string, any> = {}
     for (const day of DAYS) {
       if (schedule[day.key].enabled) {
-        operating_hours[day.key] = { open: schedule[day.key].open, close: schedule[day.key].close }
+        operating_hours[day.key] = {}
+        if (schedule[day.key].turno_mañana?.enabled) {
+          operating_hours[day.key].turno_mañana = {
+            open: schedule[day.key].turno_mañana.open,
+            close: schedule[day.key].turno_mañana.close
+          }
+        }
+        if (schedule[day.key].turno_tarde?.enabled) {
+          operating_hours[day.key].turno_tarde = {
+            open: schedule[day.key].turno_tarde.open,
+            close: schedule[day.key].turno_tarde.close
+          }
+        }
       }
     }
 
@@ -75,65 +96,138 @@ export default function HorariosPage({ params }: Props) {
     finally { setSaving(false) }
   }
 
-  const updateDay = (day: string, field: keyof DaySchedule, value: string | boolean) => {
-    setSchedule(s => ({ ...s, [day]: { ...s[day], [field]: value } }))
+  const updateDay = (day: string, shift: 'turno_mañana' | 'turno_tarde' | 'enabled', field: string, value: string | boolean) => {
+    setSchedule(s => {
+      const updated = { ...s[day] }
+      if (shift === 'enabled') {
+        updated.enabled = value as boolean
+      } else {
+        if (!updated[shift]) {
+          updated[shift] = { open: '08:00', close: '14:00', enabled: true }
+        }
+        updated[shift] = { ...updated[shift], [field]: value }
+      }
+      return { ...s, [day]: updated }
+    })
   }
 
   if (loading) return <div className="flex items-center justify-center h-48"><div className="w-7 h-7 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin" /></div>
 
   return (
-    <div className="bg-white rounded-xl border">
+    <div className="bg-white rounded-xl border shadow-md">
       {message && (
-        <div className={`p-4 border-b rounded-t-xl text-sm font-medium ${message.startsWith('✅') ? 'bg-green-50 text-green-800' : 'bg-red-50 text-red-800'}`}>
+        <div className={`p-4 border-b rounded-t-xl text-sm font-medium ${message.startsWith('✅') ? 'bg-green-50 text-green-800 border-green-200' : 'bg-red-50 text-red-800 border-red-200'}`}>
           {message}
         </div>
       )}
       <form onSubmit={handleSave} className="p-6">
-        <h2 className="font-semibold text-gray-900 mb-1">🕐 Horarios de Atención</h2>
-        <p className="text-sm text-gray-500 mb-5">Define los días y horas en que tu restaurante está abierto.</p>
+        <div className="mb-8">
+          <h2 className="text-2xl font-bold text-gray-900 mb-2">🕐 Horarios de Atención</h2>
+          <p className="text-gray-600">Configura los turnos de tu restaurante. Puedes establecer un turno de mañana y otro de tarde.</p>
+        </div>
 
-        <div className="space-y-3">
+        <div className="space-y-5">
           {DAYS.map(day => (
-            <div key={day.key} className={`flex items-center gap-4 p-3 rounded-lg border ${schedule[day.key].enabled ? 'bg-white' : 'bg-gray-50'}`}>
-              <label className="flex items-center gap-2 w-28 cursor-pointer flex-shrink-0">
-                <input
-                  type="checkbox"
-                  checked={schedule[day.key].enabled}
-                  onChange={e => updateDay(day.key, 'enabled', e.target.checked)}
-                  className="w-4 h-4 rounded border-gray-300 text-blue-600"
-                />
-                <span className={`text-sm font-medium ${schedule[day.key].enabled ? 'text-gray-800' : 'text-gray-400'}`}>
-                  {day.label}
-                </span>
-              </label>
+            <div
+              key={day.key}
+              className={`border rounded-xl p-5 transition-all ${
+                schedule[day.key].enabled
+                  ? 'bg-gradient-to-br from-blue-50 to-white border-blue-200'
+                  : 'bg-gray-50 border-gray-200'
+              }`}
+            >
+              {/* Encabezado del día */}
+              <div className="flex items-center justify-between mb-4">
+                <label className="flex items-center gap-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={schedule[day.key].enabled}
+                    onChange={e => updateDay(day.key, 'enabled', '', e.target.checked)}
+                    className="w-5 h-5 rounded border-gray-300 text-blue-600 cursor-pointer"
+                  />
+                  <span className={`font-semibold text-lg ${schedule[day.key].enabled ? 'text-gray-900' : 'text-gray-400'}`}>
+                    {day.label}
+                  </span>
+                </label>
+                {!schedule[day.key].enabled && (
+                  <span className="text-xs font-medium text-gray-400 bg-gray-100 px-3 py-1 rounded-full">Cerrado</span>
+                )}
+              </div>
 
-              {schedule[day.key].enabled ? (
-                <div className="flex items-center gap-2 flex-1">
-                  <input
-                    type="time"
-                    value={schedule[day.key].open}
-                    onChange={e => updateDay(day.key, 'open', e.target.value)}
-                    className="px-2 py-1.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500"
-                  />
-                  <span className="text-gray-400 text-sm">—</span>
-                  <input
-                    type="time"
-                    value={schedule[day.key].close}
-                    onChange={e => updateDay(day.key, 'close', e.target.value)}
-                    className="px-2 py-1.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500"
-                  />
+              {schedule[day.key].enabled && (
+                <div className="space-y-4">
+                  {/* Turno Mañana */}
+                  <div className="bg-white rounded-lg p-4 border border-blue-100">
+                    <div className="flex items-center gap-3 mb-3">
+                      <input
+                        type="checkbox"
+                        checked={schedule[day.key].turno_mañana?.enabled ?? false}
+                        onChange={e => updateDay(day.key, 'turno_mañana', 'enabled', e.target.checked)}
+                        className="w-4 h-4 rounded border-gray-300 text-blue-600"
+                      />
+                      <label className="font-medium text-gray-700">🌅 Turno Mañana</label>
+                    </div>
+                    {schedule[day.key].turno_mañana?.enabled && (
+                      <div className="flex items-center gap-3 ml-7">
+                        <input
+                          type="time"
+                          value={schedule[day.key].turno_mañana?.open || '08:00'}
+                          onChange={e => updateDay(day.key, 'turno_mañana', 'open', e.target.value)}
+                          className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        />
+                        <span className="text-gray-400 font-medium">—</span>
+                        <input
+                          type="time"
+                          value={schedule[day.key].turno_mañana?.close || '14:00'}
+                          onChange={e => updateDay(day.key, 'turno_mañana', 'close', e.target.value)}
+                          className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        />
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Turno Tarde */}
+                  <div className="bg-white rounded-lg p-4 border border-orange-100">
+                    <div className="flex items-center gap-3 mb-3">
+                      <input
+                        type="checkbox"
+                        checked={schedule[day.key].turno_tarde?.enabled ?? false}
+                        onChange={e => updateDay(day.key, 'turno_tarde', 'enabled', e.target.checked)}
+                        className="w-4 h-4 rounded border-gray-300 text-orange-600"
+                      />
+                      <label className="font-medium text-gray-700">🌆 Turno Tarde</label>
+                    </div>
+                    {schedule[day.key].turno_tarde?.enabled && (
+                      <div className="flex items-center gap-3 ml-7">
+                        <input
+                          type="time"
+                          value={schedule[day.key].turno_tarde?.open || '17:00'}
+                          onChange={e => updateDay(day.key, 'turno_tarde', 'open', e.target.value)}
+                          className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                        />
+                        <span className="text-gray-400 font-medium">—</span>
+                        <input
+                          type="time"
+                          value={schedule[day.key].turno_tarde?.close || '22:00'}
+                          onChange={e => updateDay(day.key, 'turno_tarde', 'close', e.target.value)}
+                          className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                        />
+                      </div>
+                    )}
+                  </div>
                 </div>
-              ) : (
-                <span className="text-sm text-gray-400 italic">Cerrado</span>
               )}
             </div>
           ))}
         </div>
 
-        <div className="flex justify-end gap-3 pt-5 mt-5 border-t">
-          <button type="submit" disabled={saving}
-            className="px-6 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 disabled:opacity-50 text-sm">
-            {saving ? 'Guardando...' : 'Guardar horarios'}
+        <div className="flex justify-end gap-3 pt-6 mt-6 border-t">
+          <button
+            type="submit"
+            disabled={saving}
+            className="px-6 py-2.5 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-md hover:shadow-lg text-sm"
+          >
+            {saving ? '⏳ Guardando...' : '💾 Guardar horarios'}
           </button>
         </div>
       </form>
