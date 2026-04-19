@@ -15,21 +15,20 @@ interface SystemFeature {
 
 const SYSTEM_FEATURES: SystemFeature[] = [
   { name: 'POS', icon: '💳', description: 'Sistema de Punto de Venta' },
-  { name: 'TPV', icon: '🖥️', description: 'Terminal de Pago Virtual' },
   { name: 'Comandera', icon: '📋', description: 'Control de Meseros' },
   { name: 'KDS', icon: '👨‍🍳', description: 'Pantalla de Cocina' }
 ]
 
 const planHighlights: { [key: string]: string[] } = {
   basic: [
-    '✓ POS y TPV completos',
+    '✓ POS completo',
     '✓ Hasta 100 productos',
     '✓ Reportes básicos',
     '✓ Soporte por email',
     '✓ Integración Stripe'
   ],
   pro: [
-    '✓ POS, TPV y Comandera',
+    '✓ POS y Comandera',
     '✓ Hasta 500 productos',
     '✓ Analytics avanzados',
     '✓ Soporte prioritario',
@@ -37,7 +36,7 @@ const planHighlights: { [key: string]: string[] } = {
     '✓ API access'
   ],
   premium: [
-    '✓ Sistema completo POS + TPV + Comandera + KDS',
+    '✓ Sistema completo POS + Comandera + KDS',
     '✓ Productos ilimitados',
     '✓ Analytics avanzados + IA',
     '✓ Soporte 24/7 dedicado',
@@ -90,9 +89,9 @@ export default function PlanesPage({ params }: Props) {
   }
 
   const planDescriptions: { [key: string]: string } = {
-    basic: 'Gestión eficiente con POS y TPV. Ideal para negocios que inician su transformación digital',
+    basic: 'POS completo para empezar. Ideal para negocios que inician su transformación digital',
     pro: 'Solución integral con Comandera incluida. Para restaurantes con operaciones en crecimiento',
-    premium: 'Ecosistema completo: POS + TPV + Comandera + KDS. Máximo control y eficiencia operacional'
+    premium: 'Ecosistema completo: POS + Comandera + KDS. Máximo control y eficiencia operacional'
   }
 
   const planSubtitles: { [key: string]: string } = {
@@ -102,9 +101,9 @@ export default function PlanesPage({ params }: Props) {
   }
 
   const systemsIncluded: { [key: string]: string[] } = {
-    basic: ['POS', 'TPV'],
-    pro: ['POS', 'TPV', 'Comandera'],
-    premium: ['POS', 'TPV', 'Comandera', 'KDS']
+    basic: ['POS'],
+    pro: ['POS', 'Comandera'],
+    premium: ['POS', 'Comandera', 'KDS']
   }
 
   const featureLabels: { [key: string]: string } = {
