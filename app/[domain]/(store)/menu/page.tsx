@@ -25,8 +25,9 @@ export default async function MenuPage({ params }: MenuProps) {
     supabase.from('menu_items').select('*').eq('tenant_id', tenantId).eq('available', true).order('featured', { ascending: false }),
   ])
 
-  const categories = categoriesRes.data || []
+  const allCategories = categoriesRes.data || []
   const items = itemsRes.data || []
+  const categories = allCategories.filter(cat => items.some(i => i.category_id === cat.id))
   const slug = context.tenant?.slug || tenantSlug
   const branding = context.branding
   const settings = context.settings
@@ -76,13 +77,39 @@ export default async function MenuPage({ params }: MenuProps) {
           </Link>
         </div>
 
-        {/* Category pills - Professional */}
+        {/* Category pills - Professional with client filtering */}
         {categories.length > 0 && (
           <div className="max-w-lg mx-auto flex gap-2 px-4 pb-4 overflow-x-auto scrollbar-hide border-b border-gray-100">
             <a
               href="#top"
-              className={`px-4 py-2 text-xs font-bold whitespace-nowrap rounded-full transition-all shadow-sm hover:shadow-md active:scale-95 ${btnCls}`}
-              style={{ backgroundColor: primary, color: '#fff' }}
+              onClick={(e) => {
+                e.preventDefault();
+                const allSections = document.querySelectorAll('main > section');
+                const featured = document.querySelector('[data-featured]');
+
+                // Show all sections including featured
+                if (featured) featured.style.display = 'block';
+                allSections.forEach(s => s.style.display = 'block');
+
+                // Reset button styles
+                const buttons = document.querySelectorAll('header a[href^="#cat-"], header a[href="#top"]');
+                buttons.forEach(btn => {
+                  const href = btn.getAttribute('href');
+                  if (href === '#top') {
+                    btn.style.backgroundColor = primary;
+                    btn.style.color = 'white';
+                    btn.style.borderColor = primary;
+                  } else {
+                    btn.style.backgroundColor = 'white';
+                    btn.style.color = primary;
+                    btn.style.borderColor = primary + '40';
+                  }
+                });
+
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+              }}
+              className={`px-4 py-2 text-xs font-bold whitespace-nowrap rounded-full bg-white border transition-all hover:border-current ${btnCls}`}
+              style={{ backgroundColor: primary, color: 'white', borderColor: primary }}
             >
               Todo
             </a>
@@ -90,6 +117,37 @@ export default async function MenuPage({ params }: MenuProps) {
               <a
                 key={cat.id}
                 href={`#cat-${cat.id}`}
+                onClick={(e) => {
+                  e.preventDefault();
+                  const catId = cat.id;
+                  const allSections = document.querySelectorAll('main > section');
+                  const featured = document.querySelector('[data-featured]');
+                  const selectedSection = document.querySelector(`#cat-${catId}`);
+
+                  // Hide all sections and featured
+                  if (featured) featured.style.display = 'none';
+                  allSections.forEach(s => s.style.display = 'none');
+
+                  // Show only selected category
+                  if (selectedSection) {
+                    selectedSection.style.display = 'block';
+                    selectedSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                  }
+
+                  // Update button styles
+                  const buttons = document.querySelectorAll('header a[href^="#cat-"]');
+                  buttons.forEach(btn => {
+                    if (btn.getAttribute('href') === `#cat-${catId}`) {
+                      btn.style.backgroundColor = primary;
+                      btn.style.color = 'white';
+                      btn.style.borderColor = primary;
+                    } else {
+                      btn.style.backgroundColor = 'white';
+                      btn.style.color = primary;
+                      btn.style.borderColor = primary + '40';
+                    }
+                  });
+                }}
                 className={`px-4 py-2 text-xs font-semibold whitespace-nowrap rounded-full bg-white border transition-all hover:border-current ${btnCls}`}
                 style={{ borderColor: `${primary}40`, color: primary }}
               >
@@ -103,7 +161,7 @@ export default async function MenuPage({ params }: MenuProps) {
       <main id="top" className="max-w-lg mx-auto px-4 py-6 space-y-8">
         {/* Featured - Professional */}
         {featured.length > 0 && (
-          <section className="scroll-mt-20">
+          <section className="scroll-mt-20" data-featured>
             <div className="flex items-center gap-2 mb-4">
               <div className="w-1 h-6 rounded-full" style={{ backgroundColor: primary }} />
               <h2 className="text-lg font-black text-gray-900 tracking-tight">
@@ -139,7 +197,7 @@ export default async function MenuPage({ params }: MenuProps) {
           const catItems = items.filter(i => i.category_id === cat.id)
           if (catItems.length === 0) return null
           return (
-            <section key={cat.id} id={`cat-${cat.id}`} className="scroll-mt-28">
+            <section key={cat.id} id={`cat-${cat.id}`} data-category={cat.id} className="scroll-mt-28">
               <h2 className="text-base font-extrabold text-gray-900 mb-3 flex items-center justify-between">
                 {cat.name}
                 <span className="text-xs font-semibold text-muted-foreground bg-gray-100 px-2 py-0.5 rounded-full">{catItems.length}</span>
