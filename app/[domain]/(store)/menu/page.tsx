@@ -11,9 +11,14 @@ interface MenuProps {
 }
 
 export default async function MenuPage({ params }: MenuProps) {
-  const { domain: tenantId } = await params
+  const { domain: tenantSlug } = await params
   const supabase = await createClient()
-  const context = await getTenantContext(tenantId)
+  const context = await getTenantContext(tenantSlug)
+  const tenantId = context.tenant?.id
+
+  if (!tenantId) {
+    return <div className="flex items-center justify-center min-h-screen text-gray-500">Restaurante no encontrado</div>
+  }
 
   const [categoriesRes, itemsRes] = await Promise.all([
     supabase.from('menu_categories').select('*').eq('tenant_id', tenantId).order('sort_order'),
@@ -22,7 +27,7 @@ export default async function MenuPage({ params }: MenuProps) {
 
   const categories = categoriesRes.data || []
   const items = itemsRes.data || []
-  const tenantSlug = context.tenant?.slug || tenantId
+  const slug = context.tenant?.slug || tenantSlug
   const branding = context.branding
   const settings = context.settings
   const primary = branding?.primary_color || '#3B82F6'
@@ -62,7 +67,7 @@ export default async function MenuPage({ params }: MenuProps) {
               <p className="text-xs text-gray-500 font-medium">Menú</p>
             </div>
           </div>
-          <Link href={`/${tenantSlug}/carrito`} className="relative p-2.5 hover:bg-gray-100 active:bg-gray-200 rounded-xl transition-all" title="Carrito">
+          <Link href={`/${slug}/carrito`} className="relative p-2.5 hover:bg-gray-100 active:bg-gray-200 rounded-xl transition-all" title="Carrito">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={primary} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
               <path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/>
               <line x1="3" y1="6" x2="21" y2="6"/>
@@ -187,7 +192,7 @@ export default async function MenuPage({ params }: MenuProps) {
         )}
       </main>
 
-      <CartBar tenantId={tenantSlug} primaryColor={primary} />
+      <CartBar tenantId={slug} primaryColor={primary} />
     </div>
   )
 }
