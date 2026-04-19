@@ -7,17 +7,45 @@ export async function PUT(request: NextRequest) {
     if (!tenantId) return NextResponse.json({ error: 'Tenant ID requerido' }, { status: 400 })
 
     const supabase = createServiceClient()
-    const { data, error } = await supabase
+
+    // First, try to update existing record
+    const { data: existingData, error: checkError } = await supabase
       .from('restaurant_settings')
-      .update({ operating_hours, updated_at: new Date().toISOString() })
+      .select('id')
       .eq('tenant_id', tenantId)
-      .select()
       .single()
 
-    if (error) return NextResponse.json({ error: 'Error al guardar' }, { status: 500 })
-    return NextResponse.json({ success: true, data, message: 'Horarios actualizados' })
-  } catch {
-    return NextResponse.json({ error: 'Error interno' }, { status: 500 })
+    let result
+    if (existingData) {
+      // Update existing record
+      result = await supabase
+        .from('restaurant_settings')
+        .update({ operating_hours, updated_at: new Date().toISOString() })
+        .eq('tenant_id', tenantId)
+        .select()
+        .single()
+    } else {
+      // Insert new record
+      result = await supabase
+        .from('restaurant_settings')
+        .insert({
+          tenant_id: tenantId,
+          operating_hours,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        })
+        .select()
+        .single()
+    }
+
+    if (result.error) {
+      console.error('Error saving hours:', result.error)
+      return NextResponse.json({ error: 'Error al guardar horarios' }, { status: 500 })
+    }
+    return NextResponse.json({ success: true, data: result.data, message: 'Horarios actualizados' })
+  } catch (error) {
+    console.error('PUT /api/tenant/horarios error:', error)
+    return NextResponse.json({ error: 'Error interno al guardar horarios' }, { status: 500 })
   }
 }
 
