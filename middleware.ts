@@ -5,24 +5,18 @@ import { createServerClient } from '@supabase/ssr'
 const BASE_DOMAIN = process.env.NEXT_PUBLIC_BASE_DOMAIN || 'eccofood.vercel.app'
 const SLUG_PATH_REGEX = /^\/([a-zA-Z0-9-]+)(?:\/|$)/
 
-// Rutas de admin que requieren autenticación
-const ADMIN_SEGMENTS = [
-  '/admin',
-  '/dashboard',
-  '/productos',
-  '/pedidos',
-  '/reservas',
-  '/clientes',
-  '/ventas',
-  '/configuracion',
-  '/tpv',
-  '/kds',
-  '/comandero',
-  '/staff',
+// Rutas públicas que NUNCA requieren autenticación (tienda + acceso)
+const PUBLIC_SEGMENTS = [
+  '/acceso',      // Login/selector de rol
+  '/menu',        // Menú de tienda
+  '/carrito',     // Carrito de compras
+  '/checkout',    // Checkout
+  '/mis-pedidos', // Seguimiento de pedidos
+  '/categoria',   // Categorías de tienda
+  '/gracias',     // Página de gracias post-compra
 ]
 
-// Rutas públicas que NUNCA se bloquean
-const PUBLIC_SEGMENTS = ['/acceso', '/menu', '/carrito', '/checkout', '/mis-pedidos']
+// TODO LO DEMÁS requiere autenticación (admin, configuracion, clientes, productos, pedidos, reservas, ventas, etc.)
 
 export async function middleware(request: NextRequest) {
   const url = request.nextUrl.clone()
@@ -30,10 +24,11 @@ export async function middleware(request: NextRequest) {
   const pathname = url.pathname
 
   const isPublic = PUBLIC_SEGMENTS.some(seg => pathname.includes(seg))
-  const isAdminRoute = !isPublic && ADMIN_SEGMENTS.some(seg => pathname.includes(seg))
+  // CUALQUIER ruta que NO sea pública requiere autenticación
+  const requiresAuth = !isPublic
 
-  // ─── PROTECCIÓN DE RUTAS ADMIN ───────────────────────────────────────────
-  if (isAdminRoute) {
+  // ─── PROTECCIÓN DE RUTAS (TODO excepto tienda y acceso) ───────────────────
+  if (requiresAuth) {
     const slugMatch = pathname.match(SLUG_PATH_REGEX)
     const slug = slugMatch?.[1] || ''
 
