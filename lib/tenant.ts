@@ -36,39 +36,49 @@ export async function getTenantById(tenantId: string) {
 }
 
 export async function getTenantBranding(tenantId: string) {
-  const supabase = createServiceClient()
+  try {
+    const supabase = createServiceClient()
 
-  // Fetch tenant with metadata instead of broken tenant_branding table
-  const { data, error } = await supabase
-    .from('tenants')
-    .select('metadata')
-    .eq('id', tenantId)
-    .single()
+    // Fetch tenant with metadata instead of broken tenant_branding table
+    const { data, error } = await supabase
+      .from('tenants')
+      .select('metadata')
+      .eq('id', tenantId)
+      .single()
 
-  if (error) {
-    console.error('Error fetching branding:', error)
+    if (error) {
+      console.error('Error fetching branding:', error)
+      return null
+    }
+
+    // Return metadata as branding object
+    return data?.metadata as TenantBranding
+  } catch (error) {
+    console.error('Exception in getTenantBranding:', error)
     return null
   }
-
-  // Return metadata as branding object
-  return data?.metadata as TenantBranding
 }
 
 export async function getRestaurantSettings(tenantId: string) {
-  const supabase = createServiceClient()
+  try {
+    const supabase = createServiceClient()
 
-  const { data, error } = await supabase
-    .from('restaurant_settings')
-    .select('*')
-    .eq('tenant_id', tenantId)
-    .single()
+    const { data, error } = await supabase
+      .from('restaurant_settings')
+      .select('*')
+      .eq('tenant_id', tenantId)
+      .single()
 
-  if (error) {
-    console.error('Error fetching settings:', error)
+    if (error) {
+      console.error('Error fetching settings:', error)
+      return null
+    }
+
+    return data as RestaurantSettings
+  } catch (error) {
+    console.error('Exception in getRestaurantSettings:', error)
     return null
   }
-
-  return data as RestaurantSettings
 }
 
 export async function getTenantBySlug(slug: string) {
@@ -101,34 +111,44 @@ export async function getTenantIdFromSlug(slugOrId: string): Promise<string | nu
 }
 
 export async function getTenantContext(tenantIdOrSlug: string) {
-  // Intentar como UUID primero
-  let tenant = await getTenantById(tenantIdOrSlug)
+  try {
+    // Intentar como UUID primero
+    let tenant = await getTenantById(tenantIdOrSlug)
 
-  // Si no es UUID válido, intentar como slug
-  if (!tenant) {
-    tenant = await getTenantBySlug(tenantIdOrSlug)
-  }
+    // Si no es UUID válido, intentar como slug
+    if (!tenant) {
+      tenant = await getTenantBySlug(tenantIdOrSlug)
+    }
 
-  const tenantId = tenant?.id
+    const tenantId = tenant?.id
 
-  if (!tenantId) {
+    if (!tenantId) {
+      return {
+        tenant: null,
+        branding: null,
+        settings: null,
+        isLoading: false,
+      }
+    }
+
+    const [branding, settings] = await Promise.all([
+      getTenantBranding(tenantId),
+      getRestaurantSettings(tenantId),
+    ])
+
+    return {
+      tenant,
+      branding,
+      settings,
+      isLoading: false,
+    }
+  } catch (error) {
+    console.error('Exception in getTenantContext:', error)
     return {
       tenant: null,
       branding: null,
       settings: null,
       isLoading: false,
     }
-  }
-
-  const [branding, settings] = await Promise.all([
-    getTenantBranding(tenantId),
-    getRestaurantSettings(tenantId),
-  ])
-
-  return {
-    tenant,
-    branding,
-    settings,
-    isLoading: false,
   }
 }
