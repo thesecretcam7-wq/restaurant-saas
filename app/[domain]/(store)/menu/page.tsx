@@ -11,19 +11,20 @@ interface MenuProps {
 }
 
 export default async function MenuPage({ params }: MenuProps) {
-  const { domain: tenantSlug } = await params
-  const supabase = await createClient()
-  const context = await getTenantContext(tenantSlug)
-  const tenantId = context.tenant?.id
+  try {
+    const { domain: tenantSlug } = await params
+    const supabase = await createClient()
+    const context = await getTenantContext(tenantSlug)
+    const tenantId = context.tenant?.id
 
-  if (!tenantId) {
-    return <div className="flex items-center justify-center min-h-screen text-gray-500">Restaurante no encontrado</div>
-  }
+    if (!tenantId) {
+      return <div className="flex items-center justify-center min-h-screen text-gray-500">Restaurante no encontrado</div>
+    }
 
-  const [categoriesRes, itemsRes] = await Promise.all([
-    supabase.from('menu_categories').select('*').eq('tenant_id', tenantId).order('sort_order'),
-    supabase.from('menu_items').select('*').eq('tenant_id', tenantId).eq('available', true).order('featured', { ascending: false }),
-  ])
+    const [categoriesRes, itemsRes] = await Promise.all([
+      supabase.from('menu_categories').select('*').eq('tenant_id', tenantId).order('sort_order'),
+      supabase.from('menu_items').select('*').eq('tenant_id', tenantId).eq('available', true).order('featured', { ascending: false }),
+    ])
 
   const allCategories = categoriesRes.data || []
   const items = itemsRes.data || []
@@ -255,6 +256,10 @@ export default async function MenuPage({ params }: MenuProps) {
       <CartBar tenantId={slug} primaryColor={primary} />
     </div>
   )
+  } catch (error) {
+    console.error('MenuPage error:', error)
+    return <div className="flex items-center justify-center min-h-screen text-red-600">Error al cargar el menú. Por favor, intenta más tarde.</div>
+  }
 }
 
 /* ─── LIST layout (default) ─── */
