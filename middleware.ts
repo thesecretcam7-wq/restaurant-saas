@@ -5,32 +5,14 @@ import { createServerClient } from '@supabase/ssr'
 const BASE_DOMAIN = process.env.NEXT_PUBLIC_BASE_DOMAIN || 'eccofood.vercel.app'
 const SLUG_PATH_REGEX = /^\/([a-zA-Z0-9-]+)(?:\/|$)/
 
-// Rutas públicas que NUNCA requieren autenticación (tienda + acceso)
-const PUBLIC_SEGMENTS = [
-  '/acceso',       // Login/selector de rol
-  '/admin/login',  // Login admin (evita redirect loop)
-  '/menu',         // Menú de tienda
-  '/carrito',      // Carrito de compras
-  '/checkout',     // Checkout
-  '/mis-pedidos',  // Seguimiento de pedidos
-  '/categoria',    // Categorías de tienda
-  '/gracias',      // Página de gracias post-compra
-  '/mesero',       // Mesero (PIN propio)
-  '/cocina',       // Cocina/KDS (pantalla de cocina)
-  '/kds',          // Kitchen Display System
-  '/order/',       // Pedido QR por mesa (clientes)
-]
-
-// TODO LO DEMÁS requiere autenticación (admin, configuracion, clientes, productos, pedidos, reservas, ventas, etc.)
-
 export async function middleware(request: NextRequest) {
   const url = request.nextUrl.clone()
   const hostname = request.headers.get('host') || ''
   const pathname = url.pathname
 
-  const isPublic = PUBLIC_SEGMENTS.some(seg => pathname.includes(seg))
-  // CUALQUIER ruta que NO sea pública requiere autenticación
-  const requiresAuth = !isPublic
+  // Solo rutas /admin/* requieren autenticación, excepto /admin/login
+  const isAdminLogin = pathname.includes('/admin/login')
+  const requiresAuth = pathname.includes('/admin/') && !isAdminLogin
 
   // ─── PROTECCIÓN DE RUTAS (TODO excepto tienda y acceso) ───────────────────
   if (requiresAuth) {
