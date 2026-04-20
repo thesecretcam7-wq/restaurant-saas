@@ -334,12 +334,12 @@ export default function MeseroPage() {
   // --- TABLE SELECTION ---
   if (step === 'table') {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-950 via-gray-900 to-gray-950 p-6 flex flex-col">
+      <div className="min-h-screen bg-gradient-to-br from-gray-950 via-gray-900 to-gray-950 px-4 pt-4 pb-6 flex flex-col">
         {/* Header */}
-        <div className="flex items-center justify-between mb-8 max-w-4xl mx-auto w-full">
+        <div className="flex items-center justify-between mb-5 w-full">
           <div>
-            <p className="text-blue-400 text-xs font-bold tracking-widest mb-1">DINING</p>
-            <h1 className="text-3xl font-black text-white tracking-wide">Selecciona Mesa</h1>
+            <p className="text-blue-400 text-xs font-bold tracking-widest mb-0.5">MESERO</p>
+            <h1 className="text-2xl font-black text-white">Selecciona Mesa</h1>
           </div>
           <button
             onClick={() => {
@@ -348,29 +348,27 @@ export default function MeseroPage() {
               setStep('pin')
               setPin('')
             }}
-            className="px-4 py-2.5 rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-300 hover:text-white text-sm font-semibold transition-all"
+            className="px-3 py-2 rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-300 hover:text-white text-sm font-semibold transition-all"
           >
             Salir
           </button>
         </div>
 
         {/* Table Grid */}
-        <div className="flex-1 flex items-center justify-center">
-          <div className="max-w-2xl w-full">
-            <div className="grid grid-cols-4 md:grid-cols-5 gap-4">
-              {Array.from({ length: totalTables }, (_, i) => i + 1).map(num => (
-                <button
-                  key={num}
-                  onClick={() => { setTableNumber(num); setStep('menu') }}
-                  className="h-20 rounded-2xl bg-gradient-to-br from-gray-800 to-gray-900 hover:from-blue-700/40 hover:to-blue-900/40 text-white font-bold text-xl active:scale-95 transition-all border-2 border-gray-700 hover:border-blue-500 shadow-lg hover:shadow-blue-500/20"
-                >
-                  <div className="flex flex-col items-center justify-center h-full">
-                    <span className="text-2xl">🍽️</span>
-                    <span className="text-sm font-bold mt-1">{num}</span>
-                  </div>
-                </button>
-              ))}
-            </div>
+        <div className="flex-1 overflow-y-auto">
+          <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-3">
+            {Array.from({ length: totalTables }, (_, i) => i + 1).map(num => (
+              <button
+                key={num}
+                onClick={() => { setTableNumber(num); setStep('menu') }}
+                className="h-20 rounded-2xl bg-gradient-to-br from-gray-800 to-gray-900 active:from-blue-700/40 active:to-blue-900/40 text-white font-bold active:scale-95 transition-all border-2 border-gray-700 active:border-blue-500 shadow-lg"
+              >
+                <div className="flex flex-col items-center justify-center h-full">
+                  <span className="text-2xl">🍽️</span>
+                  <span className="text-sm font-bold mt-1">{num}</span>
+                </div>
+              </button>
+            ))}
           </div>
         </div>
       </div>
@@ -447,7 +445,7 @@ export default function MeseroPage() {
             )}
 
             {/* Items */}
-            <div className="flex-1 overflow-y-auto px-4 py-3 space-y-2">
+            <div className="flex-1 overflow-y-auto px-4 py-3 pb-20 space-y-2">
               {filteredItems.map(item => {
                 const inCart = cart.find(c => c.item_id === item.id)
                 return (
