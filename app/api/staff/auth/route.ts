@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextRequest, NextResponse } from 'next/server'
+import { logSecurityEvent } from '@/lib/error-handler'
 
 export async function POST(request: NextRequest) {
   try {
@@ -8,10 +9,14 @@ export async function POST(request: NextRequest) {
 
     if (!domain || !pin || !role) {
       return NextResponse.json(
-        { error: 'Missing required fields' },
+        { error: 'Datos incompletos' },
         { status: 400 }
       )
     }
+
+    // SECURITY: Rate limiting check (using IP + domain)
+    const clientIP = request.headers.get('x-forwarded-for') || 'unknown'
+    // TODO: Implement distributed rate limiting with Redis
 
     // Create service client
     const supabase = createClient(
@@ -30,9 +35,14 @@ export async function POST(request: NextRequest) {
       .single()
 
     if (tenantError || !tenant) {
+      logSecurityEvent('staff_auth_tenant_not_found', {
+        domain,
+        role,
+        ip: clientIP,
+      }, 'low')
       return NextResponse.json(
-        { error: 'Restaurant not found' },
-        { status: 404 }
+        { error: 'Datos incorrecto' },
+        { status: 401 }
       )
     }
 
@@ -50,12 +60,27 @@ export async function POST(request: NextRequest) {
       .single()
 
     if (staffError || !staff) {
-      console.error('Staff auth error:', staffError)
+      // SECURITY: Log failed auth attempt
+      logSecurityEvent('staff_auth_failed', {
+        domain,
+        role,
+        ip: clientIP,
+        reason: staffError ? 'staff_not_found' : 'inactive',
+      }, 'medium')
+
       return NextResponse.json(
-        { error: 'Invalid PIN' },
+        { error: 'PIN inválido' },
         { status: 401 }
       )
     }
+
+    // SECURITY: Log successful auth
+    logSecurityEvent('staff_auth_success', {
+      domain,
+      staffId: staff.id,
+      role: staff.role,
+      ip: clientIP,
+    }, 'low')
 
     return NextResponse.json({
       success: true,
@@ -64,9 +89,13 @@ export async function POST(request: NextRequest) {
       role: staff.role,
     })
   } catch (error) {
-    console.error('Staff auth exception:', error)
+    const isDev = process.env.NODE_ENV === 'development'
+    logSecurityEvent('staff_auth_exception', {
+      error: error instanceof Error ? error.message : 'unknown',
+    }, 'high')
+
     return NextResponse.json(
-      { error: 'Internal server error' },
+      { error: isDev ? (error instanceof Error ? error.message : 'Error') : 'Error interno' },
       { status: 500 }
     )
   }

@@ -1,11 +1,8 @@
 import { createClient } from '@supabase/supabase-js';
 import { NextRequest, NextResponse } from 'next/server';
+import { createServiceClient } from '@/lib/supabase/server';
 
 export async function GET(request: NextRequest) {
-  const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-  );
   const { searchParams } = new URL(request.url);
   const tenantId = searchParams.get('tenantId');
   const activeOnly = searchParams.get('activeOnly') === 'true';
@@ -15,6 +12,36 @@ export async function GET(request: NextRequest) {
   }
 
   try {
+    // SECURITY: Verify user owns the tenant by checking ownership via slug lookup
+    // For this endpoint, we need to convert tenantId to slug for verification
+    const supabaseAdmin = createServiceClient();
+
+    const { data: tenant, error: tenantError } = await supabaseAdmin
+      .from('tenants')
+      .select('id, slug, owner_id')
+      .eq('id', tenantId)
+      .single();
+
+    if (tenantError || !tenant) {
+      return NextResponse.json({ error: 'Tenant not found' }, { status: 404 });
+    }
+
+    // Verify ownership using the helper function
+    const { verifyTenantOwnership, sendErrorResponse } = await import('@/lib/auth-helpers');
+    try {
+      await verifyTenantOwnership(request, tenant.slug);
+    } catch (authError) {
+      const statusCode =
+        authError instanceof Error && authError.message.includes('Unauthorized') ? 401 :
+        authError instanceof Error && authError.message.includes('Forbidden') ? 403 : 500;
+      return sendErrorResponse(authError, statusCode);
+    }
+
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!
+    );
+
     let query = supabase.from('staff').select('*').eq('tenant_id', tenantId);
 
     if (activeOnly) {
@@ -33,10 +60,6 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-  );
   try {
     const body = await request.json();
     const {
@@ -57,6 +80,35 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
+
+    // SECURITY: Verify user owns the tenant
+    const supabaseAdmin = createServiceClient();
+
+    const { data: tenant, error: tenantError } = await supabaseAdmin
+      .from('tenants')
+      .select('id, slug, owner_id')
+      .eq('id', tenantId)
+      .single();
+
+    if (tenantError || !tenant) {
+      return NextResponse.json({ error: 'Tenant not found' }, { status: 404 });
+    }
+
+    // Verify ownership using the helper function
+    const { verifyTenantOwnership, sendErrorResponse } = await import('@/lib/auth-helpers');
+    try {
+      await verifyTenantOwnership(request, tenant.slug);
+    } catch (authError) {
+      const statusCode =
+        authError instanceof Error && authError.message.includes('Unauthorized') ? 401 :
+        authError instanceof Error && authError.message.includes('Forbidden') ? 403 : 500;
+      return sendErrorResponse(authError, statusCode);
+    }
+
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!
+    );
 
     const { data, error } = await supabase
       .from('staff')

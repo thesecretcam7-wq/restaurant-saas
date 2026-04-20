@@ -1,6 +1,7 @@
 import { createServiceClient } from '@/lib/supabase/server'
 import { canCreateOrder } from '@/lib/checkPlan'
 import { NextRequest, NextResponse } from 'next/server'
+import { verifyCSRFToken, sendCSRFErrorResponse } from '@/lib/csrf'
 
 export async function GET(request: NextRequest) {
   try {
@@ -13,37 +14,38 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Domain is required' }, { status: 400 })
     }
 
-    const supabase = createServiceClient()
+    // SECURITY: Verify user owns the tenant (admin dashboard access)
+    const { verifyTenantOwnership, sendErrorResponse } = await import('@/lib/auth-helpers')
+    try {
+      const { tenantId } = await verifyTenantOwnership(request, domain)
 
-    // Get tenant ID from domain/slug
-    const { data: tenant } = await supabase
-      .from('tenants')
-      .select('id')
-      .eq('slug', domain)
-      .single()
+      const supabase = createServiceClient()
 
-    if (!tenant) {
-      return NextResponse.json({ error: 'Tenant not found' }, { status: 404 })
+      let query = supabase
+        .from('orders')
+        .select('*')
+        .eq('tenant_id', tenantId)
+        .order('created_at', { ascending: false })
+        .limit(parseInt(limit))
+
+      if (status) {
+        query = query.eq('status', status)
+      }
+
+      const { data: orders, error } = await query
+
+      if (error) {
+        return NextResponse.json({ error: error.message }, { status: 500 })
+      }
+
+      return NextResponse.json({ orders: orders || [] })
+    } catch (authError) {
+      const { sendErrorResponse } = await import('@/lib/auth-helpers')
+      const statusCode =
+        authError instanceof Error && authError.message.includes('Unauthorized') ? 401 :
+        authError instanceof Error && authError.message.includes('Forbidden') ? 403 : 500
+      return sendErrorResponse(authError, statusCode)
     }
-
-    let query = supabase
-      .from('orders')
-      .select('*')
-      .eq('tenant_id', tenant.id)
-      .order('created_at', { ascending: false })
-      .limit(parseInt(limit))
-
-    if (status) {
-      query = query.eq('status', status)
-    }
-
-    const { data: orders, error } = await query
-
-    if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 })
-    }
-
-    return NextResponse.json({ orders: orders || [] })
   } catch (err) {
     console.error('Orders GET error:', err)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
@@ -52,16 +54,37 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
+    // SECURITY: Verify CSRF token
+    const isValidCSRF = await verifyCSRFToken(request)
+    if (!isValidCSRF) {
+      return sendCSRFErrorResponse()
+    }
+
     const body = await request.json()
     const { tenantId, items, customerInfo, deliveryType, deliveryAddress, notes, paymentMethod, tableNumber, waiterName, table_id, waiter_id, amountPaid } = body
+
+    if (!tenantId) {
+      return NextResponse.json({ error: 'tenantId is required' }, { status: 400 })
+    }
+
+    const supabase = createServiceClient()
+
+    // SECURITY: Validate that tenantId corresponds to an active restaurant
+    const { data: tenant, error: tenantError } = await supabase
+      .from('tenants')
+      .select('id')
+      .eq('id', tenantId)
+      .single()
+
+    if (tenantError || !tenant) {
+      return NextResponse.json({ error: 'Invalid restaurant' }, { status: 400 })
+    }
 
     // Plan limit: check monthly order count
     const orderCheck = await canCreateOrder(tenantId)
     if (!orderCheck.allowed) {
       return NextResponse.json({ error: orderCheck.reason, limitReached: true, used: orderCheck.used, limit: orderCheck.limit }, { status: 403 })
     }
-
-    const supabase = createServiceClient()
 
     const { data: settings } = await supabase
       .from('restaurant_settings')

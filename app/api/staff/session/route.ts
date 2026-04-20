@@ -50,8 +50,8 @@ export async function POST(request: NextRequest) {
     cookieStore.set('staff_session', JSON.stringify(sessionData), {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      maxAge: 86400, // 24 hours
+      sameSite: 'strict',
+      maxAge: 28800, // 8 hours (reduced from 24 for better security)
       path: '/',
     })
 

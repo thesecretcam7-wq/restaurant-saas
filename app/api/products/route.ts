@@ -1,5 +1,6 @@
 import { createServiceClient } from '@/lib/supabase/server'
 import { NextRequest, NextResponse } from 'next/server'
+import { verifyCSRFToken, sendCSRFErrorResponse } from '@/lib/csrf'
 
 export async function GET(request: NextRequest) {
   try {
@@ -61,6 +62,12 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
+    // SECURITY: Verify CSRF token
+    const isValidCSRF = await verifyCSRFToken(request)
+    if (!isValidCSRF) {
+      return sendCSRFErrorResponse()
+    }
+
     const body = await request.json()
     const { domain, name, description, price, categoryId, featured, imageUrl } = body
 
@@ -68,39 +75,40 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
     }
 
-    const supabase = createServiceClient()
+    // SECURITY: Verify user owns the tenant
+    const { verifyTenantOwnership, sendErrorResponse } = await import('@/lib/auth-helpers')
+    try {
+      const { tenantId } = await verifyTenantOwnership(request, domain)
 
-    // Get tenant ID
-    const { data: tenant } = await supabase
-      .from('tenants')
-      .select('id')
-      .eq('slug', domain)
-      .single()
+      const supabase = createServiceClient()
 
-    if (!tenant) {
-      return NextResponse.json({ error: 'Tenant not found' }, { status: 404 })
+      const { data: item, error } = await supabase
+        .from('menu_items')
+        .insert({
+          tenant_id: tenantId,
+          name,
+          description: description || null,
+          price: parseFloat(price),
+          category_id: categoryId || null,
+          featured: featured || false,
+          image_url: imageUrl || null,
+          available: true,
+        })
+        .select()
+        .single()
+
+      if (error) {
+        return NextResponse.json({ error: error.message }, { status: 500 })
+      }
+
+      return NextResponse.json({ item }, { status: 201 })
+    } catch (authError) {
+      const { sendErrorResponse } = await import('@/lib/auth-helpers')
+      const statusCode =
+        authError instanceof Error && authError.message.includes('Unauthorized') ? 401 :
+        authError instanceof Error && authError.message.includes('Forbidden') ? 403 : 500
+      return sendErrorResponse(authError, statusCode)
     }
-
-    const { data: item, error } = await supabase
-      .from('menu_items')
-      .insert({
-        tenant_id: tenant.id,
-        name,
-        description: description || null,
-        price: parseFloat(price),
-        category_id: categoryId || null,
-        featured: featured || false,
-        image_url: imageUrl || null,
-        available: true,
-      })
-      .select()
-      .single()
-
-    if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 })
-    }
-
-    return NextResponse.json({ item }, { status: 201 })
   } catch (err) {
     console.error('Products POST error:', err)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
