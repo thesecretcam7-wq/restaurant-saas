@@ -445,54 +445,50 @@ export default function MeseroPage() {
             )}
 
             {/* Items */}
-            <div className="flex-1 overflow-y-auto px-4 py-3 pb-20 space-y-2">
-              {filteredItems.map(item => {
-                const inCart = cart.find(c => c.item_id === item.id)
-                return (
-                  <div key={item.id} className="flex items-center gap-3 bg-gray-800 rounded-2xl p-3">
-                    {item.image_url ? (
-                      <img src={item.image_url} alt={item.name} className="w-14 h-14 rounded-xl object-cover flex-shrink-0" />
-                    ) : (
-                      <div className="w-14 h-14 rounded-xl bg-gray-700 flex items-center justify-center text-2xl flex-shrink-0">🍽️</div>
-                    )}
-                    <div className="flex-1 min-w-0">
-                      <p className="text-white font-semibold text-sm truncate">{item.name}</p>
-                      {item.description && <p className="text-gray-400 text-xs truncate">{item.description}</p>}
-                      <p className="font-bold text-sm mt-0.5" style={{ color: primary }}>
-                        {formatPriceWithCurrency(item.price, currencyInfo.code, currencyInfo.locale)}
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-2 flex-shrink-0">
-                      {inCart ? (
-                        <>
-                          <button
-                            onClick={() => removeFromCart(item.id)}
-                            className="w-8 h-8 rounded-full bg-gray-600 text-white font-bold flex items-center justify-center"
-                          >
-                            −
-                          </button>
-                          <span className="text-white font-bold w-5 text-center">{inCart.qty}</span>
+            <div className="flex-1 overflow-y-auto px-3 py-3 pb-20">
+              <div className="grid grid-cols-2 gap-2">
+                {filteredItems.map(item => {
+                  const inCart = cart.find(c => c.item_id === item.id)
+                  return (
+                    <div key={item.id} className="bg-gray-800 rounded-xl p-3 flex flex-col justify-between gap-2 active:bg-gray-700 transition-colors">
+                      <div>
+                        <p className="text-white font-semibold text-sm leading-tight line-clamp-2">{item.name}</p>
+                        <p className="font-bold text-xs mt-1" style={{ color: primary }}>
+                          {formatPriceWithCurrency(item.price, currencyInfo.code, currencyInfo.locale)}
+                        </p>
+                      </div>
+                      <div className="flex items-center justify-between gap-1">
+                        {inCart ? (
+                          <>
+                            <button
+                              onClick={() => removeFromCart(item.id)}
+                              className="w-8 h-8 rounded-lg bg-gray-600 text-white font-bold flex items-center justify-center flex-shrink-0"
+                            >
+                              −
+                            </button>
+                            <span className="text-white font-black text-base flex-1 text-center">{inCart.qty}</span>
+                            <button
+                              onClick={() => addToCart(item)}
+                              className="w-8 h-8 rounded-lg text-white font-bold flex items-center justify-center flex-shrink-0"
+                              style={{ backgroundColor: primary }}
+                            >
+                              +
+                            </button>
+                          </>
+                        ) : (
                           <button
                             onClick={() => addToCart(item)}
-                            className="w-8 h-8 rounded-full text-white font-bold flex items-center justify-center"
+                            className="w-full h-8 rounded-lg text-white font-bold text-lg flex items-center justify-center"
                             style={{ backgroundColor: primary }}
                           >
                             +
                           </button>
-                        </>
-                      ) : (
-                        <button
-                          onClick={() => addToCart(item)}
-                          className="w-8 h-8 rounded-full text-white font-bold flex items-center justify-center"
-                          style={{ backgroundColor: primary }}
-                        >
-                          +
-                        </button>
-                      )}
+                        )}
+                      </div>
                     </div>
-                  </div>
-                )
-              })}
+                  )
+                })}
+              </div>
             </div>
           </>
         )}
