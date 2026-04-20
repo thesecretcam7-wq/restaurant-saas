@@ -7,13 +7,18 @@ const SLUG_PATH_REGEX = /^\/([a-zA-Z0-9-]+)(?:\/|$)/
 
 // Rutas públicas que NUNCA requieren autenticación (tienda + acceso)
 const PUBLIC_SEGMENTS = [
-  '/acceso',      // Login/selector de rol
-  '/menu',        // Menú de tienda
-  '/carrito',     // Carrito de compras
-  '/checkout',    // Checkout
-  '/mis-pedidos', // Seguimiento de pedidos
-  '/categoria',   // Categorías de tienda
-  '/gracias',     // Página de gracias post-compra
+  '/acceso',       // Login/selector de rol
+  '/admin/login',  // Login admin (evita redirect loop)
+  '/menu',         // Menú de tienda
+  '/carrito',      // Carrito de compras
+  '/checkout',     // Checkout
+  '/mis-pedidos',  // Seguimiento de pedidos
+  '/categoria',    // Categorías de tienda
+  '/gracias',      // Página de gracias post-compra
+  '/mesero',       // Mesero (PIN propio)
+  '/cocina',       // Cocina/KDS (pantalla de cocina)
+  '/kds',          // Kitchen Display System
+  '/order/',       // Pedido QR por mesa (clientes)
 ]
 
 // TODO LO DEMÁS requiere autenticación (admin, configuracion, clientes, productos, pedidos, reservas, ventas, etc.)
