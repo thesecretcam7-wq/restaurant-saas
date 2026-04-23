@@ -60,14 +60,46 @@ export function ReceiptPreview({
   const handlePrint = async () => {
     setIsPrinting(true);
     try {
-      // Open print dialog
-      window.print();
-      // Call parent's onPrint callback
-      onPrint();
-      // Close preview after print (optional - remove if you want to keep it open)
+      const receiptEl = document.getElementById('pos-receipt-content');
+      if (!receiptEl) return;
+
+      // Hidden iframe — prints ONLY the receipt, not the full TPV screen
+      const iframe = document.createElement('iframe');
+      iframe.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:0;visibility:hidden;';
+      document.body.appendChild(iframe);
+
+      const doc = iframe.contentDocument ?? iframe.contentWindow?.document;
+      if (!doc) { document.body.removeChild(iframe); return; }
+
+      doc.open();
+      doc.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><style>
+        *{margin:0;padding:0;box-sizing:border-box}
+        body{font-family:'Courier New',Courier,monospace;font-size:12px;width:80mm;color:#000}
+        .flex{display:flex}.justify-between{justify-content:space-between}
+        .text-center{text-align:center}.text-right{text-align:right}
+        .font-bold{font-weight:bold}.flex-1{flex:1}
+        .border-b{border-bottom:1px solid #000}.border-t{border-top:1px solid #000}
+        .border-gray-300{border-color:#ccc}
+        .py-2{padding:8px 0}.px-2{padding:0 8px}
+        .mb-1{margin-bottom:4px}.mt-2{margin-top:8px}
+        .pt-1{padding-top:4px}.pb-1{padding-bottom:4px}
+        .w-8{width:32px}.w-12{width:48px}.w-16{width:64px}
+        .text-xs{font-size:11px}.text-sm{font-size:13px}
+        .truncate{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+        .italic{font-style:italic}
+        .text-gray-600{color:#555}.text-green-600{color:#166534}
+        img{max-height:48px;display:block;margin:0 auto 8px}
+      </style></head><body>${receiptEl.innerHTML}</body></html>`);
+      doc.close();
+
+      iframe.contentWindow?.focus();
       setTimeout(() => {
-        onClose();
-      }, 500);
+        iframe.contentWindow?.print();
+        setTimeout(() => document.body.removeChild(iframe), 1500);
+      }, 300);
+
+      onPrint();
+      setTimeout(onClose, 600);
     } catch (error) {
       console.error('Error printing:', error);
     } finally {
@@ -91,7 +123,7 @@ export function ReceiptPreview({
 
         {/* Receipt Preview */}
         <div className="p-4 flex justify-center bg-muted">
-          <div className="bg-white rounded-lg shadow-lg overflow-hidden">
+          <div id="pos-receipt-content" className="bg-white rounded-lg shadow-lg overflow-hidden">
             <ReceiptTemplate
               restaurantName={restaurantName}
               restaurantLogo={restaurantLogo}
@@ -139,34 +171,8 @@ export function ReceiptPreview({
         </div>
       </div>
 
-      {/* Print Styles */}
-      <style>{`
-        @media print {
-          body {
-            margin: 0;
-            padding: 0;
-          }
-          .fixed {
-            position: static !important;
-            background: white !important;
-          }
-          .bg-muted, .bg-card {
-            background: white !important;
-          }
-          .text-white {
-            color: black !important;
-          }
-          .border-border {
-            border-color: black !important;
-          }
-          .shadow-lg, .shadow-xl {
-            box-shadow: none !important;
-          }
-          button {
-            display: none !important;
-          }
-        }
-      `}</style>
+      {/* Suppress browser print of main page — only iframe prints */}
+      <style>{`@media print { body > *:not(iframe) { display: none !important; } }`}</style>
     </div>
   );
 }
