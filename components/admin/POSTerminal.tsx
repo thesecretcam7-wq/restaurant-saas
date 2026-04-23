@@ -6,6 +6,7 @@ import { ShoppingCart, Plus, Minus, Trash2, Search, DollarSign, CreditCard, Maxi
 import { POSModeSelector } from './POSModeSelector';
 import { POSStaffSelector } from './POSStaffSelector';
 import { POSTableSelector } from './POSTableSelector';
+import { TableMap } from './TableMap';
 import { POSPayment } from './POSPayment';
 import { POSCartDrawer } from './POSCartDrawer';
 import { AdminMenuDrawer } from './AdminMenuDrawer';
@@ -30,6 +31,7 @@ interface CartItem {
   name: string;
   price: number;
   quantity: number;
+  notes?: string;
 }
 
 interface Category {
@@ -106,12 +108,14 @@ function getTimerColor(minutes: number) {
 function TableGroupCard({
   group,
   onBillTable,
+  onVoidItem,
   expanded,
   onToggleExpand,
   currencyInfo,
 }: {
   group: TableGroup;
   onBillTable: (orders: DineInOrder[]) => void;
+  onVoidItem: (orderId: string, itemIndex: number) => void;
   expanded: boolean;
   onToggleExpand: () => void;
   currencyInfo: { code: string; locale: string };
@@ -155,15 +159,24 @@ function TableGroupCard({
       </button>
 
       {expanded && (
-        <div className="mx-3 mb-2 bg-gray-900/60 rounded-lg p-2 max-h-28 overflow-y-auto space-y-0.5">
-          {group.allItems.map((item, i) => (
-            <div key={i} className="flex justify-between text-xs">
-              <span className="text-gray-300">{item.qty}× {item.name}</span>
-              <span className="text-gray-500">
-                {formatPriceWithCurrency(item.price * item.qty, currencyInfo.code, currencyInfo.locale)}
-              </span>
-            </div>
-          ))}
+        <div className="mx-3 mb-2 bg-gray-900/60 rounded-lg p-1.5 max-h-36 overflow-y-auto space-y-0.5">
+          {group.orders.map(order =>
+            (order.items || []).map((item, itemIdx) => (
+              <div key={`${order.id}-${itemIdx}`} className="flex items-center justify-between text-xs gap-1 group/row hover:bg-gray-800/60 rounded px-1 py-0.5">
+                <span className="text-gray-300 flex-1 truncate">{item.qty}× {item.name}</span>
+                <span className="text-gray-500 shrink-0">
+                  {formatPriceWithCurrency(item.price * item.qty, currencyInfo.code, currencyInfo.locale)}
+                </span>
+                <button
+                  onClick={() => onVoidItem(order.id, itemIdx)}
+                  className="opacity-0 group-hover/row:opacity-100 text-red-400 hover:text-red-300 transition-opacity ml-1 shrink-0"
+                  title="Anular ítem"
+                >
+                  ✕
+                </button>
+              </div>
+            ))
+          )}
         </div>
       )}
 
@@ -286,6 +299,8 @@ export function POSTerminal({ tenantId, country = 'CO' }: { tenantId: string; co
   const [loadedOrderIds, setLoadedOrderIds] = useState<string[]>([]);
   const [billingOrderIds, setBillingOrderIds] = useState<string[]>([]);
   const [expandedTable, setExpandedTable] = useState<number | null>(null);
+  const [tip, setTip] = useState(0);
+  const [mesasView, setMesasView] = useState<'list' | 'map'>('map');
   const audioCtxRef = useRef<AudioContext | null>(null);
   const knownOrderIds = useRef(new Set<string>());
 
@@ -561,6 +576,22 @@ export function POSTerminal({ tenantId, country = 'CO' }: { tenantId: string; co
     }
   }
 
+  async function voidOrderItem(orderId: string, itemIndex: number) {
+    const order = dineInOrders.find(o => o.id === orderId);
+    if (!order) return;
+
+    const updatedItems = order.items.filter((_, i) => i !== itemIndex);
+    const newTotal = updatedItems.reduce((sum, i) => sum + i.price * i.qty, 0);
+
+    await supabase
+      .from('orders')
+      .update({ items: updatedItems, total: newTotal })
+      .eq('id', orderId);
+
+    await fetchDineInOrders();
+    setToast({ message: 'Ítem anulado', type: 'success' });
+  }
+
   function loadTableToCart(tableOrders: DineInOrder[]) {
     const mergedMap = new Map<string, CartItem>();
     tableOrders.forEach(order => {
@@ -649,6 +680,12 @@ export function POSTerminal({ tenantId, country = 'CO' }: { tenantId: string; co
     setCart((prev) => prev.filter((c) => c.menu_item_id !== itemId));
   }
 
+  function updateNotes(itemId: string, notes: string) {
+    setCart((prev) =>
+      prev.map((c) => (c.menu_item_id === itemId ? { ...c, notes } : c))
+    );
+  }
+
   function updateQuantity(itemId: string, quantity: number) {
     if (quantity <= 0) {
       removeFromCart(itemId);
@@ -725,6 +762,7 @@ export function POSTerminal({ tenantId, country = 'CO' }: { tenantId: string; co
         name: item.name,
         price: item.price,
         qty: item.quantity,
+        notes: item.notes || null,
       }));
 
       const response = await fetch('/api/orders', {
@@ -745,6 +783,7 @@ export function POSTerminal({ tenantId, country = 'CO' }: { tenantId: string; co
           waiterName: selectedStaffName || null,
           table_id: selectedTableId || null,
           tableNumber: selectedTableNumber || null,
+          tip: tip > 0 ? tip : null,
           notes: discount > 0 ? `Descuento: $${discount.toFixed(2)}` : null,
           amountPaid: paymentMethod === 'cash' ? pendingPaymentData?.amountPaid : null,
         }),
@@ -824,6 +863,7 @@ export function POSTerminal({ tenantId, country = 'CO' }: { tenantId: string; co
       setCart([]);
       setDiscount(0);
       setDiscountCode('');
+      setTip(0);
       setShowReceiptPreview(false);
       setPendingPaymentData(null);
       setPaymentMethod('cash');
@@ -860,7 +900,7 @@ export function POSTerminal({ tenantId, country = 'CO' }: { tenantId: string; co
   });
 
   const subtotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
-  const total = subtotal - discount;
+  const total = subtotal - discount + tip;
 
   const tableGroups = useMemo((): TableGroup[] => {
     const groups = new Map<number, DineInOrder[]>();
@@ -1094,32 +1134,75 @@ export function POSTerminal({ tenantId, country = 'CO' }: { tenantId: string; co
             </button>
           </div>
 
-          {/* Mesas / Dine-in Panel — agrupado por mesa */}
+          {/* Mesas / Dine-in Panel */}
           {showDineInPanel && (
             <div className="flex-1 flex flex-col overflow-hidden">
-              {tableGroups.length === 0 ? (
-                <div className="flex-1 flex items-center justify-center text-gray-500">
-                  <div className="text-center">
-                    <p className="text-3xl mb-2">🍽️</p>
-                    <p className="text-sm font-medium">Sin mesas pendientes</p>
-                    <p className="text-xs text-gray-600 mt-1">Las comandas de mesas aparecerán aquí</p>
-                  </div>
-                </div>
-              ) : (
-                <div className="flex-1 overflow-y-auto p-2 space-y-2">
-                  {tableGroups.map(group => (
-                    <TableGroupCard
-                      key={group.tableNumber}
-                      group={group}
-                      onBillTable={loadTableToCart}
-                      expanded={expandedTable === group.tableNumber}
-                      onToggleExpand={() =>
-                        setExpandedTable(expandedTable === group.tableNumber ? null : group.tableNumber)
+              {/* Toggle Mapa / Lista */}
+              <div className="flex border-b border-gray-800 shrink-0">
+                <button
+                  onClick={() => setMesasView('map')}
+                  className={`flex-1 py-2 text-xs font-bold transition ${mesasView === 'map' ? 'text-white bg-gray-800' : 'text-gray-500 hover:text-gray-300'}`}
+                >
+                  🗺 Mapa
+                </button>
+                <button
+                  onClick={() => setMesasView('list')}
+                  className={`flex-1 py-2 text-xs font-bold transition ${mesasView === 'list' ? 'text-white bg-gray-800' : 'text-gray-500 hover:text-gray-300'}`}
+                >
+                  📋 Comandas {tableGroups.length > 0 && `(${tableGroups.length})`}
+                </button>
+              </div>
+
+              {/* Vista Mapa */}
+              {mesasView === 'map' && (
+                <div className="flex-1 overflow-y-auto">
+                  <TableMap
+                    tenantId={tenantId}
+                    occupiedTableNumbers={tableGroups.map(g => g.tableNumber)}
+                    selectedTableNumber={selectedTableNumber}
+                    onSelectTable={(tableId, tableNumber) => {
+                      const group = tableGroups.find(g => g.tableNumber === tableNumber);
+                      if (group) {
+                        loadTableToCart(group.orders);
+                      } else {
+                        setSelectedTableId(tableId);
+                        setSelectedTableNumber(tableNumber);
+                        setPosMode('table');
+                        setShowDineInPanel(false);
                       }
-                      currencyInfo={currencyInfo}
-                    />
-                  ))}
+                    }}
+                  />
                 </div>
+              )}
+
+              {/* Vista Lista comandas */}
+              {mesasView === 'list' && (
+                <>
+                  {tableGroups.length === 0 ? (
+                    <div className="flex-1 flex items-center justify-center text-gray-500">
+                      <div className="text-center">
+                        <p className="text-3xl mb-2">🍽️</p>
+                        <p className="text-sm font-medium">Sin comandas pendientes</p>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex-1 overflow-y-auto p-2 space-y-2">
+                      {tableGroups.map(group => (
+                        <TableGroupCard
+                          key={group.tableNumber}
+                          group={group}
+                          onBillTable={loadTableToCart}
+                          onVoidItem={voidOrderItem}
+                          expanded={expandedTable === group.tableNumber}
+                          onToggleExpand={() =>
+                            setExpandedTable(expandedTable === group.tableNumber ? null : group.tableNumber)
+                          }
+                          currencyInfo={currencyInfo}
+                        />
+                      ))}
+                    </div>
+                  )}
+                </>
               )}
             </div>
           )}
@@ -1235,7 +1318,9 @@ export function POSTerminal({ tenantId, country = 'CO' }: { tenantId: string; co
               <div className={`${isFullscreen ? 'px-2 py-1' : 'px-2 py-1'}`}>
                 <POSPayment
                   key={paymentResetKey}
-                  total={total}
+                  total={subtotal - discount}
+                  tip={tip}
+                  onTipChange={setTip}
                   paymentMethod={paymentMethod}
                   onPaymentMethodChange={setPaymentMethod}
                   onProceedPayment={handleShowReceipt}
@@ -1293,9 +1378,11 @@ export function POSTerminal({ tenantId, country = 'CO' }: { tenantId: string; co
             name: item.name,
             price: item.price,
             qty: item.quantity,
+            notes: item.notes,
           }))}
           subtotal={subtotal}
           discount={discount > 0 ? discount : undefined}
+          tip={tip > 0 ? tip : undefined}
           total={total}
           paymentMethod={paymentMethod}
           amountPaid={paymentMethod === 'cash' ? pendingPaymentData?.amountPaid : undefined}
@@ -1325,6 +1412,7 @@ export function POSTerminal({ tenantId, country = 'CO' }: { tenantId: string; co
         discount={discount}
         onUpdateQuantity={updateQuantity}
         onRemoveItem={removeFromCart}
+        onUpdateNotes={updateNotes}
         onClose={() => setShowCartDrawer(false)}
         country={country}
       />

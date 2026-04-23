@@ -8,6 +8,7 @@ interface ReceiptItem {
   name: string;
   price: number;
   qty: number;
+  notes?: string;
 }
 
 interface ReceiptPreviewProps {
@@ -21,6 +22,7 @@ interface ReceiptPreviewProps {
   subtotal: number;
   tax?: number;
   discount?: number;
+  tip?: number;
   total: number;
   paymentMethod: 'cash' | 'stripe';
   amountPaid?: number;
@@ -44,6 +46,7 @@ export function ReceiptPreview({
   subtotal,
   tax,
   discount,
+  tip,
   total,
   paymentMethod,
   amountPaid,
@@ -135,6 +138,7 @@ export function ReceiptPreview({
               subtotal={subtotal}
               tax={tax}
               discount={discount}
+              tip={tip}
               total={total}
               paymentMethod={paymentMethod}
               amountPaid={amountPaid}

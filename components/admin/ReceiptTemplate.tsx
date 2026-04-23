@@ -4,6 +4,7 @@ interface ReceiptItem {
   name: string;
   price: number;
   qty: number;
+  notes?: string;
 }
 
 interface ReceiptTemplateProps {
@@ -17,6 +18,7 @@ interface ReceiptTemplateProps {
   subtotal: number;
   tax?: number;
   discount?: number;
+  tip?: number;
   total: number;
   paymentMethod: 'cash' | 'stripe';
   amountPaid?: number;
@@ -36,6 +38,7 @@ export function ReceiptTemplate({
   subtotal,
   tax = 0,
   discount = 0,
+  tip = 0,
   total,
   paymentMethod,
   amountPaid,
@@ -114,6 +117,9 @@ export function ReceiptTemplate({
                 {formatCurrency(item.price * item.qty)}
               </span>
             </div>
+            {item.notes && (
+              <p className="text-xs italic text-gray-500 pl-1">↳ {item.notes}</p>
+            )}
           </div>
         ))}
       </div>
@@ -136,6 +142,13 @@ export function ReceiptTemplate({
           <div className="flex justify-between mb-1 text-xs text-green-600">
             <span>Descuento:</span>
             <span>-{formatCurrency(discount)}</span>
+          </div>
+        )}
+
+        {tip > 0 && (
+          <div className="flex justify-between mb-1 text-xs text-yellow-600">
+            <span>Propina:</span>
+            <span>+{formatCurrency(tip)}</span>
           </div>
         )}
 

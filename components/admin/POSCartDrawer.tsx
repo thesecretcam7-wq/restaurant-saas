@@ -10,6 +10,7 @@ interface CartItem {
   name: string;
   price: number;
   quantity: number;
+  notes?: string;
 }
 
 interface POSCartDrawerProps {
@@ -19,6 +20,7 @@ interface POSCartDrawerProps {
   discount: number;
   onUpdateQuantity: (itemId: string, quantity: number) => void;
   onRemoveItem: (itemId: string) => void;
+  onUpdateNotes: (itemId: string, notes: string) => void;
   onClose: () => void;
   country?: string;
 }
@@ -30,6 +32,7 @@ export function POSCartDrawer({
   discount,
   onUpdateQuantity,
   onRemoveItem,
+  onUpdateNotes,
   onClose,
   country = 'CO',
 }: POSCartDrawerProps) {
@@ -140,6 +143,16 @@ export function POSCartDrawer({
                       <Plus className="w-4 h-4 mx-auto text-white" />
                     </button>
                   </div>
+
+                  {/* Nota especial */}
+                  <input
+                    type="text"
+                    value={item.notes ?? ''}
+                    onChange={e => onUpdateNotes(item.menu_item_id, e.target.value)}
+                    placeholder="Nota: sin cebolla, término..."
+                    maxLength={80}
+                    className="w-full px-2 py-1.5 rounded bg-gray-900 border border-gray-600 focus:border-yellow-500 outline-none text-yellow-300 placeholder-gray-600 text-xs"
+                  />
 
                   {/* Item Total */}
                   <div className="flex justify-between items-center text-xs text-muted-foreground border-t border-gray-600 pt-2">

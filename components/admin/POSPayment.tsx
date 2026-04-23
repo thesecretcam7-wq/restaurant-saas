@@ -10,6 +10,8 @@ type PaymentMethod = 'cash' | 'stripe';
 
 interface POSPaymentProps {
   total: number;
+  tip: number;
+  onTipChange: (tip: number) => void;
   paymentMethod: PaymentMethod;
   onPaymentMethodChange: (method: PaymentMethod) => void;
   onProceedPayment: (amountPaid?: number) => void;
@@ -20,6 +22,8 @@ interface POSPaymentProps {
 
 export function POSPayment({
   total,
+  tip,
+  onTipChange,
   paymentMethod,
   onPaymentMethodChange,
   onProceedPayment,
@@ -31,37 +35,53 @@ export function POSPayment({
   const [amountPaid, setAmountPaid] = useState<string>('');
   const [change, setChange] = useState<number>(0);
   const [showNumericKeyboard, setShowNumericKeyboard] = useState(false);
+  const [showTipKeyboard, setShowTipKeyboard] = useState(false);
+  const totalWithTip = total + tip;
 
-  const suggestedAmounts = getSuggestedBillAmounts(total);
+  const suggestedAmounts = getSuggestedBillAmounts(totalWithTip);
   const paidAmount = amountPaid ? Number(amountPaid) : 0;
 
   const handleAmountChange = (value: string) => {
     setAmountPaid(value);
     if (value && !isNaN(Number(value))) {
-      const calculated = calculateChange(total, Number(value));
-      setChange(calculated);
+      setChange(calculateChange(totalWithTip, Number(value)));
     }
   };
 
   const handleSuggestedAmount = (amount: number) => {
     setAmountPaid(amount.toString());
-    setChange(calculateChange(total, amount));
+    setChange(calculateChange(totalWithTip, amount));
   };
 
   const handleConfirmPaymentAmount = (value: number) => {
     setAmountPaid(value.toString());
-    setChange(calculateChange(total, value));
+    setChange(calculateChange(totalWithTip, value));
     setShowNumericKeyboard(false);
   };
 
-  const isValidPayment = paymentMethod === 'stripe' || (paymentMethod === 'cash' && paidAmount >= total);
+  const isValidPayment = paymentMethod === 'stripe' || (paymentMethod === 'cash' && paidAmount >= totalWithTip);
 
   return (
     <div className="space-y-1">
+      {/* Propina */}
+      <div className="flex items-center gap-2 bg-gray-800 rounded-lg px-3 py-2 border border-gray-700">
+        <span className="text-gray-400 text-xs flex-1">Propina</span>
+        <button
+          onClick={() => setShowTipKeyboard(true)}
+          className="text-yellow-400 font-bold text-sm hover:text-yellow-300 transition"
+        >
+          {tip > 0 ? formatPriceWithCurrency(tip, currencyInfo.code, currencyInfo.locale) : '+ Agregar'}
+        </button>
+        {tip > 0 && (
+          <button onClick={() => onTipChange(0)} className="text-gray-500 hover:text-red-400 text-xs transition">✕</button>
+        )}
+      </div>
+
       {/* Total */}
       <div className="bg-gradient-to-r from-blue-600 to-blue-700 rounded-lg p-2 text-white">
         <p className="text-sm opacity-90 mb-1">Total a Pagar</p>
-        <p className="text-xl font-bold">{formatPriceWithCurrency(total, currencyInfo.code, currencyInfo.locale)}</p>
+        <p className="text-xl font-bold">{formatPriceWithCurrency(totalWithTip, currencyInfo.code, currencyInfo.locale)}</p>
+        {tip > 0 && <p className="text-xs opacity-70">Incl. propina {formatPriceWithCurrency(tip, currencyInfo.code, currencyInfo.locale)}</p>}
       </div>
 
       {/* Métodos de Pago */}
@@ -147,20 +167,30 @@ export function POSPayment({
             : 'bg-gray-600 text-muted-foreground cursor-not-allowed'
         }`}
       >
-        {loading ? 'Procesando...' : `PAGAR ${formatPriceWithCurrency(total, currencyInfo.code, currencyInfo.locale)}`}
+        {loading ? 'Procesando...' : `PAGAR ${formatPriceWithCurrency(totalWithTip, currencyInfo.code, currencyInfo.locale)}`}
       </button>
 
       {paymentMethod === 'cash' && paidAmount && change < 0 && (
         <p className="text-xs text-red-400 text-center">El monto no es suficiente</p>
       )}
 
-      {/* Numeric Keyboard Modal */}
+      {/* Teclado efectivo */}
       <NumericKeyboard
         isOpen={showNumericKeyboard}
         title="Cantidad Recibida"
         initialValue={amountPaid ? Number(amountPaid) : 0}
         onConfirm={handleConfirmPaymentAmount}
         onCancel={() => setShowNumericKeyboard(false)}
+        allowDecimal={true}
+      />
+
+      {/* Teclado propina */}
+      <NumericKeyboard
+        isOpen={showTipKeyboard}
+        title="Propina"
+        initialValue={tip}
+        onConfirm={(value) => { onTipChange(value); setShowTipKeyboard(false); }}
+        onCancel={() => setShowTipKeyboard(false)}
         allowDecimal={true}
       />
     </div>
