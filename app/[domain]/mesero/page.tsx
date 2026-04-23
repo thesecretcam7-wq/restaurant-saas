@@ -12,6 +12,7 @@ interface CartItem {
   price: number
   qty: number
   image_url?: string
+  notes?: string
 }
 
 interface Category {
@@ -42,6 +43,7 @@ export default function MeseroPage() {
 
   const [tableNumber, setTableNumber] = useState<number | null>(null)
   const [totalTables, setTotalTables] = useState(10)
+  const [waiterName, setWaiterName] = useState('Mesero')
 
   const [categories, setCategories] = useState<Category[]>([])
   const [items, setItems] = useState<MenuItem[]>([])
@@ -52,14 +54,15 @@ export default function MeseroPage() {
   const [currencyInfo, setCurrencyInfo] = useState({ code: 'COP', locale: 'es-CO' })
   const [tenantId_real, setTenantIdReal] = useState('')
   const [primary, setPrimary] = useState('#3B82F6')
+  const [editingNotes, setEditingNotes] = useState<string | null>(null)
 
   useEffect(() => {
-    // Check if already authenticated
     try {
       const session = localStorage.getItem(`staff_session_${tenantId}`)
       if (session) {
-        const { role, expires } = JSON.parse(session)
-        if (role === 'waiter' && Date.now() < expires) {
+        const parsed = JSON.parse(session)
+        if (parsed.role === 'waiter' && Date.now() < parsed.expires) {
+          if (parsed.waiterName) setWaiterName(parsed.waiterName)
           loadMenuData()
           setStep('table')
           return
@@ -121,19 +124,17 @@ export default function MeseroPage() {
       })
       const data = await res.json()
       if (data.success) {
+        const name = data.name || data.waiterName || 'Mesero'
+        setWaiterName(name)
         const sessionData = {
           role: 'waiter',
           permissions: data.permissions || [],
           expires: Date.now() + 12 * 60 * 60 * 1000,
           tenantId: data.tenantId,
+          waiterName: name,
         }
-
-        // Guardar en localStorage
         localStorage.setItem(`staff_session_${tenantId}`, JSON.stringify(sessionData))
-
-        // Guardar también en cookie para que el servidor pueda acceder
         document.cookie = `staff_session=${JSON.stringify(sessionData)}; path=/; max-age=${12 * 60 * 60}`
-
         await loadMenuData()
         setStep('table')
       } else if (data.requiresUpgrade) {
@@ -165,6 +166,10 @@ export default function MeseroPage() {
     })
   }
 
+  const updateItemNotes = (itemId: string, notes: string) => {
+    setCart(prev => prev.map(c => c.item_id === itemId ? { ...c, notes } : c))
+  }
+
   const cartTotal = cart.reduce((sum, i) => sum + i.price * i.qty, 0)
   const cartCount = cart.reduce((sum, i) => sum + i.qty, 0)
 
@@ -181,11 +186,11 @@ export default function MeseroPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           tenantId: tenantId_real || tenantId,
-          items: cart.map(c => ({ item_id: c.item_id, name: c.name, price: c.price, qty: c.qty })),
+          items: cart.map(c => ({ item_id: c.item_id, name: c.name, price: c.price, qty: c.qty, notes: c.notes })),
           customerInfo: { name: `Mesa ${tableNumber}`, email: null, phone: null },
           deliveryType: 'dine-in',
           tableNumber,
-          waiterName: 'Mesero',
+          waiterName,
           paymentMethod: 'cash',
           notes: `Pedido de mesa ${tableNumber}`,
         }),
@@ -201,6 +206,13 @@ export default function MeseroPage() {
     setCart([])
     setTableNumber(null)
     setStep('table')
+  }
+
+  const handleLogout = () => {
+    localStorage.removeItem(`staff_session_${tenantId}`)
+    document.cookie = 'staff_session=; path=/; max-age=0'
+    setStep('pin')
+    setPin('')
   }
 
   // --- UPGRADE SCREEN ---
@@ -229,7 +241,6 @@ export default function MeseroPage() {
     return (
       <div className="min-h-screen bg-gradient-to-br from-gray-950 via-gray-900 to-gray-950 flex flex-col items-center justify-center p-6">
         <div className="w-full max-w-xs">
-          {/* Header with brand */}
           <div className="text-center mb-10">
             <div className="inline-flex items-center justify-center w-20 h-20 rounded-2xl bg-gradient-to-br from-blue-600 to-indigo-700 mb-4 mx-auto shadow-lg">
               <span className="text-4xl">👨‍🍳</span>
@@ -238,7 +249,6 @@ export default function MeseroPage() {
             <p className="text-gray-400 text-sm">Ingresa tu PIN de seguridad</p>
           </div>
 
-          {/* PIN display */}
           <div className="flex justify-center gap-2.5 mb-8">
             {Array.from({ length: 6 }).map((_, i) => (
               <div
@@ -249,7 +259,7 @@ export default function MeseroPage() {
                     : 'border-gray-600 bg-gray-800/50 border-opacity-40'
                 }`}
               >
-                {i < pin.length && <div className="w-3 h-3 bg-white rounded-full animate-scale-in" />}
+                {i < pin.length && <div className="w-3 h-3 bg-white rounded-full" />}
               </div>
             ))}
           </div>
@@ -260,14 +270,13 @@ export default function MeseroPage() {
             </div>
           )}
 
-          {/* Keypad */}
           <div className="grid grid-cols-3 gap-2.5 mb-6">
             {KEYPAD.map((key, i) => (
               <button
                 key={i}
                 onClick={() => handleKeypad(key)}
                 disabled={key === '' || pinLoading}
-                className={`h-14 rounded-xl text-xl font-bold transition-all active:scale-95 ${
+                className={`h-16 rounded-xl text-xl font-bold transition-all active:scale-95 ${
                   key === ''
                     ? 'invisible'
                     : key === '⌫'
@@ -283,10 +292,9 @@ export default function MeseroPage() {
           <button
             onClick={handlePinSubmit}
             disabled={pin.length < 4 || pinLoading}
-            className="w-full h-14 rounded-xl font-black text-white text-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
+            className="w-full h-14 rounded-xl font-black text-white text-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg"
             style={{
-              backgroundColor: pin.length >= 4 && !pinLoading ? primary : '#6B7280',
-              background: pin.length >= 4 && !pinLoading ? `linear-gradient(135deg, ${primary} 0%, #1e3a8a 100%)` : undefined
+              background: pin.length >= 4 && !pinLoading ? `linear-gradient(135deg, ${primary} 0%, #1e3a8a 100%)` : '#6B7280'
             }}
           >
             {pinLoading ? 'Verificando...' : 'Entrar'}
@@ -300,31 +308,39 @@ export default function MeseroPage() {
   if (step === 'done') {
     return (
       <div className="min-h-screen bg-gradient-to-br from-gray-950 via-green-950/20 to-gray-950 flex flex-col items-center justify-center p-6">
-        <div className="text-center max-w-sm">
-          {/* Success Icon */}
-          <div className="inline-flex items-center justify-center w-24 h-24 rounded-full bg-gradient-to-br from-green-500 to-emerald-600 mb-6 shadow-2xl animate-scale-in">
+        <div className="text-center max-w-sm w-full">
+          <div className="inline-flex items-center justify-center w-24 h-24 rounded-full bg-gradient-to-br from-green-500 to-emerald-600 mb-6 shadow-2xl">
             <span className="text-5xl">✅</span>
           </div>
-
-          {/* Message */}
           <h1 className="text-3xl font-black text-white mb-3 tracking-wide">¡Pedido Confirmado!</h1>
-          <div className="bg-blue-500/20 border border-blue-500/30 rounded-xl px-4 py-3 mb-6">
-            <p className="text-blue-300 font-bold">Mesa {tableNumber}</p>
-            <p className="text-blue-200 text-sm mt-1">El pedido está en la cocina</p>
+          <div className="bg-blue-500/20 border border-blue-500/30 rounded-xl px-4 py-4 mb-6">
+            <p className="text-blue-300 font-black text-2xl">Mesa {tableNumber}</p>
+            <p className="text-blue-200 text-sm mt-1">El pedido está en camino a la cocina</p>
           </div>
-
-          {/* Info */}
-          <p className="text-gray-400 mb-8 text-sm">Tu mesa ha sido notificada. Prepárate para la siguiente orden.</p>
-
-          {/* Action Button */}
+          <div className="bg-gray-800/60 rounded-xl p-4 mb-8 text-left">
+            {cart.map(item => (
+              <div key={item.item_id} className="flex justify-between text-sm text-gray-300 py-1">
+                <span>{item.qty}× {item.name}</span>
+                <span>{formatPriceWithCurrency(item.price * item.qty, currencyInfo.code, currencyInfo.locale)}</span>
+              </div>
+            ))}
+            <div className="border-t border-gray-700 mt-2 pt-2 flex justify-between font-bold text-white">
+              <span>Total</span>
+              <span>{formatPriceWithCurrency(cartTotal, currencyInfo.code, currencyInfo.locale)}</span>
+            </div>
+          </div>
           <button
             onClick={handleNewOrder}
-            className="w-full h-14 rounded-xl font-black text-white text-lg transition-all duration-200 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
-            style={{
-              background: `linear-gradient(135deg, ${primary} 0%, #1e3a8a 100%)`
-            }}
+            className="w-full h-14 rounded-xl font-black text-white text-lg transition-all duration-200 shadow-lg active:scale-95"
+            style={{ background: `linear-gradient(135deg, ${primary} 0%, #1e3a8a 100%)` }}
           >
-            Nuevo Pedido
+            Nueva Comanda
+          </button>
+          <button
+            onClick={handleLogout}
+            className="w-full h-12 rounded-xl font-semibold text-gray-400 hover:text-white text-sm mt-3 transition-colors"
+          >
+            Cerrar sesión
           </button>
         </div>
       </div>
@@ -334,39 +350,33 @@ export default function MeseroPage() {
   // --- TABLE SELECTION ---
   if (step === 'table') {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-950 via-gray-900 to-gray-950 px-4 pt-4 pb-6 flex flex-col">
+      <div className="min-h-screen bg-gray-950 flex flex-col">
         {/* Header */}
-        <div className="flex items-center justify-between mb-5 w-full">
+        <div className="sticky top-0 z-10 bg-gray-900 border-b border-gray-800 px-4 py-3 flex items-center justify-between">
           <div>
-            <p className="text-blue-400 text-xs font-bold tracking-widest mb-0.5">MESERO</p>
-            <h1 className="text-2xl font-black text-white">Selecciona Mesa</h1>
+            <p className="text-xs font-bold tracking-widest" style={{ color: primary }}>MESERO · {waiterName.toUpperCase()}</p>
+            <h1 className="text-xl font-black text-white">Selecciona Mesa</h1>
           </div>
           <button
-            onClick={() => {
-              localStorage.removeItem(`staff_session_${tenantId}`)
-              document.cookie = 'staff_session=; path=/; max-age=0'
-              setStep('pin')
-              setPin('')
-            }}
+            onClick={handleLogout}
             className="px-3 py-2 rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-300 hover:text-white text-sm font-semibold transition-all"
           >
             Salir
           </button>
         </div>
 
-        {/* Table Grid */}
-        <div className="flex-1 overflow-y-auto">
-          <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-3">
+        <div className="flex-1 overflow-y-auto p-4">
+          <p className="text-gray-500 text-xs mb-4">{totalTables} mesas disponibles — toca una para comenzar</p>
+          <div className="grid grid-cols-3 gap-3">
             {Array.from({ length: totalTables }, (_, i) => i + 1).map(num => (
               <button
                 key={num}
                 onClick={() => { setTableNumber(num); setStep('menu') }}
-                className="h-20 rounded-2xl bg-gradient-to-br from-gray-800 to-gray-900 active:from-blue-700/40 active:to-blue-900/40 text-white font-bold active:scale-95 transition-all border-2 border-gray-700 active:border-blue-500 shadow-lg"
+                className="h-24 rounded-2xl bg-gray-800 active:scale-95 transition-all border-2 border-gray-700 active:border-blue-500 shadow-lg flex flex-col items-center justify-center gap-1"
               >
-                <div className="flex flex-col items-center justify-center h-full">
-                  <span className="text-2xl">🍽️</span>
-                  <span className="text-sm font-bold mt-1">{num}</span>
-                </div>
+                <span className="text-2xl">🍽️</span>
+                <span className="text-white font-black text-lg leading-none">{num}</span>
+                <span className="text-gray-500 text-xs">Mesa</span>
               </button>
             ))}
           </div>
@@ -375,158 +385,271 @@ export default function MeseroPage() {
     )
   }
 
-  // --- MENU + CONFIRM ---
-  if (step === 'menu' || step === 'confirm') {
+  // --- MENU ---
+  if (step === 'menu') {
     return (
       <div className="min-h-screen bg-gray-950 flex flex-col">
         {/* Header */}
-        <div className="sticky top-0 z-10 bg-gradient-to-r from-blue-600/20 to-indigo-600/20 border-b border-gray-700 backdrop-blur-sm px-6 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <button
-                onClick={() => setStep('table')}
-                className="text-gray-300 hover:text-white text-xl transition-colors"
-                title="Volver a seleccionar mesa"
-              >
-                ←
-              </button>
-              <div>
-                <p className="text-white font-black text-base">🍽️ Mesa {tableNumber}</p>
-                <p className="text-gray-400 text-xs font-medium">{cartCount} items · {formatPriceWithCurrency(cartTotal, currencyInfo.code, currencyInfo.locale)}</p>
-              </div>
+        <div className="sticky top-0 z-10 bg-gray-900 border-b border-gray-800 px-4 py-3">
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => setStep('table')}
+              className="w-10 h-10 flex items-center justify-center rounded-xl bg-gray-800 text-white text-xl active:scale-95 flex-shrink-0"
+            >
+              ←
+            </button>
+            <div className="flex-1 min-w-0">
+              <p className="text-white font-black text-base truncate">Mesa {tableNumber}</p>
+              <p className="text-gray-400 text-xs">{waiterName}</p>
             </div>
-            {cartCount > 0 && step === 'menu' && (
-              <button
-                onClick={() => setStep('confirm')}
-                className="px-5 py-2.5 rounded-lg text-white text-sm font-bold transition-all duration-200 hover:shadow-lg shadow-md"
-                style={{ backgroundColor: primary }}
-              >
-                Confirmar ({cartCount})
-              </button>
-            )}
-            {step === 'confirm' && (
-              <button
-                onClick={() => setStep('menu')}
-                className="px-5 py-2.5 rounded-lg bg-blue-600 text-white text-sm font-bold transition-all duration-200 hover:shadow-lg shadow-md"
-              >
-                + Agregar
-              </button>
+            {cartCount > 0 && (
+              <div className="flex items-center gap-1.5 bg-gray-800 rounded-xl px-3 py-2">
+                <span className="text-white font-bold text-sm">{cartCount}</span>
+                <span className="text-gray-400 text-xs">items</span>
+              </div>
             )}
           </div>
         </div>
 
-        {step === 'menu' && (
-          <>
-            {/* Categories */}
-            {categories.length > 0 && (
-              <div className="flex gap-2 px-4 py-3 overflow-x-auto scrollbar-hide bg-gray-900">
+        {/* Categories */}
+        {categories.length > 0 && (
+          <div className="bg-gray-900 border-b border-gray-800">
+            <div className="flex gap-2 px-4 py-2.5 overflow-x-auto scrollbar-hide">
+              <button
+                onClick={() => setActiveCategory(null)}
+                className={`px-4 py-2 rounded-full text-xs font-bold whitespace-nowrap transition-colors flex-shrink-0 ${
+                  !activeCategory ? 'text-white' : 'bg-gray-700 text-gray-300'
+                }`}
+                style={!activeCategory ? { backgroundColor: primary } : {}}
+              >
+                Todo
+              </button>
+              {categories.map(cat => (
                 <button
-                  onClick={() => setActiveCategory(null)}
-                  className={`px-3 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-colors ${
-                    !activeCategory ? 'text-white' : 'bg-gray-700 text-gray-300'
+                  key={cat.id}
+                  onClick={() => setActiveCategory(cat.id)}
+                  className={`px-4 py-2 rounded-full text-xs font-bold whitespace-nowrap transition-colors flex-shrink-0 ${
+                    activeCategory === cat.id ? 'text-white' : 'bg-gray-700 text-gray-300'
                   }`}
-                  style={!activeCategory ? { backgroundColor: primary } : {}}
+                  style={activeCategory === cat.id ? { backgroundColor: primary } : {}}
                 >
-                  Todo
+                  {cat.name}
                 </button>
-                {categories.map(cat => (
-                  <button
-                    key={cat.id}
-                    onClick={() => setActiveCategory(cat.id)}
-                    className={`px-3 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-colors ${
-                      activeCategory === cat.id ? 'text-white' : 'bg-gray-700 text-gray-300'
-                    }`}
-                    style={activeCategory === cat.id ? { backgroundColor: primary } : {}}
-                  >
-                    {cat.name}
-                  </button>
-                ))}
-              </div>
-            )}
-
-            {/* Items */}
-            <div className="flex-1 overflow-y-auto px-3 py-3 pb-20">
-              <div className="grid grid-cols-2 gap-2">
-                {filteredItems.map(item => {
-                  const inCart = cart.find(c => c.item_id === item.id)
-                  return (
-                    <div key={item.id} className="bg-gray-800 rounded-xl p-3 flex flex-col justify-between gap-2 active:bg-gray-700 transition-colors">
-                      <div>
-                        <p className="text-white font-semibold text-sm leading-tight line-clamp-2">{item.name}</p>
-                        <p className="font-bold text-xs mt-1" style={{ color: primary }}>
-                          {formatPriceWithCurrency(item.price, currencyInfo.code, currencyInfo.locale)}
-                        </p>
-                      </div>
-                      <div className="flex items-center justify-between gap-1">
-                        {inCart ? (
-                          <>
-                            <button
-                              onClick={() => removeFromCart(item.id)}
-                              className="w-8 h-8 rounded-lg bg-gray-600 text-white font-bold flex items-center justify-center flex-shrink-0"
-                            >
-                              −
-                            </button>
-                            <span className="text-white font-black text-base flex-1 text-center">{inCart.qty}</span>
-                            <button
-                              onClick={() => addToCart(item)}
-                              className="w-8 h-8 rounded-lg text-white font-bold flex items-center justify-center flex-shrink-0"
-                              style={{ backgroundColor: primary }}
-                            >
-                              +
-                            </button>
-                          </>
-                        ) : (
-                          <button
-                            onClick={() => addToCart(item)}
-                            className="w-full h-8 rounded-lg text-white font-bold text-lg flex items-center justify-center"
-                            style={{ backgroundColor: primary }}
-                          >
-                            +
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  )
-                })}
-              </div>
-            </div>
-          </>
-        )}
-
-        {step === 'confirm' && (
-          <div className="flex-1 overflow-y-auto px-4 py-4">
-            <h2 className="text-white font-bold text-lg mb-4">Confirmar pedido — Mesa {tableNumber}</h2>
-            <div className="space-y-3 mb-6">
-              {cart.map(item => (
-                <div key={item.item_id} className="flex items-center justify-between bg-gray-800 rounded-2xl p-3">
-                  <div className="flex items-center gap-3">
-                    <span className="text-white font-bold text-lg w-6 text-center">{item.qty}x</span>
-                    <span className="text-white font-semibold">{item.name}</span>
-                  </div>
-                  <span className="text-gray-300 font-bold">
-                    {formatPriceWithCurrency(item.price * item.qty, currencyInfo.code, currencyInfo.locale)}
-                  </span>
-                </div>
               ))}
             </div>
+          </div>
+        )}
 
-            <div className="bg-gray-800 rounded-2xl p-4 mb-6">
-              <div className="flex justify-between text-white">
-                <span className="font-bold text-lg">Total</span>
-                <span className="font-bold text-lg">{formatPriceWithCurrency(cartTotal, currencyInfo.code, currencyInfo.locale)}</span>
+        {/* Items list — single column for max readability on phones */}
+        <div className="flex-1 overflow-y-auto pb-28">
+          <div className="divide-y divide-gray-800">
+            {filteredItems.map(item => {
+              const inCart = cart.find(c => c.item_id === item.id)
+              return (
+                <div key={item.id} className="flex items-center gap-3 px-4 py-3 bg-gray-950 active:bg-gray-900 transition-colors">
+                  {/* Image */}
+                  {item.image_url ? (
+                    <img
+                      src={item.image_url}
+                      alt={item.name}
+                      className="w-16 h-16 rounded-xl object-cover flex-shrink-0 bg-gray-800"
+                    />
+                  ) : (
+                    <div className="w-16 h-16 rounded-xl bg-gray-800 flex items-center justify-center flex-shrink-0">
+                      <span className="text-2xl">🍽️</span>
+                    </div>
+                  )}
+
+                  {/* Info */}
+                  <div className="flex-1 min-w-0">
+                    <p className="text-white font-semibold text-sm leading-snug line-clamp-2">{item.name}</p>
+                    {item.description && (
+                      <p className="text-gray-500 text-xs mt-0.5 line-clamp-1">{item.description}</p>
+                    )}
+                    <p className="font-black text-sm mt-1" style={{ color: primary }}>
+                      {formatPriceWithCurrency(item.price, currencyInfo.code, currencyInfo.locale)}
+                    </p>
+                  </div>
+
+                  {/* Controls */}
+                  <div className="flex items-center gap-2 flex-shrink-0">
+                    {inCart ? (
+                      <>
+                        <button
+                          onClick={() => removeFromCart(item.id)}
+                          className="w-10 h-10 rounded-xl bg-gray-700 text-white font-bold text-xl flex items-center justify-center active:scale-95 transition-all"
+                        >
+                          −
+                        </button>
+                        <span className="text-white font-black text-lg w-6 text-center">{inCart.qty}</span>
+                        <button
+                          onClick={() => addToCart(item)}
+                          className="w-10 h-10 rounded-xl text-white font-bold text-xl flex items-center justify-center active:scale-95 transition-all"
+                          style={{ backgroundColor: primary }}
+                        >
+                          +
+                        </button>
+                      </>
+                    ) : (
+                      <button
+                        onClick={() => addToCart(item)}
+                        className="w-10 h-10 rounded-xl text-white font-bold text-xl flex items-center justify-center active:scale-95 transition-all"
+                        style={{ backgroundColor: primary }}
+                      >
+                        +
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )
+            })}
+
+            {filteredItems.length === 0 && (
+              <div className="flex flex-col items-center justify-center py-16 text-gray-600">
+                <span className="text-4xl mb-3">🍽️</span>
+                <p className="text-sm">Sin productos en esta categoría</p>
               </div>
-            </div>
+            )}
+          </div>
+        </div>
 
+        {/* Floating cart bar */}
+        {cartCount > 0 && (
+          <div className="fixed bottom-0 left-0 right-0 z-20 px-4 pb-4 pt-2 bg-gradient-to-t from-gray-950 via-gray-950/95 to-transparent">
             <button
-              onClick={handleSubmitOrder}
-              disabled={submitting}
-              className="w-full h-14 rounded-2xl font-bold text-white text-lg disabled:opacity-50 transition-all active:scale-95"
+              onClick={() => setStep('confirm')}
+              className="w-full h-14 rounded-2xl text-white font-black text-base flex items-center justify-between px-5 shadow-2xl active:scale-95 transition-all"
               style={{ backgroundColor: primary }}
             >
-              {submitting ? 'Enviando a cocina...' : '🔔 Enviar a cocina'}
+              <span className="bg-white/20 rounded-lg px-2.5 py-1 text-sm font-black">{cartCount}</span>
+              <span>Ver pedido</span>
+              <span>{formatPriceWithCurrency(cartTotal, currencyInfo.code, currencyInfo.locale)}</span>
             </button>
           </div>
         )}
+      </div>
+    )
+  }
+
+  // --- CONFIRM ---
+  if (step === 'confirm') {
+    return (
+      <div className="min-h-screen bg-gray-950 flex flex-col">
+        {/* Header */}
+        <div className="sticky top-0 z-10 bg-gray-900 border-b border-gray-800 px-4 py-3 flex items-center gap-3">
+          <button
+            onClick={() => setStep('menu')}
+            className="w-10 h-10 flex items-center justify-center rounded-xl bg-gray-800 text-white text-xl active:scale-95 flex-shrink-0"
+          >
+            ←
+          </button>
+          <div className="flex-1">
+            <p className="text-white font-black text-base">Confirmar Pedido</p>
+            <p className="text-gray-400 text-xs">Mesa {tableNumber} · {waiterName}</p>
+          </div>
+          <button
+            onClick={() => setStep('menu')}
+            className="px-3 py-2 rounded-xl text-white text-xs font-bold border border-gray-700 active:scale-95"
+          >
+            + Agregar
+          </button>
+        </div>
+
+        <div className="flex-1 overflow-y-auto pb-32 p-4">
+          {/* Items with notes */}
+          <div className="space-y-3 mb-4">
+            {cart.map(item => (
+              <div key={item.item_id} className="bg-gray-800 rounded-2xl overflow-hidden">
+                <div className="flex items-center justify-between p-3 gap-3">
+                  <div className="flex items-center gap-3 flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                      <button
+                        onClick={() => removeFromCart(item.item_id)}
+                        className="w-9 h-9 rounded-xl bg-gray-700 text-white font-bold flex items-center justify-center active:scale-95"
+                      >
+                        −
+                      </button>
+                      <span className="text-white font-black text-lg w-5 text-center">{item.qty}</span>
+                      <button
+                        onClick={() => addToCart({ id: item.item_id, name: item.name, price: item.price, available: true })}
+                        className="w-9 h-9 rounded-xl text-white font-bold flex items-center justify-center active:scale-95"
+                        style={{ backgroundColor: primary }}
+                      >
+                        +
+                      </button>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-white font-semibold text-sm leading-snug line-clamp-2">{item.name}</p>
+                      <p className="text-gray-400 text-xs font-bold">
+                        {formatPriceWithCurrency(item.price * item.qty, currencyInfo.code, currencyInfo.locale)}
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => setEditingNotes(editingNotes === item.item_id ? null : item.item_id)}
+                    className={`flex-shrink-0 px-2 py-1.5 rounded-lg text-xs font-bold transition-colors ${
+                      item.notes
+                        ? 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/30'
+                        : 'bg-gray-700 text-gray-400'
+                    }`}
+                  >
+                    {item.notes ? '📝' : 'Nota'}
+                  </button>
+                </div>
+
+                {/* Notes input (expandable) */}
+                {editingNotes === item.item_id && (
+                  <div className="px-3 pb-3">
+                    <input
+                      type="text"
+                      value={item.notes || ''}
+                      onChange={e => updateItemNotes(item.item_id, e.target.value)}
+                      placeholder="sin cebolla, bien cocido..."
+                      maxLength={80}
+                      className="w-full bg-gray-700 border border-gray-600 focus:border-yellow-500 rounded-xl px-3 py-2.5 text-sm text-yellow-200 placeholder-gray-500 outline-none transition-colors"
+                      autoFocus
+                    />
+                  </div>
+                )}
+
+                {/* Notes preview (when not editing) */}
+                {item.notes && editingNotes !== item.item_id && (
+                  <div className="px-3 pb-3">
+                    <p className="text-yellow-400/80 text-xs italic px-2 py-1.5 bg-yellow-500/10 rounded-lg">↳ {item.notes}</p>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+
+          {/* Total */}
+          <div className="bg-gray-800 rounded-2xl p-4">
+            <div className="space-y-1.5 mb-3">
+              {cart.map(item => (
+                <div key={item.item_id} className="flex justify-between text-xs text-gray-400">
+                  <span>{item.qty}× {item.name}</span>
+                  <span>{formatPriceWithCurrency(item.price * item.qty, currencyInfo.code, currencyInfo.locale)}</span>
+                </div>
+              ))}
+            </div>
+            <div className="border-t border-gray-700 pt-3 flex justify-between text-white font-black text-lg">
+              <span>Total</span>
+              <span>{formatPriceWithCurrency(cartTotal, currencyInfo.code, currencyInfo.locale)}</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Sticky send button */}
+        <div className="fixed bottom-0 left-0 right-0 z-20 px-4 pb-4 pt-2 bg-gradient-to-t from-gray-950 via-gray-950/95 to-transparent">
+          <button
+            onClick={handleSubmitOrder}
+            disabled={submitting}
+            className="w-full h-14 rounded-2xl font-black text-white text-lg disabled:opacity-50 transition-all active:scale-95 shadow-2xl"
+            style={{ backgroundColor: primary }}
+          >
+            {submitting ? 'Enviando a cocina...' : `🔔 Enviar a cocina — Mesa ${tableNumber}`}
+          </button>
+        </div>
       </div>
     )
   }
