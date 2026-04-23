@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import { createClient } from '@supabase/supabase-js';
-import { ShoppingCart, Plus, Minus, Trash2, Search, DollarSign, CreditCard, Maximize2, Minimize2, Lock, Clock, Truck, Store, UtensilsCrossed } from 'lucide-react';
+import { ShoppingCart, Plus, Minus, Trash2, Search, DollarSign, CreditCard, Maximize2, Minimize2, Lock, Clock, Truck, Store, UtensilsCrossed, Archive, Monitor } from 'lucide-react';
 import { POSModeSelector } from './POSModeSelector';
 import { POSStaffSelector } from './POSStaffSelector';
 import { POSTableSelector } from './POSTableSelector';
@@ -15,7 +15,7 @@ import { Toast } from './Toast';
 import { saveCartToSupabase, loadCartFromSupabase, abandonCart } from '@/lib/pos-cart-sync';
 import { calculateCashClosingStats, saveCashClosing, CashClosingStats } from '@/lib/cash-closing';
 import { getCurrencyByCountry, formatPriceWithCurrency } from '@/lib/currency';
-import { printReceipt, savePrinterLog } from '@/lib/pos-printer';
+import { printReceipt, savePrinterLog, openCashDrawer } from '@/lib/pos-printer';
 
 interface MenuItem {
   id: string;
@@ -63,6 +63,16 @@ interface DineInOrder {
   items: { name: string; qty: number; price: number; item_id?: string }[];
 }
 
+interface TableGroup {
+  tableNumber: number;
+  orders: DineInOrder[];
+  totalAmount: number;
+  itemCount: number;
+  waiters: string[];
+  oldestOrder: DineInOrder;
+  allItems: { name: string; qty: number; price: number; item_id?: string }[];
+}
+
 // ─── Timer Hook ───────────────────────────────────────────────────────────────
 function useElapsedMinutes(createdAt: string): number {
   const [minutes, setMinutes] = useState(() =>
@@ -90,6 +100,84 @@ function getTimerColor(minutes: number) {
   if (minutes < 5) return 'text-green-400';
   if (minutes < 10) return 'text-yellow-400';
   return 'text-red-400';
+}
+
+// ─── Table Group Card ─────────────────────────────────────────────────────────
+function TableGroupCard({
+  group,
+  onBillTable,
+  expanded,
+  onToggleExpand,
+  currencyInfo,
+}: {
+  group: TableGroup;
+  onBillTable: (orders: DineInOrder[]) => void;
+  expanded: boolean;
+  onToggleExpand: () => void;
+  currencyInfo: { code: string; locale: string };
+}) {
+  const minutes = useElapsedMinutes(group.oldestOrder.created_at);
+
+  return (
+    <div className={`border-2 ${getUrgencyBorder(minutes)} rounded-xl bg-gray-800/80 overflow-hidden transition-all duration-200`}>
+      <div className="p-3 flex items-start justify-between gap-2">
+        <div className="flex items-center gap-2.5">
+          <div className="bg-blue-600/20 border border-blue-500/40 rounded-xl w-11 h-11 flex items-center justify-center shrink-0">
+            <span className="text-blue-300 font-black text-base">{group.tableNumber}</span>
+          </div>
+          <div>
+            <p className="text-white font-bold text-sm">Mesa {group.tableNumber}</p>
+            <p className="text-gray-400 text-xs">
+              {group.orders.length} ronda{group.orders.length > 1 ? 's' : ''} · {group.itemCount} items
+            </p>
+            {group.waiters.length > 0 && (
+              <p className="text-gray-500 text-xs truncate max-w-[110px]">{group.waiters.join(', ')}</p>
+            )}
+          </div>
+        </div>
+        <div className="flex flex-col items-end gap-1 shrink-0">
+          <span className={`text-xs font-bold ${getTimerColor(minutes)} flex items-center gap-0.5`}>
+            <Clock className="w-3 h-3" />
+            {minutes}m
+          </span>
+          <span className="text-emerald-400 font-black text-sm">
+            {formatPriceWithCurrency(group.totalAmount, currencyInfo.code, currencyInfo.locale)}
+          </span>
+        </div>
+      </div>
+
+      <button
+        onClick={onToggleExpand}
+        className="w-full px-3 pb-2 flex items-center gap-1 text-gray-500 hover:text-gray-300 text-xs transition-colors"
+      >
+        <span>{expanded ? '▲' : '▼'}</span>
+        <span>{expanded ? 'Ocultar' : 'Ver'} items</span>
+      </button>
+
+      {expanded && (
+        <div className="mx-3 mb-2 bg-gray-900/60 rounded-lg p-2 max-h-28 overflow-y-auto space-y-0.5">
+          {group.allItems.map((item, i) => (
+            <div key={i} className="flex justify-between text-xs">
+              <span className="text-gray-300">{item.qty}× {item.name}</span>
+              <span className="text-gray-500">
+                {formatPriceWithCurrency(item.price * item.qty, currencyInfo.code, currencyInfo.locale)}
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <div className="p-2 pt-0">
+        <button
+          onClick={() => onBillTable(group.orders)}
+          className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white text-xs font-bold rounded-lg transition-all flex items-center justify-center gap-1.5 shadow-lg shadow-emerald-900/30"
+        >
+          <DollarSign className="w-3.5 h-3.5" />
+          Cobrar Mesa {group.tableNumber}
+        </button>
+      </div>
+    </div>
+  );
 }
 
 // ─── Incoming Order Card ──────────────────────────────────────────────────────
@@ -195,6 +283,9 @@ export function POSTerminal({ tenantId, country = 'CO' }: { tenantId: string; co
   // Dine-in orders from comandero
   const [dineInOrders, setDineInOrders] = useState<DineInOrder[]>([]);
   const [showDineInPanel, setShowDineInPanel] = useState(false);
+  const [loadedOrderIds, setLoadedOrderIds] = useState<string[]>([]);
+  const [billingOrderIds, setBillingOrderIds] = useState<string[]>([]);
+  const [expandedTable, setExpandedTable] = useState<number | null>(null);
   const audioCtxRef = useRef<AudioContext | null>(null);
   const knownOrderIds = useRef(new Set<string>());
 
@@ -470,16 +561,32 @@ export function POSTerminal({ tenantId, country = 'CO' }: { tenantId: string; co
     }
   }
 
-  function loadDineInToCart(order: DineInOrder) {
-    const cartItems: CartItem[] = (order.items || []).map((item) => ({
-      menu_item_id: item.item_id || item.name,
-      name: item.name,
-      price: item.price,
-      quantity: item.qty,
-    }));
-    setCart(cartItems);
+  function loadTableToCart(tableOrders: DineInOrder[]) {
+    const mergedMap = new Map<string, CartItem>();
+    tableOrders.forEach(order => {
+      (order.items || []).forEach(item => {
+        const key = item.item_id || item.name;
+        if (mergedMap.has(key)) {
+          const existing = mergedMap.get(key)!;
+          mergedMap.set(key, { ...existing, quantity: existing.quantity + item.qty });
+        } else {
+          mergedMap.set(key, {
+            menu_item_id: item.item_id || item.name,
+            name: item.name,
+            price: item.price,
+            quantity: item.qty,
+          });
+        }
+      });
+    });
+
+    setCart(Array.from(mergedMap.values()));
     setPosMode('table');
-    if (order.table_number) setSelectedTableNumber(order.table_number);
+    const first = tableOrders[0];
+    if (first.table_number) setSelectedTableNumber(first.table_number);
+    if (first.waiter_name) setSelectedStaffName(first.waiter_name);
+    setBillingOrderIds(tableOrders.map(o => o.id));
+    setExpandedTable(null);
     setShowDineInPanel(false);
     setShowIncomingPanel(false);
   }
@@ -648,8 +755,23 @@ export function POSTerminal({ tenantId, country = 'CO' }: { tenantId: string; co
         throw new Error(errorData.error || 'Failed to process order');
       }
 
+      // Open cash drawer on cash payments (best-effort)
+      if (paymentMethod === 'cash') {
+        openCashDrawer(tenantId).catch(() => {});
+      }
+
       // Mark cart as abandoned in Supabase
       await abandonCart(tenantId, supabase);
+
+      // Mark all billed table orders as paid
+      if (billingOrderIds.length > 0) {
+        await supabase
+          .from('orders')
+          .update({ payment_status: 'paid', status: 'delivered' })
+          .in('id', billingOrderIds);
+        setBillingOrderIds([]);
+        await fetchDineInOrders();
+      }
 
       // Attempt to print receipt if printer is configured
       let settings: any = null;
@@ -740,6 +862,32 @@ export function POSTerminal({ tenantId, country = 'CO' }: { tenantId: string; co
   const subtotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
   const total = subtotal - discount;
 
+  const tableGroups = useMemo((): TableGroup[] => {
+    const groups = new Map<number, DineInOrder[]>();
+    dineInOrders.forEach(order => {
+      const tableNum = order.table_number ?? 0;
+      if (!groups.has(tableNum)) groups.set(tableNum, []);
+      groups.get(tableNum)!.push(order);
+    });
+    return Array.from(groups.entries()).map(([tableNumber, orders]) => ({
+      tableNumber,
+      orders,
+      totalAmount: orders.reduce((sum, o) => sum + Number(o.total), 0),
+      itemCount: orders.reduce((sum, o) => sum + (o.items || []).reduce((s, i) => s + i.qty, 0), 0),
+      waiters: [...new Set(orders.map(o => o.waiter_name).filter((w): w is string => Boolean(w)))],
+      oldestOrder: orders.reduce((oldest, o) =>
+        new Date(o.created_at) < new Date(oldest.created_at) ? o : oldest
+      ),
+      allItems: orders.flatMap(o => o.items || []),
+    }));
+  }, [dineInOrders]);
+
+  const cartQuantityMap = useMemo(() => {
+    const map = new Map<string, number>();
+    cart.forEach(item => map.set(item.menu_item_id, item.quantity));
+    return map;
+  }, [cart]);
+
   if (loading) {
     return <div className="flex items-center justify-center h-screen bg-muted">Cargando TPV...</div>;
   }
@@ -797,6 +945,22 @@ export function POSTerminal({ tenantId, country = 'CO' }: { tenantId: string; co
             {!isFullscreen && (
               <>
                 <button
+                  onClick={() => window.open(`/${tenantId}/admin/pos/display`, '_blank', 'width=900,height=600')}
+                  className="flex items-center gap-2 px-3 py-2.5 bg-purple-600 hover:bg-purple-500 text-white rounded-lg font-semibold text-sm transition-all duration-200"
+                  title="Abrir pantalla de cliente"
+                >
+                  <Monitor className="w-5 h-5" />
+                  <span className="hidden sm:inline">Pantalla</span>
+                </button>
+                <button
+                  onClick={() => openCashDrawer(tenantId)}
+                  className="flex items-center gap-2 px-3 py-2.5 bg-yellow-600 hover:bg-yellow-500 text-white rounded-lg font-semibold text-sm transition-all duration-200"
+                  title="Abrir cajón de dinero"
+                >
+                  <Archive className="w-5 h-5" />
+                  <span className="hidden sm:inline">Cajón</span>
+                </button>
+                <button
                   onClick={handleOpenCashClosing}
                   disabled={closingLoading}
                   className="flex items-center gap-2 px-3 py-2.5 bg-orange-600 hover:bg-orange-700 text-white rounded-lg font-semibold text-sm transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
@@ -818,13 +982,13 @@ export function POSTerminal({ tenantId, country = 'CO' }: { tenantId: string; co
           </div>
 
           {/* Categories - Sticky */}
-          <div className={`flex gap-2 overflow-x-auto pb-2 sticky z-10 bg-gradient-to-r from-gray-900/80 to-gray-800/80 border-b border-gray-800 backdrop-blur-sm ${isFullscreen ? 'px-4 py-3' : 'px-4 py-2.5'}`}>
+          <div className={`flex gap-2 overflow-x-auto pb-2 sticky z-10 bg-gradient-to-r from-gray-900/80 to-gray-800/80 border-b border-gray-800 backdrop-blur-sm scrollbar-none ${isFullscreen ? 'px-4 py-3' : 'px-4 py-2.5'}`}>
             <button
               onClick={() => setSelectedCategory(null)}
-              className={`px-4 py-2.5 rounded-lg whitespace-nowrap transition text-sm font-bold tracking-wide ${
+              className={`px-4 py-2 rounded-full whitespace-nowrap transition-all duration-200 text-sm font-bold tracking-wide shrink-0 ${
                 selectedCategory === null
-                  ? 'bg-gradient-to-r from-blue-600 to-blue-700 text-white shadow-lg'
-                  : 'bg-gray-800 text-gray-300 hover:bg-gray-700 border border-gray-700'
+                  ? 'bg-blue-600 text-white shadow-lg shadow-blue-900/40 ring-2 ring-blue-400/30'
+                  : 'bg-gray-800/80 text-gray-400 hover:bg-gray-700 hover:text-white border border-gray-700'
               }`}
             >
               Todos
@@ -833,10 +997,10 @@ export function POSTerminal({ tenantId, country = 'CO' }: { tenantId: string; co
               <button
                 key={cat.id}
                 onClick={() => setSelectedCategory(cat.id)}
-                className={`px-4 py-2.5 rounded-lg whitespace-nowrap transition text-sm font-bold tracking-wide ${
+                className={`px-4 py-2 rounded-full whitespace-nowrap transition-all duration-200 text-sm font-bold tracking-wide shrink-0 ${
                   selectedCategory === cat.id
-                    ? 'bg-gradient-to-r from-blue-600 to-blue-700 text-white shadow-lg'
-                    : 'bg-gray-800 text-gray-300 hover:bg-gray-700 border border-gray-700'
+                    ? 'bg-blue-600 text-white shadow-lg shadow-blue-900/40 ring-2 ring-blue-400/30'
+                    : 'bg-gray-800/80 text-gray-400 hover:bg-gray-700 hover:text-white border border-gray-700'
                 }`}
               >
                 {cat.name}
@@ -847,23 +1011,37 @@ export function POSTerminal({ tenantId, country = 'CO' }: { tenantId: string; co
           {/* Menu Grid */}
           <div className={`flex-1 overflow-y-auto bg-gradient-to-b from-gray-900/50 to-gray-950 ${isFullscreen ? 'px-4 py-3' : 'p-4'}`}>
             <div className={`grid gap-3 h-fit ${isFullscreen ? 'grid-cols-8' : 'grid-cols-5 md:grid-cols-6 lg:grid-cols-7'}`}>
-              {filteredMenu.map((item) => (
-                <button
-                  key={item.id}
-                  onClick={() => addToCart(item)}
-                  className="bg-gradient-to-br from-gray-800 to-gray-900 hover:from-blue-700/40 hover:to-blue-900/40 rounded-xl p-2.5 text-left transition-all duration-200 transform hover:scale-105 active:scale-95 h-fit flex flex-col justify-between border border-gray-700 hover:border-blue-500 group"
-                >
-                  {item.image_url && (
-                    <img
-                      src={item.image_url}
-                      alt={item.name}
-                      className={`w-full object-contain rounded-lg mb-2 group-hover:scale-110 transition-transform duration-200 ${isFullscreen ? 'h-16' : 'max-h-20'}`}
-                    />
-                  )}
-                  <p className="font-bold text-xs truncate flex-1 text-white group-hover:text-blue-300 transition-colors">{item.name}</p>
-                  <p className="text-green-400 font-bold text-xs mt-1">{formatPriceWithCurrency(item.price, currencyInfo.code, currencyInfo.locale)}</p>
-                </button>
-              ))}
+              {filteredMenu.map((item) => {
+                const qty = cartQuantityMap.get(item.id);
+                return (
+                  <button
+                    key={item.id}
+                    onClick={() => addToCart(item)}
+                    className={`relative rounded-xl p-2.5 text-left transition-all duration-200 transform hover:scale-105 active:scale-95 h-fit flex flex-col justify-between group ${
+                      qty
+                        ? 'bg-gradient-to-br from-blue-900/60 to-blue-800/40 border-2 border-blue-500 shadow-lg shadow-blue-900/30'
+                        : 'bg-gradient-to-br from-gray-800 to-gray-900 hover:from-blue-700/40 hover:to-blue-900/40 border border-gray-700 hover:border-blue-500'
+                    }`}
+                  >
+                    {qty && (
+                      <span className="absolute top-1.5 right-1.5 bg-blue-500 text-white text-xs font-black w-5 h-5 rounded-full flex items-center justify-center z-10 shadow-md ring-2 ring-gray-900">
+                        {qty}
+                      </span>
+                    )}
+                    {item.image_url && (
+                      <img
+                        src={item.image_url}
+                        alt={item.name}
+                        className={`w-full object-contain rounded-lg mb-2 group-hover:scale-110 transition-transform duration-200 ${isFullscreen ? 'h-16' : 'max-h-20'}`}
+                      />
+                    )}
+                    <p className="font-bold text-xs truncate flex-1 text-white group-hover:text-blue-300 transition-colors">{item.name}</p>
+                    <p className={`font-bold text-xs mt-1 ${qty ? 'text-blue-300' : 'text-green-400'}`}>
+                      {formatPriceWithCurrency(item.price, currencyInfo.code, currencyInfo.locale)}
+                    </p>
+                  </button>
+                );
+              })}
             </div>
           </div>
         </div>
@@ -916,42 +1094,30 @@ export function POSTerminal({ tenantId, country = 'CO' }: { tenantId: string; co
             </button>
           </div>
 
-          {/* Mesas / Dine-in Panel */}
+          {/* Mesas / Dine-in Panel — agrupado por mesa */}
           {showDineInPanel && (
             <div className="flex-1 flex flex-col overflow-hidden">
-              {dineInOrders.length === 0 ? (
+              {tableGroups.length === 0 ? (
                 <div className="flex-1 flex items-center justify-center text-gray-500">
                   <div className="text-center">
                     <p className="text-3xl mb-2">🍽️</p>
-                    <p className="text-sm">Sin mesas pendientes</p>
+                    <p className="text-sm font-medium">Sin mesas pendientes</p>
+                    <p className="text-xs text-gray-600 mt-1">Las comandas de mesas aparecerán aquí</p>
                   </div>
                 </div>
               ) : (
                 <div className="flex-1 overflow-y-auto p-2 space-y-2">
-                  {dineInOrders.map((order) => (
-                    <div key={order.id} className="bg-gray-800 border border-gray-700 rounded-xl p-3">
-                      <div className="flex items-center justify-between mb-2">
-                        <span className="text-white font-bold text-sm">Mesa {order.table_number ?? '—'}</span>
-                        <span className="text-gray-400 text-xs">{order.order_number}</span>
-                      </div>
-                      {order.waiter_name && (
-                        <p className="text-gray-400 text-xs mb-2">Mesero: {order.waiter_name}</p>
-                      )}
-                      <div className="space-y-0.5 mb-3">
-                        {(order.items || []).map((item, i) => (
-                          <p key={i} className="text-gray-300 text-xs">{item.qty}x {item.name}</p>
-                        ))}
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-emerald-400 font-bold text-sm">${Number(order.total).toLocaleString('es-CO')}</span>
-                        <button
-                          onClick={() => loadDineInToCart(order)}
-                          className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded-lg transition-colors"
-                        >
-                          Cobrar
-                        </button>
-                      </div>
-                    </div>
+                  {tableGroups.map(group => (
+                    <TableGroupCard
+                      key={group.tableNumber}
+                      group={group}
+                      onBillTable={loadTableToCart}
+                      expanded={expandedTable === group.tableNumber}
+                      onToggleExpand={() =>
+                        setExpandedTable(expandedTable === group.tableNumber ? null : group.tableNumber)
+                      }
+                      currencyInfo={currencyInfo}
+                    />
                   ))}
                 </div>
               )}
@@ -961,7 +1127,18 @@ export function POSTerminal({ tenantId, country = 'CO' }: { tenantId: string; co
           {/* Cart Content - Only show when not in Incoming Panel or Dine-in Panel */}
           {!showIncomingPanel && !showDineInPanel && (
             <>
-              {/* Discount Code */}
+              {/* Mesa billing indicator */}
+          {billingOrderIds.length > 0 && selectedTableNumber && (
+            <div className="mx-2 mt-2 bg-emerald-900/40 border border-emerald-600/50 rounded-xl px-3 py-2 flex items-center gap-2">
+              <UtensilsCrossed className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+              <div>
+                <p className="text-emerald-300 font-bold text-xs">Cobrando Mesa {selectedTableNumber}</p>
+                <p className="text-emerald-600 text-xs">{billingOrderIds.length} ronda{billingOrderIds.length > 1 ? 's' : ''} acumulada{billingOrderIds.length > 1 ? 's' : ''}</p>
+              </div>
+            </div>
+          )}
+
+          {/* Discount Code */}
               <div className={`border-b border-border ${isFullscreen ? 'px-2 py-1' : 'px-2 py-1'} space-y-1 text-xs`}>
             <div className="flex gap-1">
               <input

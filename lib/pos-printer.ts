@@ -357,6 +357,41 @@ export async function testPrinterConnection(
 }
 
 /**
+ * Open cash drawer via ESC/POS command through the configured printer.
+ * Uses ESC p 0 t1 t2 (pin 2, 50ms pulse) — standard for most USB thermal printers.
+ * Falls back gracefully if no printer is configured.
+ */
+export async function openCashDrawer(tenantId: string): Promise<void> {
+  try {
+    if (typeof navigator === 'undefined' || !('usb' in navigator) || !navigator.usb) return;
+
+    // ESC p m t1 t2 — open drawer on pin 2
+    const drawerCmd = new Uint8Array([0x1b, 0x70, 0x00, 0x19, 0xfa]);
+
+    const { data: settings } = await getSupabase()
+      .from('restaurant_settings')
+      .select('default_receipt_printer_id')
+      .eq('tenant_id', tenantId)
+      .single();
+
+    if (!settings?.default_receipt_printer_id) return;
+
+    const { data: printer } = await getSupabase()
+      .from('printer_devices')
+      .select('*')
+      .eq('id', settings.default_receipt_printer_id)
+      .eq('tenant_id', tenantId)
+      .single();
+
+    if (!printer) return;
+
+    await printViaWebUSB(printer, drawerCmd);
+  } catch {
+    // Drawer open is best-effort — never block the payment flow
+  }
+}
+
+/**
  * Get recent printer logs for troubleshooting
  */
 export async function getPrinterLogs(
