@@ -115,16 +115,19 @@ export default function EditarCategoriaPage({ params }: Props) {
           <p className="text-xs text-gray-400 mt-1">0 = primera posición</p>
         </div>
 
-        <div className="flex items-center gap-3">
-          <input
-            type="checkbox"
-            id="active"
-            checked={form.active}
-            onChange={e => setForm(f => ({ ...f, active: e.target.checked }))}
-            className="w-4 h-4 rounded"
-          />
-          <label htmlFor="active" className="text-sm font-medium text-gray-700">Categoría activa (visible en el menú)</label>
-        </div>
+        <label className="flex items-center justify-between cursor-pointer py-1">
+          <div>
+            <p className="text-sm font-medium text-gray-700">Categoría activa</p>
+            <p className="text-xs text-gray-400">Visible en el menú para los clientes</p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setForm(f => ({ ...f, active: !f.active }))}
+            className={`w-11 h-6 rounded-full transition-all flex items-center ml-4 ${form.active ? 'bg-blue-500 justify-end' : 'bg-gray-200 justify-start'}`}
+          >
+            <span className="w-5 h-5 bg-white rounded-full shadow-sm mx-0.5" />
+          </button>
+        </label>
 
         <div className="flex gap-3 pt-2">
           <button

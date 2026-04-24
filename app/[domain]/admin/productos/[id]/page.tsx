@@ -3,25 +3,15 @@
 import { useState, useEffect, use } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import Link from 'next/link'
+import toast from 'react-hot-toast'
 
-interface EditProductoProps {
-  params: Promise<{ domain: string; id: string }>
-}
+interface Props { params: Promise<{ domain: string; id: string }> }
 
-async function getTenantIdFromSlugClient(slug: string) {
-  // For client components, we need to call an API or use the context
-  // Since this is a client component, we'll query Supabase directly
-  const supabase = createClient()
-  const { data } = await supabase.from('tenants').select('id').eq('slug', slug).single()
-  return data?.id || null
-}
-
-export default function EditProductoPage({ params }: EditProductoProps) {
-  const { domain: slug, id } = use(params)
-  const [tenantId, setTenantId] = useState<string | null>(null)
+export default function EditProductoPage({ params }: Props) {
+  const { domain, id } = use(params)
   const router = useRouter()
-  const [categories, setCategories] = useState<any[]>([])
+  const [tenantId, setTenantId] = useState<string | null>(null)
+  const [categories, setCategories] = useState<{ id: string; name: string }[]>([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [deleting, setDeleting] = useState(false)
@@ -37,25 +27,23 @@ export default function EditProductoPage({ params }: EditProductoProps) {
     featured: false,
   })
 
+  const supabase = createClient()
+
   useEffect(() => {
-    const initializeTenantId = async () => {
-      const resolvedTenantId = await getTenantIdFromSlugClient(slug)
-      setTenantId(resolvedTenantId)
-    }
-    initializeTenantId()
-  }, [slug])
+    const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(domain)
+    supabase.from('tenants').select('id').eq(isUUID ? 'id' : 'slug', domain).single()
+      .then(({ data }) => { if (data) setTenantId(data.id) })
+  }, [domain])
 
   useEffect(() => {
     if (!tenantId) return
-    const supabase = createClient()
     Promise.all([
-      supabase.from('menu_categories').select('id, name').eq('tenant_id', tenantId),
+      supabase.from('menu_categories').select('id, name').eq('tenant_id', tenantId).order('sort_order'),
       supabase.from('menu_items').select('*').eq('id', id).eq('tenant_id', tenantId).single(),
-    ]).then(([categoriesRes, itemRes]) => {
-      setCategories(categoriesRes.data || [])
-      if (!itemRes.data) {
-        setNotFound(true)
-      } else {
+    ]).then(([catRes, itemRes]) => {
+      setCategories(catRes.data || [])
+      if (!itemRes.data) { setNotFound(true) }
+      else {
         const item = itemRes.data
         setForm({
           name: item.name,
@@ -75,25 +63,25 @@ export default function EditProductoPage({ params }: EditProductoProps) {
     const file = e.target.files?.[0]
     if (!file) return
     setUploadingImage(true)
-    const formData = new FormData()
-    formData.append('file', file)
-    formData.append('bucket', 'product-images')
+    const fd = new FormData()
+    fd.append('file', file)
+    fd.append('bucket', 'product-images')
     try {
-      const res = await fetch('/api/upload', { method: 'POST', body: formData })
+      const res = await fetch('/api/upload', { method: 'POST', body: fd })
       const data = await res.json()
       if (data.url) setForm(f => ({ ...f, image_url: data.url }))
-    } finally {
-      setUploadingImage(false)
-    }
+    } catch { toast.error('Error al subir imagen') }
+    finally { setUploadingImage(false) }
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (!tenantId) return
+    if (!form.price || parseFloat(form.price) <= 0) { toast.error('Ingresa un precio válido'); return }
     setSaving(true)
-    const supabase = createClient()
     const { error } = await supabase.from('menu_items').update({
-      name: form.name,
-      description: form.description || null,
+      name: form.name.trim(),
+      description: form.description.trim() || null,
       price: parseFloat(form.price),
       category_id: form.category_id || null,
       image_url: form.image_url || null,
@@ -102,166 +90,233 @@ export default function EditProductoPage({ params }: EditProductoProps) {
       updated_at: new Date().toISOString(),
     }).eq('id', id).eq('tenant_id', tenantId)
     setSaving(false)
-    if (!error) router.push(`/${tenantId}/admin/productos`)
+    if (error) { toast.error('Error: ' + error.message) }
+    else { toast.success('Cambios guardados'); router.push(`/${domain}/admin/productos`) }
   }
 
   const handleDelete = async () => {
-    if (!confirm('¿Seguro que quieres eliminar este producto?')) return
+    if (!confirm('¿Eliminar este producto del menú?')) return
     setDeleting(true)
-    const supabase = createClient()
     await supabase.from('menu_items').delete().eq('id', id).eq('tenant_id', tenantId)
-    router.push(`/${tenantId}/admin/productos`)
+    toast.success('Producto eliminado')
+    router.push(`/${domain}/admin/productos`)
   }
 
-  if (!tenantId || loading) {
-    return (
-      <div className="flex items-center justify-center py-20">
-        <div className="w-8 h-8 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin" />
-      </div>
-    )
-  }
+  if (loading) return (
+    <div className="flex items-center justify-center py-20">
+      <div className="w-8 h-8 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin" />
+    </div>
+  )
 
-  if (notFound) {
-    return (
-      <div className="text-center py-20">
-        <p className="text-gray-500 mb-4">Producto no encontrado</p>
-        <Link href={`/${tenantId}/admin/productos`} className="text-blue-600 hover:underline">Volver a productos</Link>
-      </div>
-    )
-  }
+  if (notFound) return (
+    <div className="text-center py-20">
+      <p className="text-gray-500 mb-4">Producto no encontrado</p>
+      <button onClick={() => router.back()} className="text-blue-600 font-medium">Volver</button>
+    </div>
+  )
 
   return (
-    <div className="max-w-2xl">
-      <div className="flex items-center justify-between mb-8">
-        <div className="flex items-center gap-4">
-          <Link href={`/${tenantId}/admin/productos`} className="text-gray-500 hover:text-gray-700">←</Link>
-          <h1 className="text-2xl font-bold text-gray-900">Editar Producto</h1>
+    <div className="min-h-screen bg-gray-50 sm:bg-transparent">
+      {/* Header */}
+      <div className="sticky top-0 z-10 bg-white border-b sm:static sm:border-0 sm:bg-transparent sm:mb-6">
+        <div className="px-4 sm:px-0 h-14 sm:h-auto flex items-center gap-3">
+          <button
+            onClick={() => router.back()}
+            className="p-2 -ml-2 sm:ml-0 rounded-xl hover:bg-gray-100 text-gray-500"
+          >
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+              <path d="M19 12H5M12 5l-7 7 7 7" />
+            </svg>
+          </button>
+          <h1 className="font-bold text-gray-900 text-lg sm:text-2xl truncate">{form.name || 'Editar Producto'}</h1>
+          <div className="ml-auto flex items-center gap-2">
+            <button
+              type="button"
+              onClick={handleDelete}
+              disabled={deleting}
+              className="p-2 rounded-xl text-red-500 hover:bg-red-50 transition-colors"
+              title="Eliminar"
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <polyline points="3 6 5 6 21 6" /><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6" /><path d="M10 11v6M14 11v6" /><path d="M9 6V4h6v2" />
+              </svg>
+            </button>
+            <button
+              form="product-form"
+              type="submit"
+              disabled={saving}
+              className="hidden sm:block px-5 py-2 bg-blue-600 text-white rounded-xl text-sm font-semibold hover:bg-blue-700 disabled:opacity-50 transition-colors"
+            >
+              {saving ? 'Guardando...' : 'Guardar'}
+            </button>
+          </div>
         </div>
-        <button
-          type="button"
-          onClick={handleDelete}
-          disabled={deleting}
-          className="px-4 py-2 border border-red-200 text-red-600 rounded-lg text-sm hover:bg-red-50 disabled:opacity-50"
-        >
-          {deleting ? 'Eliminando...' : '🗑️ Eliminar'}
-        </button>
       </div>
 
-      <form onSubmit={handleSubmit} className="bg-white rounded-xl border p-6 space-y-5">
-        {/* Image */}
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">Imagen</label>
-          <div className="flex gap-4 items-start">
-            {form.image_url ? (
-              <img src={form.image_url} alt="" className="w-24 h-24 rounded-lg object-cover border" />
-            ) : (
-              <div className="w-24 h-24 rounded-lg bg-gray-100 flex items-center justify-center text-3xl border">🍽️</div>
-            )}
-            <div>
-              <input type="file" accept="image/*" onChange={handleImageUpload} className="hidden" id="img-upload" />
-              <label
-                htmlFor="img-upload"
-                className="px-4 py-2 border rounded-lg text-sm cursor-pointer hover:bg-gray-50 block text-center"
-              >
-                {uploadingImage ? 'Subiendo...' : 'Cambiar imagen'}
+      <form id="product-form" onSubmit={handleSubmit}>
+        <div className="sm:max-w-2xl sm:mx-auto flex flex-col sm:flex-row gap-4 sm:gap-6 pb-28 sm:pb-8">
+
+          {/* Left: image */}
+          <div className="sm:w-56 flex-shrink-0">
+            <div className="bg-white sm:rounded-2xl sm:border overflow-hidden">
+              <label className="block cursor-pointer">
+                <input
+                  type="file"
+                  accept="image/*"
+                  capture="environment"
+                  onChange={handleImageUpload}
+                  className="hidden"
+                />
+                {form.image_url ? (
+                  <div className="relative">
+                    <img src={form.image_url} alt="" className="w-full aspect-square object-cover sm:rounded-2xl" />
+                    <div className="absolute inset-0 flex items-center justify-center bg-black/40 sm:rounded-2xl opacity-0 hover:opacity-100 transition-opacity">
+                      <span className="text-white text-sm font-semibold">Cambiar foto</span>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="w-full aspect-square bg-gray-50 flex flex-col items-center justify-center gap-2 sm:rounded-2xl sm:border-2 sm:border-dashed sm:border-gray-300 hover:sm:border-blue-400 transition-colors">
+                    {uploadingImage ? (
+                      <div className="w-8 h-8 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin" />
+                    ) : (
+                      <>
+                        <span className="text-5xl">📷</span>
+                        <span className="text-sm font-medium text-gray-400">Agregar foto</span>
+                      </>
+                    )}
+                  </div>
+                )}
               </label>
               {form.image_url && (
-                <button type="button" onClick={() => setForm(f => ({ ...f, image_url: '' }))} className="text-xs text-red-500 mt-1 block">
-                  Eliminar imagen
-                </button>
+                <div className="px-4 py-2">
+                  <button
+                    type="button"
+                    onClick={() => setForm(f => ({ ...f, image_url: '' }))}
+                    className="text-sm text-red-500 font-medium"
+                  >
+                    Eliminar foto
+                  </button>
+                </div>
               )}
             </div>
           </div>
-        </div>
 
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Nombre *</label>
-          <input
-            required
-            value={form.name}
-            onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
-            className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-            placeholder="Ej: Pizza Margherita"
-          />
-        </div>
+          {/* Right: fields */}
+          <div className="flex-1 space-y-3">
 
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Descripción</label>
-          <textarea
-            value={form.description}
-            onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
-            className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-            rows={3}
-            placeholder="Descripción del producto..."
-          />
-        </div>
+            <div className="bg-white sm:rounded-2xl sm:border divide-y">
+              <div className="px-4 py-4">
+                <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wide mb-1.5">Nombre *</label>
+                <input
+                  required
+                  value={form.name}
+                  onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
+                  className="w-full text-base sm:text-sm text-gray-900 focus:outline-none placeholder-gray-300 bg-transparent"
+                  placeholder="Nombre del producto"
+                />
+              </div>
 
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Precio *</label>
-            <div className="relative">
-              <span className="absolute left-3 top-2.5 text-gray-400">$</span>
-              <input
-                required
-                type="number"
-                min="0"
-                step="0.01"
-                value={form.price}
-                onChange={e => setForm(f => ({ ...f, price: e.target.value }))}
-                className="w-full pl-7 pr-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="0"
+              <div className="sm:grid sm:grid-cols-2 sm:divide-x divide-y sm:divide-y-0">
+                <div className="px-4 py-4">
+                  <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wide mb-1.5">Precio *</label>
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-gray-400 font-medium">$</span>
+                    <input
+                      required
+                      inputMode="decimal"
+                      value={form.price}
+                      onChange={e => setForm(f => ({ ...f, price: e.target.value }))}
+                      className="flex-1 text-xl sm:text-base font-bold text-gray-900 focus:outline-none placeholder-gray-200 bg-transparent"
+                      placeholder="0"
+                    />
+                  </div>
+                </div>
+
+                <div className="px-4 py-4">
+                  <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wide mb-1.5">Categoría</label>
+                  <select
+                    value={form.category_id}
+                    onChange={e => setForm(f => ({ ...f, category_id: e.target.value }))}
+                    className="w-full text-base sm:text-sm text-gray-900 focus:outline-none bg-transparent appearance-none"
+                  >
+                    <option value="">Sin categoría</option>
+                    {categories.map(cat => (
+                      <option key={cat.id} value={cat.id}>{cat.name}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div className="px-4 py-4">
+                <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wide mb-1.5">Descripción</label>
+                <textarea
+                  value={form.description}
+                  onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
+                  className="w-full text-base sm:text-sm text-gray-900 focus:outline-none placeholder-gray-300 resize-none bg-transparent"
+                  rows={3}
+                  placeholder="Ingredientes, alérgenos, especificaciones..."
+                />
+              </div>
+            </div>
+
+            <div className="bg-white sm:rounded-2xl sm:border divide-y">
+              <ToggleRow
+                label="Disponible"
+                description="Visible en el menú para los clientes"
+                checked={form.available}
+                onChange={v => setForm(f => ({ ...f, available: v }))}
+              />
+              <ToggleRow
+                label="Destacado"
+                description="Aparece en la sección de destacados"
+                checked={form.featured}
+                onChange={v => setForm(f => ({ ...f, featured: v }))}
               />
             </div>
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Categoría</label>
-            <select
-              value={form.category_id}
-              onChange={e => setForm(f => ({ ...f, category_id: e.target.value }))}
-              className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
-              <option value="">Sin categoría</option>
-              {categories.map(cat => (
-                <option key={cat.id} value={cat.id}>{cat.name}</option>
-              ))}
-            </select>
+
+            <div className="hidden sm:block">
+              <button
+                type="submit"
+                disabled={saving}
+                className="w-full py-3 bg-blue-600 text-white rounded-2xl font-bold text-sm hover:bg-blue-700 disabled:opacity-50 transition-colors"
+              >
+                {saving ? 'Guardando...' : 'Guardar Cambios'}
+              </button>
+            </div>
           </div>
         </div>
 
-        <div className="flex gap-6">
-          <label className="flex items-center gap-2 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={form.available}
-              onChange={e => setForm(f => ({ ...f, available: e.target.checked }))}
-              className="w-4 h-4 rounded"
-            />
-            <span className="text-sm font-medium text-gray-700">Disponible</span>
-          </label>
-          <label className="flex items-center gap-2 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={form.featured}
-              onChange={e => setForm(f => ({ ...f, featured: e.target.checked }))}
-              className="w-4 h-4 rounded"
-            />
-            <span className="text-sm font-medium text-gray-700">Destacado</span>
-          </label>
-        </div>
-
-        <div className="flex gap-3 pt-2">
+        {/* Mobile sticky save */}
+        <div className="sm:hidden fixed bottom-0 left-0 right-0 p-4 bg-white border-t">
           <button
             type="submit"
             disabled={saving}
-            className="px-6 py-2.5 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 disabled:bg-blue-300"
+            className="w-full py-4 bg-blue-600 text-white rounded-2xl font-bold text-base active:scale-95 disabled:opacity-50 transition-all"
           >
             {saving ? 'Guardando...' : 'Guardar Cambios'}
           </button>
-          <Link href={`/${tenantId}/admin/productos`} className="px-6 py-2.5 border rounded-lg text-sm hover:bg-gray-50">
-            Cancelar
-          </Link>
         </div>
       </form>
     </div>
+  )
+}
+
+function ToggleRow({ label, description, checked, onChange }: {
+  label: string; description: string; checked: boolean; onChange: (v: boolean) => void
+}) {
+  return (
+    <label className="flex items-center justify-between px-4 py-3.5 cursor-pointer hover:bg-gray-50 transition-colors">
+      <div>
+        <p className="font-medium text-gray-900 text-sm">{label}</p>
+        <p className="text-xs text-gray-400">{description}</p>
+      </div>
+      <button
+        type="button"
+        onClick={() => onChange(!checked)}
+        className={`w-11 h-6 rounded-full transition-all flex items-center flex-shrink-0 ml-4 ${checked ? 'bg-blue-500 justify-end' : 'bg-gray-200 justify-start'}`}
+      >
+        <span className="w-5 h-5 bg-white rounded-full shadow-sm mx-0.5" />
+      </button>
+    </label>
   )
 }

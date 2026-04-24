@@ -1,59 +1,31 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { createClient } from '@supabase/supabase-js';
+import { useParams } from 'next/navigation';
+import { createClient } from '@/lib/supabase/client';
 import { InventoryManager } from '@/components/admin/InventoryManager';
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
-
 export default function InventoryPage() {
-  const router = useRouter();
+  const { domain } = useParams() as { domain: string };
   const [tenantId, setTenantId] = useState<string>('');
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    async function getTenantId() {
-      try {
-        const {
-          data: { session },
-        } = await supabase.auth.getSession();
+    const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(domain)
+    const supabase = createClient()
+    supabase
+      .from('tenants')
+      .select('id')
+      .eq(isUUID ? 'id' : 'slug', domain)
+      .single()
+      .then(({ data }) => {
+        if (data) setTenantId(data.id)
+        setLoading(false)
+      })
+  }, [domain]);
 
-        if (!session) {
-          router.push('/login');
-          return;
-        }
-
-        const { data: tenant } = await supabase
-          .from('tenants')
-          .select('id')
-          .eq('owner_id', session.user.id)
-          .single();
-
-        if (tenant) {
-          setTenantId(tenant.id);
-        }
-      } catch (error) {
-        console.error('Error getting tenant:', error);
-        router.push('/login');
-      } finally {
-        setLoading(false);
-      }
-    }
-
-    getTenantId();
-  }, [router]);
-
-  if (loading) {
-    return <div className="flex items-center justify-center h-screen">Cargando...</div>;
-  }
-
-  if (!tenantId) {
-    return <div className="flex items-center justify-center h-screen">Error: No tenant found</div>;
-  }
+  if (loading) return <div className="flex items-center justify-center h-64 text-gray-400">Cargando...</div>;
+  if (!tenantId) return <div className="flex items-center justify-center h-64 text-gray-400">Error al cargar inventario</div>;
 
   return <InventoryManager tenantId={tenantId} />;
 }

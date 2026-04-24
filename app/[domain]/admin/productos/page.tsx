@@ -1,132 +1,231 @@
-import { createServiceClient } from '@/lib/supabase/server'
-import { getTenantIdFromSlug } from '@/lib/tenant'
-import Link from 'next/link'
+'use client'
 
-interface ProductosProps {
-  params: Promise<{ domain: string }>
+import { useState, useEffect, useCallback } from 'react'
+import { useParams } from 'next/navigation'
+import Link from 'next/link'
+import { createClient } from '@/lib/supabase/client'
+import toast from 'react-hot-toast'
+
+interface Category { id: string; name: string; sort_order: number }
+interface Product {
+  id: string
+  name: string
+  description: string | null
+  price: number
+  category_id: string | null
+  image_url: string | null
+  available: boolean
+  featured: boolean
 }
 
-export default async function ProductosPage({ params }: ProductosProps) {
-  const { domain: slug } = await params
-  const tenantId = await getTenantIdFromSlug(slug)
-  if (!tenantId) {
-    return <div className="p-8 text-center text-gray-500">Restaurante no encontrado</div>
+export default function ProductosPage() {
+  const { domain } = useParams() as { domain: string }
+  const [tenantId, setTenantId] = useState<string | null>(null)
+  const [categories, setCategories] = useState<Category[]>([])
+  const [products, setProducts] = useState<Product[]>([])
+  const [loading, setLoading] = useState(true)
+  const [togglingId, setTogglingId] = useState<string | null>(null)
+  const [search, setSearch] = useState('')
+
+  const supabase = createClient()
+
+  useEffect(() => {
+    const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(domain)
+    supabase
+      .from('tenants')
+      .select('id')
+      .eq(isUUID ? 'id' : 'slug', domain)
+      .single()
+      .then(({ data }) => { if (data) setTenantId(data.id) })
+  }, [domain])
+
+  const load = useCallback(async () => {
+    if (!tenantId) return
+    setLoading(true)
+    const [catRes, itemRes] = await Promise.all([
+      supabase.from('menu_categories').select('id, name, sort_order').eq('tenant_id', tenantId).order('sort_order'),
+      supabase.from('menu_items').select('id, name, description, price, category_id, image_url, available, featured').eq('tenant_id', tenantId).order('name'),
+    ])
+    setCategories(catRes.data || [])
+    setProducts(itemRes.data || [])
+    setLoading(false)
+  }, [tenantId])
+
+  useEffect(() => { load() }, [load])
+
+  const toggleAvailable = async (product: Product) => {
+    setTogglingId(product.id)
+    const { error } = await supabase
+      .from('menu_items')
+      .update({ available: !product.available })
+      .eq('id', product.id)
+    if (error) {
+      toast.error('Error al cambiar disponibilidad')
+    } else {
+      setProducts(p => p.map(x => x.id === product.id ? { ...x, available: !x.available } : x))
+    }
+    setTogglingId(null)
   }
-  const supabase = createServiceClient()
 
-  const [categoriesRes, itemsRes] = await Promise.all([
-    supabase.from('menu_categories').select('*').eq('tenant_id', tenantId).order('sort_order'),
-    supabase.from('menu_items').select('*, menu_categories(name)').eq('tenant_id', tenantId).order('created_at', { ascending: false }),
-  ])
+  const filtered = search.trim()
+    ? products.filter(p => p.name.toLowerCase().includes(search.toLowerCase()))
+    : products
 
-  const categories = categoriesRes.data || []
-  const items = itemsRes.data || []
+  const uncategorized = filtered.filter(p => !p.category_id)
 
   return (
-    <div>
-      <div className="flex items-center justify-between mb-8">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Productos</h1>
-          <p className="text-gray-500 text-sm mt-1">{items.length} productos en tu menú</p>
-        </div>
-        <div className="flex gap-3">
+    <div className="pb-24">
+      {/* Header */}
+      <div className="sticky top-0 z-10 bg-gray-50 px-4 pt-4 pb-3 border-b">
+        <div className="flex items-center justify-between mb-3">
+          <div>
+            <h1 className="text-xl font-bold text-gray-900">Productos</h1>
+            <p className="text-gray-400 text-xs">{products.length} en el menú</p>
+          </div>
           <Link
-            href={`/${tenantId}/admin/productos/nueva-categoria`}
-            className="px-4 py-2 border rounded-lg text-sm hover:bg-gray-50"
+            href={`/${domain}/admin/productos/nueva-categoria`}
+            className="px-3 py-1.5 border rounded-xl text-sm text-gray-600 hover:bg-gray-100"
           >
             + Categoría
           </Link>
-          <Link
-            href={`/${tenantId}/admin/productos/nuevo`}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700"
-          >
-            + Producto
-          </Link>
         </div>
+        <input
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+          placeholder="Buscar producto..."
+          className="w-full px-4 py-2.5 border rounded-xl bg-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+        />
       </div>
 
-      {items.length === 0 ? (
-        <div className="bg-white rounded-xl border p-12 text-center">
-          <p className="text-4xl mb-3">🍽️</p>
-          <h3 className="text-lg font-semibold mb-2">Sin productos aún</h3>
-          <p className="text-gray-500 mb-6">Agrega tus primeros productos al menú</p>
-          <Link href={`/${tenantId}/admin/productos/nuevo`} className="px-6 py-2 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700">
-            Agregar Producto
-          </Link>
-        </div>
-      ) : (
-        <div className="space-y-6">
-          {categories.length > 0 ? (
-            categories.map(cat => {
-              const catItems = items.filter(i => i.category_id === cat.id)
-              if (catItems.length === 0) return null
+      <div className="px-4 pt-4 space-y-6">
+        {loading ? (
+          <div className="flex justify-center py-16">
+            <div className="w-8 h-8 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin" />
+          </div>
+        ) : filtered.length === 0 ? (
+          <div className="text-center py-16">
+            <p className="text-4xl mb-3">🍽️</p>
+            <p className="font-semibold text-gray-700 mb-1">
+              {search ? 'Sin resultados' : 'Sin productos aún'}
+            </p>
+            <p className="text-gray-400 text-sm">
+              {search ? `No encontramos "${search}"` : 'Usa el botón + para agregar'}
+            </p>
+          </div>
+        ) : (
+          <>
+            {categories.map(cat => {
+              const catProducts = filtered.filter(p => p.category_id === cat.id)
+              if (catProducts.length === 0) return null
               return (
-                <div key={cat.id} className="bg-white rounded-xl border">
-                  <div className="px-5 py-3 border-b bg-gray-50 rounded-t-xl flex items-center justify-between">
-                    <h3 className="font-medium text-gray-700">{cat.name}</h3>
-                    <div className="flex items-center gap-3">
-                      <span className="text-sm text-gray-400">{catItems.length} productos</span>
-                      <Link
-                        href={`/${tenantId}/admin/productos/categoria/${cat.id}`}
-                        className="text-xs text-blue-600 hover:underline"
-                      >
-                        Editar
-                      </Link>
-                    </div>
-                  </div>
-                  <ProductList items={catItems} tenantId={tenantId} />
-                </div>
+                <CategoryGroup
+                  key={cat.id}
+                  name={cat.name}
+                  editHref={`/${domain}/admin/productos/categoria/${cat.id}`}
+                  products={catProducts}
+                  domain={domain}
+                  togglingId={togglingId}
+                  onToggle={toggleAvailable}
+                />
               )
-            })
-          ) : null}
+            })}
+            {uncategorized.length > 0 && (
+              <CategoryGroup
+                name="Sin categoría"
+                products={uncategorized}
+                domain={domain}
+                togglingId={togglingId}
+                onToggle={toggleAvailable}
+              />
+            )}
+          </>
+        )}
+      </div>
 
-          {/* Items without category */}
-          {(() => {
-            const uncategorized = items.filter(i => !i.category_id)
-            if (uncategorized.length === 0) return null
-            return (
-              <div className="bg-white rounded-xl border">
-                <div className="px-5 py-3 border-b bg-gray-50 rounded-t-xl">
-                  <h3 className="font-medium text-gray-700">Sin categoría</h3>
-                </div>
-                <ProductList items={uncategorized} tenantId={tenantId} />
-              </div>
-            )
-          })()}
-        </div>
-      )}
+      {/* FAB */}
+      <Link
+        href={`/${domain}/admin/productos/nuevo`}
+        className="fixed bottom-6 right-4 w-14 h-14 bg-blue-600 text-white rounded-2xl shadow-lg flex items-center justify-center text-2xl hover:bg-blue-700 active:scale-95 transition-all z-50"
+        aria-label="Nuevo producto"
+      >
+        +
+      </Link>
     </div>
   )
 }
 
-function ProductList({ items, tenantId }: { items: any[], tenantId: string }) {
+function CategoryGroup({
+  name, editHref, products, domain, togglingId, onToggle,
+}: {
+  name: string
+  editHref?: string
+  products: Product[]
+  domain: string
+  togglingId: string | null
+  onToggle: (p: Product) => void
+}) {
   return (
-    <div className="divide-y">
-      {items.map(item => (
-        <div key={item.id} className="flex items-center gap-4 p-4">
-          {item.image_url ? (
-            <img src={item.image_url} alt={item.name} className="w-12 h-12 rounded-lg object-cover" />
-          ) : (
-            <div className="w-12 h-12 rounded-lg bg-gray-100 flex items-center justify-center text-xl">🍽️</div>
+    <div>
+      <div className="flex items-center justify-between mb-2 px-1">
+        <span className="text-sm font-bold text-gray-700 uppercase tracking-wide">{name}</span>
+        <div className="flex items-center gap-3">
+          <span className="text-xs text-gray-400">{products.length}</span>
+          {editHref && (
+            <Link href={editHref} className="text-xs text-blue-600 font-medium">Editar</Link>
           )}
-          <div className="flex-1 min-w-0">
-            <p className="font-medium text-gray-900 truncate">{item.name}</p>
-            {item.description && <p className="text-sm text-gray-500 truncate">{item.description}</p>}
-          </div>
-          <div className="flex items-center gap-4">
-            <span className="font-semibold">${Number(item.price).toLocaleString('es-CO')}</span>
-            <span className={`px-2 py-1 rounded-full text-xs font-medium ${item.available ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
-              {item.available ? 'Activo' : 'Oculto'}
-            </span>
-            <Link
-              href={`/${tenantId}/admin/productos/${item.id}`}
-              className="text-sm text-blue-600 hover:underline"
-            >
-              Editar
-            </Link>
-          </div>
         </div>
-      ))}
+      </div>
+      <div className="bg-white rounded-2xl border divide-y overflow-hidden">
+        {products.map(product => (
+          <ProductRow
+            key={product.id}
+            product={product}
+            domain={domain}
+            toggling={togglingId === product.id}
+            onToggle={onToggle}
+          />
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function ProductRow({
+  product, domain, toggling, onToggle,
+}: {
+  product: Product
+  domain: string
+  toggling: boolean
+  onToggle: (p: Product) => void
+}) {
+  return (
+    <div className="flex items-center gap-3 p-3">
+      {/* Image */}
+      <Link href={`/${domain}/admin/productos/${product.id}`} className="flex-shrink-0">
+        {product.image_url ? (
+          <img src={product.image_url} alt={product.name} className="w-14 h-14 rounded-xl object-cover" />
+        ) : (
+          <div className="w-14 h-14 rounded-xl bg-gray-100 flex items-center justify-center text-2xl">🍽️</div>
+        )}
+      </Link>
+
+      {/* Info */}
+      <Link href={`/${domain}/admin/productos/${product.id}`} className="flex-1 min-w-0">
+        <p className="font-semibold text-gray-900 truncate">{product.name}</p>
+        <p className="text-sm text-blue-600 font-medium">${Number(product.price).toLocaleString('es-CO')}</p>
+        {product.featured && <span className="text-[10px] text-amber-600 font-semibold">⭐ Destacado</span>}
+      </Link>
+
+      {/* Toggle disponible */}
+      <button
+        onClick={() => onToggle(product)}
+        disabled={toggling}
+        className={`w-12 h-7 rounded-full transition-all flex items-center flex-shrink-0 ${
+          product.available ? 'bg-green-500 justify-end' : 'bg-gray-300 justify-start'
+        } ${toggling ? 'opacity-50' : ''}`}
+      >
+        <span className="w-6 h-6 bg-white rounded-full shadow-sm mx-0.5" />
+      </button>
     </div>
   )
 }
