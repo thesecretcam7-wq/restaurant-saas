@@ -64,7 +64,15 @@ export default async function ProductosPage({ params }: ProductosProps) {
                 <div key={cat.id} className="bg-white rounded-xl border">
                   <div className="px-5 py-3 border-b bg-gray-50 rounded-t-xl flex items-center justify-between">
                     <h3 className="font-medium text-gray-700">{cat.name}</h3>
-                    <span className="text-sm text-gray-400">{catItems.length} productos</span>
+                    <div className="flex items-center gap-3">
+                      <span className="text-sm text-gray-400">{catItems.length} productos</span>
+                      <Link
+                        href={`/${tenantId}/admin/productos/categoria/${cat.id}`}
+                        className="text-xs text-blue-600 hover:underline"
+                      >
+                        Editar
+                      </Link>
+                    </div>
                   </div>
                   <ProductList items={catItems} tenantId={tenantId} />
                 </div>
