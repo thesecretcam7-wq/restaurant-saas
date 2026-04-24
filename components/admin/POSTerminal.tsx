@@ -75,6 +75,12 @@ interface TableGroup {
   allItems: { name: string; qty: number; price: number; item_id?: string }[];
 }
 
+interface RestaurantTable {
+  id: string;
+  number: number;
+  name?: string;
+}
+
 // ─── Timer Hook ───────────────────────────────────────────────────────────────
 function useElapsedMinutes(createdAt: string): number {
   const [minutes, setMinutes] = useState(() =>
@@ -294,8 +300,15 @@ export function POSTerminal({ tenantId, country = 'CO' }: { tenantId: string; co
   const [expandedTable, setExpandedTable] = useState<number | null>(null);
   const [tip, setTip] = useState(0);
   const [mesasView, setMesasView] = useState<'list' | 'map'>('map');
+  const [allTables, setAllTables] = useState<RestaurantTable[]>([]);
+  const [orderNotification, setOrderNotification] = useState<{
+    tableNumber: number | null;
+    waiter: string | null;
+    items: string[];
+  } | null>(null);
   const audioCtxRef = useRef<AudioContext | null>(null);
   const knownOrderIds = useRef(new Set<string>());
+  const notificationTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Initialize audio and play sound
   const initAudio = useCallback(() => {
@@ -332,6 +345,7 @@ export function POSTerminal({ tenantId, country = 'CO' }: { tenantId: string; co
   useEffect(() => {
     fetchMenuData();
     restoreCart();
+    fetchAllTables();
   }, [tenantId]);
 
   // Listen for fullscreen changes
@@ -516,6 +530,14 @@ export function POSTerminal({ tenantId, country = 'CO' }: { tenantId: string; co
             playNewOrderSound();
             setShowDineInPanel(true);
             await fetchDineInOrders();
+            const items: any[] = (newOrder as any).items || [];
+            setOrderNotification({
+              tableNumber: (newOrder as any).table_number ?? null,
+              waiter: (newOrder as any).waiter_name ?? null,
+              items: items.map((i: any) => `${i.qty ?? i.quantity ?? 1}× ${i.name}`),
+            });
+            if (notificationTimerRef.current) clearTimeout(notificationTimerRef.current);
+            notificationTimerRef.current = setTimeout(() => setOrderNotification(null), 6000);
           }
         }
       )
@@ -548,6 +570,15 @@ export function POSTerminal({ tenantId, country = 'CO' }: { tenantId: string; co
     } catch (error) {
       console.error('Error fetching incoming orders:', error);
     }
+  }
+
+  async function fetchAllTables() {
+    const { data } = await supabase
+      .from('tables')
+      .select('id, number, name')
+      .eq('tenant_id', tenantId)
+      .order('number', { ascending: true });
+    if (data) setAllTables(data as RestaurantTable[]);
   }
 
   async function fetchDineInOrders() {
@@ -1077,6 +1108,59 @@ export function POSTerminal({ tenantId, country = 'CO' }: { tenantId: string; co
               })}
             </div>
           </div>
+
+          {/* Tables Bottom Strip */}
+          {allTables.length > 0 && (
+            <div className="border-t border-gray-800 bg-gray-950 px-3 py-2 shrink-0">
+              <p className="text-gray-600 text-xs font-bold mb-2 tracking-wider uppercase">Mesas</p>
+              <div className="flex gap-2 overflow-x-auto scrollbar-none pb-1">
+                {allTables.map(table => {
+                  const group = tableGroups.find(g => g.tableNumber === table.number);
+                  const minutes = group
+                    ? Math.floor((Date.now() - new Date(group.oldestOrder.created_at).getTime()) / 60000)
+                    : 0;
+                  const isSelected = selectedTableNumber === table.number && !group;
+                  return (
+                    <button
+                      key={table.id}
+                      onClick={() => {
+                        if (group) {
+                          loadTableToCart(group.orders);
+                        } else {
+                          setSelectedTableId(table.id);
+                          setSelectedTableNumber(table.number);
+                          setPosMode('table');
+                        }
+                      }}
+                      className={`shrink-0 flex flex-col items-center justify-center rounded-xl px-3 py-2 min-w-[58px] border-2 transition-all duration-200 active:scale-95 ${
+                        group
+                          ? `${getUrgencyBorder(minutes)} bg-gray-800 hover:bg-gray-700`
+                          : isSelected
+                          ? 'border-blue-500 bg-blue-900/30'
+                          : 'border-gray-700 bg-gray-800/40 hover:bg-gray-800'
+                      }`}
+                    >
+                      <span className={`font-black text-sm leading-tight ${group ? 'text-white' : isSelected ? 'text-blue-300' : 'text-gray-400'}`}>
+                        {table.number}
+                      </span>
+                      {group ? (
+                        <>
+                          <span className={`text-xs font-bold ${getTimerColor(minutes)}`}>{minutes}m</span>
+                          <span className="text-xs text-emerald-400 font-bold tabular-nums leading-tight">
+                            {formatPriceWithCurrency(group.totalAmount, currencyInfo.code, currencyInfo.locale)}
+                          </span>
+                        </>
+                      ) : (
+                        <span className={`text-xs mt-0.5 ${isSelected ? 'text-blue-400' : 'text-gray-600'}`}>
+                          {isSelected ? '✓ Sel.' : 'Libre'}
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Cart/Payment Section */}
@@ -1347,6 +1431,35 @@ export function POSTerminal({ tenantId, country = 'CO' }: { tenantId: string; co
           )}
         </div>
       </div>
+
+      {/* New Order Notification */}
+      {orderNotification && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 bg-gray-900 border-2 border-emerald-500 rounded-2xl shadow-2xl shadow-emerald-900/40 px-5 py-4 flex items-start gap-3 max-w-sm w-full">
+          <div className="bg-emerald-500/20 rounded-xl p-2 shrink-0">
+            <UtensilsCrossed className="w-5 h-5 text-emerald-400" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-white font-black text-sm">
+              🔔 Nueva comanda{orderNotification.tableNumber ? ` — Mesa ${orderNotification.tableNumber}` : ''}
+            </p>
+            {orderNotification.waiter && (
+              <p className="text-emerald-400 text-xs mt-0.5">Mesero: {orderNotification.waiter}</p>
+            )}
+            <div className="mt-1.5 space-y-0.5">
+              {orderNotification.items.slice(0, 5).map((item, i) => (
+                <p key={i} className="text-gray-300 text-xs">{item}</p>
+              ))}
+              {orderNotification.items.length > 5 && (
+                <p className="text-gray-500 text-xs">+{orderNotification.items.length - 5} más...</p>
+              )}
+            </div>
+          </div>
+          <button
+            onClick={() => setOrderNotification(null)}
+            className="text-gray-500 hover:text-white text-lg leading-none shrink-0 mt-0.5 transition-colors"
+          >✕</button>
+        </div>
+      )}
 
       {/* Toast Notifications */}
       {toast && (
