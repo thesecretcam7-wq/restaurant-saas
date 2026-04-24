@@ -340,7 +340,6 @@ export function POSTerminal({ tenantId, country = 'CO' }: { tenantId: string; co
   const [pendingPaymentData, setPendingPaymentData] = useState<{
     amountPaid?: number;
   } | null>(null);
-  const [enableReceiptPrint, setEnableReceiptPrint] = useState(true);
   const [paymentResetKey, setPaymentResetKey] = useState(0);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -850,13 +849,6 @@ export function POSTerminal({ tenantId, country = 'CO' }: { tenantId: string; co
 
     if (selectedTableId && !selectedStaffId) {
       setToast({ message: 'Por favor selecciona el camarero', type: 'error' });
-      return;
-    }
-
-    // If print receipt is disabled, process directly
-    if (!enableReceiptPrint) {
-      setPendingPaymentData({ amountPaid });
-      processPaymentAfterReceipt();
       return;
     }
 
@@ -1434,19 +1426,6 @@ export function POSTerminal({ tenantId, country = 'CO' }: { tenantId: string; co
               <span className="text-green-400 text-lg">{formatPriceWithCurrency(total, currencyInfo.code, currencyInfo.locale)}</span>
             </div>
 
-            {/* Print Receipt Toggle */}
-            <div className="pt-2 border-t border-border flex items-center gap-2">
-              <input
-                type="checkbox"
-                id="printReceipt"
-                checked={enableReceiptPrint}
-                onChange={(e) => setEnableReceiptPrint(e.target.checked)}
-                className="w-3 h-3 rounded bg-gray-700 border-border cursor-pointer"
-              />
-              <label htmlFor="printReceipt" className="text-xs text-muted-foreground cursor-pointer flex-1">
-                Imprimir recibo
-              </label>
-            </div>
           </div>
 
           {/* Mesa indicator + staff selector */}
