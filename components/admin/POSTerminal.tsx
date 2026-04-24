@@ -1387,6 +1387,48 @@ export function POSTerminal({ tenantId, country = 'CO' }: { tenantId: string; co
             </div>
           )}
 
+          {/* Cart Items List */}
+          <div className="flex-1 overflow-y-auto min-h-0">
+            {cart.length === 0 ? (
+              <div className="flex flex-col items-center justify-center h-full text-gray-600 py-8">
+                <ShoppingCart className="w-8 h-8 mb-2 opacity-30" />
+                <p className="text-xs">Carrito vacío</p>
+              </div>
+            ) : (
+              <div className="p-2 space-y-1">
+                {cart.map((item) => (
+                  <div key={item.menu_item_id} className="flex items-center gap-2 bg-gray-800/60 rounded-lg px-2 py-1.5 border border-gray-700/50">
+                    <div className="flex-1 min-w-0">
+                      <p className="text-white text-xs font-semibold truncate">{item.name}</p>
+                      <p className="text-green-400 text-xs font-bold">{formatPriceWithCurrency(item.price * item.quantity, currencyInfo.code, currencyInfo.locale)}</p>
+                    </div>
+                    <div className="flex items-center gap-1 shrink-0">
+                      <button
+                        onClick={() => updateQuantity(item.menu_item_id, item.quantity - 1)}
+                        className="w-6 h-6 rounded bg-gray-700 hover:bg-gray-600 text-white font-black text-sm flex items-center justify-center transition active:scale-90"
+                      >
+                        −
+                      </button>
+                      <span className="text-white font-bold text-xs w-5 text-center">{item.quantity}</span>
+                      <button
+                        onClick={() => updateQuantity(item.menu_item_id, item.quantity + 1)}
+                        className="w-6 h-6 rounded bg-gray-700 hover:bg-gray-600 text-white font-black text-sm flex items-center justify-center transition active:scale-90"
+                      >
+                        +
+                      </button>
+                      <button
+                        onClick={() => removeFromCart(item.menu_item_id)}
+                        className="w-6 h-6 rounded bg-red-900/60 hover:bg-red-700 text-red-400 hover:text-white font-black text-xs flex items-center justify-center transition active:scale-90 ml-0.5"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
           {/* Discount Code */}
               <div className={`border-b border-border ${isFullscreen ? 'px-2 py-1' : 'px-2 py-1'} space-y-1 text-xs`}>
             <div className="flex gap-1">
