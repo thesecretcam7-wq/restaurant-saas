@@ -105,7 +105,7 @@ export default function NuevoProductoPage({ params }: Props) {
 
           {/* Left column: image */}
           <div className="sm:w-56 flex-shrink-0">
-            <div className="bg-white sm:rounded-2xl sm:border overflow-hidden">
+            <div className="bg-white sm:rounded-xl sm:border overflow-hidden">
               <label className="block cursor-pointer">
                 <input
                   type="file"
@@ -116,13 +116,13 @@ export default function NuevoProductoPage({ params }: Props) {
                 />
                 {form.image_url ? (
                   <div className="relative">
-                    <img src={form.image_url} alt="" className="w-full aspect-square object-cover sm:rounded-2xl" />
-                    <div className="absolute inset-0 flex items-center justify-center bg-black/40 sm:rounded-2xl opacity-0 hover:opacity-100 transition-opacity">
+                    <img src={form.image_url} alt="" className="w-full aspect-square object-cover sm:rounded-xl" />
+                    <div className="absolute inset-0 flex items-center justify-center bg-black/40 sm:rounded-xl opacity-0 hover:opacity-100 transition-opacity">
                       <span className="text-white text-sm font-semibold">Cambiar foto</span>
                     </div>
                   </div>
                 ) : (
-                  <div className="w-full aspect-square bg-gray-50 flex flex-col items-center justify-center gap-2 sm:rounded-2xl sm:border-2 sm:border-dashed sm:border-gray-300 hover:sm:border-blue-400 transition-colors">
+                  <div className="w-full aspect-square bg-gray-50 flex flex-col items-center justify-center gap-2 sm:rounded-xl sm:border-2 sm:border-dashed sm:border-gray-300 hover:sm:border-blue-400 transition-colors">
                     {uploadingImage ? (
                       <div className="w-8 h-8 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin" />
                     ) : (
@@ -153,7 +153,7 @@ export default function NuevoProductoPage({ params }: Props) {
           <div className="flex-1 space-y-3 px-0">
 
             {/* Main info card */}
-            <div className="bg-white sm:rounded-2xl sm:border divide-y">
+            <div className="bg-white sm:rounded-xl sm:border divide-y">
               {/* Name */}
               <div className="px-4 py-4">
                 <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wide mb-1.5">
@@ -221,7 +221,7 @@ export default function NuevoProductoPage({ params }: Props) {
             </div>
 
             {/* Toggles card */}
-            <div className="bg-white sm:rounded-2xl sm:border divide-y">
+            <div className="bg-white sm:rounded-xl sm:border divide-y">
               <ToggleRow
                 label="Disponible"
                 description="Visible en el menú para los clientes"

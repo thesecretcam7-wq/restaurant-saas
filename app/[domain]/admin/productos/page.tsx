@@ -76,15 +76,15 @@ export default function ProductosPage() {
   return (
     <div className="pb-24">
       {/* Header */}
-      <div className="sticky top-0 z-10 bg-gray-50 px-4 pt-4 pb-3 border-b">
-        <div className="flex items-center justify-between mb-3">
+      <div className="px-4 pt-4 sm:px-0 sm:pt-0">
+        <div className="flex items-center justify-between mb-4 sm:mb-6">
           <div>
-            <h1 className="text-xl font-bold text-gray-900">Productos</h1>
-            <p className="text-gray-400 text-xs">{products.length} en el menú</p>
+            <h1 className="text-2xl font-bold text-gray-900">Productos</h1>
+            <p className="text-gray-500 text-sm mt-1">{products.length} en el menú</p>
           </div>
           <Link
             href={`/${domain}/admin/productos/nueva-categoria`}
-            className="px-3 py-1.5 border rounded-xl text-sm text-gray-600 hover:bg-gray-100"
+            className="px-4 py-2 border rounded-lg text-sm text-gray-600 hover:bg-gray-50 font-medium"
           >
             + Categoría
           </Link>
@@ -93,11 +93,11 @@ export default function ProductosPage() {
           value={search}
           onChange={e => setSearch(e.target.value)}
           placeholder="Buscar producto..."
-          className="w-full px-4 py-2.5 border rounded-xl bg-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="w-full px-4 py-2.5 border rounded-lg bg-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 mb-4 sm:mb-6"
         />
       </div>
 
-      <div className="px-4 pt-4 space-y-6">
+      <div className="px-4 sm:px-0 space-y-6">
         {loading ? (
           <div className="flex justify-center py-16">
             <div className="w-8 h-8 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin" />
@@ -145,7 +145,7 @@ export default function ProductosPage() {
       {/* FAB */}
       <Link
         href={`/${domain}/admin/productos/nuevo`}
-        className="fixed bottom-6 right-4 w-14 h-14 bg-blue-600 text-white rounded-2xl shadow-lg flex items-center justify-center text-2xl hover:bg-blue-700 active:scale-95 transition-all z-50"
+        className="fixed bottom-6 right-4 w-14 h-14 bg-blue-600 text-white rounded-xl shadow-lg flex items-center justify-center text-2xl hover:bg-blue-700 active:scale-95 transition-all z-50"
         aria-label="Nuevo producto"
       >
         +
@@ -175,7 +175,7 @@ function CategoryGroup({
           )}
         </div>
       </div>
-      <div className="bg-white rounded-2xl border divide-y overflow-hidden">
+      <div className="bg-white rounded-xl border divide-y overflow-hidden">
         {products.map(product => (
           <ProductRow
             key={product.id}
