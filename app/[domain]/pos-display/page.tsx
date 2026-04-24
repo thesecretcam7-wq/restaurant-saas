@@ -37,13 +37,11 @@ export default function CustomerDisplayPage() {
     ), []
   );
 
-  // Clock
   useEffect(() => {
     const t = setInterval(() => setTime(new Date()), 1000);
     return () => clearInterval(t);
   }, []);
 
-  // Real-time cart subscription
   useEffect(() => {
     if (!tenantId) return;
 
@@ -83,7 +81,6 @@ export default function CustomerDisplayPage() {
 
   return (
     <div className="min-h-screen bg-gray-950 text-white flex flex-col select-none">
-      {/* Header */}
       <div className="bg-gradient-to-r from-blue-700 to-indigo-700 px-8 py-4 flex items-center justify-between shadow-xl">
         <div className="flex items-center gap-3">
           <div className="bg-white/10 rounded-xl p-2 border border-white/20">
@@ -97,18 +94,15 @@ export default function CustomerDisplayPage() {
       </div>
 
       {!hasItems ? (
-        /* Welcome screen */
         <div className="flex-1 flex flex-col items-center justify-center gap-6">
           <div className="text-8xl mb-2">🍽️</div>
           <h1 className="text-4xl font-black text-white tracking-wide">¡Bienvenido!</h1>
           <p className="text-gray-400 text-xl">Estamos preparando su pedido</p>
         </div>
       ) : (
-        /* Active cart */
         <div className="flex-1 flex flex-col max-w-2xl mx-auto w-full px-8 py-8 gap-6">
           <h2 className="text-2xl font-black text-white">Su pedido</h2>
 
-          {/* Items list */}
           <div className="flex-1 space-y-3">
             {cart!.items.map((item, i) => (
               <div
@@ -128,7 +122,6 @@ export default function CustomerDisplayPage() {
             ))}
           </div>
 
-          {/* Totals */}
           <div className="bg-gray-900 border border-gray-700 rounded-2xl p-6 space-y-3">
             {cart!.discount > 0 && (
               <div className="flex justify-between text-gray-400 text-base">
