@@ -136,7 +136,11 @@ async function printViaWebUSB(printer: PrinterDevice, data: Uint8Array): Promise
       await device.open();
     }
 
-    // Find OUT endpoint
+    // Select configuration if not already selected
+    if (!device.configuration) {
+      await device.selectConfiguration(1);
+    }
+
     const configuration = device.configuration;
     if (!configuration) {
       throw new Error('Device configuration not available');
@@ -145,6 +149,13 @@ async function printViaWebUSB(printer: PrinterDevice, data: Uint8Array): Promise
     const interfaceData = configuration.interfaces[0];
     if (!interfaceData) {
       throw new Error('No interface found on device');
+    }
+
+    // Claim interface before transferOut (required by WebUSB spec)
+    try {
+      await device.claimInterface(interfaceData.interfaceNumber);
+    } catch {
+      // May already be claimed from previous print — continue
     }
 
     const alternate = interfaceData.alternates[0];

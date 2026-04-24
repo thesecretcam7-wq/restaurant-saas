@@ -975,6 +975,11 @@ export function POSTerminal({ tenantId, country = 'CO' }: { tenantId: string; co
       setPaymentMethod('cash');
       setSelectedCategory(null);
       setSearchQuery('');
+      setSelectedTableId(null);
+      setSelectedTableNumber(null);
+      setSelectedStaffId(null);
+      setSelectedStaffName('');
+      setPosMode('simple');
 
       // Clear localStorage
       if (typeof window !== 'undefined') {
