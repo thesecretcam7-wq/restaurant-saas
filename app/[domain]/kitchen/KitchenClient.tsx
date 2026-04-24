@@ -32,6 +32,7 @@ export function KitchenClient({ tenantId, tenantName }: Props) {
   const [editingNote, setEditingNote] = useState<string | null>(null);
   const [noteText, setNoteText] = useState('');
   const [cartOpen, setCartOpen] = useState(false);
+  const [csrfToken, setCsrfToken] = useState('');
 
   useEffect(() => {
     // Auto-fill waiter name from login session
@@ -39,6 +40,11 @@ export function KitchenClient({ tenantId, tenantName }: Props) {
       const name = sessionStorage.getItem('staff_name');
       if (name) setWaiterName(name);
     } catch {}
+
+    // Fetch CSRF token for POST requests
+    fetch('/api/csrf-token')
+      .then(r => { const t = r.headers.get('x-csrf-token'); if (t) setCsrfToken(t); })
+      .catch(() => {});
 
     async function load() {
       const [{ data: cats }, { data: items }] = await Promise.all([
@@ -83,7 +89,7 @@ export function KitchenClient({ tenantId, tenantName }: Props) {
     try {
       const orderRes = await fetch('/api/orders', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'x-csrf-token': csrfToken },
         body: JSON.stringify({
           tenantId,
           items: cart.map(c => ({ item_id: c.menu_item_id, name: c.name, qty: c.quantity, price: c.price })),
