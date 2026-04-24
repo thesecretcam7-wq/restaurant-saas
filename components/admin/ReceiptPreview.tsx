@@ -76,8 +76,9 @@ export function ReceiptPreview({
 
       doc.open();
       doc.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><style>
+        @page{size:80mm auto;margin:0}
         *{margin:0;padding:0;box-sizing:border-box}
-        body{font-family:'Courier New',Courier,monospace;font-size:12px;width:80mm;color:#000}
+        body{font-family:'Courier New',Courier,monospace;font-size:12px;width:80mm;color:#000;padding:2mm}
         .flex{display:flex}.justify-between{justify-content:space-between}
         .text-center{text-align:center}.text-right{text-align:right}
         .font-bold{font-weight:bold}.flex-1{flex:1}
@@ -86,12 +87,14 @@ export function ReceiptPreview({
         .py-2{padding:8px 0}.px-2{padding:0 8px}
         .mb-1{margin-bottom:4px}.mt-2{margin-top:8px}
         .pt-1{padding-top:4px}.pb-1{padding-bottom:4px}
-        .w-8{width:32px}.w-12{width:48px}.w-16{width:64px}
+        .w-8{width:32px}.w-12{width:48px}.w-16{width:64px}.w-80{width:100%}
         .text-xs{font-size:11px}.text-sm{font-size:13px}
         .truncate{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
         .italic{font-style:italic}
         .text-gray-600{color:#555}.text-green-600{color:#166534}
+        .text-yellow-600{color:#b45309}
         img{max-height:48px;display:block;margin:0 auto 8px}
+        .p-0{padding:0}
       </style></head><body>${receiptEl.innerHTML}</body></html>`);
       doc.close();
 
