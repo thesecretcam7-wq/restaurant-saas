@@ -14,8 +14,8 @@ export async function GET(request: NextRequest) {
 
     // Obtener camareros activos del turno actual
     const { data: staff, error } = await supabase
-      .from('staff')
-      .select('id, name, role, position')
+      .from('staff_members')
+      .select('id, name, role')
       .eq('tenant_id', tenantId)
       .eq('is_active', true)
       .order('name', { ascending: true });
