@@ -863,42 +863,52 @@ export function POSTerminal({ tenantId, country = 'CO' }: { tenantId: string; co
     try {
       setProcessingPayment(true);
 
-      // Format items to match API expectations (qty instead of quantity)
-      const formattedItems = cart.map(item => ({
-        menu_item_id: item.menu_item_id,
-        name: item.name,
-        price: item.price,
-        qty: item.quantity,
-        notes: item.notes || null,
-      }));
+      if (billingOrderIds.length > 0) {
+        // Billing existing table orders — mark as paid, no new order created
+        await supabase
+          .from('orders')
+          .update({ payment_status: 'paid', status: 'delivered' })
+          .in('id', billingOrderIds);
+        setBillingOrderIds([]);
+        await fetchDineInOrders();
+      } else {
+        // New POS order — create via API
+        const formattedItems = cart.map(item => ({
+          menu_item_id: item.menu_item_id,
+          name: item.name,
+          price: item.price,
+          qty: item.quantity,
+          notes: item.notes || null,
+        }));
 
-      const response = await fetch('/api/orders', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'x-csrf-token': csrfTokenRef.current },
-        credentials: 'include',
-        body: JSON.stringify({
-          tenantId,
-          customerInfo: {
-            name: 'POS Counter',
-            email: null,
-            phone: 'N/A',
-          },
-          items: formattedItems,
-          paymentMethod,
-          deliveryType: selectedTableId ? 'dine-in' : 'pickup',
-          waiter_id: selectedStaffId || null,
-          waiterName: selectedStaffName || null,
-          table_id: selectedTableId || null,
-          tableNumber: selectedTableNumber || null,
-          tip: tip > 0 ? tip : null,
-          notes: discount > 0 ? `Descuento: $${discount.toFixed(2)}` : null,
-          amountPaid: paymentMethod === 'cash' ? pendingPaymentData?.amountPaid : null,
-        }),
-      });
+        const response = await fetch('/api/orders', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'x-csrf-token': csrfTokenRef.current },
+          credentials: 'include',
+          body: JSON.stringify({
+            tenantId,
+            customerInfo: {
+              name: 'POS Counter',
+              email: null,
+              phone: 'N/A',
+            },
+            items: formattedItems,
+            paymentMethod,
+            deliveryType: selectedTableId ? 'dine-in' : 'pickup',
+            waiter_id: selectedStaffId || null,
+            waiterName: selectedStaffName || null,
+            table_id: selectedTableId || null,
+            tableNumber: selectedTableNumber || null,
+            tip: tip > 0 ? tip : null,
+            notes: discount > 0 ? `Descuento: $${discount.toFixed(2)}` : null,
+            amountPaid: paymentMethod === 'cash' ? pendingPaymentData?.amountPaid : null,
+          }),
+        });
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to process order');
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || 'Failed to process order');
+        }
       }
 
       // Open cash drawer on cash payments (best-effort)
@@ -908,16 +918,6 @@ export function POSTerminal({ tenantId, country = 'CO' }: { tenantId: string; co
 
       // Mark cart as abandoned in Supabase
       await abandonCart(tenantId, supabase);
-
-      // Mark all billed table orders as paid
-      if (billingOrderIds.length > 0) {
-        await supabase
-          .from('orders')
-          .update({ payment_status: 'paid', status: 'delivered' })
-          .in('id', billingOrderIds);
-        setBillingOrderIds([]);
-        await fetchDineInOrders();
-      }
 
       // Attempt to print receipt if printer is configured
       let settings: any = null;
