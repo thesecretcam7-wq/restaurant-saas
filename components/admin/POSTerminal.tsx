@@ -1254,49 +1254,55 @@ export function POSTerminal({ tenantId, country = 'CO' }: { tenantId: string; co
 
         {/* Cart/Payment Section */}
         <div className={`${isFullscreen ? 'w-80' : 'w-80'} bg-gradient-to-b from-gray-900 to-gray-950 border-l border-gray-800 flex flex-col overflow-hidden shadow-xl`}>
-          {/* Tabs: Cart vs Incoming Orders */}
-          <div className={`border-b border-gray-800 flex gap-0 bg-gray-950/50 backdrop-blur-sm ${isFullscreen ? 'px-0 py-0' : 'px-0 py-0'}`}>
+          {/* Tabs: Cart / Entregas / Salón */}
+          <div className="border-b border-gray-800 flex bg-gray-950/50 backdrop-blur-sm">
             <button
               onClick={() => { setShowIncomingPanel(false); setShowDineInPanel(false); }}
-              className={`flex-1 flex items-center justify-center gap-2 py-3 px-2 border-b-2 transition text-xs font-bold tracking-wide ${
+              className={`flex-1 flex flex-col items-center justify-center gap-0.5 py-2 border-b-2 transition relative ${
                 !showIncomingPanel && !showDineInPanel
                   ? 'border-blue-600 bg-blue-600/20 text-white'
-                  : 'border-transparent bg-transparent text-gray-400 hover:text-gray-300'
+                  : 'border-transparent text-gray-400 hover:text-gray-300'
               }`}
             >
-              <ShoppingCart className="w-4 h-4" />
-              <span>Carrito</span>
-              <span className="ml-auto bg-blue-600 text-white rounded-full px-2 py-0.5 text-xs font-bold">{cart.length}</span>
+              <div className="relative">
+                <ShoppingCart className="w-4 h-4" />
+                {cart.length > 0 && (
+                  <span className="absolute -top-1.5 -right-2 bg-blue-600 text-white rounded-full w-4 h-4 text-[9px] font-black flex items-center justify-center">{cart.length}</span>
+                )}
+              </div>
+              <span className="text-[10px] font-bold">Carrito</span>
             </button>
             <button
               onClick={() => { setShowIncomingPanel(true); setShowDineInPanel(false); }}
-              className={`flex-1 flex items-center justify-center gap-2 py-3 px-2 border-b-2 transition text-xs font-bold tracking-wide relative ${
+              className={`flex-1 flex flex-col items-center justify-center gap-0.5 py-2 border-b-2 transition relative ${
                 showIncomingPanel && !showDineInPanel
                   ? 'border-blue-600 bg-blue-600/20 text-white'
-                  : 'border-transparent bg-transparent text-gray-400 hover:text-gray-300'
+                  : 'border-transparent text-gray-400 hover:text-gray-300'
               }`}
             >
-              <Truck className="w-4 h-4" />
-              <span>Entregas</span>
-              <span className="ml-auto bg-blue-600 text-white rounded-full px-2 py-0.5 text-xs font-bold">{incomingOrders.length}</span>
-              {incomingOrders.length > 0 && (
-                <span className="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full animate-pulse" />
-              )}
+              <div className="relative">
+                <Truck className="w-4 h-4" />
+                {incomingOrders.length > 0 && (
+                  <span className="absolute -top-1.5 -right-2 bg-red-500 text-white rounded-full w-4 h-4 text-[9px] font-black flex items-center justify-center animate-pulse">{incomingOrders.length}</span>
+                )}
+              </div>
+              <span className="text-[10px] font-bold">Entregas</span>
             </button>
             <button
               onClick={() => { setShowDineInPanel(true); setShowIncomingPanel(false); }}
-              className={`flex-1 flex items-center justify-center gap-2 py-3 px-2 border-b-2 transition text-xs font-bold tracking-wide relative ${
+              className={`flex-1 flex flex-col items-center justify-center gap-0.5 py-2 border-b-2 transition relative ${
                 showDineInPanel
                   ? 'border-emerald-500 bg-emerald-500/20 text-white'
-                  : 'border-transparent bg-transparent text-gray-400 hover:text-gray-300'
+                  : 'border-transparent text-gray-400 hover:text-gray-300'
               }`}
             >
-              <UtensilsCrossed className="w-4 h-4" />
-              <span>Salón</span>
-              <span className="ml-auto bg-emerald-600 text-white rounded-full px-2 py-0.5 text-xs font-bold">{dineInOrders.length}</span>
-              {dineInOrders.length > 0 && (
-                <span className="absolute top-2 right-2 w-2 h-2 bg-emerald-400 rounded-full animate-pulse" />
-              )}
+              <div className="relative">
+                <UtensilsCrossed className="w-4 h-4" />
+                {dineInOrders.length > 0 && (
+                  <span className="absolute -top-1.5 -right-2 bg-emerald-500 text-white rounded-full w-4 h-4 text-[9px] font-black flex items-center justify-center">{dineInOrders.length}</span>
+                )}
+              </div>
+              <span className="text-[10px] font-bold">Salón</span>
             </button>
           </div>
 
