@@ -110,7 +110,7 @@ export default function MeseroConfigPage() {
           <div className="text-sm text-blue-800">
             <p className="font-semibold mb-1">¿Cómo funciona?</p>
             <ul className="space-y-1 text-blue-700">
-              <li>• <strong>Mesero</strong> abre <code className="bg-blue-100 px-1 rounded">/{tenantSlug}/mesero</code> en su teléfono</li>
+              <li>• <strong>Mesero</strong> abre <code className="bg-blue-100 px-1 rounded">/{tenantSlug}/kitchen</code> en su teléfono</li>
               <li>• <strong>Cocina</strong> abre <code className="bg-blue-100 px-1 rounded">/{tenantSlug}/cocina</code> en la pantalla</li>
               <li>• Los pedidos aparecen en cocina en tiempo real</li>
               <li>• Cocina puede marcar pedidos como "preparando" o "listo"</li>
@@ -150,7 +150,7 @@ export default function MeseroConfigPage() {
             <div className="mt-4 p-3 bg-slate-50 rounded-xl">
               <p className="text-xs text-slate-500 font-medium mb-1">URL para meseros:</p>
               <code className="text-xs text-blue-600">
-                {typeof window !== 'undefined' ? window.location.origin : ''}/{tenantSlug}/mesero
+                {typeof window !== 'undefined' ? window.location.origin : ''}/{tenantSlug}/kitchen
               </code>
             </div>
           </div>
@@ -203,7 +203,7 @@ export default function MeseroConfigPage() {
           {/* Quick access links */}
           <div className="grid grid-cols-2 gap-3">
             <a
-              href={`/${tenantSlug}/mesero`}
+              href={`/${tenantSlug}/kitchen`}
               target="_blank"
               rel="noopener noreferrer"
               className="flex items-center justify-center gap-2 py-3 bg-white border-2 border-slate-200 rounded-2xl text-slate-700 font-semibold hover:border-blue-400 transition-colors text-sm"
