@@ -1539,7 +1539,7 @@ export function POSTerminal({ tenantId, country = 'CO' }: { tenantId: string; co
                   paymentMethod={paymentMethod}
                   onPaymentMethodChange={setPaymentMethod}
                   onProceedPayment={handleShowReceipt}
-                  disabled={cart.length === 0 || (!!selectedTableNumber && !selectedStaffId)}
+                  disabled={cart.length === 0 || (!!selectedTableNumber && !selectedStaffId && billingOrderIds.length === 0)}
                   loading={processingPayment}
                   country={country}
                 />
