@@ -30,7 +30,7 @@ export function POSModeSelector({ mode, onModeChange }: POSModeSelectorProps) {
             : 'bg-gray-700 text-muted-foreground hover:bg-gray-600'
         }`}
       >
-        <Users className="w-5 h-5" /> Mesa
+        <Users className="w-5 h-5" /> En Mesa
       </button>
     </div>
   );

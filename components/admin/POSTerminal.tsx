@@ -1204,7 +1204,7 @@ export function POSTerminal({ tenantId, country = 'CO' }: { tenantId: string; co
               }`}
             >
               <UtensilsCrossed className="w-4 h-4" />
-              <span>Mesas</span>
+              <span>Salón</span>
               <span className="ml-auto bg-emerald-600 text-white rounded-full px-2 py-0.5 text-xs font-bold">{dineInOrders.length}</span>
               {dineInOrders.length > 0 && (
                 <span className="absolute top-2 right-2 w-2 h-2 bg-emerald-400 rounded-full animate-pulse" />
