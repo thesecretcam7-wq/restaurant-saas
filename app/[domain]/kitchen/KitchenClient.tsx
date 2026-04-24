@@ -96,17 +96,7 @@ export function KitchenClient({ tenantId, tenantName }: Props) {
       });
 
       const order = await orderRes.json();
-      if (!orderRes.ok || !order.order?.id) throw new Error(order.error || 'Error creando orden');
-
-      await fetch('/api/order-items', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          tenantId,
-          orderId: order.order.id,
-          items: cart.map(c => ({ menu_item_id: c.menu_item_id, name: c.name, quantity: c.quantity, price: c.price, notes: c.notes || null })),
-        }),
-      });
+      if (!orderRes.ok || !order.orderId) throw new Error(order.error || 'Error creando orden');
 
       setSuccess(true);
       setCart([]);
