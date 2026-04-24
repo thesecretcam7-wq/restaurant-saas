@@ -48,6 +48,8 @@ interface IncomingOrder {
   delivery_type: 'delivery' | 'pickup';
   delivery_address?: string;
   total: number;
+  status: string;
+  items: { name: string; qty?: number; quantity?: number; price: number }[];
   created_at: string;
 }
 
@@ -198,21 +200,61 @@ function TableGroupCard({
   );
 }
 
+// ─── Incoming Order Status Badge ────────────────────────────────────────────
+const ORDER_STATUS_BADGE: Record<string, { label: string; cls: string }> = {
+  pending:    { label: 'Pendiente',  cls: 'bg-gray-700 text-gray-300' },
+  confirmed:  { label: 'Confirmado', cls: 'bg-blue-600/60 text-blue-200' },
+  preparing:  { label: 'Preparando', cls: 'bg-orange-600/60 text-orange-200' },
+  ready:      { label: 'Listo ✓',   cls: 'bg-green-600/60 text-green-200' },
+  on_the_way: { label: 'En camino', cls: 'bg-purple-600/60 text-purple-200' },
+  delivered:  { label: 'Entregado', cls: 'bg-gray-600/60 text-gray-400' },
+};
+
 // ─── Incoming Order Card ──────────────────────────────────────────────────────
-function IncomingOrderCard({ order }: { order: IncomingOrder }) {
+function IncomingOrderCard({
+  order,
+  onUpdateStatus,
+}: {
+  order: IncomingOrder;
+  onUpdateStatus: (orderId: string, status: string) => Promise<void>;
+}) {
   const minutes = useElapsedMinutes(order.created_at);
   const isDelivery = order.delivery_type === 'delivery';
+  const statusBadge = ORDER_STATUS_BADGE[order.status] ?? ORDER_STATUS_BADGE.pending;
+  const isDone = order.status === 'delivered';
+  const [updating, setUpdating] = useState(false);
+
+  async function handleAction(newStatus: string) {
+    setUpdating(true);
+    await onUpdateStatus(order.id, newStatus);
+    setUpdating(false);
+  }
+
+  // Determine action button based on status + type
+  let actionBtn: { label: string; status: string; cls: string } | null = null;
+  if (isDelivery && order.status === 'ready') {
+    actionBtn = { label: '🚗 Despachar', status: 'on_the_way', cls: 'bg-purple-600 hover:bg-purple-700' };
+  } else if (isDelivery && order.status === 'on_the_way') {
+    actionBtn = { label: '✅ Entregado', status: 'delivered', cls: 'bg-green-600 hover:bg-green-700' };
+  } else if (!isDelivery && order.status === 'ready') {
+    actionBtn = { label: '✅ Recogido', status: 'delivered', cls: 'bg-green-600 hover:bg-green-700' };
+  }
 
   return (
-    <div className={`border-2 rounded-lg p-3 flex flex-col gap-2 transition-all ${getUrgencyBorder(minutes)} bg-card text-xs`}>
+    <div className={`border-2 rounded-lg p-3 flex flex-col gap-2 transition-all ${isDone ? 'border-gray-700 opacity-60' : getUrgencyBorder(minutes)} bg-card text-xs`}>
       <div className="flex items-start justify-between gap-2">
         <div className="flex-1 min-w-0">
           <p className="font-black text-white text-sm">{order.order_number}</p>
           <p className="text-muted-foreground text-xs truncate">{order.customer_name}</p>
         </div>
-        <div className={`flex items-center gap-1 font-bold ${getTimerColor(minutes)}`}>
-          <Clock className="w-3 h-3" />
-          <span>{minutes}m</span>
+        <div className="flex flex-col items-end gap-1">
+          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${statusBadge.cls}`}>
+            {statusBadge.label}
+          </span>
+          <div className={`flex items-center gap-1 font-bold ${getTimerColor(minutes)}`}>
+            <Clock className="w-3 h-3" />
+            <span>{minutes}m</span>
+          </div>
         </div>
       </div>
 
@@ -220,12 +262,12 @@ function IncomingOrderCard({ order }: { order: IncomingOrder }) {
         {isDelivery ? (
           <>
             <Truck className="w-3 h-3 text-blue-400" />
-            <span className="text-xs">Delivery</span>
+            <span className="text-xs">A domicilio</span>
           </>
         ) : (
           <>
             <Store className="w-3 h-3 text-green-400" />
-            <span className="text-xs">Pickup</span>
+            <span className="text-xs">Para recoger</span>
           </>
         )}
       </div>
@@ -234,14 +276,35 @@ function IncomingOrderCard({ order }: { order: IncomingOrder }) {
         <p className="text-muted-foreground text-xs truncate">📍 {order.delivery_address}</p>
       )}
 
+      {order.items && order.items.length > 0 && (
+        <div className="border-t border-gray-700 pt-2 space-y-0.5">
+          {order.items.slice(0, 4).map((item, i) => (
+            <p key={i} className="text-gray-300 text-xs">
+              {(item.qty ?? item.quantity ?? 1)}× {item.name}
+            </p>
+          ))}
+          {order.items.length > 4 && (
+            <p className="text-muted-foreground text-xs">+{order.items.length - 4} más</p>
+          )}
+        </div>
+      )}
+
       <div className="flex items-center justify-between text-muted-foreground">
-        <span className="text-xs">Total:</span>
+        <a href={`tel:${order.customer_phone}`} className="text-xs text-blue-400 hover:underline">
+          {order.customer_phone}
+        </a>
         <span className="font-bold text-green-400">${order.total.toFixed(2)}</span>
       </div>
 
-      <a href={`tel:${order.customer_phone}`} className="text-xs text-blue-400 hover:underline">
-        {order.customer_phone}
-      </a>
+      {actionBtn && (
+        <button
+          onClick={() => handleAction(actionBtn!.status)}
+          disabled={updating}
+          className={`w-full py-2 rounded-lg text-white font-bold text-xs transition-all active:scale-95 disabled:opacity-50 ${actionBtn.cls}`}
+        >
+          {updating ? '...' : actionBtn.label}
+        </button>
+      )}
     </div>
   );
 }
@@ -516,7 +579,7 @@ export function POSTerminal({ tenantId, country = 'CO' }: { tenantId: string; co
           filter: `tenant_id=eq.${tenantId}`,
         },
         async (payload) => {
-          const newOrder = payload.new as IncomingOrder;
+          const newOrder = payload.new as any;
           if (newOrder.delivery_type === 'delivery' || newOrder.delivery_type === 'pickup') {
             const isNewOrder = !knownOrderIds.current.has(newOrder.id);
             if (isNewOrder) {
@@ -525,18 +588,33 @@ export function POSTerminal({ tenantId, country = 'CO' }: { tenantId: string; co
               setShowIncomingPanel(true);
               await fetchIncomingOrders();
             }
-          } else if ((newOrder as any).delivery_type === 'dine-in') {
+          } else if (newOrder.delivery_type === 'dine-in') {
             playNewOrderSound();
             setShowDineInPanel(true);
             await fetchDineInOrders();
-            const items: any[] = (newOrder as any).items || [];
+            const items: any[] = newOrder.items || [];
             setOrderNotification({
-              tableNumber: (newOrder as any).table_number ?? null,
-              waiter: (newOrder as any).waiter_name ?? null,
+              tableNumber: newOrder.table_number ?? null,
+              waiter: newOrder.waiter_name ?? null,
               items: items.map((i: any) => `${i.qty ?? i.quantity ?? 1}× ${i.name}`),
             });
             if (notificationTimerRef.current) clearTimeout(notificationTimerRef.current);
             notificationTimerRef.current = setTimeout(() => setOrderNotification(null), 6000);
+          }
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'orders',
+          filter: `tenant_id=eq.${tenantId}`,
+        },
+        async (payload) => {
+          const updated = payload.new as any;
+          if (updated.delivery_type === 'delivery' || updated.delivery_type === 'pickup') {
+            await fetchIncomingOrders();
           }
         }
       )
@@ -555,16 +633,20 @@ export function POSTerminal({ tenantId, country = 'CO' }: { tenantId: string; co
     try {
       const { data, error } = await supabase
         .from('orders')
-        .select('*')
+        .select('id, order_number, customer_name, customer_phone, delivery_type, delivery_address, total, status, items, created_at')
         .eq('tenant_id', tenantId)
         .or(`delivery_type.eq.delivery,delivery_type.eq.pickup`)
-        .eq('payment_status', 'pending')
+        .not('status', 'in', '("delivered","cancelled")')
         .order('created_at', { ascending: false })
-        .limit(10);
+        .limit(20);
 
       if (!error && data) {
-        setIncomingOrders(data);
-        data.forEach((order: IncomingOrder) => knownOrderIds.current.add(order.id));
+        const mapped = data.map((o: any) => ({
+          ...o,
+          items: Array.isArray(o.items) ? o.items : [],
+        }));
+        setIncomingOrders(mapped);
+        mapped.forEach((order: IncomingOrder) => knownOrderIds.current.add(order.id));
       }
     } catch (error) {
       console.error('Error fetching incoming orders:', error);
@@ -860,6 +942,7 @@ export function POSTerminal({ tenantId, country = 'CO' }: { tenantId: string; co
             await printReceipt(tenantId, settings.default_receipt_printer_id, {
               orderId: order.id,
               orderNumber: order.order_number,
+              restaurantName,
               items: cart,
               subtotal,
               discount,
@@ -1416,13 +1499,24 @@ export function POSTerminal({ tenantId, country = 'CO' }: { tenantId: string; co
                   <div className="text-center">
                     <p className="text-3xl mb-2">📦</p>
                     <p className="text-sm">No hay pedidos pendientes</p>
-                    <p className="text-xs text-muted-foreground mt-1">Los pedidos de delivery/pickup aparecerán aquí</p>
+                    <p className="text-xs text-muted-foreground mt-1">Los pedidos a domicilio y para recoger aparecerán aquí</p>
                   </div>
                 </div>
               ) : (
                 <div className="flex-1 overflow-y-auto p-2 space-y-2">
                   {incomingOrders.map((order) => (
-                    <IncomingOrderCard key={order.id} order={order} />
+                    <IncomingOrderCard
+                      key={order.id}
+                      order={order}
+                      onUpdateStatus={async (orderId, status) => {
+                        await fetch(`/api/orders/${orderId}`, {
+                          method: 'PATCH',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({ status }),
+                        });
+                        await fetchIncomingOrders();
+                      }}
+                    />
                   ))}
                 </div>
               )}

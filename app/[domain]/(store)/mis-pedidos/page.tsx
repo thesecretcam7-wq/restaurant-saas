@@ -1,6 +1,6 @@
 'use client'
 
-import { use, useState } from 'react'
+import { use, useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
 
 interface Props { params: Promise<{ domain: string }> }
@@ -23,23 +23,42 @@ export default function MisPedidosPage({ params }: Props) {
   const [orders, setOrders] = useState<any[] | null>(null)
   const [loading, setLoading] = useState(false)
   const [searched, setSearched] = useState(false)
+  const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const activePhoneRef = useRef<string>('')
 
   const primary = 'var(--primary-color, #3B82F6)'
+
+  async function fetchOrders(tel: string, silent = false) {
+    if (!silent) setLoading(true)
+    try {
+      const res = await fetch(`/api/orders/track?tenantId=${tenantSlug}&phone=${encodeURIComponent(tel.trim())}`)
+      const data = await res.json()
+      setOrders(data.orders || [])
+    } catch {
+      if (!silent) setOrders([])
+    } finally {
+      if (!silent) setLoading(false)
+    }
+  }
+
+  // Poll every 8 s while results are visible (silent refresh)
+  useEffect(() => {
+    if (!searched || !activePhoneRef.current) return
+    pollingRef.current = setInterval(() => {
+      fetchOrders(activePhoneRef.current, true)
+    }, 8000)
+    return () => {
+      if (pollingRef.current) clearInterval(pollingRef.current)
+    }
+  }, [searched, tenantSlug])
 
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!phone.trim()) return
-    setLoading(true)
+    activePhoneRef.current = phone
     setSearched(true)
-    try {
-      const res = await fetch(`/api/orders/track?tenantId=${tenantSlug}&phone=${encodeURIComponent(phone.trim())}`)
-      const data = await res.json()
-      setOrders(data.orders || [])
-    } catch {
-      setOrders([])
-    } finally {
-      setLoading(false)
-    }
+    if (pollingRef.current) clearInterval(pollingRef.current)
+    await fetchOrders(phone)
   }
 
   return (

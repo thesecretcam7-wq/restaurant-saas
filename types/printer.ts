@@ -44,6 +44,7 @@ export interface PrinterLog {
 export interface ReceiptData {
   orderId: string;
   orderNumber: string;
+  restaurantName?: string;
   items: Array<{
     menu_item_id: string;
     name: string;

@@ -1,7 +1,6 @@
 /**
  * Thermal receipt generator for ESC/POS printers
  * Supports 58mm and 80mm paper widths
- * Multi-currency support with locale-aware formatting
  */
 
 import type { ReceiptData } from '@/types/printer';
@@ -15,207 +14,161 @@ interface ReceiptOptions {
 
 // ESC/POS command constants
 const ESC = '\x1b';
-const GS = '\x1d';
+const GS  = '\x1d';
+
+// Text size
+const SIZE_NORMAL     = `${GS}!\x00`;       // 1x1
+const SIZE_2X         = `${GS}!\x11`;       // 2x wide + 2x tall
+const SIZE_TALL       = `${GS}!\x10`;       // 2x tall only
+const BOLD_ON         = `${ESC}E\x01`;
+const BOLD_OFF        = `${ESC}E\x00`;
+const ALIGN_CENTER    = `${ESC}a\x01`;
+const ALIGN_LEFT      = `${ESC}a\x00`;
+const ALIGN_RIGHT     = `${ESC}a\x02`;
+const INIT            = `${ESC}@`;
 
 export function generateReceiptESCPOS(data: ReceiptData, options: ReceiptOptions): Uint8Array {
-  const lines: string[] = [];
+  // 58mm → 32 chars/line normal | 16 chars/line in double-width
+  // 80mm → 48 chars/line normal | 24 chars/line in double-width
+  const cols = options.paperWidth === 80 ? 48 : 32;
 
-  // Set up paper width (characters per line)
-  const charsPerLine = options.paperWidth === 80 ? 40 : 32;
+  const bytes: string[] = [];
 
-  // Initialize printer
-  lines.push(`${ESC}@`); // Initialize
+  const push = (...s: string[]) => bytes.push(...s);
+  const line = (s = '') => bytes.push(s + '\n');
+  const sep  = () => line('-'.repeat(cols));
 
-  // Print banner (restaurant name, date/time)
-  lines.push(`${ESC}E\x01`); // Bold on
-  lines.push(centerText('Restaurant SaaS', charsPerLine));
-  lines.push(`${ESC}E\x00`); // Bold off
-  lines.push(centerText(`Orden: ${data.orderNumber}`, charsPerLine));
+  // ── Init ──────────────────────────────────────────────────────────────────
+  push(INIT);
 
-  const timestamp = data.timestamp ? new Date(data.timestamp) : new Date();
-  const dateStr = timestamp.toLocaleDateString(data.currencyInfo.locale);
-  const timeStr = timestamp.toLocaleTimeString(data.currencyInfo.locale, {
-    hour: '2-digit',
-    minute: '2-digit',
-  });
-  lines.push(centerText(`${dateStr} ${timeStr}`, charsPerLine));
+  // ── Restaurant name (big centered) ────────────────────────────────────────
+  push(ALIGN_CENTER, SIZE_2X, BOLD_ON);
+  line(data.restaurantName ?? 'Restaurante');
+  push(BOLD_OFF, SIZE_NORMAL);
 
-  // Separator
-  lines.push('-'.repeat(charsPerLine));
+  // ── Order number (centered, bold) ─────────────────────────────────────────
+  push(BOLD_ON);
+  line(data.orderNumber);
+  push(BOLD_OFF);
 
-  // Items header
-  lines.push(`${ESC}E\x01`); // Bold
-  lines.push(
-    padRight('Artículo', 20) + padLeft('Qty', 5) + padLeft('Total', 15)
-  );
-  lines.push(`${ESC}E\x00`); // Bold off
-  lines.push('-'.repeat(charsPerLine));
+  // ── Date/time ─────────────────────────────────────────────────────────────
+  const ts = data.timestamp ? new Date(data.timestamp) : new Date();
+  line(ts.toLocaleString('es-CO', {
+    day: '2-digit', month: '2-digit', year: 'numeric',
+    hour: '2-digit', minute: '2-digit',
+  }));
 
-  // Items
+  // ── Table / waiter ────────────────────────────────────────────────────────
+  if (data.tableNumber) line(`Mesa: ${data.tableNumber}`);
+  if (data.waiterName)  line(`Mesero: ${data.waiterName}`);
+
+  // ── Items ─────────────────────────────────────────────────────────────────
+  push(ALIGN_LEFT);
+  sep();
+
+  // Column widths: name | qty | price
+  const priceW = 10;
+  const qtyW   = 4;
+  const nameW  = cols - qtyW - priceW;
+
+  push(BOLD_ON);
+  line(padR('Producto', nameW) + padL('Cant', qtyW) + padL('Total', priceW));
+  push(BOLD_OFF);
+  sep();
+
   for (const item of data.items) {
-    const name = item.name.substring(0, 20);
     const itemTotal = item.price * item.quantity;
-    const totalFormatted = formatPriceWithCurrency(
-      itemTotal,
-      data.currencyInfo.code,
-      data.currencyInfo.locale
-    );
+    const priceStr  = formatPrice(itemTotal, data);
+    const qtyStr    = `x${item.quantity}`;
 
-    lines.push(
-      padRight(name, 20) +
-        padLeft(item.quantity.toString(), 5) +
-        padLeft(totalFormatted, 15)
-    );
+    // If name fits in one row
+    const nameStr = item.name.substring(0, nameW);
+    line(padR(nameStr, nameW) + padL(qtyStr, qtyW) + padL(priceStr, priceW));
 
-    // Print price per unit if different from total
-    if (item.quantity > 1) {
-      const unitPrice = formatPriceWithCurrency(
-        item.price,
-        data.currencyInfo.code,
-        data.currencyInfo.locale
-      );
-      lines.push(
-        padRight(`  @ ${unitPrice}`, 20) + ' '.repeat(20)
-      );
+    // Name overflow on second line
+    if (item.name.length > nameW) {
+      line('  ' + item.name.substring(nameW, nameW + nameW - 2));
     }
   }
 
-  // Separator
-  lines.push('-'.repeat(charsPerLine));
+  sep();
 
-  // Subtotal
-  const subtotalFormatted = formatPriceWithCurrency(
-    data.subtotal,
-    data.currencyInfo.code,
-    data.currencyInfo.locale
-  );
-  lines.push(
-    padRight('Subtotal:', charsPerLine - subtotalFormatted.length) + subtotalFormatted
-  );
-
-  // Discount (if any)
+  // ── Subtotal / discount ───────────────────────────────────────────────────
   if (data.discount > 0) {
-    const discountFormatted = formatPriceWithCurrency(
-      data.discount,
-      data.currencyInfo.code,
-      data.currencyInfo.locale
-    );
-    lines.push(
-      padRight('Descuento:', charsPerLine - discountFormatted.length) + discountFormatted
-    );
+    line(padR('Subtotal:', cols - 10) + padL(formatPrice(data.subtotal, data), 10));
+    line(padR('Descuento:', cols - 10) + padL('-' + formatPrice(data.discount, data), 10));
   }
 
-  // Total
-  lines.push('-'.repeat(charsPerLine));
-  lines.push(`${ESC}E\x01`); // Bold
-  const totalFormatted = formatPriceWithCurrency(
-    data.total,
-    data.currencyInfo.code,
-    data.currencyInfo.locale
-  );
-  lines.push(
-    padRight('TOTAL:', charsPerLine - totalFormatted.length) + totalFormatted
-  );
-  lines.push(`${ESC}E\x00`); // Bold off
+  // ── TOTAL (big) ───────────────────────────────────────────────────────────
+  sep();
+  push(ALIGN_CENTER, SIZE_2X, BOLD_ON);
+  line('TOTAL');
+  line(formatPrice(data.total, data));
+  push(BOLD_OFF, SIZE_NORMAL, ALIGN_LEFT);
+  sep();
 
-  // Payment information (if cash payment)
+  // ── Payment info ──────────────────────────────────────────────────────────
   if (data.amountPaid !== undefined) {
-    lines.push('-'.repeat(charsPerLine));
-    const amountPaidFormatted = formatPriceWithCurrency(
-      data.amountPaid,
-      data.currencyInfo.code,
-      data.currencyInfo.locale
-    );
-    lines.push(
-      padRight('Monto Recibido:', charsPerLine - amountPaidFormatted.length) +
-        amountPaidFormatted
-    );
-
-    const changeFormatted = formatPriceWithCurrency(
-      data.change,
-      data.currencyInfo.code,
-      data.currencyInfo.locale
-    );
-    lines.push(
-      padRight('Cambio:', charsPerLine - changeFormatted.length) + changeFormatted
-    );
+    line(padR('Efectivo:', cols - 10) + padL(formatPrice(data.amountPaid, data), 10));
+    line(padR('Cambio:', cols - 10) + padL(formatPrice(data.change, data), 10));
+    sep();
   }
 
-  // Footer
-  lines.push('');
-  lines.push(centerText('Gracias por su compra', charsPerLine));
-  lines.push('');
+  // ── Footer ────────────────────────────────────────────────────────────────
+  push(ALIGN_CENTER);
+  line('');
+  push(BOLD_ON);
+  line('¡Gracias por su compra!');
+  push(BOLD_OFF);
+  line('');
+  line('');
+  line('');
 
-  // Add optional waiter/table info
-  if (data.waiterName || data.tableNumber) {
-    lines.push('-'.repeat(charsPerLine));
-    if (data.waiterName) {
-      lines.push(`Mesero: ${data.waiterName}`);
-    }
-    if (data.tableNumber) {
-      lines.push(`Mesa: ${data.tableNumber}`);
-    }
-  }
+  // ── Cut ───────────────────────────────────────────────────────────────────
+  push(`${GS}V\x42\x00`); // Full cut
 
-  // Cut paper
-  lines.push(`${GS}V\x42`); // Full cut
+  push(ALIGN_LEFT, SIZE_NORMAL);
 
-  // Print multiple copies
-  const fullReceipt = lines.join('\n');
-  const commands = fullReceipt.repeat(options.copies);
-
-  // Convert to Uint8Array
-  return new TextEncoder().encode(commands);
+  // ── Assemble & encode ─────────────────────────────────────────────────────
+  const receipt = bytes.join('');
+  const copies  = Array(Math.max(1, options.copies)).fill(receipt).join('');
+  return new TextEncoder().encode(copies);
 }
 
-/**
- * Helper: Center text in a line
- */
-function centerText(text: string, lineWidth: number): string {
-  const padding = Math.max(0, Math.floor((lineWidth - text.length) / 2));
-  return ' '.repeat(padding) + text;
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+function formatPrice(amount: number, data: ReceiptData): string {
+  return formatPriceWithCurrency(amount, data.currencyInfo.code, data.currencyInfo.locale);
 }
 
-/**
- * Helper: Pad string to the right
- */
-function padRight(text: string, width: number): string {
+function padR(text: string, width: number): string {
   return text.substring(0, width).padEnd(width, ' ');
 }
 
-/**
- * Helper: Pad string to the left
- */
-function padLeft(text: string, width: number): string {
+function padL(text: string, width: number): string {
   return text.substring(0, width).padStart(width, ' ');
 }
 
-/**
- * Generate test receipt for printer configuration
- */
+// ── Test receipt ──────────────────────────────────────────────────────────────
+
 export function generateTestReceiptESCPOS(paperWidth: 58 | 80): Uint8Array {
   const testData: ReceiptData = {
-    orderId: 'TEST-001',
-    orderNumber: 'TEST-001',
+    orderId:        'TEST-001',
+    orderNumber:    'TEST-001',
+    restaurantName: 'Mi Restaurante',
     items: [
-      { menu_item_id: '1', name: 'Test Item 1', price: 10.5, quantity: 2 },
-      { menu_item_id: '2', name: 'Test Item 2', price: 25.75, quantity: 1 },
+      { menu_item_id: '1', name: 'Hamburguesa Doble', price: 15.5,  quantity: 2 },
+      { menu_item_id: '2', name: 'Coca-Cola 500ml',   price: 3.5,   quantity: 3 },
+      { menu_item_id: '3', name: 'Papas Fritas',      price: 5.0,   quantity: 1 },
     ],
-    subtotal: 46.75,
-    discount: 0,
-    total: 46.75,
-    change: 0,
-    currencyInfo: {
-      code: 'EUR',
-      symbol: '€',
-      locale: 'es-ES',
-    },
-    timestamp: new Date().toISOString(),
+    subtotal:     52.0,
+    discount:     0,
+    total:        52.0,
+    amountPaid:   60.0,
+    change:       8.0,
+    currencyInfo: { code: 'COP', symbol: '$', locale: 'es-CO' },
+    timestamp:    new Date().toISOString(),
   };
 
-  return generateReceiptESCPOS(testData, {
-    paperWidth,
-    copies: 1,
-    locale: 'es-ES',
-  });
+  return generateReceiptESCPOS(testData, { paperWidth, copies: 1, locale: 'es-CO' });
 }

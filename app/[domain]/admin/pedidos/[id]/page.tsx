@@ -103,7 +103,7 @@ export default async function PedidoDetailPage({ params }: PedidoDetailProps) {
           )}
           {Number(order.delivery_fee) > 0 && (
             <div className="flex justify-between text-gray-600">
-              <span>Delivery</span>
+              <span>Envío a domicilio</span>
               <span>${Number(order.delivery_fee).toLocaleString('es-CO')}</span>
             </div>
           )}

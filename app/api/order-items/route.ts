@@ -25,7 +25,10 @@ export async function GET(request: NextRequest) {
           table_number,
           waiter_name,
           created_at,
-          status
+          status,
+          delivery_type,
+          customer_name,
+          customer_phone
         )
       `)
       .eq('tenant_id', tenantId);

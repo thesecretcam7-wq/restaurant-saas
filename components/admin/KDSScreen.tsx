@@ -30,6 +30,9 @@ interface OrderItemWithOrder {
     waiter_name: string | null;
     created_at: string;
     status: string;
+    delivery_type: string | null;
+    customer_name: string | null;
+    customer_phone: string | null;
   } | null;
 }
 
@@ -38,6 +41,8 @@ interface KDSOrder {
   orderNumber: string;
   tableNumber: number | null;
   waiterName: string | null;
+  deliveryType: string | null;
+  customerName: string | null;
   createdAt: string;
   items: OrderItemWithOrder[];
   kdsStatus: 'pending' | 'preparing' | 'ready';
@@ -93,6 +98,8 @@ function groupItemsByOrder(items: OrderItemWithOrder[]): KDSOrder[] {
         orderNumber: item.orders?.order_number ?? `#${item.order_id.slice(0, 8)}`,
         tableNumber: item.orders?.table_number ?? null,
         waiterName: item.orders?.waiter_name ?? null,
+        deliveryType: item.orders?.delivery_type ?? null,
+        customerName: item.orders?.customer_name ?? null,
         createdAt: item.orders?.created_at ?? item.created_at,
         items: [],
         kdsStatus: 'pending',
@@ -354,6 +361,16 @@ function OrderCard({
 
             {/* Meta Info */}
             <div className="flex items-center gap-2 mt-2 flex-wrap">
+              {order.deliveryType === 'delivery' && (
+                <span className="text-xs font-bold bg-purple-500/20 text-purple-300 px-2.5 py-1 rounded-md border border-purple-500/30">
+                  🚗 A domicilio
+                </span>
+              )}
+              {order.deliveryType === 'pickup' && (
+                <span className="text-xs font-bold bg-green-500/20 text-green-300 px-2.5 py-1 rounded-md border border-green-500/30">
+                  🏪 Para recoger
+                </span>
+              )}
               {order.tableNumber && (
                 <span className="text-xs font-semibold bg-blue-500/20 text-blue-300 px-2.5 py-1 rounded-md border border-blue-500/30">
                   Mesa {order.tableNumber}
@@ -362,6 +379,11 @@ function OrderCard({
               {order.waiterName && (
                 <span className="text-xs font-medium text-gray-400 px-2.5 py-1 bg-gray-800/50 rounded-md">
                   {order.waiterName}
+                </span>
+              )}
+              {(order.deliveryType === 'delivery' || order.deliveryType === 'pickup') && order.customerName && (
+                <span className="text-xs font-medium text-gray-400 px-2.5 py-1 bg-gray-800/50 rounded-md truncate max-w-[120px]">
+                  {order.customerName}
                 </span>
               )}
             </div>

@@ -393,7 +393,7 @@ function OrderCard({
               <span className="text-lg font-bold text-white">🏃 Para llevar</span>
             )}
             {order.delivery_type === 'delivery' && (
-              <span className="text-lg font-bold text-white">🛵 Delivery</span>
+              <span className="text-lg font-bold text-white">🛵 A domicilio</span>
             )}
           </div>
           <p className="text-gray-400 text-xs">{order.order_number} · {order.customer_name}</p>

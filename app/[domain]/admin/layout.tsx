@@ -64,6 +64,11 @@ export default async function AdminLayout({ children, params }: AdminLayoutProps
 
   if (!isOwner && !isStaffWithAdminAccess) redirect(`/unauthorized`)
 
+  // Cajeros belong in the TPV, not the admin panel
+  if (staffSession?.role === 'cajero') {
+    redirect(`/${tenant.slug || slug}/staff/pos`)
+  }
+
   const tenantId = tenant.id
   const context = await getTenantContext(tenantId)
   const branding = context.branding

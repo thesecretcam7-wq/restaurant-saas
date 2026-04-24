@@ -92,7 +92,7 @@ export default async function PedidosPage({ params, searchParams }: PedidosProps
                         {statusInfo.label}
                       </span>
                       {order.delivery_type === 'delivery' && (
-                        <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600">🚗 Delivery</span>
+                        <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600">🚗 A domicilio</span>
                       )}
                     </div>
                     <p className="text-sm text-gray-500">{order.customer_name} • {order.customer_phone}</p>

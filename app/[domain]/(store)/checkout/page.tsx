@@ -99,8 +99,8 @@ export default function CheckoutPage({ params }: Props) {
               </h2>
               <div className="grid grid-cols-2 gap-2">
                 {[
-                  { value: 'pickup', label: 'Recoger', icon: '🏠', sub: 'En el local' },
-                  { value: 'delivery', label: 'Delivery', icon: '🚗', sub: settings.delivery_fee > 0 ? `+$${Number(settings.delivery_fee).toLocaleString('es-CO')}` : 'Gratis' },
+                  { value: 'pickup', label: 'Para recoger', icon: '🏠', sub: 'En el local' },
+                  { value: 'delivery', label: 'A domicilio', icon: '🚗', sub: settings.delivery_fee > 0 ? `+$${Number(settings.delivery_fee).toLocaleString('es-CO')}` : 'Gratis' },
                 ].map(opt => (
                   <button key={opt.value} type="button" onClick={() => setForm(f => ({...f, delivery_type: opt.value}))}
                     className={`p-3.5 rounded-xl border-2 text-left transition-all ${form.delivery_type === opt.value ? 'border-current bg-opacity-5' : 'border-gray-200 hover:border-gray-300'}`}

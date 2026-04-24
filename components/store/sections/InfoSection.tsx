@@ -49,7 +49,7 @@ export default function InfoSection({ settings, primary, borderRadius, cardClass
             <div className="flex items-center gap-3 px-4 py-3">
               <span className="text-lg">🚗</span>
               <div>
-                <p className="text-xs text-muted-foreground font-medium">Delivery</p>
+                <p className="text-xs text-muted-foreground font-medium">A domicilio</p>
                 <p className="text-sm text-gray-800 font-medium">
                   {settings.delivery_time_minutes} min · {settings.delivery_fee > 0 ? `${formatPrice(settings.delivery_fee)} envío` : 'Envío gratis'}
                   {settings.delivery_min_order > 0 ? ` · Mínimo ${formatPrice(settings.delivery_min_order)}` : ''}
