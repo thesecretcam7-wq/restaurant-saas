@@ -52,7 +52,7 @@ export async function saveCartToSupabase(
       .select('id')
       .eq('tenant_id', tenantId)
       .eq('cart_session_id', sessionId)
-      .single();
+      .maybeSingle();
 
     if (existingCart) {
       // Update existing cart
@@ -118,7 +118,7 @@ export async function loadCartFromSupabase(
       .eq('tenant_id', tenantId)
       .eq('cart_session_id', sessionId)
       .is('abandoned_at', null)
-      .single();
+      .maybeSingle();
 
     if (error || !cart) return null;
 

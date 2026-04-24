@@ -752,15 +752,15 @@ export function POSTerminal({ tenantId, country = 'CO' }: { tenantId: string; co
           .eq('available', true),
         supabase
           .from('tenants')
-          .select('app_name, logo_url')
+          .select('organization_name, logo_url')
           .eq('id', tenantId)
-          .single(),
+          .maybeSingle(),
       ]);
 
       if (categoriesRes.data) setCategories(categoriesRes.data);
       if (menuRes.data) setMenu(menuRes.data);
       if (tenantRes.data) {
-        if (tenantRes.data.app_name) setRestaurantName(tenantRes.data.app_name);
+        if (tenantRes.data.organization_name) setRestaurantName(tenantRes.data.organization_name);
         if (tenantRes.data.logo_url) setRestaurantLogo(tenantRes.data.logo_url);
       }
     } catch (error) {
