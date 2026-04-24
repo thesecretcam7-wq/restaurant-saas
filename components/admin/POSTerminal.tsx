@@ -372,7 +372,7 @@ export function POSTerminal({ tenantId, country = 'CO' }: { tenantId: string; co
   const knownOrderIds = useRef(new Set<string>());
   const notificationTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Initialize audio and play sound
+  // Initialize audio — called on first user interaction to satisfy autoplay policy
   const initAudio = useCallback(() => {
     if (!audioCtxRef.current) {
       try {
@@ -381,27 +381,35 @@ export function POSTerminal({ tenantId, country = 'CO' }: { tenantId: string; co
     }
   }, []);
 
-  const playNewOrderSound = useCallback(() => {
+  const playNewOrderSound = useCallback(async () => {
     if (!soundEnabled) return;
     initAudio();
     const ctx = audioCtxRef.current;
     if (!ctx) return;
 
-    const beep = (start: number, freq: number, dur: number) => {
+    // Resume suspended context (browser autoplay policy blocks audio until first interaction)
+    if (ctx.state === 'suspended') {
+      try { await ctx.resume(); } catch (_) { return; }
+    }
+
+    const tone = (start: number, freq: number, dur: number, vol = 0.5) => {
       const osc = ctx.createOscillator();
       const gain = ctx.createGain();
       osc.connect(gain);
       gain.connect(ctx.destination);
       osc.frequency.value = freq;
       osc.type = 'sine';
-      gain.gain.setValueAtTime(0.25, start);
+      gain.gain.setValueAtTime(vol, start);
       gain.gain.exponentialRampToValueAtTime(0.001, start + dur);
       osc.start(start);
       osc.stop(start + dur);
     };
 
-    beep(ctx.currentTime, 880, 0.15);
-    beep(ctx.currentTime + 0.2, 1100, 0.15);
+    // 3-tone chime: low → mid → high, clearly audible
+    const t = ctx.currentTime;
+    tone(t,        660, 0.3);
+    tone(t + 0.32, 880, 0.3);
+    tone(t + 0.64, 1100, 0.4);
   }, [soundEnabled, initAudio]);
 
   useEffect(() => {
