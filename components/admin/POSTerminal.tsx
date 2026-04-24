@@ -564,14 +564,14 @@ export function POSTerminal({ tenantId, country = 'CO' }: { tenantId: string; co
         selectedStaffName,
         selectedTableId,
         selectedTableNumber,
+        tip,
       };
 
-      // Fire and forget - don't await
       saveCartToSupabase(tenantId, cartData, supabase).catch((err) => {
         console.error('Background cart sync failed (will use localStorage):', err);
       });
     }
-  }, [cart, discount, discountCode, tenantId]);
+  }, [cart, discount, discountCode, tip, tenantId]);
 
   // Real-time subscription for incoming orders (delivery/pickup)
   useEffect(() => {

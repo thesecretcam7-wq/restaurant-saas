@@ -15,6 +15,7 @@ interface CartData {
   selectedStaffName: string;
   selectedTableId: string | null;
   selectedTableNumber: number | null;
+  tip?: number;
 }
 
 // Get or create a unique session ID for this device/browser
@@ -43,7 +44,7 @@ export async function saveCartToSupabase(
 
     const sessionId = getCartSessionId();
     const subtotal = cartData.items.reduce((sum, item) => sum + item.price * item.quantity, 0);
-    const total = subtotal - cartData.discount;
+    const total = subtotal - cartData.discount + (cartData.tip ?? 0);
 
     // Check if cart session already exists
     const { data: existingCart } = await supabase
