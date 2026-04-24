@@ -12,7 +12,8 @@ export async function middleware(request: NextRequest) {
 
   // Solo rutas /admin/* requieren autenticación, excepto /admin/login
   const isAdminLogin = pathname.includes('/admin/login')
-  const requiresAuth = pathname.includes('/admin/') && !isAdminLogin
+  const isPublicAdminPage = pathname.includes('/admin/pos/display')
+  const requiresAuth = pathname.includes('/admin/') && !isAdminLogin && !isPublicAdminPage
 
   // ─── PROTECCIÓN DE RUTAS (TODO excepto tienda y acceso) ───────────────────
   if (requiresAuth) {

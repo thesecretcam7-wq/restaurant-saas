@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState, useMemo } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { createClient } from '@supabase/supabase-js';
 import { UtensilsCrossed } from 'lucide-react';
 
@@ -22,7 +23,10 @@ function formatCOP(amount: number) {
   return new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(amount);
 }
 
-export default function CustomerDisplayPage({ params }: { params: { domain: string } }) {
+export default function CustomerDisplayPage() {
+  const searchParams = useSearchParams();
+  const tenantId = searchParams.get('tid');
+
   const [cart, setCart] = useState<PosCart | null>(null);
   const [time, setTime] = useState(new Date());
 
@@ -41,11 +45,13 @@ export default function CustomerDisplayPage({ params }: { params: { domain: stri
 
   // Real-time cart subscription
   useEffect(() => {
+    if (!tenantId) return;
+
     async function fetchCart() {
       const { data } = await supabase
         .from('pos_carts')
         .select('items, subtotal, total, discount, updated_at')
-        .eq('tenant_id', params.domain)
+        .eq('tenant_id', tenantId)
         .is('abandoned_at', null)
         .order('updated_at', { ascending: false })
         .limit(1)
@@ -61,17 +67,17 @@ export default function CustomerDisplayPage({ params }: { params: { domain: stri
     fetchCart();
 
     const channel = supabase
-      .channel(`customer-display:${params.domain}`)
+      .channel(`customer-display:${tenantId}`)
       .on('postgres_changes', {
         event: '*',
         schema: 'public',
         table: 'pos_carts',
-        filter: `tenant_id=eq.${params.domain}`,
+        filter: `tenant_id=eq.${tenantId}`,
       }, fetchCart)
       .subscribe();
 
     return () => { channel.unsubscribe(); };
-  }, [params.domain, supabase]);
+  }, [tenantId, supabase]);
 
   const hasItems = cart && cart.items && cart.items.length > 0;
 
