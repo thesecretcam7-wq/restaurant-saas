@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { createClient } from '@supabase/supabase-js'
+import { randomUUID } from 'crypto'
 
 export async function POST(request: NextRequest) {
   try {
@@ -14,15 +15,15 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!,
+      { auth: { autoRefreshToken: false, persistSession: false } }
+    )
+
     // Fetch permissions for the role
     let permissions: string[] = []
     if (role) {
-      const supabase = createClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.SUPABASE_SERVICE_ROLE_KEY!,
-        { auth: { autoRefreshToken: false, persistSession: false } }
-      )
-
       const { data: rolePerms } = await supabase
         .from('staff_role_permissions')
         .select('admin_permissions(key)')
@@ -35,15 +36,25 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // Single-session enforcement: register token in DB (replaces any previous session)
+    const sessionToken = randomUUID()
+    if (staffId) {
+      await supabase.from('active_sessions').upsert({
+        user_key: `staff:${staffId}`,
+        tenant_id: tenantId,
+        session_token: sessionToken,
+      }, { onConflict: 'user_key' })
+    }
+
     const cookieStore = await cookies()
 
-    // Set httpOnly session cookie (can be read by server)
     const sessionData = {
       tenantId,
       staffId,
       staffName,
       role,
       permissions,
+      sessionToken,
       createdAt: new Date().toISOString(),
     }
 
@@ -51,7 +62,7 @@ export async function POST(request: NextRequest) {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'strict',
-      maxAge: 28800, // 8 hours (reduced from 24 for better security)
+      maxAge: 28800,
       path: '/',
     })
 

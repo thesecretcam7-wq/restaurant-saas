@@ -20,6 +20,12 @@ export async function middleware(request: NextRequest) {
     const slugMatch = pathname.match(SLUG_PATH_REGEX)
     const slug = slugMatch?.[1] || ''
 
+    const serviceSupabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!,
+      { auth: { autoRefreshToken: false, persistSession: false } }
+    )
+
     // VÍA 1: staff_session cookie (staff con PIN)
     const staffSessionCookie = request.cookies.get('staff_session')?.value
     if (staffSessionCookie) {
@@ -27,8 +33,23 @@ export async function middleware(request: NextRequest) {
         const staffSession = JSON.parse(staffSessionCookie)
         const permissions: string[] = staffSession.permissions || []
         const hasAdminAccess = permissions.some(p => p.startsWith('admin_'))
-        if (hasAdminAccess) return NextResponse.next()
-        // Tiene sesión de staff pero sin permisos admin
+        if (hasAdminAccess) {
+          // Validate single-session token
+          if (staffSession.sessionToken && staffSession.staffId) {
+            const { data: active } = await serviceSupabase
+              .from('active_sessions')
+              .select('session_token')
+              .eq('user_key', `staff:${staffSession.staffId}`)
+              .single()
+            if (!active || active.session_token !== staffSession.sessionToken) {
+              const loginUrl = new URL(`/${slug}/admin/login?reason=otra_sesion`, request.url)
+              const res = NextResponse.redirect(loginUrl)
+              res.cookies.delete('staff_session')
+              return res
+            }
+          }
+          return NextResponse.next()
+        }
         return NextResponse.redirect(new URL('/unauthorized', request.url))
       } catch {
         // Cookie corrupta, continuar a verificar Supabase
@@ -55,7 +76,24 @@ export async function middleware(request: NextRequest) {
           },
         })
         const { data: { user } } = await supabase.auth.getUser()
-        if (user) return response // Usuario Supabase autenticado → permitir paso
+        if (user) {
+          // Validate single-session token for owner
+          const adminToken = request.cookies.get('admin_session_token')?.value
+          if (adminToken) {
+            const { data: active } = await serviceSupabase
+              .from('active_sessions')
+              .select('session_token')
+              .eq('user_key', `owner:${user.id}`)
+              .single()
+            if (!active || active.session_token !== adminToken) {
+              const loginUrl = new URL(`/${slug}/admin/login?reason=otra_sesion`, request.url)
+              const res = NextResponse.redirect(loginUrl)
+              res.cookies.delete('admin_session_token')
+              return res
+            }
+          }
+          return response
+        }
       } catch {
         // Error verificando Supabase, continuar al bloqueo
       }

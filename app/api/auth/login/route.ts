@@ -1,6 +1,8 @@
 import { createServerClient } from '@supabase/ssr'
+import { createClient } from '@supabase/supabase-js'
 import { cookies } from 'next/headers'
 import { NextRequest, NextResponse } from 'next/server'
+import { randomUUID } from 'crypto'
 
 export async function POST(request: NextRequest) {
   try {
@@ -50,7 +52,28 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Esta cuenta está suspendida' }, { status: 403 })
     }
 
-    return NextResponse.json({ success: true, tenant })
+    // Single-session enforcement: register token in DB
+    const sessionToken = randomUUID()
+    const serviceClient = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!,
+      { auth: { autoRefreshToken: false, persistSession: false } }
+    )
+    await serviceClient.from('active_sessions').upsert({
+      user_key: `owner:${data.user.id}`,
+      tenant_id: tenant.id,
+      session_token: sessionToken,
+    }, { onConflict: 'user_key' })
+
+    const response = NextResponse.json({ success: true, tenant })
+    response.cookies.set('admin_session_token', sessionToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'strict',
+      maxAge: 86400 * 30,
+      path: '/',
+    })
+    return response
   } catch (error) {
     console.error('Login error:', error)
     return NextResponse.json({ error: 'Error interno del servidor' }, { status: 500 })

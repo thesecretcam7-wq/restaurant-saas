@@ -1,16 +1,23 @@
 'use client'
 
-import { use, useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { use, useState, useEffect } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 
 interface Props { params: Promise<{ domain: string }> }
 
 export default function AdminLoginPage({ params }: Props) {
   const { domain: tenantId } = use(params)
   const router = useRouter()
+  const searchParams = useSearchParams()
   const [form, setForm] = useState({ email: '', password: '' })
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+
+  useEffect(() => {
+    if (searchParams.get('reason') === 'otra_sesion') {
+      setError('Tu sesión fue cerrada porque se inició en otro dispositivo.')
+    }
+  }, [searchParams])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
