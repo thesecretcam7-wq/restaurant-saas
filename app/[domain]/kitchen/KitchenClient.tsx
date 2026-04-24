@@ -34,6 +34,12 @@ export function KitchenClient({ tenantId, tenantName }: Props) {
   const [cartOpen, setCartOpen] = useState(false);
 
   useEffect(() => {
+    // Auto-fill waiter name from login session
+    try {
+      const name = sessionStorage.getItem('staff_name');
+      if (name) setWaiterName(name);
+    } catch {}
+
     async function load() {
       const [{ data: cats }, { data: items }] = await Promise.all([
         supabase.from('menu_categories').select('id, name, sort_order').eq('tenant_id', tenantId).eq('active', true).order('sort_order'),
@@ -274,6 +280,29 @@ export function KitchenClient({ tenantId, tenantName }: Props) {
           <span className="font-semibold">¡Pedido enviado a cocina!</span>
         </div>
       )}
+
+      {/* Mobile-only: table number bar always visible */}
+      <div className="lg:hidden bg-gray-900 border-b border-gray-800 px-4 py-2 flex items-center gap-3">
+        <span className="text-gray-400 text-sm font-medium flex-shrink-0">Mesa</span>
+        <input
+          type="number"
+          inputMode="numeric"
+          placeholder="Número de mesa"
+          value={tableNumber}
+          onChange={e => setTableNumber(e.target.value)}
+          className={`flex-1 bg-gray-800 text-white font-black text-lg px-3 py-2 rounded-xl border focus:outline-none text-center transition-colors ${
+            tableNumber ? 'border-emerald-500 text-emerald-400' : 'border-gray-700 focus:border-emerald-500'
+          }`}
+        />
+        {tableNumber && (
+          <button
+            onClick={() => setTableNumber('')}
+            className="text-gray-500 hover:text-red-400 text-sm flex-shrink-0"
+          >
+            ✕
+          </button>
+        )}
+      </div>
 
       {/* Main layout: side-by-side on lg+, stacked on mobile */}
       <div className="flex flex-1 overflow-hidden">
