@@ -64,6 +64,10 @@ export default function CustomerDisplayPage() {
 
     fetchCart();
 
+    // Polling every 2s as primary update mechanism (realtime requires table config)
+    const poll = setInterval(fetchCart, 2000);
+
+    // Realtime as bonus for instant updates when available
     const channel = supabase
       .channel(`customer-display:${tenantId}`)
       .on('postgres_changes', {
@@ -74,7 +78,10 @@ export default function CustomerDisplayPage() {
       }, fetchCart)
       .subscribe();
 
-    return () => { channel.unsubscribe(); };
+    return () => {
+      clearInterval(poll);
+      channel.unsubscribe();
+    };
   }, [tenantId, supabase]);
 
   const hasItems = cart && cart.items && cart.items.length > 0;
