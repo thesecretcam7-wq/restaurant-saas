@@ -18,6 +18,8 @@ interface Props {
   tenantName: string;
 }
 
+const CART_KEY = (tenantId: string) => `kitchen_cart_${tenantId}`;
+
 export function KitchenClient({ tenantId, tenantName }: Props) {
   const [categories, setCategories] = useState<Category[]>([]);
   const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
@@ -33,6 +35,25 @@ export function KitchenClient({ tenantId, tenantName }: Props) {
   const [noteText, setNoteText] = useState('');
   const [cartOpen, setCartOpen] = useState(false);
   const [csrfToken, setCsrfToken] = useState('');
+
+  // Restore cart from localStorage on mount
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(CART_KEY(tenantId));
+      if (saved) {
+        const { cart: savedCart, tableNumber: savedTable } = JSON.parse(saved);
+        if (savedCart?.length) setCart(savedCart);
+        if (savedTable) setTableNumber(savedTable);
+      }
+    } catch {}
+  }, [tenantId]);
+
+  // Persist cart to localStorage on every change
+  useEffect(() => {
+    try {
+      localStorage.setItem(CART_KEY(tenantId), JSON.stringify({ cart, tableNumber }));
+    } catch {}
+  }, [cart, tableNumber, tenantId]);
 
   useEffect(() => {
     // Auto-fill waiter name from login session
@@ -108,10 +129,12 @@ export function KitchenClient({ tenantId, tenantName }: Props) {
       setCart([]);
       setTableNumber('');
       setCartOpen(false);
+      try { localStorage.removeItem(CART_KEY(tenantId)); } catch {}
       setTimeout(() => setSuccess(false), 3000);
     } catch (err) {
-      console.error(err);
-      alert('Error enviando pedido. Intenta de nuevo.');
+      const msg = err instanceof Error ? err.message : 'Error desconocido';
+      console.error('[sendOrder]', msg);
+      alert(`Error: ${msg}`);
     } finally {
       setSending(false);
     }

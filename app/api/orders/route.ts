@@ -129,7 +129,10 @@ export async function POST(request: NextRequest) {
       .select()
       .single()
 
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+    if (error) {
+      console.error('[orders POST] insert error:', error.message, error.details, error.hint)
+      return NextResponse.json({ error: error.message }, { status: 500 })
+    }
 
     // Auto-create order_items so KDS can display the order in real-time
     if (items && Array.isArray(items) && items.length > 0) {
@@ -155,7 +158,8 @@ export async function POST(request: NextRequest) {
     }
 
     return NextResponse.json({ orderId: order.id, orderNumber })
-  } catch {
+  } catch (err) {
+    console.error('[orders POST] unexpected error:', err)
     return NextResponse.json({ error: 'Error interno' }, { status: 500 })
   }
 }
