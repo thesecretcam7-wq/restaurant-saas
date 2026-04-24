@@ -1251,7 +1251,7 @@ export function POSTerminal({ tenantId, country = 'CO' }: { tenantId: string; co
         </div>
 
         {/* Cart/Payment Section */}
-        <div className={`${isFullscreen ? 'w-72' : 'w-72'} bg-gradient-to-b from-gray-900 to-gray-950 border-l border-gray-800 flex flex-col overflow-hidden shadow-xl`}>
+        <div className={`${isFullscreen ? 'w-64' : 'w-64'} bg-gradient-to-b from-gray-900 to-gray-950 border-l border-gray-800 flex flex-col overflow-hidden shadow-xl`}>
           {/* Tabs: Cart vs Incoming Orders */}
           <div className={`border-b border-gray-800 flex gap-0 bg-gray-950/50 backdrop-blur-sm ${isFullscreen ? 'px-0 py-0' : 'px-0 py-0'}`}>
             <button
