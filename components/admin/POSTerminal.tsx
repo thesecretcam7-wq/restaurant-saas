@@ -370,6 +370,7 @@ export function POSTerminal({ tenantId, country = 'CO' }: { tenantId: string; co
   const audioCtxRef = useRef<AudioContext | null>(null);
   const knownOrderIds = useRef(new Set<string>());
   const notificationTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const csrfTokenRef = useRef<string>('');
 
   // Initialize audio — called on first user interaction to satisfy autoplay policy
   const initAudio = useCallback(() => {
@@ -412,6 +413,7 @@ export function POSTerminal({ tenantId, country = 'CO' }: { tenantId: string; co
   }, [soundEnabled, initAudio]);
 
   useEffect(() => {
+    fetch('/api/csrf-token').then(r => r.json()).then(d => { if (d.token) csrfTokenRef.current = d.token; }).catch(() => {});
     fetchMenuData();
     restoreCart();
     fetchAllTables();
@@ -872,7 +874,7 @@ export function POSTerminal({ tenantId, country = 'CO' }: { tenantId: string; co
 
       const response = await fetch('/api/orders', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'x-csrf-token': csrfTokenRef.current },
         credentials: 'include',
         body: JSON.stringify({
           tenantId,
