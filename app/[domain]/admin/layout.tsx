@@ -91,6 +91,7 @@ export default async function AdminLayout({ children, params }: AdminLayoutProps
     { href: `/${tenantSlug}/admin/cierres`, label: 'Cierres de Caja', icon: '🔒' },
     { href: `/${tenantSlug}/admin/configuracion/restaurante`, label: 'Configuración', icon: '⚙️' },
     { href: `/${tenantSlug}/admin/pos`, label: 'TPV/POS', icon: '💳' },
+    { href: `/${tenantSlug}/admin/configuracion/mesas`, label: 'Mesas', icon: '🪑' },
     { href: `/${tenantSlug}/admin/cuenta/cambiar-contrasena`, label: 'Cambiar Contraseña', icon: '🔑', divider: true },
   ]
 
