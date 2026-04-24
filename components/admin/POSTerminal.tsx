@@ -3,9 +3,7 @@
 import { useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { ShoppingCart, Plus, Minus, Trash2, Search, DollarSign, CreditCard, Maximize2, Minimize2, Lock, Clock, Truck, Store, UtensilsCrossed, Archive, Monitor } from 'lucide-react';
-import { POSModeSelector } from './POSModeSelector';
 import { POSStaffSelector } from './POSStaffSelector';
-import { POSTableSelector } from './POSTableSelector';
 import { TableMap } from './TableMap';
 import { POSPayment } from './POSPayment';
 import { POSCartDrawer } from './POSCartDrawer';
@@ -760,8 +758,8 @@ export function POSTerminal({ tenantId, country = 'CO' }: { tenantId: string; co
       return;
     }
 
-    if (posMode === 'table' && (!selectedStaffId || !selectedTableId)) {
-      setToast({ message: 'Por favor selecciona camarero y mesa', type: 'error' });
+    if (selectedTableId && !selectedStaffId) {
+      setToast({ message: 'Por favor selecciona el camarero', type: 'error' });
       return;
     }
 
@@ -803,7 +801,7 @@ export function POSTerminal({ tenantId, country = 'CO' }: { tenantId: string; co
           },
           items: formattedItems,
           paymentMethod,
-          deliveryType: posMode === 'table' ? 'dine-in' : 'pickup',
+          deliveryType: selectedTableId ? 'dine-in' : 'pickup',
           waiter_id: selectedStaffId || null,
           waiterName: selectedStaffName || null,
           table_id: selectedTableId || null,
@@ -1355,42 +1353,42 @@ export function POSTerminal({ tenantId, country = 'CO' }: { tenantId: string; co
             </div>
           </div>
 
-          {/* Mode, Staff, Table Selectors */}
-          <div className={`border-b border-border ${isFullscreen ? 'px-2 py-1' : 'px-2 py-1'} space-y-1 text-xs`}>
-            <POSModeSelector
-              mode={posMode}
-              onModeChange={(newMode) => {
-                setPosMode(newMode);
-                setSelectedStaffId(null);
-                setSelectedStaffName('');
-                setSelectedTableId(null);
-                setSelectedTableNumber(null);
-              }}
-            />
-
-            {posMode === 'table' && (
-              <>
-                <POSStaffSelector
-                  tenantId={tenantId}
-                  selectedStaffId={selectedStaffId}
-                  onStaffSelect={(id, name) => {
-                    setSelectedStaffId(id);
-                    setSelectedStaffName(name);
+          {/* Mesa indicator + staff selector */}
+          {selectedTableNumber ? (
+            <div className="border-b border-border px-2 py-2 space-y-1.5">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-1.5">
+                  <UtensilsCrossed className="w-3.5 h-3.5 text-emerald-400" />
+                  <span className="text-emerald-300 font-bold text-xs">Mesa {selectedTableNumber}</span>
+                </div>
+                <button
+                  onClick={() => {
+                    setSelectedTableId(null);
+                    setSelectedTableNumber(null);
+                    setSelectedStaffId(null);
+                    setSelectedStaffName('');
+                    setPosMode('simple');
                   }}
-                  required
-                />
-                <POSTableSelector
-                  tenantId={tenantId}
-                  selectedTableId={selectedTableId}
-                  onTableSelect={(id, tableNumber) => {
-                    setSelectedTableId(id);
-                    setSelectedTableNumber(tableNumber);
-                  }}
-                  required
-                />
-              </>
-            )}
-          </div>
+                  className="text-gray-500 hover:text-red-400 text-xs transition-colors"
+                >
+                  ✕ Quitar
+                </button>
+              </div>
+              <POSStaffSelector
+                tenantId={tenantId}
+                selectedStaffId={selectedStaffId}
+                onStaffSelect={(id, name) => {
+                  setSelectedStaffId(id);
+                  setSelectedStaffName(name);
+                }}
+                required
+              />
+            </div>
+          ) : (
+            <div className="border-b border-border px-2 py-2">
+              <p className="text-gray-600 text-xs text-center">Sin mesa — selecciona una desde la barra inferior</p>
+            </div>
+          )}
 
           {/* Payment Component */}
               <div className={`${isFullscreen ? 'px-2 py-1' : 'px-2 py-1'}`}>
@@ -1402,7 +1400,7 @@ export function POSTerminal({ tenantId, country = 'CO' }: { tenantId: string; co
                   paymentMethod={paymentMethod}
                   onPaymentMethodChange={setPaymentMethod}
                   onProceedPayment={handleShowReceipt}
-                  disabled={cart.length === 0 || (posMode === 'table' && (!selectedStaffId || !selectedTableId))}
+                  disabled={cart.length === 0 || (!!selectedTableNumber && !selectedStaffId)}
                   loading={processingPayment}
                   country={country}
                 />
