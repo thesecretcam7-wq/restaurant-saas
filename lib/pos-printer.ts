@@ -3,7 +3,7 @@
  * Handles device discovery, connection, and printing
  */
 
-import { createClient } from '@supabase/supabase-js';
+import { createClient } from '@/lib/supabase/client';
 import { generateReceiptESCPOS, generateTestReceiptESCPOS } from './thermal-receipt';
 import type { ReceiptData, PrinterDevice } from '@/types/printer';
 
@@ -40,10 +40,11 @@ declare global {
   }
 }
 
-const getSupabase = () => createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
+let _supabase: ReturnType<typeof createClient> | null = null;
+const getSupabase = () => {
+  if (!_supabase) _supabase = createClient();
+  return _supabase;
+};
 
 /**
  * Print receipt to a configured printer
@@ -64,7 +65,7 @@ export async function printReceipt(
       .select('*')
       .eq('id', printerId)
       .eq('tenant_id', tenantId)
-      .single();
+      .maybeSingle();
 
     if (printerError || !printer) {
       throw new Error('Printer not found or not configured');
@@ -336,7 +337,7 @@ export async function testPrinterConnection(
       .select('*')
       .eq('id', printerId)
       .eq('tenant_id', tenantId)
-      .single();
+      .maybeSingle();
 
     if (!printer) {
       return { success: false, message: 'Impresora no encontrada' };
@@ -383,7 +384,7 @@ export async function openCashDrawer(tenantId: string): Promise<void> {
       .from('restaurant_settings')
       .select('default_receipt_printer_id')
       .eq('tenant_id', tenantId)
-      .single();
+      .maybeSingle();
 
     if (!settings?.default_receipt_printer_id) return;
 
@@ -392,7 +393,7 @@ export async function openCashDrawer(tenantId: string): Promise<void> {
       .select('*')
       .eq('id', settings.default_receipt_printer_id)
       .eq('tenant_id', tenantId)
-      .single();
+      .maybeSingle();
 
     if (!printer) return;
 
