@@ -4,6 +4,7 @@ import { useEffect, useState, useMemo } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { createClient } from '@supabase/supabase-js';
 import { UtensilsCrossed } from 'lucide-react';
+import { getCurrencyByCountry, formatPriceWithCurrency } from '@/lib/currency';
 
 interface CartItem {
   name: string;
@@ -19,13 +20,15 @@ interface PosCart {
   updated_at: string;
 }
 
-function formatCOP(amount: number) {
-  return new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(amount);
-}
-
 export default function CustomerDisplayPage() {
   const searchParams = useSearchParams();
   const tenantId = searchParams.get('tid');
+  const country = searchParams.get('country') || 'CO';
+  const currencyInfo = getCurrencyByCountry(country);
+
+  function fmt(amount: number) {
+    return formatPriceWithCurrency(amount, currencyInfo.code, currencyInfo.locale);
+  }
 
   const [cart, setCart] = useState<PosCart | null>(null);
   const [time, setTime] = useState(new Date());
@@ -123,7 +126,7 @@ export default function CustomerDisplayPage() {
                   <span className="text-white font-semibold text-lg">{item.name}</span>
                 </div>
                 <span className="text-green-400 font-black text-lg">
-                  {formatCOP(item.price * item.quantity)}
+                  {fmt(item.price * item.quantity)}
                 </span>
               </div>
             ))}
@@ -133,19 +136,19 @@ export default function CustomerDisplayPage() {
             {cart!.discount > 0 && (
               <div className="flex justify-between text-gray-400 text-base">
                 <span>Subtotal</span>
-                <span>{formatCOP(cart!.subtotal)}</span>
+                <span>{fmt(cart!.subtotal)}</span>
               </div>
             )}
             {cart!.discount > 0 && (
               <div className="flex justify-between text-green-400 text-base font-semibold">
                 <span>Descuento</span>
-                <span>-{formatCOP(cart!.discount)}</span>
+                <span>-{fmt(cart!.discount)}</span>
               </div>
             )}
             <div className="border-t border-gray-700 pt-3 flex justify-between items-center">
               <span className="text-white font-black text-2xl">TOTAL</span>
               <span className="text-green-400 font-black text-3xl tabular-nums">
-                {formatCOP(cart!.total)}
+                {fmt(cart!.total)}
               </span>
             </div>
           </div>

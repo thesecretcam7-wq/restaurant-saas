@@ -1098,7 +1098,7 @@ export function POSTerminal({ tenantId, country = 'CO' }: { tenantId: string; co
             {!isFullscreen && (
               <>
                 <button
-                  onClick={() => window.open(`/${tenantId}/pos-display?tid=${tenantId}`, '_blank', 'width=900,height=600')}
+                  onClick={() => window.open(`/${tenantId}/pos-display?tid=${tenantId}&country=${country}`, '_blank', 'width=900,height=600')}
                   className="flex items-center gap-2 px-3 py-2.5 bg-purple-600 hover:bg-purple-500 text-white rounded-lg font-semibold text-sm transition-all duration-200"
                   title="Abrir pantalla de cliente"
                 >
