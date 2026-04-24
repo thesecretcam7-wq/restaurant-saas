@@ -329,6 +329,7 @@ export function POSTerminal({ tenantId, country = 'CO' }: { tenantId: string; co
 
   // Nuevas características - Modo y selecciones
   const [posMode, setPosMode] = useState<POSMode>('simple');
+  const [posOrderType, setPosOrderType] = useState<'takeaway' | 'pickup'>('takeaway');
   const [selectedStaffId, setSelectedStaffId] = useState<string | null>(null);
   const [selectedStaffName, setSelectedStaffName] = useState<string>('');
   const [selectedTableId, setSelectedTableId] = useState<string | null>(null);
@@ -894,7 +895,7 @@ export function POSTerminal({ tenantId, country = 'CO' }: { tenantId: string; co
             },
             items: formattedItems,
             paymentMethod,
-            deliveryType: selectedTableId ? 'dine-in' : 'pickup',
+            deliveryType: selectedTableId ? 'dine-in' : posOrderType,
             waiter_id: selectedStaffId || null,
             waiterName: selectedStaffName || null,
             table_id: selectedTableId || null,
@@ -982,6 +983,7 @@ export function POSTerminal({ tenantId, country = 'CO' }: { tenantId: string; co
       setSelectedStaffId(null);
       setSelectedStaffName('');
       setPosMode('simple');
+      setPosOrderType('takeaway');
 
       // Clear localStorage
       if (typeof window !== 'undefined') {
@@ -1524,8 +1526,30 @@ export function POSTerminal({ tenantId, country = 'CO' }: { tenantId: string; co
               />
             </div>
           ) : (
-            <div className="border-b border-border px-2 py-2">
-              <p className="text-gray-600 text-xs text-center">Sin mesa — selecciona una desde la barra inferior</p>
+            <div className="border-b border-border px-2 py-2 space-y-1.5">
+              <p className="text-gray-600 text-xs font-bold uppercase tracking-wider">Tipo de pedido</p>
+              <div className="flex gap-1">
+                <button
+                  onClick={() => setPosOrderType('takeaway')}
+                  className={`flex-1 py-1.5 rounded-lg text-xs font-bold transition ${
+                    posOrderType === 'takeaway'
+                      ? 'bg-blue-600 text-white'
+                      : 'bg-gray-800 text-gray-400 hover:text-gray-200'
+                  }`}
+                >
+                  🥡 Para llevar
+                </button>
+                <button
+                  onClick={() => setPosOrderType('pickup')}
+                  className={`flex-1 py-1.5 rounded-lg text-xs font-bold transition ${
+                    posOrderType === 'pickup'
+                      ? 'bg-blue-600 text-white'
+                      : 'bg-gray-800 text-gray-400 hover:text-gray-200'
+                  }`}
+                >
+                  🏠 Para recoger
+                </button>
+              </div>
             </div>
           )}
 
