@@ -77,8 +77,9 @@ interface TableGroup {
 
 interface RestaurantTable {
   id: string;
-  number: number;
-  name?: string;
+  table_number: number;
+  seats: number;
+  location?: string;
 }
 
 // ─── Timer Hook ───────────────────────────────────────────────────────────────
@@ -575,9 +576,9 @@ export function POSTerminal({ tenantId, country = 'CO' }: { tenantId: string; co
   async function fetchAllTables() {
     const { data } = await supabase
       .from('tables')
-      .select('id, number, name')
+      .select('id, table_number, seats, location')
       .eq('tenant_id', tenantId)
-      .order('number', { ascending: true });
+      .order('table_number', { ascending: true });
     if (data) setAllTables(data as RestaurantTable[]);
   }
 
@@ -1115,11 +1116,11 @@ export function POSTerminal({ tenantId, country = 'CO' }: { tenantId: string; co
               <p className="text-gray-600 text-xs font-bold mb-2 tracking-wider uppercase">Mesas</p>
               <div className="flex gap-2 overflow-x-auto scrollbar-none pb-1">
                 {allTables.map(table => {
-                  const group = tableGroups.find(g => g.tableNumber === table.number);
+                  const group = tableGroups.find(g => g.tableNumber === table.table_number);
                   const minutes = group
                     ? Math.floor((Date.now() - new Date(group.oldestOrder.created_at).getTime()) / 60000)
                     : 0;
-                  const isSelected = selectedTableNumber === table.number && !group;
+                  const isSelected = selectedTableNumber === table.table_number && !group;
                   return (
                     <button
                       key={table.id}
@@ -1128,7 +1129,7 @@ export function POSTerminal({ tenantId, country = 'CO' }: { tenantId: string; co
                           loadTableToCart(group.orders);
                         } else {
                           setSelectedTableId(table.id);
-                          setSelectedTableNumber(table.number);
+                          setSelectedTableNumber(table.table_number);
                           setPosMode('table');
                         }
                       }}
@@ -1141,7 +1142,7 @@ export function POSTerminal({ tenantId, country = 'CO' }: { tenantId: string; co
                       }`}
                     >
                       <span className={`font-black text-sm leading-tight ${group ? 'text-white' : isSelected ? 'text-blue-300' : 'text-gray-400'}`}>
-                        {table.number}
+                        {table.table_number}
                       </span>
                       {group ? (
                         <>
