@@ -12,6 +12,7 @@ const supabase = createClient(
 interface Category { id: string; name: string; sort_order: number; }
 interface MenuItem { id: string; name: string; price: number; category_id: string; description: string | null; image_url: string | null; }
 interface CartItem { menu_item_id: string; name: string; price: number; quantity: number; notes: string; }
+interface Table { id: string; table_number: number; seats: number; status: string; }
 
 interface Props {
   tenantId: string;
@@ -35,6 +36,7 @@ export function KitchenClient({ tenantId, tenantName }: Props) {
   const [noteText, setNoteText] = useState('');
   const [cartOpen, setCartOpen] = useState(false);
   const [csrfToken, setCsrfToken] = useState('');
+  const [tables, setTables] = useState<Table[]>([]);
 
   // Restore cart from localStorage on mount
   useEffect(() => {
@@ -68,12 +70,14 @@ export function KitchenClient({ tenantId, tenantName }: Props) {
       .catch(() => {});
 
     async function load() {
-      const [{ data: cats }, { data: items }] = await Promise.all([
+      const [{ data: cats }, { data: items }, { data: tbls }] = await Promise.all([
         supabase.from('menu_categories').select('id, name, sort_order').eq('tenant_id', tenantId).eq('active', true).order('sort_order'),
         supabase.from('menu_items').select('id, name, price, category_id, description, image_url').eq('tenant_id', tenantId).eq('available', true),
+        supabase.from('tables').select('id, table_number, seats, status').eq('tenant_id', tenantId).neq('status', 'maintenance').order('table_number'),
       ]);
       setCategories(cats || []);
       setMenuItems(items || []);
+      setTables(tbls || []);
       if (cats && cats.length > 0) setSelectedCategory(cats[0].id);
       setLoading(false);
     }
@@ -162,17 +166,33 @@ export function KitchenClient({ tenantId, tenantName }: Props) {
         </div>
       )}
 
-      {/* Table number */}
+      {/* Table selector */}
       <div className="px-4 py-3 border-b border-gray-800">
-        <label className="text-gray-400 text-xs uppercase tracking-wide mb-1.5 block">Número de mesa</label>
-        <input
-          type="number"
-          inputMode="numeric"
-          placeholder="Ej: 5"
-          value={tableNumber}
-          onChange={e => setTableNumber(e.target.value)}
-          className="w-full bg-gray-800 text-white text-2xl font-bold px-3 py-3 rounded-xl border border-gray-700 focus:outline-none focus:border-emerald-500 text-center"
-        />
+        <div className="flex items-center justify-between mb-2">
+          <label className="text-gray-400 text-xs uppercase tracking-wide">Mesa</label>
+          {tableNumber && (
+            <button onClick={() => setTableNumber('')} className="text-gray-500 hover:text-red-400 text-xs transition-colors">✕ Quitar</button>
+          )}
+        </div>
+        {tables.length === 0 ? (
+          <p className="text-gray-600 text-xs text-center py-2">Sin mesas configuradas</p>
+        ) : (
+          <div className="grid grid-cols-4 gap-1.5">
+            {tables.map(t => (
+              <button
+                key={t.id}
+                onClick={() => setTableNumber(String(t.table_number))}
+                className={`py-2.5 rounded-xl text-sm font-black transition active:scale-95 border ${
+                  tableNumber === String(t.table_number)
+                    ? 'bg-emerald-600 border-emerald-500 text-white shadow-lg shadow-emerald-900/40'
+                    : 'bg-gray-800 border-gray-700 text-gray-300 hover:border-emerald-600 hover:text-white'
+                }`}
+              >
+                {t.table_number}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Cart items */}
@@ -300,26 +320,35 @@ export function KitchenClient({ tenantId, tenantName }: Props) {
         </div>
       )}
 
-      {/* Mobile-only: table number bar always visible */}
-      <div className="lg:hidden bg-gray-900 border-b border-gray-800 px-4 py-2 flex items-center gap-3">
-        <span className="text-gray-400 text-sm font-medium flex-shrink-0">Mesa</span>
-        <input
-          type="number"
-          inputMode="numeric"
-          placeholder="Número de mesa"
-          value={tableNumber}
-          onChange={e => setTableNumber(e.target.value)}
-          className={`flex-1 bg-gray-800 text-white font-black text-lg px-3 py-2 rounded-xl border focus:outline-none text-center transition-colors ${
-            tableNumber ? 'border-emerald-500 text-emerald-400' : 'border-gray-700 focus:border-emerald-500'
-          }`}
-        />
-        {tableNumber && (
-          <button
-            onClick={() => setTableNumber('')}
-            className="text-gray-500 hover:text-red-400 text-sm flex-shrink-0"
-          >
-            ✕
-          </button>
+      {/* Mobile-only: table selector bar always visible */}
+      <div className="lg:hidden bg-gray-900 border-b border-gray-800 px-3 py-2">
+        <div className="flex items-center gap-2 mb-1.5">
+          <span className="text-gray-400 text-xs font-bold uppercase tracking-wide">Mesa</span>
+          {tableNumber && (
+            <span className="text-emerald-400 font-black text-sm ml-1">#{tableNumber}</span>
+          )}
+          {tableNumber && (
+            <button onClick={() => setTableNumber('')} className="ml-auto text-gray-500 hover:text-red-400 text-xs">✕ Quitar</button>
+          )}
+        </div>
+        {tables.length === 0 ? (
+          <p className="text-gray-600 text-xs">Sin mesas configuradas</p>
+        ) : (
+          <div className="flex gap-1.5 overflow-x-auto scrollbar-hide pb-0.5">
+            {tables.map(t => (
+              <button
+                key={t.id}
+                onClick={() => setTableNumber(String(t.table_number))}
+                className={`flex-shrink-0 w-10 h-10 rounded-xl text-sm font-black transition active:scale-95 border ${
+                  tableNumber === String(t.table_number)
+                    ? 'bg-emerald-600 border-emerald-500 text-white'
+                    : 'bg-gray-800 border-gray-700 text-gray-300 hover:border-emerald-600'
+                }`}
+              >
+                {t.table_number}
+              </button>
+            ))}
+          </div>
         )}
       </div>
 
