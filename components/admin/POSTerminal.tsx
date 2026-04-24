@@ -1550,6 +1550,41 @@ export function POSTerminal({ tenantId, country = 'CO' }: { tenantId: string; co
                   🏠 Para recoger
                 </button>
               </div>
+              {allTables.length > 0 && (
+                <div className="pt-1">
+                  <p className="text-gray-600 text-xs font-bold uppercase tracking-wider mb-1.5">Mesa (opcional)</p>
+                  <div className="grid grid-cols-4 gap-1">
+                    {allTables.map(table => {
+                      const group = tableGroups.find(g => g.tableNumber === table.table_number);
+                      const isOccupied = !!group;
+                      return (
+                        <button
+                          key={table.id}
+                          disabled={table.status === 'maintenance'}
+                          onClick={() => {
+                            if (group) {
+                              loadTableToCart(group.orders);
+                            } else {
+                              setSelectedTableId(table.id);
+                              setSelectedTableNumber(table.table_number);
+                              setPosMode('table');
+                            }
+                          }}
+                          className={`py-2 rounded-lg text-xs font-black transition active:scale-95 border ${
+                            table.status === 'maintenance'
+                              ? 'bg-gray-800 border-gray-700 text-gray-600 cursor-not-allowed'
+                              : isOccupied
+                              ? 'bg-red-900/50 border-red-600 text-red-300 hover:bg-red-800/60'
+                              : 'bg-emerald-900/40 border-emerald-700 text-emerald-300 hover:bg-emerald-800/50'
+                          }`}
+                        >
+                          {table.table_number}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
