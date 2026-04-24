@@ -36,9 +36,10 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Single-session enforcement: register token in DB (replaces any previous session)
+    // Single-session enforcement: only for admin sessions (not KDS/comandero)
     const sessionToken = randomUUID()
-    if (staffId) {
+    const isAdminSession = permissions.some(p => p.startsWith('admin_'))
+    if (staffId && isAdminSession) {
       await supabase.from('active_sessions').upsert({
         user_key: `staff:${staffId}`,
         tenant_id: tenantId,
