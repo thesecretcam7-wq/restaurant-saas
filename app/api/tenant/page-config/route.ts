@@ -1,5 +1,6 @@
 import { createServiceClient } from '@/lib/supabase/server'
 import { NextRequest, NextResponse } from 'next/server'
+import { revalidatePath } from 'next/cache'
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
@@ -49,6 +50,10 @@ export async function PUT(request: NextRequest) {
       console.error('[page-config PUT] code:', error.code, 'msg:', error.message)
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
+
+    revalidatePath(`/${raw}`)
+    revalidatePath(`/${raw}/menu`)
+
     return NextResponse.json({ ok: true })
   } catch (err) {
     console.error('[page-config PUT] exception:', err)
