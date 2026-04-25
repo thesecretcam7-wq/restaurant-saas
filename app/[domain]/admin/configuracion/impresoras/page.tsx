@@ -1,53 +1,97 @@
 'use client';
 
-import { use, useState, useEffect } from 'react';
-import { useSearchParams } from 'next/navigation';
-import { createClient } from '@supabase/supabase-js';
+import { use, useState, useEffect, useCallback } from 'react';
+import { createClient } from '@/lib/supabase/client';
 import { Plus, AlertCircle, CheckCircle } from 'lucide-react';
 import { PrinterDeviceCard } from '@/components/admin/PrinterDeviceCard';
 import { useWebUSB } from '@/lib/hooks/useWebUSB';
-import { testPrinterConnection, getPrinterLogs } from '@/lib/pos-printer';
+import { testPrinterConnection } from '@/lib/pos-printer';
 import type { PrinterDevice } from '@/types/printer';
 
 interface Props {
   params: Promise<{ domain: string }>
 }
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
-
 export default function PrintersConfigPage({ params }: Props) {
-  const { domain: tenantId } = use(params);
+  const { domain: slug } = use(params);
 
+  const [tenantId, setTenantId] = useState<string | null>(null);
   const [devices, setDevices] = useState<PrinterDevice[]>([]);
   const [loading, setLoading] = useState(false);
+  const [autoPrint, setAutoPrint] = useState(true);
+  const [copies, setCopies] = useState(1);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
 
   const webusb = useWebUSB();
+  const supabase = createClient();
 
-  // Load devices
+  // Resolve slug → UUID then load everything
   useEffect(() => {
-    const loadDevices = async () => {
-      if (!tenantId) return;
+    if (!slug) return;
+    async function init() {
+      const { data: tenant } = await supabase
+        .from('tenants')
+        .select('id')
+        .eq('slug', slug)
+        .single();
+      if (!tenant) return;
 
-      try {
-        const response = await fetch(`/api/devices?tenantId=${tenantId}`);
-        const data = await response.json();
-        setDevices(data.devices || []);
-      } catch (error) {
-        console.error('Error loading devices:', error);
-        showToast('Error al cargar dispositivos', 'error');
+      setTenantId(tenant.id);
+
+      // Load devices
+      const res = await fetch(`/api/devices?tenantId=${tenant.id}`);
+      const data = await res.json();
+      setDevices(data.devices || []);
+
+      // Load settings
+      const { data: settings } = await supabase
+        .from('restaurant_settings')
+        .select('printer_auto_print')
+        .eq('tenant_id', tenant.id)
+        .maybeSingle();
+
+      if (settings) {
+        setAutoPrint(settings.printer_auto_print ?? true);
       }
-    };
-
-    loadDevices();
-  }, [tenantId]);
+    }
+    init();
+  }, [slug]);
 
   const showToast = (message: string, type: 'success' | 'error') => {
     setToast({ message, type });
     setTimeout(() => setToast(null), 3000);
+  };
+
+  const saveAutoPrint = useCallback(async (value: boolean) => {
+    if (!tenantId) return;
+    await supabase
+      .from('restaurant_settings')
+      .upsert(
+        { tenant_id: tenantId, printer_auto_print: value },
+        { onConflict: 'tenant_id' }
+      );
+  }, [tenantId]);
+
+  const handleAutoPrintChange = async (checked: boolean) => {
+    setAutoPrint(checked);
+    await saveAutoPrint(checked);
+  };
+
+  // Copies are stored in the default device's config
+  const handleCopiesChange = async (val: number) => {
+    const clamped = Math.min(5, Math.max(1, val));
+    setCopies(clamped);
+    const defaultDevice = devices.find((d) => d.is_default);
+    if (defaultDevice && tenantId) {
+      await fetch(`/api/devices?id=${defaultDevice.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          tenantId,
+          config: { ...defaultDevice.config, copies: clamped },
+        }),
+      });
+    }
   };
 
   const handleAddPrinter = async () => {
@@ -55,6 +99,7 @@ export default function PrintersConfigPage({ params }: Props) {
       showToast('WebUSB no soportado en este navegador', 'error');
       return;
     }
+    if (!tenantId) return;
 
     try {
       const device = await webusb.requestDevice();
@@ -62,7 +107,6 @@ export default function PrintersConfigPage({ params }: Props) {
 
       setLoading(true);
 
-      // Crear dispositivo en BD
       const response = await fetch('/api/devices', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -80,10 +124,7 @@ export default function PrintersConfigPage({ params }: Props) {
 
       const newDevice = await response.json();
       setDevices([newDevice.device, ...devices]);
-
-      // Conectar
       await webusb.connectDevice(device);
-
       showToast('Impresora agregada correctamente', 'success');
     } catch (error) {
       const msg = error instanceof Error ? error.message : 'Error desconocido';
@@ -95,42 +136,25 @@ export default function PrintersConfigPage({ params }: Props) {
 
   const handleSetDefault = async (deviceId: string) => {
     if (!tenantId) return;
-
     try {
       setLoading(true);
 
-      // Update restaurant_settings
-      const response = await fetch(`/api/devices?id=${deviceId}`, {
+      await fetch(`/api/devices?id=${deviceId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          tenantId,
-          is_default: true,
-        }),
+        body: JSON.stringify({ tenantId, is_default: true }),
       });
 
-      if (!response.ok) throw new Error('Error al actualizar');
-
-      // Update local settings
-      const { error } = await supabase
+      await supabase
         .from('restaurant_settings')
-        .upsert({
-          tenant_id: tenantId,
-          default_receipt_printer_id: deviceId,
-        }, { onConflict: 'tenant_id' });
+        .upsert(
+          { tenant_id: tenantId, default_receipt_printer_id: deviceId },
+          { onConflict: 'tenant_id' }
+        );
 
-      if (error) throw error;
-
-      // Update devices list
-      setDevices(
-        devices.map((d) => ({
-          ...d,
-          is_default: d.id === deviceId,
-        }))
-      );
-
+      setDevices(devices.map((d) => ({ ...d, is_default: d.id === deviceId })));
       showToast('Impresora predeterminada actualizada', 'success');
-    } catch (error) {
+    } catch {
       showToast('Error al actualizar configuración', 'error');
     } finally {
       setLoading(false);
@@ -139,19 +163,15 @@ export default function PrintersConfigPage({ params }: Props) {
 
   const handleDelete = async (deviceId: string) => {
     if (!tenantId) return;
-
     try {
       setLoading(true);
-
       const response = await fetch(`/api/devices?id=${deviceId}&tenantId=${tenantId}`, {
         method: 'DELETE',
       });
-
       if (!response.ok) throw new Error('Error al eliminar');
-
       setDevices(devices.filter((d) => d.id !== deviceId));
       showToast('Dispositivo eliminado', 'success');
-    } catch (error) {
+    } catch {
       showToast('Error al eliminar dispositivo', 'error');
     } finally {
       setLoading(false);
@@ -160,30 +180,19 @@ export default function PrintersConfigPage({ params }: Props) {
 
   const handleTest = async (deviceId: string) => {
     if (!tenantId) return;
-
     try {
       setLoading(true);
       const result = await testPrinterConnection(tenantId, deviceId);
-
-      if (result.success) {
-        showToast(result.message, 'success');
-      } else {
-        showToast(result.message, 'error');
-      }
-    } catch (error) {
+      showToast(result.message, result.success ? 'success' : 'error');
+    } catch {
       showToast('Error al probar impresora', 'error');
     } finally {
       setLoading(false);
     }
   };
 
-  if (!tenantId) {
-    return <div className="text-center text-gray-400">Cargando...</div>;
-  }
-
   return (
     <div className="space-y-6">
-      {/* Header */}
       <div>
         <h1 className="text-2xl font-bold text-white">Configuración de Impresoras</h1>
         <p className="text-sm text-gray-400 mt-1">
@@ -191,7 +200,6 @@ export default function PrintersConfigPage({ params }: Props) {
         </p>
       </div>
 
-      {/* Toast */}
       {toast && (
         <div
           className={`p-4 rounded-lg flex items-center gap-3 ${
@@ -209,10 +217,9 @@ export default function PrintersConfigPage({ params }: Props) {
         </div>
       )}
 
-      {/* Add Button */}
       <button
         onClick={handleAddPrinter}
-        disabled={loading || !webusb.isSupported}
+        disabled={loading || !webusb.isSupported || !tenantId}
         className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-700 disabled:cursor-not-allowed text-white rounded-lg font-medium transition"
       >
         <Plus className="w-5 h-5" />
@@ -225,7 +232,6 @@ export default function PrintersConfigPage({ params }: Props) {
         </div>
       )}
 
-      {/* Devices List */}
       <div className="space-y-3">
         {devices.length === 0 ? (
           <div className="bg-gray-800 border border-gray-700 rounded-lg p-8 text-center">
@@ -250,15 +256,15 @@ export default function PrintersConfigPage({ params }: Props) {
         )}
       </div>
 
-      {/* General Settings */}
       {devices.length > 0 && (
         <div className="bg-gray-800 border border-gray-700 rounded-lg p-4 space-y-4">
           <h3 className="font-bold text-white">Configuración General</h3>
 
-          <label className="flex items-center gap-3">
+          <label className="flex items-center gap-3 cursor-pointer">
             <input
               type="checkbox"
-              defaultChecked
+              checked={autoPrint}
+              onChange={(e) => handleAutoPrintChange(e.target.checked)}
               className="w-4 h-4 rounded bg-gray-700 border-gray-600 cursor-pointer"
             />
             <span className="text-sm text-gray-300">Auto-imprimir recibos al confirmar pago</span>
@@ -268,9 +274,10 @@ export default function PrintersConfigPage({ params }: Props) {
             <label className="text-sm text-gray-300 mb-2 block">Copias por recibo</label>
             <input
               type="number"
-              defaultValue={1}
+              value={copies}
               min={1}
               max={5}
+              onChange={(e) => handleCopiesChange(Number(e.target.value))}
               className="w-20 px-3 py-1 bg-gray-700 border border-gray-600 rounded text-white text-sm"
             />
           </div>
