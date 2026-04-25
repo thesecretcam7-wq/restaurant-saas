@@ -202,7 +202,17 @@ export function KitchenClient({ tenantId, tenantName }: Props) {
             <p className="text-4xl mb-3">🍽️</p>
             <p className="text-sm">Agrega productos</p>
           </div>
-        ) : cart.map(item => (
+        ) : (
+          <>
+            <div className="flex justify-end">
+              <button
+                onClick={() => { setCart([]); try { localStorage.removeItem(CART_KEY(tenantId)); } catch {} }}
+                className="text-xs text-red-400 hover:text-red-300 flex items-center gap-1 py-1 px-2 rounded-lg hover:bg-red-900/20 transition"
+              >
+                <Trash2 className="w-3 h-3" /> Limpiar todo
+              </button>
+            </div>
+            {cart.map(item => (
           <div key={item.menu_item_id} className="bg-gray-800 rounded-2xl p-3">
             <div className="flex items-start justify-between gap-2">
               <p className="text-white text-sm font-semibold flex-1 leading-snug">{item.name}</p>
@@ -264,7 +274,9 @@ export function KitchenClient({ tenantId, tenantName }: Props) {
               </button>
             )}
           </div>
-        ))}
+            ))}
+          </>
+        )}
       </div>
 
       {/* Footer */}
