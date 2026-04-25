@@ -110,7 +110,6 @@ export default function NuevoProductoPage({ params }: Props) {
                 <input
                   type="file"
                   accept="image/*"
-                  capture="environment"
                   onChange={handleImageUpload}
                   className="hidden"
                 />

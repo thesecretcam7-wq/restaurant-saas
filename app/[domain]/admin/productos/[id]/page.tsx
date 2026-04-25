@@ -163,7 +163,6 @@ export default function EditProductoPage({ params }: Props) {
                 <input
                   type="file"
                   accept="image/*"
-                  capture="environment"
                   onChange={handleImageUpload}
                   className="hidden"
                 />
