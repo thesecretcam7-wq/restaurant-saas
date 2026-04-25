@@ -8,6 +8,8 @@ import { MenuGridItem, MenuCompactItem, MenuListItem } from '@/components/store/
 import CategoryFilterBar from '@/components/store/CategoryFilterBar'
 import Link from 'next/link'
 
+export const revalidate = 60 // Cache for 1 minute, then revalidate
+
 interface MenuProps {
   params: Promise<{ domain: string }>
 }
