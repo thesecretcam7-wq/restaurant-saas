@@ -32,7 +32,7 @@ export async function PUT(request: NextRequest) {
       .eq('tenant_id', tenantId)
 
     if (error) {
-      console.error('[page-config PUT]', error)
+      console.error('[page-config PUT] code:', error.code, 'msg:', error.message, 'details:', error.details)
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
     return NextResponse.json({ ok: true })
