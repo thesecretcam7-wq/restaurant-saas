@@ -1,12 +1,23 @@
 import { createServiceClient } from '@/lib/supabase/server'
 import { NextRequest, NextResponse } from 'next/server'
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
+async function resolveTenantId(supabase: ReturnType<typeof createServiceClient>, tenantId: string): Promise<string | null> {
+  if (UUID_RE.test(tenantId)) return tenantId
+  const { data } = await supabase.from('tenants').select('id').eq('slug', tenantId).maybeSingle()
+  return data?.id || null
+}
+
 export async function GET(request: NextRequest) {
   try {
-    const tenantId = request.nextUrl.searchParams.get('tenantId')
-    if (!tenantId) return NextResponse.json({ error: 'tenantId requerido' }, { status: 400 })
+    const raw = request.nextUrl.searchParams.get('tenantId')
+    if (!raw) return NextResponse.json({ error: 'tenantId requerido' }, { status: 400 })
 
     const supabase = createServiceClient()
+    const tenantId = await resolveTenantId(supabase, raw)
+    if (!tenantId) return NextResponse.json({ error: 'Tenant no encontrado' }, { status: 404 })
+
     const { data } = await supabase
       .from('tenant_branding')
       .select('page_config')
@@ -22,17 +33,20 @@ export async function GET(request: NextRequest) {
 
 export async function PUT(request: NextRequest) {
   try {
-    const { tenantId, page_config } = await request.json()
-    if (!tenantId) return NextResponse.json({ error: 'tenantId requerido' }, { status: 400 })
+    const { tenantId: raw, page_config } = await request.json()
+    if (!raw) return NextResponse.json({ error: 'tenantId requerido' }, { status: 400 })
 
     const supabase = createServiceClient()
+    const tenantId = await resolveTenantId(supabase, raw)
+    if (!tenantId) return NextResponse.json({ error: 'Tenant no encontrado' }, { status: 404 })
+
     const { error } = await supabase
       .from('tenant_branding')
       .update({ page_config })
       .eq('tenant_id', tenantId)
 
     if (error) {
-      console.error('[page-config PUT] code:', error.code, 'msg:', error.message, 'details:', error.details)
+      console.error('[page-config PUT] code:', error.code, 'msg:', error.message)
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
     return NextResponse.json({ ok: true })
