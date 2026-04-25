@@ -32,7 +32,7 @@ export default async function KDSPage({ params }: Props) {
 
   if (!tenantId) {
     return (
-      <div className="flex items-center justify-center h-screen bg-gray-950 text-red-400 text-xl">
+      <div className="flex items-center justify-center h-screen bg-gray-50 text-red-500 text-xl">
         Error: Restaurante no encontrado
       </div>
     )

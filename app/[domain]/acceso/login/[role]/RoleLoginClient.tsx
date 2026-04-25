@@ -20,22 +20,10 @@ interface Props {
 }
 
 const ROLE_CONFIG = {
-  cocinero: {
-    label: 'Cocinero',
-    apiRole: 'cocinero',
-  },
-  camarero: {
-    label: 'Camarero',
-    apiRole: 'camarero',
-  },
-  cajero: {
-    label: 'Cajero',
-    apiRole: 'cajero',
-  },
-  admin: {
-    label: 'Administrador',
-    apiRole: 'admin',
-  },
+  cocinero: { label: 'Cocinero', apiRole: 'cocinero' },
+  camarero: { label: 'Camarero', apiRole: 'camarero' },
+  cajero:   { label: 'Cajero',   apiRole: 'cajero' },
+  admin:    { label: 'Administrador', apiRole: 'admin' },
 };
 
 export function RoleLoginClient({ tenantId, tenantName, tenantSlug, logoUrl, role, staffMembers }: Props) {
@@ -50,10 +38,7 @@ export function RoleLoginClient({ tenantId, tenantName, tenantSlug, logoUrl, rol
 
   async function handleStaffSelect(selectedId: string) {
     const selected = staffMembers.find(s => s.id === selectedId);
-    if (!selected) {
-      setError('Selecciona un empleado válido');
-      return;
-    }
+    if (!selected) { setError('Selecciona un empleado válido'); return; }
     setStaffId(selectedId);
     setStaffName(selected.name);
     setError('');
@@ -62,62 +47,45 @@ export function RoleLoginClient({ tenantId, tenantName, tenantSlug, logoUrl, rol
 
   async function validatePin(p: string) {
     if (p.length < 4) return;
-
     setLoading(true);
     setError('');
     try {
       const res = await fetch('/api/staff/auth', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          domain: tenantSlug,
-          pin: p,
-          role: config.apiRole,
-        }),
+        body: JSON.stringify({ domain: tenantSlug, pin: p, role: config.apiRole }),
       });
 
       if (res.ok) {
-        // Registrar sesión
         await fetch('/api/staff/session/log', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            tenantId,
-            employee_name: staffName,
-            role,
-            pin: p,
-          }),
+          body: JSON.stringify({ tenantId, employee_name: staffName, role, pin: p }),
         });
 
-        // Store session
         sessionStorage.setItem('staff_role', role);
         sessionStorage.setItem('staff_tenant', tenantId);
         sessionStorage.setItem('staff_name', staffName);
         sessionStorage.setItem('staff_id', staffId);
 
-        // Set httpOnly cookie with role and permissions
         await fetch('/api/staff/session', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ tenantId, role, staffId, staffName }),
         });
 
-        // Redirect directly to each role's primary tool (skip the tool selector)
         const roleDestinations: Record<string, string> = {
-          admin: `/${tenantSlug}/admin/dashboard`,
+          admin:    `/${tenantSlug}/admin/dashboard`,
           cocinero: `/${tenantSlug}/staff/kds`,
           camarero: `/${tenantSlug}/kitchen`,
-          cajero: `/${tenantSlug}/staff/pos`,
+          cajero:   `/${tenantSlug}/staff/pos`,
         };
         router.push(roleDestinations[role] || `/${tenantSlug}/acceso/portal/${role}`);
         return;
       }
 
       const data = await res.json();
-      if (data.requiresUpgrade) {
-        setError('Esta función requiere plan Pro o Premium.');
-        return;
-      }
+      if (data.requiresUpgrade) { setError('Esta función requiere plan Pro o Premium.'); return; }
       setError('PIN incorrecto.');
     } catch {
       setError('Error de conexión.');
@@ -129,30 +97,23 @@ export function RoleLoginClient({ tenantId, tenantName, tenantSlug, logoUrl, rol
   function pressKey(key: string) {
     if (loading) return;
     setError('');
-    if (key === 'del') {
-      setPin(p => p.slice(0, -1));
-      return;
-    }
+    if (key === 'del') { setPin(p => p.slice(0, -1)); return; }
     const next = pin + key;
     setPin(next);
     if (next.length === 6) validatePin(next);
   }
 
   return (
-    <div className="min-h-screen bg-gray-950 flex flex-col items-center justify-center p-6">
+    <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center p-6">
       <button
         onClick={() => {
           if (phase === 'pin') {
-            setPhase('select');
-            setPin('');
-            setError('');
-            setStaffId('');
-            setStaffName('');
+            setPhase('select'); setPin(''); setError(''); setStaffId(''); setStaffName('');
           } else {
             router.back();
           }
         }}
-        className="fixed top-4 left-4 p-2 text-gray-400 hover:text-white transition-colors"
+        className="fixed top-4 left-4 p-2 text-gray-500 hover:text-gray-900 transition-colors"
       >
         <ArrowLeft className="w-5 h-5" />
       </button>
@@ -165,29 +126,27 @@ export function RoleLoginClient({ tenantId, tenantName, tenantSlug, logoUrl, rol
             <ChefHat className="w-8 h-8 text-white" />
           </div>
         )}
-        <p className="text-white font-bold text-xl">{config.label}</p>
-        <p className="text-gray-400 text-sm mt-1">{tenantName}</p>
+        <p className="text-gray-900 font-bold text-xl">{config.label}</p>
+        <p className="text-gray-500 text-sm mt-1">{tenantName}</p>
       </div>
 
       {phase === 'select' ? (
         <div className="w-full max-w-sm space-y-4">
-          <p className="text-white text-center text-sm mb-4">Selecciona tu nombre</p>
+          <p className="text-gray-700 text-center text-sm mb-4">Selecciona tu nombre</p>
           <select
             value={staffId}
             onChange={e => handleStaffSelect(e.target.value)}
             autoFocus
-            className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:border-emerald-500 text-center text-lg"
+            className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl text-gray-900 focus:outline-none focus:border-blue-500 text-center text-lg shadow-sm"
           >
             <option value="">-- Elige tu nombre --</option>
             {staffMembers.map(staff => (
-              <option key={staff.id} value={staff.id}>
-                {staff.name}
-              </option>
+              <option key={staff.id} value={staff.id}>{staff.name}</option>
             ))}
           </select>
-          {error && <p className="text-red-400 text-sm text-center">{error}</p>}
+          {error && <p className="text-red-500 text-sm text-center">{error}</p>}
           {staffMembers.length === 0 && (
-            <p className="text-red-400 text-sm text-center">No hay empleados registrados</p>
+            <p className="text-red-500 text-sm text-center">No hay empleados registrados</p>
           )}
         </div>
       ) : (
@@ -197,7 +156,7 @@ export function RoleLoginClient({ tenantId, tenantName, tenantSlug, logoUrl, rol
               <div
                 key={i}
                 className={`w-10 h-10 rounded-full border-2 flex items-center justify-center transition-colors ${
-                  i < pin.length ? 'bg-emerald-500 border-emerald-500' : 'border-gray-600 bg-gray-800'
+                  i < pin.length ? 'bg-emerald-500 border-emerald-500' : 'border-gray-300 bg-white'
                 }`}
               >
                 {i < pin.length && <div className="w-3 h-3 bg-white rounded-full" />}
@@ -205,8 +164,8 @@ export function RoleLoginClient({ tenantId, tenantName, tenantSlug, logoUrl, rol
             ))}
           </div>
 
-          {error && <p className="text-red-400 text-sm mb-4 text-center">{error}</p>}
-          {loading && <p className="text-gray-400 text-sm mb-4">Verificando...</p>}
+          {error && <p className="text-red-500 text-sm mb-4 text-center">{error}</p>}
+          {loading && <p className="text-gray-500 text-sm mb-4">Verificando...</p>}
 
           <div className="grid grid-cols-3 gap-3 w-64">
             {['1','2','3','4','5','6','7','8','9','','0','del'].map((key) => {
@@ -216,10 +175,10 @@ export function RoleLoginClient({ tenantId, tenantName, tenantSlug, logoUrl, rol
                   key={key}
                   onClick={() => pressKey(key)}
                   disabled={loading}
-                  className={`h-16 rounded-2xl flex items-center justify-center text-xl font-semibold transition-all active:scale-95 ${
+                  className={`h-16 rounded-2xl flex items-center justify-center text-xl font-semibold transition-all active:scale-95 shadow-sm ${
                     key === 'del'
-                      ? 'bg-gray-800 text-gray-400 hover:bg-gray-700'
-                      : 'bg-gray-800 text-white hover:bg-gray-700'
+                      ? 'bg-gray-100 text-gray-500 hover:bg-gray-200 border border-gray-200'
+                      : 'bg-white text-gray-900 hover:bg-gray-50 border border-gray-200'
                   }`}
                 >
                   {key === 'del' ? <Delete className="w-5 h-5" /> : key}
@@ -228,7 +187,7 @@ export function RoleLoginClient({ tenantId, tenantName, tenantSlug, logoUrl, rol
             })}
           </div>
 
-          <p className="text-gray-600 text-xs mt-8 text-center">Ingresa tu PIN de 6 dígitos</p>
+          <p className="text-gray-400 text-xs mt-8 text-center">Ingresa tu PIN de 6 dígitos</p>
         </>
       )}
     </div>

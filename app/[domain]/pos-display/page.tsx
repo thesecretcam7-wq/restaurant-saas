@@ -67,10 +67,8 @@ export default function CustomerDisplayPage() {
 
     fetchCart();
 
-    // Polling every 2s as primary update mechanism (realtime requires table config)
     const poll = setInterval(fetchCart, 2000);
 
-    // Realtime as bonus for instant updates when available
     const channel = supabase
       .channel(`customer-display:${tenantId}`)
       .on('postgres_changes', {
@@ -90,15 +88,15 @@ export default function CustomerDisplayPage() {
   const hasItems = cart && cart.items && cart.items.length > 0;
 
   return (
-    <div className="min-h-screen bg-gray-950 text-white flex flex-col select-none">
-      <div className="bg-gradient-to-r from-blue-700 to-indigo-700 px-8 py-4 flex items-center justify-between shadow-xl">
+    <div className="min-h-screen bg-gray-50 text-gray-900 flex flex-col select-none">
+      <div className="bg-gradient-to-r from-blue-600 to-indigo-600 px-8 py-4 flex items-center justify-between shadow-md">
         <div className="flex items-center gap-3">
           <div className="bg-white/10 rounded-xl p-2 border border-white/20">
             <UtensilsCrossed className="w-6 h-6 text-white" />
           </div>
           <span className="text-white font-black text-xl tracking-wide">Eccofood</span>
         </div>
-        <div className="text-white/70 text-sm font-mono">
+        <div className="text-white/80 text-sm font-mono">
           {time.toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
         </div>
       </div>
@@ -106,54 +104,54 @@ export default function CustomerDisplayPage() {
       {!hasItems ? (
         <div className="flex-1 flex flex-col items-center justify-center gap-6">
           <div className="text-8xl mb-2">🍽️</div>
-          <h1 className="text-4xl font-black text-white tracking-wide">¡Bienvenido!</h1>
-          <p className="text-gray-400 text-xl">Estamos preparando su pedido</p>
+          <h1 className="text-4xl font-black text-gray-900 tracking-wide">¡Bienvenido!</h1>
+          <p className="text-gray-500 text-xl">Estamos preparando su pedido</p>
         </div>
       ) : (
         <div className="flex-1 flex flex-col max-w-2xl mx-auto w-full px-8 py-8 gap-6">
-          <h2 className="text-2xl font-black text-white">Su pedido</h2>
+          <h2 className="text-2xl font-black text-gray-900">Su pedido</h2>
 
           <div className="flex-1 space-y-3">
             {cart!.items.map((item, i) => (
               <div
                 key={i}
-                className="flex items-center justify-between bg-gray-800/60 border border-gray-700 rounded-2xl px-5 py-4"
+                className="flex items-center justify-between bg-white border border-gray-200 rounded-2xl px-5 py-4 shadow-sm"
               >
                 <div className="flex items-center gap-4">
                   <span className="bg-blue-600 text-white font-black text-sm w-8 h-8 rounded-full flex items-center justify-center shrink-0">
                     {item.quantity}
                   </span>
-                  <span className="text-white font-semibold text-lg">{item.name}</span>
+                  <span className="text-gray-900 font-semibold text-lg">{item.name}</span>
                 </div>
-                <span className="text-green-400 font-black text-lg">
+                <span className="text-green-600 font-black text-lg">
                   {fmt(item.price * item.quantity)}
                 </span>
               </div>
             ))}
           </div>
 
-          <div className="bg-gray-900 border border-gray-700 rounded-2xl p-6 space-y-3">
+          <div className="bg-white border border-gray-200 rounded-2xl p-6 space-y-3 shadow-sm">
             {cart!.discount > 0 && (
-              <div className="flex justify-between text-gray-400 text-base">
+              <div className="flex justify-between text-gray-500 text-base">
                 <span>Subtotal</span>
                 <span>{fmt(cart!.subtotal)}</span>
               </div>
             )}
             {cart!.discount > 0 && (
-              <div className="flex justify-between text-green-400 text-base font-semibold">
+              <div className="flex justify-between text-green-600 text-base font-semibold">
                 <span>Descuento</span>
                 <span>-{fmt(cart!.discount)}</span>
               </div>
             )}
-            <div className="border-t border-gray-700 pt-3 flex justify-between items-center">
-              <span className="text-white font-black text-2xl">TOTAL</span>
-              <span className="text-green-400 font-black text-3xl tabular-nums">
+            <div className="border-t border-gray-200 pt-3 flex justify-between items-center">
+              <span className="text-gray-900 font-black text-2xl">TOTAL</span>
+              <span className="text-green-600 font-black text-3xl tabular-nums">
                 {fmt(cart!.total)}
               </span>
             </div>
           </div>
 
-          <p className="text-center text-gray-600 text-sm">Gracias por elegirnos</p>
+          <p className="text-center text-gray-400 text-sm">Gracias por elegirnos</p>
         </div>
       )}
     </div>

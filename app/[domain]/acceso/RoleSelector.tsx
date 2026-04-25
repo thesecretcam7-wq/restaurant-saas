@@ -22,7 +22,6 @@ export function RoleSelector({ tenantId, tenantName, tenantSlug, logoUrl }: Prop
       icon: <ChefHat className="w-10 h-10" />,
       desc: 'Kitchen Display System',
       color: 'from-orange-500 to-orange-600',
-      bg: 'bg-orange-950',
     },
     {
       id: 'camarero',
@@ -30,7 +29,6 @@ export function RoleSelector({ tenantId, tenantName, tenantSlug, logoUrl }: Prop
       icon: <UtensilsCrossed className="w-10 h-10" />,
       desc: 'Tomar pedidos y servir',
       color: 'from-emerald-600 to-emerald-700',
-      bg: 'bg-emerald-950',
     },
     {
       id: 'cajero',
@@ -38,7 +36,6 @@ export function RoleSelector({ tenantId, tenantName, tenantSlug, logoUrl }: Prop
       icon: <CreditCard className="w-10 h-10" />,
       desc: 'Procesar pagos',
       color: 'from-indigo-600 to-indigo-700',
-      bg: 'bg-indigo-950',
     },
     {
       id: 'admin',
@@ -46,7 +43,6 @@ export function RoleSelector({ tenantId, tenantName, tenantSlug, logoUrl }: Prop
       icon: <Lock className="w-10 h-10" />,
       desc: 'Panel de control',
       color: 'from-slate-600 to-slate-700',
-      bg: 'bg-slate-950',
     },
   ];
 
@@ -56,7 +52,7 @@ export function RoleSelector({ tenantId, tenantName, tenantSlug, logoUrl }: Prop
   }
 
   return (
-    <div className="min-h-screen bg-gray-950 flex flex-col items-center justify-center p-6">
+    <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center p-6">
       <div className="mb-10 text-center">
         {logoUrl ? (
           <img src={logoUrl} alt={tenantName} className="w-20 h-20 rounded-2xl object-cover mx-auto mb-4" />
@@ -65,8 +61,8 @@ export function RoleSelector({ tenantId, tenantName, tenantSlug, logoUrl }: Prop
             <ChefHat className="w-10 h-10 text-white" />
           </div>
         )}
-        <p className="text-gray-400 text-sm">Bienvenido a</p>
-        <p className="text-white font-bold text-3xl">{tenantName}</p>
+        <p className="text-gray-500 text-sm">Bienvenido a</p>
+        <p className="text-gray-900 font-bold text-3xl">{tenantName}</p>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 w-full max-w-lg">
@@ -75,18 +71,18 @@ export function RoleSelector({ tenantId, tenantName, tenantSlug, logoUrl }: Prop
             key={role.id}
             onClick={() => handleSelect(role.id)}
             disabled={selectedRole !== null}
-            className={`${role.bg} border border-white/10 rounded-2xl p-6 flex flex-col items-center justify-center gap-3 active:scale-95 transition-all ${
-              selectedRole ? 'opacity-50 cursor-not-allowed' : 'hover:border-white/20'
+            className={`bg-white border border-gray-200 rounded-2xl p-6 flex flex-col items-center justify-center gap-3 active:scale-95 transition-all shadow-sm ${
+              selectedRole ? 'opacity-50 cursor-not-allowed' : 'hover:border-gray-300 hover:shadow-md'
             }`}
           >
             <div className={`w-14 h-14 bg-gradient-to-br ${role.color} rounded-xl flex items-center justify-center text-white`}>
               {role.icon}
             </div>
             <div>
-              <p className="text-white font-bold text-sm">{role.label}</p>
-              <p className="text-gray-400 text-xs mt-0.5">{role.desc}</p>
+              <p className="text-gray-900 font-bold text-sm">{role.label}</p>
+              <p className="text-gray-500 text-xs mt-0.5">{role.desc}</p>
             </div>
-            <LogIn className="w-4 h-4 text-gray-500 mt-1" />
+            <LogIn className="w-4 h-4 text-gray-400 mt-1" />
           </button>
         ))}
       </div>

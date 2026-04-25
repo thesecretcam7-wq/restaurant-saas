@@ -72,15 +72,15 @@ function getUrgencyBorder(minutes: number) {
 }
 
 function getUrgencyBg(minutes: number) {
-  if (minutes < 5) return 'bg-green-950/40';
-  if (minutes < 10) return 'bg-yellow-950/40';
-  return 'bg-red-950/40';
+  if (minutes < 5) return 'bg-green-50';
+  if (minutes < 10) return 'bg-yellow-50';
+  return 'bg-red-50';
 }
 
 function getTimerColor(minutes: number) {
-  if (minutes < 5) return 'text-green-400';
-  if (minutes < 10) return 'text-yellow-400';
-  return 'text-red-400';
+  if (minutes < 5) return 'text-green-600';
+  if (minutes < 10) return 'text-yellow-600';
+  return 'text-red-600';
 }
 
 function getTimerPulse(minutes: number) {
@@ -335,9 +335,9 @@ function OrderCard({
 
   // Determine urgency badge
   const getUrgencyBadge = (mins: number) => {
-    if (mins < 5) return { label: 'A tiempo', color: 'bg-green-500/20 text-green-400 border-green-500/30' };
-    if (mins < 10) return { label: 'Moderado', color: 'bg-amber-500/20 text-amber-400 border-amber-500/30' };
-    return { label: 'URGENTE', color: 'bg-red-500/20 text-red-400 border-red-500/30' };
+    if (mins < 5) return { label: 'A tiempo', color: 'bg-green-100 text-green-700 border-green-200' };
+    if (mins < 10) return { label: 'Moderado', color: 'bg-amber-100 text-amber-700 border-amber-200' };
+    return { label: 'URGENTE', color: 'bg-red-100 text-red-700 border-red-200' };
   };
 
   const urgency = getUrgencyBadge(minutes);
@@ -355,34 +355,34 @@ function OrderCard({
         <div className="flex items-start justify-between gap-3">
           <div className="flex-1">
             {/* Order Number - Large and Bold */}
-            <p className="text-3xl font-black text-white tracking-wider leading-tight">
+            <p className="text-3xl font-black text-gray-900 tracking-wider leading-tight">
               {order.orderNumber}
             </p>
 
             {/* Meta Info */}
             <div className="flex items-center gap-2 mt-2 flex-wrap">
               {order.deliveryType === 'delivery' && (
-                <span className="text-xs font-bold bg-purple-500/20 text-purple-300 px-2.5 py-1 rounded-md border border-purple-500/30">
+                <span className="text-xs font-bold bg-purple-100 text-purple-700 px-2.5 py-1 rounded-md border border-purple-200">
                   🚗 A domicilio
                 </span>
               )}
               {order.deliveryType === 'pickup' && (
-                <span className="text-xs font-bold bg-green-500/20 text-green-300 px-2.5 py-1 rounded-md border border-green-500/30">
+                <span className="text-xs font-bold bg-green-100 text-green-700 px-2.5 py-1 rounded-md border border-green-200">
                   🏪 Para recoger
                 </span>
               )}
               {order.tableNumber && (
-                <span className="text-xs font-semibold bg-blue-500/20 text-blue-300 px-2.5 py-1 rounded-md border border-blue-500/30">
+                <span className="text-xs font-semibold bg-blue-100 text-blue-700 px-2.5 py-1 rounded-md border border-blue-200">
                   Mesa {order.tableNumber}
                 </span>
               )}
               {order.waiterName && (
-                <span className="text-xs font-medium text-gray-400 px-2.5 py-1 bg-gray-800/50 rounded-md">
+                <span className="text-xs font-medium text-gray-500 px-2.5 py-1 bg-gray-100 rounded-md">
                   {order.waiterName}
                 </span>
               )}
               {(order.deliveryType === 'delivery' || order.deliveryType === 'pickup') && order.customerName && (
-                <span className="text-xs font-medium text-gray-400 px-2.5 py-1 bg-gray-800/50 rounded-md truncate max-w-[120px]">
+                <span className="text-xs font-medium text-gray-500 px-2.5 py-1 bg-gray-100 rounded-md truncate max-w-[120px]">
                   {order.customerName}
                 </span>
               )}
@@ -416,18 +416,18 @@ function OrderCard({
         </div>
 
         {/* Items List */}
-        <div className="flex-1 space-y-2 border-t border-gray-700/50 pt-3">
+        <div className="flex-1 space-y-2 border-t border-gray-200 pt-3">
           {order.items
             .filter((i) => i.status !== 'cancelled' && i.status !== 'delivered')
             .map((item) => (
               <div key={item.id} className="flex items-start gap-2">
-                <span className="text-white font-bold text-base bg-gray-800/50 rounded px-2.5 py-1 min-w-fit leading-none">
+                <span className="text-gray-900 font-bold text-base bg-gray-100 rounded px-2.5 py-1 min-w-fit leading-none">
                   ×{item.quantity}
                 </span>
                 <div className="flex-1">
-                  <p className="text-white font-semibold text-sm leading-snug">{item.name}</p>
+                  <p className="text-gray-900 font-semibold text-sm leading-snug">{item.name}</p>
                   {item.notes && (
-                    <p className="text-amber-300 text-xs mt-1 leading-snug">
+                    <p className="text-amber-700 text-xs mt-1 leading-snug">
                       📝 {item.notes}
                     </p>
                   )}
@@ -472,17 +472,17 @@ function KDSColumn({
   onPlayTestSound?: () => void;
 }) {
   return (
-    <div className="flex flex-col rounded-2xl overflow-hidden border border-gray-800 bg-gray-900/50 backdrop-blur-sm h-full shadow-lg">
+    <div className="flex flex-col rounded-2xl overflow-hidden border border-gray-200 bg-white h-full shadow-sm">
       {/* Column Header */}
-      <div className={`px-4 py-4 flex items-center justify-between border-b border-gray-800 ${headerColor}`}>
+      <div className={`px-4 py-4 flex items-center justify-between border-b border-gray-200 ${headerColor}`}>
         <div className="flex items-center gap-3">
           <span className="text-2xl">{icon}</span>
           <div>
-            <span className="font-black text-white text-base tracking-wider block">{title}</span>
-            <span className="text-xs text-gray-400 mt-0.5">{orders.length} {orders.length === 1 ? 'orden' : 'órdenes'}</span>
+            <span className="font-black text-gray-900 text-base tracking-wider block">{title}</span>
+            <span className="text-xs text-gray-500 mt-0.5">{orders.length} {orders.length === 1 ? 'orden' : 'órdenes'}</span>
           </div>
         </div>
-        <span className="bg-white/10 text-white font-black text-lg rounded-lg px-3 py-2 backdrop-blur-sm border border-white/20">
+        <span className="bg-white text-gray-900 font-black text-lg rounded-lg px-3 py-2 border border-gray-200 shadow-sm">
           {orders.length}
         </span>
       </div>
@@ -490,10 +490,10 @@ function KDSColumn({
       {/* Cards Container */}
       <div className="flex-1 overflow-y-auto p-4 space-y-3 max-h-[calc(100vh-200px)]">
         {orders.length === 0 ? (
-          <div className="text-center py-16 text-gray-600 flex flex-col items-center justify-center h-full">
+          <div className="text-center py-16 flex flex-col items-center justify-center h-full">
             <p className="text-5xl mb-3 opacity-30">🍽️</p>
             <p className="text-sm font-medium text-gray-500">Sin órdenes</p>
-            <p className="text-xs text-gray-700 mt-1">Esperando nuevas órdenes...</p>
+            <p className="text-xs text-gray-400 mt-1">Esperando nuevas órdenes...</p>
           </div>
         ) : (
           orders.map((order, index) => (
@@ -768,7 +768,7 @@ export function KDSScreen({ tenantId }: { tenantId: string }) {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-screen bg-gradient-to-br from-gray-950 via-gray-900 to-gray-950 text-white">
+      <div className="flex items-center justify-center h-screen bg-gray-50 text-gray-900">
         <div className="text-center space-y-6">
           <div className="flex justify-center">
             <div className="relative w-20 h-20">
@@ -776,8 +776,8 @@ export function KDSScreen({ tenantId }: { tenantId: string }) {
             </div>
           </div>
           <div>
-            <p className="text-2xl font-black tracking-wider mb-2">Cargando Sistema de Cocina</p>
-            <p className="text-gray-400 text-sm">Inicializando componentes...</p>
+            <p className="text-2xl font-black tracking-wider mb-2 text-gray-900">Cargando Sistema de Cocina</p>
+            <p className="text-gray-500 text-sm">Inicializando componentes...</p>
           </div>
         </div>
       </div>
@@ -787,7 +787,7 @@ export function KDSScreen({ tenantId }: { tenantId: string }) {
   return (
     // Clicking anywhere inits audio (required by iOS/Safari)
     <div
-      className={`bg-gray-950 text-white flex flex-col select-none overflow-hidden ${isFullscreen ? 'fixed inset-0 z-50' : 'h-screen'}`}
+      className={`bg-gray-50 text-gray-900 flex flex-col select-none overflow-hidden ${isFullscreen ? 'fixed inset-0 z-50' : 'h-screen'}`}
       onClick={initAudio}
     >
       {/* ── Top Bar with Eccofood Brand Gradient ── */}
@@ -851,20 +851,19 @@ export function KDSScreen({ tenantId }: { tenantId: string }) {
 
       {/* ── Permission Banners ── */}
       {!soundPermissionGranted && (
-        <div className="bg-gradient-to-r from-red-950/90 to-red-900/80 border-b border-red-900/50 px-6 py-4 flex items-center justify-between shrink-0 backdrop-blur-sm">
+        <div className="bg-red-50 border-b border-red-200 px-6 py-4 flex items-center justify-between shrink-0">
           <div className="flex items-center gap-4 flex-1">
             <div className="text-3xl animate-pulse">🔊</div>
             <div>
-              <p className="text-sm font-bold text-white">Se requieren permisos de sonido</p>
-              <p className="text-xs text-red-200 mt-1">Las alertas de órdenes no funcionarán sin audio habilitado</p>
-              {audioStatus && <p className="text-xs text-red-100 mt-2 font-medium">{audioStatus}</p>}
+              <p className="text-sm font-bold text-red-900">Se requieren permisos de sonido</p>
+              <p className="text-xs text-red-600 mt-1">Las alertas de órdenes no funcionarán sin audio habilitado</p>
+              {audioStatus && <p className="text-xs text-red-700 mt-2 font-medium">{audioStatus}</p>}
             </div>
           </div>
           <button
             onClick={(e) => {
               e.stopPropagation();
               unlockSound();
-              // Test sound immediately
               setTimeout(() => {
                 playNewOrder();
               }, 300);
@@ -877,12 +876,12 @@ export function KDSScreen({ tenantId }: { tenantId: string }) {
       )}
 
       {!wakeLockActive && (
-        <div className="bg-gradient-to-r from-amber-950/90 to-amber-900/80 border-b border-amber-900/50 px-6 py-4 flex items-center justify-between shrink-0 backdrop-blur-sm">
+        <div className="bg-amber-50 border-b border-amber-200 px-6 py-4 flex items-center justify-between shrink-0">
           <div className="flex items-center gap-4">
             <div className="text-3xl">🔒</div>
             <div>
-              <p className="text-sm font-bold text-white">Activar protección de pantalla</p>
-              <p className="text-xs text-amber-200 mt-1">Mantén la pantalla activa durante el servicio</p>
+              <p className="text-sm font-bold text-amber-900">Activar protección de pantalla</p>
+              <p className="text-xs text-amber-600 mt-1">Mantén la pantalla activa durante el servicio</p>
             </div>
           </div>
           <button
@@ -898,33 +897,33 @@ export function KDSScreen({ tenantId }: { tenantId: string }) {
       )}
 
       {/* ── Legend / Urgency Guide ── */}
-      <div className="bg-gray-900/50 border-b border-gray-800/50 px-6 py-3 shrink-0 backdrop-blur-sm">
+      <div className="bg-white border-b border-gray-200 px-6 py-3 shrink-0">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-8 text-xs font-medium">
             <div className="flex items-center gap-2">
               <div className="w-3 h-3 rounded-full bg-green-500 ring-2 ring-green-400/30" />
-              <span className="text-gray-300">Menos de 5 min <span className="text-gray-600">(A tiempo)</span></span>
+              <span className="text-gray-600">Menos de 5 min <span className="text-gray-400">(A tiempo)</span></span>
             </div>
             <div className="flex items-center gap-2">
               <div className="w-3 h-3 rounded-full bg-amber-500 ring-2 ring-amber-400/30" />
-              <span className="text-gray-300">5 a 10 minutos <span className="text-gray-600">(Moderado)</span></span>
+              <span className="text-gray-600">5 a 10 minutos <span className="text-gray-400">(Moderado)</span></span>
             </div>
             <div className="flex items-center gap-2">
               <div className="w-3 h-3 rounded-full bg-red-500 ring-2 ring-red-400/30 animate-pulse" />
-              <span className="text-gray-300">Más de 10 min <span className="text-gray-600 font-bold">(URGENTE)</span></span>
+              <span className="text-gray-600">Más de 10 min <span className="text-gray-400 font-bold">(URGENTE)</span></span>
             </div>
           </div>
 
           {/* Trust-Building Stats */}
           <div className="flex items-center gap-6 ml-auto">
             <div className="flex items-center gap-2 text-center">
-              <div className="text-2xl font-black text-green-400">{totalDeliveredItems}</div>
-              <span className="text-xs text-gray-400 font-medium">Completadas</span>
+              <div className="text-2xl font-black text-green-600">{totalDeliveredItems}</div>
+              <span className="text-xs text-gray-500 font-medium">Completadas</span>
             </div>
-            <div className="w-px h-4 bg-gray-700" />
+            <div className="w-px h-4 bg-gray-200" />
             <div className="flex items-center gap-2 text-center">
-              <div className="text-2xl font-black text-blue-400">{avgPrepTime}m</div>
-              <span className="text-xs text-gray-400 font-medium">Tiempo Prom.</span>
+              <div className="text-2xl font-black text-blue-600">{avgPrepTime}m</div>
+              <span className="text-xs text-gray-500 font-medium">Tiempo Prom.</span>
             </div>
           </div>
         </div>

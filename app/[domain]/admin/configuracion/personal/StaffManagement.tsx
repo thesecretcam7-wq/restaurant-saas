@@ -92,7 +92,7 @@ export function StaffManagement({ tenantId, initialStaff }: Props) {
       {isAddingNew && (
         <div className="bg-white rounded-xl border p-6 space-y-4">
           <h2 className="font-semibold text-gray-900">Nuevo Empleado</h2>
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <input
               type="text"
               placeholder="Nombre"
@@ -157,7 +157,7 @@ export function StaffManagement({ tenantId, initialStaff }: Props) {
         </button>
       )}
 
-      <div className="bg-white rounded-xl border overflow-hidden">
+      <div className="bg-white rounded-xl border overflow-hidden overflow-x-auto">
         {staff.length === 0 ? (
           <div className="p-8 text-center text-gray-500">
             <p>No hay empleados registrados</p>

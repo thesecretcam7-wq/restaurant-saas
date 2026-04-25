@@ -53,11 +53,11 @@ export default function POSPage() {
   }, [slug]);
 
   if (loading) {
-    return <div className="flex items-center justify-center h-screen bg-gray-900 text-white">Cargando TPV...</div>;
+    return <div className="flex items-center justify-center h-screen bg-gray-50 text-gray-600">Cargando TPV...</div>;
   }
 
   if (!tenantId) {
-    return <div className="flex items-center justify-center h-screen bg-gray-900 text-white">Error: Restaurante no encontrado</div>;
+    return <div className="flex items-center justify-center h-screen bg-gray-50 text-gray-600">Error: Restaurante no encontrado</div>;
   }
 
   return <POSTerminal tenantId={tenantId} country={country} />;

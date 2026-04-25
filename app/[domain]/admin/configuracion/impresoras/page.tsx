@@ -227,16 +227,16 @@ export default function PrintersConfigPage({ params }: Props) {
       </button>
 
       {!webusb.isSupported && (
-        <div className="bg-yellow-900/30 border border-yellow-700 text-yellow-300 p-4 rounded-lg text-sm">
+        <div className="bg-yellow-50 border border-yellow-200 text-yellow-700 p-4 rounded-lg text-sm">
           ⚠️ WebUSB no es soportado en este navegador. Usa Chrome, Edge o Brave.
         </div>
       )}
 
       <div className="space-y-3">
         {devices.length === 0 ? (
-          <div className="bg-gray-800 border border-gray-700 rounded-lg p-8 text-center">
-            <p className="text-gray-400">No hay impresoras configuradas</p>
-            <p className="text-sm text-gray-500 mt-2">
+          <div className="bg-gray-50 border border-gray-200 rounded-lg p-8 text-center">
+            <p className="text-gray-500">No hay impresoras configuradas</p>
+            <p className="text-sm text-gray-400 mt-2">
               Haz clic en "Agregar Impresora" para conectar una
             </p>
           </div>
@@ -257,28 +257,28 @@ export default function PrintersConfigPage({ params }: Props) {
       </div>
 
       {devices.length > 0 && (
-        <div className="bg-gray-800 border border-gray-700 rounded-lg p-4 space-y-4">
-          <h3 className="font-bold text-white">Configuración General</h3>
+        <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 space-y-4">
+          <h3 className="font-bold text-gray-900">Configuración General</h3>
 
           <label className="flex items-center gap-3 cursor-pointer">
             <input
               type="checkbox"
               checked={autoPrint}
               onChange={(e) => handleAutoPrintChange(e.target.checked)}
-              className="w-4 h-4 rounded bg-gray-700 border-gray-600 cursor-pointer"
+              className="w-4 h-4 rounded border-gray-300 cursor-pointer"
             />
-            <span className="text-sm text-gray-300">Auto-imprimir recibos al confirmar pago</span>
+            <span className="text-sm text-gray-700">Auto-imprimir recibos al confirmar pago</span>
           </label>
 
           <div>
-            <label className="text-sm text-gray-300 mb-2 block">Copias por recibo</label>
+            <label className="text-sm text-gray-700 mb-2 block">Copias por recibo</label>
             <input
               type="number"
               value={copies}
               min={1}
               max={5}
               onChange={(e) => handleCopiesChange(Number(e.target.value))}
-              className="w-20 px-3 py-1 bg-gray-700 border border-gray-600 rounded text-white text-sm"
+              className="w-20 px-3 py-1 bg-white border border-gray-200 rounded text-gray-900 text-sm"
             />
           </div>
         </div>

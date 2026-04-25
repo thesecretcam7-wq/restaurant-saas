@@ -32,8 +32,8 @@ export default function StaffPOSPage() {
     if (slug) resolveTenant();
   }, [slug]);
 
-  if (loading) return <div className="flex items-center justify-center h-screen bg-gray-900 text-white">Cargando TPV...</div>;
-  if (!tenantId) return <div className="flex items-center justify-center h-screen bg-gray-900 text-white">Restaurante no encontrado</div>;
+  if (loading) return <div className="flex items-center justify-center h-screen bg-gray-50 text-gray-600">Cargando TPV...</div>;
+  if (!tenantId) return <div className="flex items-center justify-center h-screen bg-gray-50 text-gray-600">Restaurante no encontrado</div>;
 
   return <POSTerminal tenantId={tenantId} country={country} />;
 }

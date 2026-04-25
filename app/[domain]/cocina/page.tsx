@@ -218,11 +218,11 @@ export default function CocinaPage() {
   // --- UPGRADE SCREEN ---
   if (requiresUpgrade) {
     return (
-      <div className="min-h-screen bg-gray-950 flex items-center justify-center p-6">
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-6">
         <div className="text-center max-w-sm">
           <div className="text-6xl mb-4">🔒</div>
-          <h1 className="text-2xl font-bold text-white mb-2">Plan Pro requerido</h1>
-          <p className="text-gray-400 mb-6">La pantalla de cocina está disponible en planes Pro y Premium.</p>
+          <h1 className="text-2xl font-bold text-gray-900 mb-2">Plan Pro requerido</h1>
+          <p className="text-gray-500 mb-6">La pantalla de cocina está disponible en planes Pro y Premium.</p>
         </div>
       </div>
     )
@@ -231,12 +231,12 @@ export default function CocinaPage() {
   // --- PIN SCREEN ---
   if (step === 'pin') {
     return (
-      <div className="min-h-screen bg-gray-950 flex flex-col items-center justify-center p-6">
+      <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center p-6">
         <div className="w-full max-w-xs">
           <div className="text-center mb-8">
             <div className="text-5xl mb-3">🍳</div>
-            <h1 className="text-2xl font-bold text-white">Pantalla de Cocina</h1>
-            <p className="text-gray-400 text-sm mt-1">Ingresa el PIN de cocina</p>
+            <h1 className="text-2xl font-bold text-gray-900">Pantalla de Cocina</h1>
+            <p className="text-gray-500 text-sm mt-1">Ingresa el PIN de cocina</p>
           </div>
 
           <div className="flex justify-center gap-3 mb-6">
@@ -244,7 +244,7 @@ export default function CocinaPage() {
               <div
                 key={i}
                 className={`w-10 h-10 rounded-full border-2 flex items-center justify-center transition-all ${
-                  i < pin.length ? 'bg-orange-500 border-orange-500' : 'border-gray-600 bg-transparent'
+                  i < pin.length ? 'bg-orange-500 border-orange-500' : 'border-gray-300 bg-white'
                 }`}
               >
                 {i < pin.length && <div className="w-3 h-3 bg-white rounded-full" />}
@@ -252,7 +252,7 @@ export default function CocinaPage() {
             ))}
           </div>
 
-          {pinError && <p className="text-red-400 text-center text-sm mb-4">{pinError}</p>}
+          {pinError && <p className="text-red-500 text-center text-sm mb-4">{pinError}</p>}
 
           <div className="grid grid-cols-3 gap-3 mb-6">
             {KEYPAD.map((key, i) => (
@@ -260,10 +260,10 @@ export default function CocinaPage() {
                 key={i}
                 onClick={() => handleKeypad(key)}
                 disabled={key === '' || pinLoading}
-                className={`h-14 rounded-2xl text-xl font-semibold transition-all active:scale-95 ${
+                className={`h-14 rounded-2xl text-xl font-semibold transition-all active:scale-95 shadow-sm ${
                   key === '' ? 'invisible'
-                  : key === '⌫' ? 'bg-gray-700 text-white hover:bg-gray-600'
-                  : 'bg-gray-800 text-white hover:bg-gray-700'
+                  : key === '⌫' ? 'bg-gray-100 text-gray-600 hover:bg-gray-200 border border-gray-200'
+                  : 'bg-white text-gray-900 hover:bg-gray-50 border border-gray-200'
                 }`}
               >
                 {key}
@@ -290,26 +290,26 @@ export default function CocinaPage() {
   const readyOrders = orders.filter(o => o.status === 'ready')
 
   return (
-    <div className="min-h-screen bg-gray-950 p-4">
+    <div className="min-h-screen bg-gray-50 p-4">
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
           <span className="text-3xl">🍳</span>
           <div>
-            <h1 className="text-white font-bold text-xl">Cocina</h1>
-            <p className="text-gray-400 text-xs">{orders.length} pedidos activos</p>
+            <h1 className="text-gray-900 font-bold text-xl">Cocina</h1>
+            <p className="text-gray-500 text-xs">{orders.length} pedidos activos</p>
           </div>
         </div>
         <div className="flex items-center gap-3">
           <button
             onClick={() => loadOrders(tenantDbId)}
-            className="text-gray-400 hover:text-white text-sm px-3 py-1 bg-gray-800 rounded-lg"
+            className="text-gray-600 hover:text-gray-900 text-sm px-3 py-1 bg-white border border-gray-200 rounded-lg shadow-sm"
           >
             ↻ Actualizar
           </button>
           <button
             onClick={() => { localStorage.removeItem(`kitchen_session_${tenantId}`); setKitchenStep('pin'); setPin('') }}
-            className="text-gray-500 text-sm"
+            className="text-gray-400 hover:text-gray-600 text-sm"
           >
             Salir
           </button>
@@ -319,15 +319,15 @@ export default function CocinaPage() {
       {loading && (
         <div className="text-center py-20">
           <div className="w-8 h-8 border-4 border-orange-500 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
-          <p className="text-gray-400">Cargando pedidos...</p>
+          <p className="text-gray-500">Cargando pedidos...</p>
         </div>
       )}
 
       {!loading && orders.length === 0 && (
         <div className="text-center py-20">
           <div className="text-5xl mb-3">✅</div>
-          <p className="text-gray-400 font-medium">Sin pedidos pendientes</p>
-          <p className="text-gray-600 text-sm mt-1">Los nuevos pedidos aparecerán aquí automáticamente</p>
+          <p className="text-gray-600 font-medium">Sin pedidos pendientes</p>
+          <p className="text-gray-400 text-sm mt-1">Los nuevos pedidos aparecerán aquí automáticamente</p>
         </div>
       )}
 
@@ -381,32 +381,32 @@ function OrderCard({
   actionColor: string
 }) {
   return (
-    <div className={`bg-gray-900 rounded-2xl border-l-4 p-4 ${STATUS_COLORS[order.status] || 'border-gray-600'}`}>
+    <div className={`bg-white rounded-2xl border-l-4 p-4 shadow-sm ${STATUS_COLORS[order.status] || 'border-gray-300'}`}>
       {/* Order header */}
       <div className="flex items-start justify-between mb-3">
         <div>
           <div className="flex items-center gap-2">
             {order.delivery_type === 'dine-in' && order.table_number && (
-              <span className="text-2xl font-black text-white">Mesa {order.table_number}</span>
+              <span className="text-2xl font-black text-gray-900">Mesa {order.table_number}</span>
             )}
             {order.delivery_type === 'pickup' && (
-              <span className="text-lg font-bold text-white">🏃 Para llevar</span>
+              <span className="text-lg font-bold text-gray-900">🏃 Para llevar</span>
             )}
             {order.delivery_type === 'delivery' && (
-              <span className="text-lg font-bold text-white">🛵 A domicilio</span>
+              <span className="text-lg font-bold text-gray-900">🛵 A domicilio</span>
             )}
           </div>
-          <p className="text-gray-400 text-xs">{order.order_number} · {order.customer_name}</p>
+          <p className="text-gray-500 text-xs">{order.order_number} · {order.customer_name}</p>
         </div>
         <div className="text-right">
           <span className={`text-xs font-bold px-2 py-1 rounded-full ${
-            order.status === 'ready' ? 'bg-green-900 text-green-300' :
-            order.status === 'preparing' ? 'bg-blue-900 text-blue-300' :
-            'bg-yellow-900 text-yellow-300'
+            order.status === 'ready' ? 'bg-green-100 text-green-700' :
+            order.status === 'preparing' ? 'bg-blue-100 text-blue-700' :
+            'bg-yellow-100 text-yellow-700'
           }`}>
             {STATUS_LABELS[order.status] || order.status}
           </span>
-          <p className="text-gray-500 text-xs mt-1">{timeAgo(order.created_at)}</p>
+          <p className="text-gray-400 text-xs mt-1">{timeAgo(order.created_at)}</p>
         </div>
       </div>
 
@@ -414,14 +414,14 @@ function OrderCard({
       <div className="space-y-1 mb-4">
         {order.items.map((item, i) => (
           <div key={i} className="flex items-center gap-2">
-            <span className="text-white font-black text-lg w-6">{item.qty}x</span>
-            <span className="text-gray-200 font-medium text-sm">{item.name}</span>
+            <span className="text-gray-900 font-black text-lg w-6">{item.qty}x</span>
+            <span className="text-gray-700 font-medium text-sm">{item.name}</span>
           </div>
         ))}
       </div>
 
       {order.notes && order.notes !== `Pedido de mesa ${order.table_number}` && (
-        <p className="text-yellow-400 text-xs bg-yellow-900/30 rounded-lg px-3 py-2 mb-3">
+        <p className="text-yellow-700 text-xs bg-yellow-50 border border-yellow-100 rounded-lg px-3 py-2 mb-3">
           📝 {order.notes}
         </p>
       )}
@@ -439,7 +439,7 @@ function OrderCard({
       {order.status === 'ready' && (
         <button
           onClick={onAction}
-          className="w-full py-2.5 rounded-xl text-gray-300 font-bold text-sm bg-gray-700 transition-all active:scale-95"
+          className="w-full py-2.5 rounded-xl text-gray-600 font-bold text-sm bg-gray-100 transition-all active:scale-95"
         >
           {actionLabel}
         </button>

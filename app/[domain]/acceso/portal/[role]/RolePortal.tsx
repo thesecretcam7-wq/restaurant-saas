@@ -13,18 +13,9 @@ interface Props {
 }
 
 const ROLE_CONFIG = {
-  cocinero: {
-    label: 'Cocinero',
-    tools: ['kds'],
-  },
-  camarero: {
-    label: 'Camarero',
-    tools: ['comandero', 'kds', 'tpv'],
-  },
-  cajero: {
-    label: 'Cajero',
-    tools: ['tpv'],
-  },
+  cocinero: { label: 'Cocinero',  tools: ['kds'] },
+  camarero: { label: 'Camarero',  tools: ['comandero', 'kds', 'tpv'] },
+  cajero:   { label: 'Cajero',    tools: ['tpv'] },
 };
 
 const TOOL_CONFIG = {
@@ -33,7 +24,6 @@ const TOOL_CONFIG = {
     desc: 'Display de cocina',
     icon: <Monitor className="w-10 h-10" />,
     color: 'from-orange-500 to-orange-600',
-    bg: 'bg-orange-950',
     href: (slug: string) => `/${slug}/staff/kds`,
   },
   comandero: {
@@ -41,7 +31,6 @@ const TOOL_CONFIG = {
     desc: 'Tomar pedidos de mesa',
     icon: <ClipboardList className="w-10 h-10" />,
     color: 'from-emerald-600 to-emerald-700',
-    bg: 'bg-emerald-950',
     href: (slug: string) => `/${slug}/kitchen`,
   },
   tpv: {
@@ -49,7 +38,6 @@ const TOOL_CONFIG = {
     desc: 'Punto de venta y cobros',
     icon: <CreditCard className="w-10 h-10" />,
     color: 'from-indigo-600 to-indigo-700',
-    bg: 'bg-indigo-950',
     href: (slug: string) => `/${slug}/staff/pos`,
   },
 };
@@ -78,8 +66,8 @@ export function RolePortal({ tenantId, tenantName, tenantSlug, logoUrl, role }: 
   if (checking) return null;
 
   return (
-    <div className="min-h-screen bg-gray-950 flex flex-col">
-      <header className="flex items-center justify-between px-5 py-4 border-b border-gray-800">
+    <div className="min-h-screen bg-gray-50 flex flex-col">
+      <header className="flex items-center justify-between px-5 py-4 bg-white border-b border-gray-200">
         <div className="flex items-center gap-3">
           {logoUrl ? (
             <img src={logoUrl} alt={tenantName} className="w-9 h-9 rounded-xl object-cover" />
@@ -89,13 +77,13 @@ export function RolePortal({ tenantId, tenantName, tenantSlug, logoUrl, role }: 
             </div>
           )}
           <div>
-            <p className="text-white font-bold text-sm">{tenantName}</p>
-            <p className="text-gray-400 text-xs">{config.label}</p>
+            <p className="text-gray-900 font-bold text-sm">{tenantName}</p>
+            <p className="text-gray-500 text-xs">{config.label}</p>
           </div>
         </div>
         <button
           onClick={logout}
-          className="flex items-center gap-1.5 text-gray-400 hover:text-white text-sm transition-colors"
+          className="flex items-center gap-1.5 text-gray-500 hover:text-gray-900 text-sm transition-colors"
         >
           <LogOut className="w-4 h-4" />
           Salir
@@ -109,14 +97,14 @@ export function RolePortal({ tenantId, tenantName, tenantSlug, logoUrl, role }: 
             <a
               key={toolKey}
               href={tool.href(tenantSlug)}
-              className={`w-full max-w-sm ${tool.bg} border border-white/10 rounded-2xl p-5 flex items-center gap-5 active:scale-95 transition-transform`}
+              className="w-full max-w-sm bg-white border border-gray-200 rounded-2xl p-5 flex items-center gap-5 active:scale-95 transition-all shadow-sm hover:shadow-md hover:border-gray-300"
             >
               <div className={`w-16 h-16 bg-gradient-to-br ${tool.color} rounded-2xl flex items-center justify-center text-white flex-shrink-0`}>
                 {tool.icon}
               </div>
               <div className="text-left">
-                <p className="text-white font-bold text-lg">{tool.label}</p>
-                <p className="text-gray-400 text-sm">{tool.desc}</p>
+                <p className="text-gray-900 font-bold text-lg">{tool.label}</p>
+                <p className="text-gray-500 text-sm">{tool.desc}</p>
               </div>
             </a>
           );

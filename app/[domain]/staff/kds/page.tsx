@@ -19,7 +19,7 @@ export default async function StaffKDSPage({ params }: Props) {
 
   if (!tenant) {
     return (
-      <div className="flex items-center justify-center h-screen bg-gray-950 text-red-400 text-xl">
+      <div className="flex items-center justify-center h-screen bg-gray-50 text-red-500 text-xl">
         Restaurante no encontrado
       </div>
     )
