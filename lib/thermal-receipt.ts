@@ -19,13 +19,16 @@ const GS  = '\x1d';
 // Text size
 const SIZE_NORMAL     = `${GS}!\x00`;       // 1x1
 const SIZE_2X         = `${GS}!\x11`;       // 2x wide + 2x tall
-const SIZE_TALL       = `${GS}!\x10`;       // 2x tall only
+const SIZE_TALL       = `${GS}!\x10`;       // 2x tall only (legible body text)
 const BOLD_ON         = `${ESC}E\x01`;
 const BOLD_OFF        = `${ESC}E\x00`;
 const ALIGN_CENTER    = `${ESC}a\x01`;
 const ALIGN_LEFT      = `${ESC}a\x00`;
 const ALIGN_RIGHT     = `${ESC}a\x02`;
 const INIT            = `${ESC}@`;
+
+// Alias: body text uses SIZE_TALL for readability on 58mm paper
+const BODY = SIZE_TALL;
 
 export function generateReceiptESCPOS(data: ReceiptData, options: ReceiptOptions): Uint8Array {
   // 58mm → 32 chars/line normal | 16 chars/line in double-width
@@ -52,6 +55,7 @@ export function generateReceiptESCPOS(data: ReceiptData, options: ReceiptOptions
   push(BOLD_OFF);
 
   // ── Date/time ─────────────────────────────────────────────────────────────
+  push(BODY);
   const ts = data.timestamp ? new Date(data.timestamp) : new Date();
   line(ts.toLocaleString('es-CO', {
     day: '2-digit', month: '2-digit', year: 'numeric',
@@ -72,7 +76,7 @@ export function generateReceiptESCPOS(data: ReceiptData, options: ReceiptOptions
   const nameW  = cols - qtyW - priceW;
 
   push(BOLD_ON);
-  line(padR('Producto', nameW) + padL('Cant', qtyW) + padL('Total', priceW));
+  line(padR('Producto', nameW) + padL('Qty', qtyW) + padL('Total', priceW));
   push(BOLD_OFF);
   sep();
 
@@ -104,12 +108,12 @@ export function generateReceiptESCPOS(data: ReceiptData, options: ReceiptOptions
   push(ALIGN_CENTER, SIZE_2X, BOLD_ON);
   line('TOTAL');
   line(formatPrice(data.total, data));
-  push(BOLD_OFF, SIZE_NORMAL, ALIGN_LEFT);
+  push(BOLD_OFF, BODY, ALIGN_LEFT);
   sep();
 
   // ── Payment info ──────────────────────────────────────────────────────────
   if (data.amountPaid !== undefined) {
-    line(padR('Efectivo:', cols - 10) + padL(formatPrice(data.amountPaid, data), 10));
+    line(padR('Recibido:', cols - 10) + padL(formatPrice(data.amountPaid, data), 10));
     line(padR('Cambio:', cols - 10) + padL(formatPrice(data.change, data), 10));
     sep();
   }
@@ -118,7 +122,7 @@ export function generateReceiptESCPOS(data: ReceiptData, options: ReceiptOptions
   push(ALIGN_CENTER);
   line('');
   push(BOLD_ON);
-  line('¡Gracias por su compra!');
+  line('Gracias por su compra');
   push(BOLD_OFF);
   line('');
   line('');
@@ -127,7 +131,7 @@ export function generateReceiptESCPOS(data: ReceiptData, options: ReceiptOptions
   // ── Cut ───────────────────────────────────────────────────────────────────
   push(`${GS}V\x42\x00`); // Full cut
 
-  push(ALIGN_LEFT, SIZE_NORMAL);
+  push(ALIGN_LEFT, SIZE_NORMAL); // reset before cut
 
   // ── Assemble & encode ─────────────────────────────────────────────────────
   const receipt = bytes.join('');

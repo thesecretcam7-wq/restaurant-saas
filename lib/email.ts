@@ -1,6 +1,10 @@
 import { Resend } from 'resend'
 
-const resend = new Resend(process.env.RESEND_API_KEY)
+function getResend() {
+  if (!process.env.RESEND_API_KEY) return null
+  return new Resend(process.env.RESEND_API_KEY)
+}
+
 const FROM = process.env.EMAIL_FROM || 'Eccofood <noreply@eccofood.app>'
 
 function formatCurrency(amount: number) {
@@ -110,7 +114,7 @@ export async function sendOrderConfirmation(to: string, data: OrderEmailData) {
     ${data.notes ? `<div style="background:#f0f9ff;border-radius:10px;padding:12px;"><p style="margin:0 0 2px;color:#0369a1;font-size:11px;text-transform:uppercase;letter-spacing:0.05em;">Notas</p><p style="margin:0;color:#0c4a6e;font-size:13px;">${data.notes}</p></div>` : ''}
   `
 
-  await resend.emails.send({
+  await getResend()!.emails.send({
     from: FROM,
     to,
     subject: `✅ Pedido ${data.orderNumber} confirmado — ${data.restaurantName}`,
@@ -144,7 +148,7 @@ export async function sendOrderStatusUpdate(to: string, data: { restaurantName: 
     </div>
   `
 
-  await resend.emails.send({
+  await getResend()!.emails.send({
     from: FROM,
     to,
     subject: `${s.emoji} Pedido ${data.orderNumber} — ${s.label}`,
@@ -213,7 +217,7 @@ export async function sendReservationConfirmation(to: string, data: ReservationE
     </div>
   `
 
-  await resend.emails.send({
+  await getResend()!.emails.send({
     from: FROM,
     to,
     subject: `🍽️ Reserva confirmada para el ${formatDate(data.reservationDate)} — ${data.restaurantName}`,
@@ -263,7 +267,7 @@ export async function sendNewOrderNotification(to: string, data: { restaurantNam
     </div>
   `
 
-  await resend.emails.send({
+  await getResend()!.emails.send({
     from: FROM,
     to,
     subject: `🛎️ Nuevo pedido ${data.orderNumber} — ${formatCurrency(data.total)}`,
