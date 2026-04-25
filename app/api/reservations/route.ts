@@ -1,6 +1,8 @@
 import { createServiceClient } from '@/lib/supabase/server'
 import { checkFeature } from '@/lib/checkPlan'
 import { NextRequest, NextResponse } from 'next/server'
+import { sendReservationConfirmation } from '@/lib/email'
+import { reservationLimiter, checkRateLimit, getClientIp } from '@/lib/ratelimit'
 
 export async function GET(request: NextRequest) {
   try {
@@ -56,6 +58,12 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
+    const ip = getClientIp(request)
+    const rl = await checkRateLimit(reservationLimiter, ip)
+    if (!rl.allowed) {
+      return NextResponse.json({ error: 'Demasiadas solicitudes. Intenta de nuevo en un momento.' }, { status: 429 })
+    }
+
     const body = await request.json()
     const { tenantId, domain, customerName, customerEmail, customerPhone, partySize, reservationDate, reservationTime, notes } = body
 
@@ -138,6 +146,37 @@ export async function POST(request: NextRequest) {
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 })
+    }
+
+    // Send confirmation email (non-blocking)
+    if (customerEmail) {
+      const { data: branding } = await supabase
+        .from('tenant_branding')
+        .select('app_name, primary_color')
+        .eq('tenant_id', idToUse)
+        .maybeSingle()
+      const { data: tenantRow } = await supabase
+        .from('tenants')
+        .select('organization_name')
+        .eq('id', idToUse)
+        .maybeSingle()
+      const { data: rs } = await supabase
+        .from('restaurant_settings')
+        .select('phone, address')
+        .eq('tenant_id', idToUse)
+        .maybeSingle()
+
+      sendReservationConfirmation(customerEmail, {
+        restaurantName: branding?.app_name || tenantRow?.organization_name || 'Restaurante',
+        primaryColor: branding?.primary_color || '#3B82F6',
+        customerName,
+        partySize,
+        reservationDate,
+        reservationTime,
+        notes: notes || undefined,
+        restaurantPhone: rs?.phone || undefined,
+        restaurantAddress: rs?.address || undefined,
+      }).catch(e => console.error('[email] reservation confirmation:', e))
     }
 
     return NextResponse.json({ reservation }, { status: 201 })

@@ -131,6 +131,23 @@ export function AnalyticsEngine({ tenantId }: { tenantId: string }) {
         .order('total_spent', { ascending: false })
         .limit(5);
 
+      // Orders trend: daily count + revenue for selected range
+      const days = dateRange === 'today' ? 1 : dateRange === 'week' ? 7 : 30
+      const ordersTrend = Array.from({ length: days }, (_, i) => {
+        const d = new Date()
+        d.setDate(d.getDate() - (days - 1 - i))
+        const dayStr = d.toISOString().split('T')[0]
+        const dayOrders = orders.filter(o => o.created_at.startsWith(dayStr))
+        return {
+          date: dayStr,
+          label: days === 1
+            ? `${d.getHours()}:00`
+            : d.toLocaleDateString('es-CO', { day: 'numeric', month: 'short' }),
+          orders: dayOrders.length,
+          revenue: dayOrders.reduce((s, o) => s + Number(o.total), 0),
+        }
+      })
+
       setAnalytics({
         totalSales,
         totalOrders: orders.length,
@@ -140,7 +157,7 @@ export function AnalyticsEngine({ tenantId }: { tenantId: string }) {
         paymentMethods,
         avgPrepTime,
         topCustomers: customers || [],
-        ordersTrend: [], // TODO: Implement trend calculation
+        ordersTrend,
       });
     } catch (error) {
       console.error('Error fetching analytics:', error);
@@ -262,6 +279,64 @@ export function AnalyticsEngine({ tenantId }: { tenantId: string }) {
             </div>
           </div>
         </div>
+
+        {/* Orders Trend */}
+        {analytics.ordersTrend.length > 1 && (
+          <div className="bg-white rounded-lg shadow p-6 mb-8">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-bold text-gray-900">Tendencia de Pedidos</h2>
+              <span className="text-sm text-gray-500">
+                {dateRange === 'today' ? 'Hoy por hora' : dateRange === 'week' ? 'Últimos 7 días' : 'Últimos 30 días'}
+              </span>
+            </div>
+            <div className="flex items-end gap-1 h-32">
+              {analytics.ordersTrend.map((day, i) => {
+                const maxOrders = Math.max(...analytics.ordersTrend.map(d => d.orders), 1)
+                const height = Math.max((day.orders / maxOrders) * 100, day.orders > 0 ? 8 : 2)
+                const showLabel = analytics.ordersTrend.length <= 7 || i % Math.ceil(analytics.ordersTrend.length / 7) === 0
+                return (
+                  <div key={i} className="flex-1 flex flex-col items-center justify-end h-full group relative">
+                    {day.orders > 0 && (
+                      <div className="absolute bottom-full mb-1 hidden group-hover:flex flex-col items-center z-10">
+                        <div className="bg-gray-900 text-white text-xs rounded px-2 py-1 whitespace-nowrap">
+                          {day.orders} pedidos
+                        </div>
+                        <div className="w-2 h-2 bg-gray-900 rotate-45 -mt-1" />
+                      </div>
+                    )}
+                    <div
+                      className={`w-full rounded-t transition-all ${day.orders > 0 ? 'bg-blue-500 hover:bg-blue-600' : 'bg-gray-100'}`}
+                      style={{ height: `${height}%` }}
+                    />
+                    {showLabel && (
+                      <p className="text-[10px] text-gray-400 mt-1 truncate w-full text-center">{day.label}</p>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+            <div className="mt-4 grid grid-cols-3 gap-4 pt-4 border-t border-gray-100">
+              <div className="text-center">
+                <p className="text-xs text-gray-500">Día con más pedidos</p>
+                <p className="font-bold text-gray-900 text-sm">
+                  {analytics.ordersTrend.reduce((max, d) => d.orders > max.orders ? d : max, analytics.ordersTrend[0])?.label || '—'}
+                </p>
+              </div>
+              <div className="text-center">
+                <p className="text-xs text-gray-500">Promedio diario</p>
+                <p className="font-bold text-gray-900 text-sm">
+                  {(analytics.ordersTrend.reduce((s, d) => s + d.orders, 0) / analytics.ordersTrend.filter(d => d.orders > 0).length || 0).toFixed(1)} pedidos
+                </p>
+              </div>
+              <div className="text-center">
+                <p className="text-xs text-gray-500">Días activos</p>
+                <p className="font-bold text-gray-900 text-sm">
+                  {analytics.ordersTrend.filter(d => d.orders > 0).length} / {analytics.ordersTrend.length}
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Orders per Hour */}
         <div className="bg-white rounded-lg shadow p-6 mb-8">

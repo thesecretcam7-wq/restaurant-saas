@@ -27,7 +27,8 @@ export default async function DashboardPage({ params }: DashboardProps) {
   const today = new Date()
   const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1).toISOString()
 
-  const [ordersRes, revenueRes, reservationsRes, customersRes, recentOrdersRes, planInfo, monthOrders] = await Promise.all([
+  const [ordersRes, revenueRes, reservationsRes, customersRes, recentOrdersRes, planInfo, monthOrders,
+    productsRes, brandingRes, settingsRes, stripeRes] = await Promise.all([
     supabase.from('orders').select('id', { count: 'exact', head: true }).eq('tenant_id', tenantId),
     supabase.from('orders').select('total').eq('tenant_id', tenantId).eq('payment_status', 'paid').gte('created_at', startOfMonth),
     supabase.from('reservations').select('id', { count: 'exact', head: true }).eq('tenant_id', tenantId).eq('status', 'confirmed'),
@@ -35,6 +36,11 @@ export default async function DashboardPage({ params }: DashboardProps) {
     supabase.from('orders').select('*').eq('tenant_id', tenantId).eq('delivery_type', 'dine-in').order('created_at', { ascending: false }).limit(20),
     getTenantPlanInfo(tenantId),
     getMonthlyOrderCount(tenantId),
+    // Onboarding checks
+    supabase.from('menu_items').select('id', { count: 'exact', head: true }).eq('tenant_id', tenantId),
+    supabase.from('tenant_branding').select('primary_color, logo_url, app_name').eq('tenant_id', tenantId).maybeSingle(),
+    supabase.from('restaurant_settings').select('display_name, address, phone').eq('tenant_id', tenantId).maybeSingle(),
+    supabase.from('tenants').select('stripe_account_id').eq('id', tenantId).maybeSingle(),
   ])
 
   const totalOrders = ordersRes.count || 0
@@ -42,6 +48,47 @@ export default async function DashboardPage({ params }: DashboardProps) {
   const confirmedReservations = reservationsRes.count || 0
   const totalCustomers = customersRes.count || 0
   const recentOrders = recentOrdersRes.data || []
+
+  // Onboarding checklist
+  const onboardingSteps = [
+    {
+      id: 'branding',
+      label: 'Personaliza tu marca',
+      description: 'Agrega tu logo, colores y nombre del restaurante',
+      done: !!(brandingRes.data?.app_name || brandingRes.data?.primary_color !== '#3B82F6'),
+      href: `/${slugOrId}/admin/configuracion/branding`,
+    },
+    {
+      id: 'settings',
+      label: 'Completa la información del restaurante',
+      description: 'Agrega dirección, teléfono y horarios',
+      done: !!(settingsRes.data?.address && settingsRes.data?.phone),
+      href: `/${slugOrId}/admin/configuracion/restaurante`,
+    },
+    {
+      id: 'products',
+      label: 'Agrega tu primer producto al menú',
+      description: 'Crea categorías y productos para tu menú',
+      done: (productsRes.count || 0) > 0,
+      href: `/${slugOrId}/admin/productos/nuevo`,
+    },
+    {
+      id: 'page',
+      label: 'Personaliza tu página de inicio',
+      description: 'Diseña el aspecto de tu tienda online',
+      done: false, // always encourage
+      href: `/${slugOrId}/admin/configuracion/pagina`,
+    },
+    {
+      id: 'stripe',
+      label: 'Conecta Stripe para recibir pagos',
+      description: 'Acepta tarjetas y pagos digitales',
+      done: !!(stripeRes.data?.stripe_account_id),
+      href: `/${slugOrId}/admin/configuracion/stripe`,
+    },
+  ]
+  const completedSteps = onboardingSteps.filter(s => s.done).length
+  const showOnboarding = completedSteps < onboardingSteps.length
 
   const orderLimit = planInfo.limits.orders_per_month
   const orderLimitFinite = orderLimit !== Infinity
@@ -68,6 +115,40 @@ export default async function DashboardPage({ params }: DashboardProps) {
         <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
         <p className="text-gray-500 text-sm mt-1">Resumen de tu restaurante</p>
       </div>
+
+      {/* ── Onboarding checklist ── */}
+      {showOnboarding && (
+        <div className="mb-8 bg-gradient-to-br from-blue-50 to-indigo-50 border border-blue-200 rounded-2xl p-6">
+          <div className="flex items-start justify-between mb-4">
+            <div>
+              <h2 className="text-lg font-bold text-gray-900">¡Configura tu restaurante!</h2>
+              <p className="text-sm text-gray-600 mt-0.5">Completa estos pasos para tener tu tienda lista</p>
+            </div>
+            <div className="text-right">
+              <p className="text-2xl font-black text-blue-600">{completedSteps}/{onboardingSteps.length}</p>
+              <p className="text-xs text-gray-500">completados</p>
+            </div>
+          </div>
+          <div className="w-full bg-blue-200 rounded-full h-2 mb-5">
+            <div className="bg-blue-600 h-2 rounded-full transition-all" style={{ width: `${(completedSteps / onboardingSteps.length) * 100}%` }} />
+          </div>
+          <div className="space-y-2">
+            {onboardingSteps.map(step => (
+              <Link key={step.id} href={step.href}
+                className={`flex items-center gap-3 p-3 rounded-xl transition-all group ${step.done ? 'bg-white/60 opacity-60' : 'bg-white hover:shadow-sm hover:border-blue-300 border border-transparent'}`}
+              >
+                <div className={`w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 text-xs font-bold ${step.done ? 'bg-green-100 text-green-600' : 'bg-blue-100 text-blue-600'}`}>
+                  {step.done ? '✓' : '→'}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className={`text-sm font-semibold ${step.done ? 'line-through text-gray-400' : 'text-gray-900'}`}>{step.label}</p>
+                  {!step.done && <p className="text-xs text-gray-500 truncate">{step.description}</p>}
+                </div>
+              </Link>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Quick Access Buttons */}
       <div className="mb-6 flex flex-wrap gap-3">
