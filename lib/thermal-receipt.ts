@@ -16,46 +16,45 @@ interface ReceiptOptions {
 const ESC = '\x1b';
 const GS  = '\x1d';
 
-// Text size
-const SIZE_NORMAL     = `${GS}!\x00`;       // 1x1
-const SIZE_2X         = `${GS}!\x11`;       // 2x wide + 2x tall
-const SIZE_TALL       = `${GS}!\x10`;       // 2x tall only (legible body text)
-const BOLD_ON         = `${ESC}E\x01`;
-const BOLD_OFF        = `${ESC}E\x00`;
-const ALIGN_CENTER    = `${ESC}a\x01`;
-const ALIGN_LEFT      = `${ESC}a\x00`;
-const ALIGN_RIGHT     = `${ESC}a\x02`;
-const INIT            = `${ESC}@`;
-
-// Alias: body text uses SIZE_TALL for readability on 58mm paper
-const BODY = SIZE_TALL;
+const SIZE_NORMAL  = `${GS}!\x00`;  // 1x1
+const SIZE_2X      = `${GS}!\x11`;  // 2x wide + 2x tall (confirmed working)
+const BOLD_ON      = `${ESC}E\x01`;
+const BOLD_OFF     = `${ESC}E\x00`;
+const ALIGN_CENTER = `${ESC}a\x01`;
+const ALIGN_LEFT   = `${ESC}a\x00`;
+const INIT         = `${ESC}@`;
 
 export function generateReceiptESCPOS(data: ReceiptData, options: ReceiptOptions): Uint8Array {
-  // 58mm → 32 chars/line normal | 16 chars/line in double-width
-  // 80mm → 48 chars/line normal | 24 chars/line in double-width
+  // Normal column widths
   const cols = options.paperWidth === 80 ? 48 : 32;
+  // Body uses SIZE_2X → half the characters per line
+  const bCols = Math.floor(cols / 2);
 
   const bytes: string[] = [];
-
   const push = (...s: string[]) => bytes.push(...s);
   const line = (s = '') => bytes.push(s + '\n');
-  const sep  = () => line('-'.repeat(cols));
 
-  // ── Init ──────────────────────────────────────────────────────────────────
+  // Separator: always printed in SIZE_NORMAL so dashes span full paper width
+  const sep = () => {
+    push(SIZE_NORMAL);
+    line('-'.repeat(cols));
+    push(SIZE_2X);
+  };
+
+  // ── Init ─────────────────────────────────────────────────────────────────
   push(INIT);
 
-  // ── Restaurant name (big centered) ────────────────────────────────────────
+  // ── Restaurant name (big centered) ───────────────────────────────────────
   push(ALIGN_CENTER, SIZE_2X, BOLD_ON);
   line(data.restaurantName ?? 'Restaurante');
-  push(BOLD_OFF, SIZE_NORMAL);
+  push(BOLD_OFF);
 
-  // ── Order number (centered, bold) ─────────────────────────────────────────
+  // ── Order number (centered) ───────────────────────────────────────────────
   push(BOLD_ON);
   line(data.orderNumber);
   push(BOLD_OFF);
 
   // ── Date/time ─────────────────────────────────────────────────────────────
-  push(BODY);
   const ts = data.timestamp ? new Date(data.timestamp) : new Date();
   line(ts.toLocaleString('es-CO', {
     day: '2-digit', month: '2-digit', year: 'numeric',
@@ -70,28 +69,22 @@ export function generateReceiptESCPOS(data: ReceiptData, options: ReceiptOptions
   push(ALIGN_LEFT);
   sep();
 
-  // Column widths: name | qty | price
-  const priceW = 10;
-  const qtyW   = 4;
-  const nameW  = cols - qtyW - priceW;
-
   push(BOLD_ON);
-  line(padR('Producto', nameW) + padL('Qty', qtyW) + padL('Total', priceW));
+  // Header: product name left, price right (in bCols space)
+  line(padR('Producto', bCols - 8) + padL('Total', 8));
   push(BOLD_OFF);
   sep();
 
   for (const item of data.items) {
     const itemTotal = item.price * item.quantity;
     const priceStr  = formatPrice(itemTotal, data);
-    const qtyStr    = `x${item.quantity}`;
-
-    // If name fits in one row
-    const nameStr = item.name.substring(0, nameW);
-    line(padR(nameStr, nameW) + padL(qtyStr, qtyW) + padL(priceStr, priceW));
-
-    // Name overflow on second line
-    if (item.name.length > nameW) {
-      line('  ' + item.name.substring(nameW, nameW + nameW - 2));
+    // Line 1: name + price
+    const nameStr = item.name.substring(0, bCols - priceStr.length - 1);
+    line(padR(nameStr, bCols - priceStr.length) + priceStr);
+    // Line 2: quantity (only if > 1 or price info useful)
+    if (item.quantity > 1) {
+      const unitStr = formatPrice(item.price, data);
+      line(padL(`x${item.quantity} × ${unitStr}`, bCols));
     }
   }
 
@@ -99,22 +92,27 @@ export function generateReceiptESCPOS(data: ReceiptData, options: ReceiptOptions
 
   // ── Subtotal / discount ───────────────────────────────────────────────────
   if (data.discount > 0) {
-    line(padR('Subtotal:', cols - 10) + padL(formatPrice(data.subtotal, data), 10));
-    line(padR('Descuento:', cols - 10) + padL('-' + formatPrice(data.discount, data), 10));
+    const subStr = formatPrice(data.subtotal, data);
+    const disStr = '-' + formatPrice(data.discount, data);
+    line(padR('Subtotal:', bCols - subStr.length) + subStr);
+    line(padR('Descuento:', bCols - disStr.length) + disStr);
   }
 
-  // ── TOTAL (big) ───────────────────────────────────────────────────────────
+  // ── TOTAL (big centered) ──────────────────────────────────────────────────
   sep();
-  push(ALIGN_CENTER, SIZE_2X, BOLD_ON);
+  push(ALIGN_CENTER, BOLD_ON);
   line('TOTAL');
   line(formatPrice(data.total, data));
-  push(BOLD_OFF, BODY, ALIGN_LEFT);
-  sep();
+  push(BOLD_OFF);
 
   // ── Payment info ──────────────────────────────────────────────────────────
+  sep();
+  push(ALIGN_LEFT);
   if (data.amountPaid !== undefined) {
-    line(padR('Recibido:', cols - 10) + padL(formatPrice(data.amountPaid, data), 10));
-    line(padR('Cambio:', cols - 10) + padL(formatPrice(data.change, data), 10));
+    const paidStr   = formatPrice(data.amountPaid, data);
+    const changeStr = formatPrice(data.change, data);
+    line(padR('Recibido:', bCols - paidStr.length) + paidStr);
+    line(padR('Cambio:', bCols - changeStr.length) + changeStr);
     sep();
   }
 
@@ -130,8 +128,7 @@ export function generateReceiptESCPOS(data: ReceiptData, options: ReceiptOptions
 
   // ── Cut ───────────────────────────────────────────────────────────────────
   push(`${GS}V\x42\x00`); // Full cut
-
-  push(ALIGN_LEFT, SIZE_NORMAL); // reset before cut
+  push(ALIGN_LEFT, SIZE_NORMAL);
 
   // ── Assemble & encode ─────────────────────────────────────────────────────
   const receipt = bytes.join('');
