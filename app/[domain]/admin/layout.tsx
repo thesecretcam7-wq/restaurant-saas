@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import { getTenantContext } from '@/lib/tenant'
 import { AdminSidebar } from '@/components/admin/AdminSidebar'
+import { AdminContent } from './AdminContent'
 import { cookies } from 'next/headers'
 
 interface AdminLayoutProps {
@@ -113,9 +114,7 @@ export default async function AdminLayout({ children, params }: AdminLayoutProps
       />
 
       {/* Main content — desktop offset, full width on mobile */}
-      <main className="md:ml-64 flex-1 p-0 min-h-screen max-h-screen overflow-y-auto w-full pt-14 md:pt-0">
-        {children}
-      </main>
+      <AdminContent>{children}</AdminContent>
     </div>
   )
 }
