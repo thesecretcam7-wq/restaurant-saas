@@ -73,7 +73,7 @@ export default function TrialExpiredGuard({
 
           <div className="space-y-3">
             <Link
-              href={`/${slug}/admin/planes`}
+              href={`/${slug}/admin/configuracion/planes`}
               className="block w-full py-3 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition-colors"
             >
               Ver planes de suscripción

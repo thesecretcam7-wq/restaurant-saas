@@ -51,7 +51,7 @@ export default function TrialBanner({ trialEndsAt, slug }: TrialBannerProps) {
           <h3 className="font-bold text-lg mb-2">¡Período de prueba expirado!</h3>
           <p className="text-sm mb-4">Tu cuenta de prueba ha expirado. Por favor, suscríbete a un plan para continuar usando Eccofood.</p>
           <Link
-            href={`/${slug}/admin/planes`}
+            href={`/${slug}/admin/configuracion/planes`}
             className="inline-block px-4 py-2 bg-red-600 text-white rounded-lg font-semibold hover:bg-red-700 transition-colors"
           >
             Ver planes de suscripción
@@ -75,7 +75,7 @@ export default function TrialBanner({ trialEndsAt, slug }: TrialBannerProps) {
           </p>
         </div>
         <Link
-          href={`/${slug}/admin/planes`}
+          href={`/${slug}/admin/configuracion/planes`}
           className="px-3 py-1 bg-blue-600 text-white text-sm rounded font-semibold hover:bg-blue-700 transition-colors flex-shrink-0 ml-4"
         >
           Suscribirse
