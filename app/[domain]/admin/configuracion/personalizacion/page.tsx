@@ -66,7 +66,7 @@ export default function PersonalizacionPage({ params }: PersonalizacionProps) {
         if (!tenantId) {
           const tenantRes = await supabase.from('tenants').select('id').eq('slug', tenantSlug).single()
           if (tenantRes.error || !tenantRes.data) {
-            console.error('Tenant not found')
+            console.error('Tenant not found:', tenantRes.error)
             setLoading(false)
             return
           }
@@ -75,13 +75,20 @@ export default function PersonalizacionPage({ params }: PersonalizacionProps) {
         }
 
         const brandingRes = await supabase.from('tenants').select('metadata, logo_url').eq('id', tenantId).single()
+        if (brandingRes.error) {
+          console.error('Error fetching branding:', brandingRes.error)
+          setLoading(false)
+          return
+        }
+
         if (brandingRes.data?.metadata) {
+          console.log('Loaded metadata:', brandingRes.data.metadata)
           setForm(f => ({ ...f, ...brandingRes.data.metadata }))
         }
         if (brandingRes.data?.logo_url) setForm(f => ({ ...f, logo_url: brandingRes.data.logo_url }))
+        setLoading(false)
       } catch (err) {
-        console.error('Error loading branding:', err)
-      } finally {
+        console.error('Exception loading branding:', err)
         setLoading(false)
       }
     }
