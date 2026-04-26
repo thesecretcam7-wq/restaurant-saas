@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation'
 import { getTenantContext } from '@/lib/tenant'
 import { AdminSidebar } from '@/components/admin/AdminSidebar'
 import { AdminContent } from './AdminContent'
+import TrialExpiredGuard from '@/components/admin/TrialExpiredGuard'
 import { cookies } from 'next/headers'
 
 interface AdminLayoutProps {
@@ -37,7 +38,7 @@ export default async function AdminLayout({ children, params }: AdminLayoutProps
   if (isUUID) {
     const result = await supabase
       .from('tenants')
-      .select('id, slug, organization_name, status, owner_id')
+      .select('id, slug, organization_name, status, owner_id, trial_ends_at')
       .eq('id', slug)
       .single()
     if (result.error) {
@@ -47,7 +48,7 @@ export default async function AdminLayout({ children, params }: AdminLayoutProps
   } else {
     const result = await supabase
       .from('tenants')
-      .select('id, slug, organization_name, status, owner_id')
+      .select('id, slug, organization_name, status, owner_id, trial_ends_at')
       .eq('slug', slug)
       .single()
     if (result.error) {
@@ -102,19 +103,21 @@ export default async function AdminLayout({ children, params }: AdminLayoutProps
   ]
 
   return (
-    <div className="min-h-screen bg-gray-50 flex">
-      <AdminSidebar
-        tenantSlug={tenantSlug}
-        restaurantName={branding?.app_name || tenant.organization_name}
-        logoUrl={context.tenant?.logo_url}
-        primaryColor={branding?.primary_color}
-        navLinks={navLinks}
-        userTenants={userTenants}
-        isOwner={!!isOwner}
-      />
+    <TrialExpiredGuard trialEndsAt={tenant.trial_ends_at} slug={tenantSlug}>
+      <div className="min-h-screen bg-gray-50 flex">
+        <AdminSidebar
+          tenantSlug={tenantSlug}
+          restaurantName={branding?.app_name || tenant.organization_name}
+          logoUrl={context.tenant?.logo_url}
+          primaryColor={branding?.primary_color}
+          navLinks={navLinks}
+          userTenants={userTenants}
+          isOwner={!!isOwner}
+        />
 
-      {/* Main content — desktop offset, full width on mobile */}
-      <AdminContent>{children}</AdminContent>
-    </div>
+        {/* Main content — desktop offset, full width on mobile */}
+        <AdminContent trialEndsAt={tenant.trial_ends_at} slug={tenantSlug}>{children}</AdminContent>
+      </div>
+    </TrialExpiredGuard>
   )
 }
