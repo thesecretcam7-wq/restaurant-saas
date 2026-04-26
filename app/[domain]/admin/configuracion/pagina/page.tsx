@@ -66,10 +66,17 @@ export default function PageBuilderPage() {
     setConfig(c => ({ ...c, footer: { ...c.footer, [key]: value } })), [])
 
   const toggleSection = useCallback((id: string) =>
-    setConfig(c => ({
-      ...c,
-      sections: c.sections.map(s => s.id === id ? { ...s, enabled: !s.enabled } : s),
-    })), [])
+    setConfig(c => {
+      const updatedConfig = {
+        ...c,
+        sections: c.sections.map(s => s.id === id ? { ...s, enabled: !s.enabled } : s),
+      }
+      // Also toggle banner.enabled when banner section is toggled
+      if (id === 'banner') {
+        updatedConfig.banner = { ...updatedConfig.banner, enabled: !updatedConfig.banner.enabled }
+      }
+      return updatedConfig
+    }), [])
 
   const moveSection = useCallback((id: string, direction: 'up' | 'down') => {
     setConfig(c => {
