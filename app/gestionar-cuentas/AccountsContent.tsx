@@ -12,6 +12,7 @@ interface Tenant {
   status: string
   subscription_plan: string | null
   trial_ends_at: string | null
+  subscription_expires_at: string | null
   created_at: string
   stripe_account_status: string | null
 }
@@ -96,6 +97,7 @@ export default function AccountsContent({ initialTenants }: AccountsContentProps
                 <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600">Email</th>
                 <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600">Estado</th>
                 <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600">Plan</th>
+                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600">Vencimiento</th>
                 <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600">Creado</th>
                 <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600">Acciones</th>
               </tr>
@@ -125,6 +127,25 @@ export default function AccountsContent({ initialTenants }: AccountsContentProps
                           </span>
                         ) : (
                           <span className="text-gray-400">Sin plan</span>
+                        )}
+                      </td>
+                      <td className="px-6 py-4 text-sm">
+                        {tenant.subscription_expires_at ? (
+                          new Date(tenant.subscription_expires_at) > new Date() ? (
+                            <span className="text-green-600 font-medium">
+                              {new Date(tenant.subscription_expires_at).toLocaleDateString('es-CO')}
+                            </span>
+                          ) : (
+                            <span className="text-red-600 font-medium">
+                              ⚠️ Expirada: {new Date(tenant.subscription_expires_at).toLocaleDateString('es-CO')}
+                            </span>
+                          )
+                        ) : tenant.trial_ends_at ? (
+                          <span className="text-gray-500">
+                            Trial: {new Date(tenant.trial_ends_at).toLocaleDateString('es-CO')}
+                          </span>
+                        ) : (
+                          <span className="text-gray-400">-</span>
                         )}
                       </td>
                       <td className="px-6 py-4 text-sm text-gray-700">

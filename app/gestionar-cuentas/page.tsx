@@ -18,7 +18,7 @@ export default async function GestionarCuentasPage() {
   // Get all accounts
   const { data: tenants, error } = await supabase
     .from('tenants')
-    .select('id, organization_name, owner_name, owner_email, status, subscription_plan, trial_ends_at, created_at, stripe_account_status')
+    .select('id, organization_name, owner_name, owner_email, status, subscription_plan, trial_ends_at, subscription_expires_at, created_at, stripe_account_status')
     .order('created_at', { ascending: false })
 
   if (error) {

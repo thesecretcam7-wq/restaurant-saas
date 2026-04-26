@@ -9,6 +9,7 @@ interface TrialExpiredGuardProps {
   slug: string
   hasActiveSubscription?: boolean
   subscriptionPlan?: string | null
+  subscriptionExpiresAt?: string | null
   children: ReactNode
 }
 
@@ -17,6 +18,7 @@ export default function TrialExpiredGuard({
   slug,
   hasActiveSubscription,
   subscriptionPlan,
+  subscriptionExpiresAt,
   children
 }: TrialExpiredGuardProps) {
   const [isExpired, setIsExpired] = useState(false)
@@ -24,22 +26,33 @@ export default function TrialExpiredGuard({
 
   useEffect(() => {
     setMounted(true)
-    const status = calculateTrialStatus(trialEndsAt)
-    // Don't block if they have an active subscription (paid plan)
-    const hasPaidPlan = subscriptionPlan && subscriptionPlan !== 'free'
-    const shouldBlock = status.isExpired && !hasActiveSubscription && !hasPaidPlan
-    setIsExpired(shouldBlock)
 
-    // Check periodically if trial has expired
-    const interval = setInterval(() => {
-      const currentStatus = calculateTrialStatus(trialEndsAt)
+    const checkIfBlocked = () => {
+      const trialStatus = calculateTrialStatus(trialEndsAt)
       const hasPaidPlan = subscriptionPlan && subscriptionPlan !== 'free'
-      const shouldBlock = currentStatus.isExpired && !hasActiveSubscription && !hasPaidPlan
-      setIsExpired(shouldBlock)
-    }, 60000) // Check every minute
 
+      // Check if subscription is still active (not expired)
+      let isSubscriptionValid = false
+      if (subscriptionExpiresAt) {
+        const now = new Date()
+        const expiresDate = new Date(subscriptionExpiresAt)
+        isSubscriptionValid = expiresDate > now
+      }
+
+      // Block if:
+      // - Trial expired AND
+      // - No valid subscription AND
+      // - Not a paid plan
+      const shouldBlock = trialStatus.isExpired && !isSubscriptionValid && !hasPaidPlan
+      setIsExpired(shouldBlock)
+    }
+
+    checkIfBlocked()
+
+    // Check periodically (every minute)
+    const interval = setInterval(checkIfBlocked, 60000)
     return () => clearInterval(interval)
-  }, [trialEndsAt, hasActiveSubscription, subscriptionPlan])
+  }, [trialEndsAt, hasActiveSubscription, subscriptionPlan, subscriptionExpiresAt])
 
   if (!mounted) return <>{children}</>
 

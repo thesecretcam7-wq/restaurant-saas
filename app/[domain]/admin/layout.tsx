@@ -38,7 +38,7 @@ export default async function AdminLayout({ children, params }: AdminLayoutProps
   if (isUUID) {
     const result = await supabase
       .from('tenants')
-      .select('id, slug, organization_name, status, owner_id, trial_ends_at, subscription_plan, subscription_stripe_id')
+      .select('id, slug, organization_name, status, owner_id, trial_ends_at, subscription_plan, subscription_stripe_id, subscription_expires_at')
       .eq('id', slug)
       .single()
     if (result.error) {
@@ -48,7 +48,7 @@ export default async function AdminLayout({ children, params }: AdminLayoutProps
   } else {
     const result = await supabase
       .from('tenants')
-      .select('id, slug, organization_name, status, owner_id, trial_ends_at, subscription_plan, subscription_stripe_id')
+      .select('id, slug, organization_name, status, owner_id, trial_ends_at, subscription_plan, subscription_stripe_id, subscription_expires_at')
       .eq('slug', slug)
       .single()
     if (result.error) {
@@ -111,6 +111,7 @@ export default async function AdminLayout({ children, params }: AdminLayoutProps
       slug={tenantSlug}
       hasActiveSubscription={hasActiveSubscription}
       subscriptionPlan={tenant.subscription_plan}
+      subscriptionExpiresAt={tenant.subscription_expires_at}
     >
       <div className="min-h-screen bg-gray-50 flex">
         <AdminSidebar
