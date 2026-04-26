@@ -7,7 +7,7 @@ interface Props { params: Promise<{ domain: string }> }
 
 const STATUS: Record<string, { label: string; bg: string; dot: string; icon: string }> = {
   pending:    { label: 'Pendiente',    bg: '#FEF3C7', dot: '#F59E0B', icon: '⏳' },
-  confirmed:  { label: 'Confirmado',   bg: '#DBEAFE', dot: '#3B82F6', icon: '✅' },
+  confirmed:  { label: 'Confirmado',   bg: '#DBEAFE', dot: '#4F46E5', icon: '✅' },
   preparing:  { label: 'Preparando',   bg: '#FEE2E2', dot: '#EF4444', icon: '👨‍🍳' },
   on_the_way: { label: 'En camino',    bg: '#EDE9FE', dot: '#8B5CF6', icon: '🚗' },
   delivered:  { label: 'Entregado',    bg: '#D1FAE5', dot: '#10B981', icon: '🎉' },
@@ -26,7 +26,7 @@ export default function MisPedidosPage({ params }: Props) {
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const activePhoneRef = useRef<string>('')
 
-  const primary = 'var(--primary-color, #3B82F6)'
+  const primary = 'var(--primary-color, #4F46E5)'
 
   async function fetchOrders(tel: string, silent = false) {
     if (!silent) setLoading(true)
@@ -78,7 +78,7 @@ export default function MisPedidosPage({ params }: Props) {
         {/* Search card */}
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
           <div className="flex items-center gap-3 mb-4">
-            <div className="w-10 h-10 rounded-xl flex items-center justify-center text-xl" style={{ backgroundColor: 'var(--primary-color, #3B82F6)15', color: primary }}>
+            <div className="w-10 h-10 rounded-xl flex items-center justify-center text-xl" style={{ backgroundColor: 'var(--primary-color, #4F46E5)15', color: primary }}>
               📋
             </div>
             <div>
@@ -145,12 +145,12 @@ export default function MisPedidosPage({ params }: Props) {
                               <div className="flex flex-col items-center gap-1">
                                 <div
                                   className="w-2 h-2 rounded-full transition-all"
-                                  style={{ backgroundColor: i <= currentStep ? 'var(--primary-color, #3B82F6)' : '#E2E8F0' }}
+                                  style={{ backgroundColor: i <= currentStep ? 'var(--primary-color, #4F46E5)' : '#E2E8F0' }}
                                 />
                                 <span className="text-[8px] text-muted-foreground font-medium whitespace-nowrap">{STEP_LABELS[i]}</span>
                               </div>
                               {i < STEPS.length - 1 && (
-                                <div className="flex-1 h-0.5 mb-3 mx-0.5 transition-all" style={{ backgroundColor: i < currentStep ? 'var(--primary-color, #3B82F6)' : '#E2E8F0' }} />
+                                <div className="flex-1 h-0.5 mb-3 mx-0.5 transition-all" style={{ backgroundColor: i < currentStep ? 'var(--primary-color, #4F46E5)' : '#E2E8F0' }} />
                               )}
                             </div>
                           ))}

@@ -46,7 +46,7 @@ export default async function MenuPage({ params }: MenuProps) {
   const slug = context.tenant?.slug || tenantSlug
   const branding = context.branding
   const settings = context.settings
-  const primary = branding?.primary_color || '#3B82F6'
+  const primary = branding?.primary_color || '#4F46E5'
   const featured = items.filter(i => i.featured)
 
   // Get currency from settings or detect from country

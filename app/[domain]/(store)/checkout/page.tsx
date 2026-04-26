@@ -58,7 +58,7 @@ export default function CheckoutPage({ params }: Props) {
   }
 
   const inputCls = "w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:bg-white transition-all placeholder:text-muted-foreground"
-  const primary = 'var(--primary-color, #3B82F6)'
+  const primary = 'var(--primary-color, #4F46E5)'
 
   return (
     <div className="min-h-screen bg-gray-50">

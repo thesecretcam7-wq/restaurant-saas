@@ -2,7 +2,9 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
+import { usePathname } from 'next/navigation'
 import { Menu, X } from 'lucide-react'
+import { detectAdminSection, getSectionColorHex } from '@/lib/colors'
 
 interface NavLink {
   href: string
@@ -32,6 +34,9 @@ export function AdminSidebar({
   isOwner,
 }: AdminSidebarProps) {
   const [open, setOpen] = useState(false)
+  const pathname = usePathname()
+  const currentSection = detectAdminSection(pathname)
+  const currentSectionColor = getSectionColorHex(currentSection)
 
   const sidebarContent = (
     <>
@@ -83,19 +88,30 @@ export function AdminSidebar({
           </div>
         )}
 
-        {navLinks.map(link => (
-          <div key={link.href}>
-            {link.divider && <div className="my-2 border-t" />}
-            <Link
-              href={link.href}
-              onClick={() => setOpen(false)}
-              className="flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-gray-700 hover:bg-gray-100 transition-colors"
-            >
-              <span>{link.icon}</span>
-              <span>{link.label}</span>
-            </Link>
-          </div>
-        ))}
+        {navLinks.map(link => {
+          const isActive = pathname.includes(link.href.split('/').pop() || '')
+          const linkSection = detectAdminSection(link.href)
+          const linkColor = getSectionColorHex(linkSection)
+
+          return (
+            <div key={link.href}>
+              {link.divider && <div className="my-2 border-t" />}
+              <Link
+                href={link.href}
+                onClick={() => setOpen(false)}
+                className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors ${
+                  isActive
+                    ? 'font-semibold text-white'
+                    : 'text-gray-700 hover:bg-gray-100'
+                }`}
+                style={isActive ? { backgroundColor: linkColor } : undefined}
+              >
+                <span>{link.icon}</span>
+                <span>{link.label}</span>
+              </Link>
+            </div>
+          )
+        })}
       </nav>
 
       {/* Footer */}

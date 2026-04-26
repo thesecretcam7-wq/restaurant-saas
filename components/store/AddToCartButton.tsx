@@ -9,7 +9,7 @@ interface Props {
   small?: boolean
 }
 
-export default function AddToCartButton({ item, tenantId, color = '#3B82F6', small }: Props) {
+export default function AddToCartButton({ item, tenantId, color = '#4F46E5', small }: Props) {
   const { addItem, removeItem, items } = useCartStore()
   const qty = items.find(i => i.item_id === item.id)?.qty || 0
 

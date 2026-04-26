@@ -7,7 +7,7 @@ import Link from 'next/link'
 export default function CartBar({ tenantId, primaryColor }: { tenantId: string; primaryColor?: string }) {
   const { items, total } = useCartStore()
   const count = items.reduce((s, i) => s + i.qty, 0)
-  const color = primaryColor || '#3B82F6'
+  const color = primaryColor || '#4F46E5'
 
   if (count === 0) return null
 

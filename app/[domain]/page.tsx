@@ -47,7 +47,7 @@ export default async function HomePage({ params }: HomePageProps) {
     .eq('available', true)
     .limit(8)
 
-  const primary = branding?.primary_color || '#3B82F6'
+  const primary = branding?.primary_color || '#4F46E5'
   const secondary = branding?.secondary_color || '#1F2937'
   const appName = branding?.app_name || tenant.organization_name
   const tagline = branding?.tagline || settings?.description || ''

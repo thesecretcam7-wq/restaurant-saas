@@ -49,7 +49,7 @@ export default function BottomNav({ tenantId, primaryColor }: { tenantId: string
   const pathname = usePathname()
   const { items } = useCartStore()
   const cartCount = items.reduce((s, i) => s + i.qty, 0)
-  const color = primaryColor || '#3B82F6'
+  const color = primaryColor || '#4F46E5'
 
   const isHome = pathname === `/${tenantId}` || pathname === `/${tenantId}/`
   const isMenu = pathname.startsWith(`/${tenantId}/menu`) || pathname.startsWith(`/${tenantId}/categoria`)

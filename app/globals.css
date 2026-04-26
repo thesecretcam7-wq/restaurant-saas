@@ -49,35 +49,46 @@
 }
 
 :root {
-  /* Eccofood Brand Colors - Professional & Modern */
-  /* Primary: Professional Blue (#0066FF) */
-  --primary: #0066FF;
-  --primary-dark: #0052CC;
-  --primary-light: #E6F0FF;
-  --primary-50: #F0F7FF;
-  --primary-100: #E6F0FF;
-  --primary-200: #CCE1FF;
-  --primary-600: #0052CC;
+  /* Eccofood Brand Colors - Professional & Sophisticated */
+  /* Store Primary: Indigo (Modern & Professional) */
+  --primary: #4F46E5;
+  --primary-dark: #4338CA;
+  --primary-light: #E0E7FF;
+  --primary-50: #F0F4FF;
+  --primary-100: #E0E7FF;
+  --primary-200: #C7D2FE;
+  --primary-600: #4F46E5;
 
-  /* Secondary: Success Green (#10B981) */
-  --secondary: #10B981;
-  --secondary-dark: #059669;
+  /* Admin Color System - Section Accents */
+  /* Secondary: Emerald (Products/Inventory) */
+  --secondary: #059669;
+  --secondary-dark: #047857;
   --secondary-light: #D1FAE5;
   --secondary-50: #F0FDF4;
   --secondary-100: #DCFCE7;
   --secondary-200: #BBF7D0;
 
-  /* Accent: Warm Orange (#F97316) */
-  --accent: #F97316;
-  --accent-dark: #D97706;
+  /* Accent: Amber (Orders/Highlights) */
+  --accent: #D97706;
+  --accent-dark: #B45309;
   --accent-light: #FED7AA;
-  --accent-50: #FEF3C7;
-  --accent-100: #FED7AA;
+  --accent-50: #FFFBEB;
+  --accent-100: #FEF3C7;
+
+  /* Admin Section Colors */
+  --color-orders: #D97706;
+  --color-products: #059669;
+  --color-customers: #4F46E5;
+  --color-reservations: #7C3AED;
+  --color-inventory: #0891B2;
+  --color-payments: #16A34A;
+  --color-dashboard: #475569;
+  --color-settings: #374151;
 
   /* Semantic Colors */
-  --success: #06B6D4;
+  --success: #16A34A;
   --danger: #DC2626;
-  --warning: #FBBF24;
+  --warning: #D97706;
 
   /* Light Mode - Clean & Professional */
   --background: #FFFFFF;
@@ -94,20 +105,20 @@
   --destructive: #DC2626;
   --border: #E5E7EB;
   --input: #F9FAFB;
-  --ring: #0066FF;
+  --ring: #4F46E5;
 
   /* Chart Colors */
-  --chart-1: #0066FF;
-  --chart-2: #10B981;
-  --chart-3: #F97316;
+  --chart-1: #4F46E5;
+  --chart-2: #059669;
+  --chart-3: #D97706;
   --chart-4: #DC2626;
-  --chart-5: #06B6D4;
+  --chart-5: #0891B2;
 
   /* Spacing & Radius */
   --radius: 0.5rem;
   --sidebar: #F9FAFB;
   --sidebar-foreground: #1F2937;
-  --sidebar-primary: #0066FF;
+  --sidebar-primary: #4F46E5;
   --sidebar-primary-foreground: #FFFFFF;
   --sidebar-accent: oklch(0.623 0.214 30.092);
   --sidebar-accent-foreground: oklch(0.985 0 0);
