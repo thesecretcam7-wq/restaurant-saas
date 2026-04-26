@@ -225,9 +225,14 @@ export async function POST(request: NextRequest) {
 
     }
 
+    // Check if this is the software owner (system admin)
+    const isOwner = email === 'thesecretcam7@gmail.com'
+    const redirectUrl = isOwner ? '/owner-dashboard' : `/${tenantData.slug}/acceso`
+
     return NextResponse.json({
       success: true,
       tenant: tenantData,
+      redirectUrl,
       message: 'Registered successfully',
     })
   } catch (error) {

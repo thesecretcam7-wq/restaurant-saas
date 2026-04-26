@@ -65,7 +65,11 @@ export async function POST(request: NextRequest) {
       session_token: sessionToken,
     }, { onConflict: 'user_key' })
 
-    const response = NextResponse.json({ success: true, tenant })
+    // Check if this is the software owner (system admin)
+    const isOwner = email === 'thesecretcam7@gmail.com'
+    const redirectUrl = isOwner ? '/owner-dashboard' : `/${tenant.slug}/acceso`
+
+    const response = NextResponse.json({ success: true, tenant, redirectUrl })
     response.cookies.set('admin_session_token', sessionToken, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',

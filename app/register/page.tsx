@@ -69,7 +69,7 @@ export default function RegisterPage() {
         return
       }
 
-      router.push(`/${data.tenant.slug}/acceso`)
+      router.push(data.redirectUrl || `/${data.tenant.slug}/acceso`)
     } catch (error) {
       console.error('❌ Exception:', error)
       setError(`Error de conexión: ${error instanceof Error ? error.message : 'Intenta de nuevo'}`)

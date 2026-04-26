@@ -23,7 +23,7 @@ export default function LoginPage() {
       })
       const data = await res.json()
       if (!res.ok) { setError(data.error || 'Email o contraseña incorrectos'); return }
-      router.push(`/${data.tenant.slug}/acceso`)
+      router.push(data.redirectUrl || `/${data.tenant.slug}/acceso`)
     } catch {
       setError('Error de conexión. Intenta de nuevo.')
     } finally {
