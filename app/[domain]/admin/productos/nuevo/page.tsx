@@ -3,6 +3,8 @@
 import { useState, useEffect, use } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import { productSchema } from '@/lib/validations/forms'
+import { getFieldError, parseValidationError } from '@/lib/validations/utils'
 import toast from 'react-hot-toast'
 
 interface Props { params: Promise<{ domain: string }> }
@@ -14,6 +16,7 @@ export default function NuevoProductoPage({ params }: Props) {
   const [categories, setCategories] = useState<{ id: string; name: string }[]>([])
   const [saving, setSaving] = useState(false)
   const [uploadingImage, setUploadingImage] = useState(false)
+  const [errors, setErrors] = useState<Array<{ field: string; message: string }>>([])
   const [form, setForm] = useState({
     name: '',
     description: '',
@@ -56,22 +59,33 @@ export default function NuevoProductoPage({ params }: Props) {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!tenantId) return
-    if (!form.name.trim()) { toast.error('El nombre es obligatorio'); return }
-    if (!form.price || parseFloat(form.price) <= 0) { toast.error('Ingresa un precio válido'); return }
+    setErrors([])
     setSaving(true)
-    const { error } = await supabase.from('menu_items').insert({
-      tenant_id: tenantId,
-      name: form.name.trim(),
-      description: form.description.trim() || null,
-      price: parseFloat(form.price),
-      category_id: form.category_id || null,
-      image_url: form.image_url || null,
-      available: form.available,
-      featured: form.featured,
-    })
-    setSaving(false)
-    if (error) { toast.error('Error: ' + error.message) }
-    else { toast.success('Producto guardado'); router.push(`/${domain}/admin/productos`) }
+    try {
+      const validated = productSchema.parse(form)
+      const { error } = await supabase.from('menu_items').insert({
+        tenant_id: tenantId,
+        name: validated.name.trim(),
+        description: validated.description?.trim() || null,
+        price: validated.price,
+        category_id: validated.category_id || null,
+        image_url: validated.image_url || null,
+        available: validated.available,
+        featured: validated.featured,
+      })
+      if (error) { toast.error('Error: ' + error.message) }
+      else { toast.success('Producto guardado'); router.push(`/${domain}/admin/productos`) }
+    } catch (error: any) {
+      if (error.errors) {
+        const validationErrors = parseValidationError(error)
+        setErrors(validationErrors)
+        toast.error(validationErrors[0]?.message || 'Corrige los errores del formulario')
+      } else {
+        toast.error('Error al guardar el producto')
+      }
+    } finally {
+      setSaving(false)
+    }
   }
 
   return (
@@ -156,14 +170,14 @@ export default function NuevoProductoPage({ params }: Props) {
               {/* Name */}
               <div className="px-4 py-4">
                 <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wide mb-1.5">
-                  Nombre *
+                  Nombre * {getFieldError(errors, 'name') && <span className="text-red-500">{getFieldError(errors, 'name')}</span>}
                 </label>
                 <input
                   required
                   autoFocus
                   value={form.name}
                   onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
-                  className="w-full text-base sm:text-sm text-gray-900 focus:outline-none placeholder-gray-300 bg-transparent"
+                  className={`w-full text-base sm:text-sm text-gray-900 focus:outline-none placeholder-gray-300 bg-transparent border-b-2 ${getFieldError(errors, 'name') ? 'border-red-300' : 'border-gray-200'}`}
                   placeholder="Ej: Pizza Margherita"
                 />
               </div>
@@ -172,7 +186,7 @@ export default function NuevoProductoPage({ params }: Props) {
               <div className="sm:grid sm:grid-cols-2 sm:divide-x divide-y sm:divide-y-0">
                 <div className="px-4 py-4">
                   <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wide mb-1.5">
-                    Precio *
+                    Precio * {getFieldError(errors, 'price') && <span className="text-red-500">{getFieldError(errors, 'price')}</span>}
                   </label>
                   <div className="flex items-center gap-1.5">
                     <span className="text-gray-400 font-medium">$</span>
@@ -181,7 +195,7 @@ export default function NuevoProductoPage({ params }: Props) {
                       inputMode="decimal"
                       value={form.price}
                       onChange={e => setForm(f => ({ ...f, price: e.target.value }))}
-                      className="flex-1 text-xl sm:text-base font-bold text-gray-900 focus:outline-none placeholder-gray-200 bg-transparent"
+                      className={`flex-1 text-xl sm:text-base font-bold text-gray-900 focus:outline-none placeholder-gray-200 bg-transparent border-b-2 ${getFieldError(errors, 'price') ? 'border-red-300' : 'border-gray-200'}`}
                       placeholder="0"
                     />
                   </div>
@@ -207,12 +221,12 @@ export default function NuevoProductoPage({ params }: Props) {
               {/* Description */}
               <div className="px-4 py-4">
                 <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wide mb-1.5">
-                  Descripción
+                  Descripción {getFieldError(errors, 'description') && <span className="text-red-500">{getFieldError(errors, 'description')}</span>}
                 </label>
                 <textarea
                   value={form.description}
                   onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
-                  className="w-full text-base sm:text-sm text-gray-900 focus:outline-none placeholder-gray-300 resize-none bg-transparent"
+                  className={`w-full text-base sm:text-sm text-gray-900 focus:outline-none placeholder-gray-300 resize-none bg-transparent border-b-2 ${getFieldError(errors, 'description') ? 'border-red-300' : 'border-gray-200'}`}
                   rows={3}
                   placeholder="Ingredientes, alérgenos, especificaciones..."
                 />

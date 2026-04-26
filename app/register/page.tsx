@@ -42,12 +42,6 @@ export default function RegisterPage() {
 
     setLoading(true)
     try {
-      console.log('📝 Iniciando registro con:', {
-        email: form.email,
-        restaurantName: form.restaurantName,
-        ownerName: form.ownerName,
-      })
-
       const res = await fetch('/api/auth/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -59,10 +53,8 @@ export default function RegisterPage() {
         }),
       })
 
-      console.log('📡 Response status:', res.status)
 
       const data = await res.json()
-      console.log('📦 Response data:', data)
 
       if (!res.ok) {
         const errorMsg = data.error || `Error al registrar (${res.status})`
@@ -77,7 +69,6 @@ export default function RegisterPage() {
         return
       }
 
-      console.log('✅ Registro exitoso, redirigiendo a:', `/${data.tenant.slug}/acceso`)
       router.push(`/${data.tenant.slug}/acceso`)
     } catch (error) {
       console.error('❌ Exception:', error)

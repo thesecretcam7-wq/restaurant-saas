@@ -2,6 +2,8 @@
 
 import { use, useState, useEffect } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
+import { adminLoginSchema } from '@/lib/validations/forms'
+import { getFieldError, parseValidationError } from '@/lib/validations/utils'
 
 interface Props { params: Promise<{ domain: string }> }
 
@@ -12,6 +14,7 @@ export default function AdminLoginPage({ params }: Props) {
   const [form, setForm] = useState({ email: '', password: '' })
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [errors, setErrors] = useState<Array<{ field: string; message: string }>>([])
 
   useEffect(() => {
     if (searchParams.get('reason') === 'otra_sesion') {
@@ -22,18 +25,26 @@ export default function AdminLoginPage({ params }: Props) {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
+    setErrors([])
     setLoading(true)
     try {
+      const validated = adminLoginSchema.parse(form)
       const res = await fetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(form),
+        body: JSON.stringify(validated),
       })
       const data = await res.json()
       if (!res.ok) { setError(data.error || 'Error al iniciar sesión'); return }
       router.push(`/${data.tenant.slug}/acceso`)
-    } catch {
-      setError('Error de conexión')
+    } catch (error: any) {
+      if (error.errors) {
+        const validationErrors = parseValidationError(error)
+        setErrors(validationErrors)
+        setError(validationErrors[0]?.message || 'Corrige los errores del formulario')
+      } else {
+        setError('Error de conexión')
+      }
     } finally {
       setLoading(false)
     }
@@ -67,9 +78,10 @@ export default function AdminLoginPage({ params }: Props) {
                 type="email"
                 value={form.email}
                 onChange={e => setForm(f => ({...f, email: e.target.value}))}
-                className="w-full px-4 py-3 rounded-lg bg-gray-50 border border-gray-300 text-gray-900 placeholder-gray-500 text-sm outline-none transition-all focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-500/10"
+                className={`w-full px-4 py-3 rounded-lg bg-gray-50 border border-gray-300 text-gray-900 placeholder-gray-500 text-sm outline-none transition-all focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-500/10 ${getFieldError(errors, 'email') ? 'border-red-300' : ''}`}
                 placeholder="tu@restaurante.com"
               />
+              {getFieldError(errors, 'email') && <p className="text-red-500 text-xs mt-1">{getFieldError(errors, 'email')}</p>}
             </div>
             <div>
               <label className="block text-sm font-semibold text-gray-900 mb-2">Contraseña</label>
@@ -78,9 +90,10 @@ export default function AdminLoginPage({ params }: Props) {
                 type="password"
                 value={form.password}
                 onChange={e => setForm(f => ({...f, password: e.target.value}))}
-                className="w-full px-4 py-3 rounded-lg bg-gray-50 border border-gray-300 text-gray-900 placeholder-gray-500 text-sm outline-none transition-all focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-500/10"
+                className={`w-full px-4 py-3 rounded-lg bg-gray-50 border border-gray-300 text-gray-900 placeholder-gray-500 text-sm outline-none transition-all focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-500/10 ${getFieldError(errors, 'password') ? 'border-red-300' : ''}`}
                 placeholder="Tu contraseña"
               />
+              {getFieldError(errors, 'password') && <p className="text-red-500 text-xs mt-1">{getFieldError(errors, 'password')}</p>}
             </div>
             <button
               type="submit"

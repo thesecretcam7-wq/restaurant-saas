@@ -3,7 +3,10 @@
 import { use, useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useCartStore } from '@/lib/store/cart'
+import { checkoutSchema, type CheckoutInput } from '@/lib/validations/forms'
+import { getFieldError, parseValidationError } from '@/lib/validations/utils'
 import Link from 'next/link'
+import toast from 'react-hot-toast'
 
 interface Props { params: Promise<{ domain: string }> }
 
@@ -13,6 +16,7 @@ export default function CheckoutPage({ params }: Props) {
   const { items, total, clearCart } = useCartStore()
   const [settings, setSettings] = useState<any>(null)
   const [loading, setLoading] = useState(false)
+  const [errors, setErrors] = useState<Array<{ field: string; message: string }>>([])
   const [form, setForm] = useState({
     name: '', phone: '', email: '',
     delivery_type: 'pickup', delivery_address: '',
@@ -36,25 +40,42 @@ export default function CheckoutPage({ params }: Props) {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    setErrors([])
     setLoading(true)
-    if (form.payment_method === 'stripe') {
-      const res = await fetch('/api/stripe/checkout', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ tenantId: tenantSlug, items, customerInfo: { name: form.name, phone: form.phone, email: form.email }, deliveryType: form.delivery_type, deliveryAddress: form.delivery_address, notes: form.notes }),
-      })
-      const data = await res.json()
-      if (data.url) { clearCart(); window.location.href = data.url }
-    } else {
-      const res = await fetch('/api/orders', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ tenantId: tenantSlug, items, customerInfo: { name: form.name, phone: form.phone, email: form.email }, deliveryType: form.delivery_type, deliveryAddress: form.delivery_address, notes: form.notes, paymentMethod: 'cash' }),
-      })
-      const data = await res.json()
-      if (data.orderId) { clearCart(); router.push(`/${tenantSlug}/gracias?order=${data.orderId}`) }
+
+    try {
+      const validated = checkoutSchema.parse(form)
+
+      if (form.payment_method === 'stripe') {
+        const res = await fetch('/api/stripe/checkout', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ tenantId: tenantSlug, items, customerInfo: { name: validated.name, phone: validated.phone, email: validated.email }, deliveryType: validated.delivery_type, deliveryAddress: validated.delivery_address, notes: validated.notes }),
+        })
+        const data = await res.json()
+        if (data.url) { clearCart(); window.location.href = data.url }
+        else { toast.error(data.error || 'Error al procesar') }
+      } else {
+        const res = await fetch('/api/orders', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ tenantId: tenantSlug, items, customerInfo: { name: validated.name, phone: validated.phone, email: validated.email }, deliveryType: validated.delivery_type, deliveryAddress: validated.delivery_address, notes: validated.notes, paymentMethod: 'cash' }),
+        })
+        const data = await res.json()
+        if (data.orderId) { clearCart(); router.push(`/${tenantSlug}/gracias?order=${data.orderId}`) }
+        else { toast.error(data.error || 'Error al crear pedido') }
+      }
+    } catch (error: any) {
+      if (error.errors) {
+        const validationErrors = parseValidationError(error)
+        setErrors(validationErrors)
+        toast.error(validationErrors[0]?.message || 'Corrige los errores del formulario')
+      } else {
+        toast.error('Error al procesar el pedido')
+      }
+    } finally {
+      setLoading(false)
     }
-    setLoading(false)
   }
 
   const inputCls = "w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:bg-white transition-all placeholder:text-muted-foreground"
@@ -85,9 +106,18 @@ export default function CheckoutPage({ params }: Props) {
               <span className="w-6 h-6 rounded-full text-white text-xs font-bold flex items-center justify-center" style={{ backgroundColor: primary }}>1</span>
               Tus datos
             </h2>
-            <input required value={form.name} onChange={e => setForm(f => ({...f, name: e.target.value}))} className={inputCls} placeholder="Nombre completo *" />
-            <input required value={form.phone} onChange={e => setForm(f => ({...f, phone: e.target.value}))} className={inputCls} placeholder="Teléfono *" type="tel" />
-            <input value={form.email} onChange={e => setForm(f => ({...f, email: e.target.value}))} className={inputCls} placeholder="Email (opcional)" type="email" />
+            <div>
+              <input required value={form.name} onChange={e => setForm(f => ({...f, name: e.target.value}))} className={inputCls + (getFieldError(errors, 'name') ? ' border-red-300 focus:ring-red-500/10' : '')} placeholder="Nombre completo *" />
+              {getFieldError(errors, 'name') && <p className="text-red-500 text-xs mt-1">{getFieldError(errors, 'name')}</p>}
+            </div>
+            <div>
+              <input required value={form.phone} onChange={e => setForm(f => ({...f, phone: e.target.value}))} className={inputCls + (getFieldError(errors, 'phone') ? ' border-red-300 focus:ring-red-500/10' : '')} placeholder="Teléfono *" type="tel" />
+              {getFieldError(errors, 'phone') && <p className="text-red-500 text-xs mt-1">{getFieldError(errors, 'phone')}</p>}
+            </div>
+            <div>
+              <input value={form.email} onChange={e => setForm(f => ({...f, email: e.target.value}))} className={inputCls + (getFieldError(errors, 'email') ? ' border-red-300 focus:ring-red-500/10' : '')} placeholder="Email (opcional)" type="email" />
+              {getFieldError(errors, 'email') && <p className="text-red-500 text-xs mt-1">{getFieldError(errors, 'email')}</p>}
+            </div>
           </div>
 
           {/* Delivery */}
@@ -112,7 +142,10 @@ export default function CheckoutPage({ params }: Props) {
                 ))}
               </div>
               {form.delivery_type === 'delivery' && (
-                <input required value={form.delivery_address} onChange={e => setForm(f => ({...f, delivery_address: e.target.value}))} className={inputCls} placeholder="Dirección de entrega *" />
+                <div>
+                  <input required value={form.delivery_address} onChange={e => setForm(f => ({...f, delivery_address: e.target.value}))} className={inputCls + (getFieldError(errors, 'delivery_address') ? ' border-red-300 focus:ring-red-500/10' : '')} placeholder="Dirección de entrega *" />
+                  {getFieldError(errors, 'delivery_address') && <p className="text-red-500 text-xs mt-1">{getFieldError(errors, 'delivery_address')}</p>}
+                </div>
               )}
             </div>
           )}

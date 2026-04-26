@@ -86,9 +86,7 @@ export async function GET(request: NextRequest) {
     // Verificar ownership
     const isOwner = tenant.owner_id === userData.user.id
 
-    console.log(
-      `[verify-tenant-owner] ${isOwner ? '✅' : '❌'} User ${userData.user.id} checking access to ${slug}`
-    )
+    console.error(`[verify-tenant-owner] ${isOwner ? '✅' : '❌'} User ${userData.user.id} checking access to ${slug}`)
 
     return NextResponse.json({
       isOwner,

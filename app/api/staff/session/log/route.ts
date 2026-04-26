@@ -21,7 +21,6 @@ export async function POST(request: NextRequest) {
 
     // Create a session log entry (optional - for audit trail)
     // You can create a staff_sessions table if needed for logging
-    console.log(`Staff session: ${employee_name} (${role}) logged in to tenant ${tenantId}`)
 
     return NextResponse.json({ success: true })
   } catch (error) {

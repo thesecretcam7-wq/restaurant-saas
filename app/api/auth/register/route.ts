@@ -13,7 +13,6 @@ export async function POST(request: NextRequest) {
       ownerName,
     } = body
 
-    console.log('📝 [Register] Received data:', { email, restaurantName, ownerName })
 
     if (!email || !password || !restaurantName) {
       console.error('❌ [Register] Missing required fields')
@@ -31,7 +30,6 @@ export async function POST(request: NextRequest) {
     )
 
     // Create auth user
-    console.log('🔐 [Register] Creating auth user:', email)
     const { data: authData, error: authError } = await supabase.auth.admin.createUser({
       email,
       password,
@@ -46,7 +44,6 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    console.log('✅ [Register] Auth user created:', authData.user.id)
 
     // Create tenant
     let slug = restaurantName
@@ -54,7 +51,6 @@ export async function POST(request: NextRequest) {
       .replace(/\s+/g, '')
       .replace(/[^a-z0-9]/g, '')
 
-    console.log('📝 [Register] Generated slug:', slug)
 
     // Validate slug is not empty
     if (!slug || slug.length === 0) {
@@ -66,7 +62,6 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    console.log('🏪 [Register] Creating tenant:', { restaurantName, slug })
     const { data: tenantData, error: tenantError } = await supabase
       .from('tenants')
       .insert({
@@ -90,7 +85,6 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    console.log('✅ [Register] Tenant created:', tenantData.id)
 
     // Create default branding
     const { error: brandingError } = await supabase
@@ -154,7 +148,6 @@ export async function POST(request: NextRequest) {
       }
     )
 
-    console.log('🔐 [Register] Creating authenticated session')
     const { data: sessionData, error: sessionError } = await authClient.auth.signInWithPassword({
       email,
       password,
@@ -167,7 +160,6 @@ export async function POST(request: NextRequest) {
     }
 
     // Create demo tenant automatically
-    console.log('🎮 [Register] Creating demo tenant for user')
     const demoSlug = `demo-${tenantData.id.substring(0, 8)}`
 
     const { data: demoTenantData, error: demoTenantError } = await supabase
@@ -186,7 +178,6 @@ export async function POST(request: NextRequest) {
     if (demoTenantError) {
       console.error('⚠️ [Register] Demo tenant creation failed:', demoTenantError.message)
     } else {
-      console.log('✅ [Register] Demo tenant created:', demoTenantData.id)
 
       // Create demo branding
       await supabase
@@ -232,10 +223,8 @@ export async function POST(request: NextRequest) {
         })
       }
 
-      console.log('✅ [Register] Demo tenant and staff created')
     }
 
-    console.log('✅ [Register] SUCCESS! Returning tenant:', tenantData.slug)
     return NextResponse.json({
       success: true,
       tenant: tenantData,
