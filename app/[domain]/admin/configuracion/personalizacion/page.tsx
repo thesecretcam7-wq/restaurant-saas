@@ -10,8 +10,10 @@ const GOOGLE_FONTS = ['Inter', 'Roboto', 'Open Sans', 'Lato', 'Montserrat', 'Pla
 interface PersonalizacionProps { params: Promise<{ domain: string }> }
 
 export default function PersonalizacionPage({ params }: PersonalizacionProps) {
+  console.log('🚀 PersonalizacionPage mounted')
   const router = useRouter()
   const { domain: tenantSlug } = use(params)
+  console.log('👤 tenantSlug extracted:', tenantSlug)
   const [tenantId, setTenantId] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
