@@ -19,6 +19,9 @@ const PLAN_ICONS: Record<PlanId, string> = {
 }
 
 export default function UpgradeGate({ tenantId, feature, requiredPlan, currentPlan, children }: Props) {
+  // Trial users always have access to all features
+  if (currentPlan === 'trial') return <>{children}</>
+
   const currentIdx = PLAN_ORDER.indexOf(currentPlan)
   const requiredIdx = PLAN_ORDER.indexOf(requiredPlan)
   const needsUpgrade = currentIdx < requiredIdx
