@@ -47,7 +47,7 @@ export default function ToppingsModal({ item, toppings, tenantId, primaryColor, 
 
   return (
     <div className="fixed inset-0 z-50 bg-black/50 flex items-end">
-      <div className="w-full bg-white rounded-t-2xl max-h-[90vh] flex flex-col">
+      <div className="w-full bg-white rounded-t-2xl max-h-[90vh] flex flex-col pb-20">
         {/* Header */}
         <div className="bg-white border-b border-gray-200 p-4 flex items-center justify-between flex-shrink-0">
           <h2 className="font-bold text-lg text-gray-900">{item.name}</h2>
