@@ -1,3 +1,4 @@
+export const revalidate = 60
 import { getTenantContext } from '@/lib/tenant'
 import { createClient } from '@/lib/supabase/server'
 import { getPageConfig, getBorderRadius, getCardClasses, getButtonClasses, getHeroHeight } from '@/lib/pageConfig'

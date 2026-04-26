@@ -51,8 +51,12 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
 
-    revalidatePath(`/${raw}`)
+    // Revalidate all store pages when page config changes
+    revalidatePath(`/${raw}`, 'layout')
+    revalidatePath(`/${raw}/(store)`, 'layout')
     revalidatePath(`/${raw}/menu`)
+    revalidatePath(`/${raw}/carrito`)
+    revalidatePath(`/${raw}/checkout`)
 
     return NextResponse.json({ ok: true })
   } catch (err) {
