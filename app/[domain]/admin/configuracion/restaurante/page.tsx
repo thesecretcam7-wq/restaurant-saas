@@ -19,13 +19,6 @@ export default function RestauranteConfigPage({ params }: Props) {
     city: '',
     country: 'CO',
     timezone: 'America/Bogota',
-    delivery_enabled: false,
-    delivery_fee: '0',
-    delivery_min_order: '0',
-    delivery_time_minutes: '30',
-    reservations_enabled: false,
-    total_tables: '10',
-    seats_per_table: '4',
     cash_payment_enabled: true,
     tax_rate: '0',
   })
@@ -45,13 +38,6 @@ export default function RestauranteConfigPage({ params }: Props) {
             city: data.city || '',
             country: data.country || 'CO',
             timezone: data.timezone || 'America/Bogota',
-            delivery_enabled: data.delivery_enabled,
-            delivery_fee: String(data.delivery_fee),
-            delivery_min_order: String(data.delivery_min_order),
-            delivery_time_minutes: String(data.delivery_time_minutes),
-            reservations_enabled: data.reservations_enabled,
-            total_tables: String(data.total_tables),
-            seats_per_table: String(data.seats_per_table),
             cash_payment_enabled: data.cash_payment_enabled,
             tax_rate: String(data.tax_rate),
           })
@@ -79,13 +65,6 @@ export default function RestauranteConfigPage({ params }: Props) {
         city: form.city || null,
         country: form.country,
         timezone: form.timezone,
-        delivery_enabled: form.delivery_enabled,
-        delivery_fee: parseFloat(form.delivery_fee),
-        delivery_min_order: parseFloat(form.delivery_min_order),
-        delivery_time_minutes: parseInt(form.delivery_time_minutes),
-        reservations_enabled: form.reservations_enabled,
-        total_tables: parseInt(form.total_tables),
-        seats_per_table: parseInt(form.seats_per_table),
         cash_payment_enabled: form.cash_payment_enabled,
         tax_rate: parseFloat(form.tax_rate),
       }, { onConflict: 'tenant_id' })
@@ -182,49 +161,26 @@ export default function RestauranteConfigPage({ params }: Props) {
           </div>
         </div>
 
-        {/* Delivery */}
+        {/* Configuración Avanzada */}
         <div className="bg-white rounded-xl border p-6 space-y-4">
-          <h2 className="font-semibold">Delivery</h2>
-          {toggle('Habilitar delivery', 'Los clientes podrán seleccionar entrega a domicilio', 'delivery_enabled')}
-          {form.delivery_enabled && (
-            <div className="grid grid-cols-3 gap-4 pl-4 pt-2 border-l-2 border-blue-100">
+          <h2 className="font-semibold mb-4">⚙️ Configuración Avanzada</h2>
+          <p className="text-sm text-gray-600 mb-4">Para configurar funcionalidades específicas, accede a sus páginas dedicadas:</p>
+          <div className="grid grid-cols-2 gap-3">
+            <a href={`/${encodeURIComponent(tenantId)}/admin/configuracion/delivery`} className="flex items-start gap-3 p-4 rounded-lg border border-gray-200 hover:bg-blue-50 hover:border-blue-300 transition-all">
+              <span className="text-2xl">🚗</span>
               <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">Costo ($)</label>
-                <input type="number" min="0" value={form.delivery_fee} onChange={e => setForm(f => ({ ...f, delivery_fee: e.target.value }))}
-                  className="w-full px-2 py-2 border rounded-lg text-sm" />
+                <p className="font-medium text-gray-900 text-sm">Delivery</p>
+                <p className="text-xs text-gray-500">Costos y tiempos de entrega</p>
               </div>
+            </a>
+            <a href={`/${encodeURIComponent(tenantId)}/admin/configuracion/reservas`} className="flex items-start gap-3 p-4 rounded-lg border border-gray-200 hover:bg-blue-50 hover:border-blue-300 transition-all">
+              <span className="text-2xl">📅</span>
               <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">Mínimo ($)</label>
-                <input type="number" min="0" value={form.delivery_min_order} onChange={e => setForm(f => ({ ...f, delivery_min_order: e.target.value }))}
-                  className="w-full px-2 py-2 border rounded-lg text-sm" />
+                <p className="font-medium text-gray-900 text-sm">Reservas</p>
+                <p className="text-xs text-gray-500">Mesas y capacidad del restaurante</p>
               </div>
-              <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">Tiempo (min)</label>
-                <input type="number" min="0" value={form.delivery_time_minutes} onChange={e => setForm(f => ({ ...f, delivery_time_minutes: e.target.value }))}
-                  className="w-full px-2 py-2 border rounded-lg text-sm" />
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* Reservas */}
-        <div className="bg-white rounded-xl border p-6 space-y-4">
-          <h2 className="font-semibold">Reservas</h2>
-          {toggle('Habilitar reservas', 'Los clientes podrán hacer reservas de mesas', 'reservations_enabled')}
-          {form.reservations_enabled && (
-            <div className="grid grid-cols-2 gap-4 pl-4 pt-2 border-l-2 border-blue-100">
-              <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">Total mesas</label>
-                <input type="number" min="1" value={form.total_tables} onChange={e => setForm(f => ({ ...f, total_tables: e.target.value }))}
-                  className="w-full px-2 py-2 border rounded-lg text-sm" />
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">Sillas por mesa</label>
-                <input type="number" min="1" value={form.seats_per_table} onChange={e => setForm(f => ({ ...f, seats_per_table: e.target.value }))}
-                  className="w-full px-2 py-2 border rounded-lg text-sm" />
-              </div>
-            </div>
-          )}
+            </a>
+          </div>
         </div>
 
         <button
