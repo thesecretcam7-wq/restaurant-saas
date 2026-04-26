@@ -7,26 +7,39 @@ import Link from 'next/link'
 interface TrialExpiredGuardProps {
   trialEndsAt: string | null
   slug: string
+  hasActiveSubscription?: boolean
+  subscriptionPlan?: string | null
   children: ReactNode
 }
 
-export default function TrialExpiredGuard({ trialEndsAt, slug, children }: TrialExpiredGuardProps) {
+export default function TrialExpiredGuard({
+  trialEndsAt,
+  slug,
+  hasActiveSubscription,
+  subscriptionPlan,
+  children
+}: TrialExpiredGuardProps) {
   const [isExpired, setIsExpired] = useState(false)
   const [mounted, setMounted] = useState(false)
 
   useEffect(() => {
     setMounted(true)
     const status = calculateTrialStatus(trialEndsAt)
-    setIsExpired(status.isExpired)
+    // Don't block if they have an active subscription (paid plan)
+    const hasPaidPlan = subscriptionPlan && subscriptionPlan !== 'free'
+    const shouldBlock = status.isExpired && !hasActiveSubscription && !hasPaidPlan
+    setIsExpired(shouldBlock)
 
     // Check periodically if trial has expired
     const interval = setInterval(() => {
       const currentStatus = calculateTrialStatus(trialEndsAt)
-      setIsExpired(currentStatus.isExpired)
+      const hasPaidPlan = subscriptionPlan && subscriptionPlan !== 'free'
+      const shouldBlock = currentStatus.isExpired && !hasActiveSubscription && !hasPaidPlan
+      setIsExpired(shouldBlock)
     }, 60000) // Check every minute
 
     return () => clearInterval(interval)
-  }, [trialEndsAt])
+  }, [trialEndsAt, hasActiveSubscription, subscriptionPlan])
 
   if (!mounted) return <>{children}</>
 

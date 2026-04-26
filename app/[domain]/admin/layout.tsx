@@ -38,7 +38,7 @@ export default async function AdminLayout({ children, params }: AdminLayoutProps
   if (isUUID) {
     const result = await supabase
       .from('tenants')
-      .select('id, slug, organization_name, status, owner_id, trial_ends_at')
+      .select('id, slug, organization_name, status, owner_id, trial_ends_at, subscription_plan, subscription_stripe_id')
       .eq('id', slug)
       .single()
     if (result.error) {
@@ -48,7 +48,7 @@ export default async function AdminLayout({ children, params }: AdminLayoutProps
   } else {
     const result = await supabase
       .from('tenants')
-      .select('id, slug, organization_name, status, owner_id, trial_ends_at')
+      .select('id, slug, organization_name, status, owner_id, trial_ends_at, subscription_plan, subscription_stripe_id')
       .eq('slug', slug)
       .single()
     if (result.error) {
@@ -102,8 +102,16 @@ export default async function AdminLayout({ children, params }: AdminLayoutProps
     { href: `/${tenantSlug}/admin/cuenta/cambiar-contrasena`, label: 'Cambiar Contraseña', icon: '🔑', divider: true },
   ]
 
+  const hasActiveSubscription = !!tenant.subscription_stripe_id
+  const hasPaidPlan = tenant.subscription_plan && tenant.subscription_plan !== 'free'
+
   return (
-    <TrialExpiredGuard trialEndsAt={tenant.trial_ends_at} slug={tenantSlug}>
+    <TrialExpiredGuard
+      trialEndsAt={tenant.trial_ends_at}
+      slug={tenantSlug}
+      hasActiveSubscription={hasActiveSubscription}
+      subscriptionPlan={tenant.subscription_plan}
+    >
       <div className="min-h-screen bg-gray-50 flex">
         <AdminSidebar
           tenantSlug={tenantSlug}

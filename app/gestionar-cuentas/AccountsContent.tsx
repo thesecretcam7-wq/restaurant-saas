@@ -119,12 +119,12 @@ export default function AccountsContent({ initialTenants }: AccountsContentProps
                       <td className="px-6 py-4 text-sm text-gray-700">{tenant.owner_email}</td>
                       <td className="px-6 py-4">{getStatusBadge(tenant)}</td>
                       <td className="px-6 py-4 text-sm text-gray-700">
-                        {tenant.subscription_plan ? (
-                          <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded text-xs font-semibold">
-                            {tenant.subscription_plan}
+                        {tenant.subscription_plan && tenant.subscription_plan !== 'free' ? (
+                          <span className="px-2 py-1 bg-green-100 text-green-800 rounded text-xs font-semibold">
+                            ✓ {tenant.subscription_plan}
                           </span>
                         ) : (
-                          <span className="text-gray-400">-</span>
+                          <span className="text-gray-400">Sin plan</span>
                         )}
                       </td>
                       <td className="px-6 py-4 text-sm text-gray-700">
