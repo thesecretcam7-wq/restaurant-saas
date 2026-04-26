@@ -1,6 +1,6 @@
 import { createServiceClient } from '@/lib/supabase/server'
 import { NextRequest, NextResponse } from 'next/server'
-import { revalidatePath } from 'next/cache'
+import { revalidatePath, revalidateTag } from 'next/cache'
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
@@ -51,12 +51,10 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
 
-    // Revalidate all store pages when page config changes
+    // Revalidate all store pages immediately when page config changes
+    // This ensures changes appear within 30s on home page
     revalidatePath(`/${raw}`, 'layout')
-    revalidatePath(`/${raw}/(store)`, 'layout')
-    revalidatePath(`/${raw}/menu`)
-    revalidatePath(`/${raw}/carrito`)
-    revalidatePath(`/${raw}/checkout`)
+    revalidatePath(`/${raw}`)
 
     return NextResponse.json({ ok: true })
   } catch (err) {
