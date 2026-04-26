@@ -41,13 +41,57 @@ export default async function HomePage({ params }: HomePageProps) {
   const { hero, sections, appearance, social, banner, about, gallery, testimonials, footer } = pageConfig
 
   const supabase = await createClient()
-  const { data: featured } = await supabase
-    .from('menu_items')
-    .select('*')
+
+  // Get top-selling items based on order history
+  const { data: orders } = await supabase
+    .from('orders')
+    .select('items')
     .eq('tenant_id', tenant.id)
-    .eq('featured', true)
-    .eq('available', true)
-    .limit(8)
+
+  // Count item occurrences from order items (stored as JSONB array)
+  const itemCounts: Record<string, number> = {}
+  if (orders) {
+    orders.forEach(order => {
+      if (order.items && Array.isArray(order.items)) {
+        order.items.forEach((item: any) => {
+          const itemId = item.id || item.menu_item_id
+          if (itemId) {
+            itemCounts[itemId] = (itemCounts[itemId] || 0) + (item.quantity || 1)
+          }
+        })
+      }
+    })
+  }
+
+  // Get top 8 item IDs by quantity sold
+  const topItemIds = Object.entries(itemCounts)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 8)
+    .map(([id]) => id)
+
+  // Fetch top-selling items, or fallback to featured items
+  let featured = []
+  if (topItemIds.length > 0) {
+    const { data } = await supabase
+      .from('menu_items')
+      .select('*')
+      .eq('tenant_id', tenant.id)
+      .eq('available', true)
+      .in('id', topItemIds)
+    featured = data || []
+    // Sort by sales quantity to match the order
+    featured.sort((a, b) => (itemCounts[b.id] || 0) - (itemCounts[a.id] || 0))
+  } else {
+    // Fallback: show featured items if no sales yet
+    const { data } = await supabase
+      .from('menu_items')
+      .select('*')
+      .eq('tenant_id', tenant.id)
+      .eq('featured', true)
+      .eq('available', true)
+      .limit(8)
+    featured = data || []
+  }
 
   const primary = branding?.primary_color || '#4F46E5'
   const secondary = branding?.secondary_color || '#1F2937'
