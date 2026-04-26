@@ -28,7 +28,7 @@ export default async function MenuPage({ params }: MenuProps) {
     const [categoriesRes, itemsRes, toppingsRes] = await Promise.all([
       supabase.from('menu_categories').select('*').eq('tenant_id', tenantId).order('sort_order'),
       supabase.from('menu_items').select('*').eq('tenant_id', tenantId).eq('available', true).order('featured', { ascending: false }),
-      supabase.from('product_toppings').select('*').eq('tenant_id', tenantId).order('sort_order'),
+      supabase.from('product_toppings').select('*').eq('tenant_id', tenantId).order('sort_order').catch(() => ({ data: [] })),
     ])
 
     if (categoriesRes.error) {
@@ -39,11 +39,6 @@ export default async function MenuPage({ params }: MenuProps) {
     if (itemsRes.error) {
       console.error('Error fetching items:', itemsRes.error)
       throw new Error(`Failed to fetch items: ${itemsRes.error.message}`)
-    }
-
-    if (toppingsRes.error) {
-      console.error('Error fetching toppings:', toppingsRes.error)
-      throw new Error(`Failed to fetch toppings: ${toppingsRes.error.message}`)
     }
 
   const allCategories = categoriesRes.data || []
