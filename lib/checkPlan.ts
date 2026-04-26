@@ -31,9 +31,9 @@ export async function getTenantPlanInfo(tenantId: string): Promise<TenantPlanInf
   const status = tenant?.status || 'trial'
   const isTrial = status === 'trial'
 
-  // Trial is active for 14 days from creation
+  // Trial is active for 30 days from creation
   const trialActive = isTrial && tenant?.created_at
-    ? (Date.now() - new Date(tenant.created_at).getTime()) < 14 * 24 * 60 * 60 * 1000
+    ? (Date.now() - new Date(tenant.created_at).getTime()) < 30 * 24 * 60 * 60 * 1000
     : false
 
   // Effective plan: during active trial use trial limits (which are generous)
