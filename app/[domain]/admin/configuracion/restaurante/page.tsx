@@ -8,6 +8,7 @@ interface Props { params: Promise<{ domain: string }> }
 
 export default function RestauranteConfigPage({ params }: Props) {
   const { domain: tenantId } = use(params)
+  const [tenantUUID, setTenantUUID] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [form, setForm] = useState({
@@ -27,7 +28,17 @@ export default function RestauranteConfigPage({ params }: Props) {
     if (!tenantId) return
     const loadSettings = async () => {
       try {
-        const { data } = await createClient().from('restaurant_settings').select('*').eq('tenant_id', tenantId).single()
+        const supabase = createClient()
+        // Resolve slug to UUID
+        const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+        let uuid = tenantId
+        if (!uuidRegex.test(tenantId)) {
+          const { data: t } = await supabase.from('tenants').select('id').eq('slug', tenantId).single()
+          if (!t) return
+          uuid = t.id
+        }
+        setTenantUUID(uuid)
+        const { data } = await supabase.from('restaurant_settings').select('*').eq('tenant_id', uuid).single()
         if (data) {
           setForm({
             display_name: data.display_name || '',
@@ -43,7 +54,7 @@ export default function RestauranteConfigPage({ params }: Props) {
           })
         }
       } catch (err) {
-        // Tabla no existe aún, valores por defecto están bien
+        // valores por defecto están bien
       } finally {
         setLoading(false)
       }
@@ -55,8 +66,9 @@ export default function RestauranteConfigPage({ params }: Props) {
     setSaving(true)
     const supabase = createClient()
     try {
+      const uuid = tenantUUID || tenantId
       const { error } = await supabase.from('restaurant_settings').upsert({
-        tenant_id: tenantId,
+        tenant_id: uuid,
         display_name: form.display_name,
         description: form.description || null,
         address: form.address || null,
