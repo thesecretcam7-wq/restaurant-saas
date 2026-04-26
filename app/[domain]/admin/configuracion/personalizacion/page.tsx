@@ -59,36 +59,48 @@ export default function PersonalizacionPage({ params }: PersonalizacionProps) {
   })
 
   useEffect(() => {
+    console.log('📍 useEffect triggered. tenantId:', tenantId, 'tenantSlug:', tenantSlug)
+
     const resolveAndLoad = async () => {
       try {
         const supabase = createClient()
+        console.log('🔍 Starting resolveAndLoad. tenantId is:', tenantId)
 
         if (!tenantId) {
+          console.log('🔍 tenantId is null, resolving slug:', tenantSlug)
           const tenantRes = await supabase.from('tenants').select('id').eq('slug', tenantSlug).single()
+          console.log('🔍 Slug resolution result:', tenantRes)
           if (tenantRes.error || !tenantRes.data) {
-            console.error('Tenant not found:', tenantRes.error)
+            console.error('❌ Tenant not found:', tenantRes.error)
             setLoading(false)
             return
           }
+          console.log('✅ Got tenant ID:', tenantRes.data.id)
           setTenantId(tenantRes.data.id)
           return
         }
 
+        console.log('🔍 Loading metadata for tenantId:', tenantId)
         const brandingRes = await supabase.from('tenants').select('metadata, logo_url').eq('id', tenantId).single()
+        console.log('🔍 Branding fetch result:', brandingRes)
+
         if (brandingRes.error) {
-          console.error('Error fetching branding:', brandingRes.error)
+          console.error('❌ Error fetching branding:', brandingRes.error)
           setLoading(false)
           return
         }
 
         if (brandingRes.data?.metadata) {
-          console.log('Loaded metadata:', brandingRes.data.metadata)
+          console.log('✅ Loaded metadata:', brandingRes.data.metadata)
           setForm(f => ({ ...f, ...brandingRes.data.metadata }))
+        } else {
+          console.log('⚠️ No metadata found, keeping default values')
         }
         if (brandingRes.data?.logo_url) setForm(f => ({ ...f, logo_url: brandingRes.data.logo_url }))
+        console.log('✅ Finished loading, setting loading=false')
         setLoading(false)
       } catch (err) {
-        console.error('Exception loading branding:', err)
+        console.error('❌ Exception loading branding:', err)
         setLoading(false)
       }
     }
