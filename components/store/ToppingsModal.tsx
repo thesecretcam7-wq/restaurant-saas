@@ -10,7 +10,7 @@ interface Topping {
 }
 
 interface Props {
-  item: { id: string; name: string; price: number; image_url?: string }
+  item: { id: string; name: string; price: number; image_url?: string | null }
   toppings: Topping[]
   tenantId: string
   primaryColor: string
@@ -38,7 +38,7 @@ export default function ToppingsModal({ item, toppings, tenantId, primaryColor, 
       item_id: item.id,
       name: item.name,
       price: item.price + toppingsCost,
-      image_url: item.image_url,
+      image_url: item.image_url || undefined,
       qty,
       toppings: selectedToppings,
     }, tenantId)

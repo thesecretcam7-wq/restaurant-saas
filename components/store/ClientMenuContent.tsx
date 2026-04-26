@@ -3,21 +3,12 @@
 import { useState } from 'react'
 import AddToCartButton from './AddToCartButton'
 import { MenuGridItem, MenuCompactItem, MenuListItem } from '@/components/store/MenuItems'
+import type { MenuItem } from '@/lib/types'
 
 interface Category {
   id: string
   name: string
   sort_order: number
-}
-
-interface MenuItem {
-  id: string
-  name: string
-  description?: string
-  price: number
-  image_url?: string
-  featured: boolean
-  category_id?: string
 }
 
 interface ClientMenuContentProps {

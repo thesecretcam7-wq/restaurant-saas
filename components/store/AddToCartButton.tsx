@@ -11,7 +11,7 @@ interface Topping {
 }
 
 interface Props {
-  item: { id: string; name: string; price: number; image_url?: string }
+  item: { id: string; name: string; price: number; image_url?: string | null }
   tenantId: string
   color?: string
   small?: boolean
@@ -29,7 +29,7 @@ export default function AddToCartButton({ item, tenantId, color = '#4F46E5', sma
     if (toppings.length > 0) {
       setShowToppingsModal(true)
     } else {
-      addItem({ item_id: item.id, name: item.name, price: item.price, image_url: item.image_url, qty: 1 }, tenantId)
+      addItem({ item_id: item.id, name: item.name, price: item.price, image_url: item.image_url || undefined, qty: 1 }, tenantId)
     }
   }
 
