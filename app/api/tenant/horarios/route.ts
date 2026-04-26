@@ -67,14 +67,21 @@ export async function PUT(request: NextRequest) {
 }
 
 export async function GET(request: NextRequest) {
-  const tenantId = request.nextUrl.searchParams.get('tenantId')
-  if (!tenantId) return NextResponse.json({ error: 'Tenant ID requerido' }, { status: 400 })
+  const slugOrId = request.nextUrl.searchParams.get('tenantId')
+  if (!slugOrId) return NextResponse.json({ error: 'Tenant ID requerido' }, { status: 400 })
 
   const supabase = createServiceClient()
+  let actualTenantId = slugOrId
+  if (!slugOrId.includes('-')) {
+    const { data: tenantData } = await supabase.from('tenants').select('id').eq('slug', slugOrId).single()
+    if (!tenantData) return NextResponse.json({ error: 'Tenant no encontrado' }, { status: 404 })
+    actualTenantId = tenantData.id
+  }
+
   const { data } = await supabase
     .from('restaurant_settings')
     .select('operating_hours')
-    .eq('tenant_id', tenantId)
+    .eq('tenant_id', actualTenantId)
     .single()
 
   return NextResponse.json({ success: true, data })

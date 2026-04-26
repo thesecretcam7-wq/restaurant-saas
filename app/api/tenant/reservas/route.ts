@@ -1,12 +1,21 @@
 import { createServiceClient } from '@/lib/supabase/server'
 import { NextRequest, NextResponse } from 'next/server'
 
+type SupabaseClient = ReturnType<typeof createServiceClient>
+
+async function resolveTenantId(supabase: SupabaseClient, slugOrId: string): Promise<string | null> {
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+  if (uuidRegex.test(slugOrId)) return slugOrId
+  const { data } = await supabase.from('tenants').select('id').eq('slug', slugOrId).single()
+  return data?.id ?? null
+}
+
 export async function PUT(request: NextRequest) {
   try {
     const body = await request.json()
-    const { tenantId, ...data } = body
+    const { tenantId: slugOrId, ...data } = body
 
-    if (!tenantId) {
+    if (!slugOrId) {
       return NextResponse.json({ error: 'Tenant ID is required' }, { status: 400 })
     }
 
@@ -19,6 +28,9 @@ export async function PUT(request: NextRequest) {
     }
 
     const supabase = createServiceClient()
+    const tenantId = await resolveTenantId(supabase, slugOrId)
+    if (!tenantId) return NextResponse.json({ error: 'Restaurante no encontrado' }, { status: 404 })
+
     const { data: updated, error } = await supabase
       .from('restaurant_settings')
       .update({
@@ -46,10 +58,13 @@ export async function PUT(request: NextRequest) {
 
 export async function GET(request: NextRequest) {
   try {
-    const tenantId = request.nextUrl.searchParams.get('tenantId')
-    if (!tenantId) return NextResponse.json({ error: 'Tenant ID is required' }, { status: 400 })
+    const slugOrId = request.nextUrl.searchParams.get('tenantId')
+    if (!slugOrId) return NextResponse.json({ error: 'Tenant ID is required' }, { status: 400 })
 
     const supabase = createServiceClient()
+    const tenantId = await resolveTenantId(supabase, slugOrId)
+    if (!tenantId) return NextResponse.json({ error: 'Restaurante no encontrado' }, { status: 404 })
+
     const { data, error } = await supabase
       .from('restaurant_settings')
       .select('reservations_enabled, total_tables, seats_per_table, reservation_advance_hours')
