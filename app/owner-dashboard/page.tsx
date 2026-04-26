@@ -15,7 +15,7 @@ export default async function OwnerDashboard() {
   // Get all accounts
   const { data: tenants } = await supabase
     .from('tenants')
-    .select('id, organization_name, owner_email, status, trial_ends_at, created_at')
+    .select('id, organization_name, owner_email, status, trial_ends_at, created_at, slug')
     .order('created_at', { ascending: false })
     .limit(5)
 
@@ -107,6 +107,7 @@ export default async function OwnerDashboard() {
                     <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600">Email</th>
                     <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600">Estado</th>
                     <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600">Creado</th>
+                    <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600">Acciones</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200">
@@ -127,6 +128,19 @@ export default async function OwnerDashboard() {
                       </td>
                       <td className="px-6 py-4 text-sm text-gray-600">
                         {new Date(tenant.created_at).toLocaleDateString('es-CO')}
+                      </td>
+                      <td className="px-6 py-4 text-sm">
+                        <a
+                          href={`https://${tenant.slug}.eccofood.vercel.app/admin`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center px-3 py-1 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors text-xs font-semibold"
+                        >
+                          Entrar
+                          <svg className="w-3 h-3 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                          </svg>
+                        </a>
                       </td>
                     </tr>
                   ))}
