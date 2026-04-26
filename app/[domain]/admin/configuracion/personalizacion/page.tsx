@@ -11,7 +11,8 @@ interface PersonalizacionProps { params: Promise<{ domain: string }> }
 
 export default function PersonalizacionPage({ params }: PersonalizacionProps) {
   const router = useRouter()
-  const { domain: tenantId } = use(params)
+  const { domain: tenantSlug } = use(params)
+  const [tenantId, setTenantId] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [uploading, setUploading] = useState<string | null>(null)
@@ -58,24 +59,34 @@ export default function PersonalizacionPage({ params }: PersonalizacionProps) {
   })
 
   useEffect(() => {
-    if (!tenantId) return
-    const loadData = async () => {
+    const resolveAndLoad = async () => {
       try {
         const supabase = createClient()
-        const tenantRes = await supabase.from('tenants').select('metadata, logo_url').eq('id', tenantId).single()
 
-        if (tenantRes.data?.metadata) {
-          setForm(f => ({ ...f, ...tenantRes.data.metadata }))
+        if (!tenantId) {
+          const tenantRes = await supabase.from('tenants').select('id').eq('slug', tenantSlug).single()
+          if (tenantRes.error || !tenantRes.data) {
+            console.error('Tenant not found')
+            setLoading(false)
+            return
+          }
+          setTenantId(tenantRes.data.id)
+          return
         }
-        if (tenantRes.data?.logo_url) setForm(f => ({ ...f, logo_url: tenantRes.data.logo_url }))
+
+        const brandingRes = await supabase.from('tenants').select('metadata, logo_url').eq('id', tenantId).single()
+        if (brandingRes.data?.metadata) {
+          setForm(f => ({ ...f, ...brandingRes.data.metadata }))
+        }
+        if (brandingRes.data?.logo_url) setForm(f => ({ ...f, logo_url: brandingRes.data.logo_url }))
       } catch (err) {
         console.error('Error loading branding:', err)
       } finally {
         setLoading(false)
       }
     }
-    loadData()
-  }, [tenantId])
+    resolveAndLoad()
+  }, [tenantId, tenantSlug])
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>, field: string) => {
     const file = e.target.files?.[0]
@@ -436,7 +447,7 @@ export default function PersonalizacionPage({ params }: PersonalizacionProps) {
 
               <div className="grid grid-cols-2 gap-3">
                 <button
-                  onClick={() => router.push(`/${tenantId}/admin/configuracion/pagina`)}
+                  onClick={() => router.push(`/${tenantSlug}/admin/configuracion/pagina`)}
                   className="p-4 border-2 border-gray-200 rounded-xl hover:border-blue-500 hover:bg-blue-50 transition-all text-left cursor-pointer"
                 >
                   <div className="font-medium text-gray-900 mb-1">🎨 Hero & Banner</div>
@@ -444,7 +455,7 @@ export default function PersonalizacionPage({ params }: PersonalizacionProps) {
                 </button>
 
                 <button
-                  onClick={() => router.push(`/${tenantId}/admin/configuracion/pagina`)}
+                  onClick={() => router.push(`/${tenantSlug}/admin/configuracion/pagina`)}
                   className="p-4 border-2 border-gray-200 rounded-xl hover:border-blue-500 hover:bg-blue-50 transition-all text-left cursor-pointer"
                 >
                   <div className="font-medium text-gray-900 mb-1">⭐ Destacados</div>
@@ -452,7 +463,7 @@ export default function PersonalizacionPage({ params }: PersonalizacionProps) {
                 </button>
 
                 <button
-                  onClick={() => router.push(`/${tenantId}/admin/configuracion/pagina`)}
+                  onClick={() => router.push(`/${tenantSlug}/admin/configuracion/pagina`)}
                   className="p-4 border-2 border-gray-200 rounded-xl hover:border-blue-500 hover:bg-blue-50 transition-all text-left cursor-pointer"
                 >
                   <div className="font-medium text-gray-900 mb-1">📍 Información</div>
@@ -460,7 +471,7 @@ export default function PersonalizacionPage({ params }: PersonalizacionProps) {
                 </button>
 
                 <button
-                  onClick={() => router.push(`/${tenantId}/admin/configuracion/pagina`)}
+                  onClick={() => router.push(`/${tenantSlug}/admin/configuracion/pagina`)}
                   className="p-4 border-2 border-gray-200 rounded-xl hover:border-blue-500 hover:bg-blue-50 transition-all text-left cursor-pointer"
                 >
                   <div className="font-medium text-gray-900 mb-1">🎯 Acciones</div>
