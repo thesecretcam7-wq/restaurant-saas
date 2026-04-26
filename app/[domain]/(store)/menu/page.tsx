@@ -26,9 +26,9 @@ export default async function MenuPage({ params }: MenuProps) {
     }
 
     const [categoriesRes, itemsRes, toppingsRes] = await Promise.all([
-      supabase.from('menu_categories').select('*').eq('tenant_id', tenantId).order('sort_order'),
+      supabase.from('menu_categories').select('id, name, sort_order').eq('tenant_id', tenantId).order('sort_order'),
       supabase.from('menu_items').select('*').eq('tenant_id', tenantId).eq('available', true).order('featured', { ascending: false }),
-      supabase.from('product_toppings').select('*').eq('tenant_id', tenantId).order('sort_order').then(res => res, () => ({ data: [] })),
+      supabase.from('product_toppings').select('id, menu_item_id, name, price, is_required, sort_order').eq('tenant_id', tenantId).order('sort_order').then(res => res, () => ({ data: [] })),
     ])
 
     if (categoriesRes.error) {
@@ -44,19 +44,43 @@ export default async function MenuPage({ params }: MenuProps) {
   const allCategories = categoriesRes.data || []
   const items = itemsRes.data || []
   const allToppings = toppingsRes.data || []
+
+  // Build maps for O(1) lookups instead of O(n) filters
   const toppingsByItem: { [itemId: string]: any[] } = {}
+  const itemCategoryIds = new Set<string>()
+
   allToppings.forEach(topping => {
     if (!toppingsByItem[topping.menu_item_id]) {
       toppingsByItem[topping.menu_item_id] = []
     }
     toppingsByItem[topping.menu_item_id].push(topping)
   })
-  const categories = allCategories.filter(cat => items.some(i => i.category_id === cat.id))
+
+  items.forEach(item => {
+    if (item.category_id) itemCategoryIds.add(item.category_id)
+  })
+
+  const categories = allCategories.filter(cat => itemCategoryIds.has(cat.id))
+
+  // Pre-compute item groupings for efficiency
+  const itemsByCategory: { [catId: string]: any[] } = {}
+  const featured: any[] = []
+  const uncategorized: any[] = []
+
+  items.forEach(item => {
+    if (item.featured) featured.push(item)
+    if (item.category_id) {
+      if (!itemsByCategory[item.category_id]) itemsByCategory[item.category_id] = []
+      itemsByCategory[item.category_id].push(item)
+    } else if (!item.featured) {
+      uncategorized.push(item)
+    }
+  })
+
   const slug = context.tenant?.slug || tenantSlug
   const branding = context.branding
   const settings = context.settings
   const primary = branding?.primary_color || '#4F46E5'
-  const featured = items.filter(i => i.featured)
 
   // Get currency from settings or detect from country
   const currencyInfo = settings?.currency
@@ -140,7 +164,7 @@ export default async function MenuPage({ params }: MenuProps) {
 
         {/* By category */}
         {categories.map(cat => {
-          const catItems = items.filter(i => i.category_id === cat.id)
+          const catItems = itemsByCategory[cat.id] || []
           if (catItems.length === 0) return null
           return (
             <section key={cat.id} id={`cat-${cat.id}`} data-category={cat.id} className="scroll-mt-28">
@@ -172,20 +196,16 @@ export default async function MenuPage({ params }: MenuProps) {
         })}
 
         {/* Uncategorized */}
-        {(() => {
-          const uncategorized = items.filter(i => !i.category_id && !i.featured)
-          if (uncategorized.length === 0) return null
-          return (
-            <section>
-              <h2 className="text-base font-extrabold text-gray-900 mb-3">Otros</h2>
-              <div className="space-y-2.5">
-                {uncategorized.map(item => (
-                  <MenuListItem key={item.id} item={item} tenantId={tenantId} primary={primary} br={br} cardCls={cardCls} currencyInfo={currencyInfo} toppings={toppingsByItem[item.id] || []} />
-                ))}
-              </div>
-            </section>
-          )
-        })()}
+        {uncategorized.length > 0 && (
+          <section>
+            <h2 className="text-base font-extrabold text-gray-900 mb-3">Otros</h2>
+            <div className="space-y-2.5">
+              {uncategorized.map(item => (
+                <MenuListItem key={item.id} item={item} tenantId={tenantId} primary={primary} br={br} cardCls={cardCls} currencyInfo={currencyInfo} toppings={toppingsByItem[item.id] || []} />
+              ))}
+            </div>
+          </section>
+        )}
 
         {items.length === 0 && (
           <div className="flex flex-col items-center justify-center py-20 text-center">
