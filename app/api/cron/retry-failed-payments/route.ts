@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import Stripe from 'stripe'
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!)
+const getStripe = () => new Stripe(process.env.STRIPE_SECRET_KEY!)
 
 export async function POST(request: NextRequest) {
   try {
@@ -45,6 +45,7 @@ export async function POST(request: NextRequest) {
           if (!tenant.stripe_customer_id) continue
 
           // Get the most recent failed invoice
+          const stripe = getStripe()
           const invoices = await stripe.invoices.list(
             {
               customer: tenant.stripe_customer_id,

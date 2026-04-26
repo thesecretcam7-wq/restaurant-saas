@@ -115,7 +115,7 @@ export default function RevenueContent() {
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis dataKey="month" />
               <YAxis />
-              <Tooltip formatter={(value) => `$${value.toFixed(2)}`} />
+              <Tooltip formatter={(value) => typeof value === 'number' ? `$${value.toFixed(2)}` : value} />
               <Legend />
               <Line
                 type="monotone"
@@ -141,13 +141,13 @@ export default function RevenueContent() {
                 cx="50%"
                 cy="50%"
                 outerRadius={100}
-                label={({ plan, revenue }) => `${plan}: $${revenue.toFixed(0)}`}
+                label={({ name, value }) => `${name}: $${value.toFixed(0)}`}
               >
                 {stats.revenueByPlan.map((_, index) => (
                   <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                 ))}
               </Pie>
-              <Tooltip formatter={(value) => `$${value.toFixed(2)}`} />
+              <Tooltip formatter={(value) => typeof value === 'number' ? `$${value.toFixed(2)}` : value} />
             </PieChart>
           </ResponsiveContainer>
         </div>
