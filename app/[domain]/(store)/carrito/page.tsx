@@ -65,6 +65,11 @@ export default function CarritoPage({ params }: Props) {
               )}
               <div className="flex-1 min-w-0">
                 <p className="font-bold text-gray-900 text-sm line-clamp-1">{item.name}</p>
+                {item.toppings && item.toppings.length > 0 && (
+                  <p className="text-xs text-gray-600 mt-1">
+                    Adicionales: {item.toppings.map(t => t.name).join(', ')}
+                  </p>
+                )}
                 <p className="text-xs text-muted-foreground mt-0.5">{formatPrice(item.price)} c/u</p>
                 <p className="font-extrabold text-sm mt-1 text-gray-900">{formatPrice(item.price * item.qty)}</p>
               </div>
