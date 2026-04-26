@@ -1,6 +1,7 @@
 import { createServiceClient } from '@/lib/supabase/server'
 import { getTenantPlanInfo } from '@/lib/checkPlan'
 import { getTenantIdFromSlug } from '@/lib/tenant'
+import type { Order } from '@/lib/types'
 import UpgradeGate from '@/components/admin/UpgradeGate'
 
 interface Props {
@@ -44,8 +45,8 @@ export default async function VentasPage({ params }: Props) {
 
   // Top products from items JSONB
   const productCounts: Record<string, { name: string; qty: number; revenue: number }> = {}
-  for (const order of topItemsRes.data || []) {
-    for (const item of (order.items as any[]) || []) {
+  for (const order of (topItemsRes.data as Pick<Order, 'items'>[]) || []) {
+    for (const item of order.items || []) {
       if (!productCounts[item.item_id]) productCounts[item.item_id] = { name: item.name, qty: 0, revenue: 0 }
       productCounts[item.item_id].qty += item.qty
       productCounts[item.item_id].revenue += item.price * item.qty

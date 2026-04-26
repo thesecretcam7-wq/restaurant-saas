@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import AddToCartButton from './AddToCartButton'
 import { formatPriceWithCurrency } from '@/lib/currency'
+import type { MenuItem } from '@/lib/types'
 
 interface Topping {
   id: string
@@ -10,21 +11,27 @@ interface Topping {
   price: number
 }
 
+interface CurrencyInfo {
+  code: string
+  symbol: string
+  locale: string
+}
+
 interface MenuItemProps {
-  item: any
+  item: MenuItem
   tenantId: string
   primary: string
   br: string
   cardCls: string
-  currencyInfo: any
+  currencyInfo: CurrencyInfo
   toppings?: Topping[]
 }
 
 interface MenuCompactItemProps {
-  item: any
+  item: MenuItem
   tenantId: string
   primary: string
-  currencyInfo: any
+  currencyInfo: CurrencyInfo
   toppings?: Topping[]
 }
 

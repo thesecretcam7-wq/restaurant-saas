@@ -2,6 +2,7 @@
 
 import { use, useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
+import type { Order } from '@/lib/types'
 
 interface Props { params: Promise<{ domain: string }> }
 
@@ -20,7 +21,7 @@ const STEP_LABELS = ['Recibido', 'Confirmado', 'Preparando', 'En camino', 'Entre
 export default function MisPedidosPage({ params }: Props) {
   const { domain: tenantSlug } = use(params)
   const [phone, setPhone] = useState('')
-  const [orders, setOrders] = useState<any[] | null>(null)
+  const [orders, setOrders] = useState<Order[] | null>(null)
   const [loading, setLoading] = useState(false)
   const [searched, setSearched] = useState(false)
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null)
@@ -116,7 +117,7 @@ export default function MisPedidosPage({ params }: Props) {
             </div>
           ) : (
             <div className="space-y-3">
-              {orders.map((order: any) => {
+              {orders.map((order) => {
                 const st = STATUS[order.status] || STATUS['pending']
                 const currentStep = STEPS.indexOf(order.status)
                 const isCancelled = order.status === 'cancelled'
@@ -160,7 +161,7 @@ export default function MisPedidosPage({ params }: Props) {
 
                     {/* Items */}
                     <div className="px-4 pb-3 border-t border-gray-50 pt-3 space-y-1.5">
-                      {(order.items as any[]).map((item: any, i: number) => (
+                      {order.items.map((item, i) => (
                         <div key={i} className="flex justify-between text-sm text-gray-600">
                           <span>{item.qty}× {item.name}</span>
                           <span className="font-medium">${(item.price * item.qty).toLocaleString('es-CO')}</span>

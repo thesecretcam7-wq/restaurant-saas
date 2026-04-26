@@ -2,6 +2,7 @@ import { createServiceClient } from '@/lib/supabase/server'
 import { getTenantIdFromSlug } from '@/lib/tenant'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
+import type { Order } from '@/lib/types'
 import OrderStatusActions from './OrderStatusActions'
 
 interface PedidoDetailProps {
@@ -83,7 +84,7 @@ export default async function PedidoDetailPage({ params }: PedidoDetailProps) {
       <div className="bg-white rounded-xl border p-5 mb-4">
         <h2 className="font-semibold mb-3 text-gray-900">Productos</h2>
         <div className="space-y-2">
-          {(order.items as any[]).map((item, i) => (
+          {order.items.map((item, i) => (
             <div key={i} className="flex justify-between text-sm">
               <span className="text-gray-700">{item.qty}× {item.name}</span>
               <span className="font-medium">${(item.price * item.qty).toLocaleString('es-CO')}</span>

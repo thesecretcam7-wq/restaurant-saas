@@ -6,6 +6,7 @@ import AddToCartButton from '@/components/store/AddToCartButton'
 import CartBar from '@/components/store/CartBar'
 import { MenuGridItem, MenuCompactItem, MenuListItem } from '@/components/store/MenuItems'
 import CategoryFilterBar from '@/components/store/CategoryFilterBar'
+import type { MenuItem, MenuCategory } from '@/lib/types'
 import Link from 'next/link'
 
 export const revalidate = 60 // Cache for 1 minute, then revalidate
@@ -41,12 +42,12 @@ export default async function MenuPage({ params }: MenuProps) {
       throw new Error(`Failed to fetch items: ${itemsRes.error.message}`)
     }
 
-  const allCategories = categoriesRes.data || []
-  const items = itemsRes.data || []
+  const allCategories: MenuCategory[] = categoriesRes.data || []
+  const items: MenuItem[] = itemsRes.data || []
   const allToppings = toppingsRes.data || []
 
   // Build maps for O(1) lookups instead of O(n) filters
-  const toppingsByItem: { [itemId: string]: any[] } = {}
+  const toppingsByItem: { [itemId: string]: typeof allToppings } = {}
   const itemCategoryIds = new Set<string>()
 
   allToppings.forEach(topping => {
@@ -63,9 +64,9 @@ export default async function MenuPage({ params }: MenuProps) {
   const categories = allCategories.filter(cat => itemCategoryIds.has(cat.id))
 
   // Pre-compute item groupings for efficiency
-  const itemsByCategory: { [catId: string]: any[] } = {}
-  const featured: any[] = []
-  const uncategorized: any[] = []
+  const itemsByCategory: { [catId: string]: MenuItem[] } = {}
+  const featured: MenuItem[] = []
+  const uncategorized: MenuItem[] = []
 
   items.forEach(item => {
     if (item.featured) featured.push(item)
