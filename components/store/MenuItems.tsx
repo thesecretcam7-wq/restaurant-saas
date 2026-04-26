@@ -1,5 +1,6 @@
 'use client'
 
+import { useState } from 'react'
 import AddToCartButton from './AddToCartButton'
 import { formatPriceWithCurrency } from '@/lib/currency'
 
@@ -29,11 +30,21 @@ interface MenuCompactItemProps {
 
 /* ─── LIST layout (default) ─── */
 export function MenuListItem({ item, tenantId, primary, br, cardCls, currencyInfo, toppings = [] }: MenuItemProps) {
+  const [imageLoaded, setImageLoaded] = useState(!item.image_url)
+
   return (
     <div className={`flex items-center gap-3 p-3 overflow-hidden ${cardCls}`} style={{ borderRadius: br }}>
       {item.image_url ? (
-        <div className="relative flex-shrink-0">
-          <img src={item.image_url} alt={item.name} className="w-20 h-20 object-cover" style={{ borderRadius: `calc(${br} * 0.6)` }} />
+        <div className="relative flex-shrink-0 w-20 h-20 overflow-hidden" style={{ borderRadius: `calc(${br} * 0.6)` }}>
+          {!imageLoaded && <div className="absolute inset-0 bg-gray-200 animate-pulse" />}
+          <img
+            src={item.image_url}
+            alt={item.name}
+            className={`w-20 h-20 object-cover transition-opacity duration-200 ${imageLoaded ? 'opacity-100' : 'opacity-0'}`}
+            onLoad={() => setImageLoaded(true)}
+            loading="lazy"
+            style={{ borderRadius: `calc(${br} * 0.6)` }}
+          />
         </div>
       ) : (
         <div className="w-20 h-20 flex-shrink-0 flex items-center justify-center text-3xl" style={{ backgroundColor: `${primary}10`, borderRadius: `calc(${br} * 0.6)` }}>
@@ -54,10 +65,21 @@ export function MenuListItem({ item, tenantId, primary, br, cardCls, currencyInf
 
 /* ─── GRID layout ─── */
 export function MenuGridItem({ item, tenantId, primary, br, cardCls, currencyInfo, toppings = [] }: MenuItemProps) {
+  const [imageLoaded, setImageLoaded] = useState(!item.image_url)
+
   return (
     <div className={`overflow-hidden flex flex-col ${cardCls}`} style={{ borderRadius: br }}>
       {item.image_url ? (
-        <img src={item.image_url} alt={item.name} className="w-full h-28 object-cover" />
+        <div className="relative w-full h-28 overflow-hidden">
+          {!imageLoaded && <div className="absolute inset-0 bg-gray-200 animate-pulse" />}
+          <img
+            src={item.image_url}
+            alt={item.name}
+            className={`w-full h-28 object-cover transition-opacity duration-200 ${imageLoaded ? 'opacity-100' : 'opacity-0'}`}
+            onLoad={() => setImageLoaded(true)}
+            loading="lazy"
+          />
+        </div>
       ) : (
         <div className="h-28 flex items-center justify-center text-3xl" style={{ backgroundColor: `${primary}10` }}>🍽️</div>
       )}
