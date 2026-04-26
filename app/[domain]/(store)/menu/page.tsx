@@ -25,9 +25,10 @@ export default async function MenuPage({ params }: MenuProps) {
       return <div className="flex items-center justify-center min-h-screen text-gray-500">Restaurante no encontrado</div>
     }
 
-    const [categoriesRes, itemsRes] = await Promise.all([
+    const [categoriesRes, itemsRes, toppingsRes] = await Promise.all([
       supabase.from('menu_categories').select('*').eq('tenant_id', tenantId).order('sort_order'),
       supabase.from('menu_items').select('*').eq('tenant_id', tenantId).eq('available', true).order('featured', { ascending: false }),
+      supabase.from('product_toppings').select('*').eq('tenant_id', tenantId).order('sort_order'),
     ])
 
     if (categoriesRes.error) {
@@ -40,8 +41,21 @@ export default async function MenuPage({ params }: MenuProps) {
       throw new Error(`Failed to fetch items: ${itemsRes.error.message}`)
     }
 
+    if (toppingsRes.error) {
+      console.error('Error fetching toppings:', toppingsRes.error)
+      throw new Error(`Failed to fetch toppings: ${toppingsRes.error.message}`)
+    }
+
   const allCategories = categoriesRes.data || []
   const items = itemsRes.data || []
+  const allToppings = toppingsRes.data || []
+  const toppingsByItem: { [itemId: string]: any[] } = {}
+  allToppings.forEach(topping => {
+    if (!toppingsByItem[topping.menu_item_id]) {
+      toppingsByItem[topping.menu_item_id] = []
+    }
+    toppingsByItem[topping.menu_item_id].push(topping)
+  })
   const categories = allCategories.filter(cat => items.some(i => i.category_id === cat.id))
   const slug = context.tenant?.slug || tenantSlug
   const branding = context.branding
@@ -120,7 +134,7 @@ export default async function MenuPage({ params }: MenuProps) {
                     {item.description && <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2 flex-1">{item.description}</p>}
                     <div className="flex items-center justify-between mt-2 gap-2">
                       <p className="font-extrabold text-sm" style={{ color: primary }}>{formatPriceWithCurrency(item.price, currencyInfo.code, currencyInfo.locale)}</p>
-                      <AddToCartButton item={item} tenantId={tenantId} color={primary} small />
+                      <AddToCartButton item={item} tenantId={tenantId} color={primary} small toppings={toppingsByItem[item.id] || []} />
                     </div>
                   </div>
                 </div>
@@ -142,19 +156,19 @@ export default async function MenuPage({ params }: MenuProps) {
               {layout === 'grid' ? (
                 <div className="grid grid-cols-2 gap-3">
                   {catItems.map(item => (
-                    <MenuGridItem key={item.id} item={item} tenantId={tenantId} primary={primary} br={br} cardCls={cardCls} currencyInfo={currencyInfo} />
+                    <MenuGridItem key={item.id} item={item} tenantId={tenantId} primary={primary} br={br} cardCls={cardCls} currencyInfo={currencyInfo} toppings={toppingsByItem[item.id] || []} />
                   ))}
                 </div>
               ) : layout === 'compact' ? (
                 <div className={`overflow-hidden divide-y divide-gray-50 ${cardCls}`} style={{ borderRadius: br }}>
                   {catItems.map(item => (
-                    <MenuCompactItem key={item.id} item={item} tenantId={tenantId} primary={primary} currencyInfo={currencyInfo} />
+                    <MenuCompactItem key={item.id} item={item} tenantId={tenantId} primary={primary} currencyInfo={currencyInfo} toppings={toppingsByItem[item.id] || []} />
                   ))}
                 </div>
               ) : (
                 <div className="space-y-2.5">
                   {catItems.map(item => (
-                    <MenuListItem key={item.id} item={item} tenantId={tenantId} primary={primary} br={br} cardCls={cardCls} currencyInfo={currencyInfo} />
+                    <MenuListItem key={item.id} item={item} tenantId={tenantId} primary={primary} br={br} cardCls={cardCls} currencyInfo={currencyInfo} toppings={toppingsByItem[item.id] || []} />
                   ))}
                 </div>
               )}
@@ -171,7 +185,7 @@ export default async function MenuPage({ params }: MenuProps) {
               <h2 className="text-base font-extrabold text-gray-900 mb-3">Otros</h2>
               <div className="space-y-2.5">
                 {uncategorized.map(item => (
-                  <MenuListItem key={item.id} item={item} tenantId={tenantId} primary={primary} br={br} cardCls={cardCls} currencyInfo={currencyInfo} />
+                  <MenuListItem key={item.id} item={item} tenantId={tenantId} primary={primary} br={br} cardCls={cardCls} currencyInfo={currencyInfo} toppings={toppingsByItem[item.id] || []} />
                 ))}
               </div>
             </section>

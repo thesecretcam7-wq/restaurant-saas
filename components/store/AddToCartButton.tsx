@@ -1,57 +1,96 @@
 'use client'
 
+import { useState } from 'react'
 import { useCartStore } from '@/lib/store/cart'
+import ToppingsModal from './ToppingsModal'
+
+interface Topping {
+  id: string
+  name: string
+  price: number
+}
 
 interface Props {
   item: { id: string; name: string; price: number; image_url?: string }
   tenantId: string
   color?: string
   small?: boolean
+  toppings?: Topping[]
 }
 
-export default function AddToCartButton({ item, tenantId, color = '#4F46E5', small }: Props) {
+export default function AddToCartButton({ item, tenantId, color = '#4F46E5', small, toppings = [] }: Props) {
+  const [showToppingsModal, setShowToppingsModal] = useState(false)
   const { addItem, removeItem, items } = useCartStore()
-  const qty = items.find(i => i.item_id === item.id)?.qty || 0
+  const qty = items.filter(i => i.item_id === item.id).length
 
   const add = (e: React.MouseEvent) => {
     e.preventDefault()
     e.stopPropagation()
-    addItem({ item_id: item.id, name: item.name, price: item.price, image_url: item.image_url, qty: 1 }, tenantId)
+    if (toppings.length > 0) {
+      setShowToppingsModal(true)
+    } else {
+      addItem({ item_id: item.id, name: item.name, price: item.price, image_url: item.image_url, qty: 1 }, tenantId)
+    }
   }
 
   const remove = (e: React.MouseEvent) => {
     e.preventDefault()
     e.stopPropagation()
-    removeItem(item.id)
+    const cartItems = items.filter(i => i.item_id === item.id)
+    if (cartItems.length > 0) {
+      removeItem(cartItems[0].item_id)
+    }
   }
 
   if (qty === 0) {
     return (
-      <button
-        onClick={add}
-        className={`rounded-full text-white flex items-center justify-center font-bold shadow-md active:scale-90 transition-transform flex-shrink-0 ${small ? 'w-8 h-8 text-base' : 'w-10 h-10 text-xl'}`}
-        style={{ backgroundColor: color }}
-      >
-        +
-      </button>
+      <>
+        <button
+          onClick={add}
+          className={`rounded-full text-white flex items-center justify-center font-bold shadow-md active:scale-90 transition-transform flex-shrink-0 ${small ? 'w-8 h-8 text-base' : 'w-10 h-10 text-xl'}`}
+          style={{ backgroundColor: color }}
+        >
+          +
+        </button>
+        {showToppingsModal && (
+          <ToppingsModal
+            item={item}
+            toppings={toppings}
+            tenantId={tenantId}
+            primaryColor={color}
+            onClose={() => setShowToppingsModal(false)}
+          />
+        )}
+      </>
     )
   }
 
   return (
-    <div className={`flex items-center gap-1.5 rounded-full px-1.5 shadow-md flex-shrink-0 ${small ? 'h-8' : 'h-10'}`} style={{ backgroundColor: color }}>
-      <button
-        onClick={remove}
-        className={`text-white font-bold flex items-center justify-center active:scale-90 transition-transform ${small ? 'w-6 h-6 text-sm' : 'w-7 h-7 text-base'}`}
-      >
-        −
-      </button>
-      <span className={`text-white font-extrabold min-w-[16px] text-center ${small ? 'text-xs' : 'text-sm'}`}>{qty}</span>
-      <button
-        onClick={add}
-        className={`text-white font-bold flex items-center justify-center active:scale-90 transition-transform ${small ? 'w-6 h-6 text-sm' : 'w-7 h-7 text-base'}`}
-      >
-        +
-      </button>
-    </div>
+    <>
+      <div className={`flex items-center gap-1.5 rounded-full px-1.5 shadow-md flex-shrink-0 ${small ? 'h-8' : 'h-10'}`} style={{ backgroundColor: color }}>
+        <button
+          onClick={remove}
+          className={`text-white font-bold flex items-center justify-center active:scale-90 transition-transform ${small ? 'w-6 h-6 text-sm' : 'w-7 h-7 text-base'}`}
+        >
+          −
+        </button>
+        <span className={`text-white font-extrabold min-w-[16px] text-center ${small ? 'text-xs' : 'text-sm'}`}>{qty}</span>
+        <button
+          onClick={add}
+          className={`text-white font-bold flex items-center justify-center active:scale-90 transition-transform ${small ? 'w-6 h-6 text-sm' : 'w-7 h-7 text-base'}`}
+        >
+          +
+        </button>
+      </div>
+      {showToppingsModal && (
+        <ToppingsModal
+          item={item}
+          toppings={toppings}
+          tenantId={tenantId}
+          primaryColor={color}
+          onClose={() => setShowToppingsModal(false)}
+        />
+      )}
+    </>
   )
 }

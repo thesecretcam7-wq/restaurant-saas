@@ -128,6 +128,18 @@ CREATE TABLE menu_items (
   updated_at TIMESTAMPTZ DEFAULT now()
 );
 
+-- 5.5 PRODUCT TOPPINGS TABLE
+CREATE TABLE product_toppings (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+  menu_item_id UUID NOT NULL REFERENCES menu_items(id) ON DELETE CASCADE,
+  name TEXT NOT NULL,
+  price NUMERIC(10,2) NOT NULL DEFAULT 0,
+  sort_order INT DEFAULT 0,
+  created_at TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now()
+);
+
 -- 6. ORDERS TABLE
 CREATE TABLE orders (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -216,6 +228,8 @@ CREATE INDEX idx_tenants_domain ON tenants(primary_domain);
 CREATE INDEX idx_menu_categories_tenant ON menu_categories(tenant_id);
 CREATE INDEX idx_menu_items_tenant ON menu_items(tenant_id);
 CREATE INDEX idx_menu_items_category ON menu_items(category_id);
+CREATE INDEX idx_product_toppings_tenant ON product_toppings(tenant_id);
+CREATE INDEX idx_product_toppings_item ON product_toppings(menu_item_id);
 CREATE INDEX idx_orders_tenant ON orders(tenant_id);
 CREATE INDEX idx_orders_status ON orders(status);
 CREATE INDEX idx_orders_created ON orders(created_at);
@@ -231,6 +245,7 @@ ALTER TABLE tenant_branding ENABLE ROW LEVEL SECURITY;
 ALTER TABLE restaurant_settings ENABLE ROW LEVEL SECURITY;
 ALTER TABLE menu_categories ENABLE ROW LEVEL SECURITY;
 ALTER TABLE menu_items ENABLE ROW LEVEL SECURITY;
+ALTER TABLE product_toppings ENABLE ROW LEVEL SECURITY;
 ALTER TABLE orders ENABLE ROW LEVEL SECURITY;
 ALTER TABLE reservations ENABLE ROW LEVEL SECURITY;
 ALTER TABLE tables ENABLE ROW LEVEL SECURITY;
@@ -309,6 +324,18 @@ CREATE POLICY "Menu items are public" ON menu_items
   FOR SELECT USING (true);
 
 CREATE POLICY "Tenant owner can manage items" ON menu_items
+  FOR ALL USING (
+    tenant_id IN (SELECT id FROM tenants WHERE owner_id = auth.uid())
+  )
+  WITH CHECK (
+    tenant_id IN (SELECT id FROM tenants WHERE owner_id = auth.uid())
+  );
+
+-- RLS Policy: Product Toppings - Public read, owner write
+CREATE POLICY "Product toppings are public" ON product_toppings
+  FOR SELECT USING (true);
+
+CREATE POLICY "Tenant owner can manage toppings" ON product_toppings
   FOR ALL USING (
     tenant_id IN (SELECT id FROM tenants WHERE owner_id = auth.uid())
   )

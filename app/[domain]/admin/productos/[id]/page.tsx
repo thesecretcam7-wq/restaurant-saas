@@ -4,6 +4,7 @@ import { useState, useEffect, use } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import toast from 'react-hot-toast'
+import ToppingsManager from '@/components/admin/ToppingsManager'
 
 interface Props { params: Promise<{ domain: string; id: string }> }
 
@@ -272,6 +273,10 @@ export default function EditProductoPage({ params }: Props) {
                 onChange={v => setForm(f => ({ ...f, featured: v }))}
               />
             </div>
+
+            {tenantId && (
+              <ToppingsManager menuItemId={id} tenantId={tenantId} />
+            )}
 
             <div className="hidden sm:block">
               <button

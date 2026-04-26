@@ -206,6 +206,7 @@ export interface CartItem {
   qty: number;
   image_url?: string;
   variants_selected?: Record<string, string>;
+  toppings?: Array<{ id: string; name: string; price: number }>;
 }
 
 // Tenant Context
