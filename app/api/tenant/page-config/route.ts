@@ -41,10 +41,18 @@ export async function PUT(request: NextRequest) {
     const tenantId = await resolveTenantId(supabase, raw)
     if (!tenantId) return NextResponse.json({ error: 'Tenant no encontrado' }, { status: 404 })
 
-    // Use upsert to create record if it doesn't exist
+    // Use upsert to create record if it doesn't exist, with default values
     const { error } = await supabase
       .from('tenant_branding')
-      .upsert({ tenant_id: tenantId, page_config }, { onConflict: 'tenant_id' })
+      .upsert({
+        tenant_id: tenantId,
+        page_config,
+        primary_color: '#4F46E5',
+        secondary_color: '#1F2937',
+        accent_color: '#F97316',
+        background_color: '#FFFFFF',
+        font_family: 'Inter',
+      }, { onConflict: 'tenant_id' })
 
     if (error) {
       console.error('[page-config PUT] code:', error.code, 'msg:', error.message)
