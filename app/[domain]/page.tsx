@@ -81,16 +81,16 @@ export default async function HomePage({ params }: HomePageProps) {
             <div className="absolute top-4 right-4 z-10">
               <Link href={`/${tenant.slug}/admin/login`} className="px-3 py-1.5 rounded-full text-xs font-medium bg-gray-100 text-gray-500 hover:bg-gray-200 transition-colors">Admin</Link>
             </div>
-            <div className="flex items-center gap-4 mb-6">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 mb-6">
               {hero.show_logo && tenant.logo_url && (
-                <div className="relative">
+                <div className="relative flex-shrink-0">
                   <div className="absolute inset-0 scale-110 rounded-full opacity-10" style={{ backgroundColor: primary }} />
-                  <img src={tenant.logo_url} alt={appName} className="w-20 h-20 object-cover shadow-md relative" style={{ borderRadius: br }} />
+                  <img src={tenant.logo_url} alt={appName} className="w-16 sm:w-20 h-16 sm:h-20 object-cover shadow-md relative" style={{ borderRadius: br }} />
                 </div>
               )}
-              <div>
-                <h1 className="text-3xl font-black text-gray-900 leading-tight tracking-tight">{heroTitle}</h1>
-                {heroSubtitle && <p className="text-sm text-gray-600 mt-1.5 font-medium">{heroSubtitle}</p>}
+              <div className="flex-1 min-w-0">
+                <h1 className="text-2xl sm:text-3xl font-black text-gray-900 leading-tight tracking-tight">{heroTitle}</h1>
+                {heroSubtitle && <p className="text-xs sm:text-sm text-gray-600 mt-1.5 font-medium line-clamp-2">{heroSubtitle}</p>}
               </div>
             </div>
             {hero.show_info_pills && <InfoPills settings={settings} primary={primary} />}
@@ -109,15 +109,15 @@ export default async function HomePage({ params }: HomePageProps) {
       ) : hero.style === 'split' ? (
         /* Split Hero */
         <div className="bg-white">
-          <div className="max-w-lg mx-auto grid grid-cols-5" style={{ minHeight: heroH }}>
-            <div className="col-span-2 relative overflow-hidden">
+          <div className="max-w-lg mx-auto grid grid-cols-1 sm:grid-cols-5" style={{ minHeight: heroH }}>
+            <div className="sm:col-span-2 relative overflow-hidden h-48 sm:h-auto">
               {heroImage ? (
                 <img src={heroImage} alt={appName} className="w-full h-full object-cover" />
               ) : (
                 <div className="w-full h-full" style={{ background: `linear-gradient(160deg, ${primary}ee 0%, ${primary}88 100%)` }} />
               )}
             </div>
-            <div className="col-span-3 flex flex-col justify-center p-6 relative">
+            <div className="sm:col-span-3 flex flex-col justify-center p-4 sm:p-6 relative">
               <div className="absolute top-4 right-4">
                 <Link href={`/${tenant.slug}/admin/login`} className="px-3 py-1.5 rounded-full text-xs font-medium bg-gray-100 text-gray-500">Admin</Link>
               </div>
@@ -137,7 +137,7 @@ export default async function HomePage({ params }: HomePageProps) {
         </div>
       ) : (
         /* Full Image / Gradient / Parallax Hero - Professional */
-        <div className="relative overflow-hidden" style={{ height: heroH, minHeight: '360px' }}>
+        <div className="relative overflow-hidden" style={{ height: heroH, minHeight: '280px' }}>
           {heroImage ? (
             <img src={heroImage} alt={appName} className={`w-full h-full object-cover ${hero.style === 'parallax' ? 'scale-110' : ''}`} />
           ) : (
@@ -150,37 +150,37 @@ export default async function HomePage({ params }: HomePageProps) {
           <div className="absolute inset-0 backdrop-blur-[0.5px]" style={{
             background: `linear-gradient(to bottom, rgba(0,0,0,0.1) 0%, rgba(0,0,0,0.2) 50%, rgba(0,0,0,0.35) 100%)`,
           }} />
-          <div className="absolute top-6 right-6 z-10">
-            <Link href={`/${tenant.slug}/admin/login`} className="px-4 py-2 rounded-lg text-xs font-semibold bg-white/20 backdrop-blur-md text-white border border-white/40 hover:bg-white/30 transition-all shadow-sm">Admin</Link>
+          <div className="absolute top-3 right-3 sm:top-6 sm:right-6 z-10">
+            <Link href={`/${tenant.slug}/admin/login`} className="px-2 sm:px-4 py-1 sm:py-2 rounded-lg text-xs font-semibold bg-white/20 backdrop-blur-md text-white border border-white/40 hover:bg-white/30 transition-all shadow-sm">Admin</Link>
           </div>
-          <div className="absolute inset-0 flex flex-col justify-end p-6 pb-8 max-w-lg mx-auto">
+          <div className="absolute inset-0 flex flex-col justify-end p-4 sm:p-6 sm:pb-8 max-w-lg mx-auto">
             {hero.show_logo && tenant.logo_url && (
-              <div className="mb-5 relative">
+              <div className="mb-3 sm:mb-5 relative">
                 <div className="absolute inset-0 scale-125 rounded-2xl opacity-20 blur" style={{ backgroundColor: '#fff' }} />
-                <img src={tenant.logo_url} alt={appName} className="w-20 h-20 object-cover shadow-xl border-3 border-white/40 relative rounded-2xl" />
+                <img src={tenant.logo_url} alt={appName} className="w-16 sm:w-20 h-16 sm:h-20 object-cover shadow-xl border-3 border-white/40 relative rounded-2xl" />
               </div>
             )}
-            <h1 className="text-4xl font-black text-white mb-2 leading-tight tracking-tight drop-shadow-lg">{heroTitle}</h1>
-            {heroSubtitle && <p className="text-white/90 text-base mb-6 font-semibold line-clamp-3 drop-shadow">{heroSubtitle}</p>}
+            <h1 className="text-2xl sm:text-4xl font-black text-white mb-1 sm:mb-2 leading-tight tracking-tight drop-shadow-lg">{heroTitle}</h1>
+            {heroSubtitle && <p className="text-white/90 text-xs sm:text-base mb-3 sm:mb-6 font-semibold line-clamp-2 sm:line-clamp-3 drop-shadow">{heroSubtitle}</p>}
             {hero.show_info_pills && (
-              <div className="flex flex-wrap gap-3 mb-6">
+              <div className="flex flex-wrap gap-2 mb-3 sm:mb-6">
                 {settings?.delivery_enabled && (
-                  <span className="flex items-center gap-2 px-4 py-2 rounded-full bg-white/20 backdrop-blur-md text-white text-sm font-semibold border border-white/30">🚗 {settings.delivery_time_minutes ?? 30} min</span>
+                  <span className="flex items-center gap-1 px-2 sm:px-4 py-1 sm:py-2 rounded-full bg-white/20 backdrop-blur-md text-white text-xs sm:text-sm font-semibold border border-white/30">🚗 {settings.delivery_time_minutes ?? 30}min</span>
                 )}
                 {settings?.city && (
-                  <span className="flex items-center gap-2 px-4 py-2 rounded-full bg-white/20 backdrop-blur-md text-white text-sm font-semibold border border-white/30">📍 {settings.city}</span>
+                  <span className="flex items-center gap-1 px-2 sm:px-4 py-1 sm:py-2 rounded-full bg-white/20 backdrop-blur-md text-white text-xs sm:text-sm font-semibold border border-white/30">📍 {settings.city}</span>
                 )}
                 {settings?.cash_payment_enabled && (
-                  <span className="flex items-center gap-2 px-4 py-2 rounded-full bg-white/20 backdrop-blur-md text-white text-sm font-semibold border border-white/30">💳 Múltiples métodos</span>
+                  <span className="flex items-center gap-1 px-2 sm:px-4 py-1 sm:py-2 rounded-full bg-white/20 backdrop-blur-md text-white text-xs sm:text-sm font-semibold border border-white/30">💳 Múltiples</span>
                 )}
               </div>
             )}
-            <div className="flex gap-3">
-              <Link href={`/${tenant.slug}/menu`} className={`flex-1 py-4 text-sm font-bold text-center text-white shadow-xl hover:shadow-2xl active:scale-[0.97] transition-all ${btnCls}`} style={{ backgroundColor: primary }}>
+            <div className="flex gap-2 sm:gap-3">
+              <Link href={`/${tenant.slug}/menu`} className={`flex-1 py-3 sm:py-4 text-xs sm:text-sm font-bold text-center text-white shadow-xl hover:shadow-2xl active:scale-[0.97] transition-all ${btnCls}`} style={{ backgroundColor: primary }}>
                 {hero.cta_primary_text}
               </Link>
               {settings?.reservations_enabled && (
-                <Link href={`/${tenant.slug}/reservas`} className={`flex-1 py-4 text-sm font-bold text-center bg-white/25 backdrop-blur-md text-white border border-white/50 hover:bg-white/35 active:scale-[0.97] transition-all ${btnCls}`}>
+                <Link href={`/${tenant.slug}/reservas`} className={`flex-1 py-3 sm:py-4 text-xs sm:text-sm font-bold text-center bg-white/25 backdrop-blur-md text-white border border-white/50 hover:bg-white/35 active:scale-[0.97] transition-all ${btnCls}`}>
                   {hero.cta_secondary_text}
                 </Link>
               )}
@@ -217,17 +217,17 @@ export default async function HomePage({ params }: HomePageProps) {
       })}
 
       {/* Professional Footer */}
-      <div className="mt-12 pt-8 border-t border-gray-200 bg-gradient-to-b from-white to-gray-50 px-4">
-        <div className="max-w-lg mx-auto space-y-4 pb-4">
-          <div className="text-center space-y-2">
-            {footer.custom_text && <p className="text-sm font-medium text-gray-700">{footer.custom_text}</p>}
-            <p className="text-xs text-gray-500 leading-relaxed">
-              Todos los derechos reservados © {new Date().getFullYear()} {appName}
+      <div className="mt-8 sm:mt-12 pt-6 sm:pt-8 border-t border-gray-200 bg-gradient-to-b from-white to-gray-50 px-4">
+        <div className="max-w-lg mx-auto space-y-3 sm:space-y-4 pb-4">
+          <div className="text-center space-y-1 sm:space-y-2">
+            {footer.custom_text && <p className="text-xs sm:text-sm font-medium text-gray-700">{footer.custom_text}</p>}
+            <p className="text-[10px] sm:text-xs text-gray-500 leading-relaxed">
+              © {new Date().getFullYear()} {appName}
             </p>
           </div>
           {footer.show_powered_by && (
             <div className="pt-2 text-center border-t border-gray-200">
-              <p className="text-xs text-gray-400 font-medium">Impulsado por <span className="text-blue-600 font-semibold">Eccofood</span></p>
+              <p className="text-[10px] sm:text-xs text-gray-400 font-medium">Por <span className="text-blue-600 font-semibold">Eccofood</span></p>
             </div>
           )}
         </div>

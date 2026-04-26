@@ -68,23 +68,23 @@ export default async function MenuPage({ params }: MenuProps) {
     <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white">
       {/* Header - Professional */}
       <header className="sticky top-0 z-20 bg-white/98 backdrop-blur-xl shadow-md border-b border-gray-100">
-        <div className="max-w-lg mx-auto px-4 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-3">
+        <div className="max-w-lg mx-auto px-4 h-14 sm:h-16 flex items-center justify-between">
+          <div className="flex items-center gap-2 sm:gap-3 min-w-0">
             {context.tenant?.logo_url && (
-              <div className="relative">
+              <div className="relative flex-shrink-0">
                 <div className="absolute inset-0 scale-110 rounded-full opacity-10" style={{ backgroundColor: primary }} />
-                <img src={context.tenant.logo_url} alt="" className="w-10 h-10 object-cover relative shadow-sm" style={{ borderRadius: `calc(${br} * 0.5)` }} />
+                <img src={context.tenant.logo_url} alt="" className="w-9 sm:w-10 h-9 sm:h-10 object-cover relative shadow-sm" style={{ borderRadius: `calc(${br} * 0.5)` }} />
               </div>
             )}
-            <div>
-              <h1 className="font-black text-gray-900 text-base tracking-tight">
+            <div className="min-w-0">
+              <h1 className="font-black text-gray-900 text-sm sm:text-base tracking-tight truncate">
                 {branding?.app_name || context.tenant?.organization_name}
               </h1>
               <p className="text-xs text-gray-500 font-medium">Menú</p>
             </div>
           </div>
-          <Link href={`/${slug}/carrito`} className="relative p-2.5 hover:bg-gray-100 active:bg-gray-200 rounded-xl transition-all" title="Carrito">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={primary} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+          <Link href={`/${slug}/carrito`} className="relative p-2 sm:p-2.5 hover:bg-gray-100 active:bg-gray-200 rounded-xl transition-all flex-shrink-0" title="Carrito">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={primary} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="sm:w-5 sm:h-5">
               <path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/>
               <line x1="3" y1="6" x2="21" y2="6"/>
               <path d="M16 10a4 4 0 0 1-8 0"/>
@@ -95,17 +95,17 @@ export default async function MenuPage({ params }: MenuProps) {
         <CategoryFilterBar categories={categories} primary={primary} btnCls={btnCls} />
       </header>
 
-      <main id="top" className="max-w-lg mx-auto px-4 py-6 space-y-8">
+      <main id="top" className="max-w-lg mx-auto px-4 py-4 sm:py-6 space-y-6 sm:space-y-8">
         {/* Featured - Professional */}
         {featured.length > 0 && (
           <section className="scroll-mt-20" data-featured>
-            <div className="flex items-center gap-2 mb-4">
-              <div className="w-1 h-6 rounded-full" style={{ backgroundColor: primary }} />
-              <h2 className="text-lg font-black text-gray-900 tracking-tight">
+            <div className="flex items-center gap-2 mb-3 sm:mb-4">
+              <div className="w-1 h-5 sm:h-6 rounded-full" style={{ backgroundColor: primary }} />
+              <h2 className="text-base sm:text-lg font-black text-gray-900 tracking-tight">
                 ⭐ Lo más pedido
               </h2>
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 gap-2 sm:gap-3">
               {featured.map(item => (
                 <div key={item.id} className={`overflow-hidden flex flex-col ${cardCls}`} style={{ borderRadius: br }}>
                   {item.image_url ? (
