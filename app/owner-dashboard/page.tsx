@@ -6,8 +6,9 @@ export default async function OwnerDashboard() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
-  // Only allow the owner
-  if (!user || user.email !== 'thesecretcam7@gmail.com') {
+  // Only allow the owners
+  const ownerEmails = ['thesecretcam7@gmail.com', 'johang.musica@gmail.com']
+  if (!user || !ownerEmails.includes(user.email)) {
     redirect('/login')
   }
 

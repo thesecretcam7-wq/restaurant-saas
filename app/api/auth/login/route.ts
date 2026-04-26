@@ -66,7 +66,8 @@ export async function POST(request: NextRequest) {
     }, { onConflict: 'user_key' })
 
     // Check if this is the software owner (system admin)
-    const isOwner = email === 'thesecretcam7@gmail.com'
+    const ownerEmails = ['thesecretcam7@gmail.com', 'johang.musica@gmail.com']
+    const isOwner = ownerEmails.includes(email)
     const redirectUrl = isOwner ? '/owner-dashboard' : `/${tenant.slug}/acceso`
 
     const response = NextResponse.json({ success: true, tenant, redirectUrl })

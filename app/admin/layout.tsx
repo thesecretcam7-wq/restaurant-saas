@@ -9,8 +9,9 @@ export default async function AdminLayout({ children }: AdminLayoutProps) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
-  // Only allow the owner/developer
-  if (!user || user.email !== 'thesecretcam7@gmail.com') {
+  // Only allow the owners/developers
+  const ownerEmails = ['thesecretcam7@gmail.com', 'johang.musica@gmail.com']
+  if (!user || !ownerEmails.includes(user.email)) {
     redirect('/login')
   }
 
