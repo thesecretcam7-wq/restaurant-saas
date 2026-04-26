@@ -1,8 +1,37 @@
 import { createServiceClient } from '@/lib/supabase/server'
 import { NextRequest, NextResponse } from 'next/server'
+import { checkRateLimit, getClientIp } from '@/lib/ratelimit'
+
+const analyticsLimiter = (() => {
+  if (!process.env.UPSTASH_REDIS_REST_URL || !process.env.UPSTASH_REDIS_REST_TOKEN) {
+    return null
+  }
+  const { Ratelimit } = require('@upstash/ratelimit')
+  const { Redis } = require('@upstash/redis')
+  return new Ratelimit({
+    redis: new Redis({
+      url: process.env.UPSTASH_REDIS_REST_URL,
+      token: process.env.UPSTASH_REDIS_REST_TOKEN,
+    }),
+    limiter: Ratelimit.slidingWindow(30, '1 m'),
+    analytics: true,
+  })
+})()
 
 export async function GET(request: NextRequest) {
   try {
+    // Rate limiting
+    const clientIp = getClientIp(request)
+    if (analyticsLimiter) {
+      const { allowed, remaining } = await checkRateLimit(analyticsLimiter, `analytics:${clientIp}`)
+      if (!allowed) {
+        return NextResponse.json(
+          { error: 'Rate limit exceeded. Maximum 30 requests per minute.' },
+          { status: 429, headers: { 'Retry-After': '60' } }
+        )
+      }
+    }
+
     const searchParams = request.nextUrl.searchParams
     const domain = searchParams.get('domain')
     const period = (searchParams.get('period') || 'month') as 'week' | 'month' | 'year'

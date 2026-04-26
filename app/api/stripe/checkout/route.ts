@@ -2,11 +2,39 @@ import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 import { NextRequest, NextResponse } from 'next/server'
 import Stripe from 'stripe'
+import { checkRateLimit, getClientIp } from '@/lib/ratelimit'
 
 const getStripe = () => new Stripe(process.env.STRIPE_SECRET_KEY!)
 
+const checkoutLimiter = (() => {
+  if (!process.env.UPSTASH_REDIS_REST_URL || !process.env.UPSTASH_REDIS_REST_TOKEN) {
+    return null
+  }
+  const { Ratelimit } = require('@upstash/ratelimit')
+  const { Redis } = require('@upstash/redis')
+  return new Ratelimit({
+    redis: new Redis({
+      url: process.env.UPSTASH_REDIS_REST_URL,
+      token: process.env.UPSTASH_REDIS_REST_TOKEN,
+    }),
+    limiter: Ratelimit.slidingWindow(20, '1 m'),
+  })
+})()
+
 export async function POST(request: NextRequest) {
   try {
+    // Rate limiting
+    const clientIp = getClientIp(request)
+    if (checkoutLimiter) {
+      const { allowed } = await checkRateLimit(checkoutLimiter, `checkout:${clientIp}`)
+      if (!allowed) {
+        return NextResponse.json(
+          { error: 'Too many checkout attempts. Please try again in a minute.' },
+          { status: 429, headers: { 'Retry-After': '60' } }
+        )
+      }
+    }
+
     const body = await request.json()
     const { tenantId, items, customerInfo, deliveryType, deliveryAddress, notes } = body
 
