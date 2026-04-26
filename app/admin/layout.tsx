@@ -9,9 +9,8 @@ export default async function AdminLayout({ children }: AdminLayoutProps) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
-  // Only require authentication - any logged-in user can access
-  // In production, you can add role-based access control here
-  if (!user) {
+  // Only allow the owner/developer
+  if (!user || user.email !== 'thesecretcam7@gmail.com') {
     redirect('/login')
   }
 
