@@ -183,7 +183,7 @@ export default function BrandingPage({ params }: BrandingProps) {
         <div className="bg-white rounded-xl border p-6 space-y-4">
           <h2 className="font-semibold text-lg">Identidad Básica</h2>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Nombre del restaurante *</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Nombre de la marca <span className="text-gray-400 font-normal">(como aparece en la tienda)</span></label>
             <input
               value={form.app_name}
               onChange={e => setForm(f => ({ ...f, app_name: e.target.value }))}
