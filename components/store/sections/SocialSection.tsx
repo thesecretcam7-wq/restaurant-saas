@@ -19,7 +19,14 @@ const SOCIAL_CONFIG: { key: keyof SocialLinks; label: string; icon: string; colo
 
 export default function SocialSection({ social, primary, title, borderRadius }: Props) {
   const activeSocials = SOCIAL_CONFIG.filter(s => social[s.key])
-  if (activeSocials.length === 0) return null
+  if (activeSocials.length === 0) {
+    return (
+      <section className="px-4 pt-4 pb-2">
+        <h3 className="font-bold text-gray-900 text-lg mb-3">{title}</h3>
+        <div className="py-8 text-center text-gray-400 text-sm">Sin enlaces a redes sociales configurados</div>
+      </section>
+    )
+  }
 
   return (
     <section className="px-4 pt-4 pb-2">

@@ -12,7 +12,14 @@ interface Props {
 export default function GallerySection({ gallery, title, borderRadius }: Props) {
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null)
 
-  if (!gallery.images.length) return null
+  if (!gallery.images.length) {
+    return (
+      <section className="px-4 pt-4 pb-2">
+        <h3 className="font-bold text-gray-900 text-lg mb-3">{title}</h3>
+        <div className="py-12 text-center text-gray-400 text-sm">Sin imágenes en la galería</div>
+      </section>
+    )
+  }
 
   return (
     <section className="px-4 pt-4 pb-2">

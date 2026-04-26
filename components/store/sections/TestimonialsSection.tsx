@@ -9,7 +9,14 @@ interface Props {
 }
 
 export default function TestimonialsSection({ testimonials, primary, title, borderRadius, cardClasses }: Props) {
-  if (!testimonials?.length) return null
+  if (!testimonials?.length) {
+    return (
+      <section className="pt-4 pb-2 px-4">
+        <h3 className="font-bold text-gray-900 text-lg mb-4">{title}</h3>
+        <div className="py-12 text-center text-gray-400 text-sm">Sin opiniones de clientes</div>
+      </section>
+    )
+  }
 
   return (
     <section className="pt-4 pb-2">

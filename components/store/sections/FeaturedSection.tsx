@@ -13,7 +13,14 @@ interface Props {
 }
 
 export default function FeaturedSection({ tenantId, items, primary, title, borderRadius, cardClasses, animations }: Props) {
-  if (!items?.length) return null
+  if (!items?.length) {
+    return (
+      <section className="pt-6 pb-2 px-4">
+        <h2 className="text-lg font-extrabold text-gray-900 mb-4">{title}</h2>
+        <div className="py-12 text-center text-gray-400 text-sm">Sin productos destacados</div>
+      </section>
+    )
+  }
 
   return (
     <section className="pt-6 pb-2">

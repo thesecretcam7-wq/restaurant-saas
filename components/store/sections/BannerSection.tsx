@@ -6,7 +6,7 @@ interface Props {
 }
 
 export default function BannerSection({ banner, borderRadius }: Props) {
-  if (!banner.enabled || !banner.text) return null
+  if (!banner.enabled) return null
 
   const content = (
     <div
