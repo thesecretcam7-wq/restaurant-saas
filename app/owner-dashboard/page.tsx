@@ -8,7 +8,7 @@ export default async function OwnerDashboard() {
 
   // Only allow the owners
   const ownerEmails = ['thesecretcam7@gmail.com', 'johang.musica@gmail.com']
-  if (!user || !ownerEmails.includes(user.email)) {
+  if (!user || !user.email || !ownerEmails.includes(user.email)) {
     redirect('/login')
   }
 

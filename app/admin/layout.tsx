@@ -11,7 +11,7 @@ export default async function AdminLayout({ children }: AdminLayoutProps) {
 
   // Only allow the owners/developers
   const ownerEmails = ['thesecretcam7@gmail.com', 'johang.musica@gmail.com']
-  if (!user || !ownerEmails.includes(user.email)) {
+  if (!user || !user.email || !ownerEmails.includes(user.email)) {
     redirect('/login')
   }
 
