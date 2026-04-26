@@ -9,7 +9,7 @@ export default function AdminHome() {
           <p className="text-gray-600 text-lg">Gestiona todas las cuentas de clientes</p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           {/* Cuentas Card */}
           <Link href="/admin/cuentas" className="group">
             <div className="bg-white rounded-2xl shadow-lg p-8 hover:shadow-xl transition-all hover:scale-105 cursor-pointer">
@@ -27,10 +27,27 @@ export default function AdminHome() {
             </div>
           </Link>
 
+          {/* Dashboard de Ingresos Card */}
+          <Link href="/admin/ingresos" className="group">
+            <div className="bg-white rounded-2xl shadow-lg p-8 hover:shadow-xl transition-all hover:scale-105 cursor-pointer">
+              <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center mb-4">
+                <span className="text-2xl">💰</span>
+              </div>
+              <h2 className="text-2xl font-bold text-gray-900 mb-2">Dashboard de Ingresos</h2>
+              <p className="text-gray-600 mb-4">Visualiza ingresos totales, suscripciones activas, tasa de churn y tendencias de ingresos</p>
+              <div className="inline-flex items-center text-green-600 font-semibold group-hover:translate-x-2 transition-transform">
+                Ir al panel
+                <svg className="w-5 h-5 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
+              </div>
+            </div>
+          </Link>
+
           {/* Info Card */}
           <div className="bg-white rounded-2xl shadow-lg p-8">
-            <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center mb-4">
-              <span className="text-2xl">📊</span>
+            <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center mb-4">
+              <span className="text-2xl">ℹ️</span>
             </div>
             <h2 className="text-2xl font-bold text-gray-900 mb-2">Información</h2>
             <p className="text-gray-600 mb-4">
@@ -40,7 +57,7 @@ export default function AdminHome() {
               <li>✓ Ver todas las cuentas creadas</li>
               <li>✓ Filtrar por estado (prueba, activo, suspendido)</li>
               <li>✓ Desbloquear cuentas expiradas</li>
-              <li>✓ Extender período de prueba o activar pago</li>
+              <li>✓ Ver ingresos y suscripciones</li>
             </ul>
           </div>
         </div>
