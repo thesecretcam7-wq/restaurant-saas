@@ -373,3 +373,324 @@ export function adminOrderNotificationEmail(
     `,
   }
 }
+
+export function trialExpiringEmail(
+  organizationName: string,
+  daysRemaining: number,
+  expirationDate: string
+): EmailTemplate {
+  return {
+    subject: `Tu período de prueba vence en ${daysRemaining} días`,
+    html: `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; color: #1f2937; }
+    .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+    .header { background: linear-gradient(135deg, #3b82f6 0%, #1e40af 100%); color: white; padding: 20px; border-radius: 8px; text-align: center; }
+    .warning { background: #fef3c7; border-left: 4px solid #f59e0b; padding: 15px; border-radius: 6px; margin: 20px 0; }
+    .button { display: inline-block; background: #3b82f6; color: white; padding: 12px 24px; border-radius: 6px; text-decoration: none; margin: 10px 5px; }
+    .footer { text-align: center; color: #6b7280; font-size: 12px; margin-top: 30px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>⏰ Tu período de prueba vence pronto</h1>
+      <p style="margin: 10px 0; opacity: 0.9;">${daysRemaining} días restantes</p>
+    </div>
+
+    <p>Hola,</p>
+    <p>Tu período de prueba gratuito de <strong>${organizationName}</strong> vencerá el <strong>${new Date(expirationDate).toLocaleDateString('es-CO')}</strong>.</p>
+
+    <div class="warning">
+      <strong style="color: #92400e;">⚠️ Importante</strong>
+      <p style="margin: 10px 0; color: #92400e;">
+        Para continuar usando Eccofood después de que venza tu período de prueba, necesitarás activar un plan de pago. Sin un plan activo, tu cuenta será suspendida.
+      </p>
+    </div>
+
+    <p>Puedes elegir entre nuestros planes:</p>
+    <ul style="margin: 15px 0; padding-left: 20px;">
+      <li><strong>Plan Básico:</strong> $29.99/mes - Ideal para pequeños restaurantes</li>
+      <li><strong>Plan Pro:</strong> $79.99/mes - Para restaurantes en crecimiento</li>
+      <li><strong>Plan Premium:</strong> $149.99/mes - Para grandes restaurantes</li>
+    </ul>
+
+    <div style="text-align: center; margin: 30px 0;">
+      <a href="https://app.eccofood.com/account/cambiar-plan" class="button">Elegir Plan Ahora</a>
+    </div>
+
+    <p style="background: #dbeafe; padding: 15px; border-radius: 6px; border-left: 4px solid #0ea5e9;">
+      <strong style="color: #0c4a6e;">❓ ¿Necesitas ayuda?</strong><br>
+      Si tienes preguntas sobre los planes o necesitas asistencia, contáctanos a support@eccofood.com
+    </p>
+
+    <div class="footer">
+      <p>&copy; ${new Date().getFullYear()} Eccofood. Todos los derechos reservados.</p>
+    </div>
+  </div>
+</body>
+</html>
+    `,
+  }
+}
+
+export function subscriptionExpiringEmail(
+  organizationName: string,
+  plan: string,
+  daysRemaining: number,
+  expirationDate: string
+): EmailTemplate {
+  return {
+    subject: `Tu suscripción vence en ${daysRemaining} días`,
+    html: `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; color: #1f2937; }
+    .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+    .header { background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); color: white; padding: 20px; border-radius: 8px; text-align: center; }
+    .info { background: #f9fafb; padding: 15px; border-radius: 6px; margin: 20px 0; }
+    .button { display: inline-block; background: #10b981; color: white; padding: 12px 24px; border-radius: 6px; text-decoration: none; }
+    .footer { text-align: center; color: #6b7280; font-size: 12px; margin-top: 30px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>Tu suscripción se renueva pronto</h1>
+      <p style="margin: 10px 0; opacity: 0.9;">Se renovará el ${new Date(expirationDate).toLocaleDateString('es-CO')}</p>
+    </div>
+
+    <p>Hola,</p>
+    <p>Tu suscripción al <strong>${plan}</strong> para <strong>${organizationName}</strong> vence en <strong>${daysRemaining} días</strong>.</p>
+
+    <div class="info">
+      <strong>Detalles de tu suscripción:</strong>
+      <p style="margin: 10px 0;">Plan: <strong>${plan}</strong></p>
+      <p style="margin: 10px 0;">Vencimiento: <strong>${new Date(expirationDate).toLocaleDateString('es-CO')}</strong></p>
+    </div>
+
+    <p>Tu suscripción se renovará automáticamente con el mismo plan. Si deseas cambiar tu plan o hacer cambios, puedes hacerlo aquí:</p>
+
+    <div style="text-align: center; margin: 30px 0;">
+      <a href="https://app.eccofood.com/account/suscripcion" class="button">Gestionar Suscripción</a>
+    </div>
+
+    <p style="background: #dbeafe; padding: 15px; border-radius: 6px; border-left: 4px solid #0ea5e9;">
+      <strong style="color: #0c4a6e;">💳 Pago automático</strong><br>
+      Tu pago se procesará automáticamente en ${new Date(expirationDate).toLocaleDateString('es-CO')}. Asegúrate de que tu método de pago esté actualizado.
+    </p>
+
+    <div class="footer">
+      <p>&copy; ${new Date().getFullYear()} Eccofood. Todos los derechos reservados.</p>
+    </div>
+  </div>
+</body>
+</html>
+    `,
+  }
+}
+
+export function subscriptionExpiredEmail(
+  organizationName: string,
+  plan: string,
+  expirationDate: string
+): EmailTemplate {
+  return {
+    subject: `Tu suscripción ha expirado - Renuévala ahora`,
+    html: `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; color: #1f2937; }
+    .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+    .header { background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); color: white; padding: 20px; border-radius: 8px; text-align: center; }
+    .alert { background: #fee2e2; border-left: 4px solid #ef4444; padding: 15px; border-radius: 6px; margin: 20px 0; }
+    .button { display: inline-block; background: #ef4444; color: white; padding: 12px 24px; border-radius: 6px; text-decoration: none; }
+    .footer { text-align: center; color: #6b7280; font-size: 12px; margin-top: 30px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>⚠️ Tu suscripción ha expirado</h1>
+      <p style="margin: 10px 0; opacity: 0.9;">Desde: ${new Date(expirationDate).toLocaleDateString('es-CO')}</p>
+    </div>
+
+    <p>Hola,</p>
+    <p>Tu suscripción al plan <strong>${plan}</strong> ha expirado. Tu cuenta está actualmente <strong>suspendida</strong> y no puedes acceder a Eccofood.</p>
+
+    <div class="alert">
+      <strong style="color: #991b1b;">❌ Acceso limitado</strong>
+      <p style="margin: 10px 0; color: #991b1b;">
+        Para reactivar tu acceso, debes renovar tu suscripción inmediatamente. Haz clic en el botón a continuación.
+      </p>
+    </div>
+
+    <div style="text-align: center; margin: 30px 0;">
+      <a href="https://app.eccofood.com/account/cambiar-plan" class="button">Renovar Suscripción Ahora</a>
+    </div>
+
+    <p>Aún puedes cambiar tu plan a uno que se ajuste mejor a tus necesidades:</p>
+    <ul style="margin: 15px 0; padding-left: 20px;">
+      <li><strong>Plan Básico:</strong> $29.99/mes</li>
+      <li><strong>Plan Pro:</strong> $79.99/mes</li>
+      <li><strong>Plan Premium:</strong> $149.99/mes</li>
+    </ul>
+
+    <p style="background: #fef3c7; padding: 15px; border-radius: 6px; border-left: 4px solid #f59e0b;">
+      <strong style="color: #92400e;">📞 Necesitas ayuda?</strong><br>
+      Si tienes dificultades para renovar tu suscripción, contáctanos a support@eccofood.com
+    </p>
+
+    <div class="footer">
+      <p>&copy; ${new Date().getFullYear()} Eccofood. Todos los derechos reservados.</p>
+    </div>
+  </div>
+</body>
+</html>
+    `,
+  }
+}
+
+export function planUpgradeConfirmationEmail(
+  organizationName: string,
+  oldPlan: string,
+  newPlan: string,
+  chargeAmount: number
+): EmailTemplate {
+  return {
+    subject: `Tu plan ha sido mejorado a ${newPlan}`,
+    html: `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; color: #1f2937; }
+    .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+    .header { background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: white; padding: 20px; border-radius: 8px; text-align: center; }
+    .success { background: #dcfce7; border-left: 4px solid #10b981; padding: 15px; border-radius: 6px; margin: 20px 0; }
+    .footer { text-align: center; color: #6b7280; font-size: 12px; margin-top: 30px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>✅ ¡Tu plan ha sido mejorado!</h1>
+      <p style="margin: 10px 0; opacity: 0.9;">${newPlan}</p>
+    </div>
+
+    <div class="success">
+      <strong style="color: #166534;">¡Gracias por mejorar tu plan!</strong>
+      <p style="margin: 10px 0; color: #166534;">
+        Tu cuenta de <strong>${organizationName}</strong> ha sido actualizada a <strong>${newPlan}</strong>.
+      </p>
+    </div>
+
+    <p>Nuevas características disponibles en tu plan:</p>
+    <ul style="margin: 15px 0; padding-left: 20px;">
+      <li>Acceso a todas las características del plan ${newPlan}</li>
+      <li>Mayor límite de productos y usuarios</li>
+      <li>Soporte prioritario</li>
+    </ul>
+
+    ${
+      chargeAmount > 0
+        ? `<div style="background: #f9fafb; padding: 15px; border-radius: 6px; margin: 20px 0;">
+      <strong>Cobro por mejora:</strong>
+      <p style="margin: 10px 0; font-size: 18px; color: #10b981;">$${chargeAmount.toFixed(2)}</p>
+      <p style="font-size: 12px; color: #6b7280;">Se cobrará en tu próximo ciclo de facturación</p>
+    </div>`
+        : ''
+    }
+
+    <p style="background: #dbeafe; padding: 15px; border-radius: 6px; border-left: 4px solid #0ea5e9;">
+      <strong style="color: #0c4a6e;">📧 Confirmación</strong><br>
+      Has recibido una copia de esta confirmación. Si no realizaste este cambio, contáctanos inmediatamente.
+    </p>
+
+    <div class="footer">
+      <p>&copy; ${new Date().getFullYear()} Eccofood. Todos los derechos reservados.</p>
+    </div>
+  </div>
+</body>
+</html>
+    `,
+  }
+}
+
+export function paymentFailedEmail(
+  organizationName: string,
+  amount: number,
+  failureReason: string,
+  retryDate?: string
+): EmailTemplate {
+  return {
+    subject: `⚠️ Error en tu pago - Acción requerida`,
+    html: `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; color: #1f2937; }
+    .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+    .header { background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); color: white; padding: 20px; border-radius: 8px; text-align: center; }
+    .alert { background: #fee2e2; border-left: 4px solid #ef4444; padding: 15px; border-radius: 6px; margin: 20px 0; }
+    .button { display: inline-block; background: #ef4444; color: white; padding: 12px 24px; border-radius: 6px; text-decoration: none; }
+    .footer { text-align: center; color: #6b7280; font-size: 12px; margin-top: 30px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>❌ Error en tu pago</h1>
+      <p style="margin: 10px 0; opacity: 0.9;">Acción requerida</p>
+    </div>
+
+    <p>Hola,</p>
+    <p>Intentamos procesar un pago de <strong>$${amount.toFixed(2)}</strong> para <strong>${organizationName}</strong>, pero fue rechazado.</p>
+
+    <div class="alert">
+      <strong style="color: #991b1b;">Razón del rechazo:</strong>
+      <p style="margin: 10px 0; color: #991b1b;">${failureReason}</p>
+    </div>
+
+    <p>Por favor, actualiza tu método de pago para evitar que tu suscripción sea suspendida:</p>
+
+    <div style="text-align: center; margin: 30px 0;">
+      <a href="https://app.eccofood.com/account/suscripcion" class="button">Actualizar Método de Pago</a>
+    </div>
+
+    ${
+      retryDate
+        ? `<p style="background: #fef3c7; padding: 15px; border-radius: 6px; border-left: 4px solid #f59e0b;">
+      <strong style="color: #92400e;">🔄 Reintento automático</strong><br>
+      Intentaremos procesar el pago nuevamente el ${new Date(retryDate).toLocaleDateString('es-CO')}.
+    </p>`
+        : ''
+    }
+
+    <p style="background: #dbeafe; padding: 15px; border-radius: 6px; border-left: 4px solid #0ea5e9;">
+      <strong style="color: #0c4a6e;">❓ ¿Necesitas ayuda?</strong><br>
+      Si tienes preguntas, contáctanos a support@eccofood.com o llama a nuestro equipo de soporte.
+    </p>
+
+    <div class="footer">
+      <p>&copy; ${new Date().getFullYear()} Eccofood. Todos los derechos reservados.</p>
+    </div>
+  </div>
+</body>
+</html>
+    `,
+  }
+}

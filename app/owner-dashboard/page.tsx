@@ -33,7 +33,7 @@ export default async function OwnerDashboard() {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
           {/* Cuentas Card */}
           <Link href="/gestionar-cuentas" className="group">
             <div className="bg-white rounded-2xl shadow-lg p-6 hover:shadow-xl transition-all hover:scale-105 cursor-pointer border-l-4 border-blue-500">
@@ -43,9 +43,28 @@ export default async function OwnerDashboard() {
                 </div>
               </div>
               <h2 className="text-xl font-bold text-gray-900 mb-2">Gestionar Cuentas</h2>
-              <p className="text-sm text-gray-600 mb-4">Ver, buscar y desbloquear cuentas de clientes</p>
+              <p className="text-sm text-gray-600 mb-4">Ver y desbloquear cuentas</p>
               <div className="inline-flex items-center text-blue-600 font-semibold group-hover:translate-x-1 transition-transform text-sm">
-                Ir al panel
+                Ir
+                <svg className="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
+              </div>
+            </div>
+          </Link>
+
+          {/* Ingresos Card */}
+          <Link href="/admin/ingresos" className="group">
+            <div className="bg-white rounded-2xl shadow-lg p-6 hover:shadow-xl transition-all hover:scale-105 cursor-pointer border-l-4 border-green-500">
+              <div className="flex items-start justify-between mb-4">
+                <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
+                  <span className="text-2xl">💰</span>
+                </div>
+              </div>
+              <h2 className="text-xl font-bold text-gray-900 mb-2">Dashboard de Ingresos</h2>
+              <p className="text-sm text-gray-600 mb-4">Analiza ingresos y subscripciones</p>
+              <div className="inline-flex items-center text-green-600 font-semibold group-hover:translate-x-1 transition-transform text-sm">
+                Ir
                 <svg className="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                 </svg>
@@ -54,22 +73,22 @@ export default async function OwnerDashboard() {
           </Link>
 
           {/* Stats */}
-          <div className="bg-white rounded-2xl shadow-lg p-6 border-l-4 border-green-500">
-            <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center mb-4">
+          <div className="bg-white rounded-2xl shadow-lg p-6 border-l-4 border-purple-500">
+            <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center mb-4">
               <span className="text-2xl">📊</span>
             </div>
             <h2 className="text-xl font-bold text-gray-900 mb-2">Total de Cuentas</h2>
-            <p className="text-3xl font-bold text-green-600">{tenants?.length || 0}</p>
-            <p className="text-xs text-gray-500 mt-2">Cuentas creadas</p>
+            <p className="text-3xl font-bold text-purple-600">{tenants?.length || 0}</p>
+            <p className="text-xs text-gray-500 mt-2">Restaurantes activos</p>
           </div>
 
           {/* Info */}
-          <div className="bg-white rounded-2xl shadow-lg p-6 border-l-4 border-purple-500">
-            <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center mb-4">
+          <div className="bg-white rounded-2xl shadow-lg p-6 border-l-4 border-orange-500">
+            <div className="w-12 h-12 bg-orange-100 rounded-lg flex items-center justify-center mb-4">
               <span className="text-2xl">⚙️</span>
             </div>
-            <h2 className="text-xl font-bold text-gray-900 mb-2">Configuración</h2>
-            <p className="text-sm text-gray-600">Sistema de prueba: 30 días</p>
+            <h2 className="text-xl font-bold text-gray-900 mb-2">Trial Gratis</h2>
+            <p className="text-sm text-gray-600">30 días de acceso</p>
             <p className="text-xs text-gray-500 mt-2">Por cuenta nueva</p>
           </div>
         </div>
