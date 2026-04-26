@@ -115,12 +115,17 @@ export async function POST(request: NextRequest) {
                      subscription.items.data[0]?.price?.nickname ||
                      'basic'
 
+        // Set subscription expiration to 30 days from now (for recurring subscriptions)
+        const expiresAt = new Date()
+        expiresAt.setDate(expiresAt.getDate() + 30)
+
         const { error } = await supabase
           .from('tenants')
           .update({
             subscription_stripe_id: subscription.id,
             subscription_plan: plan,
             status: subscription.status === 'active' ? 'active' : 'suspended',
+            subscription_expires_at: expiresAt.toISOString(),
           })
           .eq('id', tenant_id)
 
@@ -143,12 +148,17 @@ export async function POST(request: NextRequest) {
         const isActive = subscription.status === 'active'
         const status = isActive ? 'active' : 'suspended'
 
+        // If subscription renewed, set expiration to 30 days from now
+        const expiresAt = new Date()
+        expiresAt.setDate(expiresAt.getDate() + 30)
+
         const { error } = await supabase
           .from('tenants')
           .update({
             subscription_stripe_id: subscription.id,
             subscription_plan: plan,
             status,
+            subscription_expires_at: isActive ? expiresAt.toISOString() : null,
           })
           .eq('id', tenant_id)
 
@@ -208,9 +218,16 @@ export async function POST(request: NextRequest) {
           .single()
 
         if (tenant) {
+          // Renew subscription for another 30 days
+          const expiresAt = new Date()
+          expiresAt.setDate(expiresAt.getDate() + 30)
+
           const { error } = await supabase
             .from('tenants')
-            .update({ status: 'active' })
+            .update({
+              status: 'active',
+              subscription_expires_at: expiresAt.toISOString(),
+            })
             .eq('id', tenant.id)
           if (error) console.error('Error updating tenant status on invoice success:', error)
         }
