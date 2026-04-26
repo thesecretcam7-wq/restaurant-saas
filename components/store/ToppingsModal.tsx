@@ -47,9 +47,9 @@ export default function ToppingsModal({ item, toppings, tenantId, primaryColor, 
 
   return (
     <div className="fixed inset-0 z-50 bg-black/50 flex items-end">
-      <div className="w-full bg-white rounded-t-2xl max-h-[90vh] overflow-y-auto flex flex-col">
+      <div className="w-full bg-white rounded-t-2xl max-h-[90vh] flex flex-col">
         {/* Header */}
-        <div className="sticky top-0 bg-white border-b border-gray-200 p-4 flex items-center justify-between">
+        <div className="bg-white border-b border-gray-200 p-4 flex items-center justify-between flex-shrink-0">
           <h2 className="font-bold text-lg text-gray-900">{item.name}</h2>
           <button
             onClick={onClose}
@@ -60,7 +60,7 @@ export default function ToppingsModal({ item, toppings, tenantId, primaryColor, 
         </div>
 
         {/* Content */}
-        <div className="flex-1 p-4 space-y-6">
+        <div className="flex-1 p-4 space-y-6 overflow-y-auto">
           {/* Item Image & Price */}
           <div className="flex gap-4">
             {item.image_url && (
@@ -106,7 +106,7 @@ export default function ToppingsModal({ item, toppings, tenantId, primaryColor, 
         </div>
 
         {/* Footer */}
-        <div className="sticky bottom-0 border-t border-gray-200 bg-white p-4 space-y-3">
+        <div className="border-t border-gray-200 bg-white p-4 space-y-3 flex-shrink-0">
           {/* Quantity Selector */}
           <div className="flex items-center justify-between">
             <span className="text-sm font-medium text-gray-600">Cantidad</span>
