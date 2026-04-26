@@ -43,13 +43,14 @@ export async function POST(request: NextRequest) {
         status: 'trial', // Ensure it's in trial status
       }
     } else if (action === 'activate_subscription') {
-      // Mark as active subscription (paid)
+      // Mark as active subscription (paid) - expires in 30 days
       const subscriptionEndsAt = new Date()
       subscriptionEndsAt.setDate(subscriptionEndsAt.getDate() + 30) // 30 days subscription
       updateData = {
         status: 'active',
         trial_ends_at: null,
         subscription_plan: 'basic', // Default plan
+        subscription_expires_at: subscriptionEndsAt.toISOString(),
       }
     }
 
