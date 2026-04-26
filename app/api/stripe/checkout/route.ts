@@ -6,20 +6,23 @@ import { checkRateLimit, getClientIp } from '@/lib/ratelimit'
 
 const getStripe = () => new Stripe(process.env.STRIPE_SECRET_KEY!)
 
-const checkoutLimiter = (() => {
-  if (!process.env.UPSTASH_REDIS_REST_URL || !process.env.UPSTASH_REDIS_REST_TOKEN) {
-    return null
+let checkoutLimiter: any = null
+
+if (process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN) {
+  try {
+    const { Ratelimit } = require('@upstash/ratelimit') as typeof import('@upstash/ratelimit')
+    const { Redis } = require('@upstash/redis') as typeof import('@upstash/redis')
+    checkoutLimiter = new Ratelimit({
+      redis: new Redis({
+        url: process.env.UPSTASH_REDIS_REST_URL,
+        token: process.env.UPSTASH_REDIS_REST_TOKEN,
+      }),
+      limiter: Ratelimit.slidingWindow(20, '1 m'),
+    })
+  } catch (err) {
+    console.warn('Rate limiting not available for checkout:', err)
   }
-  const { Ratelimit } = require('@upstash/ratelimit')
-  const { Redis } = require('@upstash/redis')
-  return new Ratelimit({
-    redis: new Redis({
-      url: process.env.UPSTASH_REDIS_REST_URL,
-      token: process.env.UPSTASH_REDIS_REST_TOKEN,
-    }),
-    limiter: Ratelimit.slidingWindow(20, '1 m'),
-  })
-})()
+}
 
 export async function POST(request: NextRequest) {
   try {
