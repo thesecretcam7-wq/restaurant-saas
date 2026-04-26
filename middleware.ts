@@ -56,7 +56,7 @@ export async function middleware(request: NextRequest) {
       }
     }
 
-    // VÍA 2: Supabase session (dueño del restaurante con email/password)
+    // VÍA 2: Supabase session (dueño del restaurante con email/password O super admin)
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
     const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 
@@ -77,6 +77,13 @@ export async function middleware(request: NextRequest) {
         })
         const { data: { user } } = await supabase.auth.getUser()
         if (user) {
+          // Super admin bypass - allow access to any restaurant
+          const superAdminEmails = ['thesecretcam7@gmail.com']
+          if (superAdminEmails.includes(user.email || '')) {
+            return response
+          }
+
+          // Regular owner - must be the owner of this restaurant
           // Validate single-session token for owner
           const adminToken = request.cookies.get('admin_session_token')?.value
           if (adminToken) {

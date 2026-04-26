@@ -5,7 +5,7 @@ import RevenueContent from './RevenueContent'
 
 export const revalidate = 60
 
-const ownerEmails = ['thesecretcam7@gmail.com', 'johang.musica@gmail.com']
+const ownerEmails = ['thesecretcam7@gmail.com']
 
 export default async function IngresosDashboardPage() {
   const supabase = await createClient()

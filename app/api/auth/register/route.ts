@@ -226,7 +226,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Check if this is the software owner (system admin)
-    const ownerEmails = ['thesecretcam7@gmail.com', 'johang.musica@gmail.com']
+    const ownerEmails = ['thesecretcam7@gmail.com']
     const isOwner = ownerEmails.includes(email)
     const redirectUrl = isOwner ? '/owner-dashboard' : `/${tenantData.slug}/acceso`
 

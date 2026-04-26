@@ -2,7 +2,7 @@ import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 import { NextRequest, NextResponse } from 'next/server'
 
-const ownerEmails = ['thesecretcam7@gmail.com', 'johang.musica@gmail.com']
+const ownerEmails = ['thesecretcam7@gmail.com']
 
 interface RevenueStats {
   totalRevenue: number
