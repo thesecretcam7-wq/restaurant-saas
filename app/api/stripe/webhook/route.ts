@@ -90,7 +90,7 @@ export async function POST(request: NextRequest) {
           break
         }
 
-        const { error } = await supabase
+        const { data: updatedOrder, error } = await supabase
           .from('orders')
           .update({
             payment_status: 'paid',
@@ -99,8 +99,33 @@ export async function POST(request: NextRequest) {
           })
           .eq('id', order_id)
           .eq('tenant_id', tenant_id)
+          .select('items, tenant_id')
+          .single()
 
-        if (error) console.error('Error updating order:', error)
+        if (error) { console.error('Error updating order:', error); break }
+
+        // Create order_items so KDS receives the order immediately on payment.
+        if (updatedOrder && Array.isArray(updatedOrder.items) && updatedOrder.items.length > 0) {
+          const { count } = await supabase
+            .from('order_items')
+            .select('*', { count: 'exact', head: true })
+            .eq('order_id', order_id)
+
+          if ((count ?? 0) === 0) {
+            const orderItemsData = updatedOrder.items.map((item: any) => ({
+              order_id,
+              tenant_id,
+              menu_item_id: item.menu_item_id || null,
+              name: item.name,
+              quantity: item.qty ?? item.quantity ?? 1,
+              price: item.price,
+              notes: item.notes || null,
+              status: 'pending',
+            }))
+            const { error: itemsError } = await supabase.from('order_items').insert(orderItemsData)
+            if (itemsError) console.error('[webhook] order_items creation error:', itemsError.message)
+          }
+        }
         break
       }
 

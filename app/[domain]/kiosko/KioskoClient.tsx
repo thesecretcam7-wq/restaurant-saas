@@ -177,6 +177,7 @@ export default function KioskoClient({
           deliveryType: 'pickup',
           paymentMethod: 'cash',
           notes: orderNotes.trim() || undefined,
+          source: 'kiosk',
         }),
       })
       const data = await res.json()

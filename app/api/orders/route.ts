@@ -71,7 +71,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { tenantId, items, customerInfo, deliveryType, deliveryAddress, notes, paymentMethod, tableNumber, waiterName, table_id, waiter_id, amountPaid } = body
+    const { tenantId, items, customerInfo, deliveryType, deliveryAddress, notes, paymentMethod, tableNumber, waiterName, table_id, waiter_id, amountPaid, source } = body
 
     if (!tenantId) {
       return NextResponse.json({ error: 'tenantId is required' }, { status: 400 })
@@ -156,8 +156,10 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
 
-    // Auto-create order_items so KDS can display the order in real-time
-    if (items && Array.isArray(items) && items.length > 0) {
+    // Auto-create order_items so KDS can display the order in real-time.
+    // Exception: kiosk cash orders skip this — items are created when cashier confirms payment.
+    const isKioskCash = source === 'kiosk' && paymentMethod === 'cash'
+    if (!isKioskCash && items && Array.isArray(items) && items.length > 0) {
       const orderItemsData = items.map((item: any) => ({
         order_id: order.id,
         tenant_id: tenantId,
@@ -241,7 +243,7 @@ export async function POST(request: NextRequest) {
       }).catch(e => console.error('[email] admin notification:', e))
     }
 
-    return NextResponse.json({ orderId: order.id, orderNumber })
+    return NextResponse.json({ orderId: order.id, orderNumber, displayNumber })
   } catch (err) {
     console.error('[orders POST] unexpected error:', err)
     return NextResponse.json({ error: 'Error interno' }, { status: 500 })

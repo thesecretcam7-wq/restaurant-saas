@@ -17,25 +17,41 @@ interface Props {
   tenantId: string
   currentStatus: string
   nextStatus?: string
+  paymentMethod?: string
 }
 
-export default function OrderStatusActions({ orderId, tenantId, currentStatus, nextStatus }: Props) {
+export default function OrderStatusActions({ orderId, tenantId, currentStatus, nextStatus, paymentMethod }: Props) {
   const router = useRouter()
   const [loading, setLoading] = useState(false)
 
-  const updateStatus = async (status: string) => {
+  const updateStatus = async (status: string, paymentStatus?: string) => {
     setLoading(true)
-    const supabase = createClient()
-    await supabase.from('orders').update({ status }).eq('id', orderId)
+    const body: Record<string, string> = { status }
+    if (paymentStatus) body.payment_status = paymentStatus
+    await fetch(`/api/orders/${orderId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    })
     setLoading(false)
     router.refresh()
   }
 
   if (currentStatus === 'delivered' || currentStatus === 'cancelled') return null
 
+  const isCashPending = currentStatus === 'pending' && paymentMethod === 'cash'
+
   return (
     <div className="bg-white rounded-xl border p-5 flex gap-3">
-      {nextStatus && (
+      {isCashPending ? (
+        <button
+          onClick={() => updateStatus('confirmed', 'paid')}
+          disabled={loading}
+          className="flex-1 py-2.5 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700 disabled:bg-green-300"
+        >
+          {loading ? 'Procesando...' : '💵 Cobrar y Confirmar'}
+        </button>
+      ) : nextStatus ? (
         <button
           onClick={() => updateStatus(nextStatus)}
           disabled={loading}
@@ -43,7 +59,7 @@ export default function OrderStatusActions({ orderId, tenantId, currentStatus, n
         >
           {loading ? 'Actualizando...' : NEXT_LABELS[nextStatus]}
         </button>
-      )}
+      ) : null}
       {currentStatus !== 'cancelled' && (
         <button
           onClick={() => updateStatus('cancelled')}

@@ -130,6 +130,7 @@ export default async function PedidoDetailPage({ params }: PedidoDetailProps) {
         tenantId={tenantId}
         currentStatus={order.status}
         nextStatus={nextStatus}
+        paymentMethod={order.payment_method}
       />
     </div>
   )
