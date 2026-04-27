@@ -22,7 +22,6 @@ interface Props {
 
 function getShortNumber(order: DisplayOrder): string {
   if (order.display_number) return String(order.display_number).padStart(3, '0')
-  // Fallback for old orders without display_number
   return order.order_number.replace('ORD-', '').slice(-4)
 }
 
@@ -31,14 +30,32 @@ export default function PantallaPage({ params }: Props) {
   const [data, setData] = useState<DisplayData | null>(null)
   const [time, setTime] = useState(new Date())
   const [newReadyIds, setNewReadyIds] = useState<Set<string>>(new Set())
+  const [isFullscreen, setIsFullscreen] = useState(false)
+  const [showFsPrompt, setShowFsPrompt] = useState(true)
   const prevReadyRef = useRef<Set<string>>(new Set())
   const audioRef = useRef<AudioContext | null>(null)
 
+  const toggleFullscreen = useCallback(() => {
+    if (!document.fullscreenElement) {
+      document.documentElement.requestFullscreen().catch(() => {})
+    } else {
+      document.exitFullscreen().catch(() => {})
+    }
+  }, [])
+
+  useEffect(() => {
+    const onChange = () => {
+      const fs = !!document.fullscreenElement
+      setIsFullscreen(fs)
+      if (fs) setShowFsPrompt(false)
+    }
+    document.addEventListener('fullscreenchange', onChange)
+    return () => document.removeEventListener('fullscreenchange', onChange)
+  }, [])
+
   const playBeep = useCallback(() => {
     try {
-      if (!audioRef.current) {
-        audioRef.current = new AudioContext()
-      }
+      if (!audioRef.current) audioRef.current = new AudioContext()
       const ctx = audioRef.current
       const osc = ctx.createOscillator()
       const gain = ctx.createGain()
@@ -91,6 +108,21 @@ export default function PantallaPage({ params }: Props) {
 
   return (
     <div className="min-h-screen bg-gray-950 text-white flex flex-col select-none" style={{ fontFamily: 'Inter, system-ui, sans-serif' }}>
+
+      {/* Fullscreen prompt overlay */}
+      {showFsPrompt && !isFullscreen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-gray-950/90 backdrop-blur-sm cursor-pointer"
+          onClick={() => { toggleFullscreen(); setShowFsPrompt(false) }}
+        >
+          <div className="text-center">
+            <p className="text-7xl mb-6">🖥️</p>
+            <p className="text-3xl font-bold text-white mb-3">Toca para activar pantalla completa</p>
+            <p className="text-gray-400 text-lg">{data?.restaurantName ?? 'Pantalla de pedidos'}</p>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <header className="flex items-center justify-between px-10 py-5 border-b border-gray-800">
         <div className="flex items-center gap-4">
@@ -99,13 +131,32 @@ export default function PantallaPage({ params }: Props) {
             {data?.restaurantName ?? '—'}
           </h1>
         </div>
-        <div className="text-right">
-          <p className="text-3xl font-mono font-semibold tabular-nums text-white">
-            {time.toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
-          </p>
-          <p className="text-sm text-gray-500 mt-0.5">
-            {time.toLocaleDateString('es-CO', { weekday: 'long', day: 'numeric', month: 'long' })}
-          </p>
+        <div className="flex items-center gap-6">
+          <button
+            onClick={toggleFullscreen}
+            className="text-gray-600 hover:text-gray-300 transition-colors text-sm flex items-center gap-1.5"
+            title={isFullscreen ? 'Salir de pantalla completa' : 'Pantalla completa'}
+          >
+            {isFullscreen ? (
+              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M8 3v3a2 2 0 0 1-2 2H3"/><path d="M21 8h-3a2 2 0 0 1-2-2V3"/>
+                <path d="M3 16h3a2 2 0 0 1 2 2v3"/><path d="M16 21v-3a2 2 0 0 1 2-2h3"/>
+              </svg>
+            ) : (
+              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M3 7V5a2 2 0 0 1 2-2h2"/><path d="M17 3h2a2 2 0 0 1 2 2v2"/>
+                <path d="M21 17v2a2 2 0 0 1-2 2h-2"/><path d="M7 21H5a2 2 0 0 1-2-2v-2"/>
+              </svg>
+            )}
+          </button>
+          <div className="text-right">
+            <p className="text-3xl font-mono font-semibold tabular-nums text-white">
+              {time.toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+            </p>
+            <p className="text-sm text-gray-500 mt-0.5">
+              {time.toLocaleDateString('es-CO', { weekday: 'long', day: 'numeric', month: 'long' })}
+            </p>
+          </div>
         </div>
       </header>
 
