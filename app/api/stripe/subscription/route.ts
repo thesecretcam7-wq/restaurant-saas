@@ -87,6 +87,10 @@ export async function POST(request: NextRequest) {
         .eq('id', tenantId)
     }
 
+    // Build redirect URLs from request origin to avoid env var misconfiguration
+    const origin = request.headers.get('origin') || process.env.NEXT_PUBLIC_APP_URL || `https://eccofood.vercel.app`
+    const baseUrl = origin.endsWith('/') ? origin.slice(0, -1) : origin
+
     // Create checkout session for subscription
     const session = await stripe.checkout.sessions.create({
       mode: 'subscription',
@@ -97,8 +101,8 @@ export async function POST(request: NextRequest) {
           quantity: 1,
         },
       ],
-      success_url: `${process.env.NEXT_PUBLIC_APP_URL}/${tenant.slug}/admin/dashboard?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${process.env.NEXT_PUBLIC_APP_URL}/${tenant.slug}/admin/configuracion/planes`,
+      success_url: `${baseUrl}/${tenant.slug}/admin/dashboard`,
+      cancel_url: `${baseUrl}/${tenant.slug}/admin/configuracion/planes`,
       metadata: {
         tenant_id: tenantId,
         plan_name: planName,
