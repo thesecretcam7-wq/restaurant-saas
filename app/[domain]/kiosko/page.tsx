@@ -43,7 +43,7 @@ export default async function KioskoPage({ params, searchParams }: Props) {
       .select('id, name, description, price, image_url, available, category_id, featured')
       .eq('tenant_id', tenant.id)
       .eq('available', true)
-      .order('sort_order', { ascending: true }),
+      .order('created_at', { ascending: true }),
     supabase
       .from('restaurant_settings')
       .select('tax_rate, currency_symbol')
