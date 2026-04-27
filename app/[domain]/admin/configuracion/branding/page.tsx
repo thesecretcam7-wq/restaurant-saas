@@ -10,6 +10,7 @@ interface BrandingProps { params: Promise<{ domain: string }> }
 
 export default function BrandingPage({ params }: BrandingProps) {
   const { domain: tenantId } = use(params)
+  const [tenantUUID, setTenantUUID] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [uploading, setUploading] = useState<string | null>(null)
@@ -58,9 +59,18 @@ export default function BrandingPage({ params }: BrandingProps) {
     const loadBrandingData = async () => {
       try {
         const supabase = createClient()
+        // Resolve slug to UUID
+        const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+        let uuid = tenantId
+        if (!uuidRegex.test(tenantId)) {
+          const { data: t } = await supabase.from('tenants').select('id').eq('slug', tenantId).single()
+          if (!t) return
+          uuid = t.id
+        }
+        setTenantUUID(uuid)
         const [brandingRes, tenantRes] = await Promise.all([
-          supabase.from('tenant_branding').select('*').eq('tenant_id', tenantId).single(),
-          supabase.from('tenants').select('logo_url').eq('id', tenantId).single(),
+          supabase.from('tenant_branding').select('*').eq('tenant_id', uuid).single(),
+          supabase.from('tenants').select('logo_url').eq('id', uuid).single(),
         ])
 
         if (brandingRes.data) {
@@ -101,9 +111,10 @@ export default function BrandingPage({ params }: BrandingProps) {
     setSaving(true)
     const supabase = createClient()
     try {
+      const uuid = tenantUUID || tenantId
       const [r1, r2] = await Promise.all([
         supabase.from('tenant_branding').upsert({
-          tenant_id: tenantId,
+          tenant_id: uuid,
           app_name: form.app_name,
           tagline: form.tagline,
           description: form.description,
@@ -138,7 +149,7 @@ export default function BrandingPage({ params }: BrandingProps) {
           delivery_description: form.delivery_description,
           featured_text: form.featured_text,
         }, { onConflict: 'tenant_id' }),
-        supabase.from('tenants').update({ logo_url: form.logo_url || null }).eq('id', tenantId),
+        supabase.from('tenants').update({ logo_url: form.logo_url || null }).eq('id', uuid),
       ])
       if (!r1.error && !r2.error) toast.success('Cambios guardados')
       else toast.error('Error al guardar: ' + (r1.error?.message || r2.error?.message))
