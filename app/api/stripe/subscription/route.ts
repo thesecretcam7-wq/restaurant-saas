@@ -101,10 +101,17 @@ export async function POST(request: NextRequest) {
           quantity: 1,
         },
       ],
+      // Propagate metadata to the subscription object so customer.subscription.* events have tenant_id
+      subscription_data: {
+        metadata: {
+          tenant_id: tenant.id,
+          plan_name: planName,
+        },
+      },
       success_url: `${baseUrl}/${tenant.slug}/admin/dashboard`,
       cancel_url: `${baseUrl}/${tenant.slug}/admin/configuracion/planes`,
       metadata: {
-        tenant_id: tenantId,
+        tenant_id: tenant.id,
         plan_name: planName,
       },
     })

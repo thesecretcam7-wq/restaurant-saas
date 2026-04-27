@@ -5,6 +5,7 @@ import Stripe from 'stripe'
 
 const getStripe = () => new Stripe(process.env.STRIPE_SECRET_KEY!)
 
+// Returns true if already processed (skip), false if new (proceed)
 async function trackWebhookEvent(supabase: any, eventId: string): Promise<boolean> {
   const { data } = await supabase
     .from('webhook_events')
@@ -18,7 +19,10 @@ async function trackWebhookEvent(supabase: any, eventId: string): Promise<boolea
     .from('webhook_events')
     .insert({ stripe_event_id: eventId, processed_at: new Date().toISOString() })
 
-  return !error
+  // If unique constraint error, a concurrent request already inserted it
+  if (error) return true
+
+  return false
 }
 
 export async function POST(request: NextRequest) {
@@ -49,8 +53,8 @@ export async function POST(request: NextRequest) {
     }
   )
 
-  const isProcessed = await trackWebhookEvent(supabase, event.id)
-  if (isProcessed) {
+  const isDuplicate = await trackWebhookEvent(supabase, event.id)
+  if (isDuplicate) {
     return NextResponse.json({ received: true, duplicate: true })
   }
 
@@ -58,8 +62,29 @@ export async function POST(request: NextRequest) {
     switch (event.type) {
       case 'checkout.session.completed': {
         const session = event.data.object as Stripe.Checkout.Session
-        const { tenant_id, order_id } = session.metadata || {}
+        const { tenant_id, plan_name, order_id } = session.metadata || {}
 
+        // Subscription checkout — activate the tenant's plan
+        if (session.mode === 'subscription' && tenant_id) {
+          const plan = plan_name || 'basic'
+          const expiresAt = new Date()
+          expiresAt.setDate(expiresAt.getDate() + 30)
+
+          const { error } = await supabase
+            .from('tenants')
+            .update({
+              subscription_plan: plan,
+              status: 'active',
+              subscription_expires_at: expiresAt.toISOString(),
+              subscription_stripe_id: session.subscription as string,
+            })
+            .eq('id', tenant_id)
+
+          if (error) console.error('Error activating subscription on checkout:', error)
+          break
+        }
+
+        // One-time payment checkout (order)
         if (!order_id || !tenant_id) {
           console.warn('checkout.session.completed missing metadata:', { tenant_id, order_id })
           break
@@ -107,7 +132,7 @@ export async function POST(request: NextRequest) {
         const subscription = event.data.object as Stripe.Subscription
         const tenant_id = subscription.metadata?.tenant_id
         if (!tenant_id) {
-          console.warn('customer.subscription.created missing tenant_id')
+          console.warn('customer.subscription.created missing tenant_id in subscription metadata')
           break
         }
 
@@ -115,7 +140,6 @@ export async function POST(request: NextRequest) {
                      subscription.items.data[0]?.price?.nickname ||
                      'basic'
 
-        // Set subscription expiration to 30 days from now (for recurring subscriptions)
         const expiresAt = new Date()
         expiresAt.setDate(expiresAt.getDate() + 30)
 
@@ -137,7 +161,7 @@ export async function POST(request: NextRequest) {
         const subscription = event.data.object as Stripe.Subscription
         const tenant_id = subscription.metadata?.tenant_id
         if (!tenant_id) {
-          console.warn('customer.subscription.updated missing tenant_id')
+          console.warn('customer.subscription.updated missing tenant_id in subscription metadata')
           break
         }
 
@@ -148,7 +172,6 @@ export async function POST(request: NextRequest) {
         const isActive = subscription.status === 'active'
         const status = isActive ? 'active' : 'suspended'
 
-        // If subscription renewed, set expiration to 30 days from now
         const expiresAt = new Date()
         expiresAt.setDate(expiresAt.getDate() + 30)
 
@@ -170,7 +193,7 @@ export async function POST(request: NextRequest) {
         const subscription = event.data.object as Stripe.Subscription
         const tenant_id = subscription.metadata?.tenant_id
         if (!tenant_id) {
-          console.warn('customer.subscription.deleted missing tenant_id')
+          console.warn('customer.subscription.deleted missing tenant_id in subscription metadata')
           break
         }
 
@@ -218,7 +241,6 @@ export async function POST(request: NextRequest) {
           .single()
 
         if (tenant) {
-          // Renew subscription for another 30 days
           const expiresAt = new Date()
           expiresAt.setDate(expiresAt.getDate() + 30)
 
