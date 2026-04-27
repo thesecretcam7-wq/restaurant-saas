@@ -76,6 +76,8 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    const trialEndsAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
+
     const { data: tenantData, error: tenantError } = await supabase
       .from('tenants')
       .insert({
@@ -85,6 +87,7 @@ export async function POST(request: NextRequest) {
         owner_email: email,
         owner_name: ownerName || '',
         status: 'trial',
+        trial_ends_at: trialEndsAt,
       })
       .select()
       .single()
@@ -185,6 +188,7 @@ export async function POST(request: NextRequest) {
         owner_email: email,
         owner_name: ownerName || '',
         status: 'trial',
+        trial_ends_at: trialEndsAt,
       })
       .select()
       .single()
