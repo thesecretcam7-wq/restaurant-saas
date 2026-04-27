@@ -90,6 +90,7 @@ export default async function AdminLayout({ children, params }: AdminLayoutProps
   const navLinks = [
     { href: `/${tenantSlug}/admin/dashboard`, label: 'Dashboard', icon: '📊' },
     { href: `/${tenantSlug}/admin/pedidos`, label: 'Pedidos', icon: '🛍️' },
+    { href: `/${tenantSlug}/pantalla`, label: 'Pantalla de Pedidos', icon: '📺' },
     { href: `/${tenantSlug}/admin/productos`, label: 'Productos', icon: '🍽️' },
     { href: `/${tenantSlug}/admin/reservas`, label: 'Reservas', icon: '📅' },
     { href: `/${tenantSlug}/admin/clientes`, label: 'Clientes', icon: '👥' },

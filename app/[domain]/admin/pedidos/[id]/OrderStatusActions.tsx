@@ -7,6 +7,7 @@ import { createClient } from '@/lib/supabase/client'
 const NEXT_LABELS: Record<string, string> = {
   confirmed: 'Confirmar pedido',
   preparing: 'Marcar en preparación',
+  ready: 'Listo para recoger',
   on_the_way: 'Marcar en camino',
   delivered: 'Marcar entregado',
 }

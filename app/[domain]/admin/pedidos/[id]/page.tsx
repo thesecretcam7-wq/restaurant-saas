@@ -12,17 +12,18 @@ interface PedidoDetailProps {
 const STATUS_FLOW: Record<string, string> = {
   pending: 'confirmed',
   confirmed: 'preparing',
-  preparing: 'on_the_way',
-  on_the_way: 'delivered',
+  preparing: 'ready',
+  ready: 'delivered',
 }
 
 const STATUS_LABELS: Record<string, { label: string; color: string }> = {
-  pending:    { label: 'Pendiente',   color: 'bg-yellow-100 text-yellow-700' },
-  confirmed:  { label: 'Confirmado',  color: 'bg-blue-100 text-blue-700' },
-  preparing:  { label: 'Preparando',  color: 'bg-orange-100 text-orange-700' },
-  on_the_way: { label: 'En camino',   color: 'bg-indigo-100 text-indigo-700' },
-  delivered:  { label: 'Entregado',   color: 'bg-green-100 text-green-700' },
-  cancelled:  { label: 'Cancelado',   color: 'bg-red-100 text-red-700' },
+  pending:    { label: 'Pendiente',           color: 'bg-yellow-100 text-yellow-700' },
+  confirmed:  { label: 'Confirmado',          color: 'bg-blue-100 text-blue-700' },
+  preparing:  { label: 'En preparación',      color: 'bg-orange-100 text-orange-700' },
+  ready:      { label: 'Listo para recoger',  color: 'bg-green-100 text-green-700' },
+  on_the_way: { label: 'En camino',           color: 'bg-indigo-100 text-indigo-700' },
+  delivered:  { label: 'Entregado',           color: 'bg-gray-100 text-gray-600' },
+  cancelled:  { label: 'Cancelado',           color: 'bg-red-100 text-red-700' },
 }
 
 export default async function PedidoDetailPage({ params }: PedidoDetailProps) {

@@ -108,6 +108,17 @@ export async function POST(request: NextRequest) {
     const total = subtotal + tax + deliveryFee
 
     const orderNumber = `ORD-${Date.now()}`
+
+    // Compute daily sequential display number for this tenant
+    const todayStart = new Date()
+    todayStart.setHours(0, 0, 0, 0)
+    const { count: todayCount } = await supabase
+      .from('orders')
+      .select('*', { count: 'exact', head: true })
+      .eq('tenant_id', tenantId)
+      .gte('created_at', todayStart.toISOString())
+    const displayNumber = (todayCount ?? 0) + 1
+
     const orderData: any = {
       tenant_id: tenantId,
       order_number: orderNumber,
@@ -127,6 +138,7 @@ export async function POST(request: NextRequest) {
       waiter_name: waiterName || null,
       notes: notes || null,
       status: 'pending',
+      display_number: displayNumber,
     }
 
     // Only add these fields if they exist in the schema
