@@ -471,28 +471,7 @@ export default function KioskoClient({
         </div>
       )}
 
-      {/* Fullscreen toggle button (floating, unobtrusive) */}
-      {!showFsPrompt && (
-        <button
-          onClick={toggleFullscreen}
-          className="fixed top-3 right-3 z-40 p-2 bg-gray-800/60 hover:bg-gray-700 rounded-lg text-gray-500 hover:text-gray-300 transition-colors"
-          title={isFullscreen ? 'Salir de pantalla completa' : 'Pantalla completa'}
-        >
-          {isFullscreen ? (
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M8 3v3a2 2 0 0 1-2 2H3"/><path d="M21 8h-3a2 2 0 0 1-2-2V3"/>
-              <path d="M3 16h3a2 2 0 0 1 2 2v3"/><path d="M16 21v-3a2 2 0 0 1 2-2h3"/>
-            </svg>
-          ) : (
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M3 7V5a2 2 0 0 1 2-2h2"/><path d="M17 3h2a2 2 0 0 1 2 2v2"/>
-              <path d="M21 17v2a2 2 0 0 1-2 2h-2"/><path d="M7 21H5a2 2 0 0 1-2-2v-2"/>
-            </svg>
-          )}
-        </button>
-      )}
-
-      <Header appName={appName} logoUrl={logoUrl} primaryColor={primaryColor} time={time} />
+<Header appName={appName} logoUrl={logoUrl} primaryColor={primaryColor} time={time} />
 
       {/* Category tabs */}
       <div className="flex gap-3 px-6 py-4 overflow-x-auto scrollbar-hide bg-gray-900/50 border-b border-gray-800 flex-shrink-0">
