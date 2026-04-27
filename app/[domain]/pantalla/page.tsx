@@ -6,7 +6,7 @@ interface DisplayOrder {
   id: string
   display_number: number | null
   order_number: string
-  status: 'preparing' | 'ready'
+  status: 'confirmed' | 'preparing' | 'ready'
   created_at: string
 }
 
@@ -83,6 +83,7 @@ export default function PantallaPage({ params }: Props) {
     return () => clearInterval(tick)
   }, [])
 
+  const confirmed = data?.orders.filter(o => o.status === 'confirmed') ?? []
   const preparing = data?.orders.filter(o => o.status === 'preparing') ?? []
   const ready = data?.orders.filter(o => o.status === 'ready') ?? []
 
@@ -110,6 +111,41 @@ export default function PantallaPage({ params }: Props) {
 
       {/* Columns */}
       <div className="flex flex-1 divide-x divide-gray-800">
+        {/* Confirmados */}
+        <div className="flex-1 flex flex-col">
+          <div className="px-10 py-6 flex items-center gap-3 border-b border-gray-800 bg-gray-900/50">
+            <span className="text-3xl">🧾</span>
+            <div>
+              <h2 className="text-xl font-bold text-sky-400 tracking-wide uppercase">Confirmado</h2>
+              <p className="text-sm text-gray-500">{confirmed.length} {confirmed.length === 1 ? 'pedido' : 'pedidos'}</p>
+            </div>
+          </div>
+          <div className="flex-1 p-8 overflow-auto">
+            {confirmed.length === 0 ? (
+              <div className="flex items-center justify-center h-full">
+                <p className="text-gray-700 text-xl">Sin pedidos nuevos</p>
+              </div>
+            ) : (
+              <div className="flex flex-wrap gap-6">
+                {confirmed.map(order => (
+                  <div
+                    key={order.id}
+                    className="flex items-center justify-center rounded-2xl border-2 border-sky-500/40 bg-sky-500/10"
+                    style={{ width: 160, height: 160 }}
+                  >
+                    <div className="text-center">
+                      <p className="text-xs text-sky-400/70 font-semibold tracking-widest uppercase mb-1">Pedido</p>
+                      <p className="text-6xl font-black tabular-nums text-sky-300">
+                        {getShortNumber(order)}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+
         {/* En preparación */}
         <div className="flex-1 flex flex-col">
           <div className="px-10 py-6 flex items-center gap-3 border-b border-gray-800 bg-gray-900/50">

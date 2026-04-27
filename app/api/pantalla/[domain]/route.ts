@@ -31,7 +31,7 @@ export async function GET(
     .from('orders')
     .select('id, display_number, order_number, status, created_at')
     .eq('tenant_id', tenant.id)
-    .in('status', ['preparing', 'ready'])
+    .in('status', ['confirmed', 'preparing', 'ready'])
     .gte('created_at', todayStart.toISOString())
     .order('created_at', { ascending: true })
 
