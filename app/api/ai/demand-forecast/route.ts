@@ -1,7 +1,20 @@
 import { createClient } from '@supabase/supabase-js';
 import { NextRequest, NextResponse } from 'next/server';
+import { getAiLimiter, getClientIp, applyRateLimit } from '@/lib/rate-limit';
 
 export async function GET(request: NextRequest) {
+  const aiLimiter = getAiLimiter()
+  if (aiLimiter) {
+    const ip = getClientIp(request)
+    const { limited, headers } = await applyRateLimit(aiLimiter, `ai:${ip}`)
+    if (limited) {
+      return NextResponse.json(
+        { error: 'Límite de solicitudes de IA alcanzado. Intenta más tarde.' },
+        { status: 429, headers }
+      )
+    }
+  }
+
   const { searchParams } = new URL(request.url);
   const tenantId = searchParams.get('tenantId');
 

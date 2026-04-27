@@ -2,9 +2,23 @@ import { createClient } from '@supabase/supabase-js'
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 import { NextRequest, NextResponse } from 'next/server'
+import { getAuthLimiter, getClientIp, applyRateLimit } from '@/lib/rate-limit'
 
 export async function POST(request: NextRequest) {
   try {
+    // Límite estricto en registro (3 por IP por minuto) — previene creación masiva de cuentas
+    const authLimiter = getAuthLimiter()
+    if (authLimiter) {
+      const ip = getClientIp(request)
+      const { limited, headers } = await applyRateLimit(authLimiter, `register:${ip}`)
+      if (limited) {
+        return NextResponse.json(
+          { error: 'Demasiados intentos de registro. Espera un minuto.' },
+          { status: 429, headers }
+        )
+      }
+    }
+
     const body = await request.json()
     const {
       email,
