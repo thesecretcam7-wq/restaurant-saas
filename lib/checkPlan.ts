@@ -24,7 +24,7 @@ export async function getTenantPlanInfo(tenantId: string): Promise<TenantPlanInf
   const { data: tenant } = await supabase
     .from('tenants')
     .select('subscription_plan, status, created_at')
-    .eq('slug', tenantId)
+    .eq('id', tenantId)
     .single()
 
   const rawPlan = (tenant?.subscription_plan || 'basic') as PlanId
