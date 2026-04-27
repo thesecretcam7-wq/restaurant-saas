@@ -25,54 +25,19 @@ interface Props {
   initialConfirmed?: { number: number; name: string }
 }
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-
 function fmt(amount: number, symbol: string) {
   return `${symbol}${Math.round(amount).toLocaleString('es-CO')}`
 }
 
 function pad(n: number) { return String(n).padStart(3, '0') }
 
-// ─── Sub-components ───────────────────────────────────────────────────────────
-
-function Header({ appName, logoUrl, primaryColor, time }: {
-  appName: string; logoUrl: string | null; primaryColor: string; time: Date
-}) {
-  return (
-    <div className="flex items-center justify-between px-8 py-4 bg-gray-900 border-b border-gray-800 flex-shrink-0">
-      <div className="flex items-center gap-3">
-        {logoUrl && <img src={logoUrl} alt="" className="w-10 h-10 rounded-lg object-cover" />}
-        <span className="text-xl font-bold" style={{ color: primaryColor }}>{appName}</span>
-      </div>
-      <div className="text-right">
-        <p className="text-2xl font-mono font-semibold tabular-nums text-white">
-          {time.toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' })}
-        </p>
-        <p className="text-xs text-gray-500">
-          {time.toLocaleDateString('es-CO', { weekday: 'long', day: 'numeric', month: 'short' })}
-        </p>
-      </div>
-    </div>
-  )
-}
-
-function CartBar({ count, total, symbol, primaryColor, onClick }: {
-  count: number; total: number; symbol: string; primaryColor: string; onClick: () => void
-}) {
-  if (count === 0) return null
-  return (
-    <div className="fixed bottom-0 left-0 right-0 p-4 bg-gray-900 border-t border-gray-800">
-      <button
-        onClick={onClick}
-        className="w-full flex items-center justify-between px-6 py-4 rounded-2xl text-white font-bold text-lg shadow-xl transition-transform active:scale-95"
-        style={{ backgroundColor: primaryColor }}
-      >
-        <span className="bg-white/20 rounded-full px-3 py-1 text-sm">{count} {count === 1 ? 'ítem' : 'ítems'}</span>
-        <span>Ver pedido</span>
-        <span>{fmt(total, symbol)}</span>
-      </button>
-    </div>
-  )
+// Darken a hex color by a percentage for hover states
+function darken(hex: string, amount = 20): string {
+  const num = parseInt(hex.replace('#', ''), 16)
+  const r = Math.max(0, (num >> 16) - amount)
+  const g = Math.max(0, ((num >> 8) & 0xff) - amount)
+  const b = Math.max(0, (num & 0xff) - amount)
+  return `#${((r << 16) | (g << 8) | b).toString(16).padStart(6, '0')}`
 }
 
 // ─── Main Component ───────────────────────────────────────────────────────────
@@ -99,6 +64,9 @@ export default function KioskoClient({
   const [showFsPrompt, setShowFsPrompt] = useState(true)
   const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
+  const { primaryColor, appName, logoUrl } = branding
+  const hoverColor = darken(primaryColor)
+
   const toggleFullscreen = useCallback(() => {
     if (!document.fullscreenElement) {
       document.documentElement.requestFullscreen().catch(() => {})
@@ -117,22 +85,17 @@ export default function KioskoClient({
     return () => document.removeEventListener('fullscreenchange', onChange)
   }, [])
 
-  // Live clock
   useEffect(() => {
     const t = setInterval(() => setTime(new Date()), 1000)
     return () => clearInterval(t)
   }, [])
 
-  // Auto-reset after confirmation
   useEffect(() => {
     if (step !== 'confirmed') return
     setCountdown(12)
     countdownRef.current = setInterval(() => {
       setCountdown(prev => {
-        if (prev <= 1) {
-          reset()
-          return 0
-        }
+        if (prev <= 1) { reset(); return 0 }
         return prev - 1
       })
     }, 1000)
@@ -150,7 +113,6 @@ export default function KioskoClient({
     setStep('menu')
   }, [])
 
-  // Cart operations
   const cartTotal = cart.reduce((s, i) => s + i.price * i.qty, 0)
   const cartCount = cart.reduce((s, i) => s + i.qty, 0)
   const tax = taxRate ? cartTotal * (taxRate / 100) : 0
@@ -167,21 +129,16 @@ export default function KioskoClient({
   }
 
   const updateQty = (id: string, delta: number) => {
-    setCart(prev => {
-      const next = prev.map(c => c.menu_item_id === id ? { ...c, qty: c.qty + delta } : c)
-      return next.filter(c => c.qty > 0)
-    })
+    setCart(prev => prev.map(c => c.menu_item_id === id ? { ...c, qty: c.qty + delta } : c).filter(c => c.qty > 0))
   }
 
   const removeFromCart = (id: string) => setCart(prev => prev.filter(c => c.menu_item_id !== id))
 
-  // CSRF helper
   const getCSRF = async (): Promise<string> => {
     const res = await fetch('/api/csrf-token')
     return res.headers.get('x-csrf-token') || ''
   }
 
-  // Place order — cash
   const placeOrderCash = async () => {
     if (!customerName.trim()) { setError('Ingresa tu nombre'); return }
     setLoading(true); setError(null)
@@ -211,7 +168,6 @@ export default function KioskoClient({
     }
   }
 
-  // Place order — Stripe
   const placeOrderStripe = async () => {
     if (!customerName.trim()) { setError('Ingresa tu nombre'); return }
     setLoading(true); setError(null)
@@ -234,39 +190,70 @@ export default function KioskoClient({
     }
   }
 
-  const { primaryColor, appName, logoUrl } = branding
+  // ── Shared header ───────────────────────────────────────────────────────────
+  const AppHeader = ({ backLabel, onBack }: { backLabel?: string; onBack?: () => void }) => (
+    <header
+      className="flex items-center justify-between px-8 py-4 flex-shrink-0 text-white"
+      style={{ backgroundColor: primaryColor }}
+    >
+      <div className="flex items-center gap-4">
+        {onBack && (
+          <button onClick={onBack} className="mr-2 bg-white/20 rounded-full p-2 hover:bg-white/30 transition-colors">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M19 12H5"/><path d="M12 19l-7-7 7-7"/></svg>
+          </button>
+        )}
+        {logoUrl && <img src={logoUrl} alt="" className="w-11 h-11 rounded-xl object-cover ring-2 ring-white/30" />}
+        <div>
+          <p className="text-xl font-black leading-tight">{appName}</p>
+          {backLabel && <p className="text-xs opacity-75">{backLabel}</p>}
+        </div>
+      </div>
+      <div className="text-right">
+        <p className="text-2xl font-mono font-bold tabular-nums">
+          {time.toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' })}
+        </p>
+        <p className="text-xs opacity-70">
+          {time.toLocaleDateString('es-CO', { weekday: 'long', day: 'numeric', month: 'short' })}
+        </p>
+      </div>
+    </header>
+  )
 
   // ── Confirmed screen ────────────────────────────────────────────────────────
   if (step === 'confirmed' && confirmed) {
     return (
-      <div className="min-h-screen bg-gray-950 flex flex-col items-center justify-center text-white" style={{ fontFamily: 'Inter, system-ui, sans-serif' }}>
-        <div className="text-center px-8">
-          <div className="mb-6 text-6xl animate-bounce">✅</div>
-          <p className="text-gray-400 text-xl mb-2">Pedido registrado</p>
-          <p className="text-gray-300 text-2xl font-semibold mb-8">{confirmed.name}</p>
-          <div className="bg-gray-900 border-2 border-emerald-500/60 rounded-3xl px-16 py-10 mb-8 shadow-[0_0_60px_rgba(52,211,153,0.2)]">
-            <p className="text-gray-400 text-sm tracking-widest uppercase mb-2">Tu número</p>
-            <p className="text-[9rem] font-black tabular-nums leading-none text-emerald-400">
-              {pad(confirmed.number)}
-            </p>
-          </div>
-          <p className="text-gray-400 text-lg mb-10">
-            Pasa a recoger cuando tu número aparezca en pantalla
-          </p>
-          {/* Countdown bar */}
-          <div className="w-64 h-2 bg-gray-800 rounded-full mx-auto mb-4 overflow-hidden">
+      <div className="h-screen flex flex-col bg-gray-50" style={{ fontFamily: 'Inter, system-ui, sans-serif' }}>
+        <AppHeader />
+        <div className="flex-1 flex flex-col items-center justify-center px-8">
+          <div className="text-center w-full max-w-md">
             <div
-              className="h-full bg-emerald-500 rounded-full transition-all duration-1000"
-              style={{ width: `${(countdown / 12) * 100}%` }}
-            />
+              className="rounded-3xl p-10 mb-8 shadow-2xl"
+              style={{ backgroundColor: primaryColor }}
+            >
+              <p className="text-white/80 text-sm tracking-widest uppercase mb-2 font-semibold">Tu número de turno</p>
+              <p className="text-[9rem] font-black tabular-nums leading-none text-white">
+                {pad(confirmed.number)}
+              </p>
+            </div>
+            <p className="text-2xl font-bold text-gray-800 mb-2">{confirmed.name}</p>
+            <p className="text-gray-500 text-lg mb-8">
+              Pasa a recoger cuando tu número aparezca en la pantalla
+            </p>
+            <div className="w-full h-3 bg-gray-200 rounded-full mb-3 overflow-hidden">
+              <div
+                className="h-full rounded-full transition-all duration-1000"
+                style={{ width: `${(countdown / 12) * 100}%`, backgroundColor: primaryColor }}
+              />
+            </div>
+            <p className="text-gray-400 text-sm mb-6">Nuevo pedido en {countdown}s</p>
+            <button
+              onClick={reset}
+              className="px-10 py-4 rounded-2xl text-white font-bold text-lg transition-opacity hover:opacity-90"
+              style={{ backgroundColor: primaryColor }}
+            >
+              Hacer otro pedido
+            </button>
           </div>
-          <p className="text-gray-600 text-sm mb-8">Nuevo pedido en {countdown}s</p>
-          <button
-            onClick={reset}
-            className="px-8 py-3 bg-gray-800 hover:bg-gray-700 text-white rounded-xl text-sm font-medium transition-colors"
-          >
-            Hacer otro pedido
-          </button>
         </div>
       </div>
     )
@@ -275,91 +262,98 @@ export default function KioskoClient({
   // ── Checkout screen ─────────────────────────────────────────────────────────
   if (step === 'checkout') {
     return (
-      <div className="min-h-screen bg-gray-950 flex flex-col text-white" style={{ fontFamily: 'Inter, system-ui, sans-serif' }}>
-        <Header appName={appName} logoUrl={logoUrl} primaryColor={primaryColor} time={time} />
-        <div className="flex-1 overflow-y-auto p-6 max-w-xl mx-auto w-full">
-          <button onClick={() => setStep('cart')} className="text-gray-400 hover:text-white text-sm mb-6 flex items-center gap-2">
-            ← Volver al carrito
-          </button>
-          <h2 className="text-2xl font-bold mb-6">Finalizar pedido</h2>
+      <div className="h-screen flex flex-col bg-gray-50" style={{ fontFamily: 'Inter, system-ui, sans-serif' }}>
+        <AppHeader backLabel="Volver al carrito" onBack={() => setStep('cart')} />
+        <div className="flex-1 overflow-y-auto">
+          <div className="max-w-lg mx-auto p-6">
+            <h2 className="text-2xl font-black text-gray-900 mb-6">Finalizar pedido</h2>
 
-          {/* Order summary */}
-          <div className="bg-gray-900 rounded-2xl p-4 mb-6">
-            {cart.map(item => (
-              <div key={item.menu_item_id} className="flex justify-between py-2 text-sm">
-                <span className="text-gray-300">{item.qty}× {item.name}</span>
-                <span className="text-white font-medium">{fmt(item.price * item.qty, currencySymbol)}</span>
+            {/* Order summary */}
+            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 mb-6">
+              <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">Resumen</p>
+              {cart.map(item => (
+                <div key={item.menu_item_id} className="flex justify-between py-2 text-sm border-b border-gray-50 last:border-0">
+                  <span className="text-gray-700">{item.qty}× {item.name}</span>
+                  <span className="font-semibold text-gray-900">{fmt(item.price * item.qty, currencySymbol)}</span>
+                </div>
+              ))}
+              {taxRate > 0 && (
+                <div className="flex justify-between pt-3 text-sm text-gray-500">
+                  <span>Impuestos ({taxRate}%)</span>
+                  <span>{fmt(tax, currencySymbol)}</span>
+                </div>
+              )}
+              <div className="flex justify-between pt-3 border-t border-gray-100 mt-2 font-black text-xl">
+                <span className="text-gray-900">Total</span>
+                <span style={{ color: primaryColor }}>{fmt(grandTotal, currencySymbol)}</span>
               </div>
-            ))}
-            {taxRate > 0 && (
-              <div className="flex justify-between py-2 text-sm border-t border-gray-800 mt-2">
-                <span className="text-gray-400">Impuestos ({taxRate}%)</span>
-                <span className="text-gray-300">{fmt(tax, currencySymbol)}</span>
+            </div>
+
+            {/* Name input */}
+            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 mb-4">
+              <label className="block">
+                <span className="text-sm font-bold text-gray-700 mb-2 block">
+                  Tu nombre <span className="text-red-500">*</span>
+                </span>
+                <input
+                  type="text"
+                  value={customerName}
+                  onChange={e => setCustomerName(e.target.value)}
+                  placeholder="¿Cómo te llamamos?"
+                  className="w-full border-2 border-gray-200 rounded-xl px-4 py-4 text-gray-900 text-xl placeholder-gray-300 focus:outline-none transition-colors"
+                  style={{ borderColor: customerName ? primaryColor : undefined }}
+                  autoComplete="off"
+                />
+              </label>
+            </div>
+
+            {/* Notes */}
+            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 mb-6">
+              <label className="block">
+                <span className="text-sm font-bold text-gray-700 mb-2 block">Instrucciones especiales <span className="text-gray-400 font-normal">(opcional)</span></span>
+                <textarea
+                  value={orderNotes}
+                  onChange={e => setOrderNotes(e.target.value)}
+                  placeholder="Sin cebolla, extra salsa..."
+                  rows={2}
+                  className="w-full border-2 border-gray-200 rounded-xl px-4 py-3 text-gray-900 text-sm placeholder-gray-300 focus:outline-none resize-none"
+                />
+              </label>
+            </div>
+
+            {error && (
+              <div className="bg-red-50 border border-red-200 text-red-700 rounded-xl px-4 py-3 text-sm mb-4 font-medium">
+                ⚠️ {error}
               </div>
             )}
-            <div className="flex justify-between py-2 border-t border-gray-700 mt-1 font-bold text-lg">
-              <span>Total</span>
-              <span style={{ color: primaryColor }}>{fmt(grandTotal, currencySymbol)}</span>
-            </div>
-          </div>
 
-          {/* Name input */}
-          <label className="block mb-4">
-            <span className="text-gray-400 text-sm mb-2 block">Tu nombre <span className="text-red-400">*</span></span>
-            <input
-              type="text"
-              value={customerName}
-              onChange={e => setCustomerName(e.target.value)}
-              placeholder="Escribe tu nombre"
-              className="w-full bg-gray-900 border border-gray-700 rounded-xl px-4 py-4 text-white text-xl placeholder-gray-600 focus:outline-none focus:border-gray-500"
-              autoComplete="off"
-            />
-          </label>
-
-          {/* Notes */}
-          <label className="block mb-6">
-            <span className="text-gray-400 text-sm mb-2 block">Instrucciones especiales (opcional)</span>
-            <textarea
-              value={orderNotes}
-              onChange={e => setOrderNotes(e.target.value)}
-              placeholder="Sin cebolla, extra salsa..."
-              rows={2}
-              className="w-full bg-gray-900 border border-gray-700 rounded-xl px-4 py-3 text-white text-sm placeholder-gray-600 focus:outline-none focus:border-gray-500 resize-none"
-            />
-          </label>
-
-          {error && (
-            <div className="bg-red-900/30 border border-red-700 text-red-300 rounded-xl px-4 py-3 text-sm mb-4">
-              {error}
-            </div>
-          )}
-
-          {/* Payment buttons */}
-          <div className="space-y-3">
-            <button
-              onClick={placeOrderCash}
-              disabled={loading}
-              className="w-full py-5 rounded-2xl text-white font-bold text-lg flex items-center justify-center gap-3 transition-opacity disabled:opacity-50"
-              style={{ backgroundColor: primaryColor }}
-            >
-              🏧 Pagar en Caja
-            </button>
-            {stripeEnabled && (
+            {/* Payment buttons */}
+            <div className="space-y-3 pb-8">
               <button
-                onClick={placeOrderStripe}
+                onClick={placeOrderCash}
                 disabled={loading}
-                className="w-full py-5 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-lg flex items-center justify-center gap-3 transition-colors disabled:opacity-50"
+                className="w-full py-5 rounded-2xl text-white font-black text-xl flex items-center justify-center gap-3 shadow-lg transition-all active:scale-98 disabled:opacity-50"
+                style={{ backgroundColor: primaryColor }}
               >
-                💳 Pagar con Tarjeta
+                🏧 Pagar en Caja
               </button>
-            )}
-          </div>
-          {loading && (
-            <div className="flex items-center justify-center gap-2 mt-4 text-gray-400 text-sm">
-              <div className="w-4 h-4 border-2 border-gray-600 border-t-white rounded-full animate-spin" />
-              Procesando...
+              {stripeEnabled && (
+                <button
+                  onClick={placeOrderStripe}
+                  disabled={loading}
+                  className="w-full py-5 rounded-2xl bg-slate-800 hover:bg-slate-900 text-white font-black text-xl flex items-center justify-center gap-3 shadow-lg transition-all active:scale-98 disabled:opacity-50"
+                >
+                  💳 Pagar con Tarjeta
+                </button>
+              )}
+              {loading && (
+                <div className="flex items-center justify-center gap-2 pt-2 text-gray-400 text-sm">
+                  <div className="w-4 h-4 border-2 border-gray-300 rounded-full animate-spin" style={{ borderTopColor: primaryColor }} />
+                  Procesando...
+                </div>
+              )}
             </div>
-          )}
+          </div>
         </div>
       </div>
     )
@@ -368,81 +362,76 @@ export default function KioskoClient({
   // ── Cart screen ─────────────────────────────────────────────────────────────
   if (step === 'cart') {
     return (
-      <div className="min-h-screen bg-gray-950 flex flex-col text-white" style={{ fontFamily: 'Inter, system-ui, sans-serif' }}>
-        <Header appName={appName} logoUrl={logoUrl} primaryColor={primaryColor} time={time} />
-        <div className="flex-1 overflow-y-auto p-6 max-w-xl mx-auto w-full pb-36">
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="text-2xl font-bold">Tu pedido</h2>
-            <button onClick={() => setStep('menu')} className="text-gray-400 hover:text-white text-sm">
-              ← Seguir pidiendo
-            </button>
+      <div className="h-screen flex flex-col bg-gray-50" style={{ fontFamily: 'Inter, system-ui, sans-serif' }}>
+        <AppHeader backLabel="Seguir pidiendo" onBack={() => setStep('menu')} />
+        <div className="flex-1 overflow-y-auto">
+          <div className="max-w-lg mx-auto p-6 pb-40">
+            <h2 className="text-2xl font-black text-gray-900 mb-5">Tu pedido</h2>
+
+            {cart.length === 0 ? (
+              <div className="text-center py-20 text-gray-400">
+                <p className="text-6xl mb-4">🛒</p>
+                <p className="text-lg font-medium">Tu carrito está vacío</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {cart.map(item => (
+                  <div key={item.menu_item_id} className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 flex items-center gap-4">
+                    <div className="flex-1 min-w-0">
+                      <p className="font-bold text-gray-900 truncate">{item.name}</p>
+                      <p className="text-sm text-gray-400 mt-0.5">{fmt(item.price, currencySymbol)} c/u</p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => updateQty(item.menu_item_id, -1)}
+                        className="w-10 h-10 rounded-full bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold text-xl flex items-center justify-center transition-colors"
+                      >−</button>
+                      <span className="text-gray-900 font-black w-6 text-center tabular-nums text-lg">{item.qty}</span>
+                      <button
+                        onClick={() => updateQty(item.menu_item_id, 1)}
+                        className="w-10 h-10 rounded-full text-white font-bold text-xl flex items-center justify-center transition-colors"
+                        style={{ backgroundColor: primaryColor }}
+                      >+</button>
+                    </div>
+                    <div className="text-right min-w-[80px]">
+                      <p className="font-black text-gray-900">{fmt(item.price * item.qty, currencySymbol)}</p>
+                      <button onClick={() => removeFromCart(item.menu_item_id)} className="text-xs text-red-400 mt-0.5">
+                        Eliminar
+                      </button>
+                    </div>
+                  </div>
+                ))}
+
+                {taxRate > 0 && (
+                  <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 space-y-2">
+                    <div className="flex justify-between text-sm text-gray-500">
+                      <span>Subtotal</span><span>{fmt(cartTotal, currencySymbol)}</span>
+                    </div>
+                    <div className="flex justify-between text-sm text-gray-500">
+                      <span>Impuestos ({taxRate}%)</span><span>{fmt(tax, currencySymbol)}</span>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
-
-          {cart.length === 0 ? (
-            <div className="text-center text-gray-600 py-16">
-              <p className="text-5xl mb-4">🛒</p>
-              <p className="text-lg">Tu carrito está vacío</p>
-            </div>
-          ) : (
-            <div className="space-y-3">
-              {cart.map(item => (
-                <div key={item.menu_item_id} className="bg-gray-900 rounded-2xl p-4 flex items-center gap-4">
-                  <div className="flex-1">
-                    <p className="font-semibold text-white">{item.name}</p>
-                    <p className="text-sm text-gray-400">{fmt(item.price, currencySymbol)} c/u</p>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <button
-                      onClick={() => updateQty(item.menu_item_id, -1)}
-                      className="w-9 h-9 rounded-full bg-gray-800 hover:bg-gray-700 text-white font-bold text-lg flex items-center justify-center transition-colors"
-                    >−</button>
-                    <span className="text-white font-bold w-5 text-center tabular-nums">{item.qty}</span>
-                    <button
-                      onClick={() => updateQty(item.menu_item_id, 1)}
-                      className="w-9 h-9 rounded-full text-white font-bold text-lg flex items-center justify-center transition-colors"
-                      style={{ backgroundColor: primaryColor }}
-                    >+</button>
-                  </div>
-                  <div className="text-right min-w-[70px]">
-                    <p className="font-bold text-white">{fmt(item.price * item.qty, currencySymbol)}</p>
-                    <button
-                      onClick={() => removeFromCart(item.menu_item_id)}
-                      className="text-xs text-red-400 hover:text-red-300 mt-1"
-                    >Eliminar</button>
-                  </div>
-                </div>
-              ))}
-
-              {taxRate > 0 && (
-                <div className="flex justify-between px-4 py-2 text-sm text-gray-400">
-                  <span>Subtotal</span>
-                  <span>{fmt(cartTotal, currencySymbol)}</span>
-                </div>
-              )}
-              {taxRate > 0 && (
-                <div className="flex justify-between px-4 py-2 text-sm text-gray-400">
-                  <span>Impuestos ({taxRate}%)</span>
-                  <span>{fmt(tax, currencySymbol)}</span>
-                </div>
-              )}
-            </div>
-          )}
         </div>
 
-        {/* Bottom bar */}
         {cart.length > 0 && (
-          <div className="fixed bottom-0 left-0 right-0 p-4 bg-gray-900 border-t border-gray-800">
-            <div className="flex items-center justify-between mb-3 px-2">
-              <span className="text-gray-400 font-medium">Total</span>
-              <span className="text-2xl font-black" style={{ color: primaryColor }}>{fmt(grandTotal, currencySymbol)}</span>
+          <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 p-4 shadow-2xl">
+            <div className="max-w-lg mx-auto">
+              <div className="flex items-center justify-between mb-3 px-1">
+                <span className="text-gray-500 font-medium">Total a pagar</span>
+                <span className="text-2xl font-black" style={{ color: primaryColor }}>{fmt(grandTotal, currencySymbol)}</span>
+              </div>
+              <button
+                onClick={() => setStep('checkout')}
+                className="w-full py-4 rounded-2xl text-white font-black text-xl shadow-lg transition-all active:scale-98"
+                style={{ backgroundColor: primaryColor }}
+              >
+                Continuar con el pago →
+              </button>
             </div>
-            <button
-              onClick={() => setStep('checkout')}
-              className="w-full py-4 rounded-2xl text-white font-bold text-lg transition-opacity"
-              style={{ backgroundColor: primaryColor }}
-            >
-              Continuar →
-            </button>
           </div>
         )}
       </div>
@@ -455,145 +444,162 @@ export default function KioskoClient({
     : menuItems
 
   return (
-    <div className="min-h-screen bg-gray-950 flex flex-col text-white" style={{ fontFamily: 'Inter, system-ui, sans-serif' }}>
+    <div className="h-screen flex flex-col bg-gray-100 overflow-hidden" style={{ fontFamily: 'Inter, system-ui, sans-serif' }}>
 
       {/* Fullscreen prompt overlay */}
       {showFsPrompt && !isFullscreen && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-gray-950/90 backdrop-blur-sm cursor-pointer"
+          className="fixed inset-0 z-50 flex items-center justify-center cursor-pointer"
+          style={{ backgroundColor: primaryColor }}
           onClick={() => { toggleFullscreen(); setShowFsPrompt(false) }}
         >
-          <div className="text-center">
-            <p className="text-7xl mb-6">🖥️</p>
-            <p className="text-3xl font-bold text-white mb-3">Toca para activar pantalla completa</p>
-            <p className="text-gray-400 text-lg">{appName}</p>
+          <div className="text-center text-white">
+            <p className="text-8xl mb-8">🖥️</p>
+            <p className="text-4xl font-black mb-4">Toca para comenzar</p>
+            <p className="text-xl opacity-80">{appName}</p>
           </div>
         </div>
       )}
 
-<Header appName={appName} logoUrl={logoUrl} primaryColor={primaryColor} time={time} />
+      <AppHeader />
 
-      {/* Category tabs */}
-      <div className="flex gap-3 px-6 py-4 overflow-x-auto scrollbar-hide bg-gray-900/50 border-b border-gray-800 flex-shrink-0">
-        <button
-          onClick={() => setActiveCategory(null)}
-          className={`flex-shrink-0 px-5 py-2.5 rounded-full font-semibold text-sm transition-all ${
-            activeCategory === null
-              ? 'text-white'
-              : 'bg-gray-800 text-gray-400 hover:bg-gray-700'
-          }`}
-          style={activeCategory === null ? { backgroundColor: primaryColor } : {}}
-        >
-          Todo
-        </button>
-        {categories.map(cat => (
-          <button
-            key={cat.id}
-            onClick={() => setActiveCategory(cat.id)}
-            className={`flex-shrink-0 px-5 py-2.5 rounded-full font-semibold text-sm transition-all ${
-              activeCategory === cat.id
-                ? 'text-white'
-                : 'bg-gray-800 text-gray-400 hover:bg-gray-700'
-            }`}
-            style={activeCategory === cat.id ? { backgroundColor: primaryColor } : {}}
-          >
-            {cat.name}
-          </button>
-        ))}
-      </div>
+      {/* Body: sidebar + products */}
+      <div className="flex flex-1 overflow-hidden">
 
-      {/* Menu grid */}
-      <div className="flex-1 overflow-y-auto p-6 pb-32">
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
-          {visibleItems.map(item => {
-            const qty = getQtyInCart(item.id)
+        {/* ── Category sidebar ── */}
+        <aside className="w-56 bg-white border-r border-gray-200 overflow-y-auto flex-shrink-0">
+          {[{ id: null, name: 'Todo' }, ...categories].map(cat => {
+            const isActive = activeCategory === cat.id
             return (
               <button
-                key={item.id}
-                onClick={() => { setSelectedItem(item); setItemQty(1) }}
-                className="bg-gray-900 rounded-2xl overflow-hidden text-left transition-all active:scale-95 hover:ring-2 ring-gray-700 flex flex-col"
+                key={cat.id ?? '__all__'}
+                onClick={() => setActiveCategory(cat.id)}
+                className="w-full text-left px-5 py-5 font-bold text-sm border-b border-gray-100 transition-all"
+                style={isActive
+                  ? { backgroundColor: primaryColor, color: '#fff', borderLeftWidth: 4, borderLeftColor: '#fff' }
+                  : { color: '#374151' }
+                }
               >
-                {item.image_url ? (
-                  <img src={item.image_url} alt={item.name} className="w-full h-36 object-cover" />
-                ) : (
-                  <div className="w-full h-36 bg-gray-800 flex items-center justify-center text-4xl">🍽️</div>
-                )}
-                <div className="p-3 flex flex-col flex-1">
-                  <p className="font-semibold text-white text-sm leading-snug line-clamp-2 flex-1">{item.name}</p>
-                  <div className="flex items-center justify-between mt-2">
-                    <p className="font-bold text-base" style={{ color: primaryColor }}>
-                      {fmt(item.price, currencySymbol)}
-                    </p>
-                    {qty > 0 && (
-                      <span className="text-xs font-bold bg-emerald-500/20 text-emerald-400 rounded-full px-2 py-0.5">
-                        ×{qty}
-                      </span>
-                    )}
-                  </div>
-                </div>
+                {cat.name}
               </button>
             )
           })}
-        </div>
+        </aside>
 
-        {visibleItems.length === 0 && (
-          <div className="text-center text-gray-600 py-20">
-            <p className="text-5xl mb-4">🍽️</p>
-            <p>No hay productos disponibles</p>
-          </div>
-        )}
+        {/* ── Products grid ── */}
+        <div className="flex-1 overflow-y-auto p-5 pb-32">
+          {visibleItems.length === 0 ? (
+            <div className="flex flex-col items-center justify-center h-full text-gray-400">
+              <p className="text-6xl mb-4">🍽️</p>
+              <p className="text-lg font-medium">No hay productos en esta categoría</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-3 gap-4">
+              {visibleItems.map(item => {
+                const qty = getQtyInCart(item.id)
+                return (
+                  <button
+                    key={item.id}
+                    onClick={() => { setSelectedItem(item); setItemQty(1) }}
+                    className="bg-white rounded-2xl shadow-sm overflow-hidden text-left transition-all active:scale-95 hover:shadow-md flex flex-col group"
+                  >
+                    <div className="relative overflow-hidden">
+                      {item.image_url ? (
+                        <img src={item.image_url} alt={item.name} className="w-full h-44 object-cover group-hover:scale-105 transition-transform duration-300" />
+                      ) : (
+                        <div className="w-full h-44 flex items-center justify-center text-6xl" style={{ backgroundColor: `${primaryColor}15` }}>
+                          🍽️
+                        </div>
+                      )}
+                      {qty > 0 && (
+                        <div className="absolute top-2 right-2 text-white text-xs font-black px-2.5 py-1 rounded-full shadow-lg" style={{ backgroundColor: primaryColor }}>
+                          ×{qty}
+                        </div>
+                      )}
+                    </div>
+                    <div className="p-4 flex flex-col flex-1">
+                      <p className="font-bold text-gray-900 text-sm leading-snug line-clamp-2 flex-1 mb-3">{item.name}</p>
+                      <div className="flex items-center justify-between">
+                        <p className="font-black text-lg" style={{ color: primaryColor }}>
+                          {fmt(item.price, currencySymbol)}
+                        </p>
+                        <div
+                          className="w-9 h-9 rounded-full flex items-center justify-center text-white font-black text-xl shadow-md transition-transform active:scale-90"
+                          style={{ backgroundColor: primaryColor }}
+                        >
+                          +
+                        </div>
+                      </div>
+                    </div>
+                  </button>
+                )
+              })}
+            </div>
+          )}
+        </div>
       </div>
 
-      {/* Cart bar */}
-      <CartBar
-        count={cartCount}
-        total={grandTotal}
-        symbol={currencySymbol}
-        primaryColor={primaryColor}
-        onClick={() => setStep('cart')}
-      />
+      {/* ── Cart bar ── */}
+      {cartCount > 0 && (
+        <div className="flex-shrink-0 bg-white border-t border-gray-200 p-4 shadow-2xl">
+          <button
+            onClick={() => setStep('cart')}
+            className="w-full flex items-center justify-between px-6 py-4 rounded-2xl text-white font-black text-lg shadow-xl transition-all active:scale-98"
+            style={{ backgroundColor: primaryColor }}
+          >
+            <span className="bg-white/25 rounded-full px-3 py-1 text-sm font-bold">
+              {cartCount} {cartCount === 1 ? 'ítem' : 'ítems'}
+            </span>
+            <span>Ver pedido</span>
+            <span>{fmt(grandTotal, currencySymbol)}</span>
+          </button>
+        </div>
+      )}
 
-      {/* Item modal */}
+      {/* ── Item modal ── */}
       {selectedItem && (
         <div
-          className="fixed inset-0 bg-black/70 flex items-end sm:items-center justify-center z-50 p-4"
+          className="fixed inset-0 bg-black/50 flex items-end sm:items-center justify-center z-50 p-4"
           onClick={() => setSelectedItem(null)}
         >
           <div
-            className="bg-gray-900 rounded-3xl w-full max-w-md overflow-hidden"
+            className="bg-white rounded-3xl w-full max-w-md overflow-hidden shadow-2xl"
             onClick={e => e.stopPropagation()}
           >
             {selectedItem.image_url ? (
-              <img src={selectedItem.image_url} alt={selectedItem.name} className="w-full h-52 object-cover" />
+              <img src={selectedItem.image_url} alt={selectedItem.name} className="w-full h-56 object-cover" />
             ) : (
-              <div className="w-full h-40 bg-gray-800 flex items-center justify-center text-6xl">🍽️</div>
+              <div className="w-full h-44 flex items-center justify-center text-7xl" style={{ backgroundColor: `${primaryColor}15` }}>
+                🍽️
+              </div>
             )}
             <div className="p-6">
-              <h3 className="text-xl font-bold text-white mb-1">{selectedItem.name}</h3>
+              <div className="flex items-start justify-between mb-1 gap-4">
+                <h3 className="text-2xl font-black text-gray-900 leading-tight">{selectedItem.name}</h3>
+                <p className="text-2xl font-black flex-shrink-0" style={{ color: primaryColor }}>
+                  {fmt(selectedItem.price, currencySymbol)}
+                </p>
+              </div>
               {selectedItem.description && (
-                <p className="text-gray-400 text-sm mb-4">{selectedItem.description}</p>
+                <p className="text-gray-500 text-sm mb-5 leading-relaxed">{selectedItem.description}</p>
               )}
-              <p className="text-2xl font-black mb-6" style={{ color: primaryColor }}>
-                {fmt(selectedItem.price, currencySymbol)}
-              </p>
 
-              {/* Qty selector */}
-              <div className="flex items-center justify-center gap-6 mb-6">
+              <div className="flex items-center justify-center gap-6 mb-6 py-4 bg-gray-50 rounded-2xl">
                 <button
                   onClick={() => setItemQty(q => Math.max(1, q - 1))}
-                  className="w-12 h-12 rounded-full bg-gray-800 text-white text-2xl font-bold flex items-center justify-center"
+                  className="w-14 h-14 rounded-full bg-gray-200 hover:bg-gray-300 text-gray-700 text-3xl font-bold flex items-center justify-center transition-colors"
                 >−</button>
-                <span className="text-3xl font-black text-white w-10 text-center tabular-nums">{itemQty}</span>
+                <span className="text-4xl font-black text-gray-900 w-12 text-center tabular-nums">{itemQty}</span>
                 <button
                   onClick={() => setItemQty(q => q + 1)}
-                  className="w-12 h-12 rounded-full text-white text-2xl font-bold flex items-center justify-center"
+                  className="w-14 h-14 rounded-full text-white text-3xl font-bold flex items-center justify-center transition-colors shadow-md"
                   style={{ backgroundColor: primaryColor }}
                 >+</button>
               </div>
 
               <button
                 onClick={() => { addToCart(selectedItem, itemQty); setSelectedItem(null) }}
-                className="w-full py-4 rounded-2xl text-white font-bold text-lg transition-opacity"
+                className="w-full py-5 rounded-2xl text-white font-black text-xl transition-all active:scale-98 shadow-lg"
                 style={{ backgroundColor: primaryColor }}
               >
                 Agregar — {fmt(selectedItem.price * itemQty, currencySymbol)}
