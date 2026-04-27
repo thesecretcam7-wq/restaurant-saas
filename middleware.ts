@@ -14,7 +14,7 @@ let authLimiter: Ratelimit | null = null
 function getGlobalLimiter() {
   if (!globalLimiter && process.env.UPSTASH_REDIS_REST_URL) {
     const redis = Redis.fromEnv()
-    globalLimiter = new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(100, '1 m'), prefix: 'eccofood:global' })
+    globalLimiter = new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(500, '1 m'), prefix: 'eccofood:global' })
   }
   return globalLimiter
 }
@@ -41,10 +41,12 @@ export async function middleware(request: NextRequest) {
   const pathname = url.pathname
 
   // ─── RATE LIMITING ────────────────────────────────────────────────────────
-  // Excluir webhooks de Stripe (vienen de IPs de Stripe, necesitan ser confiables)
   const isStripeWebhook = pathname === '/api/stripe/webhook'
+  // RSC prefetch (_rsc param) y sw.js son peticiones internas del browser/Next.js
+  const isRscPrefetch = url.searchParams.has('_rsc')
+  const isServiceWorker = pathname === '/sw.js'
 
-  if (!isStripeWebhook) {
+  if (!isStripeWebhook && !isRscPrefetch && !isServiceWorker) {
     const ip = getClientIp(request)
     const isAuthEndpoint = pathname.startsWith('/api/auth/login') || pathname.startsWith('/api/auth/register')
 

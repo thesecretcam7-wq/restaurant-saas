@@ -10,11 +10,11 @@ function getRedis(): Redis {
   return redis
 }
 
-// 100 req/min — protección general contra DDoS
+// 500 req/min — protección general contra DDoS (Next.js genera ~10 RSC prefetch por página)
 export function getGlobalLimiter() {
   return new Ratelimit({
     redis: getRedis(),
-    limiter: Ratelimit.slidingWindow(100, '1 m'),
+    limiter: Ratelimit.slidingWindow(500, '1 m'),
     prefix: 'eccofood:global',
   })
 }
