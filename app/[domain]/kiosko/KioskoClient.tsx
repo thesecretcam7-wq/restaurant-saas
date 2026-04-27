@@ -59,7 +59,7 @@ export default function KioskoClient({
     initialConfirmed ?? null
   )
   const [countdown, setCountdown] = useState(12)
-  const [time, setTime] = useState(new Date())
+  const [time, setTime] = useState<Date | null>(null)
   const [isFullscreen, setIsFullscreen] = useState(false)
   const [showFsPrompt, setShowFsPrompt] = useState(true)
   const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null)
@@ -86,6 +86,7 @@ export default function KioskoClient({
   }, [])
 
   useEffect(() => {
+    setTime(new Date())
     const t = setInterval(() => setTime(new Date()), 1000)
     return () => clearInterval(t)
   }, [])
@@ -210,10 +211,10 @@ export default function KioskoClient({
       </div>
       <div className="text-right">
         <p className="text-2xl font-mono font-bold tabular-nums">
-          {time.toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' })}
+          {time?.toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' }) ?? ''}
         </p>
         <p className="text-xs opacity-70">
-          {time.toLocaleDateString('es-CO', { weekday: 'long', day: 'numeric', month: 'short' })}
+          {time?.toLocaleDateString('es-CO', { weekday: 'long', day: 'numeric', month: 'short' }) ?? ''}
         </p>
       </div>
     </header>
