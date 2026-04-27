@@ -36,11 +36,12 @@ export async function POST(request: NextRequest) {
       }
     )
 
-    // Get tenant
+    // Accept both UUID and slug
+    const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(tenantId)
     const { data: tenant, error: tenantError } = await supabase
       .from('tenants')
       .select('*')
-      .eq('id', tenantId)
+      .eq(isUUID ? 'id' : 'slug', tenantId)
       .single()
 
     if (tenantError || !tenant) {
@@ -96,8 +97,8 @@ export async function POST(request: NextRequest) {
           quantity: 1,
         },
       ],
-      success_url: `${process.env.NEXT_PUBLIC_APP_URL}/[domain]/admin/dashboard?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${process.env.NEXT_PUBLIC_APP_URL}/[domain]/admin/configuracion/planes`,
+      success_url: `${process.env.NEXT_PUBLIC_APP_URL}/${tenant.slug}/admin/dashboard?session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${process.env.NEXT_PUBLIC_APP_URL}/${tenant.slug}/admin/configuracion/planes`,
       metadata: {
         tenant_id: tenantId,
         plan_name: planName,
