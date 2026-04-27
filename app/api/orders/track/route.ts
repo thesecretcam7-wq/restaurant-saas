@@ -1,6 +1,6 @@
 import { createServiceClient } from '@/lib/supabase/server'
 import { NextRequest, NextResponse } from 'next/server'
-import { checkRateLimit, sendRateLimitResponse, getClientIP } from '@/lib/rate-limit'
+import { getOrdersLimiter, getClientIp, applyRateLimit } from '@/lib/rate-limit'
 
 export async function GET(request: NextRequest) {
   const tenantId = request.nextUrl.searchParams.get('tenantId')
@@ -11,19 +11,20 @@ export async function GET(request: NextRequest) {
   }
 
   // SECURITY: Basic input validation
-  // Phone should be 7-15 digits (after normalization)
   const phoneDigits = phone.replace(/\D/g, '')
   if (phoneDigits.length < 7 || phoneDigits.length > 15) {
     return NextResponse.json({ error: 'Formato inválido' }, { status: 400 })
   }
 
   // SECURITY: Rate limiting to prevent phone number brute-forcing
-  const clientIP = getClientIP(request)
-  const rateLimitKey = `track-orders:${tenantId}:${phoneDigits}`
-  const rateLimit = checkRateLimit(rateLimitKey, 5, 3600000) // 5 requests per hour
-
-  if (!rateLimit.allowed) {
-    return sendRateLimitResponse(rateLimit.resetTime)
+  const limiter = getOrdersLimiter()
+  const ip = getClientIp(request)
+  const { limited, headers } = await applyRateLimit(limiter, `track:${tenantId}:${ip}`)
+  if (limited) {
+    return NextResponse.json(
+      { error: 'Demasiadas solicitudes. Intenta más tarde.' },
+      { status: 429, headers }
+    )
   }
 
   const supabase = createServiceClient()
