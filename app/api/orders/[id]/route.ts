@@ -42,13 +42,14 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       return NextResponse.json({ error: 'Order ID is required' }, { status: 400 })
     }
 
-    if (!status) {
-      return NextResponse.json({ error: 'Status is required' }, { status: 400 })
+    if (!status && !payment_status) {
+      return NextResponse.json({ error: 'Status or payment_status is required' }, { status: 400 })
     }
 
     const supabase = createServiceClient()
 
-    const updateData: Record<string, any> = { status, updated_at: new Date().toISOString() }
+    const updateData: Record<string, any> = { updated_at: new Date().toISOString() }
+    if (status) updateData.status = status
     if (payment_status) updateData.payment_status = payment_status
 
     const { data: order, error } = await supabase
@@ -87,7 +88,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     }
 
     // Send status update email (non-blocking)
-    if (order.customer_email && ['preparing', 'ready', 'delivered', 'cancelled'].includes(status)) {
+    if (order.customer_email && status && ['preparing', 'ready', 'delivered', 'cancelled'].includes(status)) {
       const { data: branding } = await supabase
         .from('tenant_branding')
         .select('app_name, primary_color')

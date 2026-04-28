@@ -11,7 +11,8 @@ import { AdminMenuDrawer } from './AdminMenuDrawer';
 import { CashClosingModal } from './CashClosingModal';
 import { ReceiptPreview } from './ReceiptPreview';
 import { Toast } from './Toast';
-import { saveCartToSupabase, loadCartFromSupabase, abandonCart } from '@/lib/pos-cart-sync';
+import { POSOrderLookup } from './POSOrderLookup';
+import { saveCartToSupabase, loadCartFromSupabase, abandonCart, loadOrderToCart } from '@/lib/pos-cart-sync';
 import { calculateCashClosingStats, saveCashClosing, CashClosingStats } from '@/lib/cash-closing';
 import { getCurrencyByCountry, formatPriceWithCurrency } from '@/lib/currency';
 import { printReceipt, savePrinterLog, openCashDrawer } from '@/lib/pos-printer';
@@ -357,6 +358,9 @@ export function POSTerminal({ tenantId, country = 'CO' }: { tenantId: string; co
   // Dine-in orders from comandero
   const [dineInOrders, setDineInOrders] = useState<DineInOrder[]>([]);
   const [showDineInPanel, setShowDineInPanel] = useState(false);
+  // Find & Pay mode
+  const [showFindPayPanel, setShowFindPayPanel] = useState(false);
+  const [loadedOrderId, setLoadedOrderId] = useState<string | null>(null);
   const [loadedOrderIds, setLoadedOrderIds] = useState<string[]>([]);
   const [billingOrderIds, setBillingOrderIds] = useState<string[]>([]);
   const [expandedTable, setExpandedTable] = useState<number | null>(null);
@@ -503,6 +507,43 @@ export function POSTerminal({ tenantId, country = 'CO' }: { tenantId: string; co
     }
   }
 
+  async function handleOrderSelected(order: any) {
+    try {
+      // Load order into cart
+      const success = await loadOrderToCart(tenantId, order.id, order, supabase);
+      if (!success) {
+        setToast({ message: 'Error al cargar el pedido', type: 'error' });
+        return;
+      }
+
+      // Convert order items to cart items
+      const cartItems = (order.items || []).map((item: any) => ({
+        menu_item_id: item.id || `item-${Date.now()}`,
+        name: item.name,
+        price: item.price,
+        quantity: item.qty || item.quantity || 1,
+      }));
+
+      setCart(cartItems);
+      setLoadedOrderId(order.id);
+      setPaymentMethod('cash');
+      setPosMode('simple');
+      setDiscount(0);
+      setDiscountCode('');
+
+      // Hide Find & Pay panel and show cart
+      setShowFindPayPanel(false);
+
+      setToast({
+        message: `Pedido ${order.order_number} cargado - Procede al pago`,
+        type: 'success'
+      });
+    } catch (error) {
+      console.error('Error loading order:', error);
+      setToast({ message: 'Error al cargar el pedido', type: 'error' });
+    }
+  }
+
   async function restoreCart() {
     // Try to restore from Supabase first (more reliable)
     const supabaseCart = await loadCartFromSupabase(tenantId, supabase);
@@ -518,6 +559,9 @@ export function POSTerminal({ tenantId, country = 'CO' }: { tenantId: string; co
       setSelectedStaffName(supabaseCart.selectedStaffName);
       setSelectedTableId(supabaseCart.selectedTableId);
       setSelectedTableNumber(supabaseCart.selectedTableNumber);
+      if (supabaseCart.loadedOrderId) {
+        setLoadedOrderId(supabaseCart.loadedOrderId);
+      }
     } else if (typeof window !== 'undefined') {
       // Fallback to localStorage if Supabase fails
       const savedCart = localStorage.getItem(`pos-cart-${tenantId}`);
@@ -864,7 +908,27 @@ export function POSTerminal({ tenantId, country = 'CO' }: { tenantId: string; co
     try {
       setProcessingPayment(true);
 
-      if (billingOrderIds.length > 0) {
+      if (loadedOrderId) {
+        // Paying for a loaded existing order
+        const response = await fetch(`/api/orders/${loadedOrderId}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({
+            tenantId,
+            payment_status: 'paid',
+            status: 'confirmed',
+          }),
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || 'Failed to update payment');
+        }
+
+        setLoadedOrderId(null);
+        setToast({ message: '✓ Pago procesado correctamente', type: 'success' });
+      } else if (billingOrderIds.length > 0) {
         // Billing existing table orders — mark as paid, no new order created
         await supabase
           .from('orders')
@@ -1259,9 +1323,9 @@ export function POSTerminal({ tenantId, country = 'CO' }: { tenantId: string; co
           {/* Tabs: Cart / Entregas / Salón */}
           <div className="border-b border-gray-800 flex bg-gray-950/50 backdrop-blur-sm">
             <button
-              onClick={() => { setShowIncomingPanel(false); setShowDineInPanel(false); }}
+              onClick={() => { setShowIncomingPanel(false); setShowDineInPanel(false); setShowFindPayPanel(false); }}
               className={`flex-1 flex flex-col items-center justify-center gap-0.5 py-2 border-b-2 transition relative ${
-                !showIncomingPanel && !showDineInPanel
+                !showIncomingPanel && !showDineInPanel && !showFindPayPanel
                   ? 'border-blue-600 bg-blue-600/20 text-white'
                   : 'border-transparent text-gray-400 hover:text-gray-300'
               }`}
@@ -1275,9 +1339,9 @@ export function POSTerminal({ tenantId, country = 'CO' }: { tenantId: string; co
               <span className="text-[10px] font-bold">Carrito</span>
             </button>
             <button
-              onClick={() => { setShowIncomingPanel(true); setShowDineInPanel(false); }}
+              onClick={() => { setShowIncomingPanel(true); setShowDineInPanel(false); setShowFindPayPanel(false); }}
               className={`flex-1 flex flex-col items-center justify-center gap-0.5 py-2 border-b-2 transition relative ${
-                showIncomingPanel && !showDineInPanel
+                showIncomingPanel && !showDineInPanel && !showFindPayPanel
                   ? 'border-blue-600 bg-blue-600/20 text-white'
                   : 'border-transparent text-gray-400 hover:text-gray-300'
               }`}
@@ -1291,7 +1355,7 @@ export function POSTerminal({ tenantId, country = 'CO' }: { tenantId: string; co
               <span className="text-[10px] font-bold">Entregas</span>
             </button>
             <button
-              onClick={() => { setShowDineInPanel(true); setShowIncomingPanel(false); }}
+              onClick={() => { setShowDineInPanel(true); setShowIncomingPanel(false); setShowFindPayPanel(false); }}
               className={`flex-1 flex flex-col items-center justify-center gap-0.5 py-2 border-b-2 transition relative ${
                 showDineInPanel
                   ? 'border-emerald-500 bg-emerald-500/20 text-white'
@@ -1305,6 +1369,20 @@ export function POSTerminal({ tenantId, country = 'CO' }: { tenantId: string; co
                 )}
               </div>
               <span className="text-[10px] font-bold">Salón</span>
+            </button>
+            <button
+              onClick={() => { setShowFindPayPanel(true); setShowIncomingPanel(false); setShowDineInPanel(false); }}
+              className={`flex-1 flex flex-col items-center justify-center gap-0.5 py-2 border-b-2 transition relative ${
+                showFindPayPanel
+                  ? 'border-purple-600 bg-purple-600/20 text-white'
+                  : 'border-transparent text-gray-400 hover:text-gray-300'
+              }`}
+              title="Buscar y pagar pedidos pendientes"
+            >
+              <div className="relative">
+                <Search className="w-4 h-4" />
+              </div>
+              <span className="text-[10px] font-bold">Buscar</span>
             </button>
           </div>
 
@@ -1381,8 +1459,18 @@ export function POSTerminal({ tenantId, country = 'CO' }: { tenantId: string; co
             </div>
           )}
 
-          {/* Cart Content - Only show when not in Incoming Panel or Dine-in Panel */}
-          {!showIncomingPanel && !showDineInPanel && (
+          {/* Find & Pay Panel */}
+          {showFindPayPanel && (
+            <div className="flex-1 flex flex-col overflow-hidden">
+              <POSOrderLookup
+                domain={tenantId}
+                onOrderSelected={handleOrderSelected}
+              />
+            </div>
+          )}
+
+          {/* Cart Content - Only show when not in any special panel */}
+          {!showIncomingPanel && !showDineInPanel && !showFindPayPanel && (
             <>
               {/* Mesa billing indicator */}
           {billingOrderIds.length > 0 && selectedTableNumber && (
