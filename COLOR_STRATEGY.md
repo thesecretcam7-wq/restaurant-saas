@@ -16,7 +16,13 @@
 - `/app/[domain]/admin/layout.tsx` → Usa colores globales
 - `/app/[domain]/admin/**/*` → Todos los subpages admin
 
-## Archivos Store
+## Archivos Staff/Operacional (Kiosko, Cocina, POS)
+- `/app/[domain]/kiosko/page.tsx` → `#E4002B` (EccoFood red)
+- `/app/[domain]/cocina/page.tsx` → `#E4002B` (EccoFood red)
+- `/app/[domain]/pos-display/page.tsx` → Usa colores globales
+- `/app/[domain]/staff/**/*` → Usa colores globales
+
+## Archivos Store (Tienda del Cliente)
 - `/app/[domain]/(store)/layout.tsx` → Pasa primaryColor del cliente
 - `/app/[domain]/(store)/**/*` → Todos usan branding?.primary_color
 

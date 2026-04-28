@@ -56,7 +56,7 @@ export default function CocinaPage() {
   const [orders, setOrders] = useState<KitchenOrder[]>([])
   const [loading, setLoading] = useState(false)
   const [currencyInfo, setCurrencyInfo] = useState({ code: 'COP', locale: 'es-CO' })
-  const [primary, setPrimary] = useState('#3B82F6')
+  const [primary, setPrimary] = useState('#E4002B') // EccoFood red - always use brand colors for kitchen
   const [tenantDbId, setTenantDbId] = useState('')
 
   const audioRef = useRef<HTMLAudioElement | null>(null)
@@ -105,7 +105,8 @@ export default function CocinaPage() {
     }
     if (brandingRes && brandingRes.ok) {
       const b = await brandingRes.json()
-      if (b.primary_color) setPrimary(b.primary_color)
+      // Kitchen display always uses EccoFood red brand colors, not customer colors
+      // Customers see their brand colors in the store, staff sees EccoFood branding
     }
   }, [tenantId])
 
