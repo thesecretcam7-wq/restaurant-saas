@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-interface MenuCategory { id: string; name: string; sort_order: number }
+interface MenuCategory { id: string; name: string; sort_order: number; image_url?: string | null }
 interface MenuItem {
   id: string; name: string; description: string | null
   price: number; image_url: string | null; available: boolean
@@ -648,24 +648,37 @@ export default function KioskoClient({
       {/* Body: sidebar only (products in modal) */}
       <div className="flex flex-1 overflow-hidden">
 
-        {/* ── Category sidebar ── */}
-        <aside className="w-56 bg-white border-r border-gray-200 overflow-y-auto flex-shrink-0">
-          {categories.map(cat => {
-            const isActive = activeCategory === cat.id
-            return (
-              <button
-                key={cat.id}
-                onClick={() => { setActiveCategory(cat.id); setIsCategoryModalOpen(true) }}
-                className="w-full text-left px-5 py-5 font-bold text-sm border-b border-gray-100 transition-all"
-                style={isActive
-                  ? { backgroundColor: primaryColor, color: '#fff', borderLeftWidth: 4, borderLeftColor: '#fff' }
-                  : { color: '#374151' }
-                }
-              >
-                {cat.name}
-              </button>
-            )
-          })}
+        {/* ── Category carousel ── */}
+        <aside className="w-40 bg-gray-50 border-r border-gray-200 overflow-y-auto flex-shrink-0 p-3">
+          <div className="space-y-3">
+            {/* Show categories twice for infinite scroll effect */}
+            {[...categories, ...categories].map((cat, idx) => {
+              const isActive = activeCategory === cat.id
+              return (
+                <button
+                  key={`${cat.id}-${idx}`}
+                  onClick={() => { setActiveCategory(cat.id); setIsCategoryModalOpen(true) }}
+                  className="w-full rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-all flex flex-col group"
+                  style={isActive ? { boxShadow: `0 0 0 3px ${primaryColor}` } : {}}
+                >
+                  <div className="relative overflow-hidden bg-gray-200 h-24 flex items-center justify-center">
+                    {cat.image_url ? (
+                      <img
+                        src={cat.image_url}
+                        alt={cat.name}
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                      />
+                    ) : (
+                      <div className="text-4xl">🍽️</div>
+                    )}
+                  </div>
+                  <div className="bg-white p-2 flex-1 flex items-center justify-center min-h-12">
+                    <p className="font-bold text-xs text-center text-gray-900 line-clamp-2">{cat.name}</p>
+                  </div>
+                </button>
+              )
+            })}
+          </div>
         </aside>
 
         {/* ── Main area: banners ── */}
