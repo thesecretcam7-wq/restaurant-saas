@@ -949,6 +949,7 @@ export default function KioskoClient({
           )}
         </motion.div>
       </div>
+      </div>
 
       {/* Cart floating button */}
       <AnimatePresence>
