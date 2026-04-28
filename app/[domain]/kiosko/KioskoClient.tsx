@@ -483,6 +483,27 @@ export default function KioskoClient({
 
       <AppHeader primaryColor={primaryColor} appName={appName} logoUrl={logoUrl} time={time} />
 
+      {/* Banners carousel */}
+      {banners.length > 0 && (
+        <div className="bg-white border-b border-gray-200 p-4 overflow-x-auto flex gap-4">
+          {banners.map(banner => (
+            <a
+              key={banner.id}
+              href={banner.link_url || '#'}
+              target={banner.link_url ? '_blank' : undefined}
+              rel={banner.link_url ? 'noopener noreferrer' : undefined}
+              className="flex-shrink-0 rounded-lg overflow-hidden shadow-md hover:shadow-lg transition-shadow cursor-pointer"
+            >
+              <img
+                src={banner.image_url}
+                alt={banner.title}
+                className="h-32 object-cover"
+              />
+            </a>
+          ))}
+        </div>
+      )}
+
       {/* Body: sidebar + products */}
       <div className="flex flex-1 overflow-hidden">
 
