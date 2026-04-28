@@ -649,7 +649,7 @@ export default function KioskoClient({
       <div className="flex flex-1 overflow-hidden">
 
         {/* ── Category carousel ── */}
-        <aside className="w-40 bg-gray-50 border-r border-gray-200 overflow-y-auto flex-shrink-0 p-3">
+        <aside className="w-40 bg-gray-50 border-r border-gray-200 overflow-y-auto flex-shrink-0 p-3" style={{ WebkitOverflowScrolling: 'touch' }}>
           <div className="space-y-3">
             {/* Show categories twice for infinite scroll effect */}
             {[...categories, ...categories].map((cat, idx) => {
