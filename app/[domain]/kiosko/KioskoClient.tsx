@@ -40,6 +40,51 @@ function darken(hex: string, amount = 20): string {
   return `#${((r << 16) | (g << 8) | b).toString(16).padStart(6, '0')}`
 }
 
+// ─── App Header Component ─────────────────────────────────────────────────
+function AppHeader({
+  primaryColor,
+  appName,
+  logoUrl,
+  time,
+  backLabel,
+  onBack,
+}: {
+  primaryColor: string
+  appName: string
+  logoUrl: string | null
+  time: Date | null
+  backLabel?: string
+  onBack?: () => void
+}) {
+  return (
+    <header
+      className="flex items-center justify-between px-8 py-4 flex-shrink-0 text-white"
+      style={{ backgroundColor: primaryColor }}
+    >
+      <div className="flex items-center gap-4">
+        {onBack && (
+          <button onClick={onBack} className="mr-2 bg-white/20 rounded-full p-2 hover:bg-white/30 transition-colors">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M19 12H5"/><path d="M12 19l-7-7 7-7"/></svg>
+          </button>
+        )}
+        {logoUrl && <img src={logoUrl} alt="" className="w-11 h-11 rounded-xl object-cover ring-2 ring-white/30" />}
+        <div>
+          <p className="text-xl font-black leading-tight">{appName}</p>
+          {backLabel && <p className="text-xs opacity-75">{backLabel}</p>}
+        </div>
+      </div>
+      <div className="text-right">
+        <p className="text-2xl font-mono font-bold tabular-nums">
+          {time?.toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' }) ?? ''}
+        </p>
+        <p className="text-xs opacity-70">
+          {time?.toLocaleDateString('es-CO', { weekday: 'long', day: 'numeric', month: 'short' }) ?? ''}
+        </p>
+      </div>
+    </header>
+  )
+}
+
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 export default function KioskoClient({
@@ -191,40 +236,12 @@ export default function KioskoClient({
     }
   }
 
-  // ── Shared header ───────────────────────────────────────────────────────────
-  const AppHeader = ({ backLabel, onBack }: { backLabel?: string; onBack?: () => void }) => (
-    <header
-      className="flex items-center justify-between px-8 py-4 flex-shrink-0 text-white"
-      style={{ backgroundColor: primaryColor }}
-    >
-      <div className="flex items-center gap-4">
-        {onBack && (
-          <button onClick={onBack} className="mr-2 bg-white/20 rounded-full p-2 hover:bg-white/30 transition-colors">
-            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M19 12H5"/><path d="M12 19l-7-7 7-7"/></svg>
-          </button>
-        )}
-        {logoUrl && <img src={logoUrl} alt="" className="w-11 h-11 rounded-xl object-cover ring-2 ring-white/30" />}
-        <div>
-          <p className="text-xl font-black leading-tight">{appName}</p>
-          {backLabel && <p className="text-xs opacity-75">{backLabel}</p>}
-        </div>
-      </div>
-      <div className="text-right">
-        <p className="text-2xl font-mono font-bold tabular-nums">
-          {time?.toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' }) ?? ''}
-        </p>
-        <p className="text-xs opacity-70">
-          {time?.toLocaleDateString('es-CO', { weekday: 'long', day: 'numeric', month: 'short' }) ?? ''}
-        </p>
-      </div>
-    </header>
-  )
 
   // ── Confirmed screen ────────────────────────────────────────────────────────
   if (step === 'confirmed' && confirmed) {
     return (
       <div className="h-screen flex flex-col bg-gray-50" style={{ fontFamily: 'Inter, system-ui, sans-serif' }}>
-        <AppHeader />
+        <AppHeader primaryColor={primaryColor} appName={appName} logoUrl={logoUrl} time={time} />
         <div className="flex-1 flex flex-col items-center justify-center px-8">
           <div className="text-center w-full max-w-md">
             <div
@@ -264,7 +281,7 @@ export default function KioskoClient({
   if (step === 'checkout') {
     return (
       <div className="h-screen flex flex-col bg-gray-50" style={{ fontFamily: 'Inter, system-ui, sans-serif' }}>
-        <AppHeader backLabel="Volver al carrito" onBack={() => setStep('cart')} />
+        <AppHeader primaryColor={primaryColor} appName={appName} logoUrl={logoUrl} time={time} backLabel="Volver al carrito" onBack={() => setStep('cart')} />
         <div className="flex-1 overflow-y-auto">
           <div className="max-w-lg mx-auto p-6">
             <h2 className="text-2xl font-black text-gray-900 mb-6">Finalizar pedido</h2>
@@ -364,7 +381,7 @@ export default function KioskoClient({
   if (step === 'cart') {
     return (
       <div className="h-screen flex flex-col bg-gray-50" style={{ fontFamily: 'Inter, system-ui, sans-serif' }}>
-        <AppHeader backLabel="Seguir pidiendo" onBack={() => setStep('menu')} />
+        <AppHeader primaryColor={primaryColor} appName={appName} logoUrl={logoUrl} time={time} backLabel="Seguir pidiendo" onBack={() => setStep('menu')} />
         <div className="flex-1 overflow-y-auto">
           <div className="max-w-lg mx-auto p-6 pb-40">
             <h2 className="text-2xl font-black text-gray-900 mb-5">Tu pedido</h2>
@@ -462,7 +479,7 @@ export default function KioskoClient({
         </div>
       )}
 
-      <AppHeader />
+      <AppHeader primaryColor={primaryColor} appName={appName} logoUrl={logoUrl} time={time} />
 
       {/* Body: sidebar + products */}
       <div className="flex flex-1 overflow-hidden">
