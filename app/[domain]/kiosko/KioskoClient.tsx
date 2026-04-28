@@ -87,6 +87,167 @@ function AppHeader({
   )
 }
 
+// ─── Horizontal Banner Carousel ──────────────────────────────────────────────
+function HorizontalBannerCarousel({
+  banners,
+  containerRef,
+}: {
+  banners: Banner[]
+  containerRef: React.RefObject<HTMLDivElement>
+}) {
+  const touchStartX = useRef(0)
+  const [bannerIdx, setBannerIdx] = useState(0)
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setBannerIdx(prev => (prev + 1) % (banners.length || 1))
+    }, 6000)
+    return () => clearInterval(interval)
+  }, [banners.length])
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    touchStartX.current = e.touches[0].clientX
+  }
+
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    const touchEndX = e.changedTouches[0].clientX
+    const diff = touchStartX.current - touchEndX
+    if (Math.abs(diff) > 50) {
+      if (diff > 0) {
+        setBannerIdx(prev => (prev + 1) % banners.length)
+      } else {
+        setBannerIdx(prev => (prev - 1 + banners.length) % banners.length)
+      }
+    }
+  }
+
+  if (banners.length === 0) return null
+
+  return (
+    <div
+      ref={containerRef}
+      className="bg-white border-b border-gray-200 p-4 overflow-x-auto flex gap-4"
+      onTouchStart={handleTouchStart}
+      onTouchEnd={handleTouchEnd}
+    >
+      {banners.map(banner => (
+        <a
+          key={banner.id}
+          href={banner.link_url || '#'}
+          target={banner.link_url ? '_blank' : undefined}
+          rel={banner.link_url ? 'noopener noreferrer' : undefined}
+          className="flex-shrink-0 rounded-lg overflow-hidden shadow-md hover:shadow-lg transition-shadow cursor-pointer"
+        >
+          <img
+            src={banner.image_url}
+            alt={banner.title}
+            className="h-32 object-cover"
+          />
+        </a>
+      ))}
+    </div>
+  )
+}
+
+// ─── Category Product Modal ───────────────────────────────────────────────────
+function CategoryProductModal({
+  category,
+  products,
+  banners,
+  currencySymbol,
+  primaryColor,
+  onClose,
+  onSelectItem,
+}: {
+  category: MenuCategory
+  products: MenuItem[]
+  banners: Banner[]
+  currencySymbol: string
+  primaryColor: string
+  onClose: () => void
+  onSelectItem: (item: MenuItem) => void
+}) {
+  const containerRef = useRef<HTMLDivElement>(null)
+
+  return (
+    <div
+      className="fixed inset-0 bg-black/40 flex items-center justify-center z-40 p-4"
+      onClick={onClose}
+    >
+      <div
+        className="bg-white rounded-3xl w-full max-w-2xl max-h-[90vh] overflow-hidden shadow-2xl flex flex-col"
+        onClick={e => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div
+          className="flex items-center gap-4 px-6 py-4 text-white flex-shrink-0"
+          style={{ backgroundColor: primaryColor }}
+        >
+          <button
+            onClick={onClose}
+            className="bg-white/20 rounded-full p-2 hover:bg-white/30 transition-colors"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M19 12H5"/><path d="M12 19l-7-7 7-7"/></svg>
+          </button>
+          <h2 className="text-xl font-black">{category.name}</h2>
+        </div>
+
+        {/* Content */}
+        <div className="flex-1 overflow-y-auto">
+          {/* Banners carousel */}
+          {banners.length > 0 && (
+            <HorizontalBannerCarousel banners={banners} containerRef={containerRef} />
+          )}
+
+          {/* Products grid */}
+          {products.length === 0 ? (
+            <div className="flex flex-col items-center justify-center h-64 text-gray-400 p-6">
+              <p className="text-6xl mb-4">🍽️</p>
+              <p className="text-lg font-medium">No hay productos en esta categoría</p>
+            </div>
+          ) : (
+            <div className="p-6">
+              <div className="grid grid-cols-3 gap-4">
+                {products.map(item => (
+                  <button
+                    key={item.id}
+                    onClick={() => onSelectItem(item)}
+                    className="bg-white rounded-2xl shadow-sm overflow-hidden text-left transition-all active:scale-95 hover:shadow-md flex flex-col group border border-gray-100"
+                  >
+                    <div className="relative overflow-hidden">
+                      {item.image_url ? (
+                        <img src={item.image_url} alt={item.name} className="w-full h-44 object-cover group-hover:scale-105 transition-transform duration-300" />
+                      ) : (
+                        <div className="w-full h-44 flex items-center justify-center text-6xl" style={{ backgroundColor: `${primaryColor}15` }}>
+                          🍽️
+                        </div>
+                      )}
+                    </div>
+                    <div className="p-4 flex flex-col flex-1">
+                      <p className="font-bold text-gray-900 text-sm leading-snug line-clamp-2 flex-1 mb-3">{item.name}</p>
+                      <div className="flex items-center justify-between">
+                        <p className="font-black text-lg" style={{ color: primaryColor }}>
+                          {fmt(item.price, currencySymbol)}
+                        </p>
+                        <div
+                          className="w-9 h-9 rounded-full flex items-center justify-center text-white font-black text-xl shadow-md transition-transform active:scale-90"
+                          style={{ backgroundColor: primaryColor }}
+                        >
+                          +
+                        </div>
+                      </div>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 export default function KioskoClient({
@@ -95,6 +256,7 @@ export default function KioskoClient({
 }: Props) {
   const [step, setStep] = useState<Step>(initialConfirmed ? 'confirmed' : 'menu')
   const [activeCategory, setActiveCategory] = useState<string | null>(categories[0]?.id ?? null)
+  const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false)
   const [cart, setCart] = useState<CartItem[]>([])
   const [selectedItem, setSelectedItem] = useState<MenuItem | null>(null)
   const [itemQty, setItemQty] = useState(1)
@@ -483,38 +645,17 @@ export default function KioskoClient({
 
       <AppHeader primaryColor={primaryColor} appName={appName} logoUrl={logoUrl} time={time} />
 
-      {/* Banners carousel */}
-      {banners.length > 0 && (
-        <div className="bg-white border-b border-gray-200 p-4 overflow-x-auto flex gap-4">
-          {banners.map(banner => (
-            <a
-              key={banner.id}
-              href={banner.link_url || '#'}
-              target={banner.link_url ? '_blank' : undefined}
-              rel={banner.link_url ? 'noopener noreferrer' : undefined}
-              className="flex-shrink-0 rounded-lg overflow-hidden shadow-md hover:shadow-lg transition-shadow cursor-pointer"
-            >
-              <img
-                src={banner.image_url}
-                alt={banner.title}
-                className="h-32 object-cover"
-              />
-            </a>
-          ))}
-        </div>
-      )}
-
-      {/* Body: sidebar + products */}
+      {/* Body: sidebar only (products in modal) */}
       <div className="flex flex-1 overflow-hidden">
 
         {/* ── Category sidebar ── */}
         <aside className="w-56 bg-white border-r border-gray-200 overflow-y-auto flex-shrink-0">
-          {[{ id: null, name: 'Todo' }, ...categories].map(cat => {
+          {categories.map(cat => {
             const isActive = activeCategory === cat.id
             return (
               <button
-                key={cat.id ?? '__all__'}
-                onClick={() => setActiveCategory(cat.id)}
+                key={cat.id}
+                onClick={() => { setActiveCategory(cat.id); setIsCategoryModalOpen(true) }}
                 className="w-full text-left px-5 py-5 font-bold text-sm border-b border-gray-100 transition-all"
                 style={isActive
                   ? { backgroundColor: primaryColor, color: '#fff', borderLeftWidth: 4, borderLeftColor: '#fff' }
@@ -527,56 +668,11 @@ export default function KioskoClient({
           })}
         </aside>
 
-        {/* ── Products grid ── */}
-        <div className="flex-1 overflow-y-auto p-5 pb-32">
-          {visibleItems.length === 0 ? (
-            <div className="flex flex-col items-center justify-center h-full text-gray-400">
-              <p className="text-6xl mb-4">🍽️</p>
-              <p className="text-lg font-medium">No hay productos en esta categoría</p>
-            </div>
-          ) : (
-            <div className="grid grid-cols-3 gap-4">
-              {visibleItems.map(item => {
-                const qty = getQtyInCart(item.id)
-                return (
-                  <button
-                    key={item.id}
-                    onClick={() => { setSelectedItem(item); setItemQty(1) }}
-                    className="bg-white rounded-2xl shadow-sm overflow-hidden text-left transition-all active:scale-95 hover:shadow-md flex flex-col group"
-                  >
-                    <div className="relative overflow-hidden">
-                      {item.image_url ? (
-                        <img src={item.image_url} alt={item.name} className="w-full h-44 object-cover group-hover:scale-105 transition-transform duration-300" />
-                      ) : (
-                        <div className="w-full h-44 flex items-center justify-center text-6xl" style={{ backgroundColor: `${primaryColor}15` }}>
-                          🍽️
-                        </div>
-                      )}
-                      {qty > 0 && (
-                        <div className="absolute top-2 right-2 text-white text-xs font-black px-2.5 py-1 rounded-full shadow-lg" style={{ backgroundColor: primaryColor }}>
-                          ×{qty}
-                        </div>
-                      )}
-                    </div>
-                    <div className="p-4 flex flex-col flex-1">
-                      <p className="font-bold text-gray-900 text-sm leading-snug line-clamp-2 flex-1 mb-3">{item.name}</p>
-                      <div className="flex items-center justify-between">
-                        <p className="font-black text-lg" style={{ color: primaryColor }}>
-                          {fmt(item.price, currencySymbol)}
-                        </p>
-                        <div
-                          className="w-9 h-9 rounded-full flex items-center justify-center text-white font-black text-xl shadow-md transition-transform active:scale-90"
-                          style={{ backgroundColor: primaryColor }}
-                        >
-                          +
-                        </div>
-                      </div>
-                    </div>
-                  </button>
-                )
-              })}
-            </div>
-          )}
+        {/* ── Main area: click category to view products ── */}
+        <div className="flex-1 flex flex-col items-center justify-center text-gray-400 p-8">
+          <p className="text-8xl mb-8">👈</p>
+          <p className="text-2xl font-bold text-gray-800 mb-3">Selecciona una categoría</p>
+          <p className="text-gray-500 text-center max-w-sm">Haz clic en una categoría de la izquierda para ver los productos disponibles</p>
         </div>
       </div>
 
@@ -595,6 +691,19 @@ export default function KioskoClient({
             <span>{fmt(grandTotal, currencySymbol)}</span>
           </button>
         </div>
+      )}
+
+      {/* ── Category modal ── */}
+      {isCategoryModalOpen && activeCategory && (
+        <CategoryProductModal
+          category={categories.find(c => c.id === activeCategory)!}
+          products={visibleItems}
+          banners={banners}
+          currencySymbol={currencySymbol}
+          primaryColor={primaryColor}
+          onClose={() => setIsCategoryModalOpen(false)}
+          onSelectItem={item => { setSelectedItem(item); setItemQty(1) }}
+        />
       )}
 
       {/* ── Item modal ── */}
