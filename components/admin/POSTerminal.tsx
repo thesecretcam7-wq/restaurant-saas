@@ -548,6 +548,7 @@ export function POSTerminal({ tenantId, country = 'CO' }: { tenantId: string; co
       setPosMode('simple');
       setDiscount(0);
       setDiscountCode('');
+      setTip(0);
 
       // Hide Find & Pay and Incoming panels, show cart
       setShowFindPayPanel(false);
