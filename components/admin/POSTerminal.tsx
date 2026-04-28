@@ -549,8 +549,10 @@ export function POSTerminal({ tenantId, country = 'CO' }: { tenantId: string; co
       setDiscount(0);
       setDiscountCode('');
 
-      // Hide Find & Pay panel and show cart
+      // Hide Find & Pay and Incoming panels, show cart
       setShowFindPayPanel(false);
+      setShowIncomingPanel(false);
+      setShowCartDrawer(true);
 
       setToast({
         message: `Pedido ${order.order_number} cargado - Procede al pago`,
@@ -1680,6 +1682,15 @@ export function POSTerminal({ tenantId, country = 'CO' }: { tenantId: string; co
           {/* Incoming Orders Panel */}
           {showIncomingPanel && (
             <div className="flex-1 flex flex-col overflow-hidden">
+              <div className="p-2 border-b border-gray-800 shrink-0">
+                <button
+                  onClick={() => setShowFindPayPanel(true)}
+                  className="w-full bg-blue-600 hover:bg-blue-700 text-white rounded-lg px-3 py-2 font-semibold text-xs transition-all flex items-center justify-center gap-2"
+                >
+                  <Search className="w-4 h-4" />
+                  Buscar pedido
+                </button>
+              </div>
               {incomingOrders.length === 0 ? (
                 <div className="flex-1 flex items-center justify-center text-muted-foreground">
                   <div className="text-center">
