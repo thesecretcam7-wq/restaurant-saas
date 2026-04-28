@@ -433,7 +433,6 @@ export default function KioskoClient({
                   onChange={e => setCustomerName(e.target.value)}
                   placeholder="¿Cómo te llamamos?"
                   className="w-full border-2 border-gray-200 rounded-xl px-5 py-4 text-gray-900 text-lg placeholder-gray-400 focus:outline-none transition-all focus:border-2"
-                  style={{ focusBorderColor: primaryColor }}
                   onFocus={(e) => {
                     if (customerName) e.currentTarget.style.borderColor = primaryColor
                   }}
