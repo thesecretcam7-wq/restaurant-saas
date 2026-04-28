@@ -25,6 +25,6 @@ CREATE POLICY "Kiosko banners are public" ON kiosko_banners
 CREATE POLICY "Tenant owner can manage banners" ON kiosko_banners
   FOR ALL USING (
     auth.uid() IN (
-      SELECT user_id FROM tenants WHERE id = kiosko_banners.tenant_id
+      SELECT owner_id FROM tenants WHERE id = kiosko_banners.tenant_id
     )
   );
