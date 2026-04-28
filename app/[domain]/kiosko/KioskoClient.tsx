@@ -93,7 +93,7 @@ function HorizontalBannerCarousel({
   containerRef,
 }: {
   banners: Banner[]
-  containerRef: React.RefObject<HTMLDivElement>
+  containerRef: React.RefObject<HTMLDivElement | null>
 }) {
   const touchStartX = useRef(0)
   const [bannerIdx, setBannerIdx] = useState(0)
