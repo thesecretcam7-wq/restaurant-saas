@@ -78,22 +78,23 @@ export function ReceiptPreview({
       doc.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><style>
         @page{size:80mm auto;margin:0}
         *{margin:0;padding:0;box-sizing:border-box}
-        body{font-family:'Courier New',Courier,monospace;font-size:12px;width:80mm;color:#000;padding:2mm}
+        body{font-family:'Courier New',Courier,monospace;font-size:18px;width:80mm;color:#000;padding:2mm}
         .flex{display:flex}.justify-between{justify-content:space-between}
         .text-center{text-align:center}.text-right{text-align:right}
         .font-bold{font-weight:bold}.flex-1{flex:1}
         .border-b{border-bottom:1px solid #000}.border-t{border-top:1px solid #000}
         .border-gray-300{border-color:#ccc}
-        .py-2{padding:8px 0}.px-2{padding:0 8px}
-        .mb-1{margin-bottom:4px}.mt-2{margin-top:8px}
-        .pt-1{padding-top:4px}.pb-1{padding-bottom:4px}
+        .py-4{padding:16px 0}.px-4{padding:0 16px}
+        .mb-3{margin-bottom:12px}.mt-3{margin-top:12px}
+        .pt-2{padding-top:8px}.pb-2{padding-bottom:8px}
         .w-8{width:32px}.w-12{width:48px}.w-16{width:64px}.w-80{width:100%}
-        .text-xs{font-size:11px}.text-sm{font-size:13px}
+        .text-base{font-size:16px}.text-lg{font-size:18px}.text-xl{font-size:20px}.text-2xl{font-size:24px}
+        .text-xs{font-size:16px}.text-sm{font-size:18px}
         .truncate{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
         .italic{font-style:italic}
         .text-gray-600{color:#555}.text-green-600{color:#166534}
         .text-yellow-600{color:#b45309}
-        img{max-height:48px;display:block;margin:0 auto 8px}
+        img{max-height:64px;display:block;margin:0 auto 8px}
         .p-0{padding:0}
       </style></head><body>${receiptEl.innerHTML}</body></html>`);
       doc.close();
