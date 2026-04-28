@@ -215,20 +215,33 @@ const ORDER_STATUS_BADGE: Record<string, { label: string; cls: string }> = {
 function IncomingOrderCard({
   order,
   onUpdateStatus,
+  onLoadForPayment,
 }: {
   order: IncomingOrder;
   onUpdateStatus: (orderId: string, status: string) => Promise<void>;
+  onLoadForPayment?: (order: IncomingOrder) => Promise<void>;
 }) {
   const minutes = useElapsedMinutes(order.created_at);
   const isDelivery = order.delivery_type === 'delivery';
   const statusBadge = ORDER_STATUS_BADGE[order.status] ?? ORDER_STATUS_BADGE.pending;
   const isDone = order.status === 'delivered';
   const [updating, setUpdating] = useState(false);
+  const [loading, setLoading] = useState(false);
 
   async function handleAction(newStatus: string) {
     setUpdating(true);
     await onUpdateStatus(order.id, newStatus);
     setUpdating(false);
+  }
+
+  async function handleLoadForPayment() {
+    if (!onLoadForPayment) return;
+    setLoading(true);
+    try {
+      await onLoadForPayment(order);
+    } finally {
+      setLoading(false);
+    }
   }
 
   // Determine action button based on status + type
@@ -240,6 +253,8 @@ function IncomingOrderCard({
   } else if (!isDelivery && order.status === 'ready') {
     actionBtn = { label: '✅ Recogido', status: 'delivered', cls: 'bg-green-600 hover:bg-green-700' };
   }
+
+  const showPaymentButton = order.status === 'pending';
 
   return (
     <div className={`border-2 rounded-lg p-3 flex flex-col gap-2 transition-all ${isDone ? 'border-gray-700 opacity-60' : getUrgencyBorder(minutes)} bg-card text-xs`}>
@@ -296,6 +311,16 @@ function IncomingOrderCard({
         </a>
         <span className="font-bold text-green-400">${order.total.toFixed(2)}</span>
       </div>
+
+      {showPaymentButton && (
+        <button
+          onClick={handleLoadForPayment}
+          disabled={loading}
+          className="w-full py-2 rounded-lg bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white font-bold text-xs transition-all active:scale-95"
+        >
+          {loading ? '...' : '💳 Cargar para cobrar'}
+        </button>
+      )}
 
       {actionBtn && (
         <button
@@ -1684,6 +1709,7 @@ export function POSTerminal({ tenantId, country = 'CO' }: { tenantId: string; co
                         });
                         await fetchIncomingOrders();
                       }}
+                      onLoadForPayment={handleOrderSelected}
                     />
                   ))}
                 </div>
