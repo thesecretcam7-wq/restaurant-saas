@@ -200,6 +200,14 @@ export default function KioskoClient({
     }
   }
 
+  // ── Clock display (memoized to prevent header flickering) ─────────────────────
+  const Clock = React.memo(({ time }: { time: Date | null }) => (
+    <p className="text-2xl font-mono font-bold tabular-nums drop-shadow-lg">
+      {time?.toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' }) ?? '--:--'}
+    </p>
+  ))
+  Clock.displayName = 'Clock'
+
   // ── Shared header ───────────────────────────────────────────────────────────
   const AppHeader = ({ backLabel, onBack }: { backLabel?: string; onBack?: () => void }) => (
     <motion.header
@@ -238,9 +246,7 @@ export default function KioskoClient({
         </motion.div>
       </div>
       <motion.div className="text-right" initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.1 }}>
-        <p className="text-2xl font-mono font-bold tabular-nums drop-shadow-lg">
-          {time?.toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' }) ?? '--:--'}
-        </p>
+        <Clock time={time} />
         <p className="text-xs opacity-75 font-semibold capitalize">
           {time?.toLocaleDateString('es-CO', { weekday: 'short', day: 'numeric', month: 'short' }) ?? ''}
         </p>
