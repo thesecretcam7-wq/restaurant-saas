@@ -50,14 +50,14 @@
 
 :root {
   /* Eccofood Brand Colors - Energy & Appetite Stimulation - ULTRA VIBRANT */
-  /* Store Primary: Pure Red (Stimulates Appetite & Urgency) */
-  --primary: #FF0000;
-  --primary-dark: #E60000;
-  --primary-light: #FF6666;
-  --primary-50: #FFF0F0;
-  --primary-100: #FFD9D9;
-  --primary-200: #FFAAAA;
-  --primary-600: #FF0000;
+  /* Store Primary: KFC Red - Super Intense (Stimulates Appetite & Urgency) */
+  --primary: #E4002B;
+  --primary-dark: #CC0026;
+  --primary-light: #FF4466;
+  --primary-50: #FFF0F3;
+  --primary-100: #FFD9E0;
+  --primary-200: #FFAABC;
+  --primary-600: #E4002B;
 
   /* Admin Color System - Section Accents */
   /* Secondary: Vivid Orange (Stimulates Senses & Joy) */
