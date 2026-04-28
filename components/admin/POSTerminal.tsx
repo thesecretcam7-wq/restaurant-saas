@@ -534,16 +534,9 @@ export function POSTerminal({ tenantId, country = 'CO' }: { tenantId: string; co
 
   async function handleOrderSelected(order: any) {
     try {
-      // Load order into cart
-      const success = await loadOrderToCart(tenantId, order.id, order, supabase);
-      if (!success) {
-        setToast({ message: 'Error al cargar el pedido', type: 'error' });
-        return;
-      }
-
       // Convert order items to cart items
-      const cartItems = (order.items || []).map((item: any) => ({
-        menu_item_id: item.id || `item-${Date.now()}`,
+      const cartItems = (order.items || []).map((item: any, index: number) => ({
+        menu_item_id: item.id || `order-item-${order.id}-${index}`,
         name: item.name,
         price: item.price,
         quantity: item.qty || item.quantity || 1,
