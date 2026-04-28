@@ -10,6 +10,7 @@ interface MenuItem {
   price: number; image_url: string | null; available: boolean
   category_id: string | null; featured: boolean
 }
+interface Banner { id: string; title: string; image_url: string; link_url: string | null; sort_order: number }
 interface CartItem { menu_item_id: string; name: string; price: number; qty: number }
 type Step = 'menu' | 'cart' | 'checkout' | 'confirmed'
 
@@ -19,6 +20,7 @@ interface Props {
   branding: { appName: string; primaryColor: string; logoUrl: string | null }
   categories: MenuCategory[]
   menuItems: MenuItem[]
+  banners: Banner[]
   taxRate: number
   currencySymbol: string
   stripeEnabled: boolean
@@ -88,7 +90,7 @@ function AppHeader({
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 export default function KioskoClient({
-  tenantId, domain, branding, categories, menuItems,
+  tenantId, domain, branding, categories, menuItems, banners,
   taxRate, currencySymbol, stripeEnabled, initialConfirmed,
 }: Props) {
   const [step, setStep] = useState<Step>(initialConfirmed ? 'confirmed' : 'menu')
