@@ -3,6 +3,8 @@ import { Geist } from "next/font/google";
 import "./globals.css";
 import PWARegister from "@/components/PWARegister";
 
+// EccoFood - Restaurant SaaS Platform
+
 const geistSans = Geist({
   variable: "--font-geist-sans",
   subsets: ["latin"],

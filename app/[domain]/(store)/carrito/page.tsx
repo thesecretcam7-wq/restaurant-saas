@@ -15,7 +15,7 @@ export default function CarritoPage({ params }: Props) {
     return (
       <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white flex flex-col items-center justify-center gap-6 p-6">
         <div className="w-28 h-28 rounded-2xl bg-gradient-to-br from-blue-50 to-blue-100 flex items-center justify-center shadow-sm">
-          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#4F46E5" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#E4002B" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
             <path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/>
             <line x1="3" y1="6" x2="21" y2="6"/>
             <path d="M16 10a4 4 0 0 1-8 0"/>
@@ -28,7 +28,7 @@ export default function CarritoPage({ params }: Props) {
         <Link
           href={`/${tenantSlug}/menu`}
           className="px-8 py-3.5 rounded-xl text-white font-bold text-sm shadow-lg hover:shadow-xl active:scale-95 transition-all"
-          style={{ backgroundColor: '#4F46E5' }}
+          style={{ backgroundColor: '#E4002B' }}
         >
           Explorar menú
         </Link>

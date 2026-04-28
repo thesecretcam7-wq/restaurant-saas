@@ -22,9 +22,11 @@ export default function NuevaCategoriaPage({ params }: Props) {
   const { domain: slug } = use(params)
   const [tenantId, setTenantId] = useState<string | null>(null)
   const router = useRouter()
-  const [form, setForm] = useState({ name: '', description: '', sort_order: '0' })
+  const [form, setForm] = useState({ name: '', description: '', sort_order: '0', image_url: '' })
   const [loading, setLoading] = useState(false)
+  const [uploading, setUploading] = useState(false)
   const [error, setError] = useState('')
+  const [preview, setPreview] = useState<string>('')
 
   useEffect(() => {
     const initializeTenantId = async () => {
@@ -33,6 +35,28 @@ export default function NuevaCategoriaPage({ params }: Props) {
     }
     initializeTenantId()
   }, [slug])
+
+  const handleImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    setUploading(true)
+    const formData = new FormData()
+    formData.append('file', file)
+    formData.append('bucket', 'images')
+
+    try {
+      const res = await fetch('/api/upload', { method: 'POST', body: formData })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error)
+      setForm(f => ({ ...f, image_url: data.url }))
+      setPreview(data.url)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Error al subir imagen')
+    } finally {
+      setUploading(false)
+    }
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -46,6 +70,7 @@ export default function NuevaCategoriaPage({ params }: Props) {
       name: form.name.trim(),
       description: form.description.trim() || null,
       sort_order: parseInt(form.sort_order) || 0,
+      image_url: form.image_url || null,
       active: true,
     })
     setLoading(false)
@@ -99,6 +124,30 @@ export default function NuevaCategoriaPage({ params }: Props) {
             className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
           <p className="text-xs text-gray-400 mt-1">0 = primera posición</p>
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">Imagen de categoría</label>
+          {preview && (
+            <div className="mb-3 relative">
+              <img src={preview} alt="preview" className="w-full h-40 object-cover rounded-lg" />
+              <button
+                type="button"
+                onClick={() => { setForm(f => ({ ...f, image_url: '' })); setPreview('') }}
+                className="absolute top-2 right-2 bg-red-600 text-white px-2 py-1 rounded text-xs hover:bg-red-700"
+              >
+                Eliminar
+              </button>
+            </div>
+          )}
+          <input
+            type="file"
+            accept="image/*"
+            onChange={handleImageChange}
+            disabled={uploading}
+            className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
+          />
+          <p className="text-xs text-gray-400 mt-1">PNG, JPG, GIF (máx 5MB)</p>
         </div>
 
         <div className="flex gap-3 pt-2">

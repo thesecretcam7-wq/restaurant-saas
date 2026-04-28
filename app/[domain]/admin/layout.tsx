@@ -93,6 +93,7 @@ export default async function AdminLayout({ children, params }: AdminLayoutProps
     { href: `/${tenantSlug}/pantalla`, label: 'Pantalla de Pedidos', icon: '📺' },
     { href: `/${tenantSlug}/kiosko`, label: 'Kiosko', icon: '🖥️' },
     { href: `/${tenantSlug}/admin/productos`, label: 'Productos', icon: '🍽️' },
+    { href: `/${tenantSlug}/admin/banners`, label: 'Banners Kiosko', icon: '📢' },
     { href: `/${tenantSlug}/admin/reservas`, label: 'Reservas', icon: '📅' },
     { href: `/${tenantSlug}/admin/clientes`, label: 'Clientes', icon: '👥' },
     { href: `/${tenantSlug}/admin/ventas`, label: 'Ventas', icon: '📈' },

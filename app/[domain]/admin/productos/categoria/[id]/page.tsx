@@ -13,11 +13,13 @@ export default function EditarCategoriaPage({ params }: Props) {
   const supabase = createClient()
 
   const [tenantId, setTenantId] = useState<string | null>(null)
-  const [form, setForm] = useState({ name: '', description: '', sort_order: '0', active: true })
+  const [form, setForm] = useState({ name: '', description: '', sort_order: '0', active: true, image_url: '' })
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
+  const [uploading, setUploading] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [error, setError] = useState('')
+  const [preview, setPreview] = useState<string>('')
 
   useEffect(() => {
     async function load() {
@@ -37,12 +39,36 @@ export default function EditarCategoriaPage({ params }: Props) {
           description: cat.description || '',
           sort_order: String(cat.sort_order ?? 0),
           active: cat.active ?? true,
+          image_url: cat.image_url || '',
         })
+        if (cat.image_url) setPreview(cat.image_url)
       }
       setLoading(false)
     }
     load()
   }, [slug, categoryId])
+
+  async function handleImageChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    setUploading(true)
+    const formData = new FormData()
+    formData.append('file', file)
+    formData.append('bucket', 'images')
+
+    try {
+      const res = await fetch('/api/upload', { method: 'POST', body: formData })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error)
+      setForm(f => ({ ...f, image_url: data.url }))
+      setPreview(data.url)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Error al subir imagen')
+    } finally {
+      setUploading(false)
+    }
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -55,6 +81,7 @@ export default function EditarCategoriaPage({ params }: Props) {
         name: form.name.trim(),
         description: form.description.trim() || null,
         sort_order: parseInt(form.sort_order) || 0,
+        image_url: form.image_url || null,
         active: form.active,
       })
       .eq('id', categoryId)
@@ -113,6 +140,30 @@ export default function EditarCategoriaPage({ params }: Props) {
             className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
           <p className="text-xs text-gray-400 mt-1">0 = primera posición</p>
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">Imagen de categoría</label>
+          {preview && (
+            <div className="mb-3 relative">
+              <img src={preview} alt="preview" className="w-full h-40 object-cover rounded-lg" />
+              <button
+                type="button"
+                onClick={() => { setForm(f => ({ ...f, image_url: '' })); setPreview('') }}
+                className="absolute top-2 right-2 bg-red-600 text-white px-2 py-1 rounded text-xs hover:bg-red-700"
+              >
+                Eliminar
+              </button>
+            </div>
+          )}
+          <input
+            type="file"
+            accept="image/*"
+            onChange={handleImageChange}
+            disabled={uploading}
+            className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
+          />
+          <p className="text-xs text-gray-400 mt-1">PNG, JPG, GIF (máx 5MB)</p>
         </div>
 
         <label className="flex items-center justify-between cursor-pointer py-1">

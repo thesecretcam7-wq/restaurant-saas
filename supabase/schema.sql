@@ -140,6 +140,19 @@ CREATE TABLE product_toppings (
   updated_at TIMESTAMPTZ DEFAULT now()
 );
 
+-- 5.6 KIOSKO BANNERS TABLE
+CREATE TABLE kiosko_banners (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+  title TEXT NOT NULL,
+  image_url TEXT NOT NULL,
+  link_url TEXT,
+  sort_order INT DEFAULT 0,
+  active BOOLEAN DEFAULT true,
+  created_at TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now()
+);
+
 -- 6. ORDERS TABLE
 CREATE TABLE orders (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -230,6 +243,8 @@ CREATE INDEX idx_menu_items_tenant ON menu_items(tenant_id);
 CREATE INDEX idx_menu_items_category ON menu_items(category_id);
 CREATE INDEX idx_product_toppings_tenant ON product_toppings(tenant_id);
 CREATE INDEX idx_product_toppings_item ON product_toppings(menu_item_id);
+CREATE INDEX idx_kiosko_banners_tenant ON kiosko_banners(tenant_id);
+CREATE INDEX idx_kiosko_banners_active ON kiosko_banners(active);
 CREATE INDEX idx_orders_tenant ON orders(tenant_id);
 CREATE INDEX idx_orders_status ON orders(status);
 CREATE INDEX idx_orders_created ON orders(created_at);
@@ -246,6 +261,7 @@ ALTER TABLE restaurant_settings ENABLE ROW LEVEL SECURITY;
 ALTER TABLE menu_categories ENABLE ROW LEVEL SECURITY;
 ALTER TABLE menu_items ENABLE ROW LEVEL SECURITY;
 ALTER TABLE product_toppings ENABLE ROW LEVEL SECURITY;
+ALTER TABLE kiosko_banners ENABLE ROW LEVEL SECURITY;
 ALTER TABLE orders ENABLE ROW LEVEL SECURITY;
 ALTER TABLE reservations ENABLE ROW LEVEL SECURITY;
 ALTER TABLE tables ENABLE ROW LEVEL SECURITY;
@@ -336,6 +352,18 @@ CREATE POLICY "Product toppings are public" ON product_toppings
   FOR SELECT USING (true);
 
 CREATE POLICY "Tenant owner can manage toppings" ON product_toppings
+  FOR ALL USING (
+    tenant_id IN (SELECT id FROM tenants WHERE owner_id = auth.uid())
+  )
+  WITH CHECK (
+    tenant_id IN (SELECT id FROM tenants WHERE owner_id = auth.uid())
+  );
+
+-- RLS Policy: Kiosko Banners - Public read, owner write
+CREATE POLICY "Kiosko banners are public" ON kiosko_banners
+  FOR SELECT USING (true);
+
+CREATE POLICY "Tenant owner can manage banners" ON kiosko_banners
   FOR ALL USING (
     tenant_id IN (SELECT id FROM tenants WHERE owner_id = auth.uid())
   )

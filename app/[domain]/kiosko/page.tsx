@@ -26,7 +26,7 @@ export default async function KioskoPage({ params, searchParams }: Props) {
     )
   }
 
-  const [brandingRes, categoriesRes, itemsRes, settingsRes] = await Promise.all([
+  const [brandingRes, categoriesRes, itemsRes, settingsRes, bannersRes] = await Promise.all([
     supabase
       .from('tenant_branding')
       .select('app_name, primary_color, logo_url: favicon_url')
@@ -34,7 +34,7 @@ export default async function KioskoPage({ params, searchParams }: Props) {
       .maybeSingle(),
     supabase
       .from('menu_categories')
-      .select('id, name, sort_order')
+      .select('id, name, sort_order, image_url')
       .eq('tenant_id', tenant.id)
       .eq('active', true)
       .order('sort_order'),
@@ -49,11 +49,17 @@ export default async function KioskoPage({ params, searchParams }: Props) {
       .select('tax_rate, currency_symbol')
       .eq('tenant_id', tenant.id)
       .maybeSingle(),
+    supabase
+      .from('kiosko_banners')
+      .select('*')
+      .eq('tenant_id', tenant.id)
+      .eq('active', true)
+      .order('sort_order'),
   ])
 
   const branding = {
     appName: brandingRes.data?.app_name || tenant.organization_name,
-    primaryColor: brandingRes.data?.primary_color || '#f97316',
+    primaryColor: '#E4002B', // EccoFood red - always use brand colors for kiosko
     logoUrl: (brandingRes.data as any)?.logo_url || null,
   }
 
@@ -69,6 +75,7 @@ export default async function KioskoPage({ params, searchParams }: Props) {
       branding={branding}
       categories={categoriesRes.data || []}
       menuItems={itemsRes.data || []}
+      banners={bannersRes.data || []}
       taxRate={settingsRes.data?.tax_rate || 0}
       currencySymbol={settingsRes.data?.currency_symbol || '$'}
       stripeEnabled={!!tenant.stripe_account_id}

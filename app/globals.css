@@ -49,41 +49,41 @@
 }
 
 :root {
-  /* Eccofood Brand Colors - Professional & Sophisticated */
-  /* Store Primary: Indigo (Modern & Professional) */
-  --primary: #4F46E5;
-  --primary-dark: #4338CA;
-  --primary-light: #E0E7FF;
-  --primary-50: #F0F4FF;
-  --primary-100: #E0E7FF;
-  --primary-200: #C7D2FE;
-  --primary-600: #4F46E5;
+  /* Eccofood Brand Colors - Energy & Appetite Stimulation - ULTRA VIBRANT */
+  /* Store Primary: KFC Red - Super Intense (Stimulates Appetite & Urgency) */
+  --primary: #E4002B;
+  --primary-dark: #CC0026;
+  --primary-light: #FF4466;
+  --primary-50: #FFF0F3;
+  --primary-100: #FFD9E0;
+  --primary-200: #FFAABC;
+  --primary-600: #E4002B;
 
   /* Admin Color System - Section Accents */
-  /* Secondary: Emerald (Products/Inventory) */
-  --secondary: #059669;
-  --secondary-dark: #047857;
-  --secondary-light: #D1FAE5;
-  --secondary-50: #F0FDF4;
-  --secondary-100: #DCFCE7;
-  --secondary-200: #BBF7D0;
+  /* Secondary: Vivid Orange (Stimulates Senses & Joy) */
+  --secondary: #FF5500;
+  --secondary-dark: #FF4500;
+  --secondary-light: #FFAA55;
+  --secondary-50: #FFF7F3;
+  --secondary-100: #FFE6D9;
+  --secondary-200: #FFCCAA;
 
-  /* Accent: Amber (Orders/Highlights) */
-  --accent: #D97706;
-  --accent-dark: #B45309;
-  --accent-light: #FED7AA;
-  --accent-50: #FFFBEB;
-  --accent-100: #FEF3C7;
+  /* Accent: Bright Yellow (Energy & Happiness) */
+  --accent: #FFD700;
+  --accent-dark: #FFC300;
+  --accent-light: #FFEB99;
+  --accent-50: #FFFEF0;
+  --accent-100: #FFF5CC;
 
   /* Admin Section Colors */
-  --color-orders: #D97706;
-  --color-products: #059669;
-  --color-customers: #4F46E5;
-  --color-reservations: #7C3AED;
-  --color-inventory: #0891B2;
-  --color-payments: #16A34A;
-  --color-dashboard: #475569;
-  --color-settings: #374151;
+  --color-orders: #FF6B35;
+  --color-products: #E63946;
+  --color-customers: #FFD60A;
+  --color-reservations: #FF8C42;
+  --color-inventory: #FF6B35;
+  --color-payments: #E63946;
+  --color-dashboard: #FF6B35;
+  --color-settings: #FFD60A;
 
   /* Semantic Colors */
   --success: #16A34A;
@@ -425,6 +425,30 @@
   -webkit-backdrop-filter: blur(16px);
 }
 
+/* ─── Color Override System for Admin Pages ─── */
+/* Map Tailwind hardcoded colors to EccoFood brand colors */
+
+/* Blue → Primary Red */
+.bg-blue-50 { @apply bg-red-50; }
+.bg-blue-100 { @apply bg-red-100; }
+.bg-blue-500 { @apply bg-red-500; }
+.bg-blue-600 { @apply bg-red-600; }
+.text-blue-500 { @apply text-red-500; }
+.text-blue-600 { @apply text-red-600; }
+.text-blue-700 { @apply text-red-700; }
+.border-blue-200 { @apply border-red-200; }
+.border-blue-300 { @apply border-red-300; }
+.border-blue-500 { @apply border-red-500; }
+
+/* Yellow → Secondary Orange */
+.bg-yellow-50 { @apply bg-orange-50; }
+.bg-yellow-100 { @apply bg-orange-100; }
+.bg-yellow-500 { @apply bg-orange-500; }
+.text-yellow-700 { @apply text-orange-700; }
+.border-yellow-200 { @apply border-orange-200; }
+
+/* Green stays green (for success states) */
+
 /* POS Fullscreen mode - hide admin panel and optimize layout */
 html[data-pos-fullscreen="true"] {
   overflow: hidden !important;
@@ -449,38 +473,38 @@ html[data-pos-fullscreen="true"] main {
 
 /* ─── Eccofood Brand Utilities ─── */
 .eccofood-gradient {
-  background: linear-gradient(135deg, #0066FF 0%, #0052CC 100%);
+  background: linear-gradient(135deg, #E63946 0%, #FF6B35 100%);
 }
 
 .eccofood-gradient-hero {
-  background: linear-gradient(135deg, #0066FF 0%, #0052CC 50%, #1e3a8a 100%);
+  background: linear-gradient(135deg, #E63946 0%, #FF6B35 50%, #FFD60A 100%);
 }
 
 .eccofood-card {
   background: linear-gradient(to br, rgba(255,255,255,0.95), rgba(255,255,255,0.9));
-  border: 1px solid rgba(0,102,255,0.1);
+  border: 1px solid rgba(230,57,70,0.1);
   backdrop-filter: blur(10px);
 }
 
 .eccofood-button {
-  background: linear-gradient(135deg, #0066FF 0%, #0052CC 100%);
+  background: linear-gradient(135deg, #E63946 0%, #FF6B35 100%);
   transition: all 0.3s ease;
 }
 
 .eccofood-button:hover {
-  box-shadow: 0 8px 24px rgba(0,102,255,0.3);
+  box-shadow: 0 8px 24px rgba(230,57,70,0.4);
   transform: translateY(-2px);
 }
 
 .eccofood-text-primary {
-  color: #0066FF;
+  color: #E63946;
 }
 
 .eccofood-text-success {
-  color: #10B981;
+  color: #FF6B35;
 }
 
 .eccofood-header {
-  background: linear-gradient(90deg, rgba(0,102,255,0.05), rgba(16,185,129,0.05));
-  border-bottom: 2px solid rgba(0,102,255,0.1);
+  background: linear-gradient(90deg, rgba(230,57,70,0.05), rgba(255,107,53,0.05));
+  border-bottom: 2px solid rgba(230,57,70,0.1);
 }
