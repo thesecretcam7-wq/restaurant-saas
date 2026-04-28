@@ -3,7 +3,6 @@ import { getTenantIdFromSlug } from '@/lib/tenant'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import type { Order, OrderItem } from '@/lib/types'
-import OrderStatusActions from './OrderStatusActions'
 
 interface PedidoDetailProps {
   params: Promise<{ domain: string; id: string }>
@@ -44,7 +43,6 @@ export default async function PedidoDetailPage({ params }: PedidoDetailProps) {
   if (!order) notFound()
 
   const statusInfo = STATUS_LABELS[order.status] || { label: order.status, color: 'bg-gray-100 text-gray-600' }
-  const nextStatus = STATUS_FLOW[order.status]
 
   return (
     <div className="max-w-2xl">
@@ -124,14 +122,14 @@ export default async function PedidoDetailPage({ params }: PedidoDetailProps) {
         </div>
       </div>
 
-      {/* Status actions */}
-      <OrderStatusActions
-        orderId={order.id}
-        tenantId={tenantId}
-        currentStatus={order.status}
-        nextStatus={nextStatus}
-        paymentMethod={order.payment_method}
-      />
+      {/* Info Banner */}
+      <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 flex items-start gap-3">
+        <span className="text-2xl">💡</span>
+        <div>
+          <p className="font-semibold text-blue-900">Cambios gestionados desde el TPV</p>
+          <p className="text-sm text-blue-700 mt-1">Los pedidos se confirman y cambian de estado a través del TPV y el KDS en cocina. Esta página es solo para visualizar el historial.</p>
+        </div>
+      </div>
     </div>
   )
 }
