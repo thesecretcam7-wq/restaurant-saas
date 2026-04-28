@@ -135,6 +135,7 @@ export interface Order {
   table_number: number | null;
   waiter_name: string | null;
   notes: string | null;
+  display_number: number | null;
   created_at: string;
   updated_at: string;
 }

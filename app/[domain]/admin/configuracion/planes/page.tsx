@@ -52,7 +52,7 @@ export default function PlanesPage({ params }: Props) {
   const [plans, setPlans] = useState<SubscriptionPlan[]>([])
   const [currentPlan, setCurrentPlan] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
-  const [processing, setProcessing] = useState(false)
+  const [processingPlan, setProcessingPlan] = useState<string | null>(null)
 
   useEffect(() => {
     const fetchData = async () => {
@@ -71,7 +71,7 @@ export default function PlanesPage({ params }: Props) {
 
   const handleSelectPlan = async (planName: string) => {
     if (!tenantId) return
-    setProcessing(true)
+    setProcessingPlan(planName)
     try {
       const res = await fetch('/api/stripe/subscription', {
         method: 'POST',
@@ -84,7 +84,7 @@ export default function PlanesPage({ params }: Props) {
     } catch (error) {
       alert(error instanceof Error ? error.message : 'Error al procesar')
     } finally {
-      setProcessing(false)
+      setProcessingPlan(null)
     }
   }
 
@@ -236,14 +236,16 @@ export default function PlanesPage({ params }: Props) {
 
                 <button
                   onClick={() => handleSelectPlan(plan.name)}
-                  disabled={processing || currentPlan === plan.name}
+                  disabled={processingPlan !== null || currentPlan === plan.name}
                   className={`w-full py-3 rounded-lg text-sm font-bold transition-all ${
                     currentPlan === plan.name
                       ? 'bg-gray-100 text-gray-500 cursor-not-allowed'
-                      : 'bg-blue-600 hover:bg-blue-700 text-white shadow-md hover:shadow-lg'
+                      : processingPlan === plan.name
+                        ? 'bg-blue-400 text-white cursor-wait'
+                        : 'bg-blue-600 hover:bg-blue-700 text-white shadow-md hover:shadow-lg'
                   }`}
                 >
-                  {processing ? 'Procesando...' : currentPlan === plan.name ? 'Plan Actual' : 'Seleccionar Plan'}
+                  {processingPlan === plan.name ? 'Procesando...' : currentPlan === plan.name ? 'Plan Actual' : 'Seleccionar Plan'}
                 </button>
               </div>
             </div>

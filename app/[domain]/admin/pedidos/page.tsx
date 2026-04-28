@@ -7,12 +7,13 @@ interface PedidosProps {
 }
 
 const STATUS_LABELS: Record<string, { label: string; color: string }> = {
-  pending:    { label: 'Pendiente',   color: 'bg-yellow-100 text-yellow-700' },
-  confirmed:  { label: 'Confirmado',  color: 'bg-blue-100 text-blue-700' },
-  preparing:  { label: 'Preparando',  color: 'bg-orange-100 text-orange-700' },
-  on_the_way: { label: 'En camino',   color: 'bg-indigo-100 text-indigo-700' },
-  delivered:  { label: 'Entregado',   color: 'bg-green-100 text-green-700' },
-  cancelled:  { label: 'Cancelado',   color: 'bg-red-100 text-red-700' },
+  pending:    { label: 'Pendiente',           color: 'bg-yellow-100 text-yellow-700' },
+  confirmed:  { label: 'Confirmado',          color: 'bg-blue-100 text-blue-700' },
+  preparing:  { label: 'En preparación',      color: 'bg-orange-100 text-orange-700' },
+  ready:      { label: 'Listo para recoger',  color: 'bg-green-100 text-green-700' },
+  on_the_way: { label: 'En camino',           color: 'bg-indigo-100 text-indigo-700' },
+  delivered:  { label: 'Entregado',           color: 'bg-gray-100 text-gray-600' },
+  cancelled:  { label: 'Cancelado',           color: 'bg-red-100 text-red-700' },
 }
 
 export default async function PedidosPage({ params, searchParams }: PedidosProps) {
@@ -47,9 +48,19 @@ export default async function PedidosPage({ params, searchParams }: PedidosProps
 
   return (
     <div>
-      <div className="mb-8">
-        <h1 className="text-2xl font-bold text-gray-900">Pedidos</h1>
-        <p className="text-gray-500 text-sm mt-1">{orders?.length || 0} pedidos encontrados</p>
+      <div className="mb-8 flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Pedidos</h1>
+          <p className="text-gray-500 text-sm mt-1">{orders?.length || 0} pedidos encontrados</p>
+        </div>
+        <a
+          href={`/${slug}/pantalla`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex items-center gap-2 px-4 py-2 bg-gray-900 text-white rounded-lg text-sm font-medium hover:bg-gray-700 transition-colors flex-shrink-0"
+        >
+          📺 Abrir Pantalla
+        </a>
       </div>
 
       {/* Filters */}

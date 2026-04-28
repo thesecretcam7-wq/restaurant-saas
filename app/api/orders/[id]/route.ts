@@ -36,21 +36,25 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     const { id } = await params
     const orderId = id
     const body = await request.json()
-    const { status } = body
+    const { status, payment_status } = body
 
     if (!orderId) {
       return NextResponse.json({ error: 'Order ID is required' }, { status: 400 })
     }
 
-    if (!status) {
-      return NextResponse.json({ error: 'Status is required' }, { status: 400 })
+    if (!status && !payment_status) {
+      return NextResponse.json({ error: 'Status or payment_status is required' }, { status: 400 })
     }
 
     const supabase = createServiceClient()
 
+    const updateData: Record<string, any> = { updated_at: new Date().toISOString() }
+    if (status) updateData.status = status
+    if (payment_status) updateData.payment_status = payment_status
+
     const { data: order, error } = await supabase
       .from('orders')
-      .update({ status, updated_at: new Date().toISOString() })
+      .update(updateData)
       .eq('id', orderId)
       .select()
       .single()
@@ -59,8 +63,32 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
 
+    // When confirming an order, ensure order_items exist for KDS visibility.
+    // Kiosk cash orders skip order_items at creation time, so we create them here.
+    if (status === 'confirmed' && Array.isArray(order.items) && order.items.length > 0) {
+      const { count } = await supabase
+        .from('order_items')
+        .select('*', { count: 'exact', head: true })
+        .eq('order_id', orderId)
+
+      if ((count ?? 0) === 0) {
+        const orderItemsData = order.items.map((item: any) => ({
+          order_id: orderId,
+          tenant_id: order.tenant_id,
+          menu_item_id: item.menu_item_id || null,
+          name: item.name,
+          quantity: item.qty ?? item.quantity ?? 1,
+          price: item.price,
+          notes: item.notes || null,
+          status: 'pending',
+        }))
+        const { error: itemsError } = await supabase.from('order_items').insert(orderItemsData)
+        if (itemsError) console.error('[orders PATCH] order_items creation error:', itemsError.message)
+      }
+    }
+
     // Send status update email (non-blocking)
-    if (order.customer_email && ['preparing', 'ready', 'delivered', 'cancelled'].includes(status)) {
+    if (order.customer_email && status && ['preparing', 'ready', 'delivered', 'cancelled'].includes(status)) {
       const { data: branding } = await supabase
         .from('tenant_branding')
         .select('app_name, primary_color')

@@ -19,12 +19,15 @@ export interface TenantPlanInfo {
   isActive: boolean         // subscription active (paid) or trial running
 }
 
-export async function getTenantPlanInfo(tenantId: string): Promise<TenantPlanInfo> {
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
+export async function getTenantPlanInfo(tenantIdOrSlug: string): Promise<TenantPlanInfo> {
   const supabase = serviceClient()
+  const column = UUID_RE.test(tenantIdOrSlug) ? 'id' : 'slug'
   const { data: tenant } = await supabase
     .from('tenants')
     .select('subscription_plan, status, created_at')
-    .eq('slug', tenantId)
+    .eq(column, tenantIdOrSlug)
     .single()
 
   const rawPlan = (tenant?.subscription_plan || 'basic') as PlanId

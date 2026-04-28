@@ -1,21 +1,90 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { createServerClient } from '@supabase/ssr'
+import { Ratelimit } from '@upstash/ratelimit'
+import { Redis } from '@upstash/redis'
 
 const BASE_DOMAIN = process.env.NEXT_PUBLIC_BASE_DOMAIN || 'eccofood.vercel.app'
 const SLUG_PATH_REGEX = /^\/([a-zA-Z0-9-]+)(?:\/|$)/
+
+// Rate limiters — inicializados lazy para evitar errores si faltan env vars
+let globalLimiter: Ratelimit | null = null
+let authLimiter: Ratelimit | null = null
+
+function getGlobalLimiter() {
+  if (!globalLimiter && process.env.UPSTASH_REDIS_REST_URL) {
+    const redis = Redis.fromEnv()
+    globalLimiter = new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(500, '1 m'), prefix: 'eccofood:global' })
+  }
+  return globalLimiter
+}
+
+function getAuthLimiter() {
+  if (!authLimiter && process.env.UPSTASH_REDIS_REST_URL) {
+    const redis = Redis.fromEnv()
+    authLimiter = new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(5, '1 m'), prefix: 'eccofood:auth' })
+  }
+  return authLimiter
+}
+
+function getClientIp(request: NextRequest): string {
+  return (
+    request.headers.get('x-real-ip') ??
+    request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ??
+    '127.0.0.1'
+  )
+}
 
 export async function middleware(request: NextRequest) {
   const url = request.nextUrl.clone()
   const hostname = request.headers.get('host') || ''
   const pathname = url.pathname
 
-  // Solo rutas /admin/* requieren autenticación, excepto /admin/login
+  // ─── RATE LIMITING ────────────────────────────────────────────────────────
+  const isStripeWebhook = pathname === '/api/stripe/webhook'
+  // RSC prefetch (_rsc param) y sw.js son peticiones internas del browser/Next.js
+  const isRscPrefetch = url.searchParams.has('_rsc')
+  const isServiceWorker = pathname === '/sw.js'
+
+  if (!isStripeWebhook && !isRscPrefetch && !isServiceWorker) {
+    const ip = getClientIp(request)
+    const isAuthEndpoint = pathname.startsWith('/api/auth/login') || pathname.startsWith('/api/auth/register')
+
+    if (isAuthEndpoint) {
+      const limiter = getAuthLimiter()
+      if (limiter) {
+        const { success, reset } = await limiter.limit(ip)
+        if (!success) {
+          return NextResponse.json(
+            { error: 'Demasiados intentos. Espera un momento antes de continuar.' },
+            { status: 429, headers: { 'Retry-After': Math.ceil((reset - Date.now()) / 1000).toString() } }
+          )
+        }
+      }
+    } else {
+      const limiter = getGlobalLimiter()
+      if (limiter) {
+        const { success, reset } = await limiter.limit(ip)
+        if (!success) {
+          return NextResponse.json(
+            { error: 'Demasiadas solicitudes. Intenta más tarde.' },
+            { status: 429, headers: { 'Retry-After': Math.ceil((reset - Date.now()) / 1000).toString() } }
+          )
+        }
+      }
+    }
+  }
+
+  // ─── RUTAS API — solo rate limiting, sin redirección de auth ─────────────
+  if (pathname.startsWith('/api/')) {
+    return NextResponse.next()
+  }
+
+  // ─── PROTECCIÓN DE RUTAS (solo /admin/*, excepto login y POS display) ─────
   const isAdminLogin = pathname.includes('/admin/login')
   const isPublicAdminPage = pathname.includes('/admin/pos/display')
   const requiresAuth = pathname.includes('/admin/') && !isAdminLogin && !isPublicAdminPage
 
-  // ─── PROTECCIÓN DE RUTAS (TODO excepto tienda y acceso) ───────────────────
   if (requiresAuth) {
     const slugMatch = pathname.match(SLUG_PATH_REGEX)
     const slug = slugMatch?.[1] || ''
@@ -83,8 +152,7 @@ export async function middleware(request: NextRequest) {
             return response
           }
 
-          // Regular owner - must be the owner of this restaurant
-          // Validate single-session token for owner
+          // Regular owner — validate single-session token
           const adminToken = request.cookies.get('admin_session_token')?.value
           if (adminToken) {
             const { data: active } = await serviceSupabase
@@ -182,5 +250,5 @@ function isUUID(str: string): boolean {
 }
 
 export const config = {
-  matcher: ['/((?!api|_next/static|_next/image|favicon.ico).*)'],
+  matcher: ['/((?!_next/static|_next/image|favicon.ico).*)'],
 }

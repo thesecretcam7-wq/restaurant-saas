@@ -16,6 +16,8 @@ interface CartData {
   selectedTableId: string | null;
   selectedTableNumber: number | null;
   tip?: number;
+  readonly?: boolean;
+  loadedOrderId?: string;
 }
 
 // Get or create a unique session ID for this device/browser
@@ -132,6 +134,8 @@ export async function loadCartFromSupabase(
       selectedStaffName: cart.selected_staff_name || '',
       selectedTableId: cart.selected_table_id || null,
       selectedTableNumber: cart.selected_table_number || null,
+      readonly: cart.readonly || false,
+      loadedOrderId: cart.loaded_order_id || undefined,
     };
   } catch (error) {
     console.error('Error loading cart from Supabase:', error);
@@ -183,5 +187,79 @@ export async function getAbandonedCarts(
   } catch (error) {
     console.error('Error getting abandoned carts:', error);
     return [];
+  }
+}
+
+// Load existing order into cart for payment
+export async function loadOrderToCart(
+  tenantId: string,
+  orderId: string,
+  order: any,
+  supabase: any
+): Promise<boolean> {
+  try {
+    if (!tenantId || !orderId) return false;
+
+    const sessionId = getCartSessionId();
+
+    // Convert order items to cart format
+    const items = (order.items || []).map((item: any) => ({
+      menu_item_id: item.id || `item-${Date.now()}`,
+      name: item.name,
+      price: item.price,
+      quantity: item.qty || item.quantity || 1,
+    }));
+
+    const subtotal = items.reduce((sum: number, item: any) => sum + item.price * item.quantity, 0);
+    const total = subtotal; // No discount/tip for existing orders
+
+    // Check if a cart session exists
+    const { data: existingCart } = await supabase
+      .from('pos_carts')
+      .select('id')
+      .eq('tenant_id', tenantId)
+      .eq('cart_session_id', sessionId)
+      .maybeSingle();
+
+    const cartData = {
+      items,
+      discount: 0,
+      discount_code: null,
+      subtotal,
+      total,
+      payment_method: 'cash',
+      pos_mode: 'simple' as const,
+      selected_staff_id: null,
+      selected_staff_name: null,
+      selected_table_id: null,
+      selected_table_number: null,
+      readonly: true, // Mark as readonly
+      loaded_order_id: orderId,
+      abandoned_at: null,
+    };
+
+    if (existingCart) {
+      // Update existing cart
+      const { error } = await supabase
+        .from('pos_carts')
+        .update(cartData)
+        .eq('id', existingCart.id);
+
+      return !error;
+    } else {
+      // Create new cart
+      const { error } = await supabase
+        .from('pos_carts')
+        .insert({
+          ...cartData,
+          tenant_id: tenantId,
+          cart_session_id: sessionId,
+        });
+
+      return !error;
+    }
+  } catch (error) {
+    console.error('Error loading order to cart:', error);
+    return false;
   }
 }

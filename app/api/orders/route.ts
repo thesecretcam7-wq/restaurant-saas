@@ -71,7 +71,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { tenantId, items, customerInfo, deliveryType, deliveryAddress, notes, paymentMethod, tableNumber, waiterName, table_id, waiter_id, amountPaid } = body
+    const { tenantId, items, customerInfo, deliveryType, deliveryAddress, notes, paymentMethod, tableNumber, waiterName, table_id, waiter_id, amountPaid, source } = body
 
     if (!tenantId) {
       return NextResponse.json({ error: 'tenantId is required' }, { status: 400 })
@@ -108,6 +108,17 @@ export async function POST(request: NextRequest) {
     const total = subtotal + tax + deliveryFee
 
     const orderNumber = `ORD-${Date.now()}`
+
+    // Compute daily sequential display number for this tenant
+    const todayStart = new Date()
+    todayStart.setHours(0, 0, 0, 0)
+    const { count: todayCount } = await supabase
+      .from('orders')
+      .select('*', { count: 'exact', head: true })
+      .eq('tenant_id', tenantId)
+      .gte('created_at', todayStart.toISOString())
+    const displayNumber = (todayCount ?? 0) + 1
+
     const orderData: any = {
       tenant_id: tenantId,
       order_number: orderNumber,
@@ -127,6 +138,7 @@ export async function POST(request: NextRequest) {
       waiter_name: waiterName || null,
       notes: notes || null,
       status: 'pending',
+      display_number: displayNumber,
     }
 
     // Only add these fields if they exist in the schema
@@ -144,8 +156,10 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
 
-    // Auto-create order_items so KDS can display the order in real-time
-    if (items && Array.isArray(items) && items.length > 0) {
+    // Auto-create order_items so KDS can display the order in real-time.
+    // Exception: kiosk cash orders skip this — items are created when cashier confirms payment.
+    const isKioskCash = source === 'kiosk' && paymentMethod === 'cash'
+    if (!isKioskCash && items && Array.isArray(items) && items.length > 0) {
       const orderItemsData = items.map((item: any) => ({
         order_id: order.id,
         tenant_id: tenantId,
@@ -229,7 +243,7 @@ export async function POST(request: NextRequest) {
       }).catch(e => console.error('[email] admin notification:', e))
     }
 
-    return NextResponse.json({ orderId: order.id, orderNumber })
+    return NextResponse.json({ orderId: order.id, orderNumber, displayNumber })
   } catch (err) {
     console.error('[orders POST] unexpected error:', err)
     return NextResponse.json({ error: 'Error interno' }, { status: 500 })

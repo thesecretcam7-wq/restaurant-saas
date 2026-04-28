@@ -24,7 +24,7 @@ export function calculateTrialStatus(trialEndsAt: string | Date | null): TrialSt
   const totalMillis = expiresAt.getTime() - now.getTime()
   const isExpired = totalMillis <= 0
 
-  const daysRemaining = Math.ceil(totalMillis / (1000 * 60 * 60 * 24))
+  const daysRemaining = Math.floor(totalMillis / (1000 * 60 * 60 * 24))
   const hoursRemaining = Math.ceil((totalMillis % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60))
   const minutesRemaining = Math.ceil((totalMillis % (1000 * 60 * 60)) / (1000 * 60))
 

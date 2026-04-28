@@ -36,11 +36,12 @@ export async function POST(request: NextRequest) {
       }
     )
 
-    // Get tenant
+    // Accept both UUID and slug
+    const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(tenantId)
     const { data: tenant, error: tenantError } = await supabase
       .from('tenants')
       .select('*')
-      .eq('id', tenantId)
+      .eq(isUUID ? 'id' : 'slug', tenantId)
       .single()
 
     if (tenantError || !tenant) {
@@ -86,6 +87,10 @@ export async function POST(request: NextRequest) {
         .eq('id', tenantId)
     }
 
+    // Build redirect URLs from request origin to avoid env var misconfiguration
+    const origin = request.headers.get('origin') || process.env.NEXT_PUBLIC_APP_URL || `https://eccofood.vercel.app`
+    const baseUrl = origin.endsWith('/') ? origin.slice(0, -1) : origin
+
     // Create checkout session for subscription
     const session = await stripe.checkout.sessions.create({
       mode: 'subscription',
@@ -96,10 +101,17 @@ export async function POST(request: NextRequest) {
           quantity: 1,
         },
       ],
-      success_url: `${process.env.NEXT_PUBLIC_APP_URL}/[domain]/admin/dashboard?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${process.env.NEXT_PUBLIC_APP_URL}/[domain]/admin/configuracion/planes`,
+      // Propagate metadata to the subscription object so customer.subscription.* events have tenant_id
+      subscription_data: {
+        metadata: {
+          tenant_id: tenant.id,
+          plan_name: planName,
+        },
+      },
+      success_url: `${baseUrl}/${tenant.slug}/admin/dashboard`,
+      cancel_url: `${baseUrl}/${tenant.slug}/admin/configuracion/planes`,
       metadata: {
-        tenant_id: tenantId,
+        tenant_id: tenant.id,
         plan_name: planName,
       },
     })

@@ -1,113 +1,74 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { Ratelimit } from '@upstash/ratelimit'
+import { Redis } from '@upstash/redis'
 
-/**
- * Simple in-memory rate limiter
- * For production, use Redis (Upstash) instead
- */
+let redis: Redis | null = null
 
-interface RateLimitEntry {
-  count: number
-  resetTime: number
+function getRedis(): Redis {
+  if (!redis) {
+    redis = Redis.fromEnv()
+  }
+  return redis
 }
 
-const rateLimitMap = new Map<string, RateLimitEntry>()
-
-/**
- * Check if request should be rate limited
- * @param key - Unique identifier (IP, phone number, etc.)
- * @param maxRequests - Maximum requests allowed
- * @param windowMs - Time window in milliseconds
- */
-export function checkRateLimit(
-  key: string,
-  maxRequests: number = 5,
-  windowMs: number = 3600000 // 1 hour
-): { allowed: boolean; remaining: number; resetTime: number } {
-  const now = Date.now()
-  const entry = rateLimitMap.get(key)
-
-  if (!entry || now > entry.resetTime) {
-    // Create new window
-    const newEntry: RateLimitEntry = {
-      count: 1,
-      resetTime: now + windowMs,
-    }
-    rateLimitMap.set(key, newEntry)
-    return {
-      allowed: true,
-      remaining: maxRequests - 1,
-      resetTime: newEntry.resetTime,
-    }
-  }
-
-  // Check if limit exceeded
-  if (entry.count >= maxRequests) {
-    return {
-      allowed: false,
-      remaining: 0,
-      resetTime: entry.resetTime,
-    }
-  }
-
-  // Increment counter
-  entry.count++
-  return {
-    allowed: true,
-    remaining: maxRequests - entry.count,
-    resetTime: entry.resetTime,
-  }
+// 500 req/min — protección general contra DDoS (Next.js genera ~10 RSC prefetch por página)
+export function getGlobalLimiter() {
+  return new Ratelimit({
+    redis: getRedis(),
+    limiter: Ratelimit.slidingWindow(500, '1 m'),
+    prefix: 'eccofood:global',
+  })
 }
 
-/**
- * Send rate limit error response
- */
-export function sendRateLimitResponse(resetTime: number): NextResponse {
-  const retryAfter = Math.ceil((resetTime - Date.now()) / 1000)
-
-  return NextResponse.json(
-    {
-      error: 'Too many requests. Please try again later.',
-      retryAfter,
-    },
-    {
-      status: 429,
-      headers: {
-        'Retry-After': retryAfter.toString(),
-        'X-RateLimit-Reset': new Date(resetTime).toISOString(),
-      },
-    }
-  )
+// 5 req/min — prevención de fuerza bruta en login/registro
+export function getAuthLimiter() {
+  return new Ratelimit({
+    redis: getRedis(),
+    limiter: Ratelimit.slidingWindow(5, '1 m'),
+    prefix: 'eccofood:auth',
+  })
 }
 
-/**
- * Extract client IP from request
- */
-export function getClientIP(request: NextRequest): string {
+// 10 req/min — protección de costo en endpoints de IA
+export function getAiLimiter() {
+  return new Ratelimit({
+    redis: getRedis(),
+    limiter: Ratelimit.slidingWindow(10, '1 m'),
+    prefix: 'eccofood:ai',
+  })
+}
+
+// 20 req/min — prevención de spam en pedidos
+export function getOrdersLimiter() {
+  return new Ratelimit({
+    redis: getRedis(),
+    limiter: Ratelimit.slidingWindow(20, '1 m'),
+    prefix: 'eccofood:orders',
+  })
+}
+
+export function getClientIp(request: Request): string {
   return (
-    request.headers.get('x-forwarded-for')?.split(',')[0].trim() ||
-    request.headers.get('x-real-ip') ||
-    'unknown'
+    request.headers.get('x-real-ip') ??
+    request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ??
+    '127.0.0.1'
   )
 }
 
-/**
- * Cleanup old entries periodically to prevent memory leak
- */
-export function cleanupRateLimitMap() {
-  const now = Date.now()
-  let cleaned = 0
+export async function applyRateLimit(
+  limiter: Ratelimit,
+  identifier: string
+): Promise<{ limited: boolean; headers: Record<string, string> }> {
+  const { success, limit, remaining, reset } = await limiter.limit(identifier)
 
-  for (const [key, entry] of rateLimitMap.entries()) {
-    if (now > entry.resetTime) {
-      rateLimitMap.delete(key)
-      cleaned++
-    }
+  const headers: Record<string, string> = {
+    'X-RateLimit-Limit': limit.toString(),
+    'X-RateLimit-Remaining': remaining.toString(),
+    'X-RateLimit-Reset': reset.toString(),
   }
 
-  if (cleaned > 0) {
-    console.log(`[RateLimit] Cleaned up ${cleaned} expired entries`)
+  if (!success) {
+    headers['Retry-After'] = Math.ceil((reset - Date.now()) / 1000).toString()
   }
+
+  return { limited: !success, headers }
 }
-
-// Cleanup every 10 minutes
-setInterval(cleanupRateLimitMap, 10 * 60 * 1000)

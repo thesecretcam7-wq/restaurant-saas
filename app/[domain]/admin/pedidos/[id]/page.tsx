@@ -3,7 +3,6 @@ import { getTenantIdFromSlug } from '@/lib/tenant'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import type { Order, OrderItem } from '@/lib/types'
-import OrderStatusActions from './OrderStatusActions'
 
 interface PedidoDetailProps {
   params: Promise<{ domain: string; id: string }>
@@ -12,17 +11,18 @@ interface PedidoDetailProps {
 const STATUS_FLOW: Record<string, string> = {
   pending: 'confirmed',
   confirmed: 'preparing',
-  preparing: 'on_the_way',
-  on_the_way: 'delivered',
+  preparing: 'ready',
+  ready: 'delivered',
 }
 
 const STATUS_LABELS: Record<string, { label: string; color: string }> = {
-  pending:    { label: 'Pendiente',   color: 'bg-yellow-100 text-yellow-700' },
-  confirmed:  { label: 'Confirmado',  color: 'bg-blue-100 text-blue-700' },
-  preparing:  { label: 'Preparando',  color: 'bg-orange-100 text-orange-700' },
-  on_the_way: { label: 'En camino',   color: 'bg-indigo-100 text-indigo-700' },
-  delivered:  { label: 'Entregado',   color: 'bg-green-100 text-green-700' },
-  cancelled:  { label: 'Cancelado',   color: 'bg-red-100 text-red-700' },
+  pending:    { label: 'Pendiente',           color: 'bg-yellow-100 text-yellow-700' },
+  confirmed:  { label: 'Confirmado',          color: 'bg-blue-100 text-blue-700' },
+  preparing:  { label: 'En preparación',      color: 'bg-orange-100 text-orange-700' },
+  ready:      { label: 'Listo para recoger',  color: 'bg-green-100 text-green-700' },
+  on_the_way: { label: 'En camino',           color: 'bg-indigo-100 text-indigo-700' },
+  delivered:  { label: 'Entregado',           color: 'bg-gray-100 text-gray-600' },
+  cancelled:  { label: 'Cancelado',           color: 'bg-red-100 text-red-700' },
 }
 
 export default async function PedidoDetailPage({ params }: PedidoDetailProps) {
@@ -43,7 +43,6 @@ export default async function PedidoDetailPage({ params }: PedidoDetailProps) {
   if (!order) notFound()
 
   const statusInfo = STATUS_LABELS[order.status] || { label: order.status, color: 'bg-gray-100 text-gray-600' }
-  const nextStatus = STATUS_FLOW[order.status]
 
   return (
     <div className="max-w-2xl">
@@ -123,13 +122,14 @@ export default async function PedidoDetailPage({ params }: PedidoDetailProps) {
         </div>
       </div>
 
-      {/* Status actions */}
-      <OrderStatusActions
-        orderId={order.id}
-        tenantId={tenantId}
-        currentStatus={order.status}
-        nextStatus={nextStatus}
-      />
+      {/* Info Banner */}
+      <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 flex items-start gap-3">
+        <span className="text-2xl">💡</span>
+        <div>
+          <p className="font-semibold text-blue-900">Cambios gestionados desde el TPV</p>
+          <p className="text-sm text-blue-700 mt-1">Los pedidos se confirman y cambian de estado a través del TPV y el KDS en cocina. Esta página es solo para visualizar el historial.</p>
+        </div>
+      </div>
     </div>
   )
 }
