@@ -105,17 +105,17 @@ export default function PlanesPage() {
       <nav className="fixed top-0 left-0 right-0 z-50 border-b border-gray-200/50 bg-white/80 backdrop-blur-xl">
         <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between relative z-10">
           <Link href="/" className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-600 to-green-600 flex items-center justify-center text-sm font-black text-white">E</div>
+            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-red-600 to-orange-600 flex items-center justify-center text-sm font-black text-white">E</div>
             <span className="font-bold text-gray-900 text-lg tracking-tight">Eccofood</span>
           </Link>
           <div className="hidden md:flex items-center gap-8 text-sm text-gray-600">
             <Link href="/#features" className="hover:text-gray-900 transition-colors">Funciones</Link>
             <Link href="/#how" className="hover:text-gray-900 transition-colors">Cómo funciona</Link>
-            <Link href="/planes" className="text-blue-600 font-semibold">Precios</Link>
+            <Link href="/planes" className="text-red-600 font-semibold">Precios</Link>
           </div>
           <div className="flex items-center gap-3">
             <Link href="/login" className="text-sm text-gray-600 hover:text-gray-900 transition-colors hidden md:block">Iniciar sesión</Link>
-            <Link href="/register" className="px-4 py-2 rounded-lg bg-gradient-to-r from-blue-600 to-green-600 hover:from-blue-700 hover:to-green-700 text-white text-sm font-bold transition-colors">
+            <Link href="/register" className="px-4 py-2 rounded-lg bg-gradient-to-r from-red-600 to-orange-600 hover:from-red-700 hover:to-orange-700 text-white text-sm font-bold transition-colors">
               Empezar gratis
             </Link>
           </div>
@@ -136,7 +136,7 @@ export default function PlanesPage() {
             </p>
             {currency && (
               <p className="text-sm text-gray-500">
-                Precios en <span className="text-blue-600 font-semibold">{currency.name} ({currency.symbol})</span>
+                Precios en <span className="text-red-600 font-semibold">{currency.name} ({currency.symbol})</span>
                 {currency.currency !== 'EUR' && ' · Basado en tasas actuales'}
                 {' · Detectado para '}{currency.countryCode}
               </p>
@@ -173,14 +173,14 @@ export default function PlanesPage() {
               >
                 {plan.highlight && (
                   <div className="absolute -top-4 left-1/2 -translate-x-1/2">
-                    <span className="px-4 py-1.5 rounded-full bg-gradient-to-r from-blue-600 to-green-600 text-white text-xs font-black tracking-wide shadow-lg">
+                    <span className="px-4 py-1.5 rounded-full bg-gradient-to-r from-red-600 to-orange-600 text-white text-xs font-black tracking-wide shadow-lg">
                       MÁS ELEGIDO
                     </span>
                   </div>
                 )}
 
                 <div className="mb-6">
-                  <p className={`text-sm font-bold mb-2 ${plan.highlight ? 'text-blue-600' : 'text-gray-600'}`}>
+                  <p className={`text-sm font-bold mb-2 ${plan.highlight ? 'text-red-600' : 'text-gray-600'}`}>
                     {plan.name}
                   </p>
                   <div className="flex items-end gap-1 mb-2">
@@ -202,7 +202,7 @@ export default function PlanesPage() {
                 <ul className="space-y-3 mb-8 flex-1">
                   {plan.features.map(f => (
                     <li key={f} className="flex items-center gap-2.5 text-sm text-gray-700">
-                      <svg className={`w-5 h-5 flex-shrink-0 ${plan.highlight ? 'text-green-600' : 'text-blue-600'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+                      <svg className={`w-5 h-5 flex-shrink-0 ${plan.highlight ? 'text-orange-600' : 'text-red-600'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
                         <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                       </svg>
                       {f}
@@ -214,7 +214,7 @@ export default function PlanesPage() {
                   href={plan.id === 'premium' ? 'mailto:ventas@eccofood.com?subject=Plan Enterprise' : '/register'}
                   className={`block w-full py-3.5 rounded-lg text-sm font-bold text-center transition-all active:scale-95 ${
                     plan.highlight
-                      ? 'bg-gradient-to-r from-blue-600 to-green-600 hover:from-blue-700 hover:to-green-700 text-white shadow-lg hover:shadow-xl'
+                      ? 'bg-gradient-to-r from-red-600 to-orange-600 hover:from-red-700 hover:to-orange-700 text-white shadow-lg hover:shadow-xl'
                       : 'bg-gray-100 hover:bg-gray-200 text-gray-900 border border-gray-300'
                   }`}
                 >
@@ -238,7 +238,7 @@ export default function PlanesPage() {
                   <tr className="border-b border-gray-200/60">
                     <th className="text-left py-4 px-6 text-gray-700 font-semibold w-1/2">Función</th>
                     <th className="text-center py-4 px-4 text-gray-700 font-semibold">Essentials</th>
-                    <th className="text-center py-4 px-4 text-blue-600 font-bold">Professional</th>
+                    <th className="text-center py-4 px-4 text-red-600 font-bold">Professional</th>
                     <th className="text-center py-4 px-4 text-gray-700 font-semibold">Enterprise</th>
                   </tr>
                 </thead>
@@ -296,7 +296,7 @@ export default function PlanesPage() {
                 <p className="text-gray-600 mb-7">14 días gratis. Sin tarjeta. Sin sorpresas.</p>
                 <Link
                   href="/register"
-                  className="inline-block px-8 py-4 bg-gradient-to-r from-blue-600 to-green-600 hover:from-blue-700 hover:to-green-700 text-white font-bold rounded-xl transition-all text-lg shadow-lg hover:shadow-xl"
+                  className="inline-block px-8 py-4 bg-gradient-to-r from-red-600 to-orange-600 hover:from-red-700 hover:to-orange-700 text-white font-bold rounded-xl transition-all text-lg shadow-lg hover:shadow-xl"
                 >
                   Crear mi restaurante gratis →
                 </Link>
@@ -310,7 +310,7 @@ export default function PlanesPage() {
       <footer className="border-t border-gray-200/50 py-8 px-6 bg-white/40 backdrop-blur-sm relative z-10">
         <div className="max-w-6xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-2">
-            <div className="w-6 h-6 rounded bg-gradient-to-br from-blue-600 to-green-600 flex items-center justify-center text-xs font-black text-white">E</div>
+            <div className="w-6 h-6 rounded bg-gradient-to-br from-red-600 to-orange-600 flex items-center justify-center text-xs font-black text-white">E</div>
             <span className="text-sm text-gray-600">Eccofood © 2026</span>
           </div>
           <div className="flex items-center gap-6 text-sm text-gray-600">
@@ -327,7 +327,7 @@ export default function PlanesPage() {
 function renderCell(value: boolean | string, highlight = false) {
   if (value === true) {
     return (
-      <svg className={`w-5 h-5 mx-auto ${highlight ? 'text-green-600' : 'text-blue-600'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+      <svg className={`w-5 h-5 mx-auto ${highlight ? 'text-orange-600' : 'text-red-600'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
         <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
       </svg>
     )
@@ -335,5 +335,5 @@ function renderCell(value: boolean | string, highlight = false) {
   if (value === false) {
     return <span className="text-gray-400">—</span>
   }
-  return <span className={`text-xs font-semibold ${highlight ? 'text-green-600' : 'text-gray-600'}`}>{value}</span>
+  return <span className={`text-xs font-semibold ${highlight ? 'text-orange-600' : 'text-gray-600'}`}>{value}</span>
 }
