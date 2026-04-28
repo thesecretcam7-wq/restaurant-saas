@@ -2,7 +2,6 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { createClient } from '@/lib/supabase/client'
 import Link from 'next/link'
 
 export default function NuevaCategoriaClient({
@@ -46,21 +45,33 @@ export default function NuevaCategoriaClient({
     if (!form.name.trim()) { setError('El nombre es obligatorio'); return }
     setLoading(true)
     setError('')
-    const supabase = createClient()
-    const { error: err } = await supabase.from('menu_categories').insert({
-      tenant_id: tenantId,
-      name: form.name.trim(),
-      description: form.description.trim() || null,
-      sort_order: parseInt(form.sort_order) || 0,
-      image_url: form.image_url || null,
-      active: true,
-    })
-    setLoading(false)
-    if (err) {
-      setError(err.message || 'Error al crear la categoría')
-      return
+
+    try {
+      const res = await fetch('/api/admin/categories', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          tenantId,
+          name: form.name.trim(),
+          description: form.description.trim() || null,
+          sortOrder: parseInt(form.sort_order) || 0,
+          imageUrl: form.image_url || null,
+        }),
+      })
+
+      const data = await res.json()
+
+      if (!res.ok) {
+        setError(data.error || 'Error al crear la categoría')
+        setLoading(false)
+        return
+      }
+
+      router.push(`/${domain}/admin/productos`)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Error al crear la categoría')
+      setLoading(false)
     }
-    router.push(`/${domain}/admin/productos`)
   }
 
   return (
