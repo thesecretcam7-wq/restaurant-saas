@@ -11,6 +11,7 @@ interface MenuItem {
   price: number; image_url: string | null; available: boolean
   category_id: string | null; featured: boolean
 }
+interface Banner { id: string; title: string; image_url: string; link_url: string | null; sort_order: number }
 interface CartItem { menu_item_id: string; name: string; price: number; qty: number }
 type Step = 'menu' | 'cart' | 'checkout' | 'confirmed'
 
@@ -20,6 +21,7 @@ interface Props {
   branding: { appName: string; primaryColor: string; logoUrl: string | null }
   categories: MenuCategory[]
   menuItems: MenuItem[]
+  banners: Banner[]
   taxRate: number
   currencySymbol: string
   stripeEnabled: boolean
@@ -51,7 +53,7 @@ function lighten(hex: string, amount = 20): string {
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 export default function KioskoClient({
-  tenantId, domain, branding, categories, menuItems,
+  tenantId, domain, branding, categories, menuItems, banners,
   taxRate, currencySymbol, stripeEnabled, initialConfirmed,
 }: Props) {
   const [step, setStep] = useState<Step>(initialConfirmed ? 'confirmed' : 'menu')
@@ -71,6 +73,7 @@ export default function KioskoClient({
   const [isFullscreen, setIsFullscreen] = useState(false)
   const [showFsPrompt, setShowFsPrompt] = useState(true)
   const [carouselIdx, setCarouselIdx] = useState(0)
+  const [bannerIdx, setBannerIdx] = useState(0)
   const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   const { primaryColor, appName, logoUrl } = branding
@@ -714,6 +717,14 @@ export default function KioskoClient({
     return () => clearInterval(timer)
   }, [featuredItems.length])
 
+  useEffect(() => {
+    if (banners.length === 0) return
+    const timer = setInterval(() => {
+      setBannerIdx(prev => (prev + 1) % banners.length)
+    }, 6000)
+    return () => clearInterval(timer)
+  }, [banners.length])
+
   return (
     <motion.div
       className="h-screen flex flex-col bg-white overflow-hidden"
@@ -809,6 +820,53 @@ export default function KioskoClient({
 
         {/* Right Content Area */}
         <div className="flex-1 overflow-hidden flex flex-col">
+          {/* Advertising Banners Carousel */}
+          {banners.length > 0 && (
+            <motion.div className="flex-shrink-0 px-6 pt-5 pb-3">
+              <motion.div
+                className="relative h-32 rounded-xl overflow-hidden shadow-lg group cursor-pointer"
+                initial={{ opacity: 0, y: -20 }}
+                animate={{ opacity: 1, y: 0 }}
+                onClick={() => banners[bannerIdx].link_url && window.open(banners[bannerIdx].link_url, '_blank')}
+              >
+                <AnimatePresence mode="wait">
+                  <motion.div
+                    key={bannerIdx}
+                    className="absolute inset-0"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.6 }}
+                  >
+                    <img
+                      src={banners[bannerIdx].image_url}
+                      alt={banners[bannerIdx].title}
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                    />
+                  </motion.div>
+                </AnimatePresence>
+
+                {/* Banner indicators */}
+                {banners.length > 1 && (
+                  <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-1.5 z-10">
+                    {banners.map((_, idx) => (
+                      <motion.button
+                        key={idx}
+                        onClick={(e) => { e.stopPropagation(); setBannerIdx(idx) }}
+                        className="h-1.5 rounded-full transition-all"
+                        style={{
+                          backgroundColor: idx === bannerIdx ? '#fff' : 'rgba(255,255,255,0.5)',
+                          width: idx === bannerIdx ? 20 : 6,
+                        }}
+                        whileHover={{ scale: 1.1 }}
+                      />
+                    ))}
+                  </div>
+                )}
+              </motion.div>
+            </motion.div>
+          )}
+
           {/* Hero Banner Carousel */}
           {featuredItems.length > 0 && (
             <motion.div className="flex-shrink-0 px-6 py-5">
