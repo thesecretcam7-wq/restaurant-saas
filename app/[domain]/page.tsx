@@ -93,7 +93,7 @@ export default async function HomePage({ params }: HomePageProps) {
     featured = data || []
   }
 
-  const primary = branding?.primary_color || '#4F46E5'
+  const primary = branding?.primary_color || '#E4002B'
   const secondary = branding?.secondary_color || '#1F2937'
   const appName = branding?.app_name || tenant.organization_name
   const tagline = branding?.tagline || settings?.description || ''

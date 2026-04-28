@@ -13,7 +13,7 @@ export default async function GraciasPage({ params, searchParams }: Props) {
   const context = await getTenantContext(tenantId)
   const { branding } = context
   const tenantSlug = context.tenant?.slug || tenantId
-  const primary = branding?.primary_color || '#4F46E5'
+  const primary = branding?.primary_color || '#E4002B'
 
   let order = null
   if (orderId) {
