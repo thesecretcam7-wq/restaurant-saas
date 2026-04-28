@@ -668,11 +668,39 @@ export default function KioskoClient({
           })}
         </aside>
 
-        {/* ── Main area: click category to view products ── */}
-        <div className="flex-1 flex flex-col items-center justify-center text-gray-400 p-8">
-          <p className="text-8xl mb-8">👈</p>
-          <p className="text-2xl font-bold text-gray-800 mb-3">Selecciona una categoría</p>
-          <p className="text-gray-500 text-center max-w-sm">Haz clic en una categoría de la izquierda para ver los productos disponibles</p>
+        {/* ── Main area: banners ── */}
+        <div className="flex-1 flex flex-col">
+          {/* Banners section */}
+          <div className="flex-1 overflow-y-auto p-6 flex flex-col items-center justify-center">
+            {banners.length > 0 ? (
+              <div className="w-full max-w-3xl">
+                <h2 className="text-2xl font-bold text-gray-800 mb-6 text-center">Publicidad Destacada</h2>
+                <div className="bg-white rounded-2xl p-4 overflow-x-auto flex gap-4">
+                  {banners.map(banner => (
+                    <a
+                      key={banner.id}
+                      href={banner.link_url || '#'}
+                      target={banner.link_url ? '_blank' : undefined}
+                      rel={banner.link_url ? 'noopener noreferrer' : undefined}
+                      className="flex-shrink-0 rounded-lg overflow-hidden shadow-md hover:shadow-lg transition-shadow cursor-pointer"
+                    >
+                      <img
+                        src={banner.image_url}
+                        alt={banner.title}
+                        className="h-48 object-cover"
+                      />
+                    </a>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <div className="text-center text-gray-400">
+                <p className="text-8xl mb-8">👈</p>
+                <p className="text-2xl font-bold text-gray-800 mb-3">Selecciona una categoría</p>
+                <p className="text-gray-500 text-center max-w-sm">Haz clic en una categoría de la izquierda para ver los productos disponibles</p>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
