@@ -49,31 +49,31 @@
 }
 
 :root {
-  /* Eccofood Brand Colors - Energy & Appetite Stimulation */
-  /* Store Primary: Vibrant Red (Stimulates Appetite & Urgency) */
-  --primary: #E63946;
-  --primary-dark: #D62828;
-  --primary-light: #F8D7D8;
-  --primary-50: #FDF3F3;
-  --primary-100: #FADDD8;
-  --primary-200: #F7B6BB;
-  --primary-600: #E63946;
+  /* Eccofood Brand Colors - Energy & Appetite Stimulation - ULTRA VIBRANT */
+  /* Store Primary: Pure Red (Stimulates Appetite & Urgency) */
+  --primary: #FF0000;
+  --primary-dark: #E60000;
+  --primary-light: #FF6666;
+  --primary-50: #FFF0F0;
+  --primary-100: #FFD9D9;
+  --primary-200: #FFAAAA;
+  --primary-600: #FF0000;
 
   /* Admin Color System - Section Accents */
-  /* Secondary: Warm Orange (Stimulates Senses & Joy) */
-  --secondary: #FF6B35;
-  --secondary-dark: #E55100;
-  --secondary-light: #FFD4BF;
-  --secondary-50: #FFF5F0;
-  --secondary-100: #FFE8DB;
-  --secondary-200: #FFD1B8;
+  /* Secondary: Vivid Orange (Stimulates Senses & Joy) */
+  --secondary: #FF5500;
+  --secondary-dark: #FF4500;
+  --secondary-light: #FFAA55;
+  --secondary-50: #FFF7F3;
+  --secondary-100: #FFE6D9;
+  --secondary-200: #FFCCAA;
 
-  /* Accent: Vibrant Yellow (Energy & Happiness) */
-  --accent: #FFD60A;
+  /* Accent: Bright Yellow (Energy & Happiness) */
+  --accent: #FFD700;
   --accent-dark: #FFC300;
-  --accent-light: #FFF4CC;
+  --accent-light: #FFEB99;
   --accent-50: #FFFEF0;
-  --accent-100: #FFEAD5;
+  --accent-100: #FFF5CC;
 
   /* Admin Section Colors */
   --color-orders: #FF6B35;

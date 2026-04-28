@@ -62,7 +62,7 @@ export default function LandingPage() {
               Ver demostración
             </Link>
           </div>
-          <p className="text-sm text-muted-foreground mt-6">14 días gratis · Sin tarjeta de crédito · Acceso completo</p>
+          <p className="text-sm text-muted-foreground mt-6">30 días gratis · Sin tarjeta de crédito · Acceso completo</p>
         </div>
 
         {/* Dashboard mockup */}
@@ -367,7 +367,7 @@ export default function LandingPage() {
             ))}
           </div>
           <div className="text-center mt-10 space-y-2">
-            <p className="text-sm text-muted-foreground">Todos los planes incluyen <strong>14 días gratis</strong> • Sin tarjeta de crédito requerida</p>
+            <p className="text-sm text-muted-foreground">Todos los planes incluyen <strong>30 días gratis</strong> • Sin tarjeta de crédito requerida</p>
             <Link href="/pricing" className="inline-block text-sm text-primary hover:text-primary/80 font-medium underline underline-offset-2">
               Ver comparación completa de planes →
             </Link>
@@ -394,7 +394,7 @@ export default function LandingPage() {
               <path d="M5 12h14M12 5l7 7-7 7"/>
             </svg>
           </Link>
-          <p className="text-sm text-muted-foreground mt-6 font-medium">14 días gratis • Acceso completo • Sin tarjeta requerida</p>
+          <p className="text-sm text-muted-foreground mt-6 font-medium">30 días gratis • Acceso completo • Sin tarjeta requerida</p>
         </div>
       </section>
 
