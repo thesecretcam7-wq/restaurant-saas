@@ -50,6 +50,7 @@ function AppHeader({
   time,
   backLabel,
   onBack,
+  cartCount,
 }: {
   primaryColor: string
   appName: string
@@ -57,6 +58,7 @@ function AppHeader({
   time: Date | null
   backLabel?: string
   onBack?: () => void
+  cartCount?: number
 }) {
   return (
     <header
@@ -75,13 +77,21 @@ function AppHeader({
           {backLabel && <p className="text-xs opacity-75">{backLabel}</p>}
         </div>
       </div>
-      <div className="text-right">
-        <p className="text-2xl font-mono font-bold tabular-nums">
-          {time?.toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' }) ?? ''}
-        </p>
-        <p className="text-xs opacity-70">
-          {time?.toLocaleDateString('es-CO', { weekday: 'long', day: 'numeric', month: 'short' }) ?? ''}
-        </p>
+      <div className="flex items-center gap-6">
+        {cartCount !== undefined && cartCount > 0 && (
+          <div className="flex items-center gap-2 bg-white/20 rounded-full px-4 py-2">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>
+            <span className="font-bold text-sm">{cartCount}</span>
+          </div>
+        )}
+        <div className="text-right">
+          <p className="text-2xl font-mono font-bold tabular-nums">
+            {time?.toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' }) ?? ''}
+          </p>
+          <p className="text-xs opacity-70">
+            {time?.toLocaleDateString('es-CO', { weekday: 'long', day: 'numeric', month: 'short' }) ?? ''}
+          </p>
+        </div>
       </div>
     </header>
   )
@@ -272,6 +282,7 @@ export default function KioskoClient({
   const [isFullscreen, setIsFullscreen] = useState(false)
   const [showFsPrompt, setShowFsPrompt] = useState(true)
   const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const categoryScrollRef = useRef<HTMLDivElement | null>(null)
 
   const { primaryColor, appName, logoUrl } = branding
   const hoverColor = darken(primaryColor)
@@ -311,6 +322,26 @@ export default function KioskoClient({
     }, 1000)
     return () => { if (countdownRef.current) clearInterval(countdownRef.current) }
   }, [step])
+
+  // Infinite scroll handler for category carousel
+  useEffect(() => {
+    const container = categoryScrollRef.current
+    if (!container) return
+
+    const handleScroll = () => {
+      const { scrollTop, scrollHeight, clientHeight } = container
+      const itemHeight = 140 // height of each category card
+      const oneSetHeight = categories.length * itemHeight
+
+      // When scrolled past 2/3 of the way, reset to the beginning of the second set
+      if (scrollTop > oneSetHeight * 1.5) {
+        container.scrollTop = oneSetHeight
+      }
+    }
+
+    container.addEventListener('scroll', handleScroll)
+    return () => container.removeEventListener('scroll', handleScroll)
+  }, [categories.length])
 
   const reset = useCallback(() => {
     if (countdownRef.current) clearInterval(countdownRef.current)
@@ -643,16 +674,20 @@ export default function KioskoClient({
         </div>
       )}
 
-      <AppHeader primaryColor={primaryColor} appName={appName} logoUrl={logoUrl} time={time} />
+      <AppHeader primaryColor={primaryColor} appName={appName} logoUrl={logoUrl} time={time} cartCount={cartCount} />
 
       {/* Body: sidebar only (products in modal) */}
       <div className="flex flex-1 overflow-hidden">
 
         {/* ── Category carousel ── */}
-        <aside className="w-40 bg-gray-50 border-r border-gray-200 overflow-y-auto flex-shrink-0 p-3" style={{ WebkitOverflowScrolling: 'touch' }}>
+        <aside
+          ref={categoryScrollRef}
+          className="w-40 bg-gray-50 border-r border-gray-200 overflow-y-auto flex-shrink-0 p-3 hide-scrollbar"
+          style={{ WebkitOverflowScrolling: 'touch' }}
+        >
           <div className="space-y-3">
-            {/* Show categories twice for infinite scroll effect */}
-            {[...categories, ...categories].map((cat, idx) => {
+            {/* Show categories three times for infinite scroll effect */}
+            {[...categories, ...categories, ...categories].map((cat, idx) => {
               const isActive = activeCategory === cat.id
               return (
                 <button
@@ -739,7 +774,7 @@ export default function KioskoClient({
         <CategoryProductModal
           category={categories.find(c => c.id === activeCategory)!}
           products={visibleItems}
-          banners={banners}
+          banners={[]}
           currencySymbol={currencySymbol}
           primaryColor={primaryColor}
           onClose={() => setIsCategoryModalOpen(false)}
