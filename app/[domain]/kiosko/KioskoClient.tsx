@@ -323,24 +323,71 @@ export default function KioskoClient({
     return () => { if (countdownRef.current) clearInterval(countdownRef.current) }
   }, [step])
 
-  // Infinite scroll handler for category carousel
+  // Infinite scroll handler for category carousel with touch support
   useEffect(() => {
     const container = categoryScrollRef.current
     if (!container) return
 
+    let touchStartY = 0
+    let lastScrollTop = 0
+    let scrollVelocity = 0
+    let momentumAnimationId: number | null = null
+
     const handleScroll = () => {
-      const { scrollTop, scrollHeight, clientHeight } = container
-      const itemHeight = 140 // height of each category card
+      const { scrollTop } = container
+      const itemHeight = 140
       const oneSetHeight = categories.length * itemHeight
+
+      // Calculate velocity for momentum
+      scrollVelocity = scrollTop - lastScrollTop
+      lastScrollTop = scrollTop
 
       // When scrolled past 2/3 of the way, reset to the beginning of the second set
       if (scrollTop > oneSetHeight * 1.5) {
         container.scrollTop = oneSetHeight
+        lastScrollTop = oneSetHeight
+      }
+    }
+
+    const handleTouchStart = (e: TouchEvent) => {
+      touchStartY = e.touches[0].clientY
+      if (momentumAnimationId !== null) {
+        cancelAnimationFrame(momentumAnimationId)
+        momentumAnimationId = null
+      }
+    }
+
+    const handleTouchEnd = () => {
+      // Apply momentum scrolling - continue scrolling based on velocity
+      if (Math.abs(scrollVelocity) > 1) {
+        let currentVelocity = scrollVelocity * 0.8 // Friction
+
+        const applyMomentum = () => {
+          if (Math.abs(currentVelocity) > 0.5) {
+            container.scrollTop += currentVelocity
+            currentVelocity *= 0.95 // Decelerate
+            momentumAnimationId = requestAnimationFrame(applyMomentum)
+          } else {
+            momentumAnimationId = null
+          }
+        }
+
+        momentumAnimationId = requestAnimationFrame(applyMomentum)
       }
     }
 
     container.addEventListener('scroll', handleScroll)
-    return () => container.removeEventListener('scroll', handleScroll)
+    container.addEventListener('touchstart', handleTouchStart, { passive: true })
+    container.addEventListener('touchend', handleTouchEnd, { passive: true })
+
+    return () => {
+      container.removeEventListener('scroll', handleScroll)
+      container.removeEventListener('touchstart', handleTouchStart)
+      container.removeEventListener('touchend', handleTouchEnd)
+      if (momentumAnimationId !== null) {
+        cancelAnimationFrame(momentumAnimationId)
+      }
+    }
   }, [categories.length])
 
   const reset = useCallback(() => {
