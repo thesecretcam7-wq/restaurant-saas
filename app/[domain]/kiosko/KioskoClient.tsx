@@ -727,74 +727,73 @@ export default function KioskoClient({
       <div className="flex flex-1 overflow-hidden">
 
         {/* ── Category carousel ── */}
-        <aside
-          ref={categoryScrollRef}
-          className="w-40 bg-gray-50 border-r border-gray-200 overflow-y-auto flex-shrink-0 p-3 hide-scrollbar"
-          style={{ WebkitOverflowScrolling: 'touch' }}
-        >
-          <div className="space-y-3">
-            {/* Show categories three times for infinite scroll effect */}
-            {[...categories, ...categories, ...categories].map((cat, idx) => {
-              const isActive = activeCategory === cat.id
-              return (
-                <button
-                  key={`${cat.id}-${idx}`}
-                  onClick={() => { setActiveCategory(cat.id); setIsCategoryModalOpen(true) }}
-                  className="w-full rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-all flex flex-col group"
-                  style={isActive ? { boxShadow: `0 0 0 3px ${primaryColor}` } : {}}
-                >
-                  <div className="relative overflow-hidden bg-gray-200 h-24 flex items-center justify-center">
-                    {cat.image_url ? (
-                      <img
-                        src={cat.image_url}
-                        alt={cat.name}
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                      />
-                    ) : (
-                      <div className="text-4xl">🍽️</div>
-                    )}
-                  </div>
-                  <div className="bg-white p-2 flex-1 flex items-center justify-center min-h-12">
-                    <p className="font-bold text-xs text-center text-gray-900 line-clamp-2">{cat.name}</p>
-                  </div>
-                </button>
-              )
-            })}
-          </div>
-        </aside>
+        {/* ── Main area: full width ── */}
+        <div className="flex-1 flex flex-col overflow-hidden">
+          {/* Banners carousel section */}
+          {banners.length > 0 && (
+            <div className="flex-shrink-0 overflow-x-auto p-4 hide-scrollbar" style={{ WebkitOverflowScrolling: 'touch' }}>
+              <div className="flex gap-4">
+                {[...banners, ...banners, ...banners].map((banner, idx) => (
+                  <a
+                    key={`${banner.id}-${idx}`}
+                    href={banner.link_url || '#'}
+                    target={banner.link_url ? '_blank' : undefined}
+                    rel={banner.link_url ? 'noopener noreferrer' : undefined}
+                    className="flex-shrink-0 rounded-2xl overflow-hidden shadow-lg hover:shadow-xl transition-all cursor-pointer"
+                    style={{ width: '280px', height: '200px' }}
+                  >
+                    <img
+                      src={banner.image_url}
+                      alt={banner.title}
+                      className="w-full h-full object-cover hover:scale-105 transition-transform duration-300"
+                    />
+                  </a>
+                ))}
+              </div>
+            </div>
+          )}
 
-        {/* ── Main area: banners ── */}
-        <div className="flex-1 flex flex-col">
-          {/* Banners section */}
+          {/* Categories carousel section */}
+          <div className="flex-shrink-0 overflow-x-auto p-4 hide-scrollbar" style={{ WebkitOverflowScrolling: 'touch' }} ref={categoryScrollRef}>
+            <div className="flex gap-4">
+              {[...categories, ...categories, ...categories].map((cat, idx) => {
+                const isActive = activeCategory === cat.id
+                return (
+                  <button
+                    key={`${cat.id}-${idx}`}
+                    onClick={() => { setActiveCategory(cat.id); setIsCategoryModalOpen(true) }}
+                    className="flex-shrink-0 rounded-2xl overflow-hidden shadow-lg hover:shadow-xl transition-all flex flex-col group"
+                    style={{ width: '160px', height: '200px', boxShadow: isActive ? `0 0 0 3px ${primaryColor}, 0 10px 25px rgba(0,0,0,0.15)` : '0 10px 25px rgba(0,0,0,0.1)' }}
+                  >
+                    <div className="relative overflow-hidden bg-gray-200 flex-1 flex items-center justify-center">
+                      {cat.image_url ? (
+                        <img
+                          src={cat.image_url}
+                          alt={cat.name}
+                          className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
+                        />
+                      ) : (
+                        <div className="text-5xl">🍽️</div>
+                      )}
+                    </div>
+                    <div className="bg-white p-3 flex items-center justify-center min-h-16">
+                      <p className="font-bold text-sm text-center text-gray-900 line-clamp-2">{cat.name}</p>
+                    </div>
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+
+          {/* Products section - fill remaining space */}
           <div className="flex-1 overflow-y-auto p-6 flex flex-col items-center justify-center">
-            {banners.length > 0 ? (
-              <div className="w-full max-w-3xl">
-                <h2 className="text-2xl font-bold text-gray-800 mb-6 text-center">Publicidad Destacada</h2>
-                <div className="bg-white rounded-2xl p-4 overflow-x-auto flex gap-4">
-                  {banners.map(banner => (
-                    <a
-                      key={banner.id}
-                      href={banner.link_url || '#'}
-                      target={banner.link_url ? '_blank' : undefined}
-                      rel={banner.link_url ? 'noopener noreferrer' : undefined}
-                      className="flex-shrink-0 rounded-lg overflow-hidden shadow-md hover:shadow-lg transition-shadow cursor-pointer"
-                    >
-                      <img
-                        src={banner.image_url}
-                        alt={banner.title}
-                        className="h-48 object-cover"
-                      />
-                    </a>
-                  ))}
-                </div>
-              </div>
-            ) : (
+            {!isCategoryModalOpen ? (
               <div className="text-center text-gray-400">
-                <p className="text-8xl mb-8">👈</p>
+                <p className="text-8xl mb-8">👆</p>
                 <p className="text-2xl font-bold text-gray-800 mb-3">Selecciona una categoría</p>
-                <p className="text-gray-500 text-center max-w-sm">Haz clic en una categoría de la izquierda para ver los productos disponibles</p>
+                <p className="text-gray-500 text-center max-w-sm">Toca una categoría arriba para ver los productos disponibles</p>
               </div>
-            )}
+            ) : null}
           </div>
         </div>
       </div>
