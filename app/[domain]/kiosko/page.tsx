@@ -34,7 +34,7 @@ export default async function KioskoPage({ params, searchParams }: Props) {
       .maybeSingle(),
     supabase
       .from('menu_categories')
-      .select('id, name, sort_order')
+      .select('id, name, sort_order, image_url')
       .eq('tenant_id', tenant.id)
       .eq('active', true)
       .order('sort_order'),
