@@ -34,13 +34,13 @@ export default function LoginPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-white via-blue-50/50 to-green-50/50 flex flex-col relative overflow-hidden">
       {/* Background accents */}
-      <div className="absolute -top-40 -right-40 w-96 h-96 bg-blue-100/30 rounded-full blur-3xl" />
-      <div className="absolute -bottom-32 -left-32 w-80 h-80 bg-green-100/20 rounded-full blur-3xl" />
+      <div className="absolute -top-40 -right-40 w-96 h-96 bg-red-100/30 rounded-full blur-3xl" />
+      <div className="absolute -bottom-32 -left-32 w-80 h-80 bg-orange-100/20 rounded-full blur-3xl" />
 
       {/* Header */}
       <nav className="relative z-10 px-6 py-5 flex items-center justify-between border-b border-gray-200/50 backdrop-blur-sm">
         <Link href="/" className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-lg flex items-center justify-center bg-gradient-to-br from-blue-600 to-green-600">
+          <div className="w-8 h-8 rounded-lg flex items-center justify-center bg-gradient-to-br from-red-600 to-orange-600">
             <span className="text-white text-sm font-black">E</span>
           </div>
           <span className="font-bold text-lg tracking-tight text-gray-900">Eccofood</span>
@@ -61,7 +61,7 @@ export default function LoginPage() {
             </div>
             <h1 className="text-3xl font-black text-gray-900 mb-2 leading-tight">
               Bienvenido a<br />
-              <span className="bg-gradient-to-r from-blue-600 to-green-600 bg-clip-text text-transparent">
+              <span className="bg-gradient-to-r from-red-600 to-orange-600 bg-clip-text text-transparent">
                 Eccofood
               </span>
             </h1>
@@ -122,7 +122,7 @@ export default function LoginPage() {
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full py-3.5 rounded-lg font-bold text-sm text-white transition-all active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed mt-6 shadow-lg hover:shadow-xl bg-gradient-to-r from-blue-600 to-green-600 hover:from-blue-700 hover:to-green-700"
+                className="w-full py-3.5 rounded-lg font-bold text-sm text-white transition-all active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed mt-6 shadow-lg hover:shadow-xl bg-gradient-to-r from-red-600 to-orange-600 hover:from-red-700 hover:to-orange-700"
               >
                 {loading ? (
                   <span className="flex items-center justify-center gap-2">
@@ -137,7 +137,7 @@ export default function LoginPage() {
           {/* Footer link */}
           <p className="text-center text-sm text-gray-600 mt-6">
             ¿No tienes cuenta?{' '}
-            <Link href="/register" className="text-blue-600 hover:text-blue-700 font-medium transition-colors">
+            <Link href="/register" className="text-red-600 hover:text-red-700 font-medium transition-colors">
               Crea tu restaurante gratis
             </Link>
           </p>
