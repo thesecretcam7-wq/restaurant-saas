@@ -9,7 +9,6 @@ import { POSPayment } from './POSPayment';
 import { POSCartDrawer } from './POSCartDrawer';
 import { AdminMenuDrawer } from './AdminMenuDrawer';
 import { CashClosingModal } from './CashClosingModal';
-import { ReceiptPreview } from './ReceiptPreview';
 import { Toast } from './Toast';
 import { POSOrderLookup } from './POSOrderLookup';
 import { saveCartToSupabase, loadCartFromSupabase, abandonCart, loadOrderToCart } from '@/lib/pos-cart-sync';
@@ -363,7 +362,6 @@ export function POSTerminal({ tenantId, country = 'CO' }: { tenantId: string; co
   const [processingPayment, setProcessingPayment] = useState(false);
 
   // Receipt state
-  const [showReceiptPreview, setShowReceiptPreview] = useState(false);
   const [pendingPaymentData, setPendingPaymentData] = useState<{
     amountPaid?: number;
   } | null>(null);
@@ -920,9 +918,9 @@ export function POSTerminal({ tenantId, country = 'CO' }: { tenantId: string; co
       return;
     }
 
-    // Show receipt preview
+    // Auto-print receipt without modal
     setPendingPaymentData({ amountPaid });
-    setShowReceiptPreview(true);
+    processPaymentAfterReceipt();
   }
 
   async function processPaymentAfterReceipt() {
@@ -1058,7 +1056,6 @@ export function POSTerminal({ tenantId, country = 'CO' }: { tenantId: string; co
       setDiscount(0);
       setDiscountCode('');
       setTip(0);
-      setShowReceiptPreview(false);
       setPendingPaymentData(null);
       setPaymentMethod('cash');
       setSelectedCategory(null);
@@ -1763,44 +1760,6 @@ export function POSTerminal({ tenantId, country = 'CO' }: { tenantId: string; co
         />
       )}
 
-      {/* Receipt Preview Modal */}
-      {showReceiptPreview && (
-        <ReceiptPreview
-          restaurantName={restaurantName}
-          restaurantLogo={restaurantLogo}
-          orderNumber={`ORD-${Date.now()}`}
-          date={new Date()}
-          waiterName={selectedStaffName || undefined}
-          tableNumber={selectedTableNumber || undefined}
-          items={cart.map(item => ({
-            name: item.name,
-            price: item.price,
-            qty: item.quantity,
-            notes: item.notes,
-          }))}
-          subtotal={subtotal}
-          discount={discount > 0 ? discount : undefined}
-          tip={tip > 0 ? tip : undefined}
-          total={total}
-          paymentMethod={paymentMethod}
-          amountPaid={paymentMethod === 'cash' ? pendingPaymentData?.amountPaid : undefined}
-          change={
-            paymentMethod === 'cash' && pendingPaymentData?.amountPaid
-              ? Math.round((pendingPaymentData.amountPaid - total) * 100) / 100
-              : undefined
-          }
-          onClose={() => {
-            setShowReceiptPreview(false);
-            setPendingPaymentData(null);
-          }}
-          onPrint={processPaymentAfterReceipt}
-          onProcessWithoutPrint={() => {
-            setShowReceiptPreview(false);
-            processPaymentAfterReceipt();
-          }}
-          loading={processingPayment}
-        />
-      )}
 
       {/* Cart Drawer Modal */}
       <POSCartDrawer
