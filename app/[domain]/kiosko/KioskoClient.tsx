@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-interface MenuCategory { id: string; name: string; sort_order: number }
+interface MenuCategory { id: string; name: string; sort_order: number; image_url: string | null }
 interface MenuItem {
   id: string; name: string; description: string | null
   price: number; image_url: string | null; available: boolean
