@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback, useRef, memo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -201,7 +201,7 @@ export default function KioskoClient({
   }
 
   // ── Clock display (memoized to prevent header flickering) ─────────────────────
-  const Clock = React.memo(({ time }: { time: Date | null }) => (
+  const Clock = memo(({ time }: { time: Date | null }) => (
     <p className="text-2xl font-mono font-bold tabular-nums drop-shadow-lg">
       {time?.toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' }) ?? '--:--'}
     </p>
