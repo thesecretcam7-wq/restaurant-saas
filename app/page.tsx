@@ -20,7 +20,7 @@ export default function LandingPage() {
             <Link href="/login" className="text-sm text-muted-foreground hover:text-foreground transition-colors hidden sm:block">
               Iniciar sesión
             </Link>
-            <Link href="/register" className="px-4 py-2 rounded-lg bg-primary hover:bg-primary/90 text-white text-sm font-semibold transition-all">
+            <Link href="/register" className="px-5 py-2 rounded-lg bg-gradient-to-r from-primary to-secondary hover:from-primary/90 hover:to-secondary/90 text-white text-sm font-bold transition-all shadow-lg shadow-primary/30 hover:shadow-xl hover:shadow-primary/40 active:scale-95">
               Empezar gratis
             </Link>
           </div>
@@ -30,8 +30,9 @@ export default function LandingPage() {
       {/* ── HERO ── */}
       <section className="pt-32 pb-20 px-6 relative overflow-hidden">
         {/* Background gradients */}
-        <div className="absolute top-20 left-1/2 -translate-x-1/2 w-[600px] h-[400px] bg-gradient-to-b from-primary/10 to-secondary/5 rounded-full blur-3xl pointer-events-none" />
-        <div className="absolute -bottom-32 -right-32 w-[400px] h-[400px] bg-accent/5 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute top-20 left-1/2 -translate-x-1/2 w-[600px] h-[400px] bg-gradient-to-b from-primary/20 to-secondary/10 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute -bottom-32 -right-32 w-[400px] h-[400px] bg-accent/15 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute top-1/3 -left-40 w-[500px] h-[500px] bg-secondary/10 rounded-full blur-3xl pointer-events-none" />
 
         <div className="max-w-4xl mx-auto text-center relative z-10">
           <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-primary/30 bg-primary/10 text-primary text-xs font-semibold mb-8 animate-fade-in">
@@ -40,7 +41,7 @@ export default function LandingPage() {
           </div>
 
           <h1 className="text-5xl md:text-7xl font-black tracking-tight leading-[1.1] mb-6 text-foreground animate-slide-up">
-            Tu restaurante prospera
+            Tu restaurante despega
             <br />
             <span className="bg-gradient-to-r from-primary via-secondary to-accent bg-clip-text text-transparent">
               con Eccofood
@@ -53,11 +54,11 @@ export default function LandingPage() {
 
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4 animate-slide-up" style={{ animationDelay: '200ms' }}>
             <Link href="/register"
-              className="w-full sm:w-auto px-8 py-4 rounded-lg bg-gradient-to-r from-primary to-primary/90 hover:from-primary/90 hover:to-primary text-white font-bold text-base transition-all shadow-lg shadow-primary/25 hover:shadow-xl hover:shadow-primary/40 active:scale-95">
-              Crear mi restaurante
+              className="w-full sm:w-auto px-8 py-4 rounded-xl bg-gradient-to-r from-primary via-secondary to-primary hover:from-primary/90 hover:via-secondary/90 hover:to-primary/90 text-white font-bold text-base transition-all shadow-lg shadow-primary/40 hover:shadow-2xl hover:shadow-primary/50 active:scale-95 hover:-translate-y-1">
+              🚀 Crear mi restaurante
             </Link>
             <Link href="/login"
-              className="w-full sm:w-auto px-8 py-4 rounded-lg border-2 border-primary/20 hover:border-primary/40 hover:bg-primary/5 text-foreground font-semibold text-base transition-all">
+              className="w-full sm:w-auto px-8 py-4 rounded-xl border-2 border-primary/40 hover:border-primary/80 hover:bg-primary/10 text-foreground font-bold text-base transition-all hover:-translate-y-1">
               Ver demostración
             </Link>
           </div>
@@ -130,75 +131,130 @@ export default function LandingPage() {
       <section id="features" className="py-24 px-6">
         <div className="max-w-6xl mx-auto">
           <div className="text-center mb-16">
-            <p className="text-primary text-sm font-semibold uppercase tracking-widest mb-4">Características</p>
-            <h2 className="text-4xl md:text-5xl font-black tracking-tight">Herramientas completas<br />para restaurantes modernos</h2>
-            <p className="text-muted-foreground mt-4 text-lg">Todo lo que necesitas para prosperar, sin complejidades innecesarias</p>
+            <p className="text-primary text-sm font-semibold uppercase tracking-widest mb-4">Características Completas</p>
+            <h2 className="text-4xl md:text-5xl font-black tracking-tight">Todo lo que necesitas<br />para administrar tu restaurante</h2>
+            <p className="text-muted-foreground mt-4 text-lg">Herramientas poderosas, interfaz intuitiva, sin complejidades innecesarias</p>
           </div>
 
           <div className="grid md:grid-cols-3 gap-6">
             {[
               {
                 icon: '🛍️',
-                title: 'Menú Digital',
-                desc: 'Catálogo profesional con fotos, descripciones y precios. Actualizaciones instantáneas.',
-                color: 'from-primary',
+                title: 'Menú Digital Profesional',
+                desc: 'Catálogo con fotos, descripciones, precios y opciones personalizables. Actualiza instantáneamente.',
               },
               {
                 icon: '📦',
-                title: 'Gestión de Pedidos',
-                desc: 'Panel en tiempo real con notificaciones. Organiza cocina y entregas desde un solo lugar.',
-                color: 'from-secondary',
-              },
-              {
-                icon: '📅',
-                title: 'Sistema de Reservas',
-                desc: 'Reservaciones con confirmación automática, gestión de mesas y recordatorios.',
-                color: 'from-accent',
+                title: 'Gestión de Pedidos en Tiempo Real',
+                desc: 'Panel centralizado con notificaciones. Organiza cocina, entregas y seguimiento desde un lugar.',
               },
               {
                 icon: '💳',
-                title: 'Pagos Seguros',
-                desc: 'Integración con Stripe. Tus clientes pagan, el dinero llega directamente a tu cuenta.',
-                color: 'from-primary',
+                title: 'Pagos Seguros con Stripe',
+                desc: 'Integración directa. Tus clientes pagan online, el dinero llega a tu cuenta automáticamente.',
+              },
+              {
+                icon: '🏪',
+                title: 'Sistema POS Profesional',
+                desc: 'Punto de venta completo para mostrador. Gestiona transacciones, inventario y caja desde tablets.',
+              },
+              {
+                icon: '🍳',
+                title: 'Pantalla de Cocina (KDS)',
+                desc: 'Pantalla en tiempo real para cocina. Visualiza pedidos, tiempos y estado de preparación.',
+              },
+              {
+                icon: '📅',
+                title: 'Sistema de Reservas Completo',
+                desc: 'Reservaciones automáticas, gestión de mesas, confirmaciones y recordatorios a clientes.',
+              },
+              {
+                icon: '🎯',
+                title: 'Quiosco Digital (Kiosk)',
+                desc: 'Pantalla interactiva para órdenes sin personal. Ideal para pedidos rápidos en mostrador.',
+              },
+              {
+                icon: '📊',
+                title: 'Analytics con IA Inteligente',
+                desc: 'Reportes de ventas, productos top, análisis de clientes. Insights automáticos para crecer.',
+              },
+              {
+                icon: '🎁',
+                title: 'Promociones y Cupones',
+                desc: 'Crea ofertas, descuentos y promociones. Gestiona campañas para aumentar ventas.',
               },
               {
                 icon: '🎨',
-                title: 'Tu Identidad Visual',
-                desc: 'Personaliza colores, fuentes, logo. Tu marca brilla en cada pedido y email.',
-                color: 'from-secondary',
+                title: 'Personalización Total de Marca',
+                desc: 'Personaliza colores, fuentes, logo, textos. Tu marca brilla en cada experiencia del cliente.',
               },
               {
                 icon: '🌐',
                 title: 'Dominio Personalizado',
-                desc: 'Conecta turestaurante.com en minutos. Crea presencia profesional online.',
-                color: 'from-accent',
+                desc: 'Conecta turestaurante.com en minutos. Presencia profesional con tu propio dominio.',
               },
               {
                 icon: '🚗',
-                title: 'Delivery Integrado',
-                desc: 'Gestiona entregas a domicilio con zonas, tarifas y tiempos estimados configurables.',
-                color: 'from-primary',
-              },
-              {
-                icon: '📊',
-                title: 'Analytics Inteligente',
-                desc: 'Reportes de ventas, productos top, análisis de clientes. Crece con datos.',
-                color: 'from-secondary',
-              },
-              {
-                icon: '📱',
-                title: 'App Nativa (PWA)',
-                desc: 'Tus clientes descargan desde el navegador. Sin depender de App Store.',
-                color: 'from-accent',
+                title: 'Delivery Integrado Completo',
+                desc: 'Gestiona entregas a domicilio con zonas, tarifas, tiempos estimados y rastreo en vivo.',
               },
             ].map((f, i) => (
-              <div key={f.title} className="group relative p-6 rounded-xl border border-border bg-card/50 hover:bg-card/80 hover:border-primary/30 transition-all overflow-hidden" style={{ animationDelay: `${i * 50}ms` }}>
-                <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+              <div key={f.title} className="group relative p-6 rounded-2xl border-2 border-border bg-gradient-to-br from-card/80 to-card/40 hover:border-primary/60 hover:bg-gradient-to-br hover:from-primary/5 hover:to-secondary/5 transition-all overflow-hidden shadow-sm hover:shadow-lg hover:-translate-y-1" style={{ animationDelay: `${i * 30}ms` }}>
+                <div className="absolute inset-0 bg-gradient-to-br from-primary/10 via-transparent to-secondary/5 opacity-0 group-hover:opacity-100 transition-opacity" />
                 <div className="relative z-10">
-                  <div className="text-4xl mb-4">{f.icon}</div>
+                  <div className="text-5xl mb-4">{f.icon}</div>
                   <h3 className="font-bold text-foreground mb-2 text-lg">{f.title}</h3>
                   <p className="text-sm text-muted-foreground leading-relaxed">{f.desc}</p>
                 </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ── ADVANCED FEATURES ── */}
+      <section className="py-24 px-6 border-t border-border bg-gradient-to-br from-primary/5 via-secondary/5 to-accent/5">
+        <div className="max-w-6xl mx-auto">
+          <div className="text-center mb-16">
+            <p className="text-primary text-sm font-semibold uppercase tracking-widest mb-4">Herramientas Avanzadas</p>
+            <h2 className="text-4xl md:text-5xl font-black tracking-tight">Tecnología para cada operación</h2>
+            <p className="text-muted-foreground mt-4 text-lg">Desde punto de venta hasta gestión de cocina, todo integrado</p>
+          </div>
+
+          <div className="grid md:grid-cols-2 gap-8">
+            {[
+              {
+                icon: '🏪',
+                title: 'Sistema POS Completo',
+                features: ['Ventas en mostrador', 'Caja y arqueos', 'Múltiples cajas', 'Gestión de inventario'],
+              },
+              {
+                icon: '🍳',
+                title: 'Pantalla de Cocina (KDS)',
+                features: ['Pedidos en tiempo real', 'Priorización automática', 'Tiempos de preparación', 'Control de estados'],
+              },
+              {
+                icon: '🎯',
+                title: 'Quiosco Digital (Kiosk)',
+                features: ['Órdenes sin personal', 'Pagos integrados', 'Múltiples idiomas', 'Información nutricional'],
+              },
+              {
+                icon: '🤖',
+                title: 'IA Insights & Analytics',
+                features: ['Predicción de demanda', 'Productos más vendidos', 'Análisis de clientes', 'Recomendaciones automáticas'],
+              },
+            ].map((f, i) => (
+              <div key={f.title} className="p-8 rounded-2xl bg-card/60 border-2 border-border hover:border-primary/50 hover:bg-card/90 transition-all group">
+                <div className="text-6xl mb-6">{f.icon}</div>
+                <h3 className="font-bold text-foreground mb-4 text-2xl">{f.title}</h3>
+                <ul className="space-y-3">
+                  {f.features.map((feat) => (
+                    <li key={feat} className="flex items-center gap-3 text-foreground">
+                      <svg className="w-5 h-5 text-primary flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" /></svg>
+                      {feat}
+                    </li>
+                  ))}
+                </ul>
               </div>
             ))}
           </div>
@@ -301,9 +357,9 @@ export default function LandingPage() {
                     ))}
                   </ul>
                   <Link href="/register"
-                    className={`block w-full py-3 rounded-lg text-sm font-bold text-center transition-all active:scale-95 ${plan.highlight
-                      ? 'bg-gradient-to-r from-primary to-secondary text-white shadow-lg shadow-primary/30 hover:shadow-xl hover:shadow-primary/40'
-                      : 'bg-muted/50 hover:bg-muted text-foreground border border-border/50'}`}>
+                    className={`block w-full py-3 rounded-lg text-sm font-bold text-center transition-all active:scale-95 hover:-translate-y-1 ${plan.highlight
+                      ? 'bg-gradient-to-r from-primary via-secondary to-primary text-white shadow-lg shadow-primary/40 hover:shadow-2xl hover:shadow-primary/50'
+                      : 'bg-muted/50 hover:bg-muted text-foreground border border-border/50 hover:border-primary/30'}`}>
                     {plan.cta}
                   </Link>
                 </div>
@@ -332,8 +388,8 @@ export default function LandingPage() {
             Destáchate con un sistema profesional que simplifica operaciones y amplifica tus ventas. Sin comisiones, sin sorpresas.
           </p>
           <Link href="/register"
-            className="inline-flex items-center gap-2 px-10 py-4 rounded-lg bg-gradient-to-r from-primary to-secondary hover:from-primary/90 hover:to-secondary/90 text-white font-bold text-lg transition-all shadow-lg shadow-primary/40 hover:shadow-xl active:scale-95 animate-slide-up" style={{ animationDelay: '200ms' }}>
-            Crear mi restaurante gratis
+            className="inline-flex items-center gap-2 px-10 py-4 rounded-xl bg-gradient-to-r from-primary via-secondary to-primary hover:from-primary/90 hover:via-secondary/90 hover:to-primary/90 text-white font-bold text-lg transition-all shadow-lg shadow-primary/50 hover:shadow-2xl hover:shadow-primary/60 active:scale-95 hover:-translate-y-1 animate-slide-up" style={{ animationDelay: '200ms' }}>
+            🚀 Crear mi restaurante gratis
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
               <path d="M5 12h14M12 5l7 7-7 7"/>
             </svg>
