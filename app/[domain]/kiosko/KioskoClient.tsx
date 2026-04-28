@@ -710,7 +710,7 @@ export default function KioskoClient({
 
   return (
     <motion.div
-      className="h-screen flex flex-col bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 overflow-hidden"
+      className="h-screen flex flex-col bg-white overflow-hidden"
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
     >
@@ -752,31 +752,49 @@ export default function KioskoClient({
       <div className="flex-1 overflow-hidden flex flex-row">
         {/* Left Sidebar - Categories */}
         <motion.div
-          className="flex-shrink-0 w-48 bg-white/5 border-r border-white/10 overflow-y-auto flex flex-col"
+          className="flex-shrink-0 w-56 bg-gray-50 border-r border-gray-200 overflow-y-auto flex flex-col"
           initial={{ opacity: 0, x: -50 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ delay: 0.1 }}
         >
-          <div className="p-4 space-y-2 flex-1">
+          <div className="p-3 space-y-3 flex-1">
             {categories.map((cat, idx) => {
               const isActive = activeCategory === cat.id
               return (
                 <motion.button
                   key={cat.id}
                   onClick={() => setActiveCategory(cat.id)}
-                  className="w-full text-left px-4 py-3 rounded-xl font-bold text-sm transition-all border-2"
+                  className="w-full overflow-hidden rounded-xl font-bold text-sm transition-all border-2 flex flex-col h-32"
                   style={{
-                    backgroundColor: isActive ? primaryColor : 'rgba(255,255,255,0.08)',
-                    color: isActive ? '#fff' : 'rgba(255,255,255,0.7)',
-                    borderColor: isActive ? primaryColor : 'rgba(255,255,255,0.1)',
+                    backgroundColor: isActive ? primaryColor : '#fff',
+                    borderColor: isActive ? primaryColor : '#e5e7eb',
                   }}
-                  whileHover={{ scale: 1.02, paddingLeft: '1.5rem' }}
+                  whileHover={{ scale: 1.02 }}
                   whileTap={{ scale: 0.98 }}
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: idx * 0.05 }}
                 >
-                  {cat.name}
+                  {/* Image */}
+                  <div className="relative h-20 w-full overflow-hidden bg-gray-200">
+                    {cat.image_url ? (
+                      <img
+                        src={cat.image_url}
+                        alt={cat.name}
+                        className="w-full h-full object-cover group-hover:scale-110 transition-transform"
+                      />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center text-2xl" style={{ backgroundColor: `${primaryColor}20` }}>
+                        🍽️
+                      </div>
+                    )}
+                  </div>
+                  {/* Name */}
+                  <div className="flex-1 flex items-center justify-center px-2 pb-2"
+                    style={{ color: isActive ? '#fff' : '#1f2937' }}
+                  >
+                    {cat.name}
+                  </div>
                 </motion.button>
               )
             })}
@@ -863,8 +881,8 @@ export default function KioskoClient({
               >
                 🍽️
               </motion.p>
-              <p className="text-lg font-bold text-gray-300">No hay productos</p>
-              <p className="text-sm text-gray-500">en esta categoría</p>
+              <p className="text-lg font-bold text-gray-500">No hay productos</p>
+              <p className="text-sm text-gray-400">en esta categoría</p>
             </div>
           ) : (
             <motion.div
@@ -878,7 +896,7 @@ export default function KioskoClient({
                     <motion.button
                       key={item.id}
                       onClick={() => { setSelectedItem(item); setItemQty(1) }}
-                      className="bg-gradient-to-br from-white/10 to-white/5 rounded-2xl shadow-xl overflow-hidden text-left transition-all border border-white/20 group backdrop-blur-xl hover:border-white/40 flex flex-col"
+                      className="bg-white rounded-2xl shadow-md overflow-hidden text-left transition-all border border-gray-200 group hover:shadow-lg hover:border-gray-300 flex flex-col"
                       initial={{ opacity: 0, y: 20 }}
                       animate={{ opacity: 1, y: 0 }}
                       exit={{ opacity: 0, y: -20 }}
@@ -924,11 +942,11 @@ export default function KioskoClient({
 
                       {/* Info */}
                       <div className="p-4 flex flex-col flex-1">
-                        <p className="font-bold text-white text-sm leading-snug line-clamp-2 flex-1 mb-3">
+                        <p className="font-bold text-gray-900 text-sm leading-snug line-clamp-2 flex-1 mb-3">
                           {item.name}
                         </p>
                         <div className="flex items-center justify-between">
-                          <p className="font-black text-base text-yellow-300">
+                          <p className="font-black text-base" style={{ color: primaryColor }}>
                             {fmt(item.price, currencySymbol)}
                           </p>
                           <motion.div
