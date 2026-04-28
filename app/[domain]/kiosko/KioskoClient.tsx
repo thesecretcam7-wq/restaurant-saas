@@ -748,92 +748,33 @@ export default function KioskoClient({
 
       <AppHeader />
 
-      {/* Main content */}
-      <div className="flex-1 overflow-hidden flex flex-col">
-        {/* Hero Banner Carousel */}
-        {featuredItems.length > 0 && (
-          <motion.div className="flex-shrink-0 px-6 py-5">
-            <motion.div
-              className="relative h-48 rounded-2xl overflow-hidden shadow-2xl group"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-            >
-              <AnimatePresence mode="wait">
-                <motion.div
-                  key={carouselIdx}
-                  className="absolute inset-0"
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0 }}
-                  transition={{ duration: 0.8 }}
-                >
-                  {featuredItems[carouselIdx].image_url ? (
-                    <img
-                      src={featuredItems[carouselIdx].image_url}
-                      alt={featuredItems[carouselIdx].name}
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                    />
-                  ) : (
-                    <div
-                      className="w-full h-full flex items-center justify-center text-6xl"
-                      style={{ backgroundColor: `${primaryColor}20` }}
-                    >
-                      🍽️
-                    </div>
-                  )}
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent flex flex-col justify-end p-6">
-                    <p className="text-white text-xl font-black mb-1">{featuredItems[carouselIdx].name}</p>
-                    <div className="flex items-center justify-between">
-                      <p className="text-white/90 text-sm line-clamp-1">{featuredItems[carouselIdx].description}</p>
-                      <p className="text-yellow-300 text-lg font-black ml-4 flex-shrink-0">
-                        {fmt(featuredItems[carouselIdx].price, currencySymbol)}
-                      </p>
-                    </div>
-                  </div>
-                </motion.div>
-              </AnimatePresence>
-
-              {/* Carousel controls */}
-              <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-2 z-10">
-                {featuredItems.map((_, idx) => (
-                  <motion.button
-                    key={idx}
-                    onClick={() => setCarouselIdx(idx)}
-                    className="h-2 rounded-full transition-all"
-                    style={{
-                      backgroundColor: idx === carouselIdx ? '#fff' : 'rgba(255,255,255,0.4)',
-                      width: idx === carouselIdx ? 24 : 8,
-                    }}
-                    whileHover={{ scale: 1.2 }}
-                  />
-                ))}
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-
-        {/* Categories horizontal scroll */}
+      {/* Main content - flex row layout with sidebar */}
+      <div className="flex-1 overflow-hidden flex flex-row">
+        {/* Left Sidebar - Categories */}
         <motion.div
-          className="flex-shrink-0 overflow-x-auto px-6 py-4 border-b border-white/10"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 0.2 }}
+          className="flex-shrink-0 w-48 bg-white/5 border-r border-white/10 overflow-y-auto flex flex-col"
+          initial={{ opacity: 0, x: -50 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ delay: 0.1 }}
         >
-          <div className="flex gap-2 pb-2">
-            {[{ id: null, name: 'Todo' }, ...categories].map(cat => {
+          <div className="p-4 space-y-2 flex-1">
+            {categories.map((cat, idx) => {
               const isActive = activeCategory === cat.id
               return (
                 <motion.button
-                  key={cat.id ?? '__all__'}
+                  key={cat.id}
                   onClick={() => setActiveCategory(cat.id)}
-                  className="px-5 py-2.5 rounded-xl font-bold text-sm whitespace-nowrap transition-all border-2"
+                  className="w-full text-left px-4 py-3 rounded-xl font-bold text-sm transition-all border-2"
                   style={{
                     backgroundColor: isActive ? primaryColor : 'rgba(255,255,255,0.08)',
-                    color: isActive ? '#fff' : 'rgba(255,255,255,0.6)',
+                    color: isActive ? '#fff' : 'rgba(255,255,255,0.7)',
                     borderColor: isActive ? primaryColor : 'rgba(255,255,255,0.1)',
                   }}
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
+                  whileHover={{ scale: 1.02, paddingLeft: '1.5rem' }}
+                  whileTap={{ scale: 0.98 }}
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: idx * 0.05 }}
                 >
                   {cat.name}
                 </motion.button>
@@ -842,13 +783,77 @@ export default function KioskoClient({
           </div>
         </motion.div>
 
-        {/* Products grid */}
-        <motion.div
-          className="flex-1 overflow-y-auto px-6 py-5 pb-32"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 0.3 }}
-        >
+        {/* Right Content Area */}
+        <div className="flex-1 overflow-hidden flex flex-col">
+          {/* Hero Banner Carousel */}
+          {featuredItems.length > 0 && (
+            <motion.div className="flex-shrink-0 px-6 py-5">
+              <motion.div
+                className="relative h-48 rounded-2xl overflow-hidden shadow-2xl group"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+              >
+                <AnimatePresence mode="wait">
+                  <motion.div
+                    key={carouselIdx}
+                    className="absolute inset-0"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.8 }}
+                  >
+                    {featuredItems[carouselIdx].image_url ? (
+                      <img
+                        src={featuredItems[carouselIdx].image_url}
+                        alt={featuredItems[carouselIdx].name}
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                      />
+                    ) : (
+                      <div
+                        className="w-full h-full flex items-center justify-center text-6xl"
+                        style={{ backgroundColor: `${primaryColor}20` }}
+                      >
+                        🍽️
+                      </div>
+                    )}
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent flex flex-col justify-end p-6">
+                      <p className="text-white text-xl font-black mb-1">{featuredItems[carouselIdx].name}</p>
+                      <div className="flex items-center justify-between">
+                        <p className="text-white/90 text-sm line-clamp-1">{featuredItems[carouselIdx].description}</p>
+                        <p className="text-yellow-300 text-lg font-black ml-4 flex-shrink-0">
+                          {fmt(featuredItems[carouselIdx].price, currencySymbol)}
+                        </p>
+                      </div>
+                    </div>
+                  </motion.div>
+                </AnimatePresence>
+
+                {/* Carousel controls */}
+                <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-2 z-10">
+                  {featuredItems.map((_, idx) => (
+                    <motion.button
+                      key={idx}
+                      onClick={() => setCarouselIdx(idx)}
+                      className="h-2 rounded-full transition-all"
+                      style={{
+                        backgroundColor: idx === carouselIdx ? '#fff' : 'rgba(255,255,255,0.4)',
+                        width: idx === carouselIdx ? 24 : 8,
+                      }}
+                      whileHover={{ scale: 1.2 }}
+                    />
+                  ))}
+                </div>
+              </motion.div>
+            </motion.div>
+          )}
+
+          {/* Products grid */}
+          <motion.div
+            className="flex-1 overflow-y-auto px-6 py-5 pb-32"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.3 }}
+          >
           {visibleItems.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-full text-gray-400">
               <motion.p
