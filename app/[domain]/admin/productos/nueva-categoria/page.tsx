@@ -21,6 +21,7 @@ async function getTenantIdFromSlugClient(slugOrId: string) {
 export default function NuevaCategoriaPage({ params }: Props) {
   const { domain: slug } = use(params)
   const [tenantId, setTenantId] = useState<string | null>(null)
+  const [loadingTenant, setLoadingTenant] = useState(true)
   const router = useRouter()
   const [form, setForm] = useState({ name: '', description: '', sort_order: '0', image_url: '' })
   const [loading, setLoading] = useState(false)
@@ -30,8 +31,18 @@ export default function NuevaCategoriaPage({ params }: Props) {
 
   useEffect(() => {
     const initializeTenantId = async () => {
-      const resolvedTenantId = await getTenantIdFromSlugClient(slug)
-      setTenantId(resolvedTenantId)
+      try {
+        const resolvedTenantId = await getTenantIdFromSlugClient(slug)
+        setTenantId(resolvedTenantId)
+        if (!resolvedTenantId) {
+          setError('Restaurante no encontrado')
+        }
+      } catch (err) {
+        setError('Error al cargar el restaurante')
+        console.error(err)
+      } finally {
+        setLoadingTenant(false)
+      }
     }
     initializeTenantId()
   }, [slug])
@@ -78,13 +89,17 @@ export default function NuevaCategoriaPage({ params }: Props) {
       setError(err.message || 'Error al crear la categoría')
       return
     }
-    router.push(`/${tenantId}/admin/productos`)
+    router.push(`/${slug}/admin/productos`)
+  }
+
+  if (loadingTenant) {
+    return <div className="p-6 text-center text-gray-500">Cargando...</div>
   }
 
   return (
     <div className="max-w-lg">
       <div className="flex items-center gap-4 mb-8">
-        <Link href={`/${tenantId}/admin/productos`} className="text-gray-500 hover:text-gray-700">←</Link>
+        <Link href={`/${slug}/admin/productos`} className="text-gray-500 hover:text-gray-700">←</Link>
         <h1 className="text-2xl font-bold text-gray-900">Nueva Categoría</h1>
       </div>
 
@@ -153,12 +168,12 @@ export default function NuevaCategoriaPage({ params }: Props) {
         <div className="flex gap-3 pt-2">
           <button
             type="submit"
-            disabled={loading}
+            disabled={loading || !tenantId}
             className="px-6 py-2.5 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 disabled:bg-blue-300"
           >
             {loading ? 'Guardando...' : 'Crear Categoría'}
           </button>
-          <Link href={`/${tenantId}/admin/productos`} className="px-6 py-2.5 border rounded-lg text-sm hover:bg-gray-50">
+          <Link href={`/${slug}/admin/productos`} className="px-6 py-2.5 border rounded-lg text-sm hover:bg-gray-50">
             Cancelar
           </Link>
         </div>
