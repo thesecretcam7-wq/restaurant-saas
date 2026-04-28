@@ -9,13 +9,24 @@ interface Props { params: Promise<{ domain: string }> }
 
 async function getTenantIdFromSlugClient(slugOrId: string) {
   const supabase = createClient()
-  // Primero intenta por slug
-  const { data: dataBySlug } = await supabase.from('tenants').select('id').eq('slug', slugOrId).single()
-  if (dataBySlug) return dataBySlug.id
 
-  // Si no encuentra por slug, intenta por ID (en caso de que sea un UUID)
-  const { data: dataById } = await supabase.from('tenants').select('id').eq('id', slugOrId).single()
-  return dataById?.id || null
+  try {
+    // Primero intenta por slug
+    const { data: dataBySlug, error: slugError } = await supabase.from('tenants').select('id').eq('slug', slugOrId).single()
+    if (!slugError && dataBySlug) return dataBySlug.id
+  } catch (err) {
+    console.error('Error querying by slug:', err)
+  }
+
+  try {
+    // Si no encuentra por slug, intenta por ID (en caso de que sea un UUID)
+    const { data: dataById, error: idError } = await supabase.from('tenants').select('id').eq('id', slugOrId).single()
+    if (!idError && dataById) return dataById.id
+  } catch (err) {
+    console.error('Error querying by ID:', err)
+  }
+
+  return null
 }
 
 export default function NuevaCategoriaPage({ params }: Props) {
