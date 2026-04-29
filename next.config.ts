@@ -1,6 +1,7 @@
 import type { NextConfig } from "next";
 import { withSentryConfig } from "@sentry/nextjs";
 
+// Force rebuild cache - gradient styling update
 const nextConfig: NextConfig = {
   images: {
     remotePatterns: [
