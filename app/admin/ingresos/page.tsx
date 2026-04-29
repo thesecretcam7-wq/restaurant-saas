@@ -3,7 +3,7 @@ import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import RevenueContent from './RevenueContent'
 
-export const revalidate = 60
+export const dynamic = 'force-dynamic'
 
 const ownerEmails = ['thesecretcam7@gmail.com']
 
