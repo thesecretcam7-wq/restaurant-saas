@@ -21,28 +21,28 @@ export function RoleSelector({ tenantId, tenantName, tenantSlug, logoUrl }: Prop
       label: 'Cocinero',
       icon: <ChefHat className="w-10 h-10" />,
       desc: 'Kitchen Display System',
-      color: 'from-orange-500 to-orange-600',
+      color: 'from-red-600 to-orange-600',
     },
     {
       id: 'camarero',
       label: 'Camarero',
       icon: <UtensilsCrossed className="w-10 h-10" />,
       desc: 'Tomar pedidos y servir',
-      color: 'from-emerald-600 to-emerald-700',
+      color: 'from-red-600 to-orange-600',
     },
     {
       id: 'cajero',
       label: 'Cajero',
       icon: <CreditCard className="w-10 h-10" />,
       desc: 'Procesar pagos',
-      color: 'from-indigo-600 to-indigo-700',
+      color: 'from-red-600 to-orange-600',
     },
     {
       id: 'admin',
       label: 'Administrador',
       icon: <Lock className="w-10 h-10" />,
       desc: 'Panel de control',
-      color: 'from-slate-600 to-slate-700',
+      color: 'from-red-600 to-orange-600',
     },
   ];
 
@@ -57,7 +57,7 @@ export function RoleSelector({ tenantId, tenantName, tenantSlug, logoUrl }: Prop
         {logoUrl ? (
           <img src={logoUrl} alt={tenantName} className="w-20 h-20 rounded-2xl object-cover mx-auto mb-4" />
         ) : (
-          <div className="w-20 h-20 bg-emerald-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
+          <div className="w-20 h-20 bg-gradient-to-br from-red-600 to-orange-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
             <ChefHat className="w-10 h-10 text-white" />
           </div>
         )}
