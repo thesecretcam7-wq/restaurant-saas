@@ -83,6 +83,26 @@ export default async function MenuPage({ params }: MenuProps) {
   const settings = context.settings
   const primary = branding?.primary_color || '#E4002B'
 
+  // Typography settings from branding
+  const headingFontWeight = branding?.heading_font_weight ? parseInt(branding.heading_font_weight as string) : 700
+  const bodyFontWeight = branding?.body_font_weight ? parseInt(branding.body_font_weight as string) : 400
+  const letterSpacing = (branding?.letter_spacing as number) || 0
+  const lineHeight = (branding?.line_height as number) || 1.5
+  const textTransform = (branding?.text_transform as string) || 'none'
+  const fontFamily = branding?.font_family || 'Inter'
+  const buttonHoverEffect = (branding?.button_hover_effect as string) || 'scale'
+  const transitionSpeed = (branding?.transition_speed as string) || 'normal'
+  const sectionBgColor = branding?.section_background_color || '#FFFFFF'
+  const useGradient = branding?.use_gradient || false
+  const gradientStart = branding?.gradient_start_color || '#FFFFFF'
+  const gradientEnd = branding?.gradient_end_color || '#F3F4F6'
+  const gradientDir = branding?.gradient_direction || 'to right'
+
+  const transitionDuration = transitionSpeed === 'slow' ? '500ms' : transitionSpeed === 'fast' ? '100ms' : '300ms'
+  const backgroundStyle = useGradient
+    ? { backgroundImage: `linear-gradient(${gradientDir}, ${gradientStart}, ${gradientEnd})` }
+    : { backgroundColor: sectionBgColor }
+
   // Get currency from settings or detect from country
   const currencyInfo = settings?.currency
     ? {
@@ -99,7 +119,7 @@ export default async function MenuPage({ params }: MenuProps) {
   const btnCls = getButtonClasses(pageConfig.appearance.button_style)
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white">
+    <div className="min-h-screen" style={{ fontFamily, ...backgroundStyle }}
       {/* Header - Professional */}
       <header className="sticky top-0 z-20 bg-white/98 backdrop-blur-xl shadow-md border-b border-gray-100">
         <div className="max-w-lg mx-auto px-4 h-14 sm:h-16 flex items-center justify-between">
@@ -111,7 +131,15 @@ export default async function MenuPage({ params }: MenuProps) {
               </div>
             )}
             <div className="min-w-0">
-              <h1 className="font-black text-gray-900 text-sm sm:text-base tracking-tight truncate">
+              <h1
+                className="text-gray-900 text-sm sm:text-base truncate"
+                style={{
+                  fontWeight: headingFontWeight,
+                  letterSpacing: `${letterSpacing}em`,
+                  textTransform: textTransform as any,
+                  lineHeight: lineHeight,
+                }}
+              >
                 {branding?.app_name || context.tenant?.organization_name}
               </h1>
               <p className="text-xs text-gray-500 font-medium">Menú</p>
@@ -135,7 +163,15 @@ export default async function MenuPage({ params }: MenuProps) {
           <section className="scroll-mt-20" data-featured>
             <div className="flex items-center gap-2 mb-3 sm:mb-4">
               <div className="w-1 h-5 sm:h-6 rounded-full" style={{ backgroundColor: primary }} />
-              <h2 className="text-base sm:text-lg font-black text-gray-900 tracking-tight">
+              <h2
+                className="text-base sm:text-lg text-gray-900"
+                style={{
+                  fontWeight: headingFontWeight,
+                  letterSpacing: `${letterSpacing}em`,
+                  textTransform: textTransform as any,
+                  lineHeight: lineHeight,
+                }}
+              >
                 ⭐ Lo más pedido
               </h2>
             </div>
@@ -169,7 +205,15 @@ export default async function MenuPage({ params }: MenuProps) {
           if (catItems.length === 0) return null
           return (
             <section key={cat.id} id={`cat-${cat.id}`} data-category={cat.id} className="scroll-mt-28">
-              <h2 className="text-base font-extrabold text-gray-900 mb-3 flex items-center justify-between">
+              <h2
+                className="text-base text-gray-900 mb-3 flex items-center justify-between"
+                style={{
+                  fontWeight: headingFontWeight,
+                  letterSpacing: `${letterSpacing}em`,
+                  textTransform: textTransform as any,
+                  lineHeight: lineHeight,
+                }}
+              >
                 {cat.name}
                 <span className="text-xs font-semibold text-muted-foreground bg-gray-100 px-2 py-0.5 rounded-full">{catItems.length}</span>
               </h2>
@@ -199,7 +243,17 @@ export default async function MenuPage({ params }: MenuProps) {
         {/* Uncategorized */}
         {uncategorized.length > 0 && (
           <section>
-            <h2 className="text-base font-extrabold text-gray-900 mb-3">Otros</h2>
+            <h2
+              className="text-base text-gray-900 mb-3"
+              style={{
+                fontWeight: headingFontWeight,
+                letterSpacing: `${letterSpacing}em`,
+                textTransform: textTransform as any,
+                lineHeight: lineHeight,
+              }}
+            >
+              Otros
+            </h2>
             <div className="space-y-2.5">
               {uncategorized.map(item => (
                 <MenuListItem key={item.id} item={item} tenantId={tenantId} primary={primary} br={br} cardCls={cardCls} currencyInfo={currencyInfo} toppings={toppingsByItem[item.id] || []} />
