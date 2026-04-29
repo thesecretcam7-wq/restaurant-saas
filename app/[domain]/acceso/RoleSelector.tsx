@@ -55,7 +55,12 @@ export function RoleSelector({ tenantId, tenantName, tenantSlug, logoUrl }: Prop
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-white via-blue-50/50 to-green-50/50 flex flex-col items-center justify-center p-6">
+    <div
+      className="min-h-screen flex flex-col items-center justify-center p-6"
+      style={{
+        background: 'linear-gradient(to bottom right, white, rgba(219, 234, 254, 0.5), rgba(220, 252, 231, 0.5))'
+      }}
+    >
       <div className="mb-10 text-center">
         {logoUrl ? (
           <img src={logoUrl} alt={tenantName} className="w-20 h-20 rounded-2xl object-cover mx-auto mb-4" />

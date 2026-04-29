@@ -111,7 +111,12 @@ export function RoleLoginClient({ tenantId, tenantName, tenantSlug, logoUrl, rol
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-white via-blue-50/50 to-green-50/50 flex flex-col items-center justify-center p-6">
+    <div
+      className="min-h-screen flex flex-col items-center justify-center p-6"
+      style={{
+        background: 'linear-gradient(to bottom right, white, rgba(219, 234, 254, 0.5), rgba(220, 252, 231, 0.5))'
+      }}
+    >
       <button
         onClick={() => {
           if (phase === 'pin') {
