@@ -26,6 +26,13 @@ const ROLE_CONFIG = {
   admin:    { label: 'Administrador', apiRole: 'admin' },
 };
 
+const PIN_COLORS = {
+  cocinero: 'bg-gradient-to-br from-red-500 to-orange-500 border-orange-500',
+  camarero: 'bg-gradient-to-br from-red-500 to-orange-500 border-orange-500',
+  cajero: 'bg-gradient-to-br from-red-500 to-orange-500 border-orange-500',
+  admin: 'bg-gradient-to-br from-red-500 to-orange-500 border-orange-500',
+} as const;
+
 export function RoleLoginClient({ tenantId, tenantName, tenantSlug, logoUrl, role, staffMembers }: Props) {
   const router = useRouter();
   const [staffId, setStaffId] = useState('');
@@ -156,7 +163,7 @@ export function RoleLoginClient({ tenantId, tenantName, tenantSlug, logoUrl, rol
               <div
                 key={i}
                 className={`w-10 h-10 rounded-full border-2 flex items-center justify-center transition-colors ${
-                  i < pin.length ? 'bg-gradient-to-br from-red-500 to-orange-500 border-orange-500' : 'border-gray-300 bg-white'
+                  i < pin.length ? PIN_COLORS[role] : 'border-gray-300 bg-white'
                 }`}
               >
                 {i < pin.length && <div className="w-3 h-3 bg-white rounded-full" />}
