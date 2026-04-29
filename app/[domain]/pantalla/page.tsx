@@ -76,8 +76,15 @@ export default function PantallaPage({ params }: Props) {
       if (!res.ok) return
       const json: DisplayData = await res.json()
 
+      // Ensure all values have proper defaults
+      const safeData: DisplayData = {
+        restaurantName: json.restaurantName || 'Restaurante',
+        primaryColor: json.primaryColor || '#2563eb',
+        orders: Array.isArray(json.orders) ? json.orders : []
+      }
+
       const currentReady = new Set(
-        json.orders.filter(o => o.status === 'ready').map(o => o.id)
+        safeData.orders.filter(o => o.status === 'ready').map(o => o.id)
       )
       const appeared = [...currentReady].filter(id => !prevReadyRef.current.has(id))
       if (appeared.length > 0) {
@@ -86,7 +93,7 @@ export default function PantallaPage({ params }: Props) {
         setTimeout(() => setNewReadyIds(new Set()), 3000)
       }
       prevReadyRef.current = currentReady
-      setData(json)
+      setData(safeData)
     } catch {}
   }, [domain, playBeep])
 
