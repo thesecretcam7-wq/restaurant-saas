@@ -119,7 +119,7 @@ export default async function MenuPage({ params }: MenuProps) {
   const btnCls = getButtonClasses(pageConfig.appearance.button_style)
 
   return (
-    <div className="min-h-screen" style={{ fontFamily, ...backgroundStyle }}
+    <div className="min-h-screen" style={{ fontFamily, ...backgroundStyle }}>
       {/* Header - Professional */}
       <header className="sticky top-0 z-20 bg-white/98 backdrop-blur-xl shadow-md border-b border-gray-100">
         <div className="max-w-lg mx-auto px-4 h-14 sm:h-16 flex items-center justify-between">

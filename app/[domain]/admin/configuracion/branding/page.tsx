@@ -894,15 +894,17 @@ export default function BrandingPage({ params }: BrandingProps) {
               cursor: 'pointer',
             }}
             onMouseEnter={e => {
-              if (form.button_hover_effect === 'scale') (e.target as HTMLElement).style.transform = 'scale(1.05)'
-              if (form.button_hover_effect === 'glow') (e.target as HTMLElement).style.boxShadow = `0 0 12px ${form.button_primary_color}80`
-              if (form.button_hover_effect === 'shadow') (e.target as HTMLElement).style.boxShadow = '0 8px 16px rgba(0,0,0,0.2)'
-              if (form.button_hover_effect === 'color-shift' && form.button_hover_color) (e.target as HTMLElement).style.backgroundColor = form.button_hover_color
+              const el = e.target as any
+              if (form.button_hover_effect === 'scale') el.style.transform = 'scale(1.05)'
+              if (form.button_hover_effect === 'glow') el.style.boxShadow = `0 0 12px ${form.button_primary_color}80`
+              if (form.button_hover_effect === 'shadow') el.style.boxShadow = '0 8px 16px rgba(0,0,0,0.2)'
+              if (form.button_hover_effect === 'color-shift' && form.button_hover_color) el.style.backgroundColor = form.button_hover_color
             }}
             onMouseLeave={e => {
-              (e.target as HTMLElement).style.transform = 'scale(1)'
-              (e.target as HTMLElement).style.boxShadow = 'none'
-              (e.target as HTMLElement).style.backgroundColor = form.button_primary_color
+              const el = e.target as any
+              el.style.transform = 'scale(1)'
+              el.style.boxShadow = 'none'
+              el.style.backgroundColor = form.button_primary_color
             }}
           >
             {form.welcome_title || 'Explorar Menú'}
