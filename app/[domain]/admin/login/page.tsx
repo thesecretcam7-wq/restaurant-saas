@@ -51,7 +51,7 @@ export default function AdminLoginPage({ params }: Props) {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-white via-blue-50/50 to-green-50/50 flex items-center justify-center p-4 relative overflow-hidden">
+    <div className="min-h-screen bg-gradient-to-br from-white via-red-50/50 to-orange-50/50 flex items-center justify-center p-4 relative overflow-hidden">
       {/* Background accents */}
       <div className="absolute -top-40 -right-40 w-96 h-96 bg-red-100/30 rounded-full blur-3xl" />
       <div className="absolute -bottom-32 -left-32 w-80 h-80 bg-orange-100/20 rounded-full blur-3xl" />
