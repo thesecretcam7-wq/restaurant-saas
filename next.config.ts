@@ -1,3 +1,4 @@
+// COMPLETE REBUILD - Force Vercel to discard all cache and rebuild from scratch
 import type { NextConfig } from "next";
 import { withSentryConfig } from "@sentry/nextjs";
 
