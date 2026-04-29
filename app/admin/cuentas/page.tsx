@@ -3,7 +3,7 @@ import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import AccountsContent from './AccountsContent'
 
-export const revalidate = 60
+export const dynamic = 'force-dynamic'
 
 export default async function AccountsPage() {
   const supabase = createServiceClient()
