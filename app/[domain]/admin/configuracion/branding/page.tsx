@@ -128,8 +128,6 @@ export default function BrandingPage({ params }: BrandingProps) {
         heading_font: form.heading_font,
         heading_font_size: form.heading_font_size,
         body_font_size: form.body_font_size,
-        font_url: `https://fonts.googleapis.com/css2?family=${form.font_family.replace(' ', '+')}:wght@400;600;700&display=swap`,
-        heading_font_url: `https://fonts.googleapis.com/css2?family=${form.heading_font.replace(' ', '+')}:wght@700;800&display=swap`,
         border_radius: form.border_radius,
         button_border_radius: form.button_border_radius,
         shadow_intensity: form.shadow_intensity,
