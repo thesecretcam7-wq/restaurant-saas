@@ -62,31 +62,33 @@ export default function PersonalizacionPage({ params }: PersonalizacionProps) {
   useEffect(() => {
     if (!tenantId) return
 
-    const resolveAndLoad = async () => {
+    const loadBrandingData = async () => {
       try {
-        const supabase = createClient()
-
-        const brandingRes = await supabase.from('tenants').select('metadata, logo_url').eq('id', tenantId).single()
-
-        if (brandingRes.error) {
-          console.error('❌ Error fetching branding:', brandingRes.error)
-          setLoading(false)
-          return
+        const res = await fetch(`/api/tenant/branding?tenantId=${tenantId}`)
+        if (res.ok) {
+          const json = await res.json()
+          if (json.branding) {
+            // Filter out null values to keep defaults
+            const cleanBranding: Record<string, any> = {}
+            Object.entries(json.branding).forEach(([key, value]) => {
+              if (value !== null && value !== undefined) {
+                cleanBranding[key] = value
+              }
+            })
+            setForm(f => ({ ...f, ...cleanBranding }))
+          }
+          if (json.tenant?.logo_url) {
+            setForm(f => ({ ...f, logo_url: json.tenant.logo_url }))
+          }
         }
-
-        if (brandingRes.data?.metadata) {
-          setForm(f => ({ ...f, ...brandingRes.data.metadata }))
-        } else {
-        }
-        if (brandingRes.data?.logo_url) setForm(f => ({ ...f, logo_url: brandingRes.data.logo_url }))
-        setLoading(false)
       } catch (err) {
-        console.error('❌ Exception loading branding:', err)
+        console.error('Error loading branding:', err)
+      } finally {
         setLoading(false)
       }
     }
-    resolveAndLoad()
-  }, [tenantId, tenantSlug])
+    loadBrandingData()
+  }, [tenantId])
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>, field: string) => {
     const file = e.target.files?.[0]
