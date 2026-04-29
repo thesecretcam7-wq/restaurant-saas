@@ -167,7 +167,7 @@ export default function PantallaPage({ params }: Props) {
           <div className="px-10 py-6 flex items-center gap-3 border-b border-gray-800 bg-gray-900/50">
             <span className="text-3xl">🧾</span>
             <div>
-              <h2 className="text-xl font-bold text-sky-400 tracking-wide uppercase">Confirmado</h2>
+              <h2 className="text-xl font-bold tracking-wide uppercase" style={{ color: primary }}>Confirmado</h2>
               <p className="text-sm text-gray-500">{confirmed.length} {confirmed.length === 1 ? 'pedido' : 'pedidos'}</p>
             </div>
           </div>
@@ -181,12 +181,17 @@ export default function PantallaPage({ params }: Props) {
                 {confirmed.map(order => (
                   <div
                     key={order.id}
-                    className="flex items-center justify-center rounded-2xl border-2 border-sky-500/40 bg-sky-500/10"
-                    style={{ width: 160, height: 160 }}
+                    className="flex items-center justify-center rounded-2xl border-2"
+                    style={{
+                      width: 160,
+                      height: 160,
+                      borderColor: primary + '66',
+                      backgroundColor: primary + '1a',
+                    }}
                   >
                     <div className="text-center">
-                      <p className="text-xs text-sky-400/70 font-semibold tracking-widest uppercase mb-1">Pedido</p>
-                      <p className="text-6xl font-black tabular-nums text-sky-300">
+                      <p className="text-xs font-semibold tracking-widest uppercase mb-1" style={{ color: primary + 'b3' }}>Pedido</p>
+                      <p className="text-6xl font-black tabular-nums" style={{ color: primary + 'cc' }}>
                         {getShortNumber(order)}
                       </p>
                     </div>
@@ -202,7 +207,7 @@ export default function PantallaPage({ params }: Props) {
           <div className="px-10 py-6 flex items-center gap-3 border-b border-gray-800 bg-gray-900/50">
             <span className="text-3xl">🔥</span>
             <div>
-              <h2 className="text-xl font-bold text-amber-400 tracking-wide uppercase">En Preparación</h2>
+              <h2 className="text-xl font-bold tracking-wide uppercase" style={{ color: primary + 'dd' }}>En Preparación</h2>
               <p className="text-sm text-gray-500">{preparing.length} {preparing.length === 1 ? 'pedido' : 'pedidos'}</p>
             </div>
           </div>
@@ -216,12 +221,17 @@ export default function PantallaPage({ params }: Props) {
                 {preparing.map(order => (
                   <div
                     key={order.id}
-                    className="flex items-center justify-center rounded-2xl border-2 border-amber-500/40 bg-amber-500/10"
-                    style={{ width: 160, height: 160 }}
+                    className="flex items-center justify-center rounded-2xl border-2"
+                    style={{
+                      width: 160,
+                      height: 160,
+                      borderColor: primary + '80',
+                      backgroundColor: primary + '26',
+                    }}
                   >
                     <div className="text-center">
-                      <p className="text-xs text-amber-400/70 font-semibold tracking-widest uppercase mb-1">Pedido</p>
-                      <p className="text-6xl font-black tabular-nums text-amber-300">
+                      <p className="text-xs font-semibold tracking-widest uppercase mb-1" style={{ color: primary + 'cc' }}>Pedido</p>
+                      <p className="text-6xl font-black tabular-nums" style={{ color: primary + 'dd' }}>
                         {getShortNumber(order)}
                       </p>
                     </div>
@@ -237,7 +247,7 @@ export default function PantallaPage({ params }: Props) {
           <div className="px-10 py-6 flex items-center gap-3 border-b border-gray-800 bg-gray-900/50">
             <span className="text-3xl">✅</span>
             <div>
-              <h2 className="text-xl font-bold text-emerald-400 tracking-wide uppercase">Listos para Recoger</h2>
+              <h2 className="text-xl font-bold tracking-wide uppercase" style={{ color: primary }}>Listos para Recoger</h2>
               <p className="text-sm text-gray-500">{ready.length} {ready.length === 1 ? 'pedido' : 'pedidos'}</p>
             </div>
           </div>
@@ -253,20 +263,23 @@ export default function PantallaPage({ params }: Props) {
                   return (
                     <div
                       key={order.id}
-                      className={`flex items-center justify-center rounded-2xl border-2 transition-all duration-500 ${
-                        isNew
-                          ? 'border-emerald-400 bg-emerald-500/30 scale-110 shadow-[0_0_40px_rgba(52,211,153,0.4)]'
-                          : 'border-emerald-500/40 bg-emerald-500/10'
-                      }`}
-                      style={{ width: 160, height: 160 }}
+                      className="flex items-center justify-center rounded-2xl border-2 transition-all duration-500"
+                      style={{
+                        width: 160,
+                        height: 160,
+                        borderColor: isNew ? primary : primary + '66',
+                        backgroundColor: isNew ? primary + '4d' : primary + '1a',
+                        transform: isNew ? 'scale(1.1)' : 'scale(1)',
+                        boxShadow: isNew ? `0 0 40px ${primary}66` : 'none',
+                      }}
                     >
                       <div className="text-center">
-                        <p className="text-xs text-emerald-400/70 font-semibold tracking-widest uppercase mb-1">Pedido</p>
-                        <p className={`text-6xl font-black tabular-nums ${isNew ? 'text-emerald-300' : 'text-emerald-400'}`}>
+                        <p className="text-xs font-semibold tracking-widest uppercase mb-1" style={{ color: primary + 'b3' }}>Pedido</p>
+                        <p className="text-6xl font-black tabular-nums" style={{ color: isNew ? primary + 'ff' : primary + 'cc' }}>
                           {getShortNumber(order)}
                         </p>
                         {isNew && (
-                          <p className="text-xs text-emerald-300 font-bold mt-2 animate-bounce">¡LISTO!</p>
+                          <p className="text-xs font-bold mt-2 animate-bounce" style={{ color: primary }}>¡LISTO!</p>
                         )}
                       </div>
                     </div>
