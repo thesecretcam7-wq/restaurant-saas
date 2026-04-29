@@ -59,19 +59,26 @@ export default function BrandingPage({ params }: BrandingProps) {
     if (!tenantUUID) return
     const loadBrandingData = async () => {
       try {
-        const supabase = createClient()
-        const uuid = tenantUUID
-        const [brandingRes, tenantRes] = await Promise.all([
-          supabase.from('tenant_branding').select('*').eq('tenant_id', uuid).single(),
-          supabase.from('tenants').select('logo_url').eq('id', uuid).single(),
-        ])
-
-        if (brandingRes.data) {
-          setForm(f => ({ ...f, ...brandingRes.data }))
+        // Use API endpoint to bypass RLS issues
+        const res = await fetch(`/api/tenant/branding?tenantId=${tenantUUID}`)
+        if (res.ok) {
+          const json = await res.json()
+          if (json.branding) {
+            // Filter out null values to keep defaults
+            const cleanBranding: Record<string, any> = {}
+            Object.entries(json.branding).forEach(([key, value]) => {
+              if (value !== null && value !== undefined) {
+                cleanBranding[key] = value
+              }
+            })
+            setForm(f => ({ ...f, ...cleanBranding }))
+          }
+          if (json.tenant?.logo_url) {
+            setForm(f => ({ ...f, logo_url: json.tenant.logo_url }))
+          }
         }
-        if (tenantRes.data?.logo_url) setForm(f => ({ ...f, logo_url: tenantRes.data.logo_url }))
       } catch (err) {
-        // Table doesn't exist yet, defaults are fine
+        console.error('Error loading branding:', err)
       } finally {
         setLoading(false)
       }
@@ -102,52 +109,59 @@ export default function BrandingPage({ params }: BrandingProps) {
 
   const handleSave = async () => {
     setSaving(true)
-    const supabase = createClient()
     try {
       const uuid = tenantUUID!
-      const [r1, r2] = await Promise.all([
-        supabase.from('tenant_branding').upsert({
-          tenant_id: uuid,
-          app_name: form.app_name,
-          tagline: form.tagline,
-          description: form.description,
-          primary_color: form.primary_color,
-          secondary_color: form.secondary_color,
-          accent_color: form.accent_color,
-          background_color: form.background_color,
-          button_primary_color: form.button_primary_color,
-          button_secondary_color: form.button_secondary_color,
-          text_primary_color: form.text_primary_color,
-          text_secondary_color: form.text_secondary_color,
-          border_color: form.border_color,
-          font_family: form.font_family,
-          heading_font: form.heading_font,
-          heading_font_size: form.heading_font_size,
-          body_font_size: form.body_font_size,
-          font_url: `https://fonts.googleapis.com/css2?family=${form.font_family.replace(' ', '+')}:wght@400;600;700&display=swap`,
-          heading_font_url: `https://fonts.googleapis.com/css2?family=${form.heading_font.replace(' ', '+')}:wght@700;800&display=swap`,
-          border_radius: form.border_radius,
-          button_border_radius: form.button_border_radius,
-          shadow_intensity: form.shadow_intensity,
-          button_style: form.button_style,
-          logo_url: form.logo_url,
-          hero_image_url: form.hero_image_url,
-          favicon_url: form.favicon_url,
-          instagram_url: form.instagram_url,
-          facebook_url: form.facebook_url,
-          whatsapp_number: form.whatsapp_number,
-          contact_email: form.contact_email,
-          contact_phone: form.contact_phone,
-          booking_description: form.booking_description,
-          delivery_description: form.delivery_description,
-          featured_text: form.featured_text,
-        }, { onConflict: 'tenant_id' }),
-        supabase.from('tenants').update({ logo_url: form.logo_url || null }).eq('id', uuid),
-      ])
-      if (!r1.error && !r2.error) toast.success('Cambios guardados')
-      else toast.error('Error al guardar: ' + (r1.error?.message || r2.error?.message))
+      const brandingPayload = {
+        app_name: form.app_name,
+        tagline: form.tagline,
+        description: form.description,
+        primary_color: form.primary_color,
+        secondary_color: form.secondary_color,
+        accent_color: form.accent_color,
+        background_color: form.background_color,
+        button_primary_color: form.button_primary_color,
+        button_secondary_color: form.button_secondary_color,
+        text_primary_color: form.text_primary_color,
+        text_secondary_color: form.text_secondary_color,
+        border_color: form.border_color,
+        font_family: form.font_family,
+        heading_font: form.heading_font,
+        heading_font_size: form.heading_font_size,
+        body_font_size: form.body_font_size,
+        font_url: `https://fonts.googleapis.com/css2?family=${form.font_family.replace(' ', '+')}:wght@400;600;700&display=swap`,
+        heading_font_url: `https://fonts.googleapis.com/css2?family=${form.heading_font.replace(' ', '+')}:wght@700;800&display=swap`,
+        border_radius: form.border_radius,
+        button_border_radius: form.button_border_radius,
+        shadow_intensity: form.shadow_intensity,
+        button_style: form.button_style,
+        logo_url: form.logo_url,
+        hero_image_url: form.hero_image_url,
+        favicon_url: form.favicon_url,
+        instagram_url: form.instagram_url,
+        facebook_url: form.facebook_url,
+        whatsapp_number: form.whatsapp_number,
+        contact_email: form.contact_email,
+        contact_phone: form.contact_phone,
+        booking_description: form.booking_description,
+        delivery_description: form.delivery_description,
+        featured_text: form.featured_text,
+      }
+
+      const res = await fetch('/api/tenant/branding', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tenantId: uuid, branding: brandingPayload }),
+      })
+
+      const data = await res.json()
+      if (res.ok && data.success) {
+        toast.success('Cambios guardados')
+      } else {
+        toast.error('Error al guardar: ' + (data.error || 'Unknown error'))
+      }
     } catch (err) {
       toast.error('Error al guardar')
+      console.error(err)
     } finally {
       setSaving(false)
     }
