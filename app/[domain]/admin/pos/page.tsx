@@ -16,29 +16,27 @@ export default function POSPage() {
     async function resolveTenantId() {
       try {
         const supabase = createClient();
-        // Try by slug first
-        const { data: bySlug } = await supabase
+        // Try by slug first (without .single() to avoid 406 errors)
+        const { data: bySlug, error: slugError } = await supabase
           .from('tenants')
           .select('id, country')
-          .eq('slug', slug)
-          .single();
+          .eq('slug', slug);
 
-        if (bySlug) {
-          setTenantId(bySlug.id);
-          setCountry(bySlug.country || 'CO');
+        if (bySlug && bySlug.length > 0) {
+          setTenantId(bySlug[0].id);
+          setCountry(bySlug[0].country || 'CO');
           return;
         }
 
         // If not found, try as UUID
-        const { data: byId } = await supabase
+        const { data: byId, error: idError } = await supabase
           .from('tenants')
           .select('id, country')
-          .eq('id', slug)
-          .single();
+          .eq('id', slug);
 
-        if (byId) {
-          setTenantId(byId.id);
-          setCountry(byId.country || 'CO');
+        if (byId && byId.length > 0) {
+          setTenantId(byId[0].id);
+          setCountry(byId[0].country || 'CO');
         }
       } catch (error) {
         console.error('Error resolving tenant:', error);

@@ -41,21 +41,21 @@ export function AdminSidebar({
   const sidebarContent = (
     <>
       {/* Header */}
-      <div className="p-4 border-b flex items-center justify-between">
+      <div className="p-4 border-b border-slate-700/50 flex items-center justify-between">
         <div className="flex items-center gap-2 min-w-0">
           {logoUrl && (
             <img src={logoUrl} alt="" className="w-8 h-8 rounded object-cover flex-shrink-0" />
           )}
           <div className="min-w-0">
-            <p className="font-semibold text-sm truncate" style={{ color: primaryColor ?? undefined }}>
+            <p className="font-semibold text-sm truncate text-white" style={{ color: primaryColor ?? undefined }}>
               {restaurantName}
             </p>
-            <p className="text-xs text-gray-500">Panel Admin</p>
+            <p className="text-xs text-slate-400">Panel Admin</p>
           </div>
         </div>
         {/* Close button — mobile only */}
         <button
-          className="md:hidden ml-2 p-1 rounded text-gray-500 hover:bg-gray-100"
+          className="md:hidden ml-2 p-1 rounded text-slate-400 hover:bg-slate-700/50"
           onClick={() => setOpen(false)}
           aria-label="Cerrar menú"
         >
@@ -66,8 +66,8 @@ export function AdminSidebar({
       {/* Nav */}
       <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
         {isOwner && userTenants.length > 1 && (
-          <div className="mb-4 pb-4 border-b">
-            <p className="text-xs font-semibold text-gray-500 px-3 mb-2">MIS RESTAURANTES</p>
+          <div className="mb-4 pb-4 border-b border-slate-700/50">
+            <p className="text-xs font-semibold text-slate-400 px-3 mb-2">MIS RESTAURANTES</p>
             <div className="space-y-1">
               {userTenants.map(t => (
                 <Link
@@ -76,8 +76,8 @@ export function AdminSidebar({
                   onClick={() => setOpen(false)}
                   className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors ${
                     t.slug === tenantSlug
-                      ? 'bg-blue-100 text-blue-700 font-semibold'
-                      : 'text-gray-600 hover:bg-gray-100'
+                      ? 'bg-orange-500/20 text-orange-300 font-semibold border border-orange-500/30'
+                      : 'text-slate-400 hover:bg-slate-700/30'
                   }`}
                 >
                   <span>{t.organization_name.includes('Demo') ? '🎮' : '🏪'}</span>
@@ -115,11 +115,11 @@ export function AdminSidebar({
       </nav>
 
       {/* Footer */}
-      <div className="p-3 border-t space-y-1">
+      <div className="p-3 border-t border-slate-700/50 space-y-1">
         <Link
           href={`/${tenantSlug}/menu`}
           onClick={() => setOpen(false)}
-          className="flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-gray-600 hover:bg-gray-100"
+          className="flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-slate-400 hover:bg-slate-700/30"
           target="_blank"
         >
           <span>👁️</span>
@@ -128,7 +128,7 @@ export function AdminSidebar({
         <form action="/api/auth/logout" method="POST">
           <button
             type="submit"
-            className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-gray-600 hover:bg-gray-100 text-left"
+            className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-slate-400 hover:bg-slate-700/30 text-left"
           >
             <span>🚪</span>
             <span>Cerrar sesión</span>
@@ -141,17 +141,17 @@ export function AdminSidebar({
   return (
     <>
       {/* ── Desktop sidebar (always visible) ── */}
-      <aside className="hidden md:flex w-64 bg-white border-r flex-col fixed inset-y-0 left-0 z-30">
+      <aside className="hidden md:flex w-64 bg-slate-900/80 border-r border-slate-700/50 flex-col fixed inset-y-0 left-0 z-30">
         {sidebarContent}
       </aside>
 
       {/* ── Mobile: hamburger button ── */}
       <button
-        className="md:hidden fixed top-3 left-3 z-40 p-2 bg-white border rounded-lg shadow-sm"
+        className="md:hidden fixed top-3 left-3 z-40 p-2 bg-slate-900/80 border border-slate-700/50 rounded-lg shadow-sm"
         onClick={() => setOpen(true)}
         aria-label="Abrir menú"
       >
-        <Menu className="w-5 h-5 text-gray-700" />
+        <Menu className="w-5 h-5 text-slate-400" />
       </button>
 
       {/* ── Mobile: overlay ── */}
@@ -164,7 +164,7 @@ export function AdminSidebar({
 
       {/* ── Mobile: slide-in sidebar ── */}
       <aside
-        className={`md:hidden fixed inset-y-0 left-0 z-40 w-72 bg-white flex flex-col shadow-xl transition-transform duration-200 ${
+        className={`md:hidden fixed inset-y-0 left-0 z-40 w-72 bg-slate-900/80 flex flex-col shadow-xl transition-transform duration-200 ${
           open ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
