@@ -28,13 +28,19 @@ function getShortNumber(order: DisplayOrder): string {
 export default function PantallaPage({ params }: Props) {
   const { domain } = use(params)
   const [data, setData] = useState<DisplayData | null>(null)
-  // Force cache bust - dynamic branding colors update
-  const [time, setTime] = useState(new Date())
+  const [mounted, setMounted] = useState(false)
+  const [time, setTime] = useState<Date | null>(null)
   const [newReadyIds, setNewReadyIds] = useState<Set<string>>(new Set())
   const [isFullscreen, setIsFullscreen] = useState(false)
   const [showFsPrompt, setShowFsPrompt] = useState(true)
   const prevReadyRef = useRef<Set<string>>(new Set())
   const audioRef = useRef<AudioContext | null>(null)
+
+  // Mount flag to prevent hydration errors
+  useEffect(() => {
+    setMounted(true)
+    setTime(new Date())
+  }, [])
 
   const toggleFullscreen = useCallback(() => {
     if (!document.fullscreenElement) {
@@ -104,9 +110,10 @@ export default function PantallaPage({ params }: Props) {
   }, [fetchOrders])
 
   useEffect(() => {
+    if (!mounted) return
     const tick = setInterval(() => setTime(new Date()), 1000)
     return () => clearInterval(tick)
-  }, [])
+  }, [mounted])
 
   const confirmed = data?.orders.filter(o => o.status === 'confirmed') ?? []
   const preparing = data?.orders.filter(o => o.status === 'preparing') ?? []
@@ -118,7 +125,7 @@ export default function PantallaPage({ params }: Props) {
     <div className="min-h-screen bg-gray-950 text-white flex flex-col select-none" style={{ fontFamily: 'Inter, system-ui, sans-serif' }}>
 
       {/* Fullscreen prompt overlay */}
-      {showFsPrompt && !isFullscreen && (
+      {mounted && showFsPrompt && !isFullscreen && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-gray-950/90 backdrop-blur-sm cursor-pointer"
           onClick={() => { toggleFullscreen(); setShowFsPrompt(false) }}
@@ -159,10 +166,10 @@ export default function PantallaPage({ params }: Props) {
           </button>
           <div className="text-right">
             <p className="text-3xl font-mono font-semibold tabular-nums text-white">
-              {time.toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+              {time ? time.toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : '--:--:--'}
             </p>
             <p className="text-sm text-gray-500 mt-0.5">
-              {time.toLocaleDateString('es-CO', { weekday: 'long', day: 'numeric', month: 'long' })}
+              {time ? time.toLocaleDateString('es-CO', { weekday: 'long', day: 'numeric', month: 'long' }) : ''}
             </p>
           </div>
         </div>
