@@ -108,7 +108,7 @@ export default async function PedidosPage({ params, searchParams }: PedidosProps
         ) : (
           <div className="divide-y">
             {orders.map(order => {
-              const statusInfo = STATUS_LABELS[order.status] || { label: order.status, bg: 'rgba(243, 244, 246, 1)', text: '#6b7280' }
+              const statusInfo = STATUS_LABELS[order.status as keyof typeof STATUS_LABELS] || { label: order.status, bg: 'rgba(243, 244, 246, 1)', text: '#6b7280' }
               return (
                 <a
                   key={order.id}
