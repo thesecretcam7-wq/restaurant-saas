@@ -2,13 +2,14 @@
 
 import { use, useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import { useTenantResolver } from '@/lib/hooks/useTenantResolver'
 import toast from 'react-hot-toast'
 
 interface Props { params: Promise<{ domain: string }> }
 
 export default function RestauranteConfigPage({ params }: Props) {
-  const { domain: tenantId } = use(params)
-  const [tenantUUID, setTenantUUID] = useState<string | null>(null)
+  const { domain: tenantSlug } = use(params)
+  const { tenantId: tenantUUID, loading: resolvingTenant } = useTenantResolver(tenantSlug)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [form, setForm] = useState({
@@ -25,19 +26,11 @@ export default function RestauranteConfigPage({ params }: Props) {
   })
 
   useEffect(() => {
-    if (!tenantId) return
+    if (!tenantUUID) return
     const loadSettings = async () => {
       try {
         const supabase = createClient()
-        // Resolve slug to UUID
-        const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
-        let uuid = tenantId
-        if (!uuidRegex.test(tenantId)) {
-          const { data: t } = await supabase.from('tenants').select('id').eq('slug', tenantId).single()
-          if (!t) return
-          uuid = t.id
-        }
-        setTenantUUID(uuid)
+        const uuid = tenantUUID
         const { data } = await supabase.from('restaurant_settings').select('*').eq('tenant_id', uuid).single()
         if (data) {
           setForm({
@@ -60,13 +53,13 @@ export default function RestauranteConfigPage({ params }: Props) {
       }
     }
     loadSettings()
-  }, [tenantId])
+  }, [tenantUUID])
 
   const handleSave = async () => {
     setSaving(true)
     const supabase = createClient()
     try {
-      const uuid = tenantUUID || tenantId
+      const uuid = tenantUUID!
       const { error } = await supabase.from('restaurant_settings').upsert({
         tenant_id: uuid,
         display_name: form.display_name,
@@ -89,7 +82,7 @@ export default function RestauranteConfigPage({ params }: Props) {
     }
   }
 
-  if (loading) return <div className="flex items-center justify-center h-64 text-gray-400">Cargando...</div>
+  if (resolvingTenant || loading) return <div className="flex items-center justify-center h-64 text-gray-400">Cargando...</div>
 
   const field = (label: string, key: keyof typeof form, type = 'text', placeholder = '') => (
     <div>
@@ -178,14 +171,14 @@ export default function RestauranteConfigPage({ params }: Props) {
           <h2 className="font-semibold mb-4">⚙️ Configuración Avanzada</h2>
           <p className="text-sm text-gray-600 mb-4">Para configurar funcionalidades específicas, accede a sus páginas dedicadas:</p>
           <div className="grid grid-cols-2 gap-3">
-            <a href={`/${encodeURIComponent(tenantId)}/admin/configuracion/delivery`} className="flex items-start gap-3 p-4 rounded-lg border border-gray-200 hover:bg-blue-50 hover:border-blue-300 transition-all">
+            <a href={`/${encodeURIComponent(tenantSlug)}/admin/configuracion/delivery`} className="flex items-start gap-3 p-4 rounded-lg border border-gray-200 hover:bg-blue-50 hover:border-blue-300 transition-all">
               <span className="text-2xl">🚗</span>
               <div>
                 <p className="font-medium text-gray-900 text-sm">Delivery</p>
                 <p className="text-xs text-gray-500">Costos y tiempos de entrega</p>
               </div>
             </a>
-            <a href={`/${encodeURIComponent(tenantId)}/admin/configuracion/reservas`} className="flex items-start gap-3 p-4 rounded-lg border border-gray-200 hover:bg-blue-50 hover:border-blue-300 transition-all">
+            <a href={`/${encodeURIComponent(tenantSlug)}/admin/configuracion/reservas`} className="flex items-start gap-3 p-4 rounded-lg border border-gray-200 hover:bg-blue-50 hover:border-blue-300 transition-all">
               <span className="text-2xl">📅</span>
               <div>
                 <p className="font-medium text-gray-900 text-sm">Reservas</p>

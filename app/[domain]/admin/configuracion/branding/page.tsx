@@ -2,6 +2,7 @@
 
 import { use, useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import { useTenantResolver } from '@/lib/hooks/useTenantResolver'
 import toast from 'react-hot-toast'
 
 const GOOGLE_FONTS = ['Inter', 'Roboto', 'Open Sans', 'Lato', 'Montserrat', 'Playfair Display', 'Nunito', 'Raleway', 'Poppins', 'Oswald']
@@ -9,8 +10,8 @@ const GOOGLE_FONTS = ['Inter', 'Roboto', 'Open Sans', 'Lato', 'Montserrat', 'Pla
 interface BrandingProps { params: Promise<{ domain: string }> }
 
 export default function BrandingPage({ params }: BrandingProps) {
-  const { domain: tenantId } = use(params)
-  const [tenantUUID, setTenantUUID] = useState<string | null>(null)
+  const { domain: tenantSlug } = use(params)
+  const { tenantId: tenantUUID, loading: resolvingTenant } = useTenantResolver(tenantSlug)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [uploading, setUploading] = useState<string | null>(null)
@@ -55,19 +56,11 @@ export default function BrandingPage({ params }: BrandingProps) {
   })
 
   useEffect(() => {
-    if (!tenantId) return
+    if (!tenantUUID) return
     const loadBrandingData = async () => {
       try {
         const supabase = createClient()
-        // Resolve slug to UUID
-        const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
-        let uuid = tenantId
-        if (!uuidRegex.test(tenantId)) {
-          const { data: t } = await supabase.from('tenants').select('id').eq('slug', tenantId).single()
-          if (!t) return
-          uuid = t.id
-        }
-        setTenantUUID(uuid)
+        const uuid = tenantUUID
         const [brandingRes, tenantRes] = await Promise.all([
           supabase.from('tenant_branding').select('*').eq('tenant_id', uuid).single(),
           supabase.from('tenants').select('logo_url').eq('id', uuid).single(),
@@ -84,7 +77,7 @@ export default function BrandingPage({ params }: BrandingProps) {
       }
     }
     loadBrandingData()
-  }, [tenantId])
+  }, [tenantUUID])
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>, field: string) => {
     const file = e.target.files?.[0]
@@ -111,7 +104,7 @@ export default function BrandingPage({ params }: BrandingProps) {
     setSaving(true)
     const supabase = createClient()
     try {
-      const uuid = tenantUUID || tenantId
+      const uuid = tenantUUID!
       const [r1, r2] = await Promise.all([
         supabase.from('tenant_branding').upsert({
           tenant_id: uuid,
@@ -160,7 +153,7 @@ export default function BrandingPage({ params }: BrandingProps) {
     }
   }
 
-  if (loading) return <div className="flex items-center justify-center h-64 text-gray-400">Cargando...</div>
+  if (resolvingTenant || loading) return <div className="flex items-center justify-center h-64 text-gray-400">Cargando...</div>
 
   const imageUploadField = (label: string, field: keyof typeof form, bucket = 'images') => (
     <div>

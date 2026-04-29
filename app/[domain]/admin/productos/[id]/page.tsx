@@ -3,6 +3,7 @@
 import { useState, useEffect, use } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import { useTenantResolver } from '@/lib/hooks/useTenantResolver'
 import toast from 'react-hot-toast'
 import ToppingsManager from '@/components/admin/ToppingsManager'
 
@@ -11,7 +12,7 @@ interface Props { params: Promise<{ domain: string; id: string }> }
 export default function EditProductoPage({ params }: Props) {
   const { domain, id } = use(params)
   const router = useRouter()
-  const [tenantId, setTenantId] = useState<string | null>(null)
+  const { tenantId } = useTenantResolver(domain)
   const [categories, setCategories] = useState<{ id: string; name: string }[]>([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -29,12 +30,6 @@ export default function EditProductoPage({ params }: Props) {
   })
 
   const supabase = createClient()
-
-  useEffect(() => {
-    const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(domain)
-    supabase.from('tenants').select('id').eq(isUUID ? 'id' : 'slug', domain).single()
-      .then(({ data }) => { if (data) setTenantId(data.id) })
-  }, [domain])
 
   useEffect(() => {
     if (!tenantId) return

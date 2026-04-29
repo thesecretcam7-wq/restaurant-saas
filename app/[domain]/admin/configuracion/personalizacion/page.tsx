@@ -3,6 +3,7 @@
 import { use, useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import { useTenantResolver } from '@/lib/hooks/useTenantResolver'
 import toast from 'react-hot-toast'
 
 const GOOGLE_FONTS = ['Inter', 'Roboto', 'Open Sans', 'Lato', 'Montserrat', 'Playfair Display', 'Nunito', 'Raleway', 'Poppins', 'Oswald']
@@ -12,7 +13,7 @@ interface PersonalizacionProps { params: Promise<{ domain: string }> }
 export default function PersonalizacionPage({ params }: PersonalizacionProps) {
   const router = useRouter()
   const { domain: tenantSlug } = use(params)
-  const [tenantId, setTenantId] = useState<string | null>(null)
+  const { tenantId, loading: resolvingTenant } = useTenantResolver(tenantSlug)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [uploading, setUploading] = useState<string | null>(null)
@@ -59,21 +60,11 @@ export default function PersonalizacionPage({ params }: PersonalizacionProps) {
   })
 
   useEffect(() => {
+    if (!tenantId) return
 
     const resolveAndLoad = async () => {
       try {
         const supabase = createClient()
-
-        if (!tenantId) {
-          const tenantRes = await supabase.from('tenants').select('id').eq('slug', tenantSlug).single()
-          if (tenantRes.error || !tenantRes.data) {
-            console.error('❌ Tenant not found:', tenantRes.error)
-            setLoading(false)
-            return
-          }
-          setTenantId(tenantRes.data.id)
-          return
-        }
 
         const brandingRes = await supabase.from('tenants').select('metadata, logo_url').eq('id', tenantId).single()
 
@@ -176,7 +167,7 @@ export default function PersonalizacionPage({ params }: PersonalizacionProps) {
     }
   }
 
-  if (loading) return <div className="flex items-center justify-center h-64 text-gray-400">Cargando...</div>
+  if (resolvingTenant || loading) return <div className="flex items-center justify-center h-64 text-gray-400">Cargando...</div>
 
   const imageUploadField = (label: string, field: keyof typeof form) => (
     <div>

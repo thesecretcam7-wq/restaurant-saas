@@ -2,6 +2,7 @@
 
 import { use, useState, useEffect, useCallback } from 'react';
 import { createClient } from '@/lib/supabase/client';
+import { useTenantResolver } from '@/lib/hooks/useTenantResolver';
 import { Plus, AlertCircle, CheckCircle } from 'lucide-react';
 import { PrinterDeviceCard } from '@/components/admin/PrinterDeviceCard';
 import { useWebUSB } from '@/lib/hooks/useWebUSB';
@@ -14,8 +15,8 @@ interface Props {
 
 export default function PrintersConfigPage({ params }: Props) {
   const { domain: slug } = use(params);
+  const { tenantId } = useTenantResolver(slug);
 
-  const [tenantId, setTenantId] = useState<string | null>(null);
   const [devices, setDevices] = useState<PrinterDevice[]>([]);
   const [loading, setLoading] = useState(false);
   const [autoPrint, setAutoPrint] = useState(true);
@@ -25,29 +26,17 @@ export default function PrintersConfigPage({ params }: Props) {
   const webusb = useWebUSB();
   const supabase = createClient();
 
-  // Resolve slug → UUID then load everything
   useEffect(() => {
-    if (!slug) return;
+    if (!tenantId) return;
     async function init() {
-      const { data: tenant } = await supabase
-        .from('tenants')
-        .select('id')
-        .eq('slug', slug)
-        .single();
-      if (!tenant) return;
-
-      setTenantId(tenant.id);
-
-      // Load devices
-      const res = await fetch(`/api/devices?tenantId=${tenant.id}`);
+      const res = await fetch(`/api/devices?tenantId=${tenantId}`);
       const data = await res.json();
       setDevices(data.devices || []);
 
-      // Load settings
       const { data: settings } = await supabase
         .from('restaurant_settings')
         .select('printer_auto_print')
-        .eq('tenant_id', tenant.id)
+        .eq('tenant_id', tenantId)
         .maybeSingle();
 
       if (settings) {
@@ -55,7 +44,7 @@ export default function PrintersConfigPage({ params }: Props) {
       }
     }
     init();
-  }, [slug]);
+  }, [tenantId]);
 
   const showToast = (message: string, type: 'success' | 'error') => {
     setToast({ message, type });
