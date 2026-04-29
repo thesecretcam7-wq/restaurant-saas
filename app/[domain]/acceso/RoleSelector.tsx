@@ -55,7 +55,7 @@ export function RoleSelector({ tenantId, tenantName, tenantSlug, logoUrl }: Prop
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-white via-red-50/50 to-orange-50/50 flex flex-col items-center justify-center p-6">
+    <div className="min-h-screen bg-gradient-to-br from-white via-blue-50/50 to-green-50/50 flex flex-col items-center justify-center p-6">
       <div className="mb-10 text-center">
         {logoUrl ? (
           <img src={logoUrl} alt={tenantName} className="w-20 h-20 rounded-2xl object-cover mx-auto mb-4" />
