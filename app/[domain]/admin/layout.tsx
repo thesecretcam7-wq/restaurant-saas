@@ -116,7 +116,12 @@ export default async function AdminLayout({ children, params }: AdminLayoutProps
       subscriptionPlan={tenant.subscription_plan}
       subscriptionExpiresAt={tenant.subscription_expires_at}
     >
-      <div className="min-h-screen bg-gray-50 flex">
+      <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 flex relative overflow-hidden">
+        {/* Decorative gradient backgrounds */}
+        <div className="absolute -top-40 -left-40 w-96 h-96 bg-orange-600/20 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute top-1/3 -left-20 w-80 h-80 bg-orange-500/15 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute -bottom-20 right-1/4 w-96 h-96 bg-red-600/10 rounded-full blur-3xl pointer-events-none" />
+
         <AdminSidebar
           tenantSlug={tenantSlug}
           restaurantName={branding?.app_name || tenant.organization_name}

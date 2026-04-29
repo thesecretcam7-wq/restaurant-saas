@@ -26,7 +26,7 @@ export default function ConfiguracionLayout({ children }: { children: React.Reac
   const isInSection = !!activeSection
 
   const navList = (
-    <nav className="bg-white rounded-xl border overflow-hidden">
+    <nav className="bg-slate-900/50 rounded-xl border border-slate-700/50 overflow-hidden">
       {SECTIONS.map(s => {
         const href = `/${tenantId}/admin/configuracion/${s.href}`
         const isActive = s === activeSection
@@ -34,18 +34,18 @@ export default function ConfiguracionLayout({ children }: { children: React.Reac
           <Link
             key={s.href}
             href={href}
-            className={`flex items-start gap-3 px-4 py-3 border-b last:border-b-0 transition-colors ${
+            className={`flex items-start gap-3 px-4 py-3 border-b border-slate-700/50 last:border-b-0 transition-colors ${
               isActive
-                ? 'bg-blue-50 border-l-4 border-l-blue-600'
-                : 'hover:bg-gray-50'
+                ? 'bg-orange-500/15 border-l-4 border-l-orange-500'
+                : 'hover:bg-slate-800/30'
             }`}
           >
             <span className="text-xl mt-0.5">{s.icon}</span>
             <div>
-              <p className={`text-sm font-medium ${isActive ? 'text-blue-700' : 'text-gray-800'}`}>{s.label}</p>
-              <p className="text-xs text-gray-400">{s.desc}</p>
+              <p className={`text-sm font-medium ${isActive ? 'text-orange-400' : 'text-slate-300'}`}>{s.label}</p>
+              <p className="text-xs text-slate-500">{s.desc}</p>
             </div>
-            <span className="ml-auto text-gray-300 self-center lg:hidden">›</span>
+            <span className="ml-auto text-slate-600 self-center lg:hidden">›</span>
           </Link>
         )
       })}
