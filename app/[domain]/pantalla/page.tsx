@@ -28,6 +28,7 @@ function getShortNumber(order: DisplayOrder): string {
 export default function PantallaPage({ params }: Props) {
   const { domain } = use(params)
   const [data, setData] = useState<DisplayData | null>(null)
+  // Force cache bust - dynamic branding colors update
   const [time, setTime] = useState(new Date())
   const [newReadyIds, setNewReadyIds] = useState<Set<string>>(new Set())
   const [isFullscreen, setIsFullscreen] = useState(false)
