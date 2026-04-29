@@ -237,13 +237,13 @@ export default function BrandingPage({ params }: BrandingProps) {
               <div key={key} className="flex items-center gap-3">
                 <input
                   type="color"
-                  value={(form as any)[key]}
+                  value={(form as any)[key] || '#000000'}
                   onChange={e => setForm(f => ({ ...f, [key]: e.target.value }))}
                   className="w-12 h-12 rounded-lg border cursor-pointer p-1"
                 />
                 <div>
                   <p className="text-sm font-medium text-gray-700">{label}</p>
-                  <p className="text-xs text-gray-400">{(form as any)[key]}</p>
+                  <p className="text-xs text-gray-400">{(form as any)[key] || '#000000'}</p>
                 </div>
               </div>
             ))}
@@ -264,13 +264,13 @@ export default function BrandingPage({ params }: BrandingProps) {
               <div key={key} className="flex items-center gap-3">
                 <input
                   type="color"
-                  value={(form as any)[key]}
+                  value={(form as any)[key] || '#000000'}
                   onChange={e => setForm(f => ({ ...f, [key]: e.target.value }))}
                   className="w-12 h-12 rounded-lg border cursor-pointer p-1"
                 />
                 <div>
                   <p className="text-sm font-medium text-gray-700">{label}</p>
-                  <p className="text-xs text-gray-400">{(form as any)[key]}</p>
+                  <p className="text-xs text-gray-400">{(form as any)[key] || '#000000'}</p>
                 </div>
               </div>
             ))}

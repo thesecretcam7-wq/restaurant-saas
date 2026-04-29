@@ -1,7 +1,7 @@
 import type { NextConfig } from "next";
 import { withSentryConfig } from "@sentry/nextjs";
 
-// Force rebuild cache - kitchen display dynamic branding colors v2
+// Force rebuild cache - fix branding page React error #418
 const nextConfig: NextConfig = {
   images: {
     remotePatterns: [
