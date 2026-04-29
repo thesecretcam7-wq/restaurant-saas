@@ -122,13 +122,14 @@ export default function PantallaPage({ params }: Props) {
   const primary = data?.primaryColor || '#2563eb'
 
   return (
-    <div className="min-h-screen bg-gray-950 text-white flex flex-col select-none" style={{ fontFamily: 'Inter, system-ui, sans-serif' }}>
+    <div className="min-h-screen text-white flex flex-col select-none" style={{ fontFamily: 'Inter, system-ui, sans-serif', backgroundColor: primary + '08', color: '#fff' }}>
 
       {/* Fullscreen prompt overlay */}
       {mounted && showFsPrompt && !isFullscreen && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-gray-950/90 backdrop-blur-sm cursor-pointer"
+          className="fixed inset-0 z-50 flex items-center justify-center backdrop-blur-sm cursor-pointer"
           onClick={() => { toggleFullscreen(); setShowFsPrompt(false) }}
+          style={{ backgroundColor: 'rgba(0, 0, 0, 0.9)' }}
         >
           <div className="text-center">
             <p className="text-7xl mb-6">🖥️</p>
@@ -139,7 +140,7 @@ export default function PantallaPage({ params }: Props) {
       )}
 
       {/* Header */}
-      <header className="flex items-center justify-between px-10 py-5 border-b border-gray-800">
+      <header className="flex items-center justify-between px-10 py-5" style={{ borderBottom: `2px solid ${primary}40` }}>
         <div className="flex items-center gap-4">
           <div className="w-3 h-3 rounded-full animate-pulse" style={{ backgroundColor: primary }} />
           <h1 className="text-2xl font-bold tracking-tight" style={{ color: primary }}>
@@ -176,10 +177,10 @@ export default function PantallaPage({ params }: Props) {
       </header>
 
       {/* Columns */}
-      <div className="flex flex-1 divide-x divide-gray-800">
+      <div className="flex flex-1" style={{ borderRight: `1px solid ${primary}20` }}>
         {/* Confirmados */}
         <div className="flex-1 flex flex-col">
-          <div className="px-10 py-6 flex items-center gap-3 border-b border-gray-800 bg-gray-900/50">
+          <div className="px-10 py-6 flex items-center gap-3" style={{ borderBottom: `1px solid ${primary}20`, backgroundColor: primary + '08' }}>
             <span className="text-3xl">🧾</span>
             <div>
               <h2 className="text-xl font-bold tracking-wide uppercase" style={{ color: primary }}>Confirmado</h2>
@@ -189,7 +190,7 @@ export default function PantallaPage({ params }: Props) {
           <div className="flex-1 p-8 overflow-auto">
             {confirmed.length === 0 ? (
               <div className="flex items-center justify-center h-full">
-                <p className="text-gray-700 text-xl">Sin pedidos nuevos</p>
+                <p className="text-xl" style={{ color: primary + '66' }}>Sin pedidos nuevos</p>
               </div>
             ) : (
               <div className="flex flex-wrap gap-6">
@@ -219,7 +220,7 @@ export default function PantallaPage({ params }: Props) {
 
         {/* En preparación */}
         <div className="flex-1 flex flex-col">
-          <div className="px-10 py-6 flex items-center gap-3 border-b border-gray-800 bg-gray-900/50">
+          <div className="px-10 py-6 flex items-center gap-3" style={{ borderBottom: `1px solid ${primary}20`, borderLeft: `1px solid ${primary}20`, borderRight: `1px solid ${primary}20`, backgroundColor: primary + '08' }}>
             <span className="text-3xl">🔥</span>
             <div>
               <h2 className="text-xl font-bold tracking-wide uppercase" style={{ color: primary + 'dd' }}>En Preparación</h2>
@@ -229,7 +230,7 @@ export default function PantallaPage({ params }: Props) {
           <div className="flex-1 p-8 overflow-auto">
             {preparing.length === 0 ? (
               <div className="flex items-center justify-center h-full">
-                <p className="text-gray-700 text-xl">Sin pedidos en preparación</p>
+                <p className="text-xl" style={{ color: primary + '66' }}>Sin pedidos en preparación</p>
               </div>
             ) : (
               <div className="flex flex-wrap gap-6">
@@ -259,7 +260,7 @@ export default function PantallaPage({ params }: Props) {
 
         {/* Listos para recoger */}
         <div className="flex-1 flex flex-col">
-          <div className="px-10 py-6 flex items-center gap-3 border-b border-gray-800 bg-gray-900/50">
+          <div className="px-10 py-6 flex items-center gap-3" style={{ borderBottom: `1px solid ${primary}20`, borderLeft: `1px solid ${primary}20`, backgroundColor: primary + '08' }}>
             <span className="text-3xl">✅</span>
             <div>
               <h2 className="text-xl font-bold tracking-wide uppercase" style={{ color: primary }}>Listos para Recoger</h2>
@@ -269,7 +270,7 @@ export default function PantallaPage({ params }: Props) {
           <div className="flex-1 p-8 overflow-auto">
             {ready.length === 0 ? (
               <div className="flex items-center justify-center h-full">
-                <p className="text-gray-700 text-xl">Sin pedidos listos</p>
+                <p className="text-xl" style={{ color: primary + '66' }}>Sin pedidos listos</p>
               </div>
             ) : (
               <div className="flex flex-wrap gap-6">
@@ -307,9 +308,9 @@ export default function PantallaPage({ params }: Props) {
       </div>
 
       {/* Footer */}
-      <footer className="px-10 py-3 border-t border-gray-800 bg-gray-900/50 flex items-center justify-between">
-        <p className="text-xs text-gray-600">Pasa a recoger tu pedido cuando aparezca en "Listos"</p>
-        <p className="text-xs text-gray-700">Actualización automática cada 4 segundos</p>
+      <footer className="px-10 py-3 flex items-center justify-between" style={{ borderTop: `1px solid ${primary}20`, backgroundColor: primary + '08' }}>
+        <p className="text-xs" style={{ color: primary + '80' }}>Pasa a recoger tu pedido cuando aparezca en "Listos"</p>
+        <p className="text-xs" style={{ color: primary + '66' }}>Actualización automática cada 4 segundos</p>
       </footer>
     </div>
   )
