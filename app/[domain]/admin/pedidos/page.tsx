@@ -93,7 +93,7 @@ export default async function PedidosPage({ params, searchParams }: PedidosProps
               return (
                 <a
                   key={order.id}
-                  href={`/${tenantId}/admin/pedidos/${order.id}`}
+                  href={`/${slug}/admin/pedidos/${order.id}`}
                   className="flex items-center gap-4 p-4 hover:bg-gray-50 transition-colors"
                 >
                   <div className="flex-1 min-w-0">

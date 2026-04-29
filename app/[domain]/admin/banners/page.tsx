@@ -137,7 +137,7 @@ export default function BannersPage({ params }: Props) {
   return (
     <div className="max-w-4xl mx-auto p-8">
       <div className="flex items-center gap-4 mb-8">
-        <Link href={`/${tenantId}/admin`} className="text-gray-500 hover:text-gray-700">←</Link>
+        <Link href={`/${slug}/admin`} className="text-gray-500 hover:text-gray-700">←</Link>
         <h1 className="text-3xl font-bold text-gray-900">Banners del Kiosko</h1>
       </div>
 
