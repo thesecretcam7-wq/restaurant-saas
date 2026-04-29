@@ -97,6 +97,75 @@ function AppHeader({
   )
 }
 
+// ─── Full Screen Banner Carousel ─────────────────────────────────────────────
+function BannerCarouselFullscreen({ banners }: { banners: Banner[] }) {
+  const touchStartX = useRef(0)
+  const [bannerIdx, setBannerIdx] = useState(0)
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setBannerIdx(prev => (prev + 1) % banners.length)
+    }, 6000)
+    return () => clearInterval(interval)
+  }, [banners.length])
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    touchStartX.current = e.touches[0].clientX
+  }
+
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    const touchEndX = e.changedTouches[0].clientX
+    const diff = touchStartX.current - touchEndX
+    if (Math.abs(diff) > 50) {
+      if (diff > 0) {
+        setBannerIdx(prev => (prev + 1) % banners.length)
+      } else {
+        setBannerIdx(prev => (prev - 1 + banners.length) % banners.length)
+      }
+    }
+  }
+
+  const currentBanner = banners[bannerIdx]
+
+  return (
+    <div
+      className="flex-1 overflow-hidden p-4 flex items-center justify-center cursor-grab active:cursor-grabbing"
+      onTouchStart={handleTouchStart}
+      onTouchEnd={handleTouchEnd}
+    >
+      <div className="w-full h-full flex items-center justify-center relative">
+        <a
+          href={currentBanner?.link_url || '#'}
+          target={currentBanner?.link_url ? '_blank' : undefined}
+          rel={currentBanner?.link_url ? 'noopener noreferrer' : undefined}
+          className="w-full h-full rounded-3xl overflow-hidden shadow-2xl hover:shadow-3xl transition-shadow"
+        >
+          <img
+            src={currentBanner?.image_url}
+            alt={currentBanner?.title}
+            className="w-full h-full object-cover hover:scale-105 transition-transform duration-300"
+          />
+        </a>
+
+        {/* Indicadores de página */}
+        {banners.length > 1 && (
+          <div className="absolute bottom-6 left-1/2 transform -translate-x-1/2 flex gap-2">
+            {banners.map((_, idx) => (
+              <button
+                key={idx}
+                onClick={() => setBannerIdx(idx)}
+                className={`w-3 h-3 rounded-full transition-all ${
+                  idx === bannerIdx ? 'bg-white w-8' : 'bg-white/50'
+                }`}
+              />
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
 // ─── Horizontal Banner Carousel ──────────────────────────────────────────────
 function HorizontalBannerCarousel({
   banners,
@@ -763,25 +832,10 @@ export default function KioskoClient({
           </div>
         </aside>
 
-        {/* ── Main area: banners full screen ── */}
+        {/* ── Main area: banners carousel full screen ── */}
         <div className="flex-1 flex flex-col overflow-hidden">
           {banners.length > 0 ? (
-            <div className="flex-1 overflow-hidden p-6 flex items-center justify-center">
-              <div className="w-full h-full flex items-center justify-center">
-                <a
-                  href={banners[0]?.link_url || '#'}
-                  target={banners[0]?.link_url ? '_blank' : undefined}
-                  rel={banners[0]?.link_url ? 'noopener noreferrer' : undefined}
-                  className="w-full h-full rounded-3xl overflow-hidden shadow-2xl hover:shadow-3xl transition-shadow cursor-pointer"
-                >
-                  <img
-                    src={banners[0]?.image_url}
-                    alt={banners[0]?.title}
-                    className="w-full h-full object-cover hover:scale-105 transition-transform duration-300"
-                  />
-                </a>
-              </div>
-            </div>
+            <BannerCarouselFullscreen banners={banners} />
           ) : (
             <div className="flex-1 flex flex-col items-center justify-center text-gray-400">
               <p className="text-8xl mb-8">👈</p>
