@@ -122,7 +122,7 @@ export default function PantallaPage({ params }: Props) {
   const primary = data?.primaryColor || '#2563eb'
 
   return (
-    <div className="min-h-screen text-white flex flex-col select-none" style={{ fontFamily: 'Inter, system-ui, sans-serif', backgroundColor: primary + '08', color: '#fff' }}>
+    <div className="min-h-screen text-white flex flex-col select-none" style={{ fontFamily: 'Inter, system-ui, sans-serif', backgroundColor: `${primary}15`, color: '#fff' }}>
 
       {/* Fullscreen prompt overlay */}
       {mounted && showFsPrompt && !isFullscreen && (
@@ -140,7 +140,7 @@ export default function PantallaPage({ params }: Props) {
       )}
 
       {/* Header */}
-      <header className="flex items-center justify-between px-10 py-5" style={{ borderBottom: `2px solid ${primary}40` }}>
+      <header className="flex items-center justify-between px-10 py-5" style={{ borderBottom: `2px solid ${primary}` }}>
         <div className="flex items-center gap-4">
           <div className="w-3 h-3 rounded-full animate-pulse" style={{ backgroundColor: primary }} />
           <h1 className="text-2xl font-bold tracking-tight" style={{ color: primary }}>
@@ -177,10 +177,10 @@ export default function PantallaPage({ params }: Props) {
       </header>
 
       {/* Columns */}
-      <div className="flex flex-1" style={{ borderRight: `1px solid ${primary}20` }}>
+      <div className="flex flex-1" style={{ borderRight: `1px solid ${primary}33` }}>
         {/* Confirmados */}
         <div className="flex-1 flex flex-col">
-          <div className="px-10 py-6 flex items-center gap-3" style={{ borderBottom: `1px solid ${primary}20`, backgroundColor: primary + '08' }}>
+          <div className="px-10 py-6 flex items-center gap-3" style={{ borderBottom: `1px solid ${primary}33`, backgroundColor: primary + '11' }}>
             <span className="text-3xl">🧾</span>
             <div>
               <h2 className="text-xl font-bold tracking-wide uppercase" style={{ color: primary }}>Confirmado</h2>
@@ -190,7 +190,7 @@ export default function PantallaPage({ params }: Props) {
           <div className="flex-1 p-8 overflow-auto">
             {confirmed.length === 0 ? (
               <div className="flex items-center justify-center h-full">
-                <p className="text-xl" style={{ color: primary + '66' }}>Sin pedidos nuevos</p>
+                <p className="text-xl" style={{ color: primary + '99' }}>Sin pedidos nuevos</p>
               </div>
             ) : (
               <div className="flex flex-wrap gap-6">
@@ -201,13 +201,13 @@ export default function PantallaPage({ params }: Props) {
                     style={{
                       width: 160,
                       height: 160,
-                      borderColor: primary + '66',
-                      backgroundColor: primary + '1a',
+                      borderColor: primary + '88',
+                      backgroundColor: primary + '22',
                     }}
                   >
                     <div className="text-center">
-                      <p className="text-xs font-semibold tracking-widest uppercase mb-1" style={{ color: primary + 'b3' }}>Pedido</p>
-                      <p className="text-6xl font-black tabular-nums" style={{ color: primary + 'cc' }}>
+                      <p className="text-xs font-semibold tracking-widest uppercase mb-1" style={{ color: primary + 'cc' }}>Pedido</p>
+                      <p className="text-6xl font-black tabular-nums" style={{ color: primary }}>
                         {getShortNumber(order)}
                       </p>
                     </div>
@@ -220,10 +220,10 @@ export default function PantallaPage({ params }: Props) {
 
         {/* En preparación */}
         <div className="flex-1 flex flex-col">
-          <div className="px-10 py-6 flex items-center gap-3" style={{ borderBottom: `1px solid ${primary}20`, borderLeft: `1px solid ${primary}20`, borderRight: `1px solid ${primary}20`, backgroundColor: primary + '08' }}>
+          <div className="px-10 py-6 flex items-center gap-3" style={{ borderBottom: `1px solid ${primary}33`, borderLeft: `1px solid ${primary}33`, borderRight: `1px solid ${primary}33`, backgroundColor: primary + '11' }}>
             <span className="text-3xl">🔥</span>
             <div>
-              <h2 className="text-xl font-bold tracking-wide uppercase" style={{ color: primary + 'dd' }}>En Preparación</h2>
+              <h2 className="text-xl font-bold tracking-wide uppercase" style={{ color: primary }}>En Preparación</h2>
               <p className="text-sm text-gray-500">{preparing.length} {preparing.length === 1 ? 'pedido' : 'pedidos'}</p>
             </div>
           </div>
@@ -241,8 +241,8 @@ export default function PantallaPage({ params }: Props) {
                     style={{
                       width: 160,
                       height: 160,
-                      borderColor: primary + '80',
-                      backgroundColor: primary + '26',
+                      borderColor: primary + '88',
+                      backgroundColor: primary + '22',
                     }}
                   >
                     <div className="text-center">
@@ -283,15 +283,15 @@ export default function PantallaPage({ params }: Props) {
                       style={{
                         width: 160,
                         height: 160,
-                        borderColor: isNew ? primary : primary + '66',
-                        backgroundColor: isNew ? primary + '4d' : primary + '1a',
+                        borderColor: isNew ? primary : primary + '88',
+                        backgroundColor: isNew ? primary + '33' : primary + '22',
                         transform: isNew ? 'scale(1.1)' : 'scale(1)',
                         boxShadow: isNew ? `0 0 40px ${primary}66` : 'none',
                       }}
                     >
                       <div className="text-center">
                         <p className="text-xs font-semibold tracking-widest uppercase mb-1" style={{ color: primary + 'b3' }}>Pedido</p>
-                        <p className="text-6xl font-black tabular-nums" style={{ color: isNew ? primary + 'ff' : primary + 'cc' }}>
+                        <p className="text-6xl font-black tabular-nums" style={{ color: primary }}>
                           {getShortNumber(order)}
                         </p>
                         {isNew && (
@@ -308,9 +308,9 @@ export default function PantallaPage({ params }: Props) {
       </div>
 
       {/* Footer */}
-      <footer className="px-10 py-3 flex items-center justify-between" style={{ borderTop: `1px solid ${primary}20`, backgroundColor: primary + '08' }}>
-        <p className="text-xs" style={{ color: primary + '80' }}>Pasa a recoger tu pedido cuando aparezca en "Listos"</p>
-        <p className="text-xs" style={{ color: primary + '66' }}>Actualización automática cada 4 segundos</p>
+      <footer className="px-10 py-3 flex items-center justify-between" style={{ borderTop: `1px solid ${primary}33`, backgroundColor: primary + '11' }}>
+        <p className="text-xs" style={{ color: primary + '99' }}>Pasa a recoger tu pedido cuando aparezca en "Listos"</p>
+        <p className="text-xs" style={{ color: primary + '99' }}>Actualización automática cada 4 segundos</p>
       </footer>
     </div>
   )
