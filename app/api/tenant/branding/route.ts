@@ -39,11 +39,13 @@ export async function PUT(request: NextRequest) {
     const supabase = createServiceClient()
 
     // Save branding data to tenant_branding table (this is what API reads from)
-    const brandingData = { ...branding, tenant_id: tenantId }
+    // Exclude logo_url since it goes to tenants table
+    const { logo_url, ...brandingDataWithoutLogo } = branding
+    const brandingData = { ...brandingDataWithoutLogo, tenant_id: tenantId }
     const [brandingRes, tenantRes] = await Promise.all([
       supabase.from('tenant_branding').upsert(brandingData, { onConflict: 'tenant_id' }),
       supabase.from('tenants').update({
-        logo_url: branding.logo_url || null,
+        logo_url: logo_url || null,
         metadata: branding,
       }).eq('id', tenantId),
     ])
