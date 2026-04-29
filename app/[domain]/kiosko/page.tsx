@@ -57,7 +57,7 @@ export default async function KioskoPage({ params, searchParams }: Props) {
 
   const branding = {
     appName: brandingRes.data?.app_name || tenant.organization_name,
-    primaryColor: '#E4002B', // EccoFood red - always use brand colors for kiosko
+    primaryColor: brandingRes.data?.primary_color || '#E4002B',
     logoUrl: (brandingRes.data as any)?.logo_url || null,
   }
 
