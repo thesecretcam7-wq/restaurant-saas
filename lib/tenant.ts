@@ -40,9 +40,9 @@ export async function getTenantBranding(tenantId: string) {
     const supabase = createServiceClient()
 
     const { data, error } = await supabase
-      .from('tenants')
-      .select('metadata')
-      .eq('id', tenantId)
+      .from('tenant_branding')
+      .select('*')
+      .eq('tenant_id', tenantId)
       .single()
 
     if (error) {
@@ -50,7 +50,7 @@ export async function getTenantBranding(tenantId: string) {
       return null
     }
 
-    return data?.metadata as TenantBranding
+    return data as TenantBranding
   } catch (error) {
     console.error('Exception in getTenantBranding:', error)
     return null
