@@ -1,7 +1,7 @@
 import type { NextConfig } from "next";
 import { withSentryConfig } from "@sentry/nextjs";
 
-// Force rebuild cache - fix branding page React error #418
+// Force complete rebuild - branding colors not syncing to API, clear all cache
 const nextConfig: NextConfig = {
   images: {
     remotePatterns: [
