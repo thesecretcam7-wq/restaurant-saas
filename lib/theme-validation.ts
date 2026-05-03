@@ -17,7 +17,7 @@ export function validateAllThemes(): { valid: boolean; errors: string[] } {
   const errors: string[] = []
 
   // Check all available themes
-  for (const theme of AVAILABLE_THEMES) {
+  for (const theme of AVAILABLE_THEMES as readonly ThemeConfig[]) {
     if (!validateTheme(theme)) {
       errors.push(`Invalid theme configuration: ${theme.name}`)
     }
@@ -117,7 +117,7 @@ export function isValidColorValue(value: string): boolean {
 export function validateThemeTokenValues(): { valid: boolean; errors: string[] } {
   const errors: string[] = []
 
-  for (const theme of AVAILABLE_THEMES) {
+  for (const theme of AVAILABLE_THEMES as readonly ThemeConfig[]) {
     Object.entries(theme.tokens).forEach(([tokenName, value]) => {
       if (typeof value !== 'string' || !isValidColorValue(value)) {
         errors.push(
