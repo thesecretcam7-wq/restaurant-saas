@@ -7,7 +7,7 @@
  * - Color values are valid hex/rgb/hsl
  */
 
-import { AVAILABLE_THEMES, validateTheme } from './theme'
+import { AVAILABLE_THEMES, validateTheme, ThemeConfig } from './theme'
 import { ADMIN_SECTION_COLORS } from './colors'
 
 /**
