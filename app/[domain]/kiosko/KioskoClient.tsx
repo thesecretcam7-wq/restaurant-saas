@@ -211,8 +211,22 @@ export default function KioskoClient({
   ))
   Clock.displayName = 'Clock'
 
-  // ── Shared header ───────────────────────────────────────────────────────────
-  const AppHeader = ({ backLabel, onBack }: { backLabel?: string; onBack?: () => void }) => (
+// ── Shared header (moved outside to prevent re-animation) ──────────────────────
+const AppHeader = ({
+  primaryColor,
+  appName,
+  logoUrl,
+  time,
+  backLabel,
+  onBack
+}: {
+  primaryColor: string
+  appName: string
+  logoUrl: string | null
+  time: Date | null
+  backLabel?: string
+  onBack?: () => void
+}) => (
     <motion.header
       className="flex items-center justify-between px-8 py-5 flex-shrink-0 text-white border-b border-white/10 backdrop-blur-xl"
       style={{
@@ -265,7 +279,7 @@ export default function KioskoClient({
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
       >
-        <AppHeader />
+        <AppHeader primaryColor={primaryColor} appName={appName} logoUrl={logoUrl} time={time} />
         <div className="flex-1 flex flex-col items-center justify-center px-6">
           <motion.div
             className="text-center w-full max-w-sm"
@@ -351,7 +365,7 @@ export default function KioskoClient({
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
       >
-        <AppHeader backLabel="Volver al carrito" onBack={() => setStep('cart')} />
+        <AppHeader primaryColor={primaryColor} appName={appName} logoUrl={logoUrl} time={time} backLabel="Volver al carrito" onBack={() => setStep('cart')} />
         <div className="flex-1 overflow-y-auto">
           <div className="max-w-xl mx-auto p-6 pb-32">
             <motion.h2
@@ -554,7 +568,7 @@ export default function KioskoClient({
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
       >
-        <AppHeader backLabel="Seguir pidiendo" onBack={() => setStep('menu')} />
+        <AppHeader primaryColor={primaryColor} appName={appName} logoUrl={logoUrl} time={time} backLabel="Seguir pidiendo" onBack={() => setStep('menu')} />
         <div className="flex-1 overflow-y-auto">
           <div className="max-w-xl mx-auto p-6 pb-40">
             <motion.h2
@@ -763,7 +777,7 @@ export default function KioskoClient({
         )}
       </AnimatePresence>
 
-      <AppHeader />
+      <AppHeader primaryColor={primaryColor} appName={appName} logoUrl={logoUrl} time={time} />
 
       {/* Main content - flex row layout with sidebar */}
       <div className="flex-1 overflow-hidden flex flex-row">

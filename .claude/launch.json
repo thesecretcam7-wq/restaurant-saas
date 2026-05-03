@@ -2,11 +2,10 @@
   "version": "0.0.1",
   "configurations": [
     {
-      "name": "Restaurant SaaS",
+      "name": "eccofood",
       "runtimeExecutable": "npm",
       "runtimeArgs": ["run", "dev"],
-      "port": 3005,
-      "autoPort": true
+      "port": 3000
     }
   ]
 }
