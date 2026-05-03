@@ -69,7 +69,7 @@ export default function AdminLoginPage({ params }: Props) {
           </div>
 
           {error && (
-            <div className="mb-4 p-3.5 rounded-lg text-sm flex items-center gap-2.5" style={{ backgroundColor: 'color-mix(in srgb, var(--color-danger) 10%, white)', color: 'var(--color-danger)', borderColor: 'var(--color-danger)', borderWidth: '1px', borderOpacity: '0.3' }}>
+            <div className="mb-4 p-3.5 rounded-lg text-sm flex items-center gap-2.5" style={{ backgroundColor: 'color-mix(in srgb, var(--color-danger) 10%, white)', color: 'var(--color-danger)', borderColor: 'color-mix(in srgb, var(--color-danger) 30%, transparent)', borderWidth: '1px' }}>
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
               {error}
             </div>
