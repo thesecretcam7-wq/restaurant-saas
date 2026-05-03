@@ -2,299 +2,174 @@ import Link from 'next/link'
 
 export default function LandingPage() {
   return (
-    <div className="min-h-screen bg-background text-foreground overflow-x-hidden">
+    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 text-white font-sans selection:bg-orange-400/30 relative overflow-hidden">
+      {/* Gradiente de fondo decorativo */}
+      <div className="absolute -top-40 -left-40 w-96 h-96 bg-orange-600/20 rounded-full blur-3xl pointer-events-none" />
+      <div className="absolute top-1/3 -left-20 w-80 h-80 bg-orange-500/15 rounded-full blur-3xl pointer-events-none" />
+      <div className="absolute -bottom-20 right-1/4 w-96 h-96 bg-red-600/10 rounded-full blur-3xl pointer-events-none" />
 
-      {/* ── NAVBAR ── */}
-      <nav className="fixed top-0 left-0 right-0 z-50 border-b border-border bg-background/80 backdrop-blur-xl">
-        <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-md bg-gradient-to-br from-primary to-secondary flex items-center justify-center text-xs font-black text-white">E</div>
-            <span className="font-bold text-foreground text-lg tracking-tight">Eccofood</span>
+      {/* --- NAVBAR --- */}
+      <nav className="fixed top-0 w-full z-50 bg-slate-950/80 backdrop-blur-md border-b border-orange-500/20">
+        <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 bg-gradient-to-br from-orange-500 to-orange-600 rounded-lg flex items-center justify-center shadow-lg shadow-orange-500/50">
+              <span className="text-white font-bold text-xl">e</span>
+            </div>
+            <span className="text-xl font-bold tracking-tight text-white">Eccofood</span>
           </div>
-          <div className="hidden md:flex items-center gap-8 text-sm text-muted-foreground">
-            <a href="#features" className="hover:text-foreground transition-colors">Funciones</a>
-            <a href="#how" className="hover:text-foreground transition-colors">Cómo funciona</a>
-            <a href="#pricing" className="hover:text-foreground transition-colors">Precios</a>
+          <div className="hidden md:flex items-center gap-8 text-sm font-medium text-slate-300">
+            <a href="#features" className="hover:text-orange-400 transition-colors">Funciones</a>
+            <a href="#how" className="hover:text-orange-400 transition-colors">Cómo funciona</a>
+            <a href="#pricing" className="hover:text-orange-400 transition-colors">Precios</a>
           </div>
-          <div className="flex items-center gap-3">
-            <Link href="/login" className="text-sm text-muted-foreground hover:text-foreground transition-colors hidden sm:block">
-              Iniciar sesión
-            </Link>
-            <Link href="/register" className="px-5 py-2 rounded-lg bg-gradient-to-r from-primary to-secondary hover:from-primary/90 hover:to-secondary/90 text-white text-sm font-bold transition-all shadow-lg shadow-primary/30 hover:shadow-xl hover:shadow-primary/40 active:scale-95">
+          <div className="flex items-center gap-4">
+            <Link href="/login" className="text-sm font-medium text-slate-300 hover:text-white transition-colors">Iniciar sesión</Link>
+            <Link href="/register" className="bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white px-5 py-2 rounded-full text-sm font-semibold transition-all shadow-lg shadow-orange-500/50 active:scale-95">
               Empezar gratis
             </Link>
           </div>
         </div>
       </nav>
 
-      {/* ── HERO ── */}
-      <section className="pt-32 pb-20 px-6 relative overflow-hidden">
-        {/* Background gradients */}
-        <div className="absolute top-20 left-1/2 -translate-x-1/2 w-[600px] h-[400px] bg-gradient-to-b from-primary/20 to-secondary/10 rounded-full blur-3xl pointer-events-none" />
-        <div className="absolute -bottom-32 -right-32 w-[400px] h-[400px] bg-accent/15 rounded-full blur-3xl pointer-events-none" />
-        <div className="absolute top-1/3 -left-40 w-[500px] h-[500px] bg-secondary/10 rounded-full blur-3xl pointer-events-none" />
-
-        <div className="max-w-4xl mx-auto text-center relative z-10">
-          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-primary/30 bg-primary/10 text-primary text-xs font-semibold mb-8 animate-fade-in">
-            <span className="w-2 h-2 rounded-full bg-primary animate-pulse" />
-            Plataforma de gestión premium para restaurantes
+      {/* --- HERO SECTION --- */}
+      <main className="pt-32 pb-20 px-6 relative z-10">
+        <div className="max-w-4xl mx-auto text-center relative">
+          <div className="inline-flex items-center bg-orange-500/20 border border-orange-500/40 px-3 py-1 rounded-full mb-8">
+            <span className="text-xs font-bold text-orange-300 uppercase tracking-wider">Plataforma de gestión premium para restaurantes</span>
           </div>
 
-          <h1 className="text-5xl md:text-7xl font-black tracking-tight leading-[1.1] mb-6 text-foreground animate-slide-up">
-            Tu restaurante despega
-            <br />
-            <span className="bg-gradient-to-r from-primary via-secondary to-accent bg-clip-text text-transparent">
+          <h1 className="text-5xl md:text-7xl font-extrabold tracking-tight text-white mb-6 leading-[1.1]">
+            Tu restaurante despega <br />
+            <span className="text-transparent bg-clip-text bg-gradient-to-r from-orange-400 via-orange-500 to-red-500">
               con Eccofood
             </span>
           </h1>
 
-          <p className="text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto mb-10 leading-relaxed animate-slide-up" style={{ animationDelay: '100ms' }}>
-            Gestiona tu menú, pedidos, reservas y pagos en un solo lugar. Diseño moderno, sin comisiones y completamente personalizable.
+          <p className="text-lg md:text-xl text-slate-300 mb-10 max-w-2xl mx-auto leading-relaxed">
+            Gestiona tu menú, pedidos, reservas y pagos en un solo lugar.
+            Diseño moderno, sin comisiones y completamente personalizable.
           </p>
 
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-4 animate-slide-up" style={{ animationDelay: '200ms' }}>
-            <Link href="/register"
-              className="w-full sm:w-auto px-8 py-4 rounded-xl bg-gradient-to-r from-primary via-secondary to-primary hover:from-primary/90 hover:via-secondary/90 hover:to-primary/90 text-white font-bold text-base transition-all shadow-lg shadow-primary/40 hover:shadow-2xl hover:shadow-primary/50 active:scale-95 hover:-translate-y-1">
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-16">
+            <Link href="/register" className="w-full sm:w-auto bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white px-8 py-4 rounded-2xl font-bold text-lg transition-all shadow-xl shadow-orange-500/50 active:scale-[0.98] flex items-center justify-center gap-2">
               🚀 Crear mi restaurante
             </Link>
-            <Link href="/login"
-              className="w-full sm:w-auto px-8 py-4 rounded-xl border-2 border-primary/40 hover:border-primary/80 hover:bg-primary/10 text-foreground font-bold text-base transition-all hover:-translate-y-1">
+            <Link href="#" className="w-full sm:w-auto bg-slate-800/60 border border-slate-700 hover:border-orange-500/50 hover:bg-slate-800 text-white px-8 py-4 rounded-2xl font-bold text-lg transition-all active:scale-[0.98]">
               Ver demostración
             </Link>
           </div>
-          <p className="text-sm text-muted-foreground mt-6">30 días gratis · Sin tarjeta de crédito · Acceso completo</p>
-        </div>
 
-        {/* Dashboard mockup */}
-        <div className="max-w-5xl mx-auto mt-20 relative">
-          <div className="absolute inset-0 bg-gradient-to-t from-background via-transparent to-transparent z-10 pointer-events-none" style={{ top: '60%' }} />
-          <div className="rounded-2xl border border-border bg-card/50 backdrop-blur-sm overflow-hidden shadow-2xl hover:shadow-2xl transition-all animate-scale-in">
-            {/* Fake browser bar */}
-            <div className="flex items-center gap-1.5 px-4 py-3 border-b border-border bg-muted/50">
-              <div className="w-3 h-3 rounded-full bg-red-500" />
-              <div className="w-3 h-3 rounded-full bg-yellow-500" />
-              <div className="w-3 h-3 rounded-full bg-green-500" />
-              <div className="flex-1 mx-4 h-6 rounded-md bg-input flex items-center px-3">
-                <span className="text-xs text-muted-foreground">eccofood.vercel.app/mi-restaurante/admin</span>
-              </div>
-            </div>
-            {/* Dashboard preview */}
-            <div className="p-6 grid grid-cols-4 gap-4">
-              {[
-                { label: 'Pedidos hoy', value: '48', change: '+25%', color: 'text-primary' },
-                { label: 'Ingresos mes', value: '€8.5k', change: '+15%', color: 'text-secondary' },
-                { label: 'Reservas', value: '22', change: '5 pendientes', color: 'text-accent' },
-                { label: 'Clientes', value: '287', change: '+18 nuevos', color: 'text-primary' },
-              ].map((card, i) => (
-                <div key={card.label} className="bg-card rounded-xl p-4 border border-border/50 hover:border-primary/20 transition-all" style={{ animationDelay: `${i * 50}ms` }}>
-                  <p className="text-xs text-muted-foreground mb-2 font-medium">{card.label}</p>
-                  <p className="text-3xl font-black text-foreground">{card.value}</p>
-                  <p className={`text-xs font-semibold mt-2 ${card.color}`}>{card.change}</p>
-                </div>
-              ))}
-              <div className="col-span-4 bg-card rounded-xl p-4 border border-border/50">
-                <p className="text-xs text-muted-foreground mb-4 font-semibold uppercase tracking-wide">Pedidos recientes</p>
-                <div className="space-y-3">
-                  {[
-                    { num: '#0548', item: 'Pizza Napoli × 2 + Bebidas', status: 'Preparando', color: 'bg-accent/15 text-accent border-accent/30' },
-                    { num: '#0547', item: 'Ensalada Caprese + Pan Tostado', status: 'En camino', color: 'bg-primary/15 text-primary border-primary/30' },
-                    { num: '#0546', item: 'Pasta Carbonara × 3', status: 'Entregado', color: 'bg-secondary/15 text-secondary border-secondary/30' },
-                  ].map(o => (
-                    <div key={o.num} className={`flex items-center justify-between text-sm p-3 rounded-lg border ${o.color}`}>
-                      <span className="text-foreground font-mono text-sm font-semibold">{o.num}</span>
-                      <span className="text-foreground flex-1 mx-4 truncate text-sm">{o.item}</span>
-                      <span className={`text-xs px-3 py-1.5 rounded-full font-semibold whitespace-nowrap`}>{o.status}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* ── SOCIAL PROOF ── */}
-      <section className="py-12 px-6 border-y border-border">
-        <div className="max-w-4xl mx-auto">
-          <p className="text-center text-xs text-muted-foreground uppercase tracking-widest font-semibold mb-8">
-            Restaurantes que ya venden en línea
+          <p className="text-sm text-slate-400 mb-20 italic">
+            30 días gratis · Sin tarjeta de crédito · Acceso completo
           </p>
-          <div className="flex flex-wrap justify-center items-center gap-8 opacity-40">
-            {['Pizzería Napoli', 'Burger Factory', 'Sushi Palace', 'La Parrilla', 'Tacos & Co', 'El Fogón'].map(name => (
-              <span key={name} className="text-sm font-bold text-foreground tracking-wide">{name}</span>
-            ))}
+
+          {/* --- DASHBOARD MOCKUP --- */}
+          <div className="relative mx-auto max-w-5xl group">
+            {/* Sombra de profundidad */}
+            <div className="absolute -inset-1 bg-gradient-to-r from-orange-600 via-orange-500 to-red-600 rounded-[2.5rem] blur opacity-30 group-hover:opacity-50 transition duration-1000"></div>
+
+            <div className="relative bg-gradient-to-br from-slate-900 to-slate-950 border border-orange-500/30 rounded-[2rem] shadow-2xl overflow-hidden backdrop-blur-sm">
+              {/* Barra superior estilo Mac */}
+              <div className="bg-slate-900/80 border-b border-orange-500/20 px-6 py-3 flex items-center gap-2">
+                <div className="flex gap-1.5">
+                  <div className="w-3 h-3 rounded-full bg-red-500" />
+                  <div className="w-3 h-3 rounded-full bg-yellow-500" />
+                  <div className="w-3 h-3 rounded-full bg-green-500" />
+                </div>
+                <div className="mx-auto bg-slate-800/60 px-4 py-1 rounded-md text-[10px] text-slate-400 font-mono tracking-widest uppercase">
+                  eccofood.vercel.app/admin
+                </div>
+              </div>
+
+              {/* Contenido del Dashboard */}
+              <div className="p-8 grid grid-cols-2 md:grid-cols-4 gap-6">
+                {[
+                  { label: 'Pedidos hoy', value: '48', trend: '+25%', color: 'text-orange-400', bg: 'bg-orange-500/10 border-orange-500/30' },
+                  { label: 'Ingresos mes', value: '€8.5k', trend: '+15%', color: 'text-white', bg: 'bg-slate-800/40 border-slate-700/50' },
+                  { label: 'Reservas', value: '22', trend: '+5 pendientes', color: 'text-white', bg: 'bg-slate-800/40 border-slate-700/50' },
+                  { label: 'Clientes', value: '287', trend: '+12 nuevos', color: 'text-white', bg: 'bg-slate-800/40 border-slate-700/50' },
+                ].map((stat, i) => (
+                  <div key={i} className={`text-left p-4 rounded-xl border transition-colors ${stat.bg}`}>
+                    <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">{stat.label}</p>
+                    <p className={`text-3xl font-bold ${stat.color} mb-1`}>{stat.value}</p>
+                    <p className="text-[10px] font-bold text-emerald-400 bg-emerald-500/20 inline-block px-2 py-0.5 rounded border border-emerald-500/30">
+                      {stat.trend}
+                    </p>
+                  </div>
+                ))}
+              </div>
+
+              {/* Espacio para gráfico o lista (visual) */}
+              <div className="px-8 pb-8">
+                <div className="w-full h-32 bg-slate-800/30 rounded-2xl border-2 border-dashed border-slate-700/50 flex items-center justify-center">
+                  <p className="text-slate-500 text-sm font-medium">Actividad reciente de pedidos</p>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
-      </section>
+      </main>
 
-      {/* ── FEATURES ── */}
-      <section id="features" className="py-24 px-6">
+      {/* --- FEATURES --- */}
+      <section id="features" className="py-24 px-6 bg-slate-950/50 border-t border-orange-500/20 relative z-10">
         <div className="max-w-6xl mx-auto">
           <div className="text-center mb-16">
-            <p className="text-primary text-sm font-semibold uppercase tracking-widest mb-4">Características Completas</p>
-            <h2 className="text-4xl md:text-5xl font-black tracking-tight">Todo lo que necesitas<br />para administrar tu restaurante</h2>
-            <p className="text-muted-foreground mt-4 text-lg">Herramientas poderosas, interfaz intuitiva, sin complejidades innecesarias</p>
+            <p className="text-orange-400 text-sm font-semibold uppercase tracking-widest mb-4">Características</p>
+            <h2 className="text-4xl md:text-5xl font-black tracking-tight text-white">Todo lo que necesitas</h2>
+            <p className="text-slate-300 mt-4 text-lg">Herramientas poderosas para administrar tu restaurante</p>
           </div>
 
           <div className="grid md:grid-cols-3 gap-6">
             {[
-              {
-                icon: '🛍️',
-                title: 'Menú Digital Profesional',
-                desc: 'Catálogo con fotos, descripciones, precios y opciones personalizables. Actualiza instantáneamente.',
-              },
-              {
-                icon: '📦',
-                title: 'Gestión de Pedidos en Tiempo Real',
-                desc: 'Panel centralizado con notificaciones. Organiza cocina, entregas y seguimiento desde un lugar.',
-              },
-              {
-                icon: '💳',
-                title: 'Pagos Seguros con Stripe',
-                desc: 'Integración directa. Tus clientes pagan online, el dinero llega a tu cuenta automáticamente.',
-              },
-              {
-                icon: '🏪',
-                title: 'Sistema POS Profesional',
-                desc: 'Punto de venta completo para mostrador. Gestiona transacciones, inventario y caja desde tablets.',
-              },
-              {
-                icon: '🍳',
-                title: 'Pantalla de Cocina (KDS)',
-                desc: 'Pantalla en tiempo real para cocina. Visualiza pedidos, tiempos y estado de preparación.',
-              },
-              {
-                icon: '📅',
-                title: 'Sistema de Reservas Completo',
-                desc: 'Reservaciones automáticas, gestión de mesas, confirmaciones y recordatorios a clientes.',
-              },
-              {
-                icon: '🎯',
-                title: 'Quiosco Digital (Kiosk)',
-                desc: 'Pantalla interactiva para órdenes sin personal. Ideal para pedidos rápidos en mostrador.',
-              },
-              {
-                icon: '📊',
-                title: 'Analytics con IA Inteligente',
-                desc: 'Reportes de ventas, productos top, análisis de clientes. Insights automáticos para crecer.',
-              },
-              {
-                icon: '🎁',
-                title: 'Promociones y Cupones',
-                desc: 'Crea ofertas, descuentos y promociones. Gestiona campañas para aumentar ventas.',
-              },
-              {
-                icon: '🎨',
-                title: 'Personalización Total de Marca',
-                desc: 'Personaliza colores, fuentes, logo, textos. Tu marca brilla en cada experiencia del cliente.',
-              },
-              {
-                icon: '🌐',
-                title: 'Dominio Personalizado',
-                desc: 'Conecta turestaurante.com en minutos. Presencia profesional con tu propio dominio.',
-              },
-              {
-                icon: '🚗',
-                title: 'Delivery Integrado Completo',
-                desc: 'Gestiona entregas a domicilio con zonas, tarifas, tiempos estimados y rastreo en vivo.',
-              },
+              { icon: '🛍️', title: 'Menú Digital', desc: 'Catálogo profesional con fotos, descripciones y precios.' },
+              { icon: '📦', title: 'Gestión de Pedidos', desc: 'Control en tiempo real de todas tus órdenes.' },
+              { icon: '💳', title: 'Pagos Seguros', desc: 'Integración Stripe para cobros automáticos.' },
+              { icon: '📅', title: 'Reservas', desc: 'Sistema completo de reservaciones y mesas.' },
+              { icon: '📊', title: 'Analytics', desc: 'Reportes y datos sobre tu negocio.' },
+              { icon: '🎨', title: 'Personalización', desc: 'Tu marca en cada interacción del cliente.' },
             ].map((f, i) => (
-              <div key={f.title} className="group relative p-6 rounded-2xl border-2 border-border bg-gradient-to-br from-card/80 to-card/40 hover:border-primary/60 hover:bg-gradient-to-br hover:from-primary/5 hover:to-secondary/5 transition-all overflow-hidden shadow-sm hover:shadow-lg hover:-translate-y-1" style={{ animationDelay: `${i * 30}ms` }}>
-                <div className="absolute inset-0 bg-gradient-to-br from-primary/10 via-transparent to-secondary/5 opacity-0 group-hover:opacity-100 transition-opacity" />
-                <div className="relative z-10">
-                  <div className="text-5xl mb-4">{f.icon}</div>
-                  <h3 className="font-bold text-foreground mb-2 text-lg">{f.title}</h3>
-                  <p className="text-sm text-muted-foreground leading-relaxed">{f.desc}</p>
-                </div>
+              <div key={f.title} className="p-6 rounded-2xl border border-slate-700/50 hover:border-orange-500/50 hover:bg-orange-500/10 transition-all group bg-slate-900/50">
+                <div className="text-5xl mb-4">{f.icon}</div>
+                <h3 className="font-bold text-white mb-2 text-lg">{f.title}</h3>
+                <p className="text-sm text-slate-300 leading-relaxed">{f.desc}</p>
               </div>
             ))}
           </div>
         </div>
       </section>
 
-      {/* ── ADVANCED FEATURES ── */}
-      <section className="py-24 px-6 border-t border-border bg-gradient-to-br from-primary/5 via-secondary/5 to-accent/5">
-        <div className="max-w-6xl mx-auto">
-          <div className="text-center mb-16">
-            <p className="text-primary text-sm font-semibold uppercase tracking-widest mb-4">Herramientas Avanzadas</p>
-            <h2 className="text-4xl md:text-5xl font-black tracking-tight">Tecnología para cada operación</h2>
-            <p className="text-muted-foreground mt-4 text-lg">Desde punto de venta hasta gestión de cocina, todo integrado</p>
-          </div>
-
-          <div className="grid md:grid-cols-2 gap-8">
-            {[
-              {
-                icon: '🏪',
-                title: 'Sistema POS Completo',
-                features: ['Ventas en mostrador', 'Caja y arqueos', 'Múltiples cajas', 'Gestión de inventario'],
-              },
-              {
-                icon: '🍳',
-                title: 'Pantalla de Cocina (KDS)',
-                features: ['Pedidos en tiempo real', 'Priorización automática', 'Tiempos de preparación', 'Control de estados'],
-              },
-              {
-                icon: '🎯',
-                title: 'Quiosco Digital (Kiosk)',
-                features: ['Órdenes sin personal', 'Pagos integrados', 'Múltiples idiomas', 'Información nutricional'],
-              },
-              {
-                icon: '🤖',
-                title: 'IA Insights & Analytics',
-                features: ['Predicción de demanda', 'Productos más vendidos', 'Análisis de clientes', 'Recomendaciones automáticas'],
-              },
-            ].map((f, i) => (
-              <div key={f.title} className="p-8 rounded-2xl bg-card/60 border-2 border-border hover:border-primary/50 hover:bg-card/90 transition-all group">
-                <div className="text-6xl mb-6">{f.icon}</div>
-                <h3 className="font-bold text-foreground mb-4 text-2xl">{f.title}</h3>
-                <ul className="space-y-3">
-                  {f.features.map((feat) => (
-                    <li key={feat} className="flex items-center gap-3 text-foreground">
-                      <svg className="w-5 h-5 text-primary flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" /></svg>
-                      {feat}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* ── HOW IT WORKS ── */}
-      <section id="how" className="py-24 px-6 border-t border-border">
+      {/* --- HOW IT WORKS --- */}
+      <section id="how" className="py-24 px-6 relative z-10 border-t border-orange-500/20">
         <div className="max-w-4xl mx-auto">
           <div className="text-center mb-16">
-            <p className="text-primary text-sm font-semibold uppercase tracking-widest mb-3">Proceso</p>
-            <h2 className="text-4xl md:text-5xl font-black tracking-tight">Listo en 3 pasos</h2>
+            <p className="text-orange-400 text-sm font-semibold uppercase tracking-widest mb-3">Proceso</p>
+            <h2 className="text-4xl md:text-5xl font-black tracking-tight text-white">Listo en 3 pasos</h2>
           </div>
-          <div className="grid md:grid-cols-3 gap-8 relative">
-            <div className="hidden md:block absolute top-8 left-[16.66%] right-[16.66%] h-px bg-gradient-to-r from-transparent via-white/10 to-transparent" />
+          <div className="grid md:grid-cols-3 gap-8">
             {[
-              { step: '01', title: 'Registra tu restaurante', desc: 'Crea tu cuenta en 2 minutos con el nombre y tu email. Sin tarjeta.' },
-              { step: '02', title: 'Configura y personaliza', desc: 'Sube tu logo, elige colores, agrega tu menú con fotos y precios.' },
-              { step: '03', title: 'Comparte y vende', desc: 'Comparte tu link y empieza a recibir pedidos y reservas de inmediato.' },
+              { step: '01', title: 'Registra tu restaurante', desc: 'Crea tu cuenta en 2 minutos. Sin tarjeta.' },
+              { step: '02', title: 'Configura y personaliza', desc: 'Sube tu logo, elige colores, agrega menú.' },
+              { step: '03', title: 'Comparte y vende', desc: 'Comparte tu link y recibe pedidos.' },
             ].map(s => (
-              <div key={s.step} className="text-center relative">
-                <div className="w-16 h-16 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center mx-auto mb-5">
-                  <span className="text-primary font-black text-xl">{s.step}</span>
+              <div key={s.step} className="text-center">
+                <div className="w-16 h-16 rounded-2xl bg-orange-500/20 border border-orange-500/40 flex items-center justify-center mx-auto mb-5">
+                  <span className="text-orange-400 font-black text-xl">{s.step}</span>
                 </div>
-                <h3 className="font-bold text-foreground text-lg mb-2">{s.title}</h3>
-                <p className="text-sm text-muted-foreground leading-relaxed">{s.desc}</p>
+                <h3 className="font-bold text-white text-lg mb-2">{s.title}</h3>
+                <p className="text-sm text-slate-300 leading-relaxed">{s.desc}</p>
               </div>
             ))}
           </div>
         </div>
       </section>
 
-      {/* ── PRICING ── */}
-      <section id="pricing" className="py-24 px-6 border-t border-border relative overflow-hidden">
-        <div className="absolute top-0 right-0 w-96 h-96 bg-secondary/5 rounded-full blur-3xl -z-10" />
+      {/* --- PRICING --- */}
+      <section id="pricing" className="py-24 px-6 bg-slate-950/50 border-t border-orange-500/20 relative z-10">
         <div className="max-w-5xl mx-auto">
           <div className="text-center mb-16">
-            <p className="text-primary text-sm font-semibold uppercase tracking-widest mb-4">Planes</p>
-            <h2 className="text-4xl md:text-5xl font-black tracking-tight">Precios diseñados para crecer</h2>
-            <p className="text-muted-foreground mt-4 text-lg">Sin comisiones por venta. Pagas solo lo que usas, cuando lo usas.</p>
+            <p className="text-orange-400 text-sm font-semibold uppercase tracking-widest mb-4">Planes</p>
+            <h2 className="text-4xl md:text-5xl font-black tracking-tight text-white">Precios para crecer</h2>
+            <p className="text-slate-300 mt-4 text-lg">Sin comisiones por venta. Pagas solo lo que usas.</p>
           </div>
 
           <div className="grid md:grid-cols-3 gap-6">
@@ -304,7 +179,7 @@ export default function LandingPage() {
                 price: '€39',
                 period: '/mes',
                 desc: 'Perfecto para comenzar',
-                features: ['Menú digital profesional', 'Gestión de pedidos', 'Hasta 500 pedidos/mes', '1 usuario', 'Soporte email'],
+                features: ['Menú digital', 'Gestión de pedidos', 'Hasta 500 pedidos/mes', '1 usuario', 'Soporte email'],
                 cta: 'Empezar gratis',
                 highlight: false,
               },
@@ -326,30 +201,27 @@ export default function LandingPage() {
                 cta: 'Solicitar demo',
                 highlight: false,
               },
-            ].map((plan, i) => (
+            ].map((plan) => (
               <div key={plan.name}
                 className={`rounded-2xl p-8 border transition-all relative overflow-hidden group ${plan.highlight
-                  ? 'bg-gradient-to-br from-primary/15 to-secondary/10 border-primary/40 shadow-xl shadow-primary/10 scale-105'
-                  : 'bg-card/50 border-border hover:border-border/80'}`}>
-                {plan.highlight && (
-                  <div className="absolute inset-0 bg-gradient-to-r from-primary/5 via-transparent to-secondary/5 opacity-0 group-hover:opacity-100 transition-opacity" />
-                )}
+                  ? 'bg-gradient-to-br from-orange-500/20 to-red-500/10 border-orange-500/50 shadow-xl shadow-orange-500/30 scale-105'
+                  : 'bg-slate-900/50 border-slate-700/50 hover:border-orange-500/30'}`}>
                 <div className="relative z-10">
                   {plan.highlight && (
-                    <span className="inline-block px-3 py-1 rounded-full bg-accent/20 text-accent text-xs font-bold mb-4">
+                    <span className="inline-block px-3 py-1 rounded-full bg-orange-500/30 text-orange-300 text-xs font-bold mb-4 border border-orange-500/50">
                       ⭐ Más elegido
                     </span>
                   )}
-                  <p className="font-bold text-muted-foreground text-sm mb-2">{plan.name}</p>
+                  <p className="font-bold text-slate-300 text-sm mb-2">{plan.name}</p>
                   <div className="flex items-end gap-1 mb-2">
-                    <span className="text-5xl font-black text-foreground">{plan.price}</span>
-                    <span className="text-muted-foreground text-sm mb-2">{plan.period}</span>
+                    <span className="text-5xl font-black text-white">{plan.price}</span>
+                    <span className="text-slate-400 text-sm mb-2">{plan.period}</span>
                   </div>
-                  <p className="text-sm text-muted-foreground mb-6">{plan.desc}</p>
+                  <p className="text-sm text-slate-400 mb-6">{plan.desc}</p>
                   <ul className="space-y-3 mb-8">
                     {plan.features.map(f => (
-                      <li key={f} className="flex items-start gap-3 text-sm text-foreground">
-                        <svg className={`w-5 h-5 flex-shrink-0 mt-0.5 ${plan.highlight ? 'text-accent' : 'text-primary'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+                      <li key={f} className="flex items-start gap-3 text-sm text-slate-300">
+                        <svg className="w-5 h-5 flex-shrink-0 mt-0.5 text-orange-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
                           <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                         </svg>
                         {f}
@@ -357,96 +229,76 @@ export default function LandingPage() {
                     ))}
                   </ul>
                   <Link href="/register"
-                    className={`block w-full py-3 rounded-lg text-sm font-bold text-center transition-all active:scale-95 hover:-translate-y-1 ${plan.highlight
-                      ? 'bg-gradient-to-r from-primary via-secondary to-primary text-white shadow-lg shadow-primary/40 hover:shadow-2xl hover:shadow-primary/50'
-                      : 'bg-muted/50 hover:bg-muted text-foreground border border-border/50 hover:border-primary/30'}`}>
+                    className={`block w-full py-3 rounded-lg text-sm font-bold text-center transition-all active:scale-95 ${plan.highlight
+                      ? 'bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white shadow-lg shadow-orange-500/50'
+                      : 'bg-slate-800/50 hover:bg-slate-800 text-white border border-slate-700/50'}`}>
                     {plan.cta}
                   </Link>
                 </div>
               </div>
             ))}
           </div>
-          <div className="text-center mt-10 space-y-2">
-            <p className="text-sm text-muted-foreground">Todos los planes incluyen <strong>30 días gratis</strong> • Sin tarjeta de crédito requerida</p>
-            <Link href="/pricing" className="inline-block text-sm text-primary hover:text-primary/80 font-medium underline underline-offset-2">
-              Ver comparación completa de planes →
-            </Link>
-          </div>
         </div>
       </section>
 
-      {/* ── CTA FINAL ── */}
-      <section className="py-24 px-6 border-t border-border relative overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-br from-primary/10 via-secondary/5 to-accent/10 -z-10" />
-        <div className="absolute top-1/2 right-0 w-96 h-96 bg-accent/5 rounded-full blur-3xl -z-10" />
-        <div className="max-w-3xl mx-auto text-center relative">
-          <h2 className="text-4xl md:text-5xl font-black tracking-tight mb-6 animate-slide-up">
+      {/* --- CTA FINAL --- */}
+      <section className="py-24 px-6 border-t border-orange-500/20 relative z-10">
+        <div className="max-w-3xl mx-auto text-center">
+          <h2 className="text-4xl md:text-5xl font-black tracking-tight mb-6 text-white">
             Tu restaurante merece<br />
-            <span className="bg-gradient-to-r from-primary via-secondary to-accent bg-clip-text text-transparent">una plataforma excepcional</span>
+            <span className="text-transparent bg-clip-text bg-gradient-to-r from-orange-400 via-orange-500 to-red-500">una plataforma excepcional</span>
           </h2>
-          <p className="text-muted-foreground text-xl mb-10 max-w-xl mx-auto leading-relaxed animate-slide-up" style={{ animationDelay: '100ms' }}>
-            Destáchate con un sistema profesional que simplifica operaciones y amplifica tus ventas. Sin comisiones, sin sorpresas.
+          <p className="text-slate-300 text-xl mb-10 max-w-xl mx-auto leading-relaxed">
+            Simplifica operaciones y amplifica ventas. Sin comisiones, sin sorpresas.
           </p>
           <Link href="/register"
-            className="inline-flex items-center gap-2 px-10 py-4 rounded-xl bg-gradient-to-r from-primary via-secondary to-primary hover:from-primary/90 hover:via-secondary/90 hover:to-primary/90 text-white font-bold text-lg transition-all shadow-lg shadow-primary/50 hover:shadow-2xl hover:shadow-primary/60 active:scale-95 hover:-translate-y-1 animate-slide-up" style={{ animationDelay: '200ms' }}>
+            className="inline-flex items-center gap-2 px-10 py-4 rounded-xl bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white font-bold text-lg transition-all shadow-lg shadow-orange-500/50 active:scale-95">
             🚀 Crear mi restaurante gratis
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
               <path d="M5 12h14M12 5l7 7-7 7"/>
             </svg>
           </Link>
-          <p className="text-sm text-muted-foreground mt-6 font-medium">30 días gratis • Acceso completo • Sin tarjeta requerida</p>
         </div>
       </section>
 
-      {/* ── FOOTER ── */}
-      <footer className="border-t border-border py-12 px-6 bg-card/30">
+      {/* --- FOOTER --- */}
+      <footer className="border-t border-orange-500/20 py-12 px-6 bg-slate-950 relative z-10">
         <div className="max-w-6xl mx-auto">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-8 mb-8">
             <div className="flex flex-col gap-3">
-              <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-md bg-gradient-to-br from-primary to-secondary flex items-center justify-center text-sm font-black text-white">E</div>
-                <span className="font-bold text-foreground text-lg">Eccofood</span>
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 bg-gradient-to-br from-orange-500 to-orange-600 rounded-lg flex items-center justify-center text-sm font-black text-white">e</div>
+                <span className="font-bold text-white text-lg">Eccofood</span>
               </div>
-              <p className="text-sm text-muted-foreground">Plataforma de gestión premium para restaurantes modernos.</p>
+              <p className="text-sm text-slate-400">Plataforma premium para restaurantes modernos.</p>
             </div>
             <div>
-              <p className="font-semibold text-foreground mb-3 text-sm">Producto</p>
-              <ul className="space-y-2 text-sm text-muted-foreground">
-                <li><a href="#features" className="hover:text-foreground transition-colors">Características</a></li>
-                <li><a href="#pricing" className="hover:text-foreground transition-colors">Precios</a></li>
-                <li><a href="#how" className="hover:text-foreground transition-colors">Cómo funciona</a></li>
+              <p className="font-semibold text-white mb-3 text-sm">Producto</p>
+              <ul className="space-y-2 text-sm text-slate-400">
+                <li><a href="#features" className="hover:text-orange-400 transition-colors">Características</a></li>
+                <li><a href="#pricing" className="hover:text-orange-400 transition-colors">Precios</a></li>
+                <li><a href="#how" className="hover:text-orange-400 transition-colors">Cómo funciona</a></li>
               </ul>
             </div>
             <div>
-              <p className="font-semibold text-foreground mb-3 text-sm">Empresa</p>
-              <ul className="space-y-2 text-sm text-muted-foreground">
-                <li><a href="mailto:soporte@eccofood.com" className="hover:text-foreground transition-colors">Soporte</a></li>
-                <li><a href="#" className="hover:text-foreground transition-colors">Blog</a></li>
-                <li><Link href="/login" className="hover:text-foreground transition-colors">Iniciar sesión</Link></li>
+              <p className="font-semibold text-white mb-3 text-sm">Empresa</p>
+              <ul className="space-y-2 text-sm text-slate-400">
+                <li><a href="mailto:soporte@eccofood.com" className="hover:text-orange-400 transition-colors">Soporte</a></li>
+                <li><a href="#" className="hover:text-orange-400 transition-colors">Blog</a></li>
+                <li><Link href="/login" className="hover:text-orange-400 transition-colors">Iniciar sesión</Link></li>
               </ul>
             </div>
             <div>
-              <p className="font-semibold text-foreground mb-3 text-sm">Legal</p>
-              <ul className="space-y-2 text-sm text-muted-foreground">
-                <li><a href="#" className="hover:text-foreground transition-colors">Términos</a></li>
-                <li><a href="#" className="hover:text-foreground transition-colors">Privacidad</a></li>
-                <li><a href="#" className="hover:text-foreground transition-colors">Cookies</a></li>
+              <p className="font-semibold text-white mb-3 text-sm">Legal</p>
+              <ul className="space-y-2 text-sm text-slate-400">
+                <li><a href="#" className="hover:text-orange-400 transition-colors">Términos</a></li>
+                <li><a href="#" className="hover:text-orange-400 transition-colors">Privacidad</a></li>
+                <li><a href="#" className="hover:text-orange-400 transition-colors">Cookies</a></li>
               </ul>
             </div>
           </div>
-          <div className="border-t border-border pt-8 flex flex-col md:flex-row items-center justify-between gap-4">
-            <p className="text-sm text-muted-foreground">© 2026 Eccofood. Todos los derechos reservados. Hecho con ❤️ para restaurantes.</p>
-            <div className="flex items-center gap-4">
-              <a href="#" className="text-muted-foreground hover:text-foreground transition-colors">
-                <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
-              </a>
-              <a href="#" className="text-muted-foreground hover:text-foreground transition-colors">
-                <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M23.953 4.57a10 10 0 002.856-3.86 10.02 10.02 0 01-2.856.975v.001c-.36-.648-1.086-1.08-1.796-1.08.697 0 1.295-.342 1.636-.852-.665.398-1.401.683-2.189.833-.628-.677-1.521-1.1-2.506-1.1-1.894 0-3.433 1.539-3.433 3.433 0 .269.032.532.097.788-2.854-.143-5.39-1.512-7.087-3.592a3.43 3.43 0 001.063 4.586c-.64-.02-1.242-.196-1.768-.496v.044c0 1.664 1.184 3.053 2.756 3.369-.288.08-.593.123-.91.123-.223 0-.439-.02-.651-.064.44 1.353 1.702 2.34 3.194 2.368-1.175.923-2.654 1.474-4.264 1.474-.277 0-.55-.016-.819-.048 1.5.961 3.285 1.522 5.2 1.522 6.239 0 9.637-5.168 9.637-9.637 0-.147-.003-.293-.01-.438.662-.477 1.24-1.074 1.694-1.757z"/></svg>
-              </a>
-              <a href="#" className="text-muted-foreground hover:text-foreground transition-colors">
-                <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M20.447 20.452h-3.554v-5.569c0-1.328-.475-2.236-1.986-2.236-1.081 0-1.722.732-2.004 1.438-.103.25-.129.599-.129.948v5.419h-3.554s.047-8.733 0-9.635h3.554v1.364c.429-.661 1.196-1.6 2.905-1.6 2.122 0 3.714 1.388 3.714 4.37v5.501zM5.337 6.556a2.06 2.06 0 01-2.063-2.065c0-1.138.927-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.896H3.555V9.817h3.564v10.635zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.225 0z"/></svg>
-              </a>
-            </div>
+          <div className="border-t border-slate-800 pt-8 flex flex-col md:flex-row items-center justify-between gap-4">
+            <p className="text-sm text-slate-400">© 2026 Eccofood. Hecho con ❤️ para restaurantes.</p>
           </div>
         </div>
       </footer>

@@ -26,6 +26,13 @@ const ROLE_CONFIG = {
   admin:    { label: 'Administrador', apiRole: 'admin' },
 };
 
+const PIN_COLORS = {
+  cocinero: 'bg-gradient-to-br from-red-500 to-orange-500 border-orange-500',
+  camarero: 'bg-gradient-to-br from-red-500 to-orange-500 border-orange-500',
+  cajero: 'bg-gradient-to-br from-red-500 to-orange-500 border-orange-500',
+  admin: 'bg-gradient-to-br from-red-500 to-orange-500 border-orange-500',
+} as const;
+
 export function RoleLoginClient({ tenantId, tenantName, tenantSlug, logoUrl, role, staffMembers }: Props) {
   const router = useRouter();
   const [staffId, setStaffId] = useState('');
@@ -104,7 +111,12 @@ export function RoleLoginClient({ tenantId, tenantName, tenantSlug, logoUrl, rol
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center p-6">
+    <div
+      className="min-h-screen flex flex-col items-center justify-center p-6"
+      style={{
+        background: 'linear-gradient(to bottom right, white, rgba(219, 234, 254, 0.5), rgba(220, 252, 231, 0.5))'
+      }}
+    >
       <button
         onClick={() => {
           if (phase === 'pin') {
@@ -122,7 +134,7 @@ export function RoleLoginClient({ tenantId, tenantName, tenantSlug, logoUrl, rol
         {logoUrl ? (
           <img src={logoUrl} alt={tenantName} className="w-16 h-16 rounded-2xl object-cover mx-auto mb-3" />
         ) : (
-          <div className="w-16 h-16 bg-emerald-600 rounded-2xl flex items-center justify-center mx-auto mb-3">
+          <div className="w-16 h-16 bg-gradient-to-br from-red-600 to-orange-600 rounded-2xl flex items-center justify-center mx-auto mb-3">
             <ChefHat className="w-8 h-8 text-white" />
           </div>
         )}
@@ -156,7 +168,7 @@ export function RoleLoginClient({ tenantId, tenantName, tenantSlug, logoUrl, rol
               <div
                 key={i}
                 className={`w-10 h-10 rounded-full border-2 flex items-center justify-center transition-colors ${
-                  i < pin.length ? 'bg-emerald-500 border-emerald-500' : 'border-gray-300 bg-white'
+                  i < pin.length ? PIN_COLORS[role] : 'border-gray-300 bg-white'
                 }`}
               >
                 {i < pin.length && <div className="w-3 h-3 bg-white rounded-full" />}

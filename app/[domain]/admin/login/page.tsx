@@ -51,10 +51,15 @@ export default function AdminLoginPage({ params }: Props) {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-white via-blue-50/50 to-green-50/50 flex items-center justify-center p-4 relative overflow-hidden">
+    <div
+      className="min-h-screen flex items-center justify-center p-4 relative overflow-hidden"
+      style={{
+        background: 'linear-gradient(to bottom right, white, rgba(219, 234, 254, 0.5), rgba(220, 252, 231, 0.5))'
+      }}
+    >
       {/* Background accents */}
-      <div className="absolute -top-40 -right-40 w-96 h-96 bg-blue-100/30 rounded-full blur-3xl" />
-      <div className="absolute -bottom-32 -left-32 w-80 h-80 bg-green-100/20 rounded-full blur-3xl" />
+      <div className="absolute -top-40 -right-40 w-96 h-96 bg-red-100/30 rounded-full blur-3xl" />
+      <div className="absolute -bottom-32 -left-32 w-80 h-80 bg-orange-100/20 rounded-full blur-3xl" />
 
       <div className="w-full max-w-sm relative z-10">
         <div className="rounded-2xl border border-gray-200/60 p-8 bg-white/80 backdrop-blur-sm shadow-lg animate-slide-up">
@@ -98,7 +103,7 @@ export default function AdminLoginPage({ params }: Props) {
             <button
               type="submit"
               disabled={loading}
-              className="w-full py-3 mt-6 bg-gradient-to-r from-blue-600 to-green-600 text-white rounded-lg text-sm font-bold hover:from-blue-700 hover:to-green-700 active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed transition-all shadow-lg hover:shadow-xl"
+              className="w-full py-3 mt-6 bg-gradient-to-r from-red-600 to-orange-600 text-white rounded-lg text-sm font-bold hover:from-red-700 hover:to-orange-700 active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed transition-all shadow-lg hover:shadow-xl"
             >
               {loading ? (
                 <span className="flex items-center justify-center gap-2">

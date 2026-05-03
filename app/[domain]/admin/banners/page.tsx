@@ -3,6 +3,7 @@
 import { useState, useEffect, use } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import { useTenantResolver } from '@/lib/hooks/useTenantResolver'
 import Link from 'next/link'
 import toast from 'react-hot-toast'
 
@@ -19,7 +20,7 @@ interface Banner {
 
 export default function BannersPage({ params }: Props) {
   const { domain: slug } = use(params)
-  const [tenantId, setTenantId] = useState<string | null>(null)
+  const { tenantId, loading: resolvingTenant } = useTenantResolver(slug)
   const [banners, setBanners] = useState<Banner[]>([])
   const [loading, setLoading] = useState(true)
   const [editingId, setEditingId] = useState<string | null>(null)
@@ -29,18 +30,15 @@ export default function BannersPage({ params }: Props) {
   const supabase = createClient()
 
   useEffect(() => {
-    loadData()
-  }, [slug])
+    if (!tenantId) return
+    loadBanners()
+  }, [tenantId])
 
-  async function loadData() {
-    const { data: tenant } = await supabase.from('tenants').select('id').eq('slug', slug).single()
-    if (!tenant) return
-    setTenantId(tenant.id)
-
+  async function loadBanners() {
     const { data: bannerData } = await supabase
       .from('kiosko_banners')
       .select('*')
-      .eq('tenant_id', tenant.id)
+      .eq('tenant_id', tenantId)
       .order('sort_order')
 
     setBanners(bannerData || [])
@@ -103,7 +101,7 @@ export default function BannersPage({ params }: Props) {
       setForm({ title: '', image_url: '', link_url: '', sort_order: '0' })
       setPreview('')
       setEditingId(null)
-      loadData()
+      loadBanners()
     } catch (err) {
       toast.error('Error al guardar')
     }
@@ -125,7 +123,7 @@ export default function BannersPage({ params }: Props) {
     if (!confirm('¿Eliminar este banner?')) return
     await supabase.from('kiosko_banners').delete().eq('id', id)
     toast.success('Banner eliminado')
-    loadData()
+    loadBanners()
   }
 
   const handleCancel = () => {
@@ -134,12 +132,12 @@ export default function BannersPage({ params }: Props) {
     setEditingId(null)
   }
 
-  if (loading) return <div className="p-8 text-gray-500">Cargando...</div>
+  if (resolvingTenant || loading) return <div className="p-8 text-gray-500">Cargando...</div>
 
   return (
     <div className="max-w-4xl mx-auto p-8">
       <div className="flex items-center gap-4 mb-8">
-        <Link href={`/${tenantId}/admin`} className="text-gray-500 hover:text-gray-700">←</Link>
+        <Link href={`/${slug}/admin/dashboard`} className="text-gray-500 hover:text-gray-700">←</Link>
         <h1 className="text-3xl font-bold text-gray-900">Banners del Kiosko</h1>
       </div>
 

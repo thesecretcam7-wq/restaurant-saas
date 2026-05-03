@@ -3,6 +3,7 @@
 import { useParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
+import { useTenantResolver } from '@/lib/hooks/useTenantResolver';
 import { Check, AlertCircle, TrendingUp } from 'lucide-react';
 import { getCurrencyByCountry, formatPriceWithCurrency } from '@/lib/currency';
 
@@ -25,49 +26,20 @@ interface CashClosing {
 export default function CashClosingsPage() {
   const params = useParams();
   const slug = params.domain as string;
-  const [tenantId, setTenantId] = useState<string | null>(null);
-  const [country, setCountry] = useState<string>('CO');
+  const { tenantId, country, loading: resolvingTenant } = useTenantResolver(slug);
   const [closings, setClosings] = useState<CashClosing[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedClosing, setSelectedClosing] = useState<CashClosing | null>(null);
 
   useEffect(() => {
+    if (!tenantId) return;
     async function loadData() {
       try {
         const supabase = createClient();
-
-        // Resolver tenant ID y país - intenta por slug primero, luego por ID
-        let tenantData = null;
-
-        // Intenta por slug primero
-        const { data: bySlug } = await supabase
-          .from('tenants')
-          .select('id, country')
-          .eq('slug', slug)
-          .single();
-
-        if (bySlug) {
-          tenantData = bySlug;
-        } else {
-          // Si no encontró por slug, intenta por ID (el slug podría ser un UUID)
-          const { data: byId } = await supabase
-            .from('tenants')
-            .select('id, country')
-            .eq('id', slug)
-            .single();
-          tenantData = byId;
-        }
-
-        const tid = tenantData?.id || slug;
-        const tenantCountry = tenantData?.country || 'CO';
-        setTenantId(tid);
-        setCountry(tenantCountry);
-
-        // Cargar cierres de caja
         const { data, error } = await supabase
           .from('cash_closings')
           .select('*')
-          .eq('tenant_id', tid)
+          .eq('tenant_id', tenantId)
           .order('closed_at', { ascending: false })
           .limit(50);
 
@@ -82,7 +54,7 @@ export default function CashClosingsPage() {
     }
 
     loadData();
-  }, [slug]);
+  }, [tenantId]);
 
   if (loading) {
     return (

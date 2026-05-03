@@ -1,8 +1,8 @@
 'use client';
 
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
-import { createClient } from '@/lib/supabase/client';
+import { useTenantResolver } from '@/lib/hooks/useTenantResolver';
 import { Plus, Trash2, Edit2, Check, X, Users, MapPin } from 'lucide-react';
 
 interface Table {
@@ -21,9 +21,8 @@ const STATUS_OPTIONS = [
 export default function MesasPage() {
   const params = useParams();
   const domain = params.domain as string;
-  const supabase = useMemo(() => createClient(), []);
+  const { tenantId, loading: resolvingTenant } = useTenantResolver(domain);
 
-  const [tenantId, setTenantId] = useState<string | null>(null);
   const [tables, setTables] = useState<Table[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -38,14 +37,6 @@ export default function MesasPage() {
   const [editSeats, setEditSeats] = useState('');
   const [editLocation, setEditLocation] = useState('');
   const [editStatus, setEditStatus] = useState('');
-
-  useEffect(() => {
-    const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(domain);
-    supabase
-      .from('tenants').select('id')
-      .eq(isUUID ? 'id' : 'slug', domain).single()
-      .then(({ data }) => { if (data) setTenantId(data.id); });
-  }, [domain, supabase]);
 
   useEffect(() => { if (tenantId) fetchTables(); }, [tenantId]);
 

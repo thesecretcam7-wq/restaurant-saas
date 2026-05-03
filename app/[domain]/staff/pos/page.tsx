@@ -1,39 +1,29 @@
-'use client';
-
-import { useParams } from 'next/navigation';
-import { useEffect, useState } from 'react';
-import { createClient } from '@/lib/supabase/client';
+import { createClient } from '@/lib/supabase/server';
 import { POSTerminal } from '@/components/admin/POSTerminal';
 
-export default function StaffPOSPage() {
-  const params = useParams();
-  const slug = params.domain as string;
-  const [tenantId, setTenantId] = useState<string | null>(null);
-  const [country, setCountry] = useState<string>('CO');
-  const [loading, setLoading] = useState(true);
+interface StaffPOSPageProps {
+  params: Promise<{ domain: string }>;
+}
 
-  useEffect(() => {
-    async function resolveTenant() {
-      const supabase = createClient();
-      const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(slug);
-      const { data } = await supabase
-        .from('tenants')
-        .select('id, country')
-        .eq(isUUID ? 'id' : 'slug', slug)
-        .single();
+export default async function StaffPOSPage({ params }: StaffPOSPageProps) {
+  const { domain: slug } = await params;
+  const supabase = await createClient();
 
-      if (data) {
-        setTenantId(data.id);
-        setCountry(data.country || 'CO');
-      }
-      setLoading(false);
-    }
+  const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(slug);
 
-    if (slug) resolveTenant();
-  }, [slug]);
+  const { data: tenant } = await supabase
+    .from('tenants')
+    .select('id, country')
+    .eq(isUUID ? 'id' : 'slug', slug)
+    .single();
 
-  if (loading) return <div className="flex items-center justify-center h-screen bg-gray-50 text-gray-600">Cargando TPV...</div>;
-  if (!tenantId) return <div className="flex items-center justify-center h-screen bg-gray-50 text-gray-600">Restaurante no encontrado</div>;
+  if (!tenant) {
+    return (
+      <div className="flex items-center justify-center h-screen bg-gray-50 text-gray-600">
+        Restaurante no encontrado
+      </div>
+    );
+  }
 
-  return <POSTerminal tenantId={tenantId} country={country} />;
+  return <POSTerminal tenantId={tenant.id} country={tenant.country || 'CO'} />;
 }

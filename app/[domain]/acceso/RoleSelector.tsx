@@ -11,38 +11,41 @@ interface Props {
   logoUrl: string | null;
 }
 
+const ROLE_COLORS = {
+  cocinero: 'bg-gradient-to-br from-red-600 to-orange-600',
+  camarero: 'bg-gradient-to-br from-red-600 to-orange-600',
+  cajero: 'bg-gradient-to-br from-red-600 to-orange-600',
+  admin: 'bg-gradient-to-br from-red-600 to-orange-600',
+} as const;
+
 export function RoleSelector({ tenantId, tenantName, tenantSlug, logoUrl }: Props) {
   const router = useRouter();
   const [selectedRole, setSelectedRole] = useState<string | null>(null);
 
   const roles = [
     {
-      id: 'cocinero',
+      id: 'cocinero' as const,
       label: 'Cocinero',
       icon: <ChefHat className="w-10 h-10" />,
       desc: 'Kitchen Display System',
-      color: 'from-orange-500 to-orange-600',
     },
     {
-      id: 'camarero',
+      id: 'camarero' as const,
       label: 'Camarero',
       icon: <UtensilsCrossed className="w-10 h-10" />,
       desc: 'Tomar pedidos y servir',
-      color: 'from-emerald-600 to-emerald-700',
     },
     {
-      id: 'cajero',
+      id: 'cajero' as const,
       label: 'Cajero',
       icon: <CreditCard className="w-10 h-10" />,
       desc: 'Procesar pagos',
-      color: 'from-indigo-600 to-indigo-700',
     },
     {
-      id: 'admin',
+      id: 'admin' as const,
       label: 'Administrador',
       icon: <Lock className="w-10 h-10" />,
       desc: 'Panel de control',
-      color: 'from-slate-600 to-slate-700',
     },
   ];
 
@@ -52,12 +55,17 @@ export function RoleSelector({ tenantId, tenantName, tenantSlug, logoUrl }: Prop
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center p-6">
+    <div
+      className="min-h-screen flex flex-col items-center justify-center p-6"
+      style={{
+        background: 'linear-gradient(to bottom right, white, rgba(219, 234, 254, 0.5), rgba(220, 252, 231, 0.5))'
+      }}
+    >
       <div className="mb-10 text-center">
         {logoUrl ? (
           <img src={logoUrl} alt={tenantName} className="w-20 h-20 rounded-2xl object-cover mx-auto mb-4" />
         ) : (
-          <div className="w-20 h-20 bg-emerald-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
+          <div className="w-20 h-20 bg-gradient-to-br from-red-600 to-orange-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
             <ChefHat className="w-10 h-10 text-white" />
           </div>
         )}
@@ -75,7 +83,7 @@ export function RoleSelector({ tenantId, tenantName, tenantSlug, logoUrl }: Prop
               selectedRole ? 'opacity-50 cursor-not-allowed' : 'hover:border-gray-300 hover:shadow-md'
             }`}
           >
-            <div className={`w-14 h-14 bg-gradient-to-br ${role.color} rounded-xl flex items-center justify-center text-white`}>
+            <div className={`w-14 h-14 rounded-xl flex items-center justify-center text-white ${ROLE_COLORS[role.id]}`}>
               {role.icon}
             </div>
             <div>

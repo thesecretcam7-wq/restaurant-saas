@@ -1,5 +1,7 @@
 import Link from 'next/link'
 
+export const dynamic = 'force-dynamic'
+
 export default function AdminHome() {
   return (
     <div className="min-h-screen bg-background text-foreground overflow-x-hidden">

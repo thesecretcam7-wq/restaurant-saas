@@ -28,12 +28,19 @@ function getShortNumber(order: DisplayOrder): string {
 export default function PantallaPage({ params }: Props) {
   const { domain } = use(params)
   const [data, setData] = useState<DisplayData | null>(null)
-  const [time, setTime] = useState(new Date())
+  const [mounted, setMounted] = useState(false)
+  const [time, setTime] = useState<Date | null>(null)
   const [newReadyIds, setNewReadyIds] = useState<Set<string>>(new Set())
   const [isFullscreen, setIsFullscreen] = useState(false)
   const [showFsPrompt, setShowFsPrompt] = useState(true)
   const prevReadyRef = useRef<Set<string>>(new Set())
   const audioRef = useRef<AudioContext | null>(null)
+
+  // Mount flag to prevent hydration errors
+  useEffect(() => {
+    setMounted(true)
+    setTime(new Date())
+  }, [])
 
   const toggleFullscreen = useCallback(() => {
     if (!document.fullscreenElement) {
@@ -75,8 +82,15 @@ export default function PantallaPage({ params }: Props) {
       if (!res.ok) return
       const json: DisplayData = await res.json()
 
+      // Ensure all values have proper defaults
+      const safeData: DisplayData = {
+        restaurantName: json.restaurantName || 'Restaurante',
+        primaryColor: json.primaryColor || '#2563eb',
+        orders: Array.isArray(json.orders) ? json.orders : []
+      }
+
       const currentReady = new Set(
-        json.orders.filter(o => o.status === 'ready').map(o => o.id)
+        safeData.orders.filter(o => o.status === 'ready').map(o => o.id)
       )
       const appeared = [...currentReady].filter(id => !prevReadyRef.current.has(id))
       if (appeared.length > 0) {
@@ -85,7 +99,7 @@ export default function PantallaPage({ params }: Props) {
         setTimeout(() => setNewReadyIds(new Set()), 3000)
       }
       prevReadyRef.current = currentReady
-      setData(json)
+      setData(safeData)
     } catch {}
   }, [domain, playBeep])
 
@@ -96,9 +110,10 @@ export default function PantallaPage({ params }: Props) {
   }, [fetchOrders])
 
   useEffect(() => {
+    if (!mounted) return
     const tick = setInterval(() => setTime(new Date()), 1000)
     return () => clearInterval(tick)
-  }, [])
+  }, [mounted])
 
   const confirmed = data?.orders.filter(o => o.status === 'confirmed') ?? []
   const preparing = data?.orders.filter(o => o.status === 'preparing') ?? []
@@ -107,13 +122,14 @@ export default function PantallaPage({ params }: Props) {
   const primary = data?.primaryColor || '#2563eb'
 
   return (
-    <div className="min-h-screen bg-gray-950 text-white flex flex-col select-none" style={{ fontFamily: 'Inter, system-ui, sans-serif' }}>
+    <div className="min-h-screen text-white flex flex-col select-none" style={{ fontFamily: 'Inter, system-ui, sans-serif', backgroundColor: `${primary}15`, color: '#fff' }}>
 
       {/* Fullscreen prompt overlay */}
-      {showFsPrompt && !isFullscreen && (
+      {mounted && showFsPrompt && !isFullscreen && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-gray-950/90 backdrop-blur-sm cursor-pointer"
+          className="fixed inset-0 z-50 flex items-center justify-center backdrop-blur-sm cursor-pointer"
           onClick={() => { toggleFullscreen(); setShowFsPrompt(false) }}
+          style={{ backgroundColor: 'rgba(0, 0, 0, 0.9)' }}
         >
           <div className="text-center">
             <p className="text-7xl mb-6">🖥️</p>
@@ -124,7 +140,7 @@ export default function PantallaPage({ params }: Props) {
       )}
 
       {/* Header */}
-      <header className="flex items-center justify-between px-10 py-5 border-b border-gray-800">
+      <header className="flex items-center justify-between px-10 py-5" style={{ borderBottom: `2px solid ${primary}` }}>
         <div className="flex items-center gap-4">
           <div className="w-3 h-3 rounded-full animate-pulse" style={{ backgroundColor: primary }} />
           <h1 className="text-2xl font-bold tracking-tight" style={{ color: primary }}>
@@ -151,42 +167,47 @@ export default function PantallaPage({ params }: Props) {
           </button>
           <div className="text-right">
             <p className="text-3xl font-mono font-semibold tabular-nums text-white">
-              {time.toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+              {time ? time.toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : '--:--:--'}
             </p>
             <p className="text-sm text-gray-500 mt-0.5">
-              {time.toLocaleDateString('es-CO', { weekday: 'long', day: 'numeric', month: 'long' })}
+              {time ? time.toLocaleDateString('es-CO', { weekday: 'long', day: 'numeric', month: 'long' }) : ''}
             </p>
           </div>
         </div>
       </header>
 
       {/* Columns */}
-      <div className="flex flex-1 divide-x divide-gray-800">
+      <div className="flex flex-1" style={{ borderRight: `1px solid ${primary}33` }}>
         {/* Confirmados */}
         <div className="flex-1 flex flex-col">
-          <div className="px-10 py-6 flex items-center gap-3 border-b border-gray-800 bg-gray-900/50">
+          <div className="px-10 py-6 flex items-center gap-3" style={{ borderBottom: `1px solid ${primary}33`, backgroundColor: primary + '11' }}>
             <span className="text-3xl">🧾</span>
             <div>
-              <h2 className="text-xl font-bold text-sky-400 tracking-wide uppercase">Confirmado</h2>
+              <h2 className="text-xl font-bold tracking-wide uppercase" style={{ color: primary }}>Confirmado</h2>
               <p className="text-sm text-gray-500">{confirmed.length} {confirmed.length === 1 ? 'pedido' : 'pedidos'}</p>
             </div>
           </div>
           <div className="flex-1 p-8 overflow-auto">
             {confirmed.length === 0 ? (
               <div className="flex items-center justify-center h-full">
-                <p className="text-gray-700 text-xl">Sin pedidos nuevos</p>
+                <p className="text-xl" style={{ color: primary + '99' }}>Sin pedidos nuevos</p>
               </div>
             ) : (
               <div className="flex flex-wrap gap-6">
                 {confirmed.map(order => (
                   <div
                     key={order.id}
-                    className="flex items-center justify-center rounded-2xl border-2 border-sky-500/40 bg-sky-500/10"
-                    style={{ width: 160, height: 160 }}
+                    className="flex items-center justify-center rounded-2xl border-2"
+                    style={{
+                      width: 160,
+                      height: 160,
+                      borderColor: primary + '88',
+                      backgroundColor: primary + '22',
+                    }}
                   >
                     <div className="text-center">
-                      <p className="text-xs text-sky-400/70 font-semibold tracking-widest uppercase mb-1">Pedido</p>
-                      <p className="text-6xl font-black tabular-nums text-sky-300">
+                      <p className="text-xs font-semibold tracking-widest uppercase mb-1" style={{ color: primary + 'cc' }}>Pedido</p>
+                      <p className="text-6xl font-black tabular-nums" style={{ color: primary }}>
                         {getShortNumber(order)}
                       </p>
                     </div>
@@ -199,29 +220,34 @@ export default function PantallaPage({ params }: Props) {
 
         {/* En preparación */}
         <div className="flex-1 flex flex-col">
-          <div className="px-10 py-6 flex items-center gap-3 border-b border-gray-800 bg-gray-900/50">
+          <div className="px-10 py-6 flex items-center gap-3" style={{ borderBottom: `1px solid ${primary}33`, borderLeft: `1px solid ${primary}33`, borderRight: `1px solid ${primary}33`, backgroundColor: primary + '11' }}>
             <span className="text-3xl">🔥</span>
             <div>
-              <h2 className="text-xl font-bold text-amber-400 tracking-wide uppercase">En Preparación</h2>
+              <h2 className="text-xl font-bold tracking-wide uppercase" style={{ color: primary }}>En Preparación</h2>
               <p className="text-sm text-gray-500">{preparing.length} {preparing.length === 1 ? 'pedido' : 'pedidos'}</p>
             </div>
           </div>
           <div className="flex-1 p-8 overflow-auto">
             {preparing.length === 0 ? (
               <div className="flex items-center justify-center h-full">
-                <p className="text-gray-700 text-xl">Sin pedidos en preparación</p>
+                <p className="text-xl" style={{ color: primary + '66' }}>Sin pedidos en preparación</p>
               </div>
             ) : (
               <div className="flex flex-wrap gap-6">
                 {preparing.map(order => (
                   <div
                     key={order.id}
-                    className="flex items-center justify-center rounded-2xl border-2 border-amber-500/40 bg-amber-500/10"
-                    style={{ width: 160, height: 160 }}
+                    className="flex items-center justify-center rounded-2xl border-2"
+                    style={{
+                      width: 160,
+                      height: 160,
+                      borderColor: primary + '88',
+                      backgroundColor: primary + '22',
+                    }}
                   >
                     <div className="text-center">
-                      <p className="text-xs text-amber-400/70 font-semibold tracking-widest uppercase mb-1">Pedido</p>
-                      <p className="text-6xl font-black tabular-nums text-amber-300">
+                      <p className="text-xs font-semibold tracking-widest uppercase mb-1" style={{ color: primary + 'cc' }}>Pedido</p>
+                      <p className="text-6xl font-black tabular-nums" style={{ color: primary + 'dd' }}>
                         {getShortNumber(order)}
                       </p>
                     </div>
@@ -234,17 +260,17 @@ export default function PantallaPage({ params }: Props) {
 
         {/* Listos para recoger */}
         <div className="flex-1 flex flex-col">
-          <div className="px-10 py-6 flex items-center gap-3 border-b border-gray-800 bg-gray-900/50">
+          <div className="px-10 py-6 flex items-center gap-3" style={{ borderBottom: `1px solid ${primary}20`, borderLeft: `1px solid ${primary}20`, backgroundColor: primary + '08' }}>
             <span className="text-3xl">✅</span>
             <div>
-              <h2 className="text-xl font-bold text-emerald-400 tracking-wide uppercase">Listos para Recoger</h2>
+              <h2 className="text-xl font-bold tracking-wide uppercase" style={{ color: primary }}>Listos para Recoger</h2>
               <p className="text-sm text-gray-500">{ready.length} {ready.length === 1 ? 'pedido' : 'pedidos'}</p>
             </div>
           </div>
           <div className="flex-1 p-8 overflow-auto">
             {ready.length === 0 ? (
               <div className="flex items-center justify-center h-full">
-                <p className="text-gray-700 text-xl">Sin pedidos listos</p>
+                <p className="text-xl" style={{ color: primary + '66' }}>Sin pedidos listos</p>
               </div>
             ) : (
               <div className="flex flex-wrap gap-6">
@@ -253,20 +279,23 @@ export default function PantallaPage({ params }: Props) {
                   return (
                     <div
                       key={order.id}
-                      className={`flex items-center justify-center rounded-2xl border-2 transition-all duration-500 ${
-                        isNew
-                          ? 'border-emerald-400 bg-emerald-500/30 scale-110 shadow-[0_0_40px_rgba(52,211,153,0.4)]'
-                          : 'border-emerald-500/40 bg-emerald-500/10'
-                      }`}
-                      style={{ width: 160, height: 160 }}
+                      className="flex items-center justify-center rounded-2xl border-2 transition-all duration-500"
+                      style={{
+                        width: 160,
+                        height: 160,
+                        borderColor: isNew ? primary : primary + '88',
+                        backgroundColor: isNew ? primary + '33' : primary + '22',
+                        transform: isNew ? 'scale(1.1)' : 'scale(1)',
+                        boxShadow: isNew ? `0 0 40px ${primary}66` : 'none',
+                      }}
                     >
                       <div className="text-center">
-                        <p className="text-xs text-emerald-400/70 font-semibold tracking-widest uppercase mb-1">Pedido</p>
-                        <p className={`text-6xl font-black tabular-nums ${isNew ? 'text-emerald-300' : 'text-emerald-400'}`}>
+                        <p className="text-xs font-semibold tracking-widest uppercase mb-1" style={{ color: primary + 'b3' }}>Pedido</p>
+                        <p className="text-6xl font-black tabular-nums" style={{ color: primary }}>
                           {getShortNumber(order)}
                         </p>
                         {isNew && (
-                          <p className="text-xs text-emerald-300 font-bold mt-2 animate-bounce">¡LISTO!</p>
+                          <p className="text-xs font-bold mt-2 animate-bounce" style={{ color: primary }}>¡LISTO!</p>
                         )}
                       </div>
                     </div>
@@ -279,9 +308,9 @@ export default function PantallaPage({ params }: Props) {
       </div>
 
       {/* Footer */}
-      <footer className="px-10 py-3 border-t border-gray-800 bg-gray-900/50 flex items-center justify-between">
-        <p className="text-xs text-gray-600">Pasa a recoger tu pedido cuando aparezca en "Listos"</p>
-        <p className="text-xs text-gray-700">Actualización automática cada 4 segundos</p>
+      <footer className="px-10 py-3 flex items-center justify-between" style={{ borderTop: `1px solid ${primary}33`, backgroundColor: primary + '11' }}>
+        <p className="text-xs" style={{ color: primary + '99' }}>Pasa a recoger tu pedido cuando aparezca en "Listos"</p>
+        <p className="text-xs" style={{ color: primary + '99' }}>Actualización automática cada 4 segundos</p>
       </footer>
     </div>
   )

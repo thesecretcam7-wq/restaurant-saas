@@ -1,64 +1,40 @@
-'use client';
-
-import { useParams } from 'next/navigation';
-import { useEffect, useState } from 'react';
-import { createClient } from '@/lib/supabase/client';
+import { createClient } from '@/lib/supabase/server';
 import { POSTerminal } from '@/components/admin/POSTerminal';
 
-export default function POSPage() {
-  const params = useParams();
-  const slug = params.domain as string;
-  const [tenantId, setTenantId] = useState<string | null>(null);
-  const [country, setCountry] = useState<string>('CO');
-  const [loading, setLoading] = useState(true);
+interface POSPageProps {
+  params: Promise<{ domain: string }>;
+}
 
-  useEffect(() => {
-    async function resolveTenantId() {
-      try {
-        const supabase = createClient();
-        // Try by slug first
-        const { data: bySlug } = await supabase
-          .from('tenants')
-          .select('id, country')
-          .eq('slug', slug)
-          .single();
+export default async function POSPage({ params }: POSPageProps) {
+  const { domain: slug } = await params;
+  const supabase = await createClient();
 
-        if (bySlug) {
-          setTenantId(bySlug.id);
-          setCountry(bySlug.country || 'CO');
-          return;
-        }
+  const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(slug);
 
-        // If not found, try as UUID
-        const { data: byId } = await supabase
-          .from('tenants')
-          .select('id, country')
-          .eq('id', slug)
-          .single();
-
-        if (byId) {
-          setTenantId(byId.id);
-          setCountry(byId.country || 'CO');
-        }
-      } catch (error) {
-        console.error('Error resolving tenant:', error);
-      } finally {
-        setLoading(false);
-      }
-    }
-
-    if (slug) {
-      resolveTenantId();
-    }
-  }, [slug]);
-
-  if (loading) {
-    return <div className="flex items-center justify-center h-screen bg-gray-50 text-gray-600">Cargando TPV...</div>;
+  let tenant = null;
+  if (isUUID) {
+    const { data } = await supabase
+      .from('tenants')
+      .select('id, country')
+      .eq('id', slug)
+      .single();
+    tenant = data;
+  } else {
+    const { data } = await supabase
+      .from('tenants')
+      .select('id, country')
+      .eq('slug', slug)
+      .single();
+    tenant = data;
   }
 
-  if (!tenantId) {
-    return <div className="flex items-center justify-center h-screen bg-gray-50 text-gray-600">Error: Restaurante no encontrado</div>;
+  if (!tenant) {
+    return (
+      <div className="flex items-center justify-center h-screen bg-gray-50 text-gray-600">
+        Error: Restaurante no encontrado
+      </div>
+    );
   }
 
-  return <POSTerminal tenantId={tenantId} country={country} />;
+  return <POSTerminal tenantId={tenant.id} country={tenant.country || 'CO'} />;
 }

@@ -1,6 +1,8 @@
+// COMPLETE REBUILD - Force Vercel to discard all cache and rebuild from scratch
 import type { NextConfig } from "next";
 import { withSentryConfig } from "@sentry/nextjs";
 
+// Force complete rebuild - branding colors not syncing to API, clear all cache
 const nextConfig: NextConfig = {
   images: {
     remotePatterns: [
