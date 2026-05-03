@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation'
 import { getTenantContext } from '@/lib/tenant'
 import { AdminSidebar } from '@/components/admin/AdminSidebar'
 import { AdminContent } from './AdminContent'
+import { SectionColorProvider } from '@/components/admin/SectionColorProvider'
 import TrialExpiredGuard from '@/components/admin/TrialExpiredGuard'
 import { cookies } from 'next/headers'
 
@@ -133,7 +134,9 @@ export default async function AdminLayout({ children, params }: AdminLayoutProps
         />
 
         {/* Main content — desktop offset, full width on mobile */}
-        <AdminContent trialEndsAt={tenant.trial_ends_at} slug={tenantSlug}>{children}</AdminContent>
+        <SectionColorProvider>
+          <AdminContent trialEndsAt={tenant.trial_ends_at} slug={tenantSlug}>{children}</AdminContent>
+        </SectionColorProvider>
       </div>
     </TrialExpiredGuard>
   )
