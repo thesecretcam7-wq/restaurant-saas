@@ -49,48 +49,85 @@
 }
 
 :root {
-  /* Eccofood Brand Colors - Energy & Appetite Stimulation - ULTRA VIBRANT */
-  /* Store Primary: KFC Red - Super Intense (Stimulates Appetite & Urgency) */
-  --primary: #E4002B;
-  --primary-dark: #CC0026;
-  --primary-light: #FF4466;
-  --primary-50: #FFF0F3;
-  --primary-100: #FFD9E0;
-  --primary-200: #FFAABC;
-  --primary-600: #E4002B;
+  /* ═══════════════════════════════════════════════════════════════════ */
+  /* LAYER 1: PRIMITIVE TOKENS - Brand Foundation (DO NOT MODIFY OFTEN) */
+  /* ═══════════════════════════════════════════════════════════════════ */
+  --color-eccofood-red: #E4002B;
+  --color-eccofood-orange: #FF5500;
+  --color-eccofood-yellow: #FFD700;
 
-  /* Admin Color System - Section Accents */
-  /* Secondary: Vivid Orange (Stimulates Senses & Joy) */
-  --secondary: #FF5500;
-  --secondary-dark: #FF4500;
-  --secondary-light: #FFAA55;
-  --secondary-50: #FFF7F3;
-  --secondary-100: #FFE6D9;
-  --secondary-200: #FFCCAA;
+  /* ═══════════════════════════════════════════════════════════════════ */
+  /* LAYER 2: SEMANTIC TOKENS - Component Intent (PRIMARY USAGE LAYER) */
+  /* ═══════════════════════════════════════════════════════════════════ */
 
-  /* Accent: Bright Yellow (Energy & Happiness) */
-  --accent: #FFD700;
-  --accent-dark: #FFC300;
-  --accent-light: #FFEB99;
-  --accent-50: #FFFEF0;
-  --accent-100: #FFF5CC;
+  /* Primary Brand Colors */
+  --color-primary: var(--color-eccofood-red);
+  --color-secondary: var(--color-eccofood-orange);
+  --color-accent: var(--color-eccofood-yellow);
 
-  /* Admin Section Colors */
-  --color-orders: #FF6B35;
-  --color-products: #E63946;
-  --color-customers: #FFD60A;
-  --color-reservations: #FF8C42;
-  --color-inventory: #FF6B35;
-  --color-payments: #E63946;
-  --color-dashboard: #FF6B35;
-  --color-settings: #FFD60A;
+  /* Status/Intent Colors */
+  --color-success: #16A34A;
+  --color-warning: #D97706;
+  --color-danger: #DC2626;
+  --color-info: #0891B2;
 
-  /* Semantic Colors */
-  --success: #16A34A;
-  --danger: #DC2626;
-  --warning: #D97706;
+  /* Interactive States - Buttons */
+  --color-button-primary-bg: var(--color-primary);
+  --color-button-primary-text: white;
+  --color-button-primary-hover: #CC0026;
+  --color-button-primary-active: #B30022;
 
-  /* Light Mode - Clean & Professional */
+  --color-button-secondary-bg: var(--color-secondary);
+  --color-button-secondary-text: white;
+  --color-button-secondary-hover: #FF4500;
+  --color-button-secondary-active: #E04400;
+
+  /* Surfaces */
+  --color-surface-primary: white;
+  --color-surface-secondary: #FAFBFC;
+  --color-surface-tertiary: #F3F4F6;
+  --color-surface-inverse: #1F2937;
+
+  /* Borders & Dividers */
+  --color-border-light: #E5E7EB;
+  --color-border-medium: #D1D5DB;
+  --color-border-dark: #9CA3AF;
+  --color-border-primary: var(--color-primary);
+
+  /* Text Colors */
+  --color-text-primary: #1F2937;
+  --color-text-secondary: #6B7280;
+  --color-text-tertiary: #9CA3AF;
+  --color-text-inverse: #F3F4F6;
+
+  /* Backgrounds */
+  --color-bg-page: white;
+  --color-bg-overlay: rgba(0, 0, 0, 0.5);
+
+  /* ═══════════════════════════════════════════════════════════════════ */
+  /* LAYER 3: ALIAS TOKENS - Admin Section Colors (USE IN SPECIFIC CONTEXTS) */
+  /* ═══════════════════════════════════════════════════════════════════ */
+  --color-section-dashboard: var(--color-info);
+  --color-section-orders: var(--color-warning);
+  --color-section-products: var(--color-success);
+  --color-section-customers: #4F46E5;
+  --color-section-reservations: #7C3AED;
+  --color-section-inventory: var(--color-info);
+  --color-section-sales: var(--color-success);
+  --color-section-settings: #6B7280;
+  --color-section-analytics: #06B6D4;
+  --color-section-staff: #EC4899;
+  --color-section-payments: var(--color-primary);
+
+  /* Legacy Token Mappings (For backwards compatibility) */
+  --primary: var(--color-primary);
+  --secondary: var(--color-secondary);
+  --accent: var(--color-accent);
+  --success: var(--color-success);
+  --danger: var(--color-danger);
+  --warning: var(--color-warning);
+
+  /* Light Mode - Clean & Professional (Default Theme) */
   --background: #FFFFFF;
   --foreground: #1F2937;
   --card: #FAFBFC;
@@ -106,6 +143,12 @@
   --border: #E5E7EB;
   --input: #F9FAFB;
   --ring: #4F46E5;
+
+  /* Light Mode Semantic Aliases */
+  --shadow-sm: 0 1px 2px rgba(0,0,0,0.05);
+  --shadow-md: 0 4px 6px rgba(0,0,0,0.1);
+  --shadow-lg: 0 10px 15px rgba(0,0,0,0.1);
+  --shadow-xl: 0 20px 25px rgba(0,0,0,0.1);
 
   /* Chart Colors */
   --chart-1: #4F46E5;
@@ -196,24 +239,43 @@
 }
 
 .dark {
+  /* Dark Mode - Landing Page Theme (Elegant, High Contrast) */
   --background: oklch(0.145 0 0);
   --foreground: oklch(0.985 0 0);
   --card: oklch(0.205 0 0);
   --card-foreground: oklch(0.985 0 0);
   --popover: oklch(0.205 0 0);
   --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
   --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
   --secondary-foreground: oklch(0.985 0 0);
   --muted: oklch(0.269 0 0);
   --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
   --accent-foreground: oklch(0.985 0 0);
   --destructive: oklch(0.704 0.191 22.216);
   --border: oklch(1 0 0 / 10%);
   --input: oklch(1 0 0 / 15%);
   --ring: oklch(0.556 0 0);
+
+  /* Dark Mode - Semantic Tokens Override */
+  --color-primary: #FF6B9D;
+  --color-secondary: #FFB366;
+  --color-accent: #FFE680;
+  --color-success: #4ADE80;
+  --color-warning: #FBBF24;
+  --color-danger: #FF6B6B;
+  --color-info: #00D9FF;
+
+  --color-surface-primary: #1F2937;
+  --color-surface-secondary: #111827;
+  --color-surface-tertiary: #0F172A;
+  --color-text-primary: #F3F4F6;
+  --color-text-secondary: #D1D5DB;
+  --color-text-tertiary: #9CA3AF;
+  --color-bg-page: #0F172A;
+  --color-border-light: #374151;
+  --color-border-medium: #4B5563;
+
+  /* Dark Mode - Chart & Sidebar Colors */
   --chart-1: oklch(0.87 0 0);
   --chart-2: oklch(0.556 0 0);
   --chart-3: oklch(0.439 0 0);
@@ -227,6 +289,12 @@
   --sidebar-accent-foreground: oklch(0.985 0 0);
   --sidebar-border: oklch(1 0 0 / 10%);
   --sidebar-ring: oklch(0.556 0 0);
+
+  /* Dark Mode - Shadows */
+  --shadow-sm: 0 1px 2px rgba(0,0,0,0.3);
+  --shadow-md: 0 4px 6px rgba(0,0,0,0.4);
+  --shadow-lg: 0 10px 15px rgba(0,0,0,0.5);
+  --shadow-xl: 0 20px 25px rgba(0,0,0,0.6);
 }
 
 @layer base {

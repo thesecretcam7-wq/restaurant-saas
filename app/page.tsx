@@ -2,17 +2,47 @@ import Link from 'next/link'
 
 export default function LandingPage() {
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 text-white font-sans selection:bg-orange-400/30 relative overflow-hidden">
+    <div
+      className="min-h-screen text-white font-sans selection:bg-orange-400/30 relative overflow-hidden"
+      data-theme="landing"
+      style={{
+        background: 'linear-gradient(135deg, #0F172A 0%, #1F2937 50%, #0F172A 100%)',
+        backgroundColor: 'var(--color-bg-page)',
+      }}
+    >
       {/* Gradiente de fondo decorativo */}
-      <div className="absolute -top-40 -left-40 w-96 h-96 bg-orange-600/20 rounded-full blur-3xl pointer-events-none" />
-      <div className="absolute top-1/3 -left-20 w-80 h-80 bg-orange-500/15 rounded-full blur-3xl pointer-events-none" />
-      <div className="absolute -bottom-20 right-1/4 w-96 h-96 bg-red-600/10 rounded-full blur-3xl pointer-events-none" />
+      <div
+        className="absolute -top-40 -left-40 w-96 h-96 rounded-full blur-3xl pointer-events-none opacity-20"
+        style={{ background: `radial-gradient(circle, var(--color-secondary), transparent)` }}
+      />
+      <div
+        className="absolute top-1/3 -left-20 w-80 h-80 rounded-full blur-3xl pointer-events-none opacity-15"
+        style={{ background: `radial-gradient(circle, var(--color-primary), transparent)` }}
+      />
+      <div
+        className="absolute -bottom-20 right-1/4 w-96 h-96 rounded-full blur-3xl pointer-events-none opacity-10"
+        style={{ background: `radial-gradient(circle, var(--color-danger), transparent)` }}
+      />
 
       {/* --- NAVBAR --- */}
-      <nav className="fixed top-0 w-full z-50 bg-slate-950/80 backdrop-blur-md border-b border-orange-500/20">
+      <nav
+        className="fixed top-0 w-full z-50 backdrop-blur-md border-b"
+        style={{
+          background: 'rgba(15, 23, 42, 0.8)',
+          borderColor: 'var(--color-primary)',
+          borderBottomWidth: '1px',
+          opacity: 0.9,
+        }}
+      >
         <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <div className="w-8 h-8 bg-gradient-to-br from-orange-500 to-orange-600 rounded-lg flex items-center justify-center shadow-lg shadow-orange-500/50">
+            <div
+              className="w-8 h-8 rounded-lg flex items-center justify-center shadow-lg"
+              style={{
+                background: 'linear-gradient(135deg, var(--color-primary), var(--color-secondary))',
+                boxShadow: '0 0 16px var(--color-primary)',
+              }}
+            >
               <span className="text-white font-bold text-xl">e</span>
             </div>
             <span className="text-xl font-bold tracking-tight text-white">Eccofood</span>
@@ -24,7 +54,14 @@ export default function LandingPage() {
           </div>
           <div className="flex items-center gap-4">
             <Link href="/login" className="text-sm font-medium text-slate-300 hover:text-white transition-colors">Iniciar sesión</Link>
-            <Link href="/register" className="bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white px-5 py-2 rounded-full text-sm font-semibold transition-all shadow-lg shadow-orange-500/50 active:scale-95">
+            <Link
+              href="/register"
+              className="text-white px-5 py-2 rounded-full text-sm font-semibold transition-all active:scale-95"
+              style={{
+                background: 'linear-gradient(135deg, var(--color-primary), var(--color-secondary))',
+                boxShadow: '0 8px 20px var(--color-primary)',
+              }}
+            >
               Empezar gratis
             </Link>
           </div>
@@ -34,13 +71,32 @@ export default function LandingPage() {
       {/* --- HERO SECTION --- */}
       <main className="pt-32 pb-20 px-6 relative z-10">
         <div className="max-w-4xl mx-auto text-center relative">
-          <div className="inline-flex items-center bg-orange-500/20 border border-orange-500/40 px-3 py-1 rounded-full mb-8">
-            <span className="text-xs font-bold text-orange-300 uppercase tracking-wider">Plataforma de gestión premium para restaurantes</span>
+          <div
+            className="inline-flex items-center border px-3 py-1 rounded-full mb-8"
+            style={{
+              backgroundColor: 'var(--color-secondary)',
+              borderColor: 'var(--color-secondary)',
+              opacity: 0.3,
+            }}
+          >
+            <span
+              className="text-xs font-bold uppercase tracking-wider"
+              style={{ color: 'var(--color-secondary)' }}
+            >
+              Plataforma de gestión premium para restaurantes
+            </span>
           </div>
 
           <h1 className="text-5xl md:text-7xl font-extrabold tracking-tight text-white mb-6 leading-[1.1]">
             Tu restaurante despega <br />
-            <span className="text-transparent bg-clip-text bg-gradient-to-r from-orange-400 via-orange-500 to-red-500">
+            <span
+              className="text-transparent bg-clip-text"
+              style={{
+                background: 'linear-gradient(90deg, var(--color-secondary), var(--color-primary))',
+                WebkitBackgroundClip: 'text',
+                WebkitTextFillColor: 'transparent',
+              }}
+            >
               con Eccofood
             </span>
           </h1>
@@ -51,10 +107,25 @@ export default function LandingPage() {
           </p>
 
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-16">
-            <Link href="/register" className="w-full sm:w-auto bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white px-8 py-4 rounded-2xl font-bold text-lg transition-all shadow-xl shadow-orange-500/50 active:scale-[0.98] flex items-center justify-center gap-2">
+            <Link
+              href="/register"
+              className="w-full sm:w-auto text-white px-8 py-4 rounded-2xl font-bold text-lg transition-all active:scale-[0.98] flex items-center justify-center gap-2"
+              style={{
+                background: 'linear-gradient(135deg, var(--color-primary), var(--color-secondary))',
+                boxShadow: '0 16px 32px var(--color-primary)',
+              }}
+            >
               🚀 Crear mi restaurante
             </Link>
-            <Link href="#" className="w-full sm:w-auto bg-slate-800/60 border border-slate-700 hover:border-orange-500/50 hover:bg-slate-800 text-white px-8 py-4 rounded-2xl font-bold text-lg transition-all active:scale-[0.98]">
+            <Link
+              href="#"
+              className="w-full sm:w-auto text-white px-8 py-4 rounded-2xl font-bold text-lg transition-all active:scale-[0.98]"
+              style={{
+                background: 'rgba(55, 65, 81, 0.6)',
+                border: '2px solid',
+                borderColor: 'var(--color-secondary)',
+              }}
+            >
               Ver demostración
             </Link>
           </div>
@@ -66,11 +137,29 @@ export default function LandingPage() {
           {/* --- DASHBOARD MOCKUP --- */}
           <div className="relative mx-auto max-w-5xl group">
             {/* Sombra de profundidad */}
-            <div className="absolute -inset-1 bg-gradient-to-r from-orange-600 via-orange-500 to-red-600 rounded-[2.5rem] blur opacity-30 group-hover:opacity-50 transition duration-1000"></div>
+            <div
+              className="absolute -inset-1 rounded-[2.5rem] blur opacity-30 group-hover:opacity-50 transition duration-1000"
+              style={{
+                background: 'linear-gradient(135deg, var(--color-secondary), var(--color-primary))',
+              }}
+            ></div>
 
-            <div className="relative bg-gradient-to-br from-slate-900 to-slate-950 border border-orange-500/30 rounded-[2rem] shadow-2xl overflow-hidden backdrop-blur-sm">
+            <div
+              className="relative rounded-[2rem] shadow-2xl overflow-hidden backdrop-blur-sm"
+              style={{
+                background: 'linear-gradient(135deg, rgba(15, 23, 42, 0.9), rgba(31, 41, 55, 0.9))',
+                border: '1px solid',
+                borderColor: 'var(--color-primary)',
+              }}
+            >
               {/* Barra superior estilo Mac */}
-              <div className="bg-slate-900/80 border-b border-orange-500/20 px-6 py-3 flex items-center gap-2">
+              <div
+                className="border-b px-6 py-3 flex items-center gap-2"
+                style={{
+                  background: 'rgba(15, 23, 42, 0.8)',
+                  borderBottomColor: 'var(--color-primary)',
+                }}
+              >
                 <div className="flex gap-1.5">
                   <div className="w-3 h-3 rounded-full bg-red-500" />
                   <div className="w-3 h-3 rounded-full bg-yellow-500" />
@@ -84,15 +173,33 @@ export default function LandingPage() {
               {/* Contenido del Dashboard */}
               <div className="p-8 grid grid-cols-2 md:grid-cols-4 gap-6">
                 {[
-                  { label: 'Pedidos hoy', value: '48', trend: '+25%', color: 'text-orange-400', bg: 'bg-orange-500/10 border-orange-500/30' },
-                  { label: 'Ingresos mes', value: '€8.5k', trend: '+15%', color: 'text-white', bg: 'bg-slate-800/40 border-slate-700/50' },
-                  { label: 'Reservas', value: '22', trend: '+5 pendientes', color: 'text-white', bg: 'bg-slate-800/40 border-slate-700/50' },
-                  { label: 'Clientes', value: '287', trend: '+12 nuevos', color: 'text-white', bg: 'bg-slate-800/40 border-slate-700/50' },
+                  { label: 'Pedidos hoy', value: '48', trend: '+25%', color: 'var(--color-secondary)', bgOpacity: 0.1 },
+                  { label: 'Ingresos mes', value: '€8.5k', trend: '+15%', color: 'white', bgOpacity: 0.04 },
+                  { label: 'Reservas', value: '22', trend: '+5 pendientes', color: 'white', bgOpacity: 0.04 },
+                  { label: 'Clientes', value: '287', trend: '+12 nuevos', color: 'white', bgOpacity: 0.04 },
                 ].map((stat, i) => (
-                  <div key={i} className={`text-left p-4 rounded-xl border transition-colors ${stat.bg}`}>
+                  <div
+                    key={i}
+                    className="text-left p-4 rounded-xl border transition-colors"
+                    style={{
+                      backgroundColor: i === 0 ? `var(--color-secondary)` : 'rgba(100, 116, 139, 0.15)',
+                      opacity: 1,
+                      borderColor: i === 0 ? 'var(--color-secondary)' : 'rgba(100, 116, 139, 0.3)',
+                    }}
+                  >
                     <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">{stat.label}</p>
-                    <p className={`text-3xl font-bold ${stat.color} mb-1`}>{stat.value}</p>
-                    <p className="text-[10px] font-bold text-emerald-400 bg-emerald-500/20 inline-block px-2 py-0.5 rounded border border-emerald-500/30">
+                    <p className="text-3xl font-bold mb-1" style={{ color: stat.color }}>
+                      {stat.value}
+                    </p>
+                    <p
+                      className="text-[10px] font-bold inline-block px-2 py-0.5 rounded border"
+                      style={{
+                        color: 'var(--color-success)',
+                        backgroundColor: 'var(--color-success)',
+                        borderColor: 'var(--color-success)',
+                        opacity: 0.5,
+                      }}
+                    >
                       {stat.trend}
                     </p>
                   </div>
