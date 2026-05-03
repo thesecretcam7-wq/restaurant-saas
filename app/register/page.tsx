@@ -180,7 +180,7 @@ export default function RegisterPage() {
             <div className="rounded-xl border border-border bg-card/50 backdrop-blur-sm p-8 shadow-md">
 
               {error && (
-                <div className="mb-6 flex items-start gap-3 p-4 rounded-lg" style={{ backgroundColor: 'var(--color-danger)', opacity: 0.1, borderColor: 'var(--color-danger)', borderWidth: '1px', borderOpacity: 0.2 }}>
+                <div className="mb-6 flex items-start gap-3 p-4 rounded-lg" style={{ backgroundColor: 'color-mix(in srgb, var(--color-danger) 10%, white)', borderColor: 'color-mix(in srgb, var(--color-danger) 20%, transparent)', borderWidth: '1px' }}>
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="flex-shrink-0 mt-0.5" style={{ color: 'var(--color-danger)' }}><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
                   <p className="text-sm font-medium" style={{ color: 'var(--color-danger)' }}>{error}</p>
                 </div>
@@ -263,7 +263,6 @@ export default function RegisterPage() {
                           : form.confirmPassword && form.password === form.confirmPassword
                             ? `var(--color-secondary)`
                             : 'var(--color-border-light)',
-                        borderOpacity: form.confirmPassword && form.password !== form.confirmPassword ? '0.5' : '0.5',
                         '--tw-ring-color': form.confirmPassword && form.password !== form.confirmPassword
                           ? 'var(--color-danger)'
                           : form.confirmPassword && form.password === form.confirmPassword
