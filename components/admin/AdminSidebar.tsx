@@ -4,7 +4,7 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { Menu, X } from 'lucide-react'
-import { detectAdminSection, getSectionColorHex } from '@/lib/colors'
+import { detectAdminSection, getSectionColorVar } from '@/lib/colors'
 
 interface NavLink {
   href: string
@@ -36,7 +36,7 @@ export function AdminSidebar({
   const [open, setOpen] = useState(false)
   const pathname = usePathname()
   const currentSection = detectAdminSection(pathname)
-  const currentSectionColor = getSectionColorHex(currentSection)
+  const currentSectionColor = `var(${getSectionColorVar(currentSection)})`
 
   const sidebarContent = (
     <>
@@ -91,7 +91,7 @@ export function AdminSidebar({
         {navLinks.map(link => {
           const isActive = pathname.includes(link.href.split('/').pop() || '')
           const linkSection = detectAdminSection(link.href)
-          const linkColor = getSectionColorHex(linkSection)
+          const linkColor = `var(${getSectionColorVar(linkSection)})`
 
           return (
             <div key={link.href}>
