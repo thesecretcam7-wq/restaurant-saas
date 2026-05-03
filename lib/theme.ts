@@ -211,7 +211,7 @@ export function initializeTheme(): void {
 /**
  * Get all available themes
  */
-export const AVAILABLE_THEMES = [ECCOFOOD_LIGHT_THEME, ECCOFOOD_DARK_THEME] as const
+export const AVAILABLE_THEMES: ThemeConfig[] = [ECCOFOOD_LIGHT_THEME, ECCOFOOD_DARK_THEME]
 
 /**
  * Type-safe theme selector
