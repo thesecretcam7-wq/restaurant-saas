@@ -17,7 +17,7 @@ export function validateAllThemes(): { valid: boolean; errors: string[] } {
   const errors: string[] = []
 
   // Check all available themes
-  AVAILABLE_THEMES.forEach(theme => {
+  for (const theme of AVAILABLE_THEMES) {
     if (!validateTheme(theme)) {
       errors.push(`Invalid theme configuration: ${theme.name}`)
     }
@@ -48,7 +48,7 @@ export function validateAllThemes(): { valid: boolean; errors: string[] } {
         errors.push(`Missing token in ${theme.name} theme: ${token}`)
       }
     })
-  })
+  }
 
   return {
     valid: errors.length === 0,
@@ -117,7 +117,7 @@ export function isValidColorValue(value: string): boolean {
 export function validateThemeTokenValues(): { valid: boolean; errors: string[] } {
   const errors: string[] = []
 
-  AVAILABLE_THEMES.forEach(theme => {
+  for (const theme of AVAILABLE_THEMES) {
     Object.entries(theme.tokens).forEach(([tokenName, value]) => {
       if (typeof value !== 'string' || !isValidColorValue(value)) {
         errors.push(
@@ -125,7 +125,7 @@ export function validateThemeTokenValues(): { valid: boolean; errors: string[] }
         )
       }
     })
-  })
+  }
 
   return {
     valid: errors.length === 0,
