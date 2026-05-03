@@ -89,8 +89,8 @@ export default function RegisterPage() {
     <div className="min-h-screen bg-background text-foreground overflow-x-hidden">
       {/* Background gradients */}
       <div className="fixed inset-0 pointer-events-none overflow-hidden -z-10">
-        <div className="absolute top-[-10%] right-[15%] w-[500px] h-[500px] rounded-full opacity-[0.08]" style={{ background: 'radial-gradient(circle, #0066FF, transparent 70%)' }} />
-        <div className="absolute bottom-[5%] left-[-5%] w-[400px] h-[400px] rounded-full opacity-[0.06]" style={{ background: 'radial-gradient(circle, #10B981, transparent 70%)' }} />
+        <div className="absolute top-[-10%] right-[15%] w-[500px] h-[500px] rounded-full opacity-[0.08]" style={{ background: 'radial-gradient(circle, var(--color-primary), transparent 70%)' }} />
+        <div className="absolute bottom-[5%] left-[-5%] w-[400px] h-[400px] rounded-full opacity-[0.06]" style={{ background: 'radial-gradient(circle, var(--color-success), transparent 70%)' }} />
       </div>
 
       {/* Left panel — only on large screens */}
@@ -180,9 +180,9 @@ export default function RegisterPage() {
             <div className="rounded-xl border border-border bg-card/50 backdrop-blur-sm p-8 shadow-md">
 
               {error && (
-                <div className="mb-6 flex items-start gap-3 p-4 rounded-lg bg-red-500/10 border border-red-500/20">
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-red-600 flex-shrink-0 mt-0.5"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
-                  <p className="text-red-600 text-sm font-medium">{error}</p>
+                <div className="mb-6 flex items-start gap-3 p-4 rounded-lg" style={{ backgroundColor: 'var(--color-danger)', opacity: 0.1, borderColor: 'var(--color-danger)', borderWidth: '1px', borderOpacity: 0.2 }}>
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="flex-shrink-0 mt-0.5" style={{ color: 'var(--color-danger)' }}><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+                  <p className="text-sm font-medium" style={{ color: 'var(--color-danger)' }}>{error}</p>
                 </div>
               )}
 
@@ -256,13 +256,20 @@ export default function RegisterPage() {
                       required
                       value={form.confirmPassword}
                       onChange={e => setForm(f => ({ ...f, confirmPassword: e.target.value }))}
-                      className={`w-full px-4 py-2.5 pr-11 rounded-lg bg-background border text-foreground placeholder-muted-foreground text-sm outline-none transition-all focus:ring-2 ${
-                        form.confirmPassword && form.password !== form.confirmPassword
-                          ? 'border-red-500/50 focus:border-red-500 focus:ring-red-500/20'
+                      className="w-full px-4 py-2.5 pr-11 rounded-lg bg-background border text-foreground placeholder-muted-foreground text-sm outline-none transition-all focus:ring-2"
+                      style={{
+                        borderColor: form.confirmPassword && form.password !== form.confirmPassword
+                          ? `var(--color-danger)`
                           : form.confirmPassword && form.password === form.confirmPassword
-                            ? 'border-secondary/50 focus:border-secondary focus:ring-secondary/20'
-                            : 'border-border focus:border-primary/50 focus:ring-primary/20'
-                      }`}
+                            ? `var(--color-secondary)`
+                            : 'var(--color-border-light)',
+                        borderOpacity: form.confirmPassword && form.password !== form.confirmPassword ? '0.5' : '0.5',
+                        '--tw-ring-color': form.confirmPassword && form.password !== form.confirmPassword
+                          ? 'var(--color-danger)'
+                          : form.confirmPassword && form.password === form.confirmPassword
+                            ? 'var(--color-secondary)'
+                            : 'var(--color-primary)',
+                      } as React.CSSProperties}
                       placeholder="Repite la contraseña"
                     />
                     <button type="button" onClick={() => setShowConfirm(v => !v)} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors">
@@ -273,7 +280,7 @@ export default function RegisterPage() {
                     </button>
                   </div>
                   {form.confirmPassword && form.password !== form.confirmPassword && (
-                    <p className="text-red-600 text-xs mt-1.5 font-medium">Las contraseñas no coinciden</p>
+                    <p className="text-xs mt-1.5 font-medium" style={{ color: 'var(--color-danger)' }}>Las contraseñas no coinciden</p>
                   )}
                 </div>
 

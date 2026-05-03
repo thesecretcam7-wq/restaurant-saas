@@ -10,7 +10,7 @@ export default async function RoleLoginPage({ params }: Props) {
 
   if (!['cocinero', 'camarero', 'cajero', 'admin'].includes(role)) {
     return (
-      <div className="min-h-screen bg-gray-950 flex items-center justify-center text-red-400 text-xl">
+      <div className="min-h-screen flex items-center justify-center text-xl" style={{ backgroundColor: 'var(--color-surface-primary)', color: 'var(--color-danger)' }}>
         Rol inválido
       </div>
     )
@@ -27,7 +27,7 @@ export default async function RoleLoginPage({ params }: Props) {
 
   if (!tenant) {
     return (
-      <div className="min-h-screen bg-gray-950 flex items-center justify-center text-red-400 text-xl">
+      <div className="min-h-screen flex items-center justify-center text-xl" style={{ backgroundColor: 'var(--color-surface-primary)', color: 'var(--color-danger)' }}>
         Restaurante no encontrado
       </div>
     )

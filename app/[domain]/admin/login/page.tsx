@@ -54,22 +54,22 @@ export default function AdminLoginPage({ params }: Props) {
     <div
       className="min-h-screen flex items-center justify-center p-4 relative overflow-hidden"
       style={{
-        background: 'linear-gradient(to bottom right, white, rgba(219, 234, 254, 0.5), rgba(220, 252, 231, 0.5))'
+        background: `linear-gradient(to bottom right, var(--color-surface-primary), color-mix(in srgb, var(--color-primary) 5%, white), color-mix(in srgb, var(--color-success) 5%, white))`
       }}
     >
       {/* Background accents */}
-      <div className="absolute -top-40 -right-40 w-96 h-96 bg-red-100/30 rounded-full blur-3xl" />
-      <div className="absolute -bottom-32 -left-32 w-80 h-80 bg-orange-100/20 rounded-full blur-3xl" />
+      <div className="absolute -top-40 -right-40 w-96 h-96 rounded-full blur-3xl opacity-30" style={{ backgroundColor: 'var(--color-primary)' }} />
+      <div className="absolute -bottom-32 -left-32 w-80 h-80 rounded-full blur-3xl opacity-20" style={{ backgroundColor: 'var(--color-secondary)' }} />
 
       <div className="w-full max-w-sm relative z-10">
-        <div className="rounded-2xl border border-gray-200/60 p-8 bg-white/80 backdrop-blur-sm shadow-lg animate-slide-up">
+        <div className="rounded-2xl border p-8 backdrop-blur-sm shadow-lg animate-slide-up" style={{ backgroundColor: 'color-mix(in srgb, var(--color-surface-primary) 80%, transparent)', borderColor: 'var(--color-border-light)' }}>
           <div className="mb-6 animate-fade-in">
-            <h1 className="text-2xl font-black text-gray-900 mb-1">Panel Admin</h1>
-            <p className="text-sm text-gray-600">Accede con tu cuenta de administrador</p>
+            <h1 className="text-2xl font-black mb-1" style={{ color: 'var(--color-text-primary)' }}>Panel Admin</h1>
+            <p className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>Accede con tu cuenta de administrador</p>
           </div>
 
           {error && (
-            <div className="mb-4 p-3.5 bg-red-50 text-red-700 rounded-lg text-sm border border-red-200 flex items-center gap-2.5">
+            <div className="mb-4 p-3.5 rounded-lg text-sm flex items-center gap-2.5" style={{ backgroundColor: 'color-mix(in srgb, var(--color-danger) 10%, white)', color: 'var(--color-danger)', borderColor: 'var(--color-danger)', borderWidth: '1px', borderOpacity: '0.3' }}>
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
               {error}
             </div>
@@ -77,33 +77,61 @@ export default function AdminLoginPage({ params }: Props) {
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label className="block text-sm font-semibold text-gray-900 mb-2">Email</label>
+              <label className="block text-sm font-semibold mb-2" style={{ color: 'var(--color-text-primary)' }}>Email</label>
               <input
                 required
                 type="email"
                 value={form.email}
                 onChange={e => setForm(f => ({...f, email: e.target.value}))}
-                className={`w-full px-4 py-3 rounded-lg bg-gray-50 border border-gray-300 text-gray-900 placeholder-gray-500 text-sm outline-none transition-all focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-500/10 ${getFieldError(errors, 'email') ? 'border-red-300' : ''}`}
+                className="w-full px-4 py-3 rounded-lg text-sm outline-none transition-all"
+                style={{
+                  backgroundColor: 'var(--color-surface-secondary)',
+                  borderColor: getFieldError(errors, 'email') ? 'var(--color-danger)' : 'var(--color-border-light)',
+                  borderWidth: '1px',
+                  color: 'var(--color-text-primary)',
+                  '--tw-ring-color': 'var(--color-primary)',
+                  '--placeholder-color': 'var(--color-text-tertiary)'
+                } as React.CSSProperties}
                 placeholder="tu@restaurante.com"
               />
-              {getFieldError(errors, 'email') && <p className="text-red-500 text-xs mt-1">{getFieldError(errors, 'email')}</p>}
+              {getFieldError(errors, 'email') && <p className="text-xs mt-1" style={{ color: 'var(--color-danger)' }}>{getFieldError(errors, 'email')}</p>}
             </div>
             <div>
-              <label className="block text-sm font-semibold text-gray-900 mb-2">Contraseña</label>
+              <label className="block text-sm font-semibold mb-2" style={{ color: 'var(--color-text-primary)' }}>Contraseña</label>
               <input
                 required
                 type="password"
                 value={form.password}
                 onChange={e => setForm(f => ({...f, password: e.target.value}))}
-                className={`w-full px-4 py-3 rounded-lg bg-gray-50 border border-gray-300 text-gray-900 placeholder-gray-500 text-sm outline-none transition-all focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-500/10 ${getFieldError(errors, 'password') ? 'border-red-300' : ''}`}
+                className="w-full px-4 py-3 rounded-lg text-sm outline-none transition-all"
+                style={{
+                  backgroundColor: 'var(--color-surface-secondary)',
+                  borderColor: getFieldError(errors, 'password') ? 'var(--color-danger)' : 'var(--color-border-light)',
+                  borderWidth: '1px',
+                  color: 'var(--color-text-primary)',
+                  '--tw-ring-color': 'var(--color-primary)',
+                  '--placeholder-color': 'var(--color-text-tertiary)'
+                } as React.CSSProperties}
                 placeholder="Tu contraseña"
               />
-              {getFieldError(errors, 'password') && <p className="text-red-500 text-xs mt-1">{getFieldError(errors, 'password')}</p>}
+              {getFieldError(errors, 'password') && <p className="text-xs mt-1" style={{ color: 'var(--color-danger)' }}>{getFieldError(errors, 'password')}</p>}
             </div>
             <button
               type="submit"
               disabled={loading}
-              className="w-full py-3 mt-6 bg-gradient-to-r from-red-600 to-orange-600 text-white rounded-lg text-sm font-bold hover:from-red-700 hover:to-orange-700 active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed transition-all shadow-lg hover:shadow-xl"
+              className="w-full py-3 mt-6 rounded-lg text-sm font-bold text-white active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed transition-all shadow-lg hover:shadow-xl"
+              style={{
+                background: `linear-gradient(to right, var(--color-primary), var(--color-secondary))`,
+                backgroundImage: loading ? undefined : `linear-gradient(to right, var(--color-primary), var(--color-secondary))`,
+              }}
+              onMouseEnter={e => {
+                if (!loading) {
+                  e.currentTarget.style.filter = 'brightness(0.9)';
+                }
+              }}
+              onMouseLeave={e => {
+                e.currentTarget.style.filter = 'brightness(1)';
+              }}
             >
               {loading ? (
                 <span className="flex items-center justify-center gap-2">

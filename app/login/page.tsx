@@ -56,9 +56,21 @@ export default function LoginPage() {
 
           {/* Header */}
           <div className="text-center mb-8 animate-fade-in">
-            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-primary/30 bg-primary/10 mb-6">
-              <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
-              <span className="text-xs text-primary font-semibold">Panel de administración</span>
+            <div
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-full border mb-6"
+              style={{
+                borderColor: 'var(--color-primary)',
+                backgroundColor: 'var(--color-primary)',
+                opacity: 0.1,
+              }}
+            >
+              <span
+                className="w-1.5 h-1.5 rounded-full animate-pulse"
+                style={{ backgroundColor: 'var(--color-primary)' }}
+              />
+              <span className="text-xs font-semibold" style={{ color: 'var(--color-primary)' }}>
+                Panel de administración
+              </span>
             </div>
             <h1 className="text-3xl font-black text-foreground mb-2 leading-tight">
               Bienvenido a{' '}

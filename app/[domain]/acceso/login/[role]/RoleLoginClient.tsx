@@ -26,11 +26,12 @@ const ROLE_CONFIG = {
   admin:    { label: 'Administrador', apiRole: 'admin' },
 };
 
+// Note: PIN colors are now CSS variable-based, applied via inline styles
 const PIN_COLORS = {
-  cocinero: 'bg-gradient-to-br from-red-500 to-orange-500 border-orange-500',
-  camarero: 'bg-gradient-to-br from-red-500 to-orange-500 border-orange-500',
-  cajero: 'bg-gradient-to-br from-red-500 to-orange-500 border-orange-500',
-  admin: 'bg-gradient-to-br from-red-500 to-orange-500 border-orange-500',
+  cocinero: true,
+  camarero: true,
+  cajero: true,
+  admin: true,
 } as const;
 
 export function RoleLoginClient({ tenantId, tenantName, tenantSlug, logoUrl, role, staffMembers }: Props) {
@@ -114,7 +115,7 @@ export function RoleLoginClient({ tenantId, tenantName, tenantSlug, logoUrl, rol
     <div
       className="min-h-screen flex flex-col items-center justify-center p-6"
       style={{
-        background: 'linear-gradient(to bottom right, white, rgba(219, 234, 254, 0.5), rgba(220, 252, 231, 0.5))'
+        background: `linear-gradient(to bottom right, var(--color-surface-primary), color-mix(in srgb, var(--color-primary) 5%, white), color-mix(in srgb, var(--color-success) 5%, white))`
       }}
     >
       <button
@@ -125,7 +126,10 @@ export function RoleLoginClient({ tenantId, tenantName, tenantSlug, logoUrl, rol
             router.back();
           }
         }}
-        className="fixed top-4 left-4 p-2 text-gray-500 hover:text-gray-900 transition-colors"
+        className="fixed top-4 left-4 p-2 transition-colors"
+        style={{ color: 'var(--color-text-secondary)' }}
+        onMouseEnter={e => (e.currentTarget.style.color = 'var(--color-text-primary)')}
+        onMouseLeave={e => (e.currentTarget.style.color = 'var(--color-text-secondary)')}
       >
         <ArrowLeft className="w-5 h-5" />
       </button>
@@ -134,31 +138,32 @@ export function RoleLoginClient({ tenantId, tenantName, tenantSlug, logoUrl, rol
         {logoUrl ? (
           <img src={logoUrl} alt={tenantName} className="w-16 h-16 rounded-2xl object-cover mx-auto mb-3" />
         ) : (
-          <div className="w-16 h-16 bg-gradient-to-br from-red-600 to-orange-600 rounded-2xl flex items-center justify-center mx-auto mb-3">
+          <div className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-3" style={{ background: 'linear-gradient(to bottom right, var(--color-primary), var(--color-secondary))' }}>
             <ChefHat className="w-8 h-8 text-white" />
           </div>
         )}
-        <p className="text-gray-900 font-bold text-xl">{config.label}</p>
-        <p className="text-gray-500 text-sm mt-1">{tenantName}</p>
+        <p className="font-bold text-xl" style={{ color: 'var(--color-text-primary)' }}>{config.label}</p>
+        <p className="text-sm mt-1" style={{ color: 'var(--color-text-secondary)' }}>{tenantName}</p>
       </div>
 
       {phase === 'select' ? (
         <div className="w-full max-w-sm space-y-4">
-          <p className="text-gray-700 text-center text-sm mb-4">Selecciona tu nombre</p>
+          <p className="text-center text-sm mb-4" style={{ color: 'var(--color-text-primary)' }}>Selecciona tu nombre</p>
           <select
             value={staffId}
             onChange={e => handleStaffSelect(e.target.value)}
             autoFocus
-            className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl text-gray-900 focus:outline-none focus:border-blue-500 text-center text-lg shadow-sm"
+            className="w-full px-4 py-3 rounded-xl text-center text-lg shadow-sm focus:outline-none"
+            style={{ backgroundColor: 'var(--color-surface-primary)', borderColor: 'var(--color-border-light)', borderWidth: '1px', color: 'var(--color-text-primary)', '--tw-ring-color': 'var(--color-primary)' } as React.CSSProperties}
           >
             <option value="">-- Elige tu nombre --</option>
             {staffMembers.map(staff => (
               <option key={staff.id} value={staff.id}>{staff.name}</option>
             ))}
           </select>
-          {error && <p className="text-red-500 text-sm text-center">{error}</p>}
+          {error && <p className="text-sm text-center" style={{ color: 'var(--color-danger)' }}>{error}</p>}
           {staffMembers.length === 0 && (
-            <p className="text-red-500 text-sm text-center">No hay empleados registrados</p>
+            <p className="text-sm text-center" style={{ color: 'var(--color-danger)' }}>No hay empleados registrados</p>
           )}
         </div>
       ) : (
@@ -167,31 +172,44 @@ export function RoleLoginClient({ tenantId, tenantName, tenantSlug, logoUrl, rol
             {Array.from({ length: 6 }).map((_, i) => (
               <div
                 key={i}
-                className={`w-10 h-10 rounded-full border-2 flex items-center justify-center transition-colors ${
-                  i < pin.length ? PIN_COLORS[role] : 'border-gray-300 bg-white'
-                }`}
+                className="w-10 h-10 rounded-full border-2 flex items-center justify-center transition-colors"
+                style={{
+                  background: i < pin.length ? `linear-gradient(to bottom right, var(--color-primary), var(--color-secondary))` : 'var(--color-surface-primary)',
+                  borderColor: i < pin.length ? 'var(--color-secondary)' : 'var(--color-border-light)',
+                }}
               >
                 {i < pin.length && <div className="w-3 h-3 bg-white rounded-full" />}
               </div>
             ))}
           </div>
 
-          {error && <p className="text-red-500 text-sm mb-4 text-center">{error}</p>}
-          {loading && <p className="text-gray-500 text-sm mb-4">Verificando...</p>}
+          {error && <p className="text-sm mb-4 text-center" style={{ color: 'var(--color-danger)' }}>{error}</p>}
+          {loading && <p className="text-sm mb-4" style={{ color: 'var(--color-text-secondary)' }}>Verificando...</p>}
 
           <div className="grid grid-cols-3 gap-3 w-64">
             {['1','2','3','4','5','6','7','8','9','','0','del'].map((key) => {
               if (key === '') return <div key="empty" />;
+              const isDelBtn = key === 'del';
               return (
                 <button
                   key={key}
                   onClick={() => pressKey(key)}
                   disabled={loading}
-                  className={`h-16 rounded-2xl flex items-center justify-center text-xl font-semibold transition-all active:scale-95 shadow-sm ${
-                    key === 'del'
-                      ? 'bg-gray-100 text-gray-500 hover:bg-gray-200 border border-gray-200'
-                      : 'bg-white text-gray-900 hover:bg-gray-50 border border-gray-200'
-                  }`}
+                  className="h-16 rounded-2xl flex items-center justify-center text-xl font-semibold transition-all active:scale-95 shadow-sm"
+                  style={{
+                    backgroundColor: isDelBtn ? 'color-mix(in srgb, var(--color-border-light) 50%, white)' : 'var(--color-surface-primary)',
+                    color: isDelBtn ? 'var(--color-text-secondary)' : 'var(--color-text-primary)',
+                    borderColor: 'var(--color-border-light)',
+                    borderWidth: '1px',
+                  }}
+                  onMouseEnter={e => {
+                    const el = e.currentTarget;
+                    el.style.backgroundColor = isDelBtn ? 'color-mix(in srgb, var(--color-border-light) 70%, white)' : 'color-mix(in srgb, var(--color-border-light) 20%, white)';
+                  }}
+                  onMouseLeave={e => {
+                    const el = e.currentTarget;
+                    el.style.backgroundColor = isDelBtn ? 'color-mix(in srgb, var(--color-border-light) 50%, white)' : 'var(--color-surface-primary)';
+                  }}
                 >
                   {key === 'del' ? <Delete className="w-5 h-5" /> : key}
                 </button>
@@ -199,7 +217,7 @@ export function RoleLoginClient({ tenantId, tenantName, tenantSlug, logoUrl, rol
             })}
           </div>
 
-          <p className="text-gray-400 text-xs mt-8 text-center">Ingresa tu PIN de 6 dígitos</p>
+          <p className="text-xs mt-8 text-center" style={{ color: 'var(--color-text-tertiary)' }}>Ingresa tu PIN de 6 dígitos</p>
         </>
       )}
     </div>
