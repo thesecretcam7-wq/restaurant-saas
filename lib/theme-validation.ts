@@ -18,8 +18,9 @@ export function validateAllThemes(): { valid: boolean; errors: string[] } {
 
   // Check all available themes
   AVAILABLE_THEMES.forEach((theme: ThemeConfig) => {
+    const themeName = theme.name
     if (!validateTheme(theme)) {
-      errors.push(`Invalid theme configuration: ${theme.name}`)
+      errors.push(`Invalid theme configuration: ${themeName}`)
     }
 
     // Validate token structure
