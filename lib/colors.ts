@@ -8,8 +8,6 @@
  * This file only maps sections to CSS variable names.
  */
 
-import type { getCSSVariable } from './theme'
-
 /**
  * Admin Section Color Configuration
  * Maps section names to their CSS variable names and metadata
