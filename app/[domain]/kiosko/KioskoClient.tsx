@@ -89,32 +89,40 @@ function AppHeader({
   onBack?: () => void
   cartCount?: number
 }) {
+  const initial = appName.trim().charAt(0).toUpperCase() || 'E'
+
   return (
     <header
-      className="flex items-center justify-between px-8 py-4 flex-shrink-0"
+      className="flex flex-shrink-0 items-center justify-between px-4 py-3 shadow-2xl shadow-black/10 sm:px-6 md:px-8 md:py-4"
       style={{ backgroundColor: primaryColor }}
     >
-      <div className="flex items-center gap-4">
+      <div className="flex min-w-0 items-center gap-3 md:gap-4">
         {onBack && (
           <button onClick={onBack} className="mr-2 rounded-full p-2 transition-colors" style={{ backgroundColor: `${textColor}22`, color: textColor }}>
             <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M19 12H5"/><path d="M12 19l-7-7 7-7"/></svg>
           </button>
         )}
-        {logoUrl && <img src={logoUrl} alt="" className="w-11 h-11 rounded-xl object-cover ring-2 ring-white/30" />}
-        <div>
-          <p className="text-xl font-black leading-tight" style={{ color: textColor }}>{appName}</p>
+        <div className="flex h-14 w-20 flex-shrink-0 items-center justify-center overflow-visible md:h-16 md:w-28 xl:w-32">
+          {logoUrl ? (
+            <img src={logoUrl} alt={appName} className="max-h-full max-w-full scale-125 object-contain drop-shadow-xl md:scale-150" />
+          ) : (
+            <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-white text-2xl font-black shadow-xl md:h-16 md:w-16" style={{ color: primaryColor }}>{initial}</span>
+          )}
+        </div>
+        <div className="min-w-0">
+          <p className="truncate text-xl font-black leading-tight md:text-3xl" style={{ color: textColor }}>{appName}</p>
           {backLabel && <p className="text-xs opacity-75" style={{ color: textColor }}>{backLabel}</p>}
         </div>
       </div>
-      <div className="flex items-center gap-6">
+      <div className="flex flex-shrink-0 items-center gap-3 md:gap-6">
         {cartCount !== undefined && cartCount > 0 && (
-          <div className="flex items-center gap-2 rounded-full px-4 py-2" style={{ backgroundColor: `${textColor}22`, color: textColor }}>
+          <div className="flex items-center gap-2 rounded-full px-3 py-2 md:px-4" style={{ backgroundColor: `${textColor}22`, color: textColor }}>
             <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>
             <span className="font-bold text-sm">{cartCount}</span>
           </div>
         )}
-        <div className="text-right">
-          <p className="text-2xl font-mono font-bold tabular-nums" style={{ color: textColor }}>
+        <div className="hidden text-right sm:block">
+          <p className="font-mono text-2xl font-bold tabular-nums" style={{ color: textColor }}>
             {time?.toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' }) ?? ''}
           </p>
           <p className="text-xs opacity-70" style={{ color: textColor }}>
@@ -401,6 +409,7 @@ export default function KioskoClient({
   const [time, setTime] = useState<Date | null>(null)
   const [isFullscreen, setIsFullscreen] = useState(false)
   const [showFsPrompt, setShowFsPrompt] = useState(true)
+  const [adBannerIndex, setAdBannerIndex] = useState(0)
   const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const categoryScrollRef = useRef<HTMLDivElement | null>(null)
 
@@ -425,6 +434,14 @@ export default function KioskoClient({
   const surfaceColor = isDark(backgroundColor) ? secondaryColor : '#ffffff'
   const surfaceTextColor = readableText(surfaceColor, textPrimaryColor)
   const surfaceMutedTextColor = readableText(surfaceColor, textSecondaryColor, 'rgba(21,19,15,0.62)', 'rgba(255,255,255,0.66)')
+
+  useEffect(() => {
+    if (step !== 'menu' || banners.length <= 1) return
+    const interval = setInterval(() => {
+      setAdBannerIndex(prev => (prev + 1) % banners.length)
+    }, 5000)
+    return () => clearInterval(interval)
+  }, [banners.length, step])
   const accentTextColor = readableText(accentColor)
 
   const toggleFullscreen = useCallback(() => {
@@ -1057,6 +1074,8 @@ export default function KioskoClient({
   const visibleItems = activeCategory
     ? menuItems.filter(i => i.category_id === activeCategory)
     : menuItems
+  const activeAdBanner = banners.length > 0 ? banners[adBannerIndex % banners.length] : null
+
   return (
     <div className="h-screen flex flex-col overflow-hidden" style={{ fontFamily: 'Inter, system-ui, sans-serif', backgroundColor, color: pageTextColor }}>
 
@@ -1083,14 +1102,14 @@ export default function KioskoClient({
         {/* ── Category carousel ── */}
         <aside
           ref={categoryScrollRef}
-          className="w-full flex-shrink-0 overflow-x-auto border-b p-3 hide-scrollbar md:w-72 md:overflow-y-auto md:border-b-0 md:border-r md:p-5"
+          className="w-full flex-shrink-0 overflow-x-auto border-b p-3 hide-scrollbar md:w-[24rem] md:overflow-y-auto md:border-b-0 md:border-r md:p-5 xl:w-[28rem]"
           style={{ WebkitOverflowScrolling: 'touch', backgroundColor: surfaceColor, borderColor }}
         >
           <div className="hidden sticky top-0 z-10 pb-4 mb-3 md:block" style={{ backgroundColor: surfaceColor }}>
             <p className="text-xs font-black uppercase tracking-[0.25em]" style={{ color: surfaceMutedTextColor }}>Menu</p>
             <p className="text-3xl font-black leading-none mt-1" style={{ color: surfaceTextColor }}>Categorias</p>
           </div>
-          <div className="flex gap-3 md:block md:space-y-5">
+          <div className="flex gap-4 md:block md:space-y-6">
             {/* Show categories three times for infinite scroll effect */}
             {[...categories, ...categories, ...categories].map((cat, idx) => {
               const isPressed = pressedCategory === `${cat.id}-${idx}`
@@ -1102,28 +1121,42 @@ export default function KioskoClient({
                   onPointerCancel={() => setPressedCategory(null)}
                   onPointerLeave={() => setPressedCategory(null)}
                   onClick={() => { setActiveCategory(cat.id); setIsCategoryModalOpen(true); setPressedCategory(null) }}
-                  className="min-w-[230px] rounded-[1.3rem] overflow-hidden shadow-lg hover:shadow-xl transition-all flex items-center gap-3 group active:scale-95 p-2.5 border md:w-full md:min-w-0 md:rounded-[1.75rem] md:gap-4 md:p-3"
+                  className="group relative h-40 min-w-[300px] overflow-hidden rounded-[1.55rem] border text-left shadow-xl transition-all active:scale-[0.97] md:h-48 md:w-full md:min-w-0 md:rounded-[2rem] xl:h-56"
                   style={{
                     backgroundColor: isPressed ? primaryColor : surfaceColor,
                     borderColor: isPressed ? primaryColor : borderColor,
                     color: isPressed ? primaryTextColor : surfaceTextColor,
-                    boxShadow: isPressed ? `0 16px 34px ${primaryColor}44` : undefined,
+                    boxShadow: isPressed ? `0 22px 55px ${primaryColor}55` : undefined,
                   }}
                 >
-                  <div className="relative overflow-hidden h-16 w-16 rounded-[1rem] flex items-center justify-center flex-shrink-0 md:h-24 md:w-24 md:rounded-[1.35rem]" style={{ backgroundColor: '#ffffff', color: isPressed ? primaryTextColor : accentTextColor }}>
+                  <div className="absolute inset-0 flex items-center justify-center bg-white">
                     {cat.image_url ? (
                       <img
                         src={cat.image_url}
                         alt={cat.name}
-                        className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
+                        className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
                       />
                     ) : (
                       <div className="text-6xl">🍽️</div>
                     )}
                   </div>
-                  <div className="flex-1 text-left min-w-0">
-                    <p className="font-black text-sm leading-tight line-clamp-2 md:text-lg">{cat.name}</p>
-                    <p className="text-xs font-bold uppercase tracking-widest mt-2 opacity-70">Ver productos</p>
+                  <div
+                    className="absolute inset-0"
+                    style={{
+                      background: isPressed
+                        ? `linear-gradient(180deg, ${primaryColor}33, ${primaryColor}ee)`
+                        : 'linear-gradient(180deg, rgba(0,0,0,0.02), rgba(0,0,0,0.72))',
+                    }}
+                  />
+                  <div className="relative z-10 flex h-full flex-col justify-end p-4 md:p-5 xl:p-6">
+                    <span
+                      className="mb-3 w-fit rounded-full px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.18em] md:text-xs"
+                      style={{ backgroundColor: isPressed ? `${primaryTextColor}22` : `${primaryColor}ee`, color: primaryTextColor }}
+                    >
+                      Categoria
+                    </span>
+                    <p className="line-clamp-2 text-2xl font-black leading-none text-white drop-shadow md:text-3xl xl:text-4xl">{cat.name}</p>
+                    <p className="mt-3 text-xs font-black uppercase tracking-[0.2em] text-white/82 md:text-sm">Toca para ver productos</p>
                   </div>
                 </button>
               )
@@ -1132,32 +1165,48 @@ export default function KioskoClient({
         </aside>
 
         <div className="flex-1 overflow-hidden p-3 md:p-7">
-          {banners.length > 0 ? (
-            <section className="grid h-full grid-cols-1 gap-3 overflow-y-auto md:grid-cols-2 md:grid-rows-2 md:gap-5">
-              {banners.slice(0, 4).map((banner, idx) => (
-                <button
-                  key={banner.id}
-                  onClick={() => handleBannerClick(banner)}
-                  className={`${idx === 0 ? 'md:col-span-2' : ''} relative min-h-[180px] overflow-hidden rounded-[1.4rem] border text-left shadow-2xl active:scale-[0.99] transition-transform md:min-h-0 md:rounded-[2rem]`}
-                  style={{ backgroundColor: surfaceColor, borderColor }}
-                >
-                  <img src={banner.image_url} alt={banner.title} className="absolute inset-0 h-full w-full object-cover" />
-                  <div className="absolute inset-0" style={{ background: idx === 0 ? 'linear-gradient(90deg, rgba(0,0,0,0.68), rgba(0,0,0,0.05))' : 'linear-gradient(0deg, rgba(0,0,0,0.66), rgba(0,0,0,0.05))' }} />
-                  <div className="relative z-10 flex h-full flex-col justify-end p-4 text-white md:p-7">
-                    <span className="mb-3 w-fit rounded-full px-4 py-2 text-xs font-black uppercase tracking-widest" style={{ backgroundColor: idx === 0 ? primaryColor : accentColor, color: idx === 0 ? primaryTextColor : accentTextColor }}>
-                      Publicidad
-                    </span>
-                    <p className={`${idx === 0 ? 'text-3xl md:text-5xl' : 'text-2xl md:text-3xl'} line-clamp-2 font-black leading-none`}>
-                      {banner.title}
-                    </p>
-                    {banner.link_url && (
-                      <p className="mt-3 text-sm font-black uppercase tracking-widest opacity-85">
-                        Tocar para ordenar
-                      </p>
-                    )}
+          {activeAdBanner ? (
+            <section className="h-full">
+              <button
+                key={activeAdBanner.id}
+                onClick={() => handleBannerClick(activeAdBanner)}
+                className="relative h-full min-h-[360px] w-full overflow-hidden rounded-[1.6rem] border text-left shadow-2xl transition-transform active:scale-[0.99] md:min-h-0 md:rounded-[2.4rem]"
+                style={{ backgroundColor: surfaceColor, borderColor }}
+              >
+                <img
+                  src={activeAdBanner.image_url}
+                  alt={activeAdBanner.title}
+                  className="absolute inset-0 h-full w-full object-cover"
+                />
+                <div className="absolute inset-0 bg-black/10" />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/82 via-black/22 to-black/8" />
+
+                <div className="relative z-10 flex h-full flex-col justify-end p-5 text-white md:p-10 xl:p-12">
+                  <span
+                    className="mb-4 w-fit rounded-full px-4 py-2 text-xs font-black uppercase tracking-[0.24em] md:text-sm"
+                    style={{ backgroundColor: primaryColor, color: primaryTextColor }}
+                  >
+                    Publicidad
+                  </span>
+                  <p className="max-w-4xl text-4xl font-black leading-none drop-shadow md:text-7xl xl:text-8xl">
+                    {activeAdBanner.title}
+                  </p>
+                  <p className="mt-5 text-sm font-black uppercase tracking-[0.24em] text-white/82 md:text-base">
+                    Toca la imagen para ordenar
+                  </p>
+                </div>
+
+                {banners.length > 1 && (
+                  <div className="absolute bottom-5 left-1/2 z-20 flex -translate-x-1/2 items-center gap-2 rounded-full bg-black/28 px-3 py-2 backdrop-blur-md">
+                    {banners.map((banner, idx) => (
+                      <span
+                        key={banner.id}
+                        className={`h-2 rounded-full transition-all ${idx === adBannerIndex % banners.length ? 'w-9 bg-white' : 'w-2 bg-white/45'}`}
+                      />
+                    ))}
                   </div>
-                </button>
-              ))}
+                )}
+              </button>
             </section>
           ) : (
             <section

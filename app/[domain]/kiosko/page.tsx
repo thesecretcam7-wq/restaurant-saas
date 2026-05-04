@@ -1,6 +1,8 @@
 import { createServiceClient } from '@/lib/supabase/server'
 import KioskoClient from './KioskoClient'
 
+export const dynamic = 'force-dynamic'
+
 interface Props {
   params: Promise<{ domain: string }>
   searchParams: Promise<{ confirmado?: string; num?: string; name?: string }>
@@ -14,7 +16,7 @@ export default async function KioskoPage({ params, searchParams }: Props) {
 
   const { data: tenant } = await supabase
     .from('tenants')
-    .select('id, organization_name, stripe_account_id')
+    .select('id, organization_name, stripe_account_id, logo_url, metadata')
     .eq('slug', domain)
     .single()
 
@@ -61,6 +63,9 @@ export default async function KioskoPage({ params, searchParams }: Props) {
       .order('sort_order'),
   ])
 
+  const tenantMetadata = (tenant.metadata || {}) as Record<string, any>
+  const metadataBranding = (tenantMetadata.branding || {}) as Record<string, any>
+
   const branding = {
     appName: brandingRes.data?.app_name || tenant.organization_name,
     primaryColor: brandingRes.data?.primary_color || '#E4002B',
@@ -72,7 +77,12 @@ export default async function KioskoPage({ params, searchParams }: Props) {
     textPrimaryColor: brandingRes.data?.text_primary_color || '#111827',
     textSecondaryColor: brandingRes.data?.text_secondary_color || '#6B7280',
     borderColor: brandingRes.data?.border_color || '#E5E7EB',
-    logoUrl: (brandingRes.data as any)?.logo_url || (brandingRes.data as any)?.favicon_url || null,
+    logoUrl:
+      tenant.logo_url ||
+      metadataBranding.logo_url ||
+      (brandingRes.data as any)?.logo_url ||
+      (brandingRes.data as any)?.favicon_url ||
+      null,
   }
 
   const initialConfirmed =

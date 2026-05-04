@@ -100,21 +100,22 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       }
     }
 
-    if ((status === 'delivered' || payment_status === 'paid') && order.tenant_id) {
+    // Payment and kitchen progress are separate flows: paying should not mark KDS items ready.
+    if (status === 'delivered' && order.tenant_id) {
       const itemUpdate: Record<string, any> = {
-        status: status === 'delivered' ? 'delivered' : 'ready',
+        status: 'delivered',
         updated_at: new Date().toISOString(),
+        completed_at: new Date().toISOString(),
       }
-      if (status === 'delivered') itemUpdate.completed_at = new Date().toISOString()
 
-      const { error: itemsPaidError } = await supabase
+      const { error: itemsDeliveredError } = await supabase
         .from('order_items')
         .update(itemUpdate)
         .eq('order_id', orderId)
         .eq('tenant_id', order.tenant_id)
         .neq('status', 'cancelled')
 
-      if (itemsPaidError) console.error('[orders PATCH] order_items payment sync error:', itemsPaidError.message)
+      if (itemsDeliveredError) console.error('[orders PATCH] order_items delivered sync error:', itemsDeliveredError.message)
     }
 
     // Send status update email (non-blocking)

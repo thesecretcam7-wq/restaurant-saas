@@ -77,13 +77,13 @@ export default function DeliveryForm({ tenantId }: Props) {
           {form.delivery_enabled && (
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pl-7">
               {[
-                { key: 'delivery_fee', label: 'Costo de delivery ($)', hint: '0 = gratis' },
+                { key: 'delivery_fee', label: 'Costo de delivery', hint: '0 = gratis', step: '0.01' },
                 { key: 'delivery_min_order', label: 'Pedido mínimo ($)', hint: '0 = sin mínimo' },
-                { key: 'delivery_time_minutes', label: 'Tiempo estimado (min)', hint: '' },
-              ].map(({ key, label, hint }) => (
+                { key: 'delivery_time_minutes', label: 'Tiempo estimado (min)', hint: '', step: '1' },
+              ].map(({ key, label, hint, step }) => (
                 <div key={key}>
                   <label className="block text-sm font-medium text-gray-700 mb-1">{label}</label>
-                  <input type="number" min="0" value={(form as any)[key]}
+                  <input type="number" min="0" step={key === 'delivery_time_minutes' ? '1' : '0.01'} inputMode={key === 'delivery_time_minutes' ? 'numeric' : 'decimal'} value={(form as any)[key]}
                     onChange={e => setForm(f => ({ ...f, [key]: e.target.value }))}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm" />
                   {hint && <p className="text-xs text-gray-400 mt-1">{hint}</p>}

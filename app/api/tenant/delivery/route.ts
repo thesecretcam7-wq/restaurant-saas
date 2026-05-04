@@ -35,17 +35,31 @@ export async function PUT(request: NextRequest) {
     const tenantId = await resolveTenantId(supabase, slugOrId)
     if (!tenantId) return NextResponse.json({ error: 'Restaurante no encontrado' }, { status: 404 })
 
+    const { data: existingSettings } = await supabase
+      .from('restaurant_settings')
+      .select('display_name')
+      .eq('tenant_id', tenantId)
+      .maybeSingle()
+
+    const { data: tenant } = await supabase
+      .from('tenants')
+      .select('organization_name')
+      .eq('id', tenantId)
+      .maybeSingle()
+
     const { data: updated, error } = await supabase
       .from('restaurant_settings')
-      .update({
+      .upsert({
+        tenant_id: tenantId,
+        display_name: existingSettings?.display_name || tenant?.organization_name || 'Restaurante',
         delivery_enabled: data.delivery_enabled,
         delivery_fee: Number(data.delivery_fee) || 0,
         delivery_min_order: Number(data.delivery_min_order) || 0,
         delivery_time_minutes: Number(data.delivery_time_minutes) || 30,
         cash_payment_enabled: data.cash_payment_enabled,
+        tax_rate: Number(data.tax_rate) || 0,
         updated_at: new Date().toISOString(),
-      })
-      .eq('tenant_id', tenantId)
+      }, { onConflict: 'tenant_id' })
       .select()
       .single()
 

@@ -111,7 +111,9 @@ export default async function HomePage({ params }: HomePageProps) {
         <header className="relative z-10 mx-auto flex max-w-7xl items-center justify-between px-4 py-5 sm:px-6 lg:px-8">
           <Link href={`/${tenant.slug}`} className="flex min-w-0 items-center gap-3">
             {hero.show_logo && tenant.logo_url ? (
-              <img src={tenant.logo_url} alt={appName} className="size-12 rounded-2xl border border-white/25 object-cover shadow-xl" />
+              <span className="flex h-12 w-28 flex-shrink-0 items-center justify-center overflow-visible sm:w-36 lg:w-44">
+                <img src={tenant.logo_url} alt={appName} className="max-h-full max-w-full scale-150 object-contain drop-shadow-xl sm:scale-[1.85] lg:scale-[2.15]" />
+              </span>
             ) : (
               <span className="flex size-12 items-center justify-center rounded-2xl border border-white/20 bg-white/15 text-lg font-black text-white backdrop-blur-md">
                 {appName.slice(0, 1).toUpperCase()}

@@ -134,9 +134,14 @@ export default async function MenuPage({ params }: MenuProps) {
         <div className="mx-auto flex h-14 max-w-7xl items-center justify-between px-3 sm:h-16 sm:px-6 lg:px-8">
           <div className="flex items-center gap-2 sm:gap-3 min-w-0">
             {context.tenant?.logo_url && (
-              <div className="relative flex-shrink-0">
-                <div className="absolute inset-0 scale-110 rounded-full opacity-10" style={{ backgroundColor: primary }} />
-                <Image src={context.tenant.logo_url} alt="" width={40} height={40} className="relative h-9 w-9 object-cover shadow-sm sm:h-10 sm:w-10" style={{ borderRadius: `calc(${br} * 0.5)` }} />
+              <div className="relative flex h-10 w-16 flex-shrink-0 items-center justify-center overflow-visible sm:h-12 sm:w-20">
+                <Image
+                  src={context.tenant.logo_url}
+                  alt=""
+                  width={96}
+                  height={64}
+                  className="relative max-h-full max-w-full scale-125 object-contain drop-shadow-md sm:scale-150"
+                />
               </div>
             )}
             <div className="min-w-0">
