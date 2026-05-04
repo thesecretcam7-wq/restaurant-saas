@@ -2,16 +2,25 @@ import { NextRequest, NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { createClient } from '@supabase/supabase-js'
 import { randomUUID } from 'crypto'
+import { verifyStaffAuthProof } from '@/lib/staff-auth-proof'
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
     const { tenantId, role, staffId, staffName } = body
 
-    if (!tenantId) {
+    if (!tenantId || !role || !staffId) {
       return NextResponse.json(
-        { error: 'Missing tenantId' },
+        { error: 'Missing session data' },
         { status: 400 }
+      )
+    }
+    const cookieStore = await cookies()
+    const proof = verifyStaffAuthProof(cookieStore.get('staff_auth_proof')?.value)
+    if (!proof || proof.tenantId !== tenantId || proof.staffId !== staffId || proof.role !== role) {
+      return NextResponse.json(
+        { error: 'Session proof invalid or expired' },
+        { status: 401 }
       )
     }
 
@@ -20,6 +29,19 @@ export async function POST(request: NextRequest) {
       process.env.SUPABASE_SERVICE_ROLE_KEY!,
       { auth: { autoRefreshToken: false, persistSession: false } }
     )
+
+    const { data: staff, error: staffError } = await supabase
+      .from('staff_members')
+      .select('id, name, role, is_active')
+      .eq('id', staffId)
+      .eq('tenant_id', tenantId)
+      .eq('role', role)
+      .eq('is_active', true)
+      .single()
+
+    if (staffError || !staff) {
+      return NextResponse.json({ error: 'Staff session not allowed' }, { status: 403 })
+    }
 
     // Fetch permissions for the role
     let permissions: string[] = []
@@ -47,13 +69,11 @@ export async function POST(request: NextRequest) {
       }, { onConflict: 'user_key' })
     }
 
-    const cookieStore = await cookies()
-
     const sessionData = {
       tenantId,
       staffId,
-      staffName,
-      role,
+      staffName: staff.name || staffName,
+      role: staff.role,
       permissions,
       sessionToken,
       createdAt: new Date().toISOString(),
@@ -66,6 +86,7 @@ export async function POST(request: NextRequest) {
       maxAge: 28800,
       path: '/',
     })
+    cookieStore.delete('staff_auth_proof')
 
     return NextResponse.json({ success: true, permissions })
   } catch (error) {

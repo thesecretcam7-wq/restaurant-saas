@@ -795,6 +795,54 @@ body {
 }
 
 @media (max-width: 640px) {
+  html,
+  body {
+    overflow-x: hidden;
+  }
+
+  .admin-shell {
+    min-width: 0;
+    overflow-x: hidden;
+  }
+
+  .admin-shell main,
+  .admin-shell section,
+  .admin-shell article,
+  .admin-shell form,
+  .admin-shell .admin-page,
+  .admin-shell .admin-panel,
+  .admin-shell .admin-card {
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .admin-shell :where(.admin-panel, .admin-card) {
+    overflow-wrap: anywhere;
+  }
+
+  .admin-shell :where(table) {
+    min-width: 680px;
+  }
+
+  .admin-shell :where(.admin-panel:has(table), .admin-card:has(table), .overflow-hidden:has(table)) {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .admin-shell :where(input, textarea, select) {
+    min-width: 0;
+    font-size: 16px;
+  }
+
+  .admin-title {
+    font-size: 1.65rem;
+    line-height: 1.08;
+  }
+
+  .admin-subtitle {
+    font-size: 0.85rem;
+  }
+
   .admin-page-header {
     flex-direction: column;
   }
@@ -914,6 +962,14 @@ body {
     linear-gradient(135deg, rgba(16, 185, 129, 0.18), rgba(0, 217, 255, 0.09)),
     rgba(7, 18, 18, 0.74);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+.pos-premium:fullscreen {
+  width: 100vw;
+  height: 100vh;
+  margin: 0;
+  padding: 0;
+  background: #020617;
 }
 
 .brand-studio {

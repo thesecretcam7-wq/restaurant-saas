@@ -90,6 +90,48 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid restaurant' }, { status: 400 })
     }
 
+    if (!Array.isArray(items) || items.length === 0) {
+      return NextResponse.json({ error: 'Order must include items' }, { status: 400 })
+    }
+
+    const itemIds = items
+      .map((item: any) => item.menu_item_id || item.item_id || item.id)
+      .filter(Boolean)
+
+    if (itemIds.length !== items.length) {
+      return NextResponse.json({ error: 'Every item must include a menu item id' }, { status: 400 })
+    }
+
+    const { data: menuRows, error: menuError } = await supabase
+      .from('menu_items')
+      .select('id, name, price, available')
+      .eq('tenant_id', tenantId)
+      .in('id', itemIds)
+
+    if (menuError) {
+      console.error('[orders POST] menu validation error:', menuError.message)
+      return NextResponse.json({ error: 'Error validating menu items' }, { status: 500 })
+    }
+
+    const menuById = new Map((menuRows || []).map((item: any) => [item.id, item]))
+    const sanitizedItems = items.map((item: any) => {
+      const menuId = item.menu_item_id || item.item_id || item.id
+      const menuItem = menuById.get(menuId)
+      const qty = Math.max(1, Number(item.qty ?? item.quantity ?? 1))
+
+      if (!menuItem || menuItem.available === false) {
+        throw new Error('MENU_ITEM_NOT_AVAILABLE')
+      }
+
+      return {
+        menu_item_id: menuItem.id,
+        name: menuItem.name,
+        price: Number(menuItem.price) || 0,
+        qty,
+        notes: item.notes || null,
+      }
+    })
+
     // Plan limit: check monthly order count
     const orderCheck = await canCreateOrder(tenantId)
     if (!orderCheck.allowed) {
@@ -102,7 +144,7 @@ export async function POST(request: NextRequest) {
       .eq('tenant_id', tenantId)
       .single()
 
-    const subtotal = items.reduce((sum: number, i: any) => sum + i.price * i.qty, 0)
+    const subtotal = sanitizedItems.reduce((sum: number, i: any) => sum + i.price * i.qty, 0)
     const tax = settings?.tax_rate ? subtotal * (settings.tax_rate / 100) : 0
     const deliveryFee = deliveryType === 'delivery' ? (settings?.delivery_fee || 0) : 0
     const total = subtotal + tax + deliveryFee
@@ -125,7 +167,7 @@ export async function POST(request: NextRequest) {
       customer_name: customerInfo.name,
       customer_email: customerInfo.email || null,
       customer_phone: customerInfo.phone,
-      items,
+      items: sanitizedItems,
       subtotal,
       tax,
       delivery_fee: deliveryFee,
@@ -159,8 +201,8 @@ export async function POST(request: NextRequest) {
     // Auto-create order_items so KDS can display the order in real-time.
     // Exception: kiosk cash orders skip this — items are created when cashier confirms payment.
     const isKioskCash = source === 'kiosk' && paymentMethod === 'cash'
-    if (!isKioskCash && items && Array.isArray(items) && items.length > 0) {
-      const orderItemsData = items.map((item: any) => ({
+    if (!isKioskCash && sanitizedItems.length > 0) {
+      const orderItemsData = sanitizedItems.map((item: any) => ({
         order_id: order.id,
         tenant_id: tenantId,
         menu_item_id: item.menu_item_id || null,
@@ -208,7 +250,7 @@ export async function POST(request: NextRequest) {
         primaryColor,
         orderNumber,
         customerName: orderData.customer_name,
-        items: items.map((i: any) => ({ name: i.name, qty: i.qty ?? i.quantity ?? 1, price: i.price })),
+        items: sanitizedItems.map((i: any) => ({ name: i.name, qty: i.qty, price: i.price })),
         subtotal,
         tax,
         deliveryFee,
@@ -227,7 +269,7 @@ export async function POST(request: NextRequest) {
         orderNumber,
         customerName: orderData.customer_name,
         total,
-        items: items.map((i: any) => ({ name: i.name, qty: i.qty ?? i.quantity ?? 1 })),
+        items: sanitizedItems.map((i: any) => ({ name: i.name, qty: i.qty })),
       }).catch(e => console.error('[whatsapp] order confirmation:', e))
     }
 
@@ -239,12 +281,15 @@ export async function POST(request: NextRequest) {
         customerName: orderData.customer_name,
         total,
         deliveryType,
-        items: items.map((i: any) => ({ name: i.name, qty: i.qty ?? i.quantity ?? 1 })),
+        items: sanitizedItems.map((i: any) => ({ name: i.name, qty: i.qty })),
       }).catch(e => console.error('[email] admin notification:', e))
     }
 
     return NextResponse.json({ orderId: order.id, orderNumber, displayNumber })
   } catch (err) {
+    if (err instanceof Error && err.message === 'MENU_ITEM_NOT_AVAILABLE') {
+      return NextResponse.json({ error: 'One or more products are not available' }, { status: 400 })
+    }
     console.error('[orders POST] unexpected error:', err)
     return NextResponse.json({ error: 'Error interno' }, { status: 500 })
   }

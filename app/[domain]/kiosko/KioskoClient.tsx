@@ -1078,19 +1078,19 @@ export default function KioskoClient({
       <AppHeader primaryColor={primaryColor} textColor={primaryTextColor} appName={appName} logoUrl={logoUrl} time={time} cartCount={cartCount} />
 
       {/* Body: sidebar only (products in modal) */}
-      <div className="flex flex-1 overflow-hidden">
+      <div className="flex flex-1 flex-col overflow-hidden md:flex-row">
 
         {/* ── Category carousel ── */}
         <aside
           ref={categoryScrollRef}
-          className="w-72 border-r overflow-y-auto flex-shrink-0 p-5 hide-scrollbar"
+          className="w-full flex-shrink-0 overflow-x-auto border-b p-3 hide-scrollbar md:w-72 md:overflow-y-auto md:border-b-0 md:border-r md:p-5"
           style={{ WebkitOverflowScrolling: 'touch', backgroundColor: surfaceColor, borderColor }}
         >
-          <div className="sticky top-0 z-10 pb-4 mb-3" style={{ backgroundColor: surfaceColor }}>
+          <div className="hidden sticky top-0 z-10 pb-4 mb-3 md:block" style={{ backgroundColor: surfaceColor }}>
             <p className="text-xs font-black uppercase tracking-[0.25em]" style={{ color: surfaceMutedTextColor }}>Menu</p>
             <p className="text-3xl font-black leading-none mt-1" style={{ color: surfaceTextColor }}>Categorias</p>
           </div>
-          <div className="space-y-5">
+          <div className="flex gap-3 md:block md:space-y-5">
             {/* Show categories three times for infinite scroll effect */}
             {[...categories, ...categories, ...categories].map((cat, idx) => {
               const isPressed = pressedCategory === `${cat.id}-${idx}`
@@ -1102,7 +1102,7 @@ export default function KioskoClient({
                   onPointerCancel={() => setPressedCategory(null)}
                   onPointerLeave={() => setPressedCategory(null)}
                   onClick={() => { setActiveCategory(cat.id); setIsCategoryModalOpen(true); setPressedCategory(null) }}
-                  className="w-full rounded-[1.75rem] overflow-hidden shadow-lg hover:shadow-xl transition-all flex items-center gap-4 group active:scale-95 p-3 border"
+                  className="min-w-[230px] rounded-[1.3rem] overflow-hidden shadow-lg hover:shadow-xl transition-all flex items-center gap-3 group active:scale-95 p-2.5 border md:w-full md:min-w-0 md:rounded-[1.75rem] md:gap-4 md:p-3"
                   style={{
                     backgroundColor: isPressed ? primaryColor : surfaceColor,
                     borderColor: isPressed ? primaryColor : borderColor,
@@ -1110,7 +1110,7 @@ export default function KioskoClient({
                     boxShadow: isPressed ? `0 16px 34px ${primaryColor}44` : undefined,
                   }}
                 >
-                  <div className="relative overflow-hidden w-24 h-24 rounded-[1.35rem] flex items-center justify-center flex-shrink-0" style={{ backgroundColor: '#ffffff', color: isPressed ? primaryTextColor : accentTextColor }}>
+                  <div className="relative overflow-hidden h-16 w-16 rounded-[1rem] flex items-center justify-center flex-shrink-0 md:h-24 md:w-24 md:rounded-[1.35rem]" style={{ backgroundColor: '#ffffff', color: isPressed ? primaryTextColor : accentTextColor }}>
                     {cat.image_url ? (
                       <img
                         src={cat.image_url}
@@ -1122,7 +1122,7 @@ export default function KioskoClient({
                     )}
                   </div>
                   <div className="flex-1 text-left min-w-0">
-                    <p className="font-black text-lg leading-tight line-clamp-2">{cat.name}</p>
+                    <p className="font-black text-sm leading-tight line-clamp-2 md:text-lg">{cat.name}</p>
                     <p className="text-xs font-bold uppercase tracking-widest mt-2 opacity-70">Ver productos</p>
                   </div>
                 </button>
@@ -1131,23 +1131,23 @@ export default function KioskoClient({
           </div>
         </aside>
 
-        <div className="flex-1 overflow-hidden p-7">
+        <div className="flex-1 overflow-hidden p-3 md:p-7">
           {banners.length > 0 ? (
-            <section className="grid h-full grid-cols-2 grid-rows-2 gap-5">
+            <section className="grid h-full grid-cols-1 gap-3 overflow-y-auto md:grid-cols-2 md:grid-rows-2 md:gap-5">
               {banners.slice(0, 4).map((banner, idx) => (
                 <button
                   key={banner.id}
                   onClick={() => handleBannerClick(banner)}
-                  className={`${idx === 0 ? 'col-span-2' : ''} relative overflow-hidden rounded-[2rem] border text-left shadow-2xl active:scale-[0.99] transition-transform`}
+                  className={`${idx === 0 ? 'md:col-span-2' : ''} relative min-h-[180px] overflow-hidden rounded-[1.4rem] border text-left shadow-2xl active:scale-[0.99] transition-transform md:min-h-0 md:rounded-[2rem]`}
                   style={{ backgroundColor: surfaceColor, borderColor }}
                 >
                   <img src={banner.image_url} alt={banner.title} className="absolute inset-0 h-full w-full object-cover" />
                   <div className="absolute inset-0" style={{ background: idx === 0 ? 'linear-gradient(90deg, rgba(0,0,0,0.68), rgba(0,0,0,0.05))' : 'linear-gradient(0deg, rgba(0,0,0,0.66), rgba(0,0,0,0.05))' }} />
-                  <div className="relative z-10 flex h-full flex-col justify-end p-7 text-white">
+                  <div className="relative z-10 flex h-full flex-col justify-end p-4 text-white md:p-7">
                     <span className="mb-3 w-fit rounded-full px-4 py-2 text-xs font-black uppercase tracking-widest" style={{ backgroundColor: idx === 0 ? primaryColor : accentColor, color: idx === 0 ? primaryTextColor : accentTextColor }}>
                       Publicidad
                     </span>
-                    <p className={`${idx === 0 ? 'text-5xl' : 'text-3xl'} line-clamp-2 font-black leading-none`}>
+                    <p className={`${idx === 0 ? 'text-3xl md:text-5xl' : 'text-2xl md:text-3xl'} line-clamp-2 font-black leading-none`}>
                       {banner.title}
                     </p>
                     {banner.link_url && (
@@ -1161,12 +1161,12 @@ export default function KioskoClient({
             </section>
           ) : (
             <section
-              className="flex h-full flex-col items-center justify-center rounded-[2rem] border p-10 text-center"
+              className="flex h-full flex-col items-center justify-center rounded-[1.4rem] border p-5 text-center md:rounded-[2rem] md:p-10"
               style={{ backgroundColor: surfaceColor, borderColor, color: surfaceTextColor }}
             >
               <p className="text-sm font-black uppercase tracking-[0.28em]" style={{ color: mutedTextColor }}>Publicidad</p>
-              <h1 className="mt-4 max-w-2xl text-6xl font-black leading-none">Agrega banners para mostrar promociones aqui</h1>
-              <p className="mt-5 max-w-xl text-xl" style={{ color: surfaceMutedTextColor }}>
+              <h1 className="mt-4 max-w-2xl text-3xl font-black leading-none md:text-6xl">Agrega banners para mostrar promociones aqui</h1>
+              <p className="mt-5 max-w-xl text-base md:text-xl" style={{ color: surfaceMutedTextColor }}>
                 Los productos se muestran al tocar una categoria del carrusel izquierdo.
               </p>
             </section>
@@ -1176,10 +1176,10 @@ export default function KioskoClient({
 
       {/* Cart bar */}
       {cartCount > 0 && (
-        <div className="flex-shrink-0 border-t px-6 py-4 shadow-2xl" style={{ backgroundColor: surfaceColor, borderColor }}>
-          <div className="mx-auto flex max-w-5xl items-center gap-4">
+        <div className="flex-shrink-0 border-t px-3 py-3 shadow-2xl md:px-6 md:py-4" style={{ backgroundColor: surfaceColor, borderColor }}>
+          <div className="mx-auto flex max-w-5xl items-center gap-3 md:gap-4">
             <div
-              className="flex h-16 w-16 flex-shrink-0 items-center justify-center rounded-2xl text-2xl font-black shadow-lg"
+              className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-2xl text-xl font-black shadow-lg md:h-16 md:w-16 md:text-2xl"
               style={{ backgroundColor: `${buttonPrimaryColor}18`, color: primaryColor }}
             >
               {cartCount}
@@ -1198,7 +1198,7 @@ export default function KioskoClient({
             </div>
             <button
               onClick={() => setStep('cart')}
-              className="flex min-w-[260px] items-center justify-between gap-5 rounded-2xl px-6 py-5 text-xl font-black shadow-xl transition-transform active:scale-[0.98]"
+              className="flex min-w-0 flex-shrink-0 items-center justify-between gap-3 rounded-2xl px-4 py-4 text-sm font-black shadow-xl transition-transform active:scale-[0.98] md:min-w-[260px] md:gap-5 md:px-6 md:py-5 md:text-xl"
               style={{ backgroundColor: buttonPrimaryColor, color: buttonTextColor }}
             >
               <span>Ver pedido</span>

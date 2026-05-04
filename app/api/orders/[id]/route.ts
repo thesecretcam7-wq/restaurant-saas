@@ -2,6 +2,7 @@ import { createServiceClient } from '@/lib/supabase/server'
 import { NextRequest, NextResponse } from 'next/server'
 import { sendOrderStatusUpdate } from '@/lib/email'
 import { sendWhatsAppOrderStatus } from '@/lib/whatsapp'
+import { requireTenantAccess, tenantAuthErrorResponse } from '@/lib/tenant-api-auth'
 
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -48,6 +49,18 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
 
     const supabase = createServiceClient()
 
+    const { data: existingOrder, error: existingError } = await supabase
+      .from('orders')
+      .select('id, tenant_id')
+      .eq('id', orderId)
+      .single()
+
+    if (existingError || !existingOrder) {
+      return NextResponse.json({ error: 'Order not found' }, { status: 404 })
+    }
+
+    await requireTenantAccess(existingOrder.tenant_id, { staffRoles: ['admin', 'cajero', 'camarero', 'cocinero'] })
+
     const updateData: Record<string, any> = { updated_at: new Date().toISOString() }
     if (status) updateData.status = status
     if (payment_status) updateData.payment_status = payment_status
@@ -87,6 +100,23 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       }
     }
 
+    if ((status === 'delivered' || payment_status === 'paid') && order.tenant_id) {
+      const itemUpdate: Record<string, any> = {
+        status: status === 'delivered' ? 'delivered' : 'ready',
+        updated_at: new Date().toISOString(),
+      }
+      if (status === 'delivered') itemUpdate.completed_at = new Date().toISOString()
+
+      const { error: itemsPaidError } = await supabase
+        .from('order_items')
+        .update(itemUpdate)
+        .eq('order_id', orderId)
+        .eq('tenant_id', order.tenant_id)
+        .neq('status', 'cancelled')
+
+      if (itemsPaidError) console.error('[orders PATCH] order_items payment sync error:', itemsPaidError.message)
+    }
+
     // Send status update email (non-blocking)
     if (order.customer_email && status && ['preparing', 'ready', 'delivered', 'cancelled'].includes(status)) {
       const { data: branding } = await supabase
@@ -121,6 +151,9 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
 
     return NextResponse.json({ order })
   } catch (err) {
+    if (err instanceof Error && ['Unauthorized', 'Forbidden'].includes(err.message)) {
+      return tenantAuthErrorResponse(err)
+    }
     console.error('Update order error:', err)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }

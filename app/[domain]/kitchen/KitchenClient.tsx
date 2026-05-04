@@ -138,7 +138,13 @@ export function KitchenClient({ tenantId, tenantName }: Props) {
         headers: { 'Content-Type': 'application/json', 'x-csrf-token': csrfToken },
         body: JSON.stringify({
           tenantId,
-          items: cart.map(c => ({ item_id: c.menu_item_id, name: c.name, qty: c.quantity, price: c.price })),
+          items: cart.map(c => ({
+            menu_item_id: c.menu_item_id,
+            name: c.name,
+            qty: c.quantity,
+            price: c.price,
+            notes: c.notes || null,
+          })),
           customerInfo: { name: `Mesa ${tableNumber}`, email: '', phone: '' },
           deliveryType: 'dine-in',
           tableNumber: parseInt(tableNumber),

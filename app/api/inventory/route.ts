@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import { NextRequest, NextResponse } from 'next/server';
+import { requireTenantAccess, tenantAuthErrorResponse } from '@/lib/tenant-api-auth';
 
 export async function GET(request: NextRequest) {
   const supabase = createClient(
@@ -15,6 +16,8 @@ export async function GET(request: NextRequest) {
   }
 
   try {
+    await requireTenantAccess(tenantId, { staffRoles: ['admin'] });
+
     const { data: inventory, error } = await supabase
       .from('inventory')
       .select('*')
@@ -35,6 +38,9 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json(inventory);
   } catch (error) {
+    if (error instanceof Error && ['Unauthorized', 'Forbidden'].includes(error.message)) {
+      return tenantAuthErrorResponse(error);
+    }
     console.error('Error fetching inventory:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
@@ -55,6 +61,7 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
+    await requireTenantAccess(tenantId, { staffRoles: ['admin'] });
 
     const { data, error } = await supabase
       .from('inventory')
@@ -77,6 +84,9 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json(data, { status: 201 });
   } catch (error) {
+    if (error instanceof Error && ['Unauthorized', 'Forbidden'].includes(error.message)) {
+      return tenantAuthErrorResponse(error);
+    }
     console.error('Error creating inventory item:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }

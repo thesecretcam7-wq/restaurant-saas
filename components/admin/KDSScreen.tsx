@@ -845,14 +845,14 @@ export function KDSScreen({ tenantId }: { tenantId: string }) {
     >
       {/* Top Bar */}
       <div className="bg-slate-950/95 border-b border-white/10 shrink-0 shadow-2xl shadow-black/30">
-        <div className="flex items-center justify-between px-6 py-4">
+        <div className="flex flex-col gap-3 px-3 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-6 sm:py-4">
           {/* Left Section */}
-          <div className="flex items-center gap-4">
+          <div className="flex min-w-0 items-center gap-3 sm:gap-4">
             <div className="bg-cyan-400/10 backdrop-blur-sm rounded-2xl p-3 border border-cyan-300/20 shadow-lg shadow-cyan-500/10">
               <ChefHat className="w-6 h-6 text-cyan-200" />
             </div>
             <div>
-              <span className="font-black text-xl tracking-[0.22em] text-white block">KITCHEN DISPLAY</span>
+              <span className="block text-base font-black tracking-[0.08em] text-white sm:text-xl sm:tracking-[0.22em]">KITCHEN DISPLAY</span>
               <span className="text-slate-400 text-sm font-medium">
                 {allOrders.length} orden{allOrders.length !== 1 ? 'es' : ''} activa{allOrders.length !== 1 ? 's' : ''}
               </span>
@@ -860,7 +860,7 @@ export function KDSScreen({ tenantId }: { tenantId: string }) {
           </div>
 
           {/* Right Section - Controls */}
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 overflow-x-auto scrollbar-hide">
             {/* Sound Toggle */}
             <button
               onClick={(e) => { e.stopPropagation(); setSoundEnabled((v) => !v); }}
@@ -904,7 +904,7 @@ export function KDSScreen({ tenantId }: { tenantId: string }) {
 
       {/* Permission banners */}
       {!soundPermissionGranted && (
-        <div className="bg-red-950/90 border-b border-red-400/20 px-6 py-4 flex items-center justify-between shrink-0">
+        <div className="bg-red-950/90 border-b border-red-400/20 px-3 py-3 flex flex-col gap-3 shrink-0 sm:flex-row sm:items-center sm:justify-between sm:px-6 sm:py-4">
           <div className="flex items-center gap-4 flex-1">
             <BellRing className="h-8 w-8 text-red-200 animate-pulse" />
             <div>
@@ -921,7 +921,7 @@ export function KDSScreen({ tenantId }: { tenantId: string }) {
                 playNewOrder();
               }, 300);
             }}
-            className="px-6 py-2.5 bg-red-500 hover:bg-red-400 text-white rounded-xl font-bold text-sm transition-all duration-200 whitespace-nowrap ml-4"
+            className="px-6 py-2.5 bg-red-500 hover:bg-red-400 text-white rounded-xl font-bold text-sm transition-all duration-200 whitespace-nowrap sm:ml-4"
           >
             Habilitar Sonido
           </button>
@@ -929,7 +929,7 @@ export function KDSScreen({ tenantId }: { tenantId: string }) {
       )}
 
       {!wakeLockActive && (
-        <div className="bg-amber-950/90 border-b border-amber-400/20 px-6 py-4 flex items-center justify-between shrink-0">
+        <div className="bg-amber-950/90 border-b border-amber-400/20 px-3 py-3 flex flex-col gap-3 shrink-0 sm:flex-row sm:items-center sm:justify-between sm:px-6 sm:py-4">
           <div className="flex items-center gap-4">
             <LockKeyhole className="h-8 w-8 text-amber-200" />
             <div>
@@ -942,7 +942,7 @@ export function KDSScreen({ tenantId }: { tenantId: string }) {
               e.stopPropagation();
               activateWakeLock();
             }}
-            className="px-6 py-2.5 bg-amber-500 hover:bg-amber-400 text-slate-950 rounded-xl font-bold text-sm transition-all duration-200 whitespace-nowrap ml-4"
+            className="px-6 py-2.5 bg-amber-500 hover:bg-amber-400 text-slate-950 rounded-xl font-bold text-sm transition-all duration-200 whitespace-nowrap sm:ml-4"
           >
             Bloquear Pantalla
           </button>
@@ -950,9 +950,9 @@ export function KDSScreen({ tenantId }: { tenantId: string }) {
       )}
 
       {/* Legend / urgency guide */}
-      <div className="bg-slate-900 border-b border-white/10 px-6 py-3 shrink-0">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-8 text-xs font-medium">
+      <div className="bg-slate-900 border-b border-white/10 px-3 py-3 shrink-0 sm:px-6">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+          <div className="flex gap-4 overflow-x-auto text-xs font-medium scrollbar-hide lg:gap-8">
             <div className="flex items-center gap-2">
               <div className="w-3 h-3 rounded-full bg-green-500 ring-2 ring-green-400/30" />
               <span className="text-slate-300">Menos de 5 min <span className="text-slate-500">(A tiempo)</span></span>
@@ -968,7 +968,7 @@ export function KDSScreen({ tenantId }: { tenantId: string }) {
           </div>
 
           {/* Trust-Building Stats */}
-          <div className="flex items-center gap-6 ml-auto">
+          <div className="flex items-center gap-4 lg:ml-auto lg:gap-6">
             <div className="flex items-center gap-2 text-center">
               <ShieldCheck className="h-4 w-4 text-emerald-300" />
               <div className="text-2xl font-black text-emerald-300">{totalDeliveredItems}</div>
@@ -985,7 +985,7 @@ export function KDSScreen({ tenantId }: { tenantId: string }) {
       </div>
 
       {/* Columns */}
-      <div className="flex-1 grid grid-cols-3 gap-4 p-6 overflow-hidden bg-[radial-gradient(circle_at_top_left,rgba(34,211,238,0.14),transparent_34%),linear-gradient(180deg,#020617,#0f172a)]">
+      <div className="flex-1 grid grid-cols-1 gap-3 overflow-y-auto p-3 bg-[radial-gradient(circle_at_top_left,rgba(34,211,238,0.14),transparent_34%),linear-gradient(180deg,#020617,#0f172a)] md:grid-cols-3 md:gap-4 md:overflow-hidden md:p-6">
         <KDSColumn
           title="PENDIENTES"
           orders={pendingOrders}

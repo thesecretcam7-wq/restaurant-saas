@@ -377,6 +377,7 @@ export function POSTerminal({
   const [paymentResetKey, setPaymentResetKey] = useState(0);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const posRootRef = useRef<HTMLDivElement>(null);
   const [showCartDrawer, setShowCartDrawer] = useState(false);
   const [showAdminMenu, setShowAdminMenu] = useState(false);
   const [showCashClosing, setShowCashClosing] = useState(false);
@@ -489,8 +490,8 @@ export function POSTerminal({
 
   async function toggleFullscreen() {
     try {
-      if (!isFullscreen && document.documentElement.requestFullscreen) {
-        await document.documentElement.requestFullscreen();
+      if (!isFullscreen && posRootRef.current?.requestFullscreen) {
+        await posRootRef.current.requestFullscreen();
       } else if (isFullscreen && document.fullscreenElement) {
         await document.exitFullscreen();
       }
@@ -971,7 +972,18 @@ export function POSTerminal({
         await supabase
           .from('orders')
           .update({ payment_status: 'paid', status: 'delivered' })
+          .eq('tenant_id', tenantId)
           .in('id', billingOrderIds);
+        await supabase
+          .from('order_items')
+          .update({
+            status: 'delivered',
+            completed_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          })
+          .eq('tenant_id', tenantId)
+          .in('order_id', billingOrderIds)
+          .neq('status', 'cancelled');
         receiptOrderId = paidTableOrderIds[0] || null;
         receiptOrderNumber = selectedTableNumber ? `Mesa ${selectedTableNumber}` : 'Cuenta salon';
         setBillingOrderIds([]);
@@ -1189,7 +1201,7 @@ export function POSTerminal({
   }
 
   return (
-    <div className={`pos-premium ${isFullscreen ? 'w-screen h-screen p-0 m-0 overflow-hidden flex flex-col' : 'h-full'} text-white flex`}>
+    <div ref={posRootRef} className={`pos-premium ${isFullscreen ? 'fixed inset-0 z-[9999] h-screen w-screen p-0 m-0 overflow-hidden flex flex-col bg-[#020617]' : 'h-full'} text-white flex`}>
       {/* Fullscreen Header - Logo and Controls - TPV Header with Eccofood Brand */}
       {isFullscreen && (
         <div className="pos-panel border-x-0 border-t-0 px-6 py-4 flex items-center justify-between">
@@ -1223,9 +1235,9 @@ export function POSTerminal({
         </div>
       )}
 
-      <div className={`flex-1 flex overflow-hidden ${isFullscreen ? 'gap-0' : 'gap-0'}`}>
+      <div className={`flex-1 flex flex-col overflow-hidden md:flex-row ${isFullscreen ? 'gap-0' : 'gap-0'}`}>
         {/* Menu Section */}
-        <div className="flex-1 flex flex-col overflow-hidden">
+        <div className="min-h-0 flex-1 flex flex-col overflow-hidden">
           {/* Search and Controls - Sticky Header */}
           <div className={`pos-panel border-x-0 border-t-0 flex gap-3 items-center sticky top-0 z-10 ${isFullscreen ? 'px-4 py-3' : 'p-4'}`}>
             <div className="flex-1 relative">
@@ -1318,7 +1330,7 @@ export function POSTerminal({
 
           {/* Menu Grid */}
           <div className={`flex-1 overflow-y-auto ${isFullscreen ? 'px-4 py-3' : 'p-4'}`}>
-            <div className={`grid gap-3 h-fit ${isFullscreen ? 'grid-cols-8' : 'grid-cols-5 md:grid-cols-6 lg:grid-cols-7'}`}>
+            <div className={`grid gap-3 h-fit ${isFullscreen ? 'grid-cols-2 sm:grid-cols-4 lg:grid-cols-8' : 'grid-cols-2 sm:grid-cols-3 md:grid-cols-5 lg:grid-cols-7'}`}>
               {filteredMenu.map((item) => {
                 const qty = cartQuantityMap.get(item.id);
                 return (
@@ -1408,7 +1420,7 @@ export function POSTerminal({
         </div>
 
         {/* Cart/Payment Section */}
-        <div className={`${isFullscreen ? 'w-80' : 'w-80'} pos-panel border-y-0 border-r-0 flex flex-col overflow-hidden`}>
+        <div className={`${isFullscreen ? 'h-[44vh] md:h-auto md:w-80' : 'h-[44vh] md:h-auto md:w-80'} pos-panel border-y-0 border-r-0 flex flex-col overflow-hidden`}>
           {/* Tabs: Cart / Entregas / Salón */}
           <div className="border-b border-white/10 flex bg-black/20 backdrop-blur-xl">
             <button

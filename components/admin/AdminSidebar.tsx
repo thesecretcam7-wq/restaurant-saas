@@ -18,6 +18,7 @@ import {
   Monitor,
   Package,
   PanelsTopLeft,
+  QrCode,
   ReceiptText,
   Settings,
   ShoppingBag,
@@ -65,6 +66,7 @@ const icons: Record<string, ComponentType<{ className?: string }>> = {
   kds: ChefHat,
   comandero: ClipboardList,
   staffAccess: UsersRound,
+  qr: QrCode,
 }
 
 export function AdminSidebar({
