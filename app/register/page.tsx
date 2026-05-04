@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { Suspense, useState } from 'react'
 import type { ReactNode } from 'react'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
@@ -17,6 +17,24 @@ const REGISTER_COUNTRIES = [
 ]
 
 export default function RegisterPage() {
+  return (
+    <Suspense fallback={<RegisterLoading />}>
+      <RegisterForm />
+    </Suspense>
+  )
+}
+
+function RegisterLoading() {
+  return (
+    <main className="flex min-h-screen items-center justify-center bg-[#f7f5f0] text-[#15130f]">
+      <div className="rounded-2xl border border-black/10 bg-white px-6 py-4 text-sm font-black shadow-xl shadow-black/8">
+        Cargando registro...
+      </div>
+    </main>
+  )
+}
+
+function RegisterForm() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const selectedPlan = searchParams.get('plan')
