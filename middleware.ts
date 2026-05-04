@@ -6,6 +6,19 @@ import { Redis } from '@upstash/redis'
 
 const BASE_DOMAIN = process.env.NEXT_PUBLIC_BASE_DOMAIN || 'eccofood.vercel.app'
 const SLUG_PATH_REGEX = /^\/([a-zA-Z0-9-]+)(?:\/|$)/
+const PUBLIC_PATHS = new Set([
+  '/',
+  '/login',
+  '/register',
+  '/planes',
+  '/unauthorized',
+  '/manifest.webmanifest',
+  '/sw.js',
+])
+
+type TenantRoute = { id: string; slug: string }
+const tenantCache = new Map<string, { value: TenantRoute | null; expiresAt: number }>()
+const TENANT_CACHE_TTL = 60_000
 
 // Rate limiters — inicializados lazy para evitar errores si faltan env vars
 let globalLimiter: Ratelimit | null = null
@@ -39,6 +52,16 @@ export async function middleware(request: NextRequest) {
   const url = request.nextUrl.clone()
   const hostname = request.headers.get('host') || ''
   const pathname = url.pathname
+
+  if (
+    PUBLIC_PATHS.has(pathname) ||
+    pathname.startsWith('/_next/') ||
+    pathname.startsWith('/icons/') ||
+    pathname.startsWith('/screenshots/') ||
+    pathname.match(/\.(?:ico|png|jpg|jpeg|svg|webp|avif|css|js|map|txt)$/)
+  ) {
+    return NextResponse.next()
+  }
 
   // ─── RATE LIMITING ────────────────────────────────────────────────────────
   const isStripeWebhook = pathname === '/api/stripe/webhook'
@@ -216,27 +239,44 @@ export async function middleware(request: NextRequest) {
 }
 
 async function getTenantByDomain(domain: string) {
+  return getCachedTenant(`domain:${domain}`, async () => {
   try {
     const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!, { auth: { autoRefreshToken: false, persistSession: false } })
     const { data } = await supabase.from('tenants').select('id, slug').eq('primary_domain', domain).single()
     return data
   } catch { return null }
+  })
 }
 
 async function getTenantBySlug(slug: string) {
+  return getCachedTenant(`slug:${slug}`, async () => {
   try {
     const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!, { auth: { autoRefreshToken: false, persistSession: false } })
     const { data } = await supabase.from('tenants').select('id, slug').eq('slug', slug).single()
     return data
   } catch { return null }
+  })
 }
 
 async function getTenantById(id: string) {
+  return getCachedTenant(`id:${id}`, async () => {
   try {
     const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!, { auth: { autoRefreshToken: false, persistSession: false } })
     const { data } = await supabase.from('tenants').select('id, slug').eq('id', id).single()
     return data
   } catch { return null }
+  })
+}
+
+async function getCachedTenant(key: string, fetcher: () => Promise<TenantRoute | null>) {
+  const cached = tenantCache.get(key)
+  if (cached && cached.expiresAt > Date.now()) {
+    return cached.value
+  }
+
+  const value = await fetcher()
+  tenantCache.set(key, { value, expiresAt: Date.now() + TENANT_CACHE_TTL })
+  return value
 }
 
 function extractSubdomain(hostname: string, baseDomain: string): string | null {

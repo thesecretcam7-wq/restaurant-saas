@@ -1,45 +1,48 @@
 import { createServiceClient } from '@/lib/supabase/server'
-import { getTenantIdFromSlug, getTenantContext } from '@/lib/tenant'
+import { getTenantContext, getTenantIdFromSlug } from '@/lib/tenant'
+import { ExternalLink, Monitor, PackageOpen, Search, ShoppingBag } from 'lucide-react'
 
 interface PedidosProps {
   params: Promise<{ domain: string }>
   searchParams: Promise<{ status?: string }>
 }
 
-const getStatusLabels = (primaryColor: string) => {
-  // Convert hex to RGB with opacity for soft background
-  const hexToRgba = (hex: string, opacity: number) => {
-    const r = parseInt(hex.slice(1, 3), 16)
-    const g = parseInt(hex.slice(3, 5), 16)
-    const b = parseInt(hex.slice(5, 7), 16)
-    return `rgba(${r}, ${g}, ${b}, ${opacity})`
-  }
-
-  return {
-    pending:    { label: 'Pendiente',           bg: hexToRgba(primaryColor, 0.15), text: primaryColor },
-    confirmed:  { label: 'Confirmado',          bg: hexToRgba(primaryColor, 0.15), text: primaryColor },
-    preparing:  { label: 'En preparación',      bg: hexToRgba(primaryColor, 0.15), text: primaryColor },
-    ready:      { label: 'Listo para recoger',  bg: hexToRgba(primaryColor, 0.15), text: primaryColor },
-    on_the_way: { label: 'En camino',           bg: hexToRgba(primaryColor, 0.15), text: primaryColor },
-    delivered:  { label: 'Entregado',           bg: 'rgba(243, 244, 246, 1)', text: '#4b5563' },
-    cancelled:  { label: 'Cancelado',           bg: 'rgba(254, 226, 226, 1)', text: '#dc2626' },
-  }
+const statusMeta: Record<string, { label: string; className: string }> = {
+  pending: { label: 'Pendiente', className: 'border-amber-200 bg-amber-50 text-amber-700' },
+  confirmed: { label: 'Confirmado', className: 'border-sky-200 bg-sky-50 text-sky-700' },
+  preparing: { label: 'Preparando', className: 'border-orange-200 bg-orange-50 text-orange-700' },
+  ready: { label: 'Listo', className: 'border-emerald-200 bg-emerald-50 text-emerald-700' },
+  on_the_way: { label: 'En camino', className: 'border-indigo-200 bg-indigo-50 text-indigo-700' },
+  delivered: { label: 'Entregado', className: 'border-green-200 bg-green-50 text-green-700' },
+  cancelled: { label: 'Cancelado', className: 'border-red-200 bg-red-50 text-red-700' },
 }
+
+const filters = [
+  { key: '', label: 'Todos' },
+  { key: 'pending', label: 'Pendientes' },
+  { key: 'confirmed', label: 'Confirmados' },
+  { key: 'preparing', label: 'Preparando' },
+  { key: 'delivered', label: 'Entregados' },
+  { key: 'cancelled', label: 'Cancelados' },
+]
 
 export default async function PedidosPage({ params, searchParams }: PedidosProps) {
   const { domain: slug } = await params
   const { status } = await searchParams
   const supabase = createServiceClient()
-
   const tenantId = await getTenantIdFromSlug(slug)
+
   if (!tenantId) {
-    return <div className="p-8 text-center text-gray-500">Restaurante no encontrado</div>
+    return (
+      <div className="admin-empty">
+        <PackageOpen className="mb-3 size-8 text-black/24" />
+        <p className="font-black text-[#15130f]">Restaurante no encontrado</p>
+      </div>
+    )
   }
 
-  // Get tenant branding
   const context = await getTenantContext(tenantId)
-  const primaryColor = context.branding?.primary_color || '#E4002B'
-  const STATUS_LABELS = getStatusLabels(primaryColor)
+  const restaurantName = context.branding?.app_name || context.tenant?.organization_name || 'Restaurante'
 
   let query = supabase
     .from('orders')
@@ -49,99 +52,82 @@ export default async function PedidosPage({ params, searchParams }: PedidosProps
     .limit(50)
 
   if (status) query = query.eq('status', status)
-
   const { data: orders } = await query
-
-  const filters = [
-    { key: '', label: 'Todos' },
-    { key: 'pending', label: 'Pendientes' },
-    { key: 'confirmed', label: 'Confirmados' },
-    { key: 'preparing', label: 'Preparando' },
-    { key: 'delivered', label: 'Entregados' },
-    { key: 'cancelled', label: 'Cancelados' },
-  ]
+  const activeStatus = status || ''
 
   return (
-    <div>
-      <div className="mb-8 flex items-start justify-between gap-4">
+    <div className="admin-page">
+      <div className="admin-page-header">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Pedidos</h1>
-          <p className="text-gray-500 text-sm mt-1">{orders?.length || 0} pedidos encontrados</p>
+          <p className="admin-eyebrow">Operacion diaria</p>
+          <h1 className="admin-title">Pedidos</h1>
+          <p className="admin-subtitle">{orders?.length || 0} pedidos encontrados para {restaurantName}.</p>
         </div>
-        <a
-          href={`/${slug}/pantalla`}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="flex items-center gap-2 px-4 py-2 text-white rounded-lg text-sm font-medium transition-colors flex-shrink-0"
-          style={{ backgroundColor: primaryColor, opacity: 0.9 }}
-          onMouseEnter={(e) => { e.currentTarget.style.opacity = '1' }}
-          onMouseLeave={(e) => { e.currentTarget.style.opacity = '0.9' }}
-        >
-          📺 Abrir Pantalla
+        <a href={`/${slug}/pantalla`} target="_blank" rel="noopener noreferrer" className="admin-button-secondary">
+          <Monitor className="size-4" />
+          Abrir pantalla
+          <ExternalLink className="size-4" />
         </a>
       </div>
 
-      {/* Filters */}
-      <div className="flex gap-2 mb-6 flex-wrap">
-        {filters.map(f => (
-          <a
-            key={f.key}
-            href={f.key ? `?status=${f.key}` : '?'}
-            className="px-4 py-2 rounded-lg text-sm font-medium border transition-colors"
-            style={
-              (status || '') === f.key
-                ? { backgroundColor: primaryColor, color: 'white', borderColor: primaryColor }
-                : { backgroundColor: 'white', color: '#4b5563', borderColor: '#e5e7eb' }
-            }
-          >
-            {f.label}
-          </a>
-        ))}
+      <div className="admin-panel mb-5 p-3">
+        <div className="flex flex-wrap gap-2">
+          {filters.map(filter => {
+            const active = activeStatus === filter.key
+            return (
+              <a
+                key={filter.key}
+                href={filter.key ? `?status=${filter.key}` : '?'}
+                className={`rounded-lg px-3 py-2 text-sm font-black transition ${
+                  active ? 'bg-[#15130f] text-white' : 'bg-white/60 text-black/58 hover:bg-white hover:text-[#15130f]'
+                }`}
+              >
+                {filter.label}
+              </a>
+            )
+          })}
+        </div>
       </div>
 
-      <div className="bg-white rounded-xl border">
+      <section className="admin-panel overflow-hidden">
         {!orders?.length ? (
-          <div className="p-12 text-center text-gray-400">
-            <p className="text-3xl mb-2">📦</p>
-            <p>No hay pedidos</p>
+          <div className="admin-empty m-5">
+            <Search className="mb-3 size-8 text-black/24" />
+            <p className="font-black text-[#15130f]">No hay pedidos</p>
+            <p className="mt-1 text-sm">Cambia el filtro o espera a que entren nuevos pedidos.</p>
           </div>
         ) : (
-          <div className="divide-y">
+          <div className="divide-y divide-black/8">
             {orders.map(order => {
-              const statusInfo = STATUS_LABELS[order.status as keyof typeof STATUS_LABELS] || { label: order.status, bg: 'rgba(243, 244, 246, 1)', text: '#6b7280' }
+              const meta = statusMeta[order.status] || { label: order.status, className: 'border-black/10 bg-black/5 text-black/58' }
               return (
                 <a
                   key={order.id}
                   href={`/${slug}/admin/pedidos/${order.id}`}
-                  className="flex items-center gap-4 p-4 hover:bg-gray-50 transition-colors"
+                  className="grid gap-3 px-5 py-4 transition hover:bg-white/74 lg:grid-cols-[1.1fr_auto_auto_auto] lg:items-center"
                 >
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-1">
-                      <p className="font-medium text-gray-900">{order.order_number}</p>
-                      <span
-                        className="px-2 py-0.5 rounded-full text-xs font-medium"
-                        style={{ backgroundColor: statusInfo.bg, color: statusInfo.text }}
-                      >
-                        {statusInfo.label}
-                      </span>
-                      {order.delivery_type === 'delivery' && (
-                        <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600">🚗 A domicilio</span>
-                      )}
+                  <div className="flex min-w-0 items-center gap-3">
+                    <span className="flex size-11 flex-shrink-0 items-center justify-center rounded-lg bg-[#15130f] text-white">
+                      <ShoppingBag className="size-5" />
+                    </span>
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-black text-[#15130f]">{order.order_number || `Pedido ${order.id.slice(0, 8)}`}</p>
+                      <p className="truncate text-xs font-semibold text-black/48">{order.customer_name || 'Cliente'} · {order.customer_phone || 'Sin telefono'}</p>
                     </div>
-                    <p className="text-sm text-gray-500">{order.customer_name} • {order.customer_phone}</p>
                   </div>
-                  <div className="text-right">
-                    <p className="font-semibold text-gray-900">${Number(order.total).toLocaleString('es-CO')}</p>
-                    <p className="text-xs text-gray-400">
-                      {new Date(order.created_at).toLocaleString('es-CO', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
-                    </p>
-                  </div>
+                  <span className={`w-fit rounded-full border px-2.5 py-1 text-xs font-black ${meta.className}`}>
+                    {meta.label}
+                  </span>
+                  <p className="text-sm font-black text-[#15130f]">${Number(order.total).toLocaleString('es-CO')}</p>
+                  <p className="text-xs font-bold text-black/42">
+                    {new Date(order.created_at).toLocaleString('es-CO', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                  </p>
                 </a>
               )
             })}
           </div>
         )}
-      </div>
+      </section>
     </div>
   )
 }

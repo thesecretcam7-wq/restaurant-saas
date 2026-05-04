@@ -15,41 +15,46 @@ interface Props {
 export default function FeaturedSection({ tenantId, items, primary, title, borderRadius, cardClasses, animations }: Props) {
   if (!items?.length) {
     return (
-      <section className="pt-6 pb-2 px-4">
-        <h2 className="text-lg font-extrabold text-gray-900 mb-4">{title}</h2>
-        <div className="py-12 text-center text-gray-400 text-sm">Sin productos destacados</div>
+      <section className="rounded-[28px] border border-black/8 bg-white p-5 shadow-xl shadow-black/[0.04] sm:p-7">
+        <h2 className="text-2xl font-black text-[#15130f]">{title}</h2>
+        <div className="py-12 text-center text-sm font-bold text-black/45">Sin productos destacados</div>
       </section>
     )
   }
 
   return (
-    <section className="pt-6 pb-2">
-      <div className="px-4 flex items-center justify-between mb-3">
-        <h2 className="text-lg font-extrabold text-gray-900">{title}</h2>
-        <Link href={`/${tenantId}/menu`} className="text-sm font-semibold" style={{ color: primary }}>
+    <section className="rounded-[28px] border border-black/8 bg-white p-5 shadow-xl shadow-black/[0.04] sm:p-7">
+      <div className="mb-5 flex items-end justify-between gap-4">
+        <div>
+          <p className="text-xs font-black uppercase text-black/42">Recomendados</p>
+          <h2 className="mt-1 text-2xl font-black text-[#15130f] sm:text-3xl">{title}</h2>
+        </div>
+        <Link href={`/${tenantId}/menu`} className="shrink-0 rounded-full border border-black/10 px-4 py-2 text-sm font-black transition hover:bg-black/[0.04]" style={{ color: primary }}>
           Ver todo
         </Link>
       </div>
-      <div className="flex gap-3 px-4 overflow-x-auto pb-2 scrollbar-hide">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {items.map((item, i) => (
           <Link
             key={item.id}
             href={`/${tenantId}/menu`}
-            className={`flex-shrink-0 w-40 overflow-hidden ${cardClasses} active:scale-[0.97] transition-transform`}
+            className={`group overflow-hidden border border-black/8 bg-white shadow-sm transition hover:-translate-y-0.5 hover:shadow-xl ${cardClasses}`}
             style={{
               borderRadius,
               animationDelay: animations ? `${i * 60}ms` : undefined,
             }}
           >
             {item.image_url ? (
-              <img src={item.image_url} alt={item.name} className="w-full h-28 object-cover" />
+              <div className="aspect-[4/3] overflow-hidden bg-black/[0.03]">
+                <img src={item.image_url} alt={item.name} className="h-full w-full object-cover transition duration-500 group-hover:scale-105" />
+              </div>
             ) : (
-              <div className="w-full h-28 flex items-center justify-center text-4xl" style={{ backgroundColor: `${primary}12` }}>🍽️</div>
+              <div className="aspect-[4/3]" style={{ backgroundColor: `${primary}14` }} />
             )}
-            <div className="p-2.5">
-              <p className="text-xs font-bold text-gray-900 line-clamp-1">{item.name}</p>
-              <div className="flex items-center justify-between mt-1.5">
-                <p className="text-sm font-extrabold" style={{ color: primary }}>{formatPrice(item.price)}</p>
+            <div className="p-3.5">
+              <p className="line-clamp-2 min-h-10 text-sm font-black leading-5 text-[#15130f]">{item.name}</p>
+              <div className="mt-3 flex items-center justify-between gap-2">
+                <p className="text-base font-black" style={{ color: primary }}>{formatPrice(item.price)}</p>
                 <AddToCartButton item={item} tenantId={tenantId} color={primary} small />
               </div>
             </div>

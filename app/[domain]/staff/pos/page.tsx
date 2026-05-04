@@ -25,5 +25,5 @@ export default async function StaffPOSPage({ params }: StaffPOSPageProps) {
     );
   }
 
-  return <POSTerminal tenantId={tenant.id} country={tenant.country || 'CO'} />;
+  return <POSTerminal tenantId={tenant.id} tenantSlug={slug} country={tenant.country || 'CO'} />;
 }

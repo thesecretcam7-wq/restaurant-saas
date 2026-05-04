@@ -26,10 +26,10 @@ export default async function KioskoPage({ params, searchParams }: Props) {
     )
   }
 
-  const [brandingRes, categoriesRes, itemsRes, settingsRes, bannersRes] = await Promise.all([
+  const [brandingRes, categoriesRes, itemsRes, toppingsRes, settingsRes, bannersRes] = await Promise.all([
     supabase
       .from('tenant_branding')
-      .select('app_name, primary_color, logo_url: favicon_url')
+      .select('app_name, primary_color, secondary_color, accent_color, background_color, button_primary_color, button_secondary_color, text_primary_color, text_secondary_color, border_color, logo_url, favicon_url')
       .eq('tenant_id', tenant.id)
       .maybeSingle(),
     supabase
@@ -39,9 +39,15 @@ export default async function KioskoPage({ params, searchParams }: Props) {
       .order('sort_order'),
     supabase
       .from('menu_items')
-      .select('id, name, description, price, image_url, available, category_id, featured')
+      .select('*')
       .eq('tenant_id', tenant.id)
       .order('created_at', { ascending: true }),
+    supabase
+      .from('product_toppings')
+      .select('id, menu_item_id, name, price, is_required, sort_order')
+      .eq('tenant_id', tenant.id)
+      .order('sort_order')
+      .then(res => res, () => ({ data: [] })),
     supabase
       .from('restaurant_settings')
       .select('tax_rate, currency_symbol')
@@ -58,7 +64,15 @@ export default async function KioskoPage({ params, searchParams }: Props) {
   const branding = {
     appName: brandingRes.data?.app_name || tenant.organization_name,
     primaryColor: brandingRes.data?.primary_color || '#E4002B',
-    logoUrl: (brandingRes.data as any)?.logo_url || null,
+    secondaryColor: brandingRes.data?.secondary_color || '#111827',
+    accentColor: brandingRes.data?.accent_color || brandingRes.data?.primary_color || '#E4002B',
+    backgroundColor: brandingRes.data?.background_color || '#F3F4F6',
+    buttonPrimaryColor: brandingRes.data?.button_primary_color || brandingRes.data?.primary_color || '#E4002B',
+    buttonSecondaryColor: brandingRes.data?.button_secondary_color || brandingRes.data?.secondary_color || '#111827',
+    textPrimaryColor: brandingRes.data?.text_primary_color || '#111827',
+    textSecondaryColor: brandingRes.data?.text_secondary_color || '#6B7280',
+    borderColor: brandingRes.data?.border_color || '#E5E7EB',
+    logoUrl: (brandingRes.data as any)?.logo_url || (brandingRes.data as any)?.favicon_url || null,
   }
 
   const initialConfirmed =
@@ -73,6 +87,7 @@ export default async function KioskoPage({ params, searchParams }: Props) {
       branding={branding}
       categories={categoriesRes.data || []}
       menuItems={itemsRes.data || []}
+      toppings={toppingsRes.data || []}
       banners={bannersRes.data || []}
       taxRate={settingsRes.data?.tax_rate || 0}
       currencySymbol={settingsRes.data?.currency_symbol || '$'}

@@ -218,7 +218,11 @@ export default function BrandingPage({ params }: BrandingProps) {
     }
   }
 
-  if (resolvingTenant || loading) return <div className="flex items-center justify-center h-64 text-gray-400">Cargando...</div>
+  if (resolvingTenant || loading) return (
+    <div className="admin-panel flex h-64 items-center justify-center text-black/45">
+      Cargando branding...
+    </div>
+  )
 
   const imageUploadField = (label: string, field: keyof typeof form, bucket = 'images') => (
     <div>
@@ -241,10 +245,20 @@ export default function BrandingPage({ params }: BrandingProps) {
   )
 
   return (
-    <div className="max-w-4xl">
-      <div className="mb-8">
-        <h1 className="text-2xl font-bold text-gray-900">Branding Completo</h1>
-        <p className="text-gray-500 text-sm mt-1">Personaliza completamente la apariencia de tu restaurante</p>
+    <div className="brand-studio max-w-6xl">
+      <div className="admin-page-header">
+        <div>
+          <p className="admin-eyebrow">Marca</p>
+          <h1 className="admin-title">Branding completo</h1>
+          <p className="admin-subtitle">Personaliza identidad, imagen, tipografia, colores y microtextos con la misma experiencia visual del panel.</p>
+        </div>
+        <button
+          onClick={handleSave}
+          disabled={saving}
+          className="admin-button-primary"
+        >
+          {saving ? 'Guardando...' : 'Guardar cambios'}
+        </button>
       </div>
 
       <div className="space-y-6">
@@ -851,7 +865,7 @@ export default function BrandingPage({ params }: BrandingProps) {
 
         {/* Preview */}
         <div
-          className="rounded-xl border p-8 overflow-hidden"
+          className="brand-preview-frame rounded-xl border p-8 overflow-hidden"
           style={{
             backgroundColor: form.background_color,
             fontFamily: form.font_family,
@@ -914,7 +928,7 @@ export default function BrandingPage({ params }: BrandingProps) {
         <button
           onClick={handleSave}
           disabled={saving}
-          className="w-full py-3 bg-blue-600 text-white rounded-xl font-medium hover:bg-blue-700 disabled:bg-blue-300"
+          className="admin-button-primary w-full disabled:opacity-50"
         >
           {saving ? 'Guardando...' : 'Guardar Cambios'}
         </button>

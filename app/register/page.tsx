@@ -1,8 +1,10 @@
 'use client'
 
 import { useState } from 'react'
+import type { ReactNode } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
+import { ArrowRight, BadgeCheck, Building2, Eye, EyeOff, Mail, UserRound } from 'lucide-react'
 
 export default function RegisterPage() {
   const router = useRouter()
@@ -22,23 +24,10 @@ export default function RegisterPage() {
     e.preventDefault()
     setError('')
 
-    // Validaciones del lado del cliente
-    if (!form.restaurantName.trim()) {
-      setError('El nombre del restaurante es requerido')
-      return
-    }
-    if (!form.email.trim()) {
-      setError('El email es requerido')
-      return
-    }
-    if (!form.password || form.password.length < 8) {
-      setError('La contraseña debe tener al menos 8 caracteres')
-      return
-    }
-    if (form.password !== form.confirmPassword) {
-      setError('Las contraseñas no coinciden')
-      return
-    }
+    if (!form.restaurantName.trim()) return setError('El nombre del restaurante es requerido')
+    if (!form.email.trim()) return setError('El email es requerido')
+    if (!form.password || form.password.length < 8) return setError('La contrasena debe tener al menos 8 caracteres')
+    if (form.password !== form.confirmPassword) return setError('Las contrasenas no coinciden')
 
     setLoading(true)
     try {
@@ -53,270 +42,180 @@ export default function RegisterPage() {
         }),
       })
 
-
       const data = await res.json()
-
       if (!res.ok) {
-        const errorMsg = data.error || `Error al registrar (${res.status})`
-        console.error('❌ Error:', errorMsg)
-        setError(errorMsg)
+        setError(data.error || `Error al registrar (${res.status})`)
         return
       }
-
-      if (!data.tenant || !data.tenant.slug) {
-        console.error('❌ Error: No se recibió tenant en la respuesta')
-        setError('Error: No se creó el restaurante correctamente')
+      if (!data.tenant?.slug) {
+        setError('Error: no se creo el restaurante correctamente')
         return
       }
 
       router.push(data.redirectUrl || `/${data.tenant.slug}/acceso`)
     } catch (error) {
-      console.error('❌ Exception:', error)
-      setError(`Error de conexión: ${error instanceof Error ? error.message : 'Intenta de nuevo'}`)
+      setError(`Error de conexion: ${error instanceof Error ? error.message : 'Intenta de nuevo'}`)
     } finally {
       setLoading(false)
     }
   }
 
-  const benefits = [
-    { icon: '⚡', text: 'Listo en minutos, sin configuración compleja' },
-    { icon: '💳', text: 'Pagos directos a tu cuenta Stripe' },
-    { icon: '📱', text: 'Tus clientes disfrutan una app profesional' },
-    { icon: '🎨', text: 'Personalizable con tu marca completa' },
-  ]
-
   return (
-    <div className="min-h-screen bg-background text-foreground overflow-x-hidden">
-      {/* Background gradients */}
-      <div className="fixed inset-0 pointer-events-none overflow-hidden -z-10">
-        <div className="absolute top-[-10%] right-[15%] w-[500px] h-[500px] rounded-full opacity-[0.08]" style={{ background: 'radial-gradient(circle, var(--color-primary), transparent 70%)' }} />
-        <div className="absolute bottom-[5%] left-[-5%] w-[400px] h-[400px] rounded-full opacity-[0.06]" style={{ background: 'radial-gradient(circle, var(--color-success), transparent 70%)' }} />
-      </div>
-
-      {/* Left panel — only on large screens */}
-      <div className="hidden lg:flex lg:w-[50%] flex-col justify-between p-12 relative border-r border-border">
-        {/* Logo */}
-        <Link href="/" className="flex items-center gap-2.5 group animate-fade-in">
-          <div className="w-9 h-9 rounded-md bg-gradient-to-br from-primary to-secondary flex items-center justify-center text-xs font-black text-white group-hover:shadow-lg group-hover:shadow-primary/30 transition-all">
-            E
-          </div>
-          <span className="text-foreground font-bold text-xl tracking-tight">Eccofood</span>
-        </Link>
-
-        {/* Hero copy */}
-        <div>
-          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-primary/30 bg-primary/10 mb-6 animate-fade-in" style={{ animationDelay: '100ms' }}>
-            <span className="w-2 h-2 rounded-full bg-primary animate-pulse" />
-            <span className="text-xs text-primary font-semibold">14 días gratis, sin tarjeta</span>
-          </div>
-
-          <h2 className="text-5xl font-black text-foreground leading-tight mb-4 animate-slide-up" style={{ animationDelay: '100ms' }}>
-            Tu restaurante prospera<br />
-            <span className="bg-gradient-to-r from-primary via-secondary to-accent bg-clip-text text-transparent">
-              con Eccofood
-            </span>
-          </h2>
-          <p className="text-muted-foreground text-lg leading-relaxed mb-10 animate-slide-up" style={{ animationDelay: '150ms' }}>
-            Menú digital, pedidos online, reservas y pagos integrados. Todo con tu marca, tu dominio y sin comisiones.
-          </p>
-
-          <div className="space-y-4">
-            {benefits.map((b, i) => (
-              <div key={i} className="flex items-center gap-3 animate-slide-up" style={{ animationDelay: `${200 + i * 50}ms` }}>
-                <span className="w-10 h-10 rounded-lg flex items-center justify-center text-lg flex-shrink-0 bg-primary/10">
-                  {b.icon}
-                </span>
-                <span className="text-foreground text-sm font-medium">{b.text}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Testimonial */}
-        <div className="p-6 rounded-xl border border-primary/20 bg-primary/5 backdrop-blur-sm animate-scale-in">
-          <div className="flex gap-0.5 mb-3">
-            {[1, 2, 3, 4, 5].map(s => <span key={s} className="text-secondary">★</span>)}
-          </div>
-          <p className="text-foreground text-sm leading-relaxed italic mb-4">
-            "Duplicamos nuestros pedidos en el primer mes. Eccofood es increíblemente fácil de usar y nuestros clientes aman la experiencia."
-          </p>
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full flex items-center justify-center text-xs font-bold text-white bg-gradient-to-br from-primary to-secondary">
-              JM
-            </div>
-            <div>
-              <p className="text-foreground text-sm font-semibold">Juan Martínez</p>
-              <p className="text-muted-foreground text-xs">La Parrilla Gourmet, Madrid</p>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Right panel — form */}
-      <div className="flex-1 flex flex-col">
-        {/* Mobile nav */}
-        <nav className="lg:hidden px-6 py-5 flex items-center justify-between border-b border-border">
-          <Link href="/" className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-md bg-gradient-to-br from-primary to-secondary flex items-center justify-center text-xs font-black text-white">
-              E
-            </div>
-            <span className="text-foreground font-bold text-lg tracking-tight">Eccofood</span>
+    <main className="min-h-screen bg-[#f7f5f0] text-[#15130f]">
+      <nav className="border-b border-black/10 bg-white/55 backdrop-blur-xl">
+        <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4 sm:px-6">
+          <Link href="/" className="flex items-center gap-3">
+            <span className="flex size-9 items-center justify-center rounded-lg bg-[#e43d30] text-sm font-black text-white">E</span>
+            <span className="text-lg font-black tracking-tight">Eccofood</span>
           </Link>
-          <Link href="/login" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
-            <span className="text-primary font-semibold">Iniciar sesión</span>
+          <Link href="/login" className="text-sm font-bold text-black/60 transition hover:text-black">
+            Ya tengo cuenta
           </Link>
-        </nav>
+        </div>
+      </nav>
 
-        {/* Form area */}
-        <div className="flex-1 flex items-center justify-center px-6 py-10">
-          <div className="w-full max-w-[440px]">
-            {/* Header */}
-            <div className="mb-8">
-              <h1 className="text-3xl font-black text-foreground mb-2">Crea tu cuenta gratis</h1>
-              <p className="text-muted-foreground">Sin tarjeta de crédito · 14 días de acceso completo</p>
-            </div>
+      <section className="mx-auto grid min-h-[calc(100vh-64px)] max-w-6xl gap-10 px-4 py-10 sm:px-6 lg:grid-cols-[1fr_0.95fr] lg:py-14">
+        <div className="flex items-center">
+          <div className="w-full">
+            <p className="text-sm font-black uppercase text-[#e43d30]">Alta del restaurante</p>
+            <h1 className="mt-3 max-w-2xl text-5xl font-black leading-tight tracking-tight">
+              Lanza una experiencia digital que parece de cadena grande.
+            </h1>
+            <p className="mt-5 max-w-xl text-base leading-7 text-black/62">
+              Crea tu cuenta, configura tu marca y empieza con menu digital, pedidos, reservas y panel operativo desde el primer dia.
+            </p>
 
-            {/* Card */}
-            <div className="rounded-xl border border-border bg-card/50 backdrop-blur-sm p-8 shadow-md">
-
-              {error && (
-                <div className="mb-6 flex items-start gap-3 p-4 rounded-lg" style={{ backgroundColor: 'color-mix(in srgb, var(--color-danger) 10%, white)', borderColor: 'color-mix(in srgb, var(--color-danger) 20%, transparent)', borderWidth: '1px' }}>
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="flex-shrink-0 mt-0.5" style={{ color: 'var(--color-danger)' }}><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
-                  <p className="text-sm font-medium" style={{ color: 'var(--color-danger)' }}>{error}</p>
+            <div className="mt-8 grid max-w-2xl gap-3 sm:grid-cols-2">
+              {[
+                '14 dias de acceso completo',
+                'Sin tarjeta para empezar',
+                'Tu marca y colores',
+                'POS, cocina y QR incluidos',
+              ].map((item) => (
+                <div key={item} className="flex items-center gap-3 rounded-xl border border-black/10 bg-white/70 px-4 py-3 text-sm font-bold shadow-sm">
+                  <BadgeCheck className="size-5 text-[#1c8b5f]" />
+                  {item}
                 </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        <div className="flex items-center justify-center">
+          <div className="w-full max-w-lg rounded-2xl border border-black/10 bg-white p-6 shadow-2xl shadow-black/8 sm:p-8">
+            <div className="mb-7">
+              <h2 className="text-3xl font-black tracking-tight">Crear cuenta</h2>
+              <p className="mt-2 text-sm font-medium text-black/55">Completa los datos principales del restaurante.</p>
+            </div>
+
+            {error && (
+              <div className="mb-5 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">
+                {error}
+              </div>
+            )}
+
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div className="grid gap-4 sm:grid-cols-2">
+                <Field icon={<Building2 className="size-4" />} label="Restaurante" required value={form.restaurantName} onChange={(value) => setForm(f => ({ ...f, restaurantName: value }))} placeholder="Pizzeria Roma" />
+                <Field icon={<UserRound className="size-4" />} label="Tu nombre" value={form.ownerName} onChange={(value) => setForm(f => ({ ...f, ownerName: value }))} placeholder="Carlos Martinez" />
+              </div>
+
+              <Field icon={<Mail className="size-4" />} label="Email" required type="email" value={form.email} onChange={(value) => setForm(f => ({ ...f, email: value }))} placeholder="carlos@restaurante.com" />
+
+              <PasswordField label="Contrasena" value={form.password} onChange={(value) => setForm(f => ({ ...f, password: value }))} show={showPass} onToggle={() => setShowPass(v => !v)} placeholder="Minimo 8 caracteres" />
+              <PasswordField label="Confirmar contrasena" value={form.confirmPassword} onChange={(value) => setForm(f => ({ ...f, confirmPassword: value }))} show={showConfirm} onToggle={() => setShowConfirm(v => !v)} placeholder="Repite la contrasena" />
+
+              {form.confirmPassword && form.password !== form.confirmPassword && (
+                <p className="text-xs font-bold text-red-600">Las contrasenas no coinciden</p>
               )}
 
-              <form onSubmit={handleSubmit} className="space-y-5">
-                {/* Row: restaurant + owner */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-xs font-semibold text-muted-foreground mb-2 uppercase tracking-wide">Restaurante *</label>
-                    <input
-                      type="text"
-                      required
-                      value={form.restaurantName}
-                      onChange={e => setForm(f => ({ ...f, restaurantName: e.target.value }))}
-                      className="w-full px-4 py-2.5 rounded-lg bg-background border border-border text-foreground placeholder-muted-foreground text-sm outline-none transition-all focus:border-primary/50 focus:ring-2 focus:ring-primary/20"
-                      placeholder="Pizzería Roma"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-semibold text-muted-foreground mb-2 uppercase tracking-wide">Tu nombre</label>
-                    <input
-                      type="text"
-                      value={form.ownerName}
-                      onChange={e => setForm(f => ({ ...f, ownerName: e.target.value }))}
-                      className="w-full px-4 py-2.5 rounded-lg bg-background border border-border text-foreground placeholder-muted-foreground text-sm outline-none transition-all focus:border-primary/50 focus:ring-2 focus:ring-primary/20"
-                      placeholder="Carlos Martínez"
-                    />
-                  </div>
-                </div>
+              <button
+                type="submit"
+                disabled={loading}
+                className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-lg bg-[#e43d30] text-sm font-black text-white shadow-lg shadow-red-900/15 transition hover:bg-[#c93228] disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {loading ? 'Creando restaurante...' : 'Crear restaurante gratis'}
+                {!loading && <ArrowRight className="size-4" />}
+              </button>
+            </form>
 
-                {/* Email */}
-                <div>
-                  <label className="block text-xs font-semibold text-muted-foreground mb-2 uppercase tracking-wide">Email *</label>
-                  <input
-                    type="email"
-                    required
-                    value={form.email}
-                    onChange={e => setForm(f => ({ ...f, email: e.target.value }))}
-                    className="w-full px-4 py-2.5 rounded-lg bg-background border border-border text-foreground placeholder-muted-foreground text-sm outline-none transition-all focus:border-primary/50 focus:ring-2 focus:ring-primary/20"
-                    placeholder="carlos@restaurante.com"
-                  />
-                </div>
-
-                {/* Password */}
-                <div>
-                  <label className="block text-xs font-semibold text-muted-foreground mb-2 uppercase tracking-wide">Contraseña *</label>
-                  <div className="relative">
-                    <input
-                      type={showPass ? 'text' : 'password'}
-                      required
-                      minLength={8}
-                      value={form.password}
-                      onChange={e => setForm(f => ({ ...f, password: e.target.value }))}
-                      className="w-full px-4 py-2.5 pr-11 rounded-lg bg-background border border-border text-foreground placeholder-muted-foreground text-sm outline-none transition-all focus:border-primary/50 focus:ring-2 focus:ring-primary/20"
-                      placeholder="Mínimo 8 caracteres"
-                    />
-                    <button type="button" onClick={() => setShowPass(v => !v)} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors">
-                      {showPass
-                        ? <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/><path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
-                        : <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
-                      }
-                    </button>
-                  </div>
-                </div>
-
-                {/* Confirm Password */}
-                <div>
-                  <label className="block text-xs font-semibold text-muted-foreground mb-2 uppercase tracking-wide">Confirmar contraseña *</label>
-                  <div className="relative">
-                    <input
-                      type={showConfirm ? 'text' : 'password'}
-                      required
-                      value={form.confirmPassword}
-                      onChange={e => setForm(f => ({ ...f, confirmPassword: e.target.value }))}
-                      className="w-full px-4 py-2.5 pr-11 rounded-lg bg-background border text-foreground placeholder-muted-foreground text-sm outline-none transition-all focus:ring-2"
-                      style={{
-                        borderColor: form.confirmPassword && form.password !== form.confirmPassword
-                          ? `var(--color-danger)`
-                          : form.confirmPassword && form.password === form.confirmPassword
-                            ? `var(--color-secondary)`
-                            : 'var(--color-border-light)',
-                        '--tw-ring-color': form.confirmPassword && form.password !== form.confirmPassword
-                          ? 'var(--color-danger)'
-                          : form.confirmPassword && form.password === form.confirmPassword
-                            ? 'var(--color-secondary)'
-                            : 'var(--color-primary)',
-                      } as React.CSSProperties}
-                      placeholder="Repite la contraseña"
-                    />
-                    <button type="button" onClick={() => setShowConfirm(v => !v)} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors">
-                      {showConfirm
-                        ? <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/><path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
-                        : <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
-                      }
-                    </button>
-                  </div>
-                  {form.confirmPassword && form.password !== form.confirmPassword && (
-                    <p className="text-xs mt-1.5 font-medium" style={{ color: 'var(--color-danger)' }}>Las contraseñas no coinciden</p>
-                  )}
-                </div>
-
-                {/* Submit */}
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className="w-full py-3 rounded-lg font-bold text-sm text-white transition-all active:scale-95 disabled:opacity-60 disabled:cursor-not-allowed mt-2 bg-gradient-to-r from-primary to-secondary hover:from-primary/90 hover:to-secondary/90 shadow-lg shadow-primary/25 hover:shadow-xl hover:shadow-primary/40"
-                >
-                  {loading ? (
-                    <span className="flex items-center justify-center gap-2">
-                      <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                      Creando tu restaurante...
-                    </span>
-                  ) : 'Crear restaurante gratis →'}
-                </button>
-
-                {/* Terms */}
-                <p className="text-center text-xs text-muted-foreground leading-relaxed">
-                  Al registrarte aceptas nuestros{' '}
-                  <span className="text-foreground font-medium cursor-pointer hover:underline">Términos de servicio</span>{' '}
-                  y{' '}
-                  <span className="text-foreground font-medium cursor-pointer hover:underline">Política de privacidad</span>
-                </p>
-              </form>
-            </div>
-
-            {/* Footer link */}
-            <p className="text-center text-sm text-muted-foreground mt-6">
-              ¿Ya tienes cuenta?{' '}
-              <Link href="/login" className="text-primary hover:text-primary/80 font-semibold transition-colors">
-                Iniciar sesión
-              </Link>
+            <p className="mt-5 text-center text-xs leading-5 text-black/45">
+              Al registrarte aceptas los terminos de servicio y la politica de privacidad.
             </p>
           </div>
         </div>
-      </div>
-    </div>
+      </section>
+    </main>
+  )
+}
+
+function Field({
+  icon,
+  label,
+  value,
+  onChange,
+  placeholder,
+  type = 'text',
+  required = false,
+}: {
+  icon: ReactNode
+  label: string
+  value: string
+  onChange: (value: string) => void
+  placeholder: string
+  type?: string
+  required?: boolean
+}) {
+  return (
+    <label className="block">
+      <span className="mb-2 block text-xs font-black uppercase text-black/48">{label}{required ? ' *' : ''}</span>
+      <span className="relative block">
+        <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-black/35">{icon}</span>
+        <input
+          type={type}
+          required={required}
+          value={value}
+          onChange={e => onChange(e.target.value)}
+          className="h-12 w-full rounded-lg border border-black/10 bg-[#fbfaf7] pl-10 pr-4 text-sm font-semibold outline-none transition focus:border-[#e43d30] focus:bg-white focus:ring-4 focus:ring-red-500/10"
+          placeholder={placeholder}
+        />
+      </span>
+    </label>
+  )
+}
+
+function PasswordField({
+  label,
+  value,
+  onChange,
+  show,
+  onToggle,
+  placeholder,
+}: {
+  label: string
+  value: string
+  onChange: (value: string) => void
+  show: boolean
+  onToggle: () => void
+  placeholder: string
+}) {
+  return (
+    <label className="block">
+      <span className="mb-2 block text-xs font-black uppercase text-black/48">{label} *</span>
+      <span className="relative block">
+        <input
+          type={show ? 'text' : 'password'}
+          required
+          minLength={8}
+          value={value}
+          onChange={e => onChange(e.target.value)}
+          className="h-12 w-full rounded-lg border border-black/10 bg-[#fbfaf7] px-4 pr-11 text-sm font-semibold outline-none transition focus:border-[#e43d30] focus:bg-white focus:ring-4 focus:ring-red-500/10"
+          placeholder={placeholder}
+        />
+        <button type="button" onClick={onToggle} className="absolute right-3 top-1/2 -translate-y-1/2 rounded-md p-1 text-black/42 transition hover:bg-black/5 hover:text-black" aria-label={show ? 'Ocultar contrasena' : 'Mostrar contrasena'}>
+          {show ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+        </button>
+      </span>
+    </label>
   )
 }

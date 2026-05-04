@@ -47,7 +47,7 @@ export async function POST(request: NextRequest) {
   );
   try {
     const body = await request.json();
-    const { tenantId, productName, sku, minStock, maxStock, costPerUnit, supplier } = body;
+    const { tenantId, productName, sku, minStock, maxStock, initialStock, costPerUnit, supplier } = body;
 
     if (!tenantId || !productName || !costPerUnit) {
       return NextResponse.json(
@@ -67,7 +67,7 @@ export async function POST(request: NextRequest) {
           max_stock: maxStock || 100,
           cost_per_unit: costPerUnit,
           supplier: supplier || null,
-          current_stock: 0,
+          current_stock: Number(initialStock) || 0,
         },
       ])
       .select()

@@ -62,13 +62,13 @@ export function POSPayment({
   const isValidPayment = paymentMethod === 'stripe' || (paymentMethod === 'cash' && paidAmount >= totalWithTip);
 
   return (
-    <div className="space-y-1">
+    <div className="space-y-2">
       {/* Propina */}
-      <div className="flex items-center gap-2 bg-gray-800 rounded-lg px-3 py-2 border border-gray-700">
-        <span className="text-gray-400 text-xs flex-1">Propina</span>
+      <div className="pos-card flex items-center gap-2 rounded-xl px-3 py-2">
+        <span className="text-slate-400 text-xs flex-1">Propina</span>
         <button
           onClick={() => setShowTipKeyboard(true)}
-          className="text-yellow-400 font-bold text-sm hover:text-yellow-300 transition"
+          className="text-amber-300 font-black text-sm hover:text-amber-200 transition"
         >
           {tip > 0 ? formatPriceWithCurrency(tip, currencyInfo.code, currencyInfo.locale) : '+ Agregar'}
         </button>
@@ -78,9 +78,9 @@ export function POSPayment({
       </div>
 
       {/* Total */}
-      <div className="bg-gradient-to-r from-blue-600 to-blue-700 rounded-lg p-2 text-white">
-        <p className="text-sm opacity-90 mb-1">Total a Pagar</p>
-        <p className="text-xl font-bold">{formatPriceWithCurrency(totalWithTip, currencyInfo.code, currencyInfo.locale)}</p>
+      <div className="pos-total-band rounded-xl p-3 text-white">
+        <p className="text-xs text-emerald-100/68 mb-1 font-black uppercase">Total a pagar</p>
+        <p className="text-2xl font-black text-emerald-200">{formatPriceWithCurrency(totalWithTip, currencyInfo.code, currencyInfo.locale)}</p>
         {tip > 0 && <p className="text-xs opacity-70">Incl. propina {formatPriceWithCurrency(tip, currencyInfo.code, currencyInfo.locale)}</p>}
       </div>
 
@@ -93,10 +93,10 @@ export function POSPayment({
             setChange(0);
           }}
           disabled={disabled}
-          className={`py-2 rounded-lg font-bold flex items-center justify-center gap-1 text-sm transition ${
+          className={`py-2 rounded-xl font-black flex items-center justify-center gap-1 text-sm transition border ${
             paymentMethod === 'cash'
-              ? 'bg-green-600 text-white'
-              : 'bg-gray-700 text-muted-foreground hover:bg-gray-600'
+              ? 'bg-emerald-400/18 border-emerald-300/35 text-emerald-50'
+              : 'bg-white/10 border-white/10 text-slate-400 hover:text-white'
           } ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
         >
           <DollarSign className="w-5 h-5" />
@@ -105,10 +105,10 @@ export function POSPayment({
         <button
           onClick={() => onPaymentMethodChange('stripe')}
           disabled={disabled}
-          className={`py-2 rounded-lg font-bold flex items-center justify-center gap-1 text-sm transition ${
+          className={`py-2 rounded-xl font-black flex items-center justify-center gap-1 text-sm transition border ${
             paymentMethod === 'stripe'
-              ? 'bg-blue-600 text-white'
-              : 'bg-gray-700 text-muted-foreground hover:bg-gray-600'
+              ? 'bg-cyan-300/18 border-cyan-300/35 text-cyan-50'
+              : 'bg-white/10 border-white/10 text-slate-400 hover:text-white'
           } ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
         >
           <CreditCard className="w-5 h-5" />
@@ -118,11 +118,11 @@ export function POSPayment({
 
       {/* Ingreso de Efectivo */}
       {paymentMethod === 'cash' && (
-        <div className="space-y-3 bg-card p-4 rounded-lg border border-border">
-          <label className="text-xs font-medium text-muted-foreground">Cantidad Recibida</label>
+        <div className="pos-card space-y-3 p-4 rounded-xl">
+          <label className="text-xs font-bold text-slate-400">Cantidad recibida</label>
           <button
             onClick={() => setShowNumericKeyboard(true)}
-            className="w-full px-2 py-2 bg-gray-700 border-2 border-green-600 hover:bg-gray-600 rounded-lg text-center text-lg font-bold text-green-400 transition hover:border-green-500"
+            className="w-full px-2 py-2 bg-emerald-400/10 border-2 border-emerald-300/35 hover:bg-emerald-400/16 rounded-xl text-center text-lg font-black text-emerald-200 transition"
             title="Toca para ingresar cantidad"
           >
             {amountPaid ? formatPriceWithCurrency(Number(amountPaid), currencyInfo.code, currencyInfo.locale) : 'Ingresa cantidad'}
@@ -130,13 +130,13 @@ export function POSPayment({
 
           {/* Billetes Sugeridos */}
           <div className="space-y-2">
-            <p className="text-xs text-gray-500">Billetes sugeridos:</p>
+            <p className="text-xs text-slate-500">Billetes sugeridos:</p>
             <div className="grid grid-cols-4 gap-2">
               {suggestedAmounts.map((amount) => (
                 <button
                   key={amount}
                   onClick={() => handleSuggestedAmount(amount)}
-                  className="py-1 px-1 bg-gray-700 hover:bg-gray-600 rounded text-xs font-bold text-green-400 border border-gray-600 hover:border-green-500"
+                  className="py-1 px-1 bg-white/10 hover:bg-white/15 rounded-lg text-xs font-black text-emerald-300 border border-white/10 hover:border-emerald-300/40"
                 >
                   {currencyInfo.symbol}{amount}
                 </button>
@@ -146,9 +146,9 @@ export function POSPayment({
 
           {/* Cambio */}
           {paidAmount > 0 && (
-            <div className={`p-3 rounded-lg ${change >= 0 ? 'bg-green-900' : 'bg-red-900'}`}>
-              <p className="text-xs text-muted-foreground mb-1">Cambio</p>
-              <p className={`text-2xl font-bold ${change >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+            <div className={`p-3 rounded-xl border ${change >= 0 ? 'bg-emerald-400/12 border-emerald-300/28' : 'bg-red-500/12 border-red-400/30'}`}>
+              <p className="text-xs text-slate-400 mb-1">Cambio</p>
+              <p className={`text-2xl font-black ${change >= 0 ? 'text-emerald-300' : 'text-red-300'}`}>
                 {formatPriceWithCurrency(Math.abs(change), currencyInfo.code, currencyInfo.locale)}
               </p>
               {change < 0 && <p className="text-xs text-red-400 mt-1">Falta {formatPriceWithCurrency(Math.abs(change), currencyInfo.code, currencyInfo.locale)}</p>}
@@ -161,10 +161,10 @@ export function POSPayment({
       <button
         onClick={() => onProceedPayment(paymentMethod === 'cash' ? paidAmount : undefined)}
         disabled={disabled || loading || !isValidPayment}
-        className={`w-full py-4 rounded-lg font-bold text-lg transition ${
+        className={`w-full py-4 rounded-xl font-black text-lg transition border ${
           isValidPayment && !disabled && !loading
-            ? 'bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white'
-            : 'bg-gray-600 text-muted-foreground cursor-not-allowed'
+            ? 'bg-gradient-to-r from-emerald-500 to-cyan-500 hover:from-emerald-400 hover:to-cyan-400 text-slate-950 border-white/20 shadow-lg shadow-cyan-900/20'
+            : 'bg-white/10 text-slate-500 border-white/10 cursor-not-allowed'
         }`}
       >
         {loading ? 'Procesando...' : `PAGAR ${formatPriceWithCurrency(totalWithTip, currencyInfo.code, currencyInfo.locale)}`}

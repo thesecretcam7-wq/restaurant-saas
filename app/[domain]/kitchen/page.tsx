@@ -1,6 +1,9 @@
 import { createServiceClient } from '@/lib/supabase/server'
 import { KitchenClient } from './KitchenClient'
 
+export const dynamic = 'force-dynamic'
+export const revalidate = 0
+
 interface Props {
   params: Promise<{ domain: string }>
 }

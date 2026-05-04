@@ -1,9 +1,9 @@
 'use client';
 
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { createClient } from '@supabase/supabase-js';
-import { UtensilsCrossed } from 'lucide-react';
+import { Clock, ReceiptText, ShoppingBag, UtensilsCrossed } from 'lucide-react';
 import { getCurrencyByCountry, formatPriceWithCurrency } from '@/lib/currency';
 
 interface CartItem {
@@ -20,30 +20,95 @@ interface PosCart {
   updated_at: string;
 }
 
+interface DisplayBranding {
+  app_name?: string | null;
+  primary_color?: string | null;
+  secondary_color?: string | null;
+  accent_color?: string | null;
+  background_color?: string | null;
+  text_primary_color?: string | null;
+  text_secondary_color?: string | null;
+  logo_url?: string | null;
+}
+
+function hexToRgb(hex: string) {
+  const normalized = hex.replace('#', '').trim();
+  if (!/^[0-9a-fA-F]{6}$/.test(normalized)) return null;
+  return {
+    r: parseInt(normalized.slice(0, 2), 16),
+    g: parseInt(normalized.slice(2, 4), 16),
+    b: parseInt(normalized.slice(4, 6), 16),
+  };
+}
+
+function isDark(hex: string) {
+  const rgb = hexToRgb(hex);
+  if (!rgb) return true;
+  const luminance = (0.299 * rgb.r + 0.587 * rgb.g + 0.114 * rgb.b) / 255;
+  return luminance < 0.5;
+}
+
+function readableText(background: string, preferred?: string | null, fallbackDark = '#15130f', fallbackLight = '#ffffff') {
+  if (preferred && preferred !== background) return preferred;
+  return isDark(background) ? fallbackLight : fallbackDark;
+}
+
 export default function CustomerDisplayPage() {
   const searchParams = useSearchParams();
   const tenantId = searchParams.get('tid');
   const country = searchParams.get('country') || 'CO';
   const currencyInfo = getCurrencyByCountry(country);
 
+  const [cart, setCart] = useState<PosCart | null>(null);
+  const [branding, setBranding] = useState<DisplayBranding | null>(null);
+  const [time, setTime] = useState(new Date());
+
+  const supabase = useMemo(
+    () =>
+      createClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+      ),
+    []
+  );
+
+  const primary = branding?.primary_color || '#E4002B';
+  const secondary = branding?.secondary_color || '#111827';
+  const accent = branding?.accent_color || primary;
+  const background = branding?.background_color || '#f7f5f0';
+  const pageText = readableText(background, branding?.text_primary_color);
+  const mutedText = readableText(background, branding?.text_secondary_color, 'rgba(21,19,15,0.58)', 'rgba(255,255,255,0.68)');
+  const primaryText = readableText(primary);
+  const secondaryText = readableText(secondary);
+  const restaurantName = branding?.app_name || 'Restaurante';
+  const logoUrl = branding?.logo_url || null;
+
   function fmt(amount: number) {
     return formatPriceWithCurrency(amount, currencyInfo.code, currencyInfo.locale);
   }
-
-  const [cart, setCart] = useState<PosCart | null>(null);
-  const [time, setTime] = useState(new Date());
-
-  const supabase = useMemo(() =>
-    createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-    ), []
-  );
 
   useEffect(() => {
     const t = setInterval(() => setTime(new Date()), 1000);
     return () => clearInterval(t);
   }, []);
+
+  useEffect(() => {
+    if (!tenantId) return;
+
+    async function fetchBranding() {
+      try {
+        const res = await fetch(`/api/tenant/branding?tenantId=${tenantId}`, { cache: 'no-store' });
+        if (!res.ok) return;
+        const json = await res.json();
+        setBranding({
+          ...(json.branding || {}),
+          logo_url: json.branding?.logo_url || json.tenant?.logo_url || null,
+        });
+      } catch {}
+    }
+
+    fetchBranding();
+  }, [tenantId]);
 
   useEffect(() => {
     if (!tenantId) return;
@@ -56,7 +121,7 @@ export default function CustomerDisplayPage() {
         .is('abandoned_at', null)
         .order('updated_at', { ascending: false })
         .limit(1)
-        .single();
+        .maybeSingle();
 
       if (data && data.items && data.items.length > 0) {
         setCart(data as PosCart);
@@ -66,17 +131,20 @@ export default function CustomerDisplayPage() {
     }
 
     fetchCart();
-
     const poll = setInterval(fetchCart, 2000);
 
     const channel = supabase
       .channel(`customer-display:${tenantId}`)
-      .on('postgres_changes', {
-        event: '*',
-        schema: 'public',
-        table: 'pos_carts',
-        filter: `tenant_id=eq.${tenantId}`,
-      }, fetchCart)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'pos_carts',
+          filter: `tenant_id=eq.${tenantId}`,
+        },
+        fetchCart
+      )
       .subscribe();
 
     return () => {
@@ -85,75 +153,153 @@ export default function CustomerDisplayPage() {
     };
   }, [tenantId, supabase]);
 
-  const hasItems = cart && cart.items && cart.items.length > 0;
+  const hasItems = !!cart?.items?.length;
+  const itemCount = cart?.items.reduce((sum, item) => sum + item.quantity, 0) || 0;
 
   return (
-    <div className="min-h-screen bg-gray-50 text-gray-900 flex flex-col select-none">
-      <div className="bg-gradient-to-r from-blue-600 to-indigo-600 px-8 py-4 flex items-center justify-between shadow-md">
-        <div className="flex items-center gap-3">
-          <div className="bg-white/10 rounded-xl p-2 border border-white/20">
-            <UtensilsCrossed className="w-6 h-6 text-white" />
-          </div>
-          <span className="text-white font-black text-xl tracking-wide">Eccofood</span>
-        </div>
-        <div className="text-white/80 text-sm font-mono">
-          {time.toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
-        </div>
-      </div>
-
-      {!hasItems ? (
-        <div className="flex-1 flex flex-col items-center justify-center gap-6">
-          <div className="text-8xl mb-2">🍽️</div>
-          <h1 className="text-4xl font-black text-gray-900 tracking-wide">¡Bienvenido!</h1>
-          <p className="text-gray-500 text-xl">Estamos preparando su pedido</p>
-        </div>
-      ) : (
-        <div className="flex-1 flex flex-col max-w-2xl mx-auto w-full px-8 py-8 gap-6">
-          <h2 className="text-2xl font-black text-gray-900">Su pedido</h2>
-
-          <div className="flex-1 space-y-3">
-            {cart!.items.map((item, i) => (
-              <div
-                key={i}
-                className="flex items-center justify-between bg-white border border-gray-200 rounded-2xl px-5 py-4 shadow-sm"
-              >
-                <div className="flex items-center gap-4">
-                  <span className="bg-blue-600 text-white font-black text-sm w-8 h-8 rounded-full flex items-center justify-center shrink-0">
-                    {item.quantity}
-                  </span>
-                  <span className="text-gray-900 font-semibold text-lg">{item.name}</span>
-                </div>
-                <span className="text-green-600 font-black text-lg">
-                  {fmt(item.price * item.quantity)}
-                </span>
-              </div>
-            ))}
-          </div>
-
-          <div className="bg-white border border-gray-200 rounded-2xl p-6 space-y-3 shadow-sm">
-            {cart!.discount > 0 && (
-              <div className="flex justify-between text-gray-500 text-base">
-                <span>Subtotal</span>
-                <span>{fmt(cart!.subtotal)}</span>
-              </div>
-            )}
-            {cart!.discount > 0 && (
-              <div className="flex justify-between text-green-600 text-base font-semibold">
-                <span>Descuento</span>
-                <span>-{fmt(cart!.discount)}</span>
-              </div>
-            )}
-            <div className="border-t border-gray-200 pt-3 flex justify-between items-center">
-              <span className="text-gray-900 font-black text-2xl">TOTAL</span>
-              <span className="text-green-600 font-black text-3xl tabular-nums">
-                {fmt(cart!.total)}
-              </span>
+    <main
+      className="min-h-screen select-none overflow-hidden"
+      style={{ backgroundColor: background, color: pageText, fontFamily: 'Inter, system-ui, sans-serif' }}
+    >
+      <div className="flex min-h-screen flex-col">
+        <header className="flex items-center justify-between px-10 py-7">
+          <div className="flex items-center gap-4">
+            <div
+              className="grid h-16 w-16 place-items-center overflow-hidden rounded-2xl border shadow-sm"
+              style={{ backgroundColor: secondary, borderColor: `${primary}55` }}
+            >
+              {logoUrl ? (
+                <img src={logoUrl} alt={restaurantName} className="h-full w-full object-contain bg-white p-2" />
+              ) : (
+                <UtensilsCrossed className="h-8 w-8" style={{ color: secondaryText }} />
+              )}
+            </div>
+            <div>
+              <p className="text-xs font-black uppercase tracking-[0.22em]" style={{ color: mutedText }}>
+                Pantalla del cliente
+              </p>
+              <h1 className="text-3xl font-black tracking-tight" style={{ color: pageText }}>
+                {restaurantName}
+              </h1>
             </div>
           </div>
 
-          <p className="text-center text-gray-400 text-sm">Gracias por elegirnos</p>
-        </div>
-      )}
-    </div>
+          <div className="flex items-center gap-3 rounded-2xl border px-4 py-3" style={{ borderColor: `${primary}55`, backgroundColor: 'rgba(255,255,255,0.12)' }}>
+            <Clock className="h-5 w-5" style={{ color: primary }} />
+            <div className="text-right">
+              <p className="text-2xl font-black tabular-nums" style={{ color: pageText }}>
+                {time.toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' })}
+              </p>
+              <p className="text-xs font-semibold" style={{ color: mutedText }}>
+                {time.toLocaleDateString('es-CO', { weekday: 'long', day: 'numeric', month: 'long' })}
+              </p>
+            </div>
+          </div>
+        </header>
+
+        {!hasItems ? (
+          <section className="grid flex-1 place-items-center px-10 pb-12">
+            <div className="w-full max-w-5xl">
+              <div className="grid grid-cols-[1fr_0.72fr] items-center gap-10">
+                <div>
+                  <p className="mb-5 inline-flex rounded-full px-4 py-2 text-sm font-black uppercase tracking-[0.16em]" style={{ backgroundColor: `${primary}20`, color: primary }}>
+                    Listo para tomar pedido
+                  </p>
+                  <h2 className="max-w-3xl text-7xl font-black leading-[0.92] tracking-tight" style={{ color: pageText }}>
+                    Bienvenido
+                  </h2>
+                  <p className="mt-6 max-w-xl text-2xl font-semibold leading-snug" style={{ color: mutedText }}>
+                    El detalle de tu compra aparecera aqui mientras el cajero agrega los productos.
+                  </p>
+                </div>
+
+                <div className="rounded-[2rem] border p-8 shadow-2xl" style={{ backgroundColor: secondary, borderColor: `${primary}55`, color: secondaryText }}>
+                  <div className="grid aspect-square place-items-center rounded-[1.5rem]" style={{ backgroundColor: `${primary}22` }}>
+                    <ShoppingBag className="h-32 w-32" style={{ color: primary }} />
+                  </div>
+                  <div className="mt-8 flex items-center justify-between">
+                    <span className="text-sm font-black uppercase tracking-[0.18em]" style={{ color: secondaryText }}>
+                      Pedido actual
+                    </span>
+                    <span className="rounded-full px-3 py-1 text-sm font-black" style={{ backgroundColor: primary, color: primaryText }}>
+                      En espera
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </section>
+        ) : (
+          <section className="grid flex-1 grid-cols-[1fr_430px] gap-8 px-10 pb-10">
+            <div className="flex min-h-0 flex-col rounded-[2rem] border bg-white/80 shadow-xl" style={{ borderColor: `${primary}45` }}>
+              <div className="flex items-center justify-between border-b px-7 py-5" style={{ borderColor: `${primary}35` }}>
+                <div className="flex items-center gap-3">
+                  <div className="grid h-12 w-12 place-items-center rounded-2xl" style={{ backgroundColor: `${primary}20` }}>
+                    <ReceiptText className="h-6 w-6" style={{ color: primary }} />
+                  </div>
+                  <div>
+                    <h2 className="text-2xl font-black" style={{ color: '#15130f' }}>Tu pedido</h2>
+                    <p className="text-sm font-semibold text-gray-500">{itemCount} productos agregados</p>
+                  </div>
+                </div>
+                <span className="rounded-full px-4 py-2 text-sm font-black" style={{ backgroundColor: `${accent}22`, color: accent }}>
+                  En caja
+                </span>
+              </div>
+
+              <div className="min-h-0 flex-1 space-y-3 overflow-y-auto p-6">
+                {cart!.items.map((item, i) => (
+                  <div
+                    key={`${item.name}-${i}`}
+                    className="grid grid-cols-[70px_1fr_auto] items-center gap-5 rounded-2xl border bg-white px-5 py-4 shadow-sm"
+                    style={{ borderColor: '#e7e2d8' }}
+                  >
+                    <div className="grid h-14 w-14 place-items-center rounded-2xl text-xl font-black" style={{ backgroundColor: primary, color: primaryText }}>
+                      {item.quantity}
+                    </div>
+                    <div className="min-w-0">
+                      <p className="truncate text-2xl font-black text-[#15130f]">{item.name}</p>
+                      <p className="mt-1 text-sm font-semibold text-gray-500">{fmt(item.price)} c/u</p>
+                    </div>
+                    <p className="text-3xl font-black tabular-nums" style={{ color: primary }}>
+                      {fmt(item.price * item.quantity)}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <aside className="flex flex-col justify-between rounded-[2rem] p-7 shadow-2xl" style={{ backgroundColor: secondary, color: secondaryText }}>
+              <div>
+                <p className="text-sm font-black uppercase tracking-[0.18em] opacity-70">Resumen</p>
+                <div className="mt-8 space-y-4">
+                  <div className="flex items-center justify-between text-lg">
+                    <span className="opacity-70">Subtotal</span>
+                    <span className="font-black tabular-nums">{fmt(cart!.subtotal)}</span>
+                  </div>
+                  {cart!.discount > 0 && (
+                    <div className="flex items-center justify-between rounded-2xl px-4 py-3 text-lg" style={{ backgroundColor: `${accent}22`, color: accent }}>
+                      <span className="font-bold">Descuento</span>
+                      <span className="font-black tabular-nums">-{fmt(cart!.discount)}</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div>
+                <div className="mb-6 h-px w-full bg-white/15" />
+                <p className="text-sm font-black uppercase tracking-[0.2em] opacity-70">Total a pagar</p>
+                <p className="mt-3 text-6xl font-black leading-none tabular-nums" style={{ color: accent }}>
+                  {fmt(cart!.total)}
+                </p>
+                <p className="mt-6 rounded-2xl px-5 py-4 text-center text-lg font-black" style={{ backgroundColor: primary, color: primaryText }}>
+                  Gracias por tu compra
+                </p>
+              </div>
+            </aside>
+          </section>
+        )}
+      </div>
+    </main>
   );
 }

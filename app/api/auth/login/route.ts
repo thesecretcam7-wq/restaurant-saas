@@ -8,29 +8,50 @@ import { getAuthLimiter, getClientIp, applyRateLimit } from '@/lib/rate-limit'
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const { email, password } = body
+    const email = typeof body.email === 'string' ? body.email.trim().toLowerCase() : ''
+    const password = body.password
 
     if (!email || !password) {
-      return NextResponse.json({ error: 'Email y contraseña requeridos' }, { status: 400 })
+      return NextResponse.json({ error: 'Email y contrasena requeridos' }, { status: 400 })
     }
 
-    // Límite por email (5 intentos/min por cuenta específica)
     const authLimiter = getAuthLimiter()
     if (authLimiter) {
       const ip = getClientIp(request)
       const { limited, headers } = await applyRateLimit(authLimiter, `login:${email}:${ip}`)
       if (limited) {
         return NextResponse.json(
-          { error: 'Demasiados intentos de inicio de sesión. Espera un minuto.' },
+          { error: 'Demasiados intentos de inicio de sesion. Espera un minuto.' },
           { status: 429, headers }
         )
       }
     }
 
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+    const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+    const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+
+    const missingEnv = [
+      !supabaseUrl && 'NEXT_PUBLIC_SUPABASE_URL',
+      !supabaseAnonKey && 'NEXT_PUBLIC_SUPABASE_ANON_KEY',
+      !supabaseServiceKey && 'SUPABASE_SERVICE_ROLE_KEY',
+    ].filter(Boolean)
+
+    if (missingEnv.length > 0) {
+      return NextResponse.json(
+        { error: `Faltan variables de Supabase en .env.local: ${missingEnv.join(', ')}` },
+        { status: 500 }
+      )
+    }
+
+    const url = supabaseUrl as string
+    const anonKey = supabaseAnonKey as string
+    const serviceKey = supabaseServiceKey as string
+
     const cookieStore = await cookies()
     const supabase = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      url,
+      anonKey,
       {
         cookies: {
           getAll() { return cookieStore.getAll() },
@@ -48,10 +69,10 @@ export async function POST(request: NextRequest) {
     const { data, error } = await supabase.auth.signInWithPassword({ email, password })
 
     if (error) {
+      console.error('[Login] Supabase auth error:', error.message)
       return NextResponse.json({ error: 'Credenciales incorrectas' }, { status: 401 })
     }
 
-    // Get tenant for this user
     const { data: tenant } = await supabase
       .from('tenants')
       .select('id, slug, primary_domain, status')
@@ -59,18 +80,17 @@ export async function POST(request: NextRequest) {
       .single()
 
     if (!tenant) {
-      return NextResponse.json({ error: 'No se encontró un restaurante asociado' }, { status: 404 })
+      return NextResponse.json({ error: 'No se encontro un restaurante asociado' }, { status: 404 })
     }
 
     if (tenant.status === 'suspended') {
-      return NextResponse.json({ error: 'Esta cuenta está suspendida' }, { status: 403 })
+      return NextResponse.json({ error: 'Esta cuenta esta suspendida' }, { status: 403 })
     }
 
-    // Single-session enforcement: register token in DB
     const sessionToken = randomUUID()
     const serviceClient = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!,
+      url,
+      serviceKey,
       { auth: { autoRefreshToken: false, persistSession: false } }
     )
     await serviceClient.from('active_sessions').upsert({
@@ -79,10 +99,8 @@ export async function POST(request: NextRequest) {
       session_token: sessionToken,
     }, { onConflict: 'user_key' })
 
-    // Check if this is the software owner (system admin)
     const ownerEmails = ['thesecretcam7@gmail.com']
     const isOwner = ownerEmails.includes(email)
-    // Super admin can choose - default to owner dashboard, but can access any restaurant
     const redirectUrl = isOwner ? '/owner-dashboard' : `/${tenant.slug}/acceso`
 
     const response = NextResponse.json({ success: true, tenant, redirectUrl })

@@ -41,10 +41,10 @@ export default function CategoryFilterBar({ categories, primary, btnCls }: Categ
   }, [])
 
   return (
-    <div className="max-w-lg mx-auto flex gap-2 px-4 pb-4 overflow-x-auto scrollbar-hide border-b border-gray-100">
+    <div className="mx-auto flex max-w-7xl snap-x gap-2 overflow-x-auto border-t border-black/[0.04] bg-white/95 px-3 py-2.5 scrollbar-hide sm:px-6 sm:py-3 lg:px-8">
       <button
         onClick={handleShowAll}
-        className={`px-4 py-2 text-xs font-bold whitespace-nowrap border transition-colors ${btnCls}`}
+        className={`h-10 snap-start whitespace-nowrap border px-4 text-xs font-black shadow-sm transition active:scale-[0.98] sm:px-5 sm:hover:-translate-y-0.5 ${btnCls}`}
         style={{
           backgroundColor: activeCatId === null ? primary : 'white',
           color: activeCatId === null ? 'white' : primary,
@@ -57,7 +57,7 @@ export default function CategoryFilterBar({ categories, primary, btnCls }: Categ
         <button
           key={cat.id}
           onClick={() => handleShowCategory(cat.id)}
-          className={`px-4 py-2 text-xs font-semibold whitespace-nowrap border transition-colors ${btnCls}`}
+          className={`h-10 snap-start whitespace-nowrap border px-4 text-xs font-black shadow-sm transition active:scale-[0.98] sm:px-5 sm:hover:-translate-y-0.5 ${btnCls}`}
           style={{
             backgroundColor: activeCatId === cat.id ? primary : 'white',
             color: activeCatId === cat.id ? 'white' : primary,
