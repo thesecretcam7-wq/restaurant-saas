@@ -266,13 +266,15 @@ export function EccofoodLanding() {
             ))}
           </div>
 
-          <div className="flex items-center gap-2">
-            <Link href="/login" className="hidden rounded-xl px-4 py-2.5 text-sm font-black text-black/58 transition hover:bg-black/[0.04] hover:text-black sm:block">
-              Iniciar sesion
+          <div className="flex items-center gap-1.5 sm:gap-2">
+            <Link href="/login" className="rounded-xl px-3 py-2.5 text-xs font-black text-black/64 transition hover:bg-black/[0.04] hover:text-black sm:px-4 sm:text-sm">
+              <span className="sm:hidden">Entrar</span>
+              <span className="hidden sm:inline">Iniciar sesion</span>
             </Link>
-            <Link href="/register" className="inline-flex h-11 items-center gap-2 rounded-xl bg-[#ff6b1a] px-4 text-sm font-black text-white shadow-lg shadow-orange-900/14 transition hover:-translate-y-0.5 hover:bg-[#ed5f12]">
-              Empieza Gratis
-              <ArrowRight className="size-4" />
+            <Link href="/register" className="inline-flex h-10 items-center gap-1.5 rounded-xl bg-[#ff6b1a] px-3 text-xs font-black text-white shadow-lg shadow-orange-900/14 transition hover:-translate-y-0.5 hover:bg-[#ed5f12] sm:h-11 sm:gap-2 sm:px-4 sm:text-sm">
+              <span className="sm:hidden">Gratis</span>
+              <span className="hidden sm:inline">Empieza Gratis</span>
+              <ArrowRight className="size-3.5 sm:size-4" />
             </Link>
           </div>
         </div>

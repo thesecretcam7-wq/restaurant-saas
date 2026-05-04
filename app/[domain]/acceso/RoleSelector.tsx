@@ -97,7 +97,7 @@ export function RoleSelector({ tenantName, tenantSlug, logoUrl, branding }: Prop
 
   return (
     <main
-      className="min-h-screen overflow-hidden text-white"
+      className="min-h-screen overflow-x-hidden text-white"
       style={{
         background:
           `radial-gradient(circle at 16% 12%, ${primary}33, transparent 34%), ` +
@@ -105,8 +105,8 @@ export function RoleSelector({ tenantName, tenantSlug, logoUrl, branding }: Prop
           `linear-gradient(135deg, ${pageBg}, #020617 78%)`,
       }}
     >
-      <div className="flex min-h-screen">
-        <section className="flex w-[42%] min-w-[380px] flex-col justify-between border-r border-white/10 px-10 py-9">
+      <div className="flex min-h-screen flex-col lg:flex-row">
+        <section className="flex flex-col justify-between border-b border-white/10 px-5 py-6 sm:px-8 lg:w-[42%] lg:min-w-[380px] lg:border-b-0 lg:border-r lg:px-10 lg:py-9">
           <div className="flex items-center gap-4">
             <div className="grid h-16 w-16 place-items-center overflow-hidden rounded-2xl border border-white/15 bg-white/10 shadow-2xl">
               {logoUrl ? (
@@ -128,10 +128,10 @@ export function RoleSelector({ tenantName, tenantSlug, logoUrl, branding }: Prop
             >
               Equipo operativo
             </p>
-            <h2 className="max-w-lg text-6xl font-black leading-[0.94] tracking-tight">
+            <h2 className="max-w-lg text-4xl font-black leading-[0.98] tracking-tight sm:text-5xl lg:text-6xl">
               Elige tu puesto para entrar
             </h2>
-            <p className="mt-6 max-w-md text-lg font-semibold leading-relaxed text-white/58">
+            <p className="mt-4 max-w-md text-base font-semibold leading-relaxed text-white/58 sm:text-lg lg:mt-6">
               Cada perfil abre solo las herramientas que necesita durante el servicio.
             </p>
           </div>
@@ -142,8 +142,8 @@ export function RoleSelector({ tenantName, tenantSlug, logoUrl, branding }: Prop
           </div>
         </section>
 
-        <section className="flex flex-1 items-center justify-center p-10">
-          <div className="grid w-full max-w-4xl grid-cols-2 gap-4">
+        <section className="flex flex-1 items-center justify-center p-4 sm:p-8 lg:p-10">
+          <div className="grid w-full max-w-4xl grid-cols-1 gap-3 sm:gap-4 lg:grid-cols-2">
             {roles.map((role) => {
               const Icon = role.icon;
               const selected = selectedRole === role.id;
@@ -154,7 +154,7 @@ export function RoleSelector({ tenantName, tenantSlug, logoUrl, branding }: Prop
                   key={role.id}
                   onClick={() => handleSelect(role.id)}
                   disabled={disabled}
-                  className={`group min-h-[220px] rounded-3xl border p-6 text-left transition-all duration-200 active:scale-[0.98] ${
+                  className={`group min-h-[138px] rounded-3xl border p-4 text-left transition-all duration-200 active:scale-[0.98] sm:min-h-[170px] sm:p-5 lg:min-h-[220px] lg:p-6 ${
                     disabled ? 'cursor-not-allowed opacity-55' : 'hover:-translate-y-1 hover:bg-white/[0.11]'
                   }`}
                   style={{
@@ -166,23 +166,23 @@ export function RoleSelector({ tenantName, tenantSlug, logoUrl, branding }: Prop
                   <div className="flex h-full flex-col justify-between">
                     <div className="flex items-start justify-between gap-4">
                       <div
-                        className="grid h-16 w-16 place-items-center rounded-2xl border"
+                        className="grid h-12 w-12 place-items-center rounded-2xl border sm:h-14 sm:w-14 lg:h-16 lg:w-16"
                         style={{
                           backgroundColor: `${role.color}24`,
                           borderColor: `${role.color}55`,
                           color: role.id === 'admin' ? secondaryText : role.id === 'cocinero' ? primaryText : '#ffffff',
                         }}
                       >
-                        <Icon className="h-8 w-8" />
+                        <Icon className="h-6 w-6 lg:h-8 lg:w-8" />
                       </div>
                       <LogIn className="h-5 w-5 text-white/30 transition group-hover:text-white/70" />
                     </div>
 
                     <div>
-                      <p className="text-sm font-black uppercase tracking-[0.16em]" style={{ color: role.color }}>
+                      <p className="text-xs font-black uppercase tracking-[0.14em] sm:text-sm sm:tracking-[0.16em]" style={{ color: role.color }}>
                         {role.desc}
                       </p>
-                      <h3 className="mt-2 text-3xl font-black text-white">{role.label}</h3>
+                      <h3 className="mt-1 text-2xl font-black text-white sm:mt-2 lg:text-3xl">{role.label}</h3>
                       <p className="mt-2 text-sm font-semibold text-white/52">{role.hint}</p>
                     </div>
                   </div>
