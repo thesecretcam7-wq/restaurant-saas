@@ -1,105 +1,182 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
 import toast from 'react-hot-toast'
+import { useTenantResolver } from '@/lib/hooks/useTenantResolver'
 import {
-  type PageConfig,
-  type SectionConfig,
-  type TestimonialItem,
+  ArrowDown,
+  ArrowUp,
+  ExternalLink,
+  ImagePlus,
+  LayoutTemplate,
+  Megaphone,
+  Palette,
+  RotateCcw,
+  Save,
+  Share2,
+  Sparkles,
+} from 'lucide-react'
+import {
   DEFAULT_PAGE_CONFIG,
   getPageConfig,
-  SECTION_META,
+  type PageConfig,
+  type TestimonialItem,
 } from '@/lib/pageConfig'
 
-type PanelId = 'home' | 'hero' | 'section' | 'appearance' | 'social' | 'advanced'
+type TabId = 'home' | 'hero' | 'sections' | 'style' | 'social' | 'advanced'
+
+interface BrandFallbacks {
+  appName: string
+  tagline: string
+  description: string
+  heroImageUrl: string
+  instagram: string
+  facebook: string
+  whatsapp: string
+  website: string
+}
+
+const tabs: Array<{ id: TabId; label: string; helper: string; Icon: typeof LayoutTemplate }> = [
+  { id: 'home', label: 'Resumen', helper: 'Estado de la tienda', Icon: LayoutTemplate },
+  { id: 'hero', label: 'Portada', helper: 'Primera pantalla', Icon: ImagePlus },
+  { id: 'sections', label: 'Secciones', helper: 'Orden y contenido', Icon: Megaphone },
+  { id: 'style', label: 'Estilo', helper: 'Tarjetas y menu', Icon: Palette },
+  { id: 'social', label: 'Redes', helper: 'Links publicos', Icon: Share2 },
+  { id: 'advanced', label: 'Avanzado', helper: 'Footer y reset', Icon: Sparkles },
+]
+
+const sectionCopy: Record<string, { label: string; description: string }> = {
+  banner: { label: 'Promocion superior', description: 'Mensaje corto arriba de la tienda, ideal para ofertas.' },
+  featured: { label: 'Productos destacados', description: 'Platos que quieres mostrar primero.' },
+  about: { label: 'Sobre el restaurante', description: 'Historia, concepto o descripcion de la marca.' },
+  info: { label: 'Datos del negocio', description: 'Direccion, telefono y detalles de contacto.' },
+  gallery: { label: 'Fotos', description: 'Imagenes del local, platos o ambiente.' },
+  hours: { label: 'Horarios', description: 'Dias y horas de atencion.' },
+  testimonials: { label: 'Opiniones', description: 'Comentarios de clientes para generar confianza.' },
+  actions: { label: 'Botones rapidos', description: 'Accesos como ver menu, reservar o contactar.' },
+  social: { label: 'Redes sociales', description: 'Links a Instagram, WhatsApp, Facebook y mas.' },
+}
+
+function sectionInfo(type: string) {
+  return sectionCopy[type] || { label: 'Seccion', description: 'Bloque visible en la tienda.' }
+}
 
 export default function PageBuilderPage() {
   const params = useParams()
-  const tenantId = params.domain as string
+  const tenantSlug = params.domain as string
+  const { tenantId } = useTenantResolver(tenantSlug)
   const [config, setConfig] = useState<PageConfig>(DEFAULT_PAGE_CONFIG)
+  const [brandFallbacks, setBrandFallbacks] = useState<BrandFallbacks>({
+    appName: '',
+    tagline: '',
+    description: '',
+    heroImageUrl: '',
+    instagram: '',
+    facebook: '',
+    whatsapp: '',
+    website: '',
+  })
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
-  const [panel, setPanel] = useState<PanelId>('home')
-  const [selectedSectionId, setSelectedSectionId] = useState<string | null>(null)
+  const [dirty, setDirty] = useState(false)
+  const [saveStatus, setSaveStatus] = useState<'saved' | 'pending' | 'saving' | 'error'>('saved')
+  const [tab, setTab] = useState<TabId>('home')
+  const [selectedSectionId, setSelectedSectionId] = useState<string>('featured')
   const [uploadingImage, setUploadingImage] = useState<string | null>(null)
+  const autosaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => {
-    fetch(`/api/tenant/page-config?tenantId=${tenantId}`)
+    fetch(`/api/tenant/page-config?tenantId=${tenantSlug}`)
       .then(r => r.json())
       .then(data => setConfig(getPageConfig(data.page_config)))
-      .catch(() => {})
+      .catch(() => toast.error('No se pudo cargar el diseno'))
       .finally(() => setLoading(false))
+  }, [tenantSlug])
+
+  useEffect(() => {
+    if (!tenantId) return
+
+    fetch(`/api/tenant/branding?tenantId=${tenantId}`)
+      .then(r => r.json())
+      .then(data => {
+        const branding = data.branding || {}
+        const fallbacks = {
+          appName: branding.app_name || '',
+          tagline: branding.tagline || '',
+          description: branding.description || '',
+          heroImageUrl: branding.hero_image_url || '',
+          instagram: branding.instagram_url || '',
+          facebook: branding.facebook_url || '',
+          whatsapp: branding.whatsapp_number ? `https://wa.me/${String(branding.whatsapp_number).replace(/\D/g, '')}` : '',
+          website: branding.website_url || '',
+        }
+        setBrandFallbacks(fallbacks)
+        setConfig(current => ({
+          ...current,
+          hero: {
+            ...current.hero,
+            title_text: current.hero.title_text || fallbacks.appName,
+            subtitle_text: current.hero.subtitle_text || fallbacks.tagline,
+          },
+          about: {
+            ...current.about,
+            text: current.about.text || fallbacks.description,
+          },
+          social: {
+            ...current.social,
+            instagram: current.social.instagram || fallbacks.instagram,
+            facebook: current.social.facebook || fallbacks.facebook,
+            whatsapp: current.social.whatsapp || fallbacks.whatsapp,
+            website: current.social.website || fallbacks.website,
+          },
+        }))
+      })
+      .catch(() => {})
   }, [tenantId])
 
-  const save = async () => {
+  const sortedSections = useMemo(
+    () => [...config.sections].sort((a, b) => a.order - b.order),
+    [config.sections]
+  )
+  const selectedSection = config.sections.find(s => s.id === selectedSectionId) || sortedSections[0]
+  const activeSections = config.sections.filter(s => s.enabled).length
+
+  const markDirty = () => {
+    setDirty(true)
+    setSaveStatus('pending')
+  }
+
+  const save = async (mode: 'manual' | 'auto' = 'manual') => {
     setSaving(true)
+    setSaveStatus('saving')
     try {
       const res = await fetch('/api/tenant/page-config', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ tenantId, page_config: config }),
+        body: JSON.stringify({ tenantId: tenantSlug, page_config: config }),
       })
-      if (res.ok) toast.success('Cambios guardados')
-      else toast.error('Error al guardar')
-    } catch { toast.error('Error de conexión') }
-    finally { setSaving(false) }
+      if (!res.ok) throw new Error('Error al guardar')
+      setDirty(false)
+      setSaveStatus('saved')
+      if (mode === 'manual') toast.success('Diseno guardado')
+    } catch {
+      setSaveStatus('error')
+      toast.error('No se pudo guardar')
+    } finally {
+      setSaving(false)
+    }
   }
 
-  const updateHero = useCallback((key: string, value: any) =>
-    setConfig(c => ({ ...c, hero: { ...c.hero, [key]: value } })), [])
-
-  const updateAppearance = useCallback((key: string, value: any) =>
-    setConfig(c => ({ ...c, appearance: { ...c.appearance, [key]: value } })), [])
-
-  const updateSocial = useCallback((key: string, value: string) =>
-    setConfig(c => ({ ...c, social: { ...c.social, [key]: value } })), [])
-
-  const updateBanner = useCallback((key: string, value: any) =>
-    setConfig(c => ({ ...c, banner: { ...c.banner, [key]: value } })), [])
-
-  const updateAbout = useCallback((key: string, value: any) =>
-    setConfig(c => ({ ...c, about: { ...c.about, [key]: value } })), [])
-
-  const updateFooter = useCallback((key: string, value: any) =>
-    setConfig(c => ({ ...c, footer: { ...c.footer, [key]: value } })), [])
-
-  const toggleSection = useCallback((id: string) =>
-    setConfig(c => {
-      const updatedConfig = {
-        ...c,
-        sections: c.sections.map(s => s.id === id ? { ...s, enabled: !s.enabled } : s),
-      }
-      // Also toggle banner.enabled when banner section is toggled
-      if (id === 'banner') {
-        updatedConfig.banner = { ...updatedConfig.banner, enabled: !updatedConfig.banner.enabled }
-      }
-      return updatedConfig
-    }), [])
-
-  const moveSection = useCallback((id: string, direction: 'up' | 'down') => {
-    setConfig(c => {
-      const sections = [...c.sections].sort((a, b) => a.order - b.order)
-      const idx = sections.findIndex(s => s.id === id)
-      if (direction === 'up' && idx > 0) {
-        const tmp = sections[idx].order
-        sections[idx].order = sections[idx - 1].order
-        sections[idx - 1].order = tmp
-      } else if (direction === 'down' && idx < sections.length - 1) {
-        const tmp = sections[idx].order
-        sections[idx].order = sections[idx + 1].order
-        sections[idx + 1].order = tmp
-      }
-      return { ...c, sections }
-    })
-  }, [])
-
-  const updateSectionConfig = useCallback((id: string, key: string, value: any) =>
-    setConfig(c => ({
-      ...c,
-      sections: c.sections.map(s => s.id === id ? { ...s, config: { ...s.config, [key]: value } } : s),
-    })), [])
+  useEffect(() => {
+    if (!dirty) return
+    if (autosaveTimer.current) clearTimeout(autosaveTimer.current)
+    autosaveTimer.current = setTimeout(() => save('auto'), 1400)
+    return () => {
+      if (autosaveTimer.current) clearTimeout(autosaveTimer.current)
+    }
+  }, [config, dirty])
 
   const uploadImage = async (file: File, key: string): Promise<string | null> => {
     setUploadingImage(key)
@@ -110,695 +187,736 @@ export default function PageBuilderPage() {
       const res = await fetch('/api/upload', { method: 'POST', body: formData })
       const data = await res.json()
       return data.url || null
-    } catch { return null }
-    finally { setUploadingImage(null) }
+    } catch {
+      toast.error('No se pudo subir la imagen')
+      return null
+    } finally {
+      setUploadingImage(null)
+    }
+  }
+
+  const updateHero = (key: string, value: any) => {
+    setConfig(c => ({ ...c, hero: { ...c.hero, [key]: value } }))
+    markDirty()
+  }
+
+  const updateAppearance = (key: string, value: any) => {
+    setConfig(c => ({ ...c, appearance: { ...c.appearance, [key]: value } }))
+    markDirty()
+  }
+
+  const updateSocial = (key: string, value: string) => {
+    setConfig(c => ({ ...c, social: { ...c.social, [key]: value } }))
+    markDirty()
+  }
+
+  const updateBanner = (key: string, value: any) => {
+    setConfig(c => ({ ...c, banner: { ...c.banner, [key]: value } }))
+    markDirty()
+  }
+
+  const updateAbout = (key: string, value: any) => {
+    setConfig(c => ({ ...c, about: { ...c.about, [key]: value } }))
+    markDirty()
+  }
+
+  const updateFooter = (key: string, value: any) => {
+    setConfig(c => ({ ...c, footer: { ...c.footer, [key]: value } }))
+    markDirty()
+  }
+
+  const updateSectionConfig = (id: string, key: string, value: any) => {
+    setConfig(c => ({
+      ...c,
+      sections: c.sections.map(s => s.id === id ? { ...s, config: { ...s.config, [key]: value } } : s),
+    }))
+    markDirty()
+  }
+
+  const toggleSection = (id: string) => {
+    setConfig(c => {
+      const next = {
+        ...c,
+        sections: c.sections.map(s => s.id === id ? { ...s, enabled: !s.enabled } : s),
+      }
+      if (id === 'banner') next.banner = { ...next.banner, enabled: !next.banner.enabled }
+      return next
+    })
+    markDirty()
+  }
+
+  const moveSection = (id: string, direction: 'up' | 'down') => {
+    setConfig(c => {
+      const sections = [...c.sections].sort((a, b) => a.order - b.order)
+      const idx = sections.findIndex(s => s.id === id)
+      if (direction === 'up' && idx > 0) {
+        const order = sections[idx].order
+        sections[idx].order = sections[idx - 1].order
+        sections[idx - 1].order = order
+      }
+      if (direction === 'down' && idx < sections.length - 1) {
+        const order = sections[idx].order
+        sections[idx].order = sections[idx + 1].order
+        sections[idx + 1].order = order
+      }
+      return { ...c, sections }
+    })
+    markDirty()
   }
 
   const addGalleryImage = async (file: File) => {
     const url = await uploadImage(file, 'gallery')
-    if (url) setConfig(c => ({ ...c, gallery: { ...c.gallery, images: [...c.gallery.images, url] } }))
+    if (url) {
+      setConfig(c => ({ ...c, gallery: { ...c.gallery, images: [...c.gallery.images, url] } }))
+      markDirty()
+    }
   }
 
-  const removeGalleryImage = (i: number) =>
-    setConfig(c => ({ ...c, gallery: { ...c.gallery, images: c.gallery.images.filter((_, idx) => idx !== i) } }))
+  const removeGalleryImage = (index: number) => {
+    setConfig(c => ({ ...c, gallery: { ...c.gallery, images: c.gallery.images.filter((_, i) => i !== index) } }))
+    markDirty()
+  }
 
-  const addTestimonial = () =>
+  const addTestimonial = () => {
     setConfig(c => ({ ...c, testimonials: [...c.testimonials, { name: '', text: '', rating: 5 }] }))
+    markDirty()
+  }
 
-  const updateTestimonial = (i: number, field: keyof TestimonialItem, value: any) =>
-    setConfig(c => ({ ...c, testimonials: c.testimonials.map((t, idx) => idx === i ? { ...t, [field]: value } : t) }))
+  const updateTestimonial = (index: number, field: keyof TestimonialItem, value: any) => {
+    setConfig(c => ({
+      ...c,
+      testimonials: c.testimonials.map((item, i) => i === index ? { ...item, [field]: value } : item),
+    }))
+    markDirty()
+  }
 
-  const removeTestimonial = (i: number) =>
-    setConfig(c => ({ ...c, testimonials: c.testimonials.filter((_, idx) => idx !== i) }))
+  const removeTestimonial = (index: number) => {
+    setConfig(c => ({ ...c, testimonials: c.testimonials.filter((_, i) => i !== index) }))
+    markDirty()
+  }
 
-  if (loading) return (
-    <div className="flex items-center justify-center h-screen bg-gray-50">
-      <div className="w-8 h-8 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin" />
-    </div>
-  )
-
-  const sortedSections = [...config.sections].sort((a, b) => a.order - b.order)
-  const selectedSection = config.sections.find(s => s.id === selectedSectionId) ?? null
-
-  const panelTitle: Record<PanelId, string> = {
-    home: 'Diseño de Página',
-    hero: 'Hero',
-    section: selectedSection ? (SECTION_META[selectedSection.type]?.label ?? selectedSection.title) : 'Sección',
-    appearance: 'Apariencia',
-    social: 'Redes Sociales',
-    advanced: 'Avanzado',
+  if (loading) {
+    return (
+      <div className="admin-panel flex h-64 items-center justify-center">
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-black/10 border-t-[#e43d30]" />
+      </div>
+    )
   }
 
   return (
-    <div className="flex h-screen overflow-hidden bg-gray-100">
-
-      {/* ── Left panel ────────────────────────────────── */}
-      <aside className="w-72 bg-white border-r flex flex-col overflow-hidden shadow-sm flex-shrink-0">
-
-        {/* Header */}
-        <div className="px-4 h-14 border-b flex items-center gap-2 flex-shrink-0 bg-white">
-          {panel !== 'home' && (
-            <button
-              onClick={() => setPanel('home')}
-              className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-500 transition-colors"
-            >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                <path d="M19 12H5M12 5l-7 7 7 7" />
-              </svg>
-            </button>
-          )}
-          <span className="font-semibold text-sm text-gray-900">{panelTitle[panel]}</span>
+    <div className="space-y-5">
+      <div className="admin-page-header">
+        <div>
+          <p className="admin-eyebrow">Tienda publica</p>
+          <h1 className="admin-title">Diseno de tienda</h1>
+          <p className="admin-subtitle">Edita la portada, el orden de secciones y los detalles visibles para tus clientes.</p>
         </div>
-
-        {/* Scrollable content */}
-        <div className="flex-1 overflow-y-auto">
-
-          {/* ── Home: module list ── */}
-          {panel === 'home' && (
-            <div className="p-3 space-y-0.5">
-              <NavRow
-                icon="🎨"
-                label="Hero"
-                desc="Banner principal de la tienda"
-                onClick={() => setPanel('hero')}
-              />
-
-              <SectionLabel>Secciones de la página</SectionLabel>
-
-              {sortedSections.map((section, idx) => {
-                const meta = SECTION_META[section.type]
-                return (
-                  <div
-                    key={section.id}
-                    className={`flex items-center gap-1 px-2 py-2.5 rounded-xl group transition-colors hover:bg-gray-50 ${!section.enabled ? 'opacity-50' : ''}`}
-                  >
-                    <button
-                      onClick={() => { setSelectedSectionId(section.id); setPanel('section') }}
-                      className="flex items-center gap-2 flex-1 min-w-0 text-left"
-                    >
-                      <span className="text-base w-7 text-center flex-shrink-0">{meta?.icon ?? '📄'}</span>
-                      <div className="min-w-0">
-                        <p className="text-sm font-medium text-gray-800 truncate">{section.title}</p>
-                        <p className="text-xs text-gray-400 truncate">{meta?.description}</p>
-                      </div>
-                    </button>
-                    <div className="flex items-center gap-0.5 flex-shrink-0">
-                      <button
-                        onClick={() => moveSection(section.id, 'up')}
-                        disabled={idx === 0}
-                        className="p-1 rounded hover:bg-gray-100 disabled:opacity-20 text-gray-400"
-                      >
-                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M18 15l-6-6-6 6" /></svg>
-                      </button>
-                      <button
-                        onClick={() => moveSection(section.id, 'down')}
-                        disabled={idx === sortedSections.length - 1}
-                        className="p-1 rounded hover:bg-gray-100 disabled:opacity-20 text-gray-400"
-                      >
-                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M6 9l6 6 6-6" /></svg>
-                      </button>
-                      <button
-                        onClick={() => toggleSection(section.id)}
-                        className={`w-9 h-5 rounded-full transition-all flex items-center ml-1 flex-shrink-0 ${section.enabled ? 'bg-blue-500 justify-end' : 'bg-gray-300 justify-start'}`}
-                      >
-                        <span className="w-4 h-4 bg-white rounded-full shadow-sm mx-0.5" />
-                      </button>
-                    </div>
-                  </div>
-                )
-              })}
-
-              <SectionLabel className="mt-2">Ajustes globales</SectionLabel>
-
-              <NavRow icon="✨" label="Apariencia" desc="Esquinas, tarjetas, botones, layout" onClick={() => setPanel('appearance')} />
-              <NavRow icon="📱" label="Redes Sociales" desc="Instagram, WhatsApp, TikTok..." onClick={() => setPanel('social')} />
-              <NavRow icon="⚙️" label="Avanzado" desc="Footer, restablecimiento" onClick={() => setPanel('advanced')} />
-
-              <div className="px-1 pt-2">
-                <Link
-                  href={`/${tenantId}`}
-                  target="_blank"
-                  className="flex items-center gap-2 px-3 py-2.5 rounded-xl text-sm text-blue-600 font-medium hover:bg-blue-50 transition-colors"
-                >
-                  <span>👁️</span>
-                  <span>Ver tienda en vivo</span>
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="ml-auto"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6M15 3h6v6M10 14L21 3" /></svg>
-                </Link>
-              </div>
-            </div>
-          )}
-
-          {/* ── Hero panel ── */}
-          {panel === 'hero' && (
-            <div className="p-4 space-y-5">
-              <Block title="Estilo">
-                <div className="grid grid-cols-3 gap-2">
-                  {([
-                    { id: 'fullImage', label: 'Imagen', icon: '🖼️' },
-                    { id: 'gradient', label: 'Gradiente', icon: '🌈' },
-                    { id: 'split', label: 'Dividido', icon: '◐' },
-                    { id: 'minimal', label: 'Mínimo', icon: '◻️' },
-                    { id: 'parallax', label: 'Parallax', icon: '🎞️' },
-                  ] as const).map(style => (
-                    <StyleBtn key={style.id} icon={style.icon} label={style.label} active={config.hero.style === style.id} onClick={() => updateHero('style', style.id)} />
-                  ))}
-                </div>
-              </Block>
-
-              {config.hero.style === 'fullImage' && (
-                <Block title="Imagen del Hero">
-                  <div className="space-y-2">
-                    {config.hero.image_url && (
-                      <img src={config.hero.image_url} alt="" className="w-full h-32 rounded-xl object-cover" />
-                    )}
-                    <label className="block">
-                      <input type="file" accept="image/*" className="hidden" onChange={async e => {
-                        const file = e.target.files?.[0]
-                        if (!file) return
-                        const url = await uploadImage(file, 'hero')
-                        if (url) updateHero('image_url', url)
-                      }} />
-                      <span className="inline-block w-full text-center px-4 py-2 border rounded-xl text-sm cursor-pointer hover:bg-gray-50 font-medium text-gray-600 transition-colors">
-                        {uploadingImage === 'hero' ? 'Subiendo...' : 'Subir imagen'}
-                      </span>
-                    </label>
-                    <p className="text-xs text-gray-400">Recomendado 1920×600px</p>
-                  </div>
-                </Block>
-              )}
-
-              <Block title="Tamaño">
-                <div className="grid grid-cols-3 gap-2">
-                  {([
-                    { id: 'small', label: 'Pequeño', desc: '35vh' },
-                    { id: 'medium', label: 'Mediano', desc: '45vh' },
-                    { id: 'large', label: 'Grande', desc: '55vh' },
-                  ] as const).map(s => (
-                    <button
-                      key={s.id}
-                      onClick={() => updateHero('height', s.id)}
-                      className={`p-2.5 rounded-xl border-2 text-center transition-all ${config.hero.height === s.id ? 'border-blue-500 bg-blue-50' : 'border-gray-200 hover:border-gray-300'}`}
-                    >
-                      <p className="text-xs font-semibold text-gray-800">{s.label}</p>
-                      <p className="text-[10px] text-gray-400">{s.desc}</p>
-                    </button>
-                  ))}
-                </div>
-              </Block>
-
-              <Block title="Oscurecimiento del fondo">
-                <div className="flex items-center gap-3">
-                  <input
-                    type="range" min="0" max="100"
-                    value={config.hero.overlay_opacity}
-                    onChange={e => updateHero('overlay_opacity', Number(e.target.value))}
-                    className="flex-1 accent-blue-600"
-                  />
-                  <span className="text-sm font-mono text-gray-500 w-10 text-right">{config.hero.overlay_opacity}%</span>
-                </div>
-              </Block>
-
-              <Block title="Textos">
-                <div className="space-y-3">
-                  <Field label="Título" placeholder="(vacío = nombre del restaurante)" value={config.hero.title_text} onChange={v => updateHero('title_text', v)} />
-                  <Field label="Subtítulo" placeholder="(vacío = slogan)" value={config.hero.subtitle_text} onChange={v => updateHero('subtitle_text', v)} />
-                  <Field label="Botón principal" value={config.hero.cta_primary_text} onChange={v => updateHero('cta_primary_text', v)} />
-                  <Field label="Botón secundario" value={config.hero.cta_secondary_text} onChange={v => updateHero('cta_secondary_text', v)} />
-                </div>
-              </Block>
-
-              <Block title="Opciones">
-                <div className="space-y-3">
-                  <Toggle label="Mostrar logo" checked={config.hero.show_logo} onChange={v => updateHero('show_logo', v)} />
-                  <Toggle label="Píldoras de info" description="Delivery, ubicación, métodos de pago" checked={config.hero.show_info_pills} onChange={v => updateHero('show_info_pills', v)} />
-                </div>
-              </Block>
-            </div>
-          )}
-
-          {/* ── Section panel ── */}
-          {panel === 'section' && selectedSection && (
-            <div className="p-4 space-y-5">
-              {/* Enabled toggle */}
-              <Block title="Visibilidad">
-                <Toggle
-                  label="Sección activa"
-                  description="Mostrar en la página de la tienda"
-                  checked={selectedSection.enabled}
-                  onChange={() => toggleSection(selectedSection.id)}
-                />
-              </Block>
-
-              {/* Banner settings */}
-              {selectedSection.type === 'banner' && (
-                <Block title="Contenido del anuncio">
-                  <div className="space-y-3">
-                    <div className="grid grid-cols-4 gap-2">
-                      <Field label="Emoji" value={config.banner.emoji} onChange={v => updateBanner('emoji', v)} />
-                      <div className="col-span-3">
-                        <Field label="Texto" value={config.banner.text} onChange={v => updateBanner('text', v)} placeholder="Ej: 20% de descuento hoy" />
-                      </div>
-                    </div>
-                    <div className="grid grid-cols-2 gap-3">
-                      <ColorRow label="Fondo" value={config.banner.bg_color} onChange={v => updateBanner('bg_color', v)} />
-                      <ColorRow label="Texto" value={config.banner.text_color} onChange={v => updateBanner('text_color', v)} />
-                    </div>
-                    <div className="p-3 rounded-xl border text-center text-sm font-medium" style={{ backgroundColor: config.banner.bg_color, color: config.banner.text_color }}>
-                      {config.banner.emoji} {config.banner.text || 'Vista previa del anuncio'}
-                    </div>
-                  </div>
-                </Block>
-              )}
-
-              {/* Featured settings */}
-              {selectedSection.type === 'featured' && (
-                <Block title="Cantidad de productos">
-                  <Field
-                    label="Mostrar"
-                    type="number"
-                    value={String(selectedSection.config.count ?? 8)}
-                    onChange={v => updateSectionConfig(selectedSection.id, 'count', parseInt(v))}
-                  />
-                  <p className="text-xs text-gray-400 mt-2">Se mostrarán los productos marcados como destacados</p>
-                </Block>
-              )}
-
-              {/* About settings */}
-              {selectedSection.type === 'about' && (
-                <Block title="Sobre nosotros">
-                  <div className="space-y-3">
-                    <Field label="Título" value={config.about.title} onChange={v => updateAbout('title', v)} />
-                    <div>
-                      <label className="block text-xs font-semibold text-gray-600 mb-1">Historia</label>
-                      <textarea
-                        value={config.about.text}
-                        onChange={e => updateAbout('text', e.target.value)}
-                        className="w-full px-3 py-2 border rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm resize-none"
-                        rows={4}
-                        placeholder="Cuéntanos la historia de tu restaurante..."
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-semibold text-gray-600 mb-1.5">Imagen</label>
-                      <div className="flex items-center gap-2">
-                        {config.about.image_url && (
-                          <img src={config.about.image_url} alt="" className="w-14 h-14 rounded-xl object-cover flex-shrink-0" />
-                        )}
-                        <label className="flex-1 text-center px-3 py-2 border rounded-xl text-sm cursor-pointer hover:bg-gray-50 font-medium text-gray-600 transition-colors">
-                          {uploadingImage === 'about' ? 'Subiendo...' : 'Subir imagen'}
-                          <input type="file" accept="image/*" className="hidden" onChange={async e => {
-                            const file = e.target.files?.[0]
-                            if (!file) return
-                            const url = await uploadImage(file, 'about')
-                            if (url) updateAbout('image_url', url)
-                          }} />
-                        </label>
-                      </div>
-                    </div>
-                  </div>
-                </Block>
-              )}
-
-              {/* Gallery settings */}
-              {selectedSection.type === 'gallery' && (
-                <>
-                  <Block title="Estilo de galería">
-                    <div className="grid grid-cols-3 gap-2">
-                      {(['grid', 'carousel', 'masonry'] as const).map(s => (
-                        <button
-                          key={s}
-                          onClick={() => setConfig(c => ({ ...c, gallery: { ...c.gallery, style: s } }))}
-                          className={`py-2 rounded-xl border-2 text-xs font-semibold transition-all capitalize ${config.gallery.style === s ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-gray-200 text-gray-600'}`}
-                        >
-                          {s === 'grid' ? 'Cuadrícula' : s === 'carousel' ? 'Carrusel' : 'Masonry'}
-                        </button>
-                      ))}
-                    </div>
-                  </Block>
-                  <Block title="Imágenes">
-                    <div className="grid grid-cols-3 gap-2">
-                      {config.gallery.images.map((img, i) => (
-                        <div key={i} className="relative group aspect-square">
-                          <img src={img} alt="" className="w-full h-full object-cover rounded-xl" />
-                          <button
-                            onClick={() => removeGalleryImage(i)}
-                            className="absolute top-1 right-1 w-5 h-5 bg-red-500 text-white rounded-full text-xs font-bold opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center"
-                          >×</button>
-                        </div>
-                      ))}
-                      <label className="aspect-square border-2 border-dashed border-gray-300 rounded-xl flex flex-col items-center justify-center cursor-pointer hover:border-blue-400 hover:bg-blue-50/50 transition-colors">
-                        <span className="text-xl text-gray-300">+</span>
-                        <span className="text-[10px] text-gray-400 font-medium">Agregar</span>
-                        <input type="file" accept="image/*" className="hidden" onChange={e => {
-                          const file = e.target.files?.[0]
-                          if (file) addGalleryImage(file)
-                        }} />
-                      </label>
-                    </div>
-                  </Block>
-                </>
-              )}
-
-              {/* Testimonials settings */}
-              {selectedSection.type === 'testimonials' && (
-                <Block title="Opiniones de clientes">
-                  <div className="space-y-3">
-                    {config.testimonials.map((t, i) => (
-                      <div key={i} className="border rounded-xl p-3 space-y-2">
-                        <div className="flex items-center gap-2">
-                          <input
-                            value={t.name}
-                            onChange={e => updateTestimonial(i, 'name', e.target.value)}
-                            placeholder="Nombre del cliente"
-                            className="flex-1 px-2 py-1.5 text-sm border rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500"
-                          />
-                          <button onClick={() => removeTestimonial(i)} className="text-red-400 hover:text-red-600 font-bold text-sm flex-shrink-0">×</button>
-                        </div>
-                        <div className="flex gap-0.5">
-                          {[1, 2, 3, 4, 5].map(star => (
-                            <button key={star} onClick={() => updateTestimonial(i, 'rating', star)} className={`text-base ${star <= t.rating ? 'text-yellow-400' : 'text-gray-200'}`}>★</button>
-                          ))}
-                        </div>
-                        <textarea
-                          value={t.text}
-                          onChange={e => updateTestimonial(i, 'text', e.target.value)}
-                          placeholder="Comentario del cliente..."
-                          className="w-full px-2 py-1.5 text-sm border rounded-lg resize-none focus:outline-none focus:ring-1 focus:ring-blue-500"
-                          rows={2}
-                        />
-                      </div>
-                    ))}
-                    <button
-                      onClick={addTestimonial}
-                      className="w-full py-2.5 border-2 border-dashed border-gray-300 rounded-xl text-sm font-medium text-gray-500 hover:border-blue-400 hover:text-blue-500 transition-colors"
-                    >
-                      + Agregar opinión
-                    </button>
-                  </div>
-                </Block>
-              )}
-
-              {/* Info / Hours / Actions / Social — no configurable settings */}
-              {['info', 'hours', 'actions', 'social'].includes(selectedSection.type) && (
-                <div className="px-1">
-                  <div className="p-4 bg-gray-50 rounded-xl border border-dashed border-gray-300 text-center">
-                    <p className="text-2xl mb-2">{SECTION_META[selectedSection.type]?.icon}</p>
-                    <p className="text-sm font-medium text-gray-700">{SECTION_META[selectedSection.type]?.label}</p>
-                    <p className="text-xs text-gray-400 mt-1">{SECTION_META[selectedSection.type]?.description}</p>
-                    <p className="text-xs text-gray-400 mt-3">Esta sección se configura automáticamente con los datos de tu restaurante</p>
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* ── Appearance panel ── */}
-          {panel === 'appearance' && (
-            <div className="p-4 space-y-5">
-              <Block title="Esquinas">
-                <div className="grid grid-cols-4 gap-2">
-                  {([
-                    { id: 'none', label: 'Rectas', cls: 'rounded-none' },
-                    { id: 'small', label: 'Suaves', cls: 'rounded-lg' },
-                    { id: 'medium', label: 'Redondas', cls: 'rounded-2xl' },
-                    { id: 'large', label: 'Muy redondas', cls: 'rounded-3xl' },
-                  ] as const).map(opt => (
-                    <button
-                      key={opt.id}
-                      onClick={() => updateAppearance('border_radius', opt.id)}
-                      className={`flex flex-col items-center gap-2 p-2.5 rounded-xl border-2 transition-all ${config.appearance.border_radius === opt.id ? 'border-blue-500 bg-blue-50' : 'border-gray-200'}`}
-                    >
-                      <div className={`w-8 h-8 bg-blue-400 ${opt.cls}`} />
-                      <span className="text-[10px] font-semibold text-gray-600 text-center leading-tight">{opt.label}</span>
-                    </button>
-                  ))}
-                </div>
-              </Block>
-
-              <Block title="Estilo de tarjetas">
-                <div className="grid grid-cols-2 gap-2">
-                  {([
-                    { id: 'flat', label: 'Plano' },
-                    { id: 'bordered', label: 'Con borde' },
-                    { id: 'shadow', label: 'Sombra' },
-                    { id: 'glass', label: 'Cristal' },
-                  ] as const).map(opt => (
-                    <button
-                      key={opt.id}
-                      onClick={() => updateAppearance('card_style', opt.id)}
-                      className={`py-2.5 rounded-xl border-2 text-sm font-medium transition-all ${config.appearance.card_style === opt.id ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-gray-200 text-gray-600'}`}
-                    >
-                      {opt.label}
-                    </button>
-                  ))}
-                </div>
-              </Block>
-
-              <Block title="Estilo de botones">
-                <div className="grid grid-cols-3 gap-2">
-                  {([
-                    { id: 'rounded', label: 'Redondeado', cls: 'rounded-xl' },
-                    { id: 'pill', label: 'Píldora', cls: 'rounded-full' },
-                    { id: 'square', label: 'Cuadrado', cls: 'rounded-lg' },
-                  ] as const).map(opt => (
-                    <button
-                      key={opt.id}
-                      onClick={() => updateAppearance('button_style', opt.id)}
-                      className={`flex flex-col items-center gap-2 p-2.5 rounded-xl border-2 transition-all ${config.appearance.button_style === opt.id ? 'border-blue-500 bg-blue-50' : 'border-gray-200'}`}
-                    >
-                      <span className={`px-3 py-1 bg-blue-500 text-white text-[10px] font-semibold ${opt.cls}`}>Botón</span>
-                      <span className="text-[10px] font-semibold text-gray-600">{opt.label}</span>
-                    </button>
-                  ))}
-                </div>
-              </Block>
-
-              <Block title="Layout del menú">
-                <div className="grid grid-cols-3 gap-2">
-                  {([
-                    { id: 'list', label: 'Lista', icon: '☰' },
-                    { id: 'grid', label: 'Cuadrícula', icon: '⊞' },
-                    { id: 'compact', label: 'Compacto', icon: '≡' },
-                  ] as const).map(opt => (
-                    <button
-                      key={opt.id}
-                      onClick={() => updateAppearance('menu_layout', opt.id)}
-                      className={`flex flex-col items-center gap-1.5 p-3 rounded-xl border-2 transition-all ${config.appearance.menu_layout === opt.id ? 'border-blue-500 bg-blue-50' : 'border-gray-200'}`}
-                    >
-                      <span className="text-xl">{opt.icon}</span>
-                      <span className="text-[10px] font-semibold text-gray-600">{opt.label}</span>
-                    </button>
-                  ))}
-                </div>
-              </Block>
-
-              <Block title="Efectos">
-                <Toggle label="Animaciones" description="Transiciones suaves al cargar y al hacer scroll" checked={config.appearance.animations} onChange={v => updateAppearance('animations', v)} />
-              </Block>
-            </div>
-          )}
-
-          {/* ── Social panel ── */}
-          {panel === 'social' && (
-            <div className="p-4">
-              <Block title="Redes sociales">
-                <div className="space-y-3">
-                  {([
-                    { key: 'instagram', label: 'Instagram', icon: '📸', ph: 'https://instagram.com/turestaurante' },
-                    { key: 'facebook', label: 'Facebook', icon: '👤', ph: 'https://facebook.com/turestaurante' },
-                    { key: 'whatsapp', label: 'WhatsApp', icon: '💬', ph: 'https://wa.me/573001234567' },
-                    { key: 'tiktok', label: 'TikTok', icon: '🎵', ph: 'https://tiktok.com/@turestaurante' },
-                    { key: 'twitter', label: 'X / Twitter', icon: '𝕏', ph: 'https://x.com/turestaurante' },
-                    { key: 'google_maps', label: 'Google Maps', icon: '📍', ph: 'https://maps.google.com/...' },
-                    { key: 'website', label: 'Sitio web', icon: '🌐', ph: 'https://turestaurante.com' },
-                  ] as const).map(s => (
-                    <div key={s.key} className="flex items-center gap-2">
-                      <span className="text-lg w-7 text-center flex-shrink-0">{s.icon}</span>
-                      <input
-                        value={(config.social as any)[s.key] ?? ''}
-                        onChange={e => updateSocial(s.key, e.target.value)}
-                        placeholder={s.ph}
-                        className="flex-1 px-3 py-2 border rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-                      />
-                    </div>
-                  ))}
-                </div>
-              </Block>
-            </div>
-          )}
-
-          {/* ── Advanced panel ── */}
-          {panel === 'advanced' && (
-            <div className="p-4 space-y-5">
-              <Block title="Footer">
-                <div className="space-y-3">
-                  <Toggle label='Mostrar "Powered by EccoFood"' checked={config.footer.show_powered_by} onChange={v => updateFooter('show_powered_by', v)} />
-                  <Field
-                    label="Texto personalizado"
-                    value={config.footer.custom_text}
-                    onChange={v => updateFooter('custom_text', v)}
-                    placeholder="© 2026 Mi Restaurante"
-                  />
-                </div>
-              </Block>
-
-              <Block title="Restablecer">
-                <p className="text-sm text-gray-500 mb-3">Vuelve a la configuración predeterminada de fábrica</p>
-                <button
-                  onClick={() => {
-                    if (confirm('¿Restablecer configuración? Se perderán todos los cambios.')) {
-                      setConfig(DEFAULT_PAGE_CONFIG)
-                      toast.success('Configuración restablecida')
-                    }
-                  }}
-                  className="w-full py-2 border-2 border-red-200 text-red-600 rounded-xl text-sm font-semibold hover:bg-red-50 transition-colors"
-                >
-                  Restablecer todo
-                </button>
-              </Block>
-            </div>
-          )}
-        </div>
-
-        {/* Footer save button */}
-        <div className="p-3 border-t flex-shrink-0 bg-white">
-          <button
-            onClick={save}
-            disabled={saving}
-            className="w-full py-2.5 bg-blue-600 text-white rounded-xl font-semibold text-sm hover:bg-blue-700 disabled:opacity-50 transition-colors flex items-center justify-center gap-2"
-          >
-            {saving ? (
-              <>
-                <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                Guardando...
-              </>
-            ) : 'Guardar cambios'}
-          </button>
-        </div>
-      </aside>
-
-      {/* ── Right panel: preview placeholder ────────────── */}
-      <div className="flex-1 flex flex-col items-center justify-center gap-4 bg-gray-100">
-        <div className="bg-white rounded-2xl shadow-sm border p-8 text-center max-w-sm w-full mx-4">
-          <div className="w-16 h-16 bg-blue-50 rounded-2xl flex items-center justify-center text-3xl mx-auto mb-4">🖥️</div>
-          <h3 className="font-semibold text-gray-900 mb-1">Vista previa de la tienda</h3>
-          <p className="text-sm text-gray-400 mb-5">Guarda los cambios y ábrela para ver el resultado en tiempo real</p>
-          <Link
-            href={`/${tenantId}`}
-            target="_blank"
-            className="inline-flex items-center gap-2 px-5 py-2.5 bg-gray-900 text-white rounded-xl text-sm font-semibold hover:bg-gray-800 transition-colors"
-          >
-            Abrir tienda
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6M15 3h6v6M10 14L21 3" /></svg>
+        <div className="flex flex-col gap-2 sm:flex-row">
+          <Link href={`/${tenantSlug}`} className="admin-button-secondary">
+            <ExternalLink className="size-4" />
+            Ver tienda
           </Link>
         </div>
+      </div>
 
-        <div className="text-xs text-gray-400 text-center px-4">
-          Selecciona una sección en el panel izquierdo para configurarla
+      <div className={`flex flex-col gap-3 rounded-xl border px-4 py-3 shadow-sm md:flex-row md:items-center md:justify-between ${
+        saveStatus === 'error'
+          ? 'border-red-200 bg-red-50/95 text-red-800'
+          : saveStatus === 'saved'
+            ? 'border-emerald-200 bg-emerald-50/95 text-emerald-800'
+            : 'border-amber-200 bg-amber-50/95 text-amber-900'
+      }`}>
+        <div>
+          <p className="text-sm font-black">
+            {saveStatus === 'saving' ? 'Guardando cambios...' : saveStatus === 'pending' ? 'Cambios pendientes' : saveStatus === 'error' ? 'No se pudo guardar' : 'Cambios guardados'}
+          </p>
+          <p className="text-sm font-bold opacity-90">
+            {saveStatus === 'pending' ? 'Se guardaran automaticamente en un momento.' : saveStatus === 'saved' ? 'El diseno esta sincronizado con la tienda.' : 'Tambien puedes guardar manualmente.'}
+          </p>
         </div>
+        <button onClick={() => save('manual')} disabled={saving || (!dirty && saveStatus === 'saved')} className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-[#15130f] px-4 text-sm font-black text-white transition hover:bg-black disabled:cursor-not-allowed disabled:opacity-45">
+          <Save className="size-4" />
+          Guardar ahora
+        </button>
       </div>
 
+      <div className="grid min-w-0 gap-5 2xl:grid-cols-[minmax(0,1fr)_320px]">
+        <aside className="admin-panel min-w-0 overflow-hidden p-2 2xl:col-span-2">
+          <div className="flex gap-2 overflow-x-auto pb-1">
+            {tabs.map(({ id, label, helper, Icon }) => (
+              <button
+                key={id}
+                onClick={() => setTab(id)}
+                className={`flex min-w-[178px] flex-shrink-0 items-center gap-3 rounded-xl px-3 py-3 text-left transition 2xl:min-w-0 2xl:flex-1 ${
+                  tab === id ? 'bg-[#15130f] text-white' : 'text-black/75 hover:bg-white hover:text-[#15130f]'
+                }`}
+              >
+                <span className={`flex size-10 flex-shrink-0 items-center justify-center rounded-lg ${tab === id ? 'bg-white/12' : 'bg-black/5 text-[#e43d30]'}`}>
+                  <Icon className="size-4" />
+                </span>
+                <span className="min-w-0">
+                  <span className="block text-sm font-black">{label}</span>
+                  <span className={`block truncate text-xs font-bold ${tab === id ? 'text-white/75' : 'text-black/58'}`}>{helper}</span>
+                </span>
+              </button>
+            ))}
+          </div>
+        </aside>
+
+        <main className="min-w-0 space-y-5">
+          {tab === 'home' && (
+            <>
+              <div className="grid gap-4 md:grid-cols-3">
+                <StatCard label="Secciones activas" value={`${activeSections}/${config.sections.length}`} />
+                <StatCard label="Portada" value={config.hero.image_url ? 'Con imagen' : 'Sin imagen'} />
+                <StatCard label="Menu" value={labelFor(config.appearance.menu_layout, menuLayoutOptions)} />
+              </div>
+              <Panel title="Que quieres cambiar?" desc="Elige una accion rapida. Todo queda guardado solo cuando presionas Guardar.">
+                <div className="grid gap-3 md:grid-cols-2">
+                  <QuickButton title="Cambiar foto principal" desc="Imagen grande de entrada" onClick={() => setTab('hero')} />
+                  <QuickButton title="Ordenar secciones" desc="Mostrar u ocultar bloques" onClick={() => setTab('sections')} />
+                  <QuickButton title="Cambiar estilo" desc="Tarjetas, botones y menu" onClick={() => setTab('style')} />
+                  <QuickButton title="Conectar redes" desc="Instagram, WhatsApp y links" onClick={() => setTab('social')} />
+                </div>
+              </Panel>
+            </>
+          )}
+
+          {tab === 'hero' && (
+            <Panel title="Portada de la tienda" desc="Esta es la primera impresion del cliente. Usa una foto clara del restaurante o de tus platos.">
+              <div className="grid min-w-0 gap-5 lg:grid-cols-[minmax(0,1fr)_260px]">
+                <div className="space-y-4">
+                  <Field label="Titulo principal" value={config.hero.title_text} placeholder={brandFallbacks.appName || 'Nombre del restaurante'} onChange={v => updateHero('title_text', v)} />
+                  <Field label="Subtitulo" value={config.hero.subtitle_text} placeholder={brandFallbacks.tagline || 'Slogan del branding'} onChange={v => updateHero('subtitle_text', v)} />
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <Field label="Boton principal" value={config.hero.cta_primary_text} onChange={v => updateHero('cta_primary_text', v)} />
+                    <Field label="Boton secundario" value={config.hero.cta_secondary_text} onChange={v => updateHero('cta_secondary_text', v)} />
+                  </div>
+                  <ChoiceGrid
+                    label="Tamano"
+                    value={config.hero.height}
+                    options={[
+                      { id: 'small', label: 'Compacta' },
+                      { id: 'medium', label: 'Normal' },
+                      { id: 'large', label: 'Grande' },
+                    ]}
+                    onChange={v => updateHero('height', v)}
+                  />
+                  <RangeField label="Oscurecer foto" value={config.hero.overlay_opacity} min={0} max={85} onChange={v => updateHero('overlay_opacity', v)} />
+                  <Toggle label="Mostrar logo en portada" checked={config.hero.show_logo} onChange={v => updateHero('show_logo', v)} />
+                  <Toggle label="Mostrar datos rapidos" description="Delivery, ubicacion y pagos." checked={config.hero.show_info_pills} onChange={v => updateHero('show_info_pills', v)} />
+                </div>
+                <ImageUploader
+                  label="Foto principal"
+              imageUrl={config.hero.image_url || brandFallbacks.heroImageUrl}
+                  loading={uploadingImage === 'hero'}
+                  onFile={async file => {
+                    const url = await uploadImage(file, 'hero')
+                    if (url) updateHero('image_url', url)
+                  }}
+                />
+              </div>
+            </Panel>
+          )}
+
+          {tab === 'sections' && (
+            <div className="grid min-w-0 gap-5">
+              <Panel title="Secciones de la tienda" desc="Activa solo lo que el restaurante necesita y organiza el orden.">
+                <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 p-3 text-amber-900">
+                  <p className="text-sm font-black">Como funciona</p>
+                  <p className="mt-1 text-sm font-bold leading-6">Cada fila es un bloque de la tienda. Usa las flechas para moverlo y el interruptor rojo para mostrarlo u ocultarlo.</p>
+                </div>
+                <div className="space-y-2">
+                  {sortedSections.map((section, index) => (
+                    <button
+                      key={section.id}
+                      onClick={() => setSelectedSectionId(section.id)}
+                      className={`flex w-full flex-col gap-3 rounded-xl border p-4 text-left transition lg:flex-row lg:items-center ${
+                        selectedSectionId === section.id ? 'border-[#e43d30] bg-red-50/70' : 'border-black/8 bg-white hover:border-black/18'
+                      }`}
+                    >
+                      <span className="flex w-full items-center gap-3 lg:min-w-0 lg:flex-1">
+                        <span className="flex size-9 flex-shrink-0 items-center justify-center rounded-lg bg-black/5 text-sm font-black text-[#15130f]">{index + 1}</span>
+                        <span className="min-w-0">
+                          <span className="block text-sm font-black text-[#15130f]">{sectionInfo(section.type).label}</span>
+                          <span className="block truncate text-sm font-bold text-black/60">{sectionInfo(section.type).description}</span>
+                        </span>
+                      </span>
+                      <span className="flex w-full items-center justify-between gap-2 border-t border-black/8 pt-3 lg:w-auto lg:flex-shrink-0 lg:justify-end lg:border-t-0 lg:pt-0">
+                        <IconButton label="Subir" disabled={index === 0} onClick={e => { e.stopPropagation(); moveSection(section.id, 'up') }}>
+                          <ArrowUp className="size-3.5" />
+                        </IconButton>
+                        <IconButton label="Bajar" disabled={index === sortedSections.length - 1} onClick={e => { e.stopPropagation(); moveSection(section.id, 'down') }}>
+                          <ArrowDown className="size-3.5" />
+                        </IconButton>
+                        <Switch checked={section.enabled} onClick={e => { e.stopPropagation(); toggleSection(section.id) }} />
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </Panel>
+
+              {selectedSection && (
+                <SectionEditor
+                  section={selectedSection}
+                  config={config}
+                  uploadingImage={uploadingImage}
+                  updateSectionConfig={updateSectionConfig}
+                  updateBanner={updateBanner}
+                  updateAbout={updateAbout}
+                  addGalleryImage={addGalleryImage}
+                  removeGalleryImage={removeGalleryImage}
+                  addTestimonial={addTestimonial}
+                  updateTestimonial={updateTestimonial}
+                  removeTestimonial={removeTestimonial}
+                  uploadImage={uploadImage}
+                />
+              )}
+            </div>
+          )}
+
+          {tab === 'style' && (
+            <Panel title="Estilo visual" desc="Controles simples para que la tienda se vea consistente. Los colores principales se editan en Branding.">
+              <div className="space-y-5">
+                <ChoiceGrid label="Esquinas" value={config.appearance.border_radius} options={radiusOptions} onChange={v => updateAppearance('border_radius', v)} />
+                <ChoiceGrid label="Tarjetas" value={config.appearance.card_style} options={cardOptions} onChange={v => updateAppearance('card_style', v)} />
+                <ChoiceGrid label="Botones" value={config.appearance.button_style} options={buttonOptions} onChange={v => updateAppearance('button_style', v)} />
+                <ChoiceGrid label="Vista del menu" value={config.appearance.menu_layout} options={menuLayoutOptions} onChange={v => updateAppearance('menu_layout', v)} />
+                <Toggle label="Animaciones suaves" checked={config.appearance.animations} onChange={v => updateAppearance('animations', v)} />
+              </div>
+            </Panel>
+          )}
+
+          {tab === 'social' && (
+            <Panel title="Redes y enlaces" desc="Agrega los links que quieres mostrar en la tienda.">
+              <div className="grid gap-3">
+                {socialFields.map(field => (
+                  <Field
+                    key={field.key}
+                    label={field.label}
+                    placeholder={field.placeholder}
+                    value={(config.social as any)[field.key] || ''}
+                    onChange={v => updateSocial(field.key, v)}
+                  />
+                ))}
+              </div>
+            </Panel>
+          )}
+
+          {tab === 'advanced' && (
+            <Panel title="Avanzado" desc="Opciones menos frecuentes. Usalas con cuidado.">
+              <div className="space-y-5">
+                <Toggle label='Mostrar "Powered by Eccofood"' checked={config.footer.show_powered_by} onChange={v => updateFooter('show_powered_by', v)} />
+                <Field label="Texto del footer" value={config.footer.custom_text} placeholder="Ej: 2026 El Buen Paladar" onChange={v => updateFooter('custom_text', v)} />
+                <button
+                  onClick={() => {
+                    if (confirm('Restablecer el diseno de tienda? Se perderan los cambios no guardados.')) {
+                      setConfig(DEFAULT_PAGE_CONFIG)
+                      markDirty()
+                      toast.success('Diseno restablecido')
+                    }
+                  }}
+                  className="inline-flex h-11 items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 text-sm font-black text-red-700 transition hover:bg-red-100"
+                >
+                  <RotateCcw className="size-4" />
+                  Restablecer diseno
+                </button>
+              </div>
+            </Panel>
+          )}
+        </main>
+
+        <aside className="admin-panel h-fit min-w-0 p-5 2xl:sticky 2xl:top-5">
+          <p className="text-sm font-black uppercase text-black/65">Vista rapida</p>
+          <div className="mt-4 overflow-hidden rounded-2xl border border-black/10 bg-white shadow-sm">
+            <div
+              className="flex h-40 items-end p-4 text-white"
+              style={{
+                backgroundImage: config.hero.image_url
+                  ? `linear-gradient(rgba(0,0,0,${config.hero.overlay_opacity / 100}), rgba(0,0,0,${config.hero.overlay_opacity / 100})), url(${config.hero.image_url})`
+                  : 'linear-gradient(135deg, #15130f, #e43d30)',
+                backgroundSize: 'cover',
+                backgroundPosition: 'center',
+              }}
+            >
+              <div>
+                <p className="text-lg font-black">{config.hero.title_text || brandFallbacks.appName || 'Nombre del restaurante'}</p>
+                <p className="mt-1 text-sm font-bold text-white/86">{config.hero.subtitle_text || brandFallbacks.tagline || 'Slogan de la marca'}</p>
+              </div>
+            </div>
+            <div className="space-y-2 p-4">
+              {sortedSections.filter(s => s.enabled).slice(0, 5).map(section => (
+                <div key={section.id} className="flex items-center justify-between rounded-lg bg-black/[0.035] px-3 py-2">
+                  <span className="text-sm font-black text-[#15130f]">{sectionInfo(section.type).label}</span>
+                  <span className="size-2 rounded-full bg-[#e43d30]" />
+                </div>
+              ))}
+            </div>
+          </div>
+          <p className="mt-4 text-sm font-bold leading-6 text-black/62">Esta vista es una guia rapida. Para ver el resultado real, guarda y abre la tienda.</p>
+        </aside>
+      </div>
     </div>
   )
 }
 
-// ─── Shared UI components ──────────────────────────────────────────────────────
+function SectionEditor(props: {
+  section: PageConfig['sections'][number]
+  config: PageConfig
+  uploadingImage: string | null
+  updateSectionConfig: (id: string, key: string, value: any) => void
+  updateBanner: (key: string, value: any) => void
+  updateAbout: (key: string, value: any) => void
+  addGalleryImage: (file: File) => void
+  removeGalleryImage: (index: number) => void
+  addTestimonial: () => void
+  updateTestimonial: (index: number, field: keyof TestimonialItem, value: any) => void
+  removeTestimonial: (index: number) => void
+  uploadImage: (file: File, key: string) => Promise<string | null>
+}) {
+  const { section, config } = props
 
-function SectionLabel({ children, className = '' }: { children: React.ReactNode; className?: string }) {
   return (
-    <div className={`px-3 pt-3 pb-1 ${className}`}>
-      <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider">{children}</p>
-    </div>
+    <Panel title={sectionInfo(section.type).label} desc={sectionInfo(section.type).description}>
+      {section.type === 'banner' && (
+        <div className="space-y-4">
+          <Field label="Texto del anuncio" value={config.banner.text} placeholder="Ej: 20% de descuento hoy" onChange={v => props.updateBanner('text', v)} />
+          <div className="grid gap-3 sm:grid-cols-3">
+            <Field label="Icono corto" value={config.banner.emoji} onChange={v => props.updateBanner('emoji', v)} />
+            <ColorField label="Fondo" value={config.banner.bg_color} onChange={v => props.updateBanner('bg_color', v)} />
+            <ColorField label="Texto" value={config.banner.text_color} onChange={v => props.updateBanner('text_color', v)} />
+          </div>
+        </div>
+      )}
+
+      {section.type === 'featured' && (
+        <Field
+          type="number"
+          label="Cantidad de productos destacados"
+          value={String(section.config.count ?? 8)}
+          onChange={v => props.updateSectionConfig(section.id, 'count', Number(v))}
+        />
+      )}
+
+      {section.type === 'about' && (
+        <div className="space-y-4">
+          <Field label="Titulo" value={config.about.title} onChange={v => props.updateAbout('title', v)} />
+          <TextArea label="Historia del restaurante" value={config.about.text} onChange={v => props.updateAbout('text', v)} />
+          <ImageUploader
+            label="Foto de la seccion"
+            imageUrl={config.about.image_url}
+            loading={props.uploadingImage === 'about'}
+            onFile={async file => {
+              const url = await props.uploadImage(file, 'about')
+              if (url) props.updateAbout('image_url', url)
+            }}
+          />
+        </div>
+      )}
+
+      {section.type === 'gallery' && (
+        <div className="space-y-4">
+          <ChoiceGrid
+            label="Presentacion"
+            value={config.gallery.style}
+            options={[
+              { id: 'grid', label: 'Cuadricula' },
+              { id: 'carousel', label: 'Carrusel' },
+              { id: 'masonry', label: 'Mosaico' },
+            ]}
+            onChange={v => props.updateSectionConfig(section.id, 'style', v)}
+          />
+          <div className="grid grid-cols-3 gap-2">
+            {config.gallery.images.map((image, index) => (
+              <div key={image} className="group relative aspect-square overflow-hidden rounded-xl border border-black/10">
+                <img src={image} alt="" className="h-full w-full object-cover" />
+                <button onClick={() => props.removeGalleryImage(index)} className="absolute right-1 top-1 rounded-full bg-red-600 px-2 py-0.5 text-xs font-black text-white opacity-0 transition group-hover:opacity-100">x</button>
+              </div>
+            ))}
+            <label className="flex aspect-square cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-black/20 text-sm font-black text-black/65 transition hover:border-[#e43d30] hover:text-[#e43d30]">
+              <ImagePlus className="mb-1 size-5" />
+              Agregar
+              <input type="file" accept="image/*" className="hidden" onChange={e => {
+                const file = e.target.files?.[0]
+                if (file) props.addGalleryImage(file)
+              }} />
+            </label>
+          </div>
+        </div>
+      )}
+
+      {section.type === 'testimonials' && (
+        <div className="space-y-3">
+          {config.testimonials.map((item, index) => (
+            <div key={index} className="space-y-2 rounded-xl border border-black/10 bg-white p-3">
+              <div className="flex gap-2">
+                <input value={item.name} onChange={e => props.updateTestimonial(index, 'name', e.target.value)} placeholder="Nombre del cliente" className="h-10 flex-1 rounded-lg border border-black/10 px-3 text-sm font-semibold outline-none focus:border-[#e43d30]" />
+                <button onClick={() => props.removeTestimonial(index)} className="rounded-lg border border-red-200 px-3 text-sm font-black text-red-600">x</button>
+              </div>
+              <TextArea label="Comentario" value={item.text} onChange={v => props.updateTestimonial(index, 'text', v)} />
+              <ChoiceGrid
+                label="Calificacion"
+                value={String(item.rating)}
+                options={[1, 2, 3, 4, 5].map(n => ({ id: String(n), label: `${n}` }))}
+                onChange={v => props.updateTestimonial(index, 'rating', Number(v))}
+              />
+            </div>
+          ))}
+          <button onClick={props.addTestimonial} className="w-full rounded-xl border-2 border-dashed border-black/20 py-3 text-sm font-black text-black/70 transition hover:border-[#e43d30] hover:text-[#e43d30]">Agregar opinion</button>
+        </div>
+      )}
+
+      {['info', 'hours', 'actions', 'social'].includes(section.type) && (
+        <div className="rounded-xl border border-dashed border-black/15 bg-black/[0.025] p-4">
+          <p className="text-sm font-black text-[#15130f]">Esta seccion usa datos ya configurados.</p>
+          <p className="mt-1 text-sm font-bold leading-6 text-black/62">Puedes mostrarla, ocultarla u ordenarla. Sus datos salen de Restaurante, Horarios, Branding y Redes.</p>
+        </div>
+      )}
+    </Panel>
   )
 }
 
-function NavRow({ icon, label, desc, onClick }: { icon: string; label: string; desc: string; onClick: () => void }) {
+const radiusOptions = [
+  { id: 'none', label: 'Rectas' },
+  { id: 'small', label: 'Suaves' },
+  { id: 'medium', label: 'Redondas' },
+  { id: 'large', label: 'Premium' },
+]
+
+const cardOptions = [
+  { id: 'flat', label: 'Plano' },
+  { id: 'bordered', label: 'Borde' },
+  { id: 'shadow', label: 'Sombra' },
+  { id: 'glass', label: 'Cristal' },
+]
+
+const buttonOptions = [
+  { id: 'rounded', label: 'Normal' },
+  { id: 'pill', label: 'Pildora' },
+  { id: 'square', label: 'Compacto' },
+]
+
+const menuLayoutOptions = [
+  { id: 'list', label: 'Lista' },
+  { id: 'grid', label: 'Cuadricula' },
+  { id: 'compact', label: 'Compacto' },
+]
+
+const socialFields = [
+  { key: 'instagram', label: 'Instagram', placeholder: 'https://instagram.com/turestaurante' },
+  { key: 'facebook', label: 'Facebook', placeholder: 'https://facebook.com/turestaurante' },
+  { key: 'whatsapp', label: 'WhatsApp', placeholder: 'https://wa.me/573001234567' },
+  { key: 'tiktok', label: 'TikTok', placeholder: 'https://tiktok.com/@turestaurante' },
+  { key: 'google_maps', label: 'Google Maps', placeholder: 'https://maps.google.com/...' },
+  { key: 'website', label: 'Sitio web', placeholder: 'https://turestaurante.com' },
+]
+
+function labelFor(value: string, options: Array<{ id: string; label: string }>) {
+  return options.find(option => option.id === value)?.label || value
+}
+
+function Panel({ title, desc, children }: { title: string; desc?: string; children: React.ReactNode }) {
   return (
-    <button
-      onClick={onClick}
-      className="w-full flex items-center gap-2 px-2 py-2.5 rounded-xl hover:bg-gray-50 transition-colors text-left group"
-    >
-      <span className="text-base w-7 text-center flex-shrink-0">{icon}</span>
-      <div className="flex-1 min-w-0">
-        <p className="text-sm font-medium text-gray-800">{label}</p>
-        <p className="text-xs text-gray-400 truncate">{desc}</p>
+    <section className="admin-panel p-5">
+      <div className="mb-5">
+        <h2 className="text-lg font-black text-[#15130f]">{title}</h2>
+        {desc && <p className="mt-1 text-sm font-bold leading-6 text-black/62">{desc}</p>}
       </div>
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="text-gray-300 group-hover:text-gray-400 flex-shrink-0"><path d="M9 18l6-6-6-6" /></svg>
-    </button>
-  )
-}
-
-function Block({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <div>
-      <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2.5">{title}</p>
       {children}
-    </div>
+    </section>
   )
 }
 
-function StyleBtn({ icon, label, active, onClick }: { icon: string; label: string; active: boolean; onClick: () => void }) {
+function StatCard({ label, value }: { label: string; value: string }) {
   return (
-    <button
-      onClick={onClick}
-      className={`flex flex-col items-center gap-1.5 p-3 rounded-xl border-2 transition-all ${active ? 'border-blue-500 bg-blue-50' : 'border-gray-200 hover:border-gray-300'}`}
-    >
-      <span className="text-xl">{icon}</span>
-      <span className="text-[10px] font-semibold text-gray-600">{label}</span>
+    <article className="admin-card p-5">
+      <p className="text-sm font-black uppercase text-black/62">{label}</p>
+      <p className="mt-3 text-2xl font-black text-[#15130f]">{value}</p>
+    </article>
+  )
+}
+
+function QuickButton({ title, desc, onClick }: { title: string; desc: string; onClick: () => void }) {
+  return (
+    <button onClick={onClick} className="rounded-xl border border-black/10 bg-white p-4 text-left transition hover:border-[#e43d30]/40 hover:shadow-md">
+      <p className="text-sm font-black text-[#15130f]">{title}</p>
+      <p className="mt-1 text-sm font-bold text-black/58">{desc}</p>
     </button>
   )
 }
 
 function Field({ label, value, onChange, placeholder, type = 'text' }: {
-  label: string; value: string; onChange: (v: string) => void; placeholder?: string; type?: string
+  label: string
+  value: string
+  onChange: (value: string) => void
+  placeholder?: string
+  type?: string
 }) {
   return (
-    <div>
-      <label className="block text-xs font-semibold text-gray-600 mb-1">{label}</label>
+    <label className="block">
+      <span className="mb-1.5 block text-sm font-black uppercase text-black/65">{label}</span>
       <input
         type={type}
         value={value}
         onChange={e => onChange(e.target.value)}
         placeholder={placeholder}
-        className="w-full px-3 py-2 border rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+        className="h-11 w-full rounded-lg border border-black/10 bg-white px-3 text-sm font-semibold text-[#15130f] outline-none transition focus:border-[#e43d30] focus:ring-4 focus:ring-red-500/10"
       />
-    </div>
+    </label>
   )
 }
 
-function ColorRow({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
+function TextArea({ label, value, onChange }: { label: string; value: string; onChange: (value: string) => void }) {
   return (
-    <div className="flex items-center gap-2">
-      <input
-        type="color"
+    <label className="block">
+      <span className="mb-1.5 block text-sm font-black uppercase text-black/65">{label}</span>
+      <textarea
         value={value}
         onChange={e => onChange(e.target.value)}
-        className="w-9 h-9 rounded-lg border cursor-pointer p-0.5 flex-shrink-0"
+        rows={4}
+        className="w-full resize-none rounded-lg border border-black/10 bg-white px-3 py-2 text-sm font-semibold text-[#15130f] outline-none transition focus:border-[#e43d30] focus:ring-4 focus:ring-red-500/10"
       />
-      <div>
-        <p className="text-xs font-semibold text-gray-600">{label}</p>
-        <p className="text-[10px] text-gray-400 font-mono">{value}</p>
+    </label>
+  )
+}
+
+function ColorField({ label, value, onChange }: { label: string; value: string; onChange: (value: string) => void }) {
+  return (
+    <label className="block">
+      <span className="mb-1.5 block text-sm font-black uppercase text-black/65">{label}</span>
+      <span className="flex h-11 items-center gap-2 rounded-lg border border-black/10 bg-white px-2">
+        <input type="color" value={value} onChange={e => onChange(e.target.value)} className="size-8 cursor-pointer rounded border-0 bg-transparent p-0" />
+        <span className="text-sm font-black text-black/65">{value}</span>
+      </span>
+    </label>
+  )
+}
+
+function ChoiceGrid({ label, value, options, onChange }: {
+  label: string
+  value: string
+  options: Array<{ id: string; label: string }>
+  onChange: (value: string) => void
+}) {
+  return (
+    <div>
+      <p className="mb-2 text-sm font-black uppercase text-black/65">{label}</p>
+      <div className="grid gap-2 sm:grid-cols-3">
+        {options.map(option => (
+          <button
+            key={option.id}
+            onClick={() => onChange(option.id)}
+            className={`rounded-lg border px-3 py-2 text-sm font-black transition ${
+              value === option.id ? 'border-[#e43d30] bg-red-50 text-[#15130f]' : 'border-black/12 bg-white text-black/72 hover:border-black/25'
+            }`}
+          >
+            {option.label}
+          </button>
+        ))}
       </div>
     </div>
   )
 }
 
 function Toggle({ label, description, checked, onChange }: {
-  label: string; description?: string; checked: boolean; onChange: (v: boolean) => void
+  label: string
+  description?: string
+  checked: boolean
+  onChange: (checked: boolean) => void
 }) {
   return (
-    <label className="flex items-center justify-between gap-3 cursor-pointer">
+    <div className="flex items-center justify-between gap-4 rounded-xl border border-black/10 bg-white p-3">
       <div>
-        <p className="text-sm font-medium text-gray-700">{label}</p>
-        {description && <p className="text-xs text-gray-400">{description}</p>}
+        <p className="text-sm font-black text-[#15130f]">{label}</p>
+        {description && <p className="mt-0.5 text-sm font-bold text-black/58">{description}</p>}
       </div>
       <button
         type="button"
         onClick={() => onChange(!checked)}
-        className={`w-10 h-6 rounded-full transition-colors flex items-center flex-shrink-0 ${checked ? 'bg-blue-500 justify-end' : 'bg-gray-300 justify-start'}`}
+        className={`flex h-6 w-11 items-center rounded-full p-0.5 transition ${checked ? 'justify-end bg-[#e43d30]' : 'justify-start bg-black/18'}`}
       >
-        <span className="w-5 h-5 bg-white rounded-full shadow-sm mx-0.5" />
+        <span className="size-5 rounded-full bg-white shadow-sm" />
       </button>
-    </label>
+    </div>
+  )
+}
+
+function Switch({ checked, onClick }: { checked: boolean; onClick: (event: React.MouseEvent<HTMLButtonElement>) => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`flex h-6 w-11 items-center rounded-full p-0.5 transition ${checked ? 'justify-end bg-[#e43d30]' : 'justify-start bg-black/18'}`}
+      aria-label={checked ? 'Ocultar seccion' : 'Mostrar seccion'}
+    >
+      <span className="size-5 rounded-full bg-white shadow-sm" />
+    </button>
+  )
+}
+
+function RangeField({ label, value, min, max, onChange }: {
+  label: string
+  value: number
+  min: number
+  max: number
+  onChange: (value: number) => void
+}) {
+  return (
+    <div>
+      <div className="mb-2 flex items-center justify-between">
+        <p className="text-sm font-black uppercase text-black/65">{label}</p>
+        <p className="text-xs font-black text-[#15130f]">{value}%</p>
+      </div>
+      <input type="range" min={min} max={max} value={value} onChange={e => onChange(Number(e.target.value))} className="w-full accent-[#e43d30]" />
+    </div>
+  )
+}
+
+function ImageUploader({ label, imageUrl, loading, onFile }: {
+  label: string
+  imageUrl?: string
+  loading: boolean
+  onFile: (file: File) => void
+}) {
+  return (
+    <div>
+      <p className="mb-2 text-sm font-black uppercase text-black/65">{label}</p>
+      <div className="overflow-hidden rounded-2xl border border-black/10 bg-white">
+        {imageUrl ? (
+          <img src={imageUrl} alt="" className="h-48 w-full object-cover" />
+        ) : (
+          <div className="flex h-48 items-center justify-center bg-black/[0.045] text-black/55">
+            <ImagePlus className="size-10" />
+          </div>
+        )}
+        <label className="flex cursor-pointer items-center justify-center gap-2 border-t border-black/10 px-4 py-3 text-sm font-black text-[#e43d30] transition hover:bg-red-50">
+          <ImagePlus className="size-4" />
+          {loading ? 'Subiendo...' : 'Subir imagen'}
+          <input type="file" accept="image/*" className="hidden" onChange={e => {
+            const file = e.target.files?.[0]
+            if (file) onFile(file)
+          }} />
+        </label>
+      </div>
+    </div>
+  )
+}
+
+function IconButton({ label, disabled, onClick, children }: {
+  label: string
+  disabled?: boolean
+  onClick: (event: React.MouseEvent<HTMLButtonElement>) => void
+  children: React.ReactNode
+}) {
+  return (
+    <button
+      type="button"
+      aria-label={label}
+      disabled={disabled}
+      onClick={onClick}
+      className="flex size-8 items-center justify-center rounded-lg border border-black/15 bg-white text-black/65 transition hover:text-[#15130f] disabled:cursor-not-allowed disabled:opacity-35"
+    >
+      {children}
+    </button>
   )
 }

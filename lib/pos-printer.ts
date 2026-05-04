@@ -100,13 +100,13 @@ export async function printReceipt(
       .eq('id', printerId)
       .eq('tenant_id', tenantId);
   } catch (error) {
-    // Log the error but don't throw - print failure shouldn't break the order
     const errorMsg = error instanceof Error ? error.message : String(error);
     console.error('Print error:', errorMsg);
 
     await savePrinterLog(tenantId, printerId, 'print', 'failed', {
       error: errorMsg,
     });
+    throw new Error(errorMsg);
   }
 }
 
@@ -375,7 +375,9 @@ export async function testPrinterConnection(
  */
 export async function openCashDrawer(tenantId: string): Promise<void> {
   try {
-    if (typeof navigator === 'undefined' || !('usb' in navigator) || !navigator.usb) return;
+    if (typeof navigator === 'undefined' || !('usb' in navigator) || !navigator.usb) {
+      throw new Error('WebUSB no esta disponible para abrir el cajon');
+    }
 
     // ESC p m t1 t2 — open drawer on pin 2
     const drawerCmd = new Uint8Array([0x1b, 0x70, 0x00, 0x19, 0xfa]);
@@ -386,7 +388,9 @@ export async function openCashDrawer(tenantId: string): Promise<void> {
       .eq('tenant_id', tenantId)
       .maybeSingle();
 
-    if (!settings?.default_receipt_printer_id) return;
+    if (!settings?.default_receipt_printer_id) {
+      throw new Error('No hay impresora de recibos predeterminada');
+    }
 
     const { data: printer } = await getSupabase()
       .from('printer_devices')
@@ -395,10 +399,18 @@ export async function openCashDrawer(tenantId: string): Promise<void> {
       .eq('tenant_id', tenantId)
       .maybeSingle();
 
-    if (!printer) return;
+    if (!printer) {
+      throw new Error('No se encontro la impresora configurada');
+    }
 
     await printViaWebUSB(printer, drawerCmd);
-  } catch {
+  } catch (error) {
+    const errorMsg = error instanceof Error ? error.message : String(error);
+    await savePrinterLog(tenantId, null, 'error', 'failed', {
+      action: 'open_cash_drawer',
+      error: errorMsg,
+    });
+    throw new Error(errorMsg);
     // Drawer open is best-effort — never block the payment flow
   }
 }

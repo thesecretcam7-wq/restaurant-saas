@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { InventoryManager } from '@/components/admin/InventoryManager'
+import { Boxes } from 'lucide-react'
 
 interface Props { params: Promise<{ domain: string }> }
 
@@ -14,6 +15,20 @@ export default async function InventoryPage({ params }: Props) {
     .eq(isUUID ? 'id' : 'slug', domain)
     .single()
 
-  if (!tenant) return <div className="flex items-center justify-center h-64 text-gray-400">Error al cargar inventario</div>
-  return <InventoryManager tenantId={tenant.id} />
+  if (!tenant) return <div className="admin-empty">Error al cargar inventario</div>
+  return (
+    <div className="admin-page">
+      <div className="admin-page-header">
+        <div>
+          <p className="admin-eyebrow">Stock</p>
+          <h1 className="admin-title">Inventario</h1>
+          <p className="admin-subtitle">Control de existencias, compras, ventas y alertas de stock bajo.</p>
+        </div>
+        <span className="hidden size-12 items-center justify-center rounded-xl bg-[#15130f] text-white sm:flex">
+          <Boxes className="size-5" />
+        </span>
+      </div>
+      <InventoryManager tenantId={tenant.id} />
+    </div>
+  )
 }

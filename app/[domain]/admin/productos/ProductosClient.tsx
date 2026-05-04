@@ -4,6 +4,7 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import toast from 'react-hot-toast'
+import { ChefHat, Edit3, PackageOpen, Plus, Search, Sparkles } from 'lucide-react'
 
 interface Category { id: string; name: string; sort_order: number }
 interface Product {
@@ -18,7 +19,9 @@ interface Product {
 }
 
 export default function ProductosClient({
-  domain, categories, initialProducts, tenantId,
+  domain,
+  categories,
+  initialProducts,
 }: {
   domain: string
   categories: Category[]
@@ -36,6 +39,7 @@ export default function ProductosClient({
       .from('menu_items')
       .update({ available: !product.available })
       .eq('id', product.id)
+
     if (error) {
       toast.error('Error al cambiar disponibilidad')
     } else {
@@ -47,55 +51,59 @@ export default function ProductosClient({
   const filtered = search.trim()
     ? products.filter(p => p.name.toLowerCase().includes(search.toLowerCase()))
     : products
-
   const uncategorized = filtered.filter(p => !p.category_id)
+  const availableCount = products.filter(p => p.available).length
 
   return (
-    <div className="pb-24">
-      {/* Header */}
-      <div className="px-4 pt-4 sm:px-0 sm:pt-0">
-        <div className="flex items-center justify-between mb-4 sm:mb-6">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">Productos</h1>
-            <p className="text-gray-500 text-sm mt-1">{products.length} en el menú</p>
-          </div>
-          <Link
-            href={`/${domain}/admin/productos/nueva-categoria`}
-            className="px-4 py-2 border rounded-lg text-sm text-gray-600 hover:bg-gray-50 font-medium"
-          >
-            + Categoría
+    <div className="admin-page">
+      <div className="admin-page-header">
+        <div>
+          <p className="admin-eyebrow">Menu</p>
+          <h1 className="admin-title">Productos</h1>
+          <p className="admin-subtitle">{products.length} productos, {availableCount} disponibles para venta.</p>
+        </div>
+        <div className="flex flex-col gap-2 sm:flex-row">
+          <Link href={`/${domain}/admin/productos/nueva-categoria`} className="admin-button-ghost">
+            <Plus className="size-4" />
+            Categoria
+          </Link>
+          <Link href={`/${domain}/admin/productos/nuevo`} className="admin-button-primary">
+            <Plus className="size-4" />
+            Producto
           </Link>
         </div>
-        <input
-          value={search}
-          onChange={e => setSearch(e.target.value)}
-          placeholder="Buscar producto..."
-          className="w-full px-4 py-2.5 border rounded-lg bg-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 mb-4 sm:mb-6"
-        />
       </div>
 
-      <div className="px-4 sm:px-0 space-y-6">
+      <div className="admin-panel mb-5 p-3">
+        <label className="relative block">
+          <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-black/32" />
+          <input
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            placeholder="Buscar producto..."
+            className="admin-input pl-10"
+          />
+        </label>
+      </div>
+
+      <div className="space-y-5">
         {filtered.length === 0 ? (
-          <div className="text-center py-16">
-            <p className="text-4xl mb-3">🍽️</p>
-            <p className="font-semibold text-gray-700 mb-1">
-              {search ? 'Sin resultados' : 'Sin productos aún'}
-            </p>
-            <p className="text-gray-400 text-sm">
-              {search ? `No encontramos "${search}"` : 'Usa el botón + para agregar'}
-            </p>
+          <div className="admin-empty">
+            <PackageOpen className="mb-3 size-8 text-black/24" />
+            <p className="font-black text-[#15130f]">{search ? 'Sin resultados' : 'Sin productos aun'}</p>
+            <p className="mt-1 text-sm">{search ? `No encontramos "${search}".` : 'Crea tu primer producto para empezar a vender.'}</p>
           </div>
         ) : (
           <>
-            {categories.map(cat => {
-              const catProducts = filtered.filter(p => p.category_id === cat.id)
-              if (catProducts.length === 0) return null
+            {categories.map(category => {
+              const categoryProducts = filtered.filter(p => p.category_id === category.id)
+              if (categoryProducts.length === 0) return null
               return (
                 <CategoryGroup
-                  key={cat.id}
-                  name={cat.name}
-                  editHref={`/${domain}/admin/productos/categoria/${cat.id}`}
-                  products={catProducts}
+                  key={category.id}
+                  name={category.name}
+                  editHref={`/${domain}/admin/productos/categoria/${category.id}`}
+                  products={categoryProducts}
                   domain={domain}
                   togglingId={togglingId}
                   onToggle={toggleAvailable}
@@ -104,7 +112,7 @@ export default function ProductosClient({
             })}
             {uncategorized.length > 0 && (
               <CategoryGroup
-                name="Sin categoría"
+                name="Sin categoria"
                 products={uncategorized}
                 domain={domain}
                 togglingId={togglingId}
@@ -114,21 +122,17 @@ export default function ProductosClient({
           </>
         )}
       </div>
-
-      {/* FAB */}
-      <Link
-        href={`/${domain}/admin/productos/nuevo`}
-        className="fixed bottom-6 right-4 w-14 h-14 bg-blue-600 text-white rounded-xl shadow-lg flex items-center justify-center text-2xl hover:bg-blue-700 active:scale-95 transition-all z-50"
-        aria-label="Nuevo producto"
-      >
-        +
-      </Link>
     </div>
   )
 }
 
 function CategoryGroup({
-  name, editHref, products, domain, togglingId, onToggle,
+  name,
+  editHref,
+  products,
+  domain,
+  togglingId,
+  onToggle,
 }: {
   name: string
   editHref?: string
@@ -138,17 +142,20 @@ function CategoryGroup({
   onToggle: (p: Product) => void
 }) {
   return (
-    <div>
-      <div className="flex items-center justify-between mb-2 px-1">
-        <span className="text-sm font-bold text-gray-700 uppercase tracking-wide">{name}</span>
-        <div className="flex items-center gap-3">
-          <span className="text-xs text-gray-400">{products.length}</span>
-          {editHref && (
-            <Link href={editHref} className="text-xs text-blue-600 font-medium">Editar</Link>
-          )}
+    <section className="admin-panel overflow-hidden">
+      <div className="flex items-center justify-between border-b border-black/10 px-5 py-4">
+        <div>
+          <h2 className="font-black text-[#15130f]">{name}</h2>
+          <p className="text-xs font-semibold text-black/45">{products.length} productos</p>
         </div>
+        {editHref && (
+          <Link href={editHref} className="inline-flex items-center gap-1.5 text-sm font-black text-[#e43d30]">
+            <Edit3 className="size-4" />
+            Editar
+          </Link>
+        )}
       </div>
-      <div className="bg-white rounded-xl border divide-y overflow-hidden">
+      <div className="divide-y divide-black/8">
         {products.map(product => (
           <ProductRow
             key={product.id}
@@ -159,12 +166,15 @@ function CategoryGroup({
           />
         ))}
       </div>
-    </div>
+    </section>
   )
 }
 
 function ProductRow({
-  product, domain, toggling, onToggle,
+  product,
+  domain,
+  toggling,
+  onToggle,
 }: {
   product: Product
   domain: string
@@ -172,33 +182,40 @@ function ProductRow({
   onToggle: (p: Product) => void
 }) {
   return (
-    <div className="flex items-center gap-3 p-3">
-      {/* Image */}
-      <Link href={`/${domain}/admin/productos/${product.id}`} className="flex-shrink-0">
+    <div className="grid gap-3 px-5 py-4 transition hover:bg-white/70 sm:grid-cols-[1fr_auto] sm:items-center">
+      <Link href={`/${domain}/admin/productos/${product.id}`} className="flex min-w-0 items-center gap-3">
         {product.image_url ? (
-          <img src={product.image_url} alt={product.name} className="w-14 h-14 rounded-xl object-cover" />
+          <img src={product.image_url} alt={product.name} className="size-14 flex-shrink-0 rounded-xl object-cover shadow-sm" />
         ) : (
-          <div className="w-14 h-14 rounded-xl bg-gray-100 flex items-center justify-center text-2xl">🍽️</div>
+          <span className="flex size-14 flex-shrink-0 items-center justify-center rounded-xl bg-black/5 text-black/35">
+            <ChefHat className="size-6" />
+          </span>
         )}
+        <span className="min-w-0">
+          <span className="flex items-center gap-2">
+            <span className="truncate text-sm font-black text-[#15130f]">{product.name}</span>
+            {product.featured && <Sparkles className="size-4 flex-shrink-0 text-[#c47a16]" />}
+          </span>
+          {product.description && <span className="mt-0.5 block truncate text-xs font-semibold text-black/45">{product.description}</span>}
+          <span className="mt-1 block text-sm font-black text-[#e43d30]">${Number(product.price).toLocaleString('es-CO')}</span>
+        </span>
       </Link>
 
-      {/* Info */}
-      <Link href={`/${domain}/admin/productos/${product.id}`} className="flex-1 min-w-0">
-        <p className="font-semibold text-gray-900 truncate">{product.name}</p>
-        <p className="text-sm text-blue-600 font-medium">${Number(product.price).toLocaleString('es-CO')}</p>
-        {product.featured && <span className="text-[10px] text-amber-600 font-semibold">⭐ Destacado</span>}
-      </Link>
-
-      {/* Toggle disponible */}
-      <button
-        onClick={() => onToggle(product)}
-        disabled={toggling}
-        className={`w-12 h-7 rounded-full transition-all flex items-center flex-shrink-0 ${
-          product.available ? 'bg-green-500 justify-end' : 'bg-gray-300 justify-start'
-        } ${toggling ? 'opacity-50' : ''}`}
-      >
-        <span className="w-6 h-6 bg-white rounded-full shadow-sm mx-0.5" />
-      </button>
+      <div className="flex items-center justify-between gap-3 sm:justify-end">
+        <span className={`admin-chip ${product.available ? 'text-[#1c8b5f]' : 'text-black/40'}`}>
+          {product.available ? 'Disponible' : 'Oculto'}
+        </span>
+        <button
+          onClick={() => onToggle(product)}
+          disabled={toggling}
+          className={`flex h-7 w-12 items-center rounded-full p-0.5 transition ${
+            product.available ? 'justify-end bg-[#1c8b5f]' : 'justify-start bg-black/18'
+          } ${toggling ? 'opacity-50' : ''}`}
+          aria-label="Cambiar disponibilidad"
+        >
+          <span className="size-6 rounded-full bg-white shadow-sm" />
+        </button>
+      </div>
     </div>
   )
 }

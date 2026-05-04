@@ -220,7 +220,11 @@ export default function PersonalizacionPage({ params }: PersonalizacionProps) {
     }
   }
 
-  if (resolvingTenant || loading) return <div className="flex items-center justify-center h-64 text-gray-400">Cargando...</div>
+  if (resolvingTenant || loading) return (
+    <div className="admin-panel flex h-64 items-center justify-center text-black/45">
+      Cargando personalizacion...
+    </div>
+  )
 
   const imageUploadField = (label: string, field: keyof typeof form) => (
     <div>
@@ -251,22 +255,32 @@ export default function PersonalizacionPage({ params }: PersonalizacionProps) {
   ]
 
   return (
-    <div className="max-w-5xl">
-      <div className="mb-8">
-        <h1 className="text-2xl font-bold text-gray-900">Personalización Completa</h1>
-        <p className="text-gray-500 text-sm mt-1">Configura todo sobre tu restaurante en un solo lugar</p>
+    <div className="brand-studio max-w-6xl">
+      <div className="admin-page-header">
+        <div>
+          <p className="admin-eyebrow">Marca</p>
+          <h1 className="admin-title">Personalizacion</h1>
+          <p className="admin-subtitle">Define identidad, colores, textos, contacto y apariencia publica del restaurante desde una sola cabina visual.</p>
+        </div>
+        <button
+          onClick={handleSave}
+          disabled={saving}
+          className="admin-button-primary"
+        >
+          {saving ? 'Guardando...' : 'Guardar cambios'}
+        </button>
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-2 mb-6 border-b overflow-x-auto">
+      <div className="brand-tabs mb-6">
         {tabs.map(tab => (
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id)}
-            className={`px-4 py-3 font-medium text-sm whitespace-nowrap transition-colors ${
+            className={`brand-tab ${
               activeTab === tab.id
-                ? 'text-blue-600 border-b-2 border-blue-600'
-                : 'text-gray-600 hover:text-gray-900'
+                ? 'brand-tab-active'
+                : ''
             }`}
           >
             {tab.label}
@@ -965,7 +979,7 @@ export default function PersonalizacionPage({ params }: PersonalizacionProps) {
 
       {/* Preview */}
       <div
-        className="bg-white rounded-xl border p-8 mt-6 overflow-hidden"
+        className="brand-preview-frame bg-white rounded-xl border p-8 mt-6 overflow-hidden"
         style={{
           backgroundColor: form.background_color,
           fontFamily: form.font_family,
@@ -992,7 +1006,7 @@ export default function PersonalizacionPage({ params }: PersonalizacionProps) {
       <button
         onClick={handleSave}
         disabled={saving}
-        className="w-full mt-6 py-3 bg-blue-600 text-white rounded-xl font-medium hover:bg-blue-700 disabled:bg-blue-300"
+        className="admin-button-primary mt-6 w-full disabled:opacity-50"
       >
         {saving ? 'Guardando...' : 'Guardar Cambios'}
       </button>

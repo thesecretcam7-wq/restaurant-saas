@@ -36,5 +36,9 @@ export default async function POSPage({ params }: POSPageProps) {
     );
   }
 
-  return <POSTerminal tenantId={tenant.id} country={tenant.country || 'CO'} />;
+  return (
+    <div className="relative left-1/2 -m-4 h-[calc(100vh-3.5rem)] w-screen -translate-x-1/2 overflow-hidden sm:-m-6 md:h-screen md:w-[calc(100vw-16rem)] lg:-m-8">
+      <POSTerminal tenantId={tenant.id} tenantSlug={slug} country={tenant.country || 'CO'} />
+    </div>
+  );
 }

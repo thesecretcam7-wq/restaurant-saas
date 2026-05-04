@@ -27,6 +27,7 @@ export default function NuevoProductoClient({ domain, tenantId, categories }: Pr
     image_url: '',
     available: true,
     featured: false,
+    show_in_upsell: false,
   })
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -63,6 +64,7 @@ export default function NuevoProductoClient({ domain, tenantId, categories }: Pr
           imageUrl: validated.image_url || null,
           available: validated.available,
           featured: validated.featured,
+          showInUpsell: validated.show_in_upsell,
         }),
       })
 
@@ -243,6 +245,12 @@ export default function NuevoProductoClient({ domain, tenantId, categories }: Pr
                 description="Aparece en la sección de destacados"
                 checked={form.featured}
                 onChange={v => setForm(f => ({ ...f, featured: v }))}
+              />
+              <ToggleRow
+                label="Completa tu pedido"
+                description="Mostrar como sugerencia pequena en el kiosko"
+                checked={form.show_in_upsell}
+                onChange={v => setForm(f => ({ ...f, show_in_upsell: v }))}
               />
             </div>
 

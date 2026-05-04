@@ -168,32 +168,30 @@ export function StaffScheduler({ tenantId }: { tenantId: string }) {
   }
 
   if (loading) {
-    return <div className="p-8 text-center">Cargando...</div>;
+    return <div className="admin-empty">Cargando personal...</div>;
   }
 
   return (
-    <div className="p-8 bg-gray-50 min-h-screen">
-      <div className="max-w-7xl mx-auto">
-        <h1 className="text-3xl font-bold text-gray-900 mb-8">Personal y Horarios</h1>
-
+    <div>
+      <div>
         {/* Tabs */}
-        <div className="flex gap-4 mb-8 border-b">
+        <div className="admin-panel mb-5 flex gap-2 p-2">
           <button
             onClick={() => setTab('staff')}
-            className={`px-6 py-3 font-semibold border-b-2 transition ${
+            className={`flex-1 rounded-lg px-4 py-3 text-sm font-black transition ${
               tab === 'staff'
-                ? 'border-blue-600 text-blue-600'
-                : 'border-transparent text-gray-600 hover:text-gray-900'
+                ? 'bg-[#15130f] text-white'
+                : 'text-black/58 hover:bg-white hover:text-[#15130f]'
             }`}
           >
             <Users className="w-5 h-5 inline mr-2" /> Personal
           </button>
           <button
             onClick={() => setTab('schedule')}
-            className={`px-6 py-3 font-semibold border-b-2 transition ${
+            className={`flex-1 rounded-lg px-4 py-3 text-sm font-black transition ${
               tab === 'schedule'
-                ? 'border-blue-600 text-blue-600'
-                : 'border-transparent text-gray-600 hover:text-gray-900'
+                ? 'bg-[#15130f] text-white'
+                : 'text-black/58 hover:bg-white hover:text-[#15130f]'
             }`}
           >
             <Calendar className="w-5 h-5 inline mr-2" /> Horarios
@@ -205,14 +203,14 @@ export function StaffScheduler({ tenantId }: { tenantId: string }) {
           <div>
             <button
               onClick={() => setShowAddStaffForm(true)}
-              className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-semibold flex items-center gap-2 mb-6 transition"
+              className="admin-button-primary mb-5"
             >
               <Plus className="w-5 h-5" /> Agregar Empleado
             </button>
 
             {showAddStaffForm && (
               <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-                <div className="bg-white rounded-lg p-8 max-w-md w-full mx-4">
+                <div className="admin-panel max-w-md w-full mx-4 p-6">
                   <h2 className="text-2xl font-bold text-gray-900 mb-6">Agregar Empleado</h2>
                   <form onSubmit={addStaff} className="space-y-4">
                     <input
@@ -220,25 +218,25 @@ export function StaffScheduler({ tenantId }: { tenantId: string }) {
                       name="name"
                       placeholder="Nombre"
                       required
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                      className="admin-input"
                     />
                     <input
                       type="email"
                       name="email"
                       placeholder="Email"
                       required
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                      className="admin-input"
                     />
                     <input
                       type="tel"
                       name="phone"
                       placeholder="Teléfono"
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                      className="admin-input"
                     />
                     <select
                       name="role"
                       required
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                      className="admin-input"
                     >
                       <option value="">Seleccionar Rol</option>
                       <option value="manager">Manager</option>
@@ -252,26 +250,26 @@ export function StaffScheduler({ tenantId }: { tenantId: string }) {
                       type="text"
                       name="position"
                       placeholder="Puesto (opcional)"
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                      className="admin-input"
                     />
                     <input
                       type="number"
                       step="0.01"
                       name="hourlyRate"
                       placeholder="Tarifa Horaria"
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                      className="admin-input"
                     />
                     <div className="flex gap-3 pt-4">
                       <button
                         type="submit"
-                        className="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 rounded-lg transition"
+                        className="admin-button-primary flex-1"
                       >
                         Agregar
                       </button>
                       <button
                         type="button"
                         onClick={() => setShowAddStaffForm(false)}
-                        className="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-900 font-semibold py-2 rounded-lg transition"
+                        className="admin-button-ghost flex-1"
                       >
                         Cancelar
                       </button>
@@ -283,7 +281,7 @@ export function StaffScheduler({ tenantId }: { tenantId: string }) {
 
             <div className="grid gap-4">
               {staff.map((member) => (
-                <div key={member.id} className="bg-white rounded-lg shadow p-6">
+                <div key={member.id} className="admin-card p-5">
                   <div className="flex justify-between items-start">
                     <div className="flex-1">
                       <h3 className="font-bold text-lg text-gray-900">{member.name}</h3>
@@ -330,7 +328,7 @@ export function StaffScheduler({ tenantId }: { tenantId: string }) {
               </div>
               <button
                 onClick={() => setShowAddShiftForm(true)}
-                className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg font-semibold flex items-center gap-2 self-end transition"
+                className="admin-button-primary self-end"
               >
                 <Plus className="w-5 h-5" /> Agregar Turno
               </button>
@@ -338,7 +336,7 @@ export function StaffScheduler({ tenantId }: { tenantId: string }) {
 
             {showAddShiftForm && (
               <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-                <div className="bg-white rounded-lg p-8 max-w-md w-full mx-4">
+                <div className="admin-panel max-w-md w-full mx-4 p-6">
                   <h2 className="text-2xl font-bold text-gray-900 mb-6">Agregar Turno</h2>
                   <form onSubmit={addShift} className="space-y-4">
                     <input
@@ -346,39 +344,39 @@ export function StaffScheduler({ tenantId }: { tenantId: string }) {
                       name="name"
                       placeholder="Nombre del Turno"
                       required
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                      className="admin-input"
                     />
                     <input
                       type="time"
                       name="startTime"
                       placeholder="Hora Inicio"
                       required
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                      className="admin-input"
                     />
                     <input
                       type="time"
                       name="endTime"
                       placeholder="Hora Fin"
                       required
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                      className="admin-input"
                     />
                     <input
                       type="color"
                       name="color"
                       defaultValue="#3B82F6"
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg"
+                      className="admin-input"
                     />
                     <div className="flex gap-3 pt-4">
                       <button
                         type="submit"
-                        className="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 rounded-lg transition"
+                        className="admin-button-primary flex-1"
                       >
                         Agregar
                       </button>
                       <button
                         type="button"
                         onClick={() => setShowAddShiftForm(false)}
-                        className="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-900 font-semibold py-2 rounded-lg transition"
+                        className="admin-button-ghost flex-1"
                       >
                         Cancelar
                       </button>
@@ -389,10 +387,10 @@ export function StaffScheduler({ tenantId }: { tenantId: string }) {
             )}
 
             {/* Schedule Grid */}
-            <div className="bg-white rounded-lg shadow overflow-hidden">
+            <div className="admin-panel overflow-hidden">
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 p-6">
                 {staff.map((member) => (
-                  <div key={member.id} className="border rounded-lg p-4">
+                  <div key={member.id} className="admin-card p-4">
                     <h3 className="font-bold text-gray-900 mb-4">{member.name}</h3>
                     <div className="space-y-2 mb-4">
                       {assignments

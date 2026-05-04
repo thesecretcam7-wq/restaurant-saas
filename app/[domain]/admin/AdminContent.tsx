@@ -13,8 +13,8 @@ interface AdminContentProps {
 export function AdminContent({ children, trialEndsAt, slug }: AdminContentProps) {
   return (
     <ErrorBoundary>
-      <main className="md:ml-64 flex-1 p-0 min-h-screen max-h-screen overflow-y-auto w-full pt-14 md:pt-0">
-        <div className="p-6">
+      <main className="admin-shell md:ml-64 flex-1 min-h-screen max-h-screen overflow-y-auto w-full pt-14 md:pt-0">
+        <div className="mx-auto w-full max-w-[1500px] p-4 sm:p-6 lg:p-8">
           {trialEndsAt && <TrialBanner trialEndsAt={trialEndsAt} slug={slug} />}
           {children}
         </div>

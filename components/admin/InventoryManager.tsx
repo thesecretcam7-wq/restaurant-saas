@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { createClient } from '@supabase/supabase-js';
-import { AlertTriangle, Plus, Minus, TrendingDown, AlertCircle } from 'lucide-react';
+import { AlertTriangle, Plus, Minus, PackagePlus, X, Hash, Boxes, DollarSign, Truck } from 'lucide-react';
 import { NumericKeyboard } from './NumericKeyboard';
 
 const supabase = createClient(
@@ -75,6 +75,7 @@ export function InventoryManager({ tenantId }: { tenantId: string }) {
           sku: formData.get('sku'),
           minStock: parseInt(formData.get('minStock') as string) || 5,
           maxStock: parseInt(formData.get('maxStock') as string) || 100,
+          initialStock: parseInt(formData.get('initialStock') as string) || 0,
           costPerUnit: parseFloat(formData.get('costPerUnit') as string),
           supplier: formData.get('supplier'),
         }),
@@ -123,7 +124,7 @@ export function InventoryManager({ tenantId }: { tenantId: string }) {
   };
 
   if (loading) {
-    return <div className="p-8 text-center">Cargando inventario...</div>;
+    return <div className="admin-empty">Cargando inventario...</div>;
   }
 
   const lowStockItems = inventory.filter((item) => item.current_stock <= item.min_stock);
@@ -133,19 +134,19 @@ export function InventoryManager({ tenantId }: { tenantId: string }) {
   );
 
   return (
-    <div className="p-8 bg-gray-50 min-h-screen">
-      <div className="max-w-7xl mx-auto">
+    <div>
+      <div>
         {/* Header */}
-        <div className="mb-8 flex justify-between items-center">
+        <div className="mb-5 flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">Inventario</h1>
-            <p className="text-gray-600 mt-1">
+            <h2 className="text-lg font-black text-[#15130f]">Resumen de stock</h2>
+            <p className="text-sm font-semibold text-black/52 mt-1">
               Valor total: <span className="font-bold">${totalInventoryValue.toFixed(2)}</span>
             </p>
           </div>
           <button
             onClick={() => setShowAddForm(true)}
-            className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-semibold flex items-center gap-2 transition"
+            className="admin-button-primary"
           >
             <Plus className="w-5 h-5" /> Agregar Producto
           </button>
@@ -153,7 +154,7 @@ export function InventoryManager({ tenantId }: { tenantId: string }) {
 
         {/* Alerts */}
         {lowStockItems.length > 0 && (
-          <div className="mb-8 bg-yellow-50 border-l-4 border-yellow-400 p-6 rounded">
+          <div className="admin-panel mb-5 border-amber-200 bg-amber-50/80 p-5">
             <div className="flex gap-3">
               <AlertTriangle className="w-6 h-6 text-yellow-600 flex-shrink-0 mt-0.5" />
               <div>
@@ -176,64 +177,144 @@ export function InventoryManager({ tenantId }: { tenantId: string }) {
 
         {/* Add Form Modal */}
         {showAddForm && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div className="bg-white rounded-lg p-8 max-w-md w-full mx-4">
-              <h2 className="text-2xl font-bold text-gray-900 mb-6">Agregar Producto al Inventario</h2>
-              <form onSubmit={addInventoryItem} className="space-y-4">
-                <input
-                  type="text"
-                  name="productName"
-                  placeholder="Nombre del producto"
-                  required
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
-                />
-                <input
-                  type="text"
-                  name="sku"
-                  placeholder="SKU (opcional)"
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
-                />
-                <input
-                  type="number"
-                  name="minStock"
-                  placeholder="Stock Mínimo"
-                  defaultValue="5"
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
-                />
-                <input
-                  type="number"
-                  name="maxStock"
-                  placeholder="Stock Máximo"
-                  defaultValue="100"
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
-                />
-                <input
-                  type="number"
-                  step="0.01"
-                  name="costPerUnit"
-                  placeholder="Costo por Unidad"
-                  required
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
-                />
-                <input
-                  type="text"
-                  name="supplier"
-                  placeholder="Proveedor (opcional)"
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
-                />
-                <div className="flex gap-3 pt-4">
-                  <button
-                    type="submit"
-                    className="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 rounded-lg transition"
-                  >
-                    Agregar
-                  </button>
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/55 p-4 backdrop-blur-sm">
+            <div className="admin-panel w-full max-w-2xl overflow-hidden">
+              <div className="flex items-start justify-between gap-4 border-b border-black/10 bg-white/70 px-6 py-5">
+                <div className="flex items-start gap-4">
+                  <span className="flex size-12 flex-shrink-0 items-center justify-center rounded-xl bg-[#15130f] text-white shadow-sm">
+                    <PackagePlus className="size-5" />
+                  </span>
+                  <div>
+                    <p className="admin-eyebrow">Nuevo insumo</p>
+                    <h2 className="mt-1 text-2xl font-black tracking-tight text-[#15130f]">Agregar producto al inventario</h2>
+                    <p className="mt-1 text-sm font-semibold leading-6 text-black/52">
+                      Define stock minimo, maximo, costo y proveedor para controlar alertas y movimientos.
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowAddForm(false)}
+                  className="rounded-lg p-2 text-black/45 transition hover:bg-black/5 hover:text-black"
+                  aria-label="Cerrar"
+                >
+                  <X className="size-5" />
+                </button>
+              </div>
+
+              <form onSubmit={addInventoryItem} className="space-y-5 p-6">
+                <div>
+                  <label className="mb-2 block text-xs font-black uppercase text-black/45">Producto *</label>
+                  <div className="relative">
+                    <Boxes className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-black/32" />
+                    <input
+                      type="text"
+                      name="productName"
+                      placeholder="Ej. Queso mozzarella, harina, salsa base"
+                      required
+                      className="admin-input pl-10"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div>
+                    <label className="mb-2 block text-xs font-black uppercase text-black/45">SKU</label>
+                    <div className="relative">
+                      <Hash className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-black/32" />
+                      <input
+                        type="text"
+                        name="sku"
+                        placeholder="Opcional"
+                        className="admin-input pl-10"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="mb-2 block text-xs font-black uppercase text-black/45">Proveedor</label>
+                    <div className="relative">
+                      <Truck className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-black/32" />
+                      <input
+                        type="text"
+                        name="supplier"
+                        placeholder="Opcional"
+                        className="admin-input pl-10"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="grid gap-4 sm:grid-cols-4">
+                  <div>
+                    <label className="mb-2 block text-xs font-black uppercase text-black/45">Stock inicial</label>
+                    <input
+                      type="number"
+                      name="initialStock"
+                      min="0"
+                      placeholder="0"
+                      defaultValue="0"
+                      className="admin-input"
+                    />
+                  </div>
+                  <div>
+                    <label className="mb-2 block text-xs font-black uppercase text-black/45">Stock minimo</label>
+                    <input
+                      type="number"
+                      name="minStock"
+                      min="0"
+                      placeholder="5"
+                      defaultValue="5"
+                      className="admin-input"
+                    />
+                  </div>
+                  <div>
+                    <label className="mb-2 block text-xs font-black uppercase text-black/45">Stock maximo</label>
+                    <input
+                      type="number"
+                      name="maxStock"
+                      min="0"
+                      placeholder="100"
+                      defaultValue="100"
+                      className="admin-input"
+                    />
+                  </div>
+                  <div>
+                    <label className="mb-2 block text-xs font-black uppercase text-black/45">Costo unitario *</label>
+                    <div className="relative">
+                      <DollarSign className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-black/32" />
+                      <input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        name="costPerUnit"
+                        placeholder="0.00"
+                        required
+                        className="admin-input pl-10"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="rounded-xl border border-black/10 bg-black/[0.03] px-4 py-3">
+                  <p className="text-xs font-semibold leading-5 text-black/52">
+                    El sistema usara el stock minimo para alertarte cuando sea momento de reponer. Puedes ajustar existencias despues con movimientos de compra, venta o ajuste.
+                  </p>
+                </div>
+
+                <div className="flex flex-col-reverse gap-3 border-t border-black/10 pt-5 sm:flex-row sm:justify-end">
                   <button
                     type="button"
                     onClick={() => setShowAddForm(false)}
-                    className="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-900 font-semibold py-2 rounded-lg transition"
+                    className="admin-button-ghost sm:w-auto"
                   >
                     Cancelar
+                  </button>
+                  <button
+                    type="submit"
+                    className="admin-button-primary sm:w-auto"
+                  >
+                    <Plus className="size-4" />
+                    Agregar al inventario
                   </button>
                 </div>
               </form>
@@ -244,7 +325,7 @@ export function InventoryManager({ tenantId }: { tenantId: string }) {
         {/* Stock Movement Modal */}
         {selectedItem && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-40">
-            <div className="bg-white rounded-lg p-8 max-w-md w-full mx-4">
+            <div className="admin-panel max-w-md w-full mx-4 p-6">
               <h2 className="text-2xl font-bold text-gray-900 mb-6">Registrar Movimiento de Stock</h2>
               <div className="space-y-4">
                 <div>
@@ -254,7 +335,7 @@ export function InventoryManager({ tenantId }: { tenantId: string }) {
                   <select
                     value={movementType}
                     onChange={(e) => setMovementType(e.target.value as any)}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                    className="admin-input"
                   >
                     <option value="purchase">Compra</option>
                     <option value="sale">Venta</option>
@@ -275,7 +356,7 @@ export function InventoryManager({ tenantId }: { tenantId: string }) {
                 <div className="flex gap-3 pt-4">
                   <button
                     onClick={recordStockMovement}
-                    className="flex-1 bg-green-600 hover:bg-green-700 text-white font-semibold py-2 rounded-lg transition disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="admin-button-primary flex-1 disabled:opacity-50 disabled:cursor-not-allowed"
                     disabled={quantity === 0}
                   >
                     Registrar
@@ -286,7 +367,7 @@ export function InventoryManager({ tenantId }: { tenantId: string }) {
                       setQuantity(0);
                       setShowNumericKeyboard(false);
                     }}
-                    className="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-900 font-semibold py-2 rounded-lg transition"
+                    className="admin-button-ghost flex-1"
                   >
                     Cancelar
                   </button>
@@ -310,7 +391,7 @@ export function InventoryManager({ tenantId }: { tenantId: string }) {
         />
 
         {/* Inventory Table */}
-        <div className="bg-white rounded-lg shadow overflow-hidden">
+        <div className="admin-panel overflow-hidden">
           <table className="w-full">
             <thead className="bg-gray-100 border-b">
               <tr>
