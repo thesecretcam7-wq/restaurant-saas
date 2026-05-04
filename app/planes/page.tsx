@@ -212,7 +212,7 @@ export default function PlanesPage() {
                 </ul>
 
                 <Link
-                  href={plan.id === 'premium' ? 'mailto:ventas@eccofood.com?subject=Plan Enterprise' : '/register'}
+                  href={plan.id === 'premium' ? '/register?plan=enterprise' : `/register?plan=${plan.id}`}
                   className={`block w-full py-3.5 rounded-lg text-sm font-bold text-center transition-all active:scale-95 hover:-translate-y-0.5 ${
                     plan.highlight
                       ? 'bg-gradient-to-r from-primary via-secondary to-primary text-white shadow-lg shadow-primary/40 hover:shadow-xl hover:shadow-primary/50'

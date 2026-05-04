@@ -3,17 +3,32 @@
 import { useState } from 'react'
 import type { ReactNode } from 'react'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { ArrowRight, BadgeCheck, Building2, Eye, EyeOff, Mail, UserRound } from 'lucide-react'
+
+const REGISTER_COUNTRIES = [
+  { code: 'ES', label: 'Espana', timezone: 'Europe/Madrid' },
+  { code: 'CO', label: 'Colombia', timezone: 'America/Bogota' },
+  { code: 'MX', label: 'Mexico', timezone: 'America/Mexico_City' },
+  { code: 'US', label: 'Estados Unidos', timezone: 'America/New_York' },
+  { code: 'AR', label: 'Argentina', timezone: 'America/Buenos_Aires' },
+  { code: 'PE', label: 'Peru', timezone: 'America/Bogota' },
+  { code: 'CL', label: 'Chile', timezone: 'America/Bogota' },
+]
 
 export default function RegisterPage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const selectedPlan = searchParams.get('plan')
+  const isEnterpriseLead = selectedPlan === 'enterprise'
   const [form, setForm] = useState({
     restaurantName: '',
     ownerName: '',
     email: '',
     password: '',
     confirmPassword: '',
+    country: 'ES',
+    timezone: 'Europe/Madrid',
   })
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -39,6 +54,8 @@ export default function RegisterPage() {
           password: form.password,
           restaurantName: form.restaurantName,
           ownerName: form.ownerName,
+          country: form.country,
+          timezone: form.timezone,
         }),
       })
 
@@ -104,8 +121,18 @@ export default function RegisterPage() {
         <div className="flex items-center justify-center">
           <div className="w-full max-w-lg rounded-2xl border border-black/10 bg-white p-6 shadow-2xl shadow-black/8 sm:p-8">
             <div className="mb-7">
-              <h2 className="text-3xl font-black tracking-tight">Crear cuenta</h2>
-              <p className="mt-2 text-sm font-medium text-black/55">Completa los datos principales del restaurante.</p>
+              {isEnterpriseLead && (
+                <div className="mb-4 rounded-xl border border-[#e43d30]/20 bg-[#fff4f1] px-4 py-3">
+                  <p className="text-xs font-black uppercase tracking-[0.18em] text-[#e43d30]">Plan Enterprise</p>
+                  <p className="mt-1 text-sm font-bold text-[#15130f]/70">
+                    Dejanos tus datos y el equipo de ventas prepara una propuesta para tu restaurante o cadena.
+                  </p>
+                </div>
+              )}
+              <h2 className="text-3xl font-black tracking-tight">{isEnterpriseLead ? 'Hablar con ventas' : 'Crear cuenta'}</h2>
+              <p className="mt-2 text-sm font-medium text-black/55">
+                {isEnterpriseLead ? 'Completa el formulario y activamos el contacto comercial.' : 'Completa los datos principales del restaurante.'}
+              </p>
             </div>
 
             {error && (
@@ -121,6 +148,26 @@ export default function RegisterPage() {
               </div>
 
               <Field icon={<Mail className="size-4" />} label="Email" required type="email" value={form.email} onChange={(value) => setForm(f => ({ ...f, email: value }))} placeholder="carlos@restaurante.com" />
+
+              <label className="block">
+                <span className="mb-2 block text-xs font-black uppercase text-black/48">Pais del restaurante *</span>
+                <select
+                  value={form.country}
+                  onChange={e => {
+                    const option = REGISTER_COUNTRIES.find(country => country.code === e.target.value)
+                    setForm(f => ({
+                      ...f,
+                      country: e.target.value,
+                      timezone: option?.timezone || f.timezone,
+                    }))
+                  }}
+                  className="h-12 w-full rounded-lg border border-black/10 bg-[#fbfaf7] px-4 text-sm font-semibold outline-none transition focus:border-[#e43d30] focus:bg-white focus:ring-4 focus:ring-red-500/10"
+                >
+                  {REGISTER_COUNTRIES.map(country => (
+                    <option key={country.code} value={country.code}>{country.label}</option>
+                  ))}
+                </select>
+              </label>
 
               <PasswordField label="Contrasena" value={form.password} onChange={(value) => setForm(f => ({ ...f, password: value }))} show={showPass} onToggle={() => setShowPass(v => !v)} placeholder="Minimo 8 caracteres" />
               <PasswordField label="Confirmar contrasena" value={form.confirmPassword} onChange={(value) => setForm(f => ({ ...f, confirmPassword: value }))} show={showConfirm} onToggle={() => setShowConfirm(v => !v)} placeholder="Repite la contrasena" />

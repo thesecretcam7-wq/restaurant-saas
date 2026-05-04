@@ -110,9 +110,9 @@ export default async function MenuPage({ params }: MenuProps) {
     ? {
         code: settings.currency,
         symbol: settings.currency_symbol || '$',
-        locale: settings.country_code ? getCurrencyByCountry(settings.country_code).locale : 'es-CO',
+        locale: (settings.country_code || settings.country) ? getCurrencyByCountry(settings.country_code || settings.country).locale : 'es-ES',
       }
-    : getCurrencyByCountry(settings?.country_code || 'CO')
+    : getCurrencyByCountry(settings?.country_code || settings?.country || (context.tenant as any)?.country || 'ES')
 
   const pageConfig = getPageConfig((context.tenant as any)?.metadata?.page_config || branding?.page_config)
   const layout = pageConfig.appearance.menu_layout

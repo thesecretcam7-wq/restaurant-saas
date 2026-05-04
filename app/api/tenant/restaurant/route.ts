@@ -72,6 +72,7 @@ export async function PUT(request: NextRequest) {
         phone: restaurantData.phone,
         email: restaurantData.email,
         city: restaurantData.city || null,
+        country: restaurantData.country || 'ES',
         timezone: restaurantData.timezone,
         delivery_enabled: restaurantData.delivery_enabled || false,
         reservations_enabled: restaurantData.reservations_enabled || false,
@@ -88,6 +89,11 @@ export async function PUT(request: NextRequest) {
         { status: 500 }
       )
     }
+
+    await supabase
+      .from('tenants')
+      .update({ country: restaurantData.country || 'ES' })
+      .eq('id', tenantId)
 
     return NextResponse.json({
       success: true,

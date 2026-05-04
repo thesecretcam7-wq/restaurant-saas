@@ -25,7 +25,16 @@ export async function POST(request: NextRequest) {
       password,
       restaurantName,
       ownerName,
+      country,
+      timezone,
     } = body
+
+    const headerCountry =
+      request.headers.get('x-vercel-ip-country') ||
+      request.headers.get('cf-ipcountry') ||
+      ''
+    const restaurantCountry = String(country || headerCountry || 'ES').toUpperCase()
+    const restaurantTimezone = timezone || (restaurantCountry === 'ES' ? 'Europe/Madrid' : 'America/Bogota')
 
 
     if (!email || !password || !restaurantName) {
@@ -107,6 +116,7 @@ export async function POST(request: NextRequest) {
         owner_id: authData.user.id,
         owner_email: email,
         owner_name: ownerName || '',
+        country: restaurantCountry,
         status: 'trial',
         trial_ends_at: trialEndsAt,
       })
@@ -153,8 +163,8 @@ export async function POST(request: NextRequest) {
       .insert({
         tenant_id: tenantData.id,
         display_name: restaurantName,
-        country: 'CO',
-        timezone: 'America/Bogota',
+        country: restaurantCountry,
+        timezone: restaurantTimezone,
       })
 
     if (settingsError) {
@@ -208,6 +218,7 @@ export async function POST(request: NextRequest) {
         owner_id: authData.user.id,
         owner_email: email,
         owner_name: ownerName || '',
+        country: restaurantCountry,
         status: 'trial',
         trial_ends_at: trialEndsAt,
       })
@@ -238,8 +249,8 @@ export async function POST(request: NextRequest) {
         .insert({
           tenant_id: demoTenantData.id,
           display_name: 'Restaurante Demo',
-          country: 'CO',
-          timezone: 'America/Bogota',
+          country: restaurantCountry,
+          timezone: restaurantTimezone,
           waiter_pin: '1234',
           kitchen_pin: '5678',
         })
