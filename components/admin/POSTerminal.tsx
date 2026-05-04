@@ -15,6 +15,7 @@ import { saveCartToSupabase, loadCartFromSupabase, abandonCart, loadOrderToCart 
 import { calculateCashClosingStats, saveCashClosing, CashClosingStats } from '@/lib/cash-closing';
 import { getCurrencyByCountry, formatPriceWithCurrency } from '@/lib/currency';
 import { printReceipt, savePrinterLog, openCashDrawer } from '@/lib/pos-printer';
+import { countPendingPOSOrders, isNetworkPaymentError, saveOfflinePOSOrder, syncOfflinePOSOrders } from '@/lib/offline/pos-sync';
 
 interface MenuItem {
   id: string;
@@ -369,6 +370,9 @@ export function POSTerminal({
   const [selectedTableId, setSelectedTableId] = useState<string | null>(null);
   const [selectedTableNumber, setSelectedTableNumber] = useState<number | null>(null);
   const [processingPayment, setProcessingPayment] = useState(false);
+  const [isOnline, setIsOnline] = useState(true);
+  const [offlinePendingCount, setOfflinePendingCount] = useState(0);
+  const [syncingOffline, setSyncingOffline] = useState(false);
 
   // Receipt state
   const [pendingPaymentData, setPendingPaymentData] = useState<{
@@ -409,6 +413,47 @@ export function POSTerminal({
   const knownOrderIds = useRef(new Set<string>());
   const notificationTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const csrfTokenRef = useRef<string>('');
+
+  const refreshOfflinePendingCount = useCallback(async () => {
+    try {
+      setOfflinePendingCount(await countPendingPOSOrders(tenantId));
+    } catch (error) {
+      console.error('Error counting offline POS orders:', error);
+    }
+  }, [tenantId]);
+
+  const syncOfflineSales = useCallback(async (showToast = false) => {
+    if (typeof navigator !== 'undefined' && !navigator.onLine) return;
+
+    setSyncingOffline(true);
+    try {
+      if (!csrfTokenRef.current) {
+        const csrfResponse = await fetch('/api/csrf-token', { credentials: 'include' }).catch(() => null);
+        const csrfData = csrfResponse ? await csrfResponse.json().catch(() => null) : null;
+        if (csrfData?.token) csrfTokenRef.current = csrfData.token;
+      }
+
+      const result = await syncOfflinePOSOrders(tenantId, csrfTokenRef.current);
+      setOfflinePendingCount(result.remaining);
+
+      if (showToast && result.synced > 0) {
+        setToast({
+          message: `${result.synced} venta${result.synced > 1 ? 's' : ''} offline sincronizada${result.synced > 1 ? 's' : ''}`,
+          type: result.errors.length > 0 ? 'error' : 'success',
+        });
+      }
+    } catch (error) {
+      console.error('Error syncing offline sales:', error);
+      if (showToast) {
+        setToast({
+          message: 'No se pudieron sincronizar las ventas offline todavia',
+          type: 'error',
+        });
+      }
+    } finally {
+      setSyncingOffline(false);
+    }
+  }, [tenantId]);
 
   // Initialize audio — called on first user interaction to satisfy autoplay policy
   const initAudio = useCallback(() => {
@@ -455,7 +500,28 @@ export function POSTerminal({
     fetchMenuData();
     restoreCart();
     fetchAllTables();
+    refreshOfflinePendingCount();
   }, [tenantId]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const updateOnlineState = () => setIsOnline(navigator.onLine);
+    const handleOnline = () => {
+      updateOnlineState();
+      syncOfflineSales(true);
+    };
+
+    updateOnlineState();
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', updateOnlineState);
+    syncOfflineSales(false);
+
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', updateOnlineState);
+    };
+  }, [syncOfflineSales]);
 
   // Listen for fullscreen changes
   useEffect(() => {
@@ -931,17 +997,22 @@ export function POSTerminal({
 
     // Auto-print receipt without modal
     setPendingPaymentData({ amountPaid });
-    processPaymentAfterReceipt();
+    processPaymentAfterReceipt(amountPaid);
   }
 
-  async function processPaymentAfterReceipt() {
+  async function processPaymentAfterReceipt(amountPaid?: number) {
     try {
       setProcessingPayment(true);
       let receiptOrderId: string | null = null;
       let receiptOrderNumber: string | null = null;
+      let savedOfflineSale = false;
       const printerWarnings: string[] = [];
 
       if (loadedOrderId) {
+        if (typeof navigator !== 'undefined' && !navigator.onLine) {
+          throw new Error('Para cobrar un pedido ya creado necesitas internet. Las ventas nuevas del TPV si pueden cobrarse offline.');
+        }
+
         // Paying for a loaded existing order
         const response = await fetch(`/api/orders/${loadedOrderId}`, {
           method: 'PATCH',
@@ -967,6 +1038,10 @@ export function POSTerminal({
         setLoadedOrderId(null);
         await fetchIncomingOrders();
       } else if (billingOrderIds.length > 0) {
+        if (typeof navigator !== 'undefined' && !navigator.onLine) {
+          throw new Error('Para cobrar mesas abiertas necesitas internet. Las ventas nuevas del TPV si pueden cobrarse offline.');
+        }
+
         // Billing existing table orders — mark as paid, no new order created
         const paidTableOrderIds = [...billingOrderIds];
         await supabase
@@ -998,59 +1073,101 @@ export function POSTerminal({
           notes: item.notes || null,
         }));
 
-        const response = await fetch('/api/orders', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'x-csrf-token': csrfTokenRef.current },
-          credentials: 'include',
-          body: JSON.stringify({
-            tenantId,
-            customerInfo: {
-              name: 'POS Counter',
-              email: null,
-              phone: 'N/A',
-            },
-            items: formattedItems,
+        const orderPayload = {
+          tenantId,
+          customerInfo: {
+            name: 'POS Counter',
+            email: null,
+            phone: 'N/A',
+          },
+          items: formattedItems,
+          paymentMethod,
+          deliveryType: selectedTableId ? 'dine-in' : posOrderType,
+          waiter_id: selectedStaffId || null,
+          waiterName: selectedStaffName || null,
+          table_id: selectedTableId || null,
+          tableNumber: selectedTableNumber || null,
+          tip: tip > 0 ? tip : null,
+          notes: discount > 0 ? `Descuento: $${discount.toFixed(2)}` : null,
+          amountPaid: paymentMethod === 'cash' ? amountPaid : null,
+        };
+
+        const saveSaleOffline = async () => {
+          if (paymentMethod === 'stripe') {
+            throw new Error('Stripe necesita internet. Para cobrar sin internet usa efectivo o datafono externo y marca la venta en caja.');
+          }
+
+          const offlineOrder = await saveOfflinePOSOrder({
+            ...orderPayload,
             paymentMethod,
             deliveryType: selectedTableId ? 'dine-in' : posOrderType,
-            waiter_id: selectedStaffId || null,
-            waiterName: selectedStaffName || null,
-            table_id: selectedTableId || null,
-            tableNumber: selectedTableNumber || null,
-            tip: tip > 0 ? tip : null,
-            notes: discount > 0 ? `Descuento: $${discount.toFixed(2)}` : null,
-            amountPaid: paymentMethod === 'cash' ? pendingPaymentData?.amountPaid : null,
-          }),
-        });
-
-        if (!response.ok) {
-          const errorData = await response.json();
-          throw new Error(errorData.error || 'Failed to process order');
-        }
-
-        const createdOrder = await response.json();
-        if (createdOrder?.orderId) {
-          receiptOrderId = createdOrder.orderId;
-          receiptOrderNumber = createdOrder.orderNumber || null;
-          const paidResponse = await fetch(`/api/orders/${createdOrder.orderId}`, {
-            method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' },
-            credentials: 'include',
-            body: JSON.stringify({
-              tenantId,
-              payment_status: 'paid',
-              status: selectedTableId ? 'delivered' : 'confirmed',
-            }),
+            items: formattedItems.map((item) => ({
+              menu_item_id: item.menu_item_id,
+              name: item.name,
+              price: item.price,
+              quantity: item.qty,
+              notes: item.notes,
+            })),
+            subtotal,
+            discount,
+            total,
+            amountPaid: paymentMethod === 'cash' ? amountPaid : null,
           });
 
-          if (!paidResponse.ok) {
-            const errorData = await paidResponse.json();
-            throw new Error(errorData.error || 'Failed to mark order as paid');
+          receiptOrderId = offlineOrder.id;
+          receiptOrderNumber = offlineOrder.orderNumber;
+          savedOfflineSale = true;
+          printerWarnings.push('Venta offline guardada y pendiente de sincronizar');
+          await refreshOfflinePendingCount();
+        };
+
+        if (typeof navigator !== 'undefined' && !navigator.onLine) {
+          await saveSaleOffline();
+        } else {
+          try {
+            const response = await fetch('/api/orders', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', 'x-csrf-token': csrfTokenRef.current },
+              credentials: 'include',
+              body: JSON.stringify(orderPayload),
+            });
+
+            if (!response.ok) {
+              const errorData = await response.json();
+              throw new Error(errorData.error || 'Failed to process order');
+            }
+
+            const createdOrder = await response.json();
+            if (createdOrder?.orderId) {
+              receiptOrderId = createdOrder.orderId;
+              receiptOrderNumber = createdOrder.orderNumber || null;
+              const paidResponse = await fetch(`/api/orders/${createdOrder.orderId}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+                body: JSON.stringify({
+                  tenantId,
+                  payment_status: 'paid',
+                  status: selectedTableId ? 'delivered' : 'confirmed',
+                }),
+              });
+
+              if (!paidResponse.ok) {
+                const errorData = await paidResponse.json();
+                throw new Error(errorData.error || 'Failed to mark order as paid');
+              }
+            }
+          } catch (orderError) {
+            if (!isNetworkPaymentError(orderError)) throw orderError;
+            await saveSaleOffline();
           }
         }
       }
 
       // Mark cart as abandoned in Supabase
-      await abandonCart(tenantId, supabase);
+      if (!savedOfflineSale) {
+        await abandonCart(tenantId, supabase);
+      }
 
       // Attempt to print receipt if printer is configured
       let settings: any = null;
@@ -1063,18 +1180,33 @@ export function POSTerminal({
 
         if (result.error) throw new Error(result.error.message);
         settings = result.data;
+        if (settings?.default_receipt_printer_id && typeof window !== 'undefined') {
+          localStorage.setItem(`eccofood-pos-printer-settings-${tenantId}`, JSON.stringify(settings));
+        }
+      } catch (settingsError) {
+        if (typeof window !== 'undefined') {
+          const cachedSettings = localStorage.getItem(`eccofood-pos-printer-settings-${tenantId}`);
+          settings = cachedSettings ? JSON.parse(cachedSettings) : null;
+        }
+        if (!settings) {
+          printerWarnings.push(`No se pudo leer configuracion de impresora: ${settingsError instanceof Error ? settingsError.message : String(settingsError)}`);
+        }
+      }
 
+      try {
         if (!settings?.default_receipt_printer_id) {
           printerWarnings.push('No hay impresora predeterminada');
         } else if (!settings?.printer_auto_print) {
           printerWarnings.push('Auto impresion desactivada');
         } else if (receiptOrderId) {
-          const { data: order } = await supabase
-            .from('orders')
-            .select('id, order_number')
-            .eq('id', receiptOrderId)
-            .eq('tenant_id', tenantId)
-            .maybeSingle();
+          const { data: order } = savedOfflineSale
+            ? { data: null }
+            : await supabase
+                .from('orders')
+                .select('id, order_number')
+                .eq('id', receiptOrderId)
+                .eq('tenant_id', tenantId)
+                .maybeSingle();
 
           try {
             await printReceipt(tenantId, settings.default_receipt_printer_id, {
@@ -1085,9 +1217,9 @@ export function POSTerminal({
               subtotal,
               discount,
               total,
-              amountPaid: paymentMethod === 'cash' ? pendingPaymentData?.amountPaid : undefined,
+              amountPaid: paymentMethod === 'cash' ? amountPaid : undefined,
               change: paymentMethod === 'cash'
-                ? (pendingPaymentData?.amountPaid || 0) - total
+                ? (amountPaid || 0) - total
                 : 0,
               currencyInfo,
               waiterName: selectedStaffName || undefined,
@@ -1099,8 +1231,8 @@ export function POSTerminal({
         } else {
           printerWarnings.push('No se pudo identificar el pedido para imprimir');
         }
-      } catch (settingsError) {
-        printerWarnings.push(`No se pudo leer configuracion de impresora: ${settingsError instanceof Error ? settingsError.message : String(settingsError)}`);
+      } catch (printFlowError) {
+        printerWarnings.push(`No se pudo preparar el recibo: ${printFlowError instanceof Error ? printFlowError.message : String(printFlowError)}`);
       }
 
       if (paymentMethod === 'cash') {
@@ -1139,10 +1271,12 @@ export function POSTerminal({
 
       // Show success toast (auto-closes after 3 seconds)
       setToast({
-        message: printerWarnings.length > 0
+        message: savedOfflineSale
+          ? 'Venta cobrada en modo offline. Se subira sola cuando vuelva internet.'
+          : printerWarnings.length > 0
           ? `Venta guardada. ${printerWarnings.slice(0, 2).join(' | ')}`
           : 'Orden completada, recibo impreso y cajon abierto',
-        type: printerWarnings.length > 0 ? 'error' : 'success',
+        type: savedOfflineSale ? 'success' : printerWarnings.length > 0 ? 'error' : 'success',
       });
     } catch (error) {
       console.error('Error processing payment:', error);
@@ -1216,6 +1350,20 @@ export function POSTerminal({
           </div>
           <div className="flex items-center gap-2">
             <button
+              onClick={() => syncOfflineSales(true)}
+              disabled={!isOnline || syncingOffline}
+              className={`pos-action-ghost ${!isOnline ? 'border-amber-300/45 bg-amber-300/12 text-amber-100' : offlinePendingCount > 0 ? 'border-emerald-300/45 bg-emerald-300/12 text-emerald-100' : ''} disabled:opacity-75`}
+              title={isOnline ? 'Sincronizar ventas offline' : 'Modo offline activo'}
+            >
+              <span className={`h-2.5 w-2.5 rounded-full ${isOnline ? 'bg-emerald-300' : 'bg-amber-300 animate-pulse'}`} />
+              <span className="hidden sm:inline">{isOnline ? (syncingOffline ? 'Sync...' : 'Online') : 'Offline'}</span>
+              {offlinePendingCount > 0 && (
+                <span className="rounded-full bg-amber-400 px-1.5 py-0.5 text-[10px] font-black text-slate-950">
+                  {offlinePendingCount}
+                </span>
+              )}
+            </button>
+            <button
               onClick={() => setShowAdminMenu(true)}
               className="pos-action-ghost"
               title="Panel de administración"
@@ -1252,6 +1400,22 @@ export function POSTerminal({
             </div>
             {!isFullscreen && (
               <>
+                <button
+                  onClick={() => syncOfflineSales(true)}
+                  disabled={!isOnline || syncingOffline}
+                  className={`pos-action-ghost ${!isOnline ? 'border-amber-300/45 bg-amber-300/12 text-amber-100' : offlinePendingCount > 0 ? 'border-emerald-300/45 bg-emerald-300/12 text-emerald-100' : ''} disabled:opacity-75`}
+                  title={isOnline ? 'Sincronizar ventas offline' : 'Modo offline activo'}
+                >
+                  <span className={`h-2.5 w-2.5 rounded-full ${isOnline ? 'bg-emerald-300' : 'bg-amber-300 animate-pulse'}`} />
+                  <span className="hidden sm:inline">
+                    {isOnline ? (syncingOffline ? 'Sync...' : 'Online') : 'Offline'}
+                  </span>
+                  {offlinePendingCount > 0 && (
+                    <span className="rounded-full bg-amber-400 px-1.5 py-0.5 text-[10px] font-black text-slate-950">
+                      {offlinePendingCount}
+                    </span>
+                  )}
+                </button>
                 <button
                   onClick={() => {
                     window.location.href = `/${tenantSlug || tenantId}/pos-display?tid=${tenantId}&country=${country}`;

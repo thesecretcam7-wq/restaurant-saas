@@ -46,6 +46,45 @@ const getSupabase = () => {
   return _supabase;
 };
 
+function getCachedPrinterKey(tenantId: string, printerId: string) {
+  return `eccofood-printer-${tenantId}-${printerId}`;
+}
+
+function cachePrinterConfig(tenantId: string, printerId: string, printer: any) {
+  if (typeof window === 'undefined') return;
+  try {
+    localStorage.setItem(getCachedPrinterKey(tenantId, printerId), JSON.stringify(printer));
+  } catch {
+    // Local printer cache is best-effort only.
+  }
+}
+
+function getCachedPrinterConfig(tenantId: string, printerId: string) {
+  if (typeof window === 'undefined') return null;
+  try {
+    const cached = localStorage.getItem(getCachedPrinterKey(tenantId, printerId));
+    return cached ? JSON.parse(cached) : null;
+  } catch {
+    return null;
+  }
+}
+
+function cacheDefaultReceiptPrinter(tenantId: string, printerId: string) {
+  if (typeof window === 'undefined') return;
+  try {
+    localStorage.setItem(`eccofood-default-receipt-printer-${tenantId}`, printerId);
+  } catch {}
+}
+
+function getCachedDefaultReceiptPrinter(tenantId: string) {
+  if (typeof window === 'undefined') return null;
+  try {
+    return localStorage.getItem(`eccofood-default-receipt-printer-${tenantId}`);
+  } catch {
+    return null;
+  }
+}
+
 /**
  * Print receipt to a configured printer
  * @param tenantId - Restaurant/tenant ID
@@ -60,14 +99,25 @@ export async function printReceipt(
 ): Promise<void> {
   try {
     // 1. Get printer configuration from database
-    const { data: printer, error: printerError } = await getSupabase()
+    let { data: printer, error: printerError } = await getSupabase()
       .from('printer_devices')
       .select('*')
       .eq('id', printerId)
       .eq('tenant_id', tenantId)
       .maybeSingle();
 
-    if (printerError || !printer) {
+    if (printer) {
+      cachePrinterConfig(tenantId, printerId, printer);
+      cacheDefaultReceiptPrinter(tenantId, printerId);
+    } else {
+      printer = getCachedPrinterConfig(tenantId, printerId);
+    }
+
+    if (printerError && !printer) {
+      throw new Error('Printer not found or not configured');
+    }
+
+    if (!printer) {
       throw new Error('Printer not found or not configured');
     }
 
@@ -93,12 +143,14 @@ export async function printReceipt(
       amount: data.total,
     });
 
-    // Update device last_used_at
-    await getSupabase()
-      .from('printer_devices')
-      .update({ last_used_at: new Date().toISOString() })
-      .eq('id', printerId)
-      .eq('tenant_id', tenantId);
+    // Update device last_used_at. This is best-effort so offline printing can still succeed.
+    try {
+      await getSupabase()
+        .from('printer_devices')
+        .update({ last_used_at: new Date().toISOString() })
+        .eq('id', printerId)
+        .eq('tenant_id', tenantId);
+    } catch {}
   } catch (error) {
     const errorMsg = error instanceof Error ? error.message : String(error);
     console.error('Print error:', errorMsg);
@@ -388,16 +440,25 @@ export async function openCashDrawer(tenantId: string): Promise<void> {
       .eq('tenant_id', tenantId)
       .maybeSingle();
 
-    if (!settings?.default_receipt_printer_id) {
+    const printerId = settings?.default_receipt_printer_id || getCachedDefaultReceiptPrinter(tenantId);
+
+    if (!printerId) {
       throw new Error('No hay impresora de recibos predeterminada');
     }
 
-    const { data: printer } = await getSupabase()
+    let { data: printer } = await getSupabase()
       .from('printer_devices')
       .select('*')
-      .eq('id', settings.default_receipt_printer_id)
+      .eq('id', printerId)
       .eq('tenant_id', tenantId)
       .maybeSingle();
+
+    if (printer) {
+      cachePrinterConfig(tenantId, printerId, printer);
+      cacheDefaultReceiptPrinter(tenantId, printerId);
+    } else {
+      printer = getCachedPrinterConfig(tenantId, printerId);
+    }
 
     if (!printer) {
       throw new Error('No se encontro la impresora configurada');

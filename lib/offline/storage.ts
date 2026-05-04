@@ -17,11 +17,34 @@ export interface OfflineOrder {
   id: string
   orderId: string
   orderNumber: string
-  items: Array<{ name: string; quantity: number; price: number }>
+  tenantId?: string
+  customerInfo?: {
+    name: string
+    email?: string | null
+    phone: string
+  }
+  items: Array<{
+    menu_item_id?: string
+    name: string
+    quantity: number
+    qty?: number
+    price: number
+    notes?: string | null
+  }>
   subtotal: number
   discount: number
   total: number
-  paymentMethod: 'cash' | 'stripe'
+  paymentMethod: 'cash' | 'stripe' | 'card'
+  deliveryType?: 'delivery' | 'pickup' | 'takeaway' | 'dine-in'
+  deliveryAddress?: string | null
+  waiter_id?: string | null
+  waiterName?: string | null
+  table_id?: string | null
+  tableNumber?: number | null
+  tip?: number | null
+  notes?: string | null
+  amountPaid?: number | null
+  source?: 'pos-offline'
   status: 'pending' | 'completed'
   createdAt: string
   syncedAt?: string
