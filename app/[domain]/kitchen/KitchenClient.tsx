@@ -153,17 +153,17 @@ export function KitchenClient({ tenantId, tenantSlug, tenantName, country, brand
       .catch(() => {});
 
     async function load() {
-      const [{ data: cats }, { data: items }, { data: tbls }, { data: settings }] = await Promise.all([
+      const [{ data: cats }, { data: items }, { data: tbls }, settingsRes] = await Promise.all([
         supabase.from('menu_categories').select('id, name, sort_order').eq('tenant_id', tenantId).eq('active', true).order('sort_order'),
         supabase.from('menu_items').select('id, name, price, category_id, description, image_url').eq('tenant_id', tenantId).eq('available', true),
         supabase.from('tables').select('id, table_number, seats, status').eq('tenant_id', tenantId).neq('status', 'maintenance').order('table_number'),
-        supabase.from('restaurant_settings').select('tax_rate').eq('tenant_id', tenantId).maybeSingle(),
+        fetch(`/api/settings/${tenantId}`, { cache: 'no-store' }).then(r => r.ok ? r.json() : null).catch(() => null),
       ]);
 
       setCategories(cats || []);
       setMenuItems(items || []);
       setTables(tbls || []);
-      setTaxRate(Number(settings?.tax_rate || 0));
+      setTaxRate(Number(settingsRes?.tax_rate || 0));
       if (cats?.length) setSelectedCategory(cats[0].id);
       setLoading(false);
     }
@@ -448,15 +448,6 @@ export function KitchenClient({ tenantId, tenantSlug, tenantName, country, brand
           </div>
         </div>
         <button
-          onClick={fetchOpenTableAccount}
-          disabled={!tableNumber}
-          className="mb-2 flex h-11 w-full items-center justify-center gap-2 rounded-[1rem] border bg-white text-sm font-black transition active:scale-[0.98] disabled:bg-black/5 disabled:text-black/30"
-          style={{ borderColor: brand.border, color: brand.primary }}
-        >
-          <ReceiptText className="h-4 w-4" />
-          Ver cuenta completa
-        </button>
-        <button
           onClick={sendOrder}
           disabled={cart.length === 0 || !tableNumber || sending}
           className="flex h-14 w-full items-center justify-center gap-2 rounded-[1.25rem] text-base font-black shadow-xl shadow-black/20 transition active:scale-[0.98] disabled:bg-black/10 disabled:text-black/35 disabled:shadow-none"
@@ -509,16 +500,16 @@ export function KitchenClient({ tenantId, tenantSlug, tenantName, country, brand
         <main className="flex min-w-0 flex-1 flex-col overflow-hidden">
           <div className="border-b border-black/10 px-3 py-3" style={{ backgroundColor: brand.surface }}>
             <div className="mb-3 xl:hidden">
-              <div className="mb-2 flex items-center justify-between">
-                <span className="text-xs font-black uppercase text-black/42">Mesa para enviar</span>
+              <div className="mb-2 flex items-center justify-between gap-2">
+                <span className="text-xs font-black uppercase text-black/42">Mesa</span>
                 {tableNumber ? (
-                  <button onClick={() => setTableNumber('')} className="text-xs font-black text-red-500">Quitar mesa {tableNumber}</button>
+                  <button onClick={() => setTableNumber('')} className="rounded-full bg-red-50 px-2 py-1 text-[11px] font-black text-red-500">Mesa {tableNumber} x</button>
                 ) : (
-                  <span className="text-xs font-black text-amber-600">Elige una mesa</span>
+                  <span className="text-[11px] font-black text-amber-600">Elige una</span>
                 )}
               </div>
               {tables.length === 0 ? (
-                <p className="rounded-2xl bg-black/[0.04] px-3 py-3 text-center text-xs font-bold text-black/45">Sin mesas configuradas</p>
+                <p className="rounded-xl bg-black/[0.04] px-3 py-2 text-center text-xs font-bold text-black/45">Sin mesas configuradas</p>
               ) : (
                 <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
                   {tables.map(table => {
@@ -527,7 +518,7 @@ export function KitchenClient({ tenantId, tenantSlug, tenantName, country, brand
                       <button
                         key={table.id}
                         onClick={() => setTableNumber(String(table.table_number))}
-                        className="h-12 min-w-12 flex-shrink-0 rounded-2xl border px-3 text-sm font-black transition active:scale-95"
+                        className="h-10 min-w-10 flex-shrink-0 rounded-xl border px-3 text-sm font-black transition active:scale-95"
                         style={active ? { borderColor: brand.primary, backgroundColor: brand.primary, color: readableText(brand.primary), boxShadow: `0 12px 30px ${brand.primary}30` } : { borderColor: brand.border, backgroundColor: brand.soft, color: brand.primaryText }}
                       >
                         {table.table_number}
@@ -536,39 +527,39 @@ export function KitchenClient({ tenantId, tenantSlug, tenantName, country, brand
                   })}
                 </div>
               )}
-              <button
-                onClick={fetchOpenTableAccount}
-                disabled={!tableNumber}
-                className="mt-3 flex h-12 w-full items-center justify-center gap-2 rounded-[1.1rem] border bg-white text-sm font-black shadow-sm transition active:scale-[0.98] disabled:bg-black/5 disabled:text-black/30 disabled:shadow-none"
-                style={{ borderColor: brand.border, color: tableNumber ? brand.primary : undefined }}
-              >
-                <ReceiptText className="h-4 w-4" />
-                {tableNumber ? `Ver total de mesa ${tableNumber}` : 'Selecciona una mesa para ver la cuenta'}
-              </button>
             </div>
 
             <div className="flex gap-2">
               <div className="relative min-w-0 flex-1">
-                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-black/35" />
+                <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-black/35" />
                 <input
                   value={search}
                   onChange={e => { setSearch(e.target.value); setSelectedCategory(null); }}
-                  placeholder="Buscar producto"
-                  className="h-12 w-full rounded-[1.2rem] border border-black/10 bg-[#f6f3ed] pl-10 pr-4 text-sm font-bold outline-none focus:border-[#15130f]"
+                  placeholder="Buscar"
+                  className="h-10 w-full rounded-xl border border-black/10 bg-[#f6f3ed] pl-9 pr-3 text-sm font-bold outline-none focus:border-[#15130f]"
                 />
               </div>
-              <button onClick={() => setCartOpen(true)} className="relative grid h-12 w-12 place-items-center rounded-[1.2rem] bg-[#15130f] text-white md:hidden">
+              <button
+                onClick={fetchOpenTableAccount}
+                disabled={!tableNumber}
+                title={tableNumber ? `Ver total de mesa ${tableNumber}` : 'Selecciona una mesa'}
+                className="grid h-10 w-10 place-items-center rounded-xl border bg-white transition active:scale-95 disabled:bg-black/5 disabled:text-black/30"
+                style={{ borderColor: brand.border, color: tableNumber ? brand.primary : undefined }}
+              >
+                <ReceiptText className="h-4 w-4" />
+              </button>
+              <button onClick={() => setCartOpen(true)} className="relative grid h-10 w-10 place-items-center rounded-xl bg-[#15130f] text-white md:hidden">
                 <ShoppingCart className="h-5 w-5" />
                 {cartCount > 0 && <span className="absolute -right-1 -top-1 grid h-5 min-w-5 place-items-center rounded-full bg-red-500 px-1 text-[10px] font-black">{cartCount}</span>}
               </button>
             </div>
 
-            <div className="mt-3 flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
+            <div className="mt-2 flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
               {!search && categories.map(cat => (
                 <button
                   key={cat.id}
                   onClick={() => setSelectedCategory(cat.id)}
-                  className="h-10 flex-shrink-0 rounded-full border px-4 text-xs font-black transition active:scale-95"
+                  className="h-9 flex-shrink-0 rounded-full border px-3 text-[11px] font-black transition active:scale-95"
                   style={selectedCategory === cat.id ? { borderColor: brand.primary, backgroundColor: brand.primary, color: readableText(brand.primary) } : { borderColor: brand.border, backgroundColor: '#fff', color: brand.mutedText }}
                 >
                   {cat.name}
@@ -578,7 +569,7 @@ export function KitchenClient({ tenantId, tenantSlug, tenantName, country, brand
             </div>
           </div>
 
-          <div className="flex-1 overflow-y-auto p-3 pb-28 md:pb-4">
+          <div className="flex-1 overflow-y-auto p-2 pb-28 md:p-3 md:pb-4">
             {filteredItems.length === 0 ? (
               <div className="grid h-full min-h-80 place-items-center rounded-[2rem] border border-dashed" style={{ borderColor: brand.border, backgroundColor: brand.surface }}>
                 <div className="text-center">
@@ -587,35 +578,35 @@ export function KitchenClient({ tenantId, tenantSlug, tenantName, country, brand
                 </div>
               </div>
             ) : (
-              <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
                 {filteredItems.map(item => {
                   const qty = getQty(item.id);
                   return (
-                    <article key={item.id} className="overflow-hidden rounded-[1.5rem] border shadow-sm" style={{ borderColor: brand.border, backgroundColor: brand.surface }}>
+                    <article key={item.id} className="overflow-hidden rounded-[1rem] border shadow-sm" style={{ borderColor: brand.border, backgroundColor: brand.surface }}>
                       <button onClick={() => addToCart(item)} className="block w-full text-left active:scale-[0.99]">
-                        <div className="relative h-24 bg-[#f6f3ed] sm:h-32">
+                        <div className="relative h-20 bg-[#f6f3ed] sm:h-28">
                           {item.image_url ? (
                             <Image src={item.image_url} alt={item.name} fill sizes="(max-width: 768px) 50vw, 25vw" className="object-cover" />
                           ) : (
                             <div className="grid h-full place-items-center text-black/20"><ChefHat className="h-8 w-8" /></div>
                           )}
-                          {qty > 0 && <span className="absolute right-3 top-3 grid h-8 min-w-8 place-items-center rounded-full px-2 text-sm font-black" style={{ backgroundColor: brand.primary, color: readableText(brand.primary) }}>{qty}</span>}
+                          {qty > 0 && <span className="absolute right-2 top-2 grid h-7 min-w-7 place-items-center rounded-full px-2 text-xs font-black" style={{ backgroundColor: brand.primary, color: readableText(brand.primary) }}>{qty}</span>}
                         </div>
-                        <div className="p-3">
-                          <p className="line-clamp-2 min-h-10 text-sm font-black leading-5">{item.name}</p>
-                          {item.description && <p className="mt-1 line-clamp-1 text-xs font-semibold text-black/42">{item.description}</p>}
-                          <p className="mt-2 text-base font-black" style={{ color: brand.accent }}>{money(item.price)}</p>
+                        <div className="p-2">
+                          <p className="line-clamp-2 min-h-8 text-xs font-black leading-4">{item.name}</p>
+                          {item.description && <p className="mt-0.5 line-clamp-1 text-[11px] font-semibold text-black/42">{item.description}</p>}
+                          <p className="mt-1 text-sm font-black" style={{ color: brand.accent }}>{money(item.price)}</p>
                         </div>
                       </button>
-                      <div className="flex items-center justify-between border-t border-black/8 p-2">
+                      <div className="flex items-center justify-between border-t border-black/8 p-1.5">
                         {qty > 0 ? (
                           <>
-                            <button onClick={() => updateQty(item.id, -1)} className="grid h-11 w-11 place-items-center rounded-2xl bg-black/[0.06] active:scale-95"><Minus className="h-4 w-4" /></button>
-                            <span className="text-lg font-black">{qty}</span>
-                            <button onClick={() => addToCart(item)} className="grid h-11 w-11 place-items-center rounded-2xl active:scale-95" style={{ backgroundColor: brand.button, color: brand.buttonText }}><Plus className="h-4 w-4" /></button>
+                            <button onClick={() => updateQty(item.id, -1)} className="grid h-9 w-9 place-items-center rounded-xl bg-black/[0.06] active:scale-95"><Minus className="h-4 w-4" /></button>
+                            <span className="text-base font-black">{qty}</span>
+                            <button onClick={() => addToCart(item)} className="grid h-9 w-9 place-items-center rounded-xl active:scale-95" style={{ backgroundColor: brand.button, color: brand.buttonText }}><Plus className="h-4 w-4" /></button>
                           </>
                         ) : (
-                          <button onClick={() => addToCart(item)} className="flex h-11 w-full items-center justify-center gap-2 rounded-2xl text-sm font-black active:scale-[0.98]" style={{ backgroundColor: brand.button, color: brand.buttonText }}>
+                          <button onClick={() => addToCart(item)} className="flex h-9 w-full items-center justify-center gap-1.5 rounded-xl text-xs font-black active:scale-[0.98]" style={{ backgroundColor: brand.button, color: brand.buttonText }}>
                             <Plus className="h-4 w-4" />
                             Agregar
                           </button>
