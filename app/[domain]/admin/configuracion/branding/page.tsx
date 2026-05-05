@@ -299,7 +299,7 @@ export default function BrandingPage({ params }: BrandingProps) {
         <div className="bg-white rounded-xl border p-6 space-y-6">
           <h2 className="font-semibold text-lg">Imágenes</h2>
           {imageUploadField('Logo', 'logo_url')}
-          {imageUploadField('Imagen Hero / Banner', 'hero_image_url')}
+          {imageUploadField('Imagen portada tienda y carta QR', 'hero_image_url')}
           {imageUploadField('Favicon', 'favicon_url')}
         </div>
 

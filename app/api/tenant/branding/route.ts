@@ -133,6 +133,7 @@ export async function PUT(request: NextRequest) {
       revalidatePath(`/${slug}`, 'layout')
       revalidatePath(`/${slug}`)
       revalidatePath(`/${slug}/menu`)
+      revalidatePath(`/${slug}/carta`)
     }
 
     return NextResponse.json({ success: true })
