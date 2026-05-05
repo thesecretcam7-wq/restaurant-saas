@@ -13,9 +13,17 @@ export default async function KitchenPage({ params }: Props) {
 
   const { data: tenant } = await supabase
     .from('tenants')
-    .select('id, organization_name')
+    .select('id, organization_name, slug, country')
     .eq(isUUID ? 'id' : 'slug', slug)
     .single()
+
+  const { data: settings } = tenant
+    ? await supabase
+        .from('restaurant_settings')
+        .select('country')
+        .eq('tenant_id', tenant.id)
+        .maybeSingle()
+    : { data: null }
 
   if (!tenant) {
     return (
@@ -25,5 +33,12 @@ export default async function KitchenPage({ params }: Props) {
     )
   }
 
-  return <KitchenClient tenantId={tenant.id} tenantName={tenant.organization_name} />
+  return (
+    <KitchenClient
+      tenantId={tenant.id}
+      tenantSlug={tenant.slug || slug}
+      tenantName={tenant.organization_name}
+      country={settings?.country || tenant.country || 'ES'}
+    />
+  )
 }

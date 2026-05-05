@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import Image from 'next/image';
 import { createClient } from '@supabase/supabase-js';
+import { formatPriceWithCurrency, getCurrencyByCountry } from '@/lib/currency';
 import {
   CheckCircle,
   ChefHat,
@@ -27,12 +28,11 @@ interface MenuItem { id: string; name: string; price: number; category_id: strin
 interface CartItem { menu_item_id: string; name: string; price: number; quantity: number; notes: string; }
 interface Table { id: string; table_number: number; seats: number; status: string; }
 
-interface Props { tenantId: string; tenantName: string; }
+interface Props { tenantId: string; tenantSlug: string; tenantName: string; country: string; }
 
 const CART_KEY = (tenantId: string) => `kitchen_cart_${tenantId}`;
-const money = (value: number) => `$${value.toLocaleString('es-CO')}`;
 
-export function KitchenClient({ tenantId, tenantName }: Props) {
+export function KitchenClient({ tenantId, tenantSlug, tenantName, country }: Props) {
   const [categories, setCategories] = useState<Category[]>([]);
   const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
@@ -48,6 +48,11 @@ export function KitchenClient({ tenantId, tenantName }: Props) {
   const [cartOpen, setCartOpen] = useState(false);
   const [csrfToken, setCsrfToken] = useState('');
   const [tables, setTables] = useState<Table[]>([]);
+  const currencyInfo = useMemo(() => getCurrencyByCountry(country), [country]);
+  const money = useCallback(
+    (value: number) => formatPriceWithCurrency(value, currencyInfo.code, currencyInfo.locale),
+    [currencyInfo]
+  );
 
   useEffect(() => {
     try {
@@ -133,27 +138,39 @@ export function KitchenClient({ tenantId, tenantName }: Props) {
     setSending(true);
 
     try {
-      const orderRes = await fetch('/api/orders', {
+      const payload = {
+        tenantId,
+        items: cart.map(c => ({
+          menu_item_id: c.menu_item_id,
+          name: c.name,
+          qty: c.quantity,
+          price: c.price,
+          notes: c.notes || null,
+        })),
+        customerInfo: { name: `Mesa ${tableNumber}`, email: '', phone: '' },
+        deliveryType: 'dine-in',
+        tableNumber: parseInt(tableNumber),
+        waiterName: waiterName || 'Mesero',
+        paymentMethod: 'cash',
+        source: 'comandero',
+      };
+
+      let orderRes = await fetch('/api/orders', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'x-csrf-token': csrfToken },
-        body: JSON.stringify({
-          tenantId,
-          items: cart.map(c => ({
-            menu_item_id: c.menu_item_id,
-            name: c.name,
-            qty: c.quantity,
-            price: c.price,
-            notes: c.notes || null,
-          })),
-          customerInfo: { name: `Mesa ${tableNumber}`, email: '', phone: '' },
-          deliveryType: 'dine-in',
-          tableNumber: parseInt(tableNumber),
-          waiterName: waiterName || 'Mesero',
-          paymentMethod: 'cash',
-        }),
+        body: JSON.stringify(payload),
       });
 
-      const order = await orderRes.json();
+      let order = await orderRes.json();
+      if (!orderRes.ok && order?.error === 'Invalid restaurant' && tenantSlug && tenantSlug !== tenantId) {
+        orderRes = await fetch('/api/orders', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'x-csrf-token': csrfToken },
+          body: JSON.stringify({ ...payload, tenantId: tenantSlug }),
+        });
+        order = await orderRes.json();
+      }
+
       if (!orderRes.ok || !order.orderId) throw new Error(order.error || 'Error creando orden');
 
       setSuccess(true);

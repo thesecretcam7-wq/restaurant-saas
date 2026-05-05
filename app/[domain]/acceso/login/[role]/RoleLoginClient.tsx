@@ -187,29 +187,29 @@ export function RoleLoginClient({
     >
       <button
         onClick={goBack}
-        className="fixed left-6 top-6 z-20 grid h-12 w-12 place-items-center rounded-2xl border border-white/10 bg-white/[0.07] text-white/70 transition hover:bg-white/[0.12] hover:text-white"
+        className="fixed left-3 top-3 z-20 grid h-10 w-10 place-items-center rounded-2xl border border-white/10 bg-white/[0.07] text-white/70 transition hover:bg-white/[0.12] hover:text-white sm:left-6 sm:top-6 sm:h-12 sm:w-12"
         title="Volver"
       >
         <ArrowLeft className="h-5 w-5" />
       </button>
 
-      <div className="grid min-h-screen grid-cols-[0.92fr_1.08fr]">
-        <section className="flex flex-col justify-between border-r border-white/10 px-10 py-9 pl-24">
-          <div className="flex items-center gap-4">
-            <div className="grid h-16 w-16 place-items-center overflow-hidden rounded-2xl border border-white/15 bg-white/10 shadow-2xl">
+      <div className="grid min-h-screen grid-cols-1 lg:grid-cols-[0.92fr_1.08fr]">
+        <section className="flex flex-col justify-between border-white/10 px-4 pb-3 pt-14 sm:px-10 sm:py-9 sm:pl-24 lg:border-r">
+          <div className="flex items-center gap-3 sm:gap-4">
+            <div className="grid h-12 w-12 place-items-center overflow-hidden rounded-2xl border border-white/15 bg-white/10 shadow-2xl sm:h-16 sm:w-16">
               {logoUrl ? (
-                <img src={logoUrl} alt={appName} className="h-full w-full object-contain bg-white p-2" />
+                <img src={logoUrl} alt={appName} className="h-full w-full object-contain bg-white p-1.5 sm:p-2" />
               ) : (
-                <ChefHat className="h-8 w-8" style={{ color: primary }} />
+                <ChefHat className="h-6 w-6 sm:h-8 sm:w-8" style={{ color: primary }} />
               )}
             </div>
             <div>
               <p className="text-xs font-black uppercase tracking-[0.22em] text-white/45">Acceso personal</p>
-              <h1 className="text-2xl font-black tracking-tight">{appName}</h1>
+              <h1 className="text-lg font-black tracking-tight sm:text-2xl">{appName}</h1>
             </div>
           </div>
 
-          <div>
+          <div className="hidden lg:block">
             <p
               className="mb-5 inline-flex rounded-full px-4 py-2 text-sm font-black uppercase tracking-[0.16em]"
               style={{ backgroundColor: `${primary}24`, color: primary }}
@@ -230,24 +230,24 @@ export function RoleLoginClient({
           </div>
         </section>
 
-        <section className="flex items-center justify-center p-10">
-          <div className="w-full max-w-md rounded-[2rem] border border-white/12 bg-white/[0.075] p-7 shadow-2xl shadow-black/30 backdrop-blur-xl">
-            <div className="mb-7 flex items-center gap-4">
+        <section className="flex min-h-0 items-start justify-center px-3 pb-3 pt-1 sm:p-10 sm:pt-6 lg:items-center">
+          <div className="w-full max-w-md rounded-[1.5rem] border border-white/12 bg-white/[0.075] p-4 shadow-2xl shadow-black/30 backdrop-blur-xl sm:rounded-[2rem] sm:p-7">
+            <div className="mb-4 flex items-center gap-3 sm:mb-7 sm:gap-4">
               <div
-                className="grid h-16 w-16 place-items-center rounded-2xl border"
+                className="grid h-12 w-12 place-items-center rounded-2xl border sm:h-16 sm:w-16"
                 style={{
                   backgroundColor: `${primary}24`,
                   borderColor: `${primary}55`,
                   color: primaryText,
                 }}
               >
-                <RoleIcon className="h-8 w-8" />
+                <RoleIcon className="h-6 w-6 sm:h-8 sm:w-8" />
               </div>
               <div>
-                <p className="text-sm font-black uppercase tracking-[0.16em]" style={{ color: primary }}>
+                <p className="text-xs font-black uppercase tracking-[0.16em] sm:text-sm" style={{ color: primary }}>
                   {config.label}
                 </p>
-                <p className="text-lg font-black text-white">{phase === 'select' ? 'Selecciona tu nombre' : staffName}</p>
+                <p className="text-base font-black text-white sm:text-lg">{phase === 'select' ? 'Selecciona tu nombre' : staffName}</p>
               </div>
             </div>
 
@@ -281,17 +281,17 @@ export function RoleLoginClient({
               </div>
             ) : (
               <>
-                <div className="mb-7 flex justify-center gap-3">
+                <div className="mb-4 flex justify-center gap-2 sm:mb-7 sm:gap-3">
                   {Array.from({ length: 6 }).map((_, index) => (
                     <div
                       key={index}
-                      className="grid h-11 w-11 place-items-center rounded-full border-2 transition-colors"
+                      className="grid h-8 w-8 place-items-center rounded-full border-2 transition-colors sm:h-11 sm:w-11"
                       style={{
                         backgroundColor: index < pin.length ? primary : 'rgba(255,255,255,0.08)',
                         borderColor: index < pin.length ? primary : 'rgba(255,255,255,0.14)',
                       }}
                     >
-                      {index < pin.length && <div className="h-3 w-3 rounded-full" style={{ backgroundColor: primaryText }} />}
+                      {index < pin.length && <div className="h-2.5 w-2.5 rounded-full sm:h-3 sm:w-3" style={{ backgroundColor: primaryText }} />}
                     </div>
                   ))}
                 </div>
@@ -303,7 +303,7 @@ export function RoleLoginClient({
                 )}
                 {loading && <p className="mb-4 text-center text-sm font-bold text-white/58">Verificando...</p>}
 
-                <div className="grid grid-cols-3 gap-3">
+                <div className="grid grid-cols-3 gap-2 sm:gap-3">
                   {['1', '2', '3', '4', '5', '6', '7', '8', '9', '', '0', 'del'].map((key) => {
                     if (key === '') return <div key="empty" />;
                     const isDelete = key === 'del';
@@ -312,7 +312,7 @@ export function RoleLoginClient({
                         key={key}
                         onClick={() => pressKey(key)}
                         disabled={loading}
-                        className="grid h-16 place-items-center rounded-2xl border text-2xl font-black transition active:scale-95 disabled:opacity-50"
+                        className="grid h-[52px] place-items-center rounded-2xl border text-xl font-black transition active:scale-95 disabled:opacity-50 sm:h-16 sm:text-2xl"
                         style={{
                           backgroundColor: isDelete ? `${secondary}66` : 'rgba(255,255,255,0.09)',
                           borderColor: isDelete ? `${secondary}aa` : 'rgba(255,255,255,0.12)',
@@ -325,7 +325,7 @@ export function RoleLoginClient({
                   })}
                 </div>
 
-                <p className="mt-7 text-center text-xs font-bold uppercase tracking-[0.18em] text-white/35">
+                <p className="mt-3 text-center text-[10px] font-bold uppercase tracking-[0.18em] text-white/35 sm:mt-7 sm:text-xs">
                   PIN de 6 digitos
                 </p>
               </>
