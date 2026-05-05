@@ -491,15 +491,42 @@ export function KitchenClient({ tenantId, tenantSlug, tenantName, country, brand
               <p className="truncate text-xs font-bold opacity-65">{brand.appName}</p>
             </div>
           </div>
-          <label className="hidden min-w-0 items-center gap-2 rounded-2xl bg-white/8 px-3 py-2 sm:flex">
-            <UserRound className="h-4 w-4 text-white/50" />
-            <input
-              value={waiterName}
-              onChange={e => setWaiterName(e.target.value)}
-              placeholder="Camarero"
-              className="w-32 bg-transparent text-sm font-bold text-white outline-none placeholder:text-white/35"
-            />
-          </label>
+          <div className="flex items-center gap-2">
+            <label className="hidden min-w-0 items-center gap-2 rounded-2xl bg-white/8 px-3 py-2 lg:flex">
+              <UserRound className="h-4 w-4 text-white/50" />
+              <input
+                value={waiterName}
+                onChange={e => setWaiterName(e.target.value)}
+                placeholder="Camarero"
+                className="w-32 bg-transparent text-sm font-bold text-white outline-none placeholder:text-white/35"
+              />
+            </label>
+            <button
+              onClick={() => {
+                setSearchOpen(open => {
+                  if (open) setSearch('');
+                  return !open;
+                });
+              }}
+              title={searchOpen ? 'Cerrar busqueda' : 'Buscar producto'}
+              className="grid h-10 w-10 place-items-center rounded-xl border transition active:scale-95"
+              style={{ backgroundColor: searchOpen ? brand.primary : 'rgba(255,255,255,0.08)', borderColor: 'rgba(255,255,255,0.14)', color: searchOpen ? readableText(brand.primary) : readableText(brand.secondary) }}
+            >
+              {searchOpen ? <X className="h-4 w-4" /> : <Search className="h-4 w-4" />}
+            </button>
+            <button
+              onClick={openAccountSelector}
+              title="Ver cuenta completa"
+              className="grid h-10 w-10 place-items-center rounded-xl border transition active:scale-95"
+              style={{ backgroundColor: 'rgba(255,255,255,0.08)', borderColor: 'rgba(255,255,255,0.14)', color: readableText(brand.secondary) }}
+            >
+              <ReceiptText className="h-4 w-4" />
+            </button>
+            <button onClick={() => setCartOpen(true)} className="relative grid h-10 w-10 place-items-center rounded-xl md:hidden" style={{ backgroundColor: brand.button, color: brand.buttonText }}>
+              <ShoppingCart className="h-5 w-5" />
+              {cartCount > 0 && <span className="absolute -right-1 -top-1 grid h-5 min-w-5 place-items-center rounded-full bg-red-500 px-1 text-[10px] font-black">{cartCount}</span>}
+            </button>
+          </div>
         </div>
       </header>
 
@@ -513,51 +540,18 @@ export function KitchenClient({ tenantId, tenantSlug, tenantName, country, brand
       <div className="flex flex-1 overflow-hidden">
         <main className="flex min-w-0 flex-1 flex-col overflow-hidden">
           <div className="border-b border-black/10 px-2 py-2" style={{ backgroundColor: brand.surface }}>
-            <div className="flex items-center gap-2">
-              <div className="min-w-0 flex-1">
-                {searchOpen ? (
-                  <input
-                    autoFocus
-                    value={search}
-                    onChange={e => { setSearch(e.target.value); setSelectedCategory(null); }}
-                    placeholder="Buscar"
-                    className="h-10 w-full rounded-xl border px-3 text-sm font-bold outline-none"
-                    style={{ backgroundColor: brand.soft, borderColor: brand.border, color: brand.surfaceText }}
-                  />
-                ) : (
-                  <div className="flex h-10 items-center rounded-xl border px-3 text-sm font-black" style={{ backgroundColor: brand.soft, borderColor: brand.border, color: brand.surfaceText }}>
-                    Productos
-                  </div>
-                )}
-              </div>
-              <button
-                onClick={() => {
-                  setSearchOpen(open => {
-                    if (open) setSearch('');
-                    return !open;
-                  });
-                }}
-                title={searchOpen ? 'Cerrar busqueda' : 'Buscar producto'}
-                className="grid h-10 w-10 place-items-center rounded-xl border transition active:scale-95"
-                style={{ backgroundColor: searchOpen ? brand.primary : brand.surface, borderColor: brand.border, color: searchOpen ? readableText(brand.primary) : brand.primary }}
-              >
-                {searchOpen ? <X className="h-4 w-4" /> : <Search className="h-4 w-4" />}
-              </button>
-              <button
-                onClick={openAccountSelector}
-                title="Ver cuenta completa"
-                className="grid h-10 w-10 place-items-center rounded-xl border transition active:scale-95"
-                style={{ backgroundColor: brand.surface, borderColor: brand.border, color: brand.primary }}
-              >
-                <ReceiptText className="h-4 w-4" />
-              </button>
-              <button onClick={() => setCartOpen(true)} className="relative grid h-10 w-10 place-items-center rounded-xl md:hidden" style={{ backgroundColor: brand.button, color: brand.buttonText }}>
-                <ShoppingCart className="h-5 w-5" />
-                {cartCount > 0 && <span className="absolute -right-1 -top-1 grid h-5 min-w-5 place-items-center rounded-full bg-red-500 px-1 text-[10px] font-black">{cartCount}</span>}
-              </button>
-            </div>
+            {searchOpen && (
+              <input
+                autoFocus
+                value={search}
+                onChange={e => { setSearch(e.target.value); setSelectedCategory(null); }}
+                placeholder="Buscar producto"
+                className="mb-2 h-10 w-full rounded-xl border px-3 text-sm font-bold outline-none"
+                style={{ backgroundColor: brand.soft, borderColor: brand.border, color: brand.surfaceText }}
+              />
+            )}
 
-            <div className="mt-2 flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
+            <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
               {!search && categories.map(cat => (
                 <button
                   key={cat.id}
