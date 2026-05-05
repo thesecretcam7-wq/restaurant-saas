@@ -1,6 +1,6 @@
 'use client'
 
-import { use, useState, useEffect } from 'react'
+import { Suspense, use, useState, useEffect } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { adminLoginSchema } from '@/lib/validations/forms'
 import { getFieldError, parseValidationError } from '@/lib/validations/utils'
@@ -8,6 +8,22 @@ import { getFieldError, parseValidationError } from '@/lib/validations/utils'
 interface Props { params: Promise<{ domain: string }> }
 
 export default function AdminLoginPage({ params }: Props) {
+  return (
+    <Suspense fallback={<AdminLoginLoading />}>
+      <AdminLoginContent params={params} />
+    </Suspense>
+  )
+}
+
+function AdminLoginLoading() {
+  return (
+    <div className="min-h-screen grid place-items-center bg-white">
+      <div className="w-8 h-8 rounded-full border-4 border-gray-200 border-t-gray-900 animate-spin" />
+    </div>
+  )
+}
+
+function AdminLoginContent({ params }: Props) {
   const { domain: tenantId } = use(params)
   const router = useRouter()
   const searchParams = useSearchParams()

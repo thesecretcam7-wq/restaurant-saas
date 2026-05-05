@@ -71,24 +71,28 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { tenantId, items, customerInfo, deliveryType, deliveryAddress, notes, paymentMethod, tableNumber, waiterName, table_id, waiter_id, amountPaid, source } = body
+    const { tenantId: tenantParam, items, customerInfo, deliveryType, deliveryAddress, notes, paymentMethod, tableNumber, waiterName, table_id, waiter_id, amountPaid, source } = body
 
-    if (!tenantId) {
+    if (!tenantParam) {
       return NextResponse.json({ error: 'tenantId is required' }, { status: 400 })
     }
 
     const supabase = createServiceClient()
 
     // SECURITY: Validate that tenantId corresponds to an active restaurant
+    const tenantLookup = String(tenantParam)
+    const isTenantUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(tenantLookup)
     const { data: tenant, error: tenantError } = await supabase
       .from('tenants')
       .select('id')
-      .eq('id', tenantId)
+      .eq(isTenantUUID ? 'id' : 'slug', tenantLookup)
       .single()
 
     if (tenantError || !tenant) {
       return NextResponse.json({ error: 'Invalid restaurant' }, { status: 400 })
     }
+
+    const tenantId = tenant.id
 
     if (!Array.isArray(items) || items.length === 0) {
       return NextResponse.json({ error: 'Order must include items' }, { status: 400 })
@@ -140,11 +144,30 @@ export async function POST(request: NextRequest) {
 
     const { data: settings } = await supabase
       .from('restaurant_settings')
-      .select('tax_rate, delivery_fee')
+      .select('tax_rate, delivery_fee, delivery_min_order, delivery_enabled, cash_payment_enabled')
       .eq('tenant_id', tenantId)
       .single()
 
     const subtotal = sanitizedItems.reduce((sum: number, i: any) => sum + i.price * i.qty, 0)
+
+    if (source === 'store' && paymentMethod === 'cash' && settings?.cash_payment_enabled === false) {
+      return NextResponse.json({ error: 'Pago en efectivo no esta habilitado para este restaurante' }, { status: 400 })
+    }
+
+    if (deliveryType === 'delivery') {
+      if (settings?.delivery_enabled === false) {
+        return NextResponse.json({ error: 'Delivery no esta habilitado para este restaurante' }, { status: 400 })
+      }
+
+      const minOrder = Number(settings?.delivery_min_order || 0)
+      if (minOrder > 0 && subtotal < minOrder) {
+        return NextResponse.json(
+          { error: `El pedido minimo para delivery es ${minOrder}` },
+          { status: 400 }
+        )
+      }
+    }
+
     const tax = settings?.tax_rate ? subtotal * (settings.tax_rate / 100) : 0
     const deliveryFee = deliveryType === 'delivery' ? (settings?.delivery_fee || 0) : 0
     const total = subtotal + tax + deliveryFee

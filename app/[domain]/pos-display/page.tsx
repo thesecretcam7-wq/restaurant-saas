@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { Suspense, useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { createClient } from '@supabase/supabase-js';
 import { Clock, ReceiptText, ShoppingBag, UtensilsCrossed } from 'lucide-react';
@@ -54,6 +54,22 @@ function readableText(background: string, preferred?: string | null, fallbackDar
 }
 
 export default function CustomerDisplayPage() {
+  return (
+    <Suspense fallback={<CustomerDisplayLoading />}>
+      <CustomerDisplayContent />
+    </Suspense>
+  );
+}
+
+function CustomerDisplayLoading() {
+  return (
+    <main className="grid min-h-screen place-items-center bg-[#f7f5f0]">
+      <div className="h-10 w-10 animate-spin rounded-full border-4 border-black/10 border-t-black" />
+    </main>
+  );
+}
+
+function CustomerDisplayContent() {
   const searchParams = useSearchParams();
   const tenantId = searchParams.get('tid');
   const country = searchParams.get('country') || 'CO';

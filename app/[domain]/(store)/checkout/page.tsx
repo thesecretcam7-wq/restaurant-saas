@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { useCartStore } from '@/lib/store/cart'
 import { checkoutSchema, type CheckoutInput } from '@/lib/validations/forms'
 import { getFieldError, parseValidationError } from '@/lib/validations/utils'
+import { formatPriceWithCurrency, getCurrencyByCountry } from '@/lib/currency'
 import Link from 'next/link'
 import toast from 'react-hot-toast'
 
@@ -15,6 +16,7 @@ export default function CheckoutPage({ params }: Props) {
   const router = useRouter()
   const { items, total, clearCart } = useCartStore()
   const [settings, setSettings] = useState<any>(null)
+  const [csrfToken, setCsrfToken] = useState('')
   const [loading, setLoading] = useState(false)
   const [errors, setErrors] = useState<Array<{ field: string; message: string }>>([])
   const [form, setForm] = useState({
@@ -30,6 +32,13 @@ export default function CheckoutPage({ params }: Props) {
       .then(data => {
         setSettings(data)
       })
+
+    fetch('/api/csrf-token')
+      .then(r => {
+        const token = r.headers.get('x-csrf-token')
+        if (token) setCsrfToken(token)
+      })
+      .catch(() => {})
   }, [tenantSlug, items.length, router])
 
   const subtotal = total()
@@ -37,10 +46,26 @@ export default function CheckoutPage({ params }: Props) {
   const tax = subtotal * (taxRate / 100)
   const deliveryFee = form.delivery_type === 'delivery' ? (settings?.delivery_fee || 0) : 0
   const finalTotal = subtotal + tax + deliveryFee
+  const tenantId = settings?.tenant_id || tenantSlug
+  const currencyInfo = getCurrencyByCountry(settings?.country || 'ES')
+  const formatMoney = (amount: number) => formatPriceWithCurrency(amount, currencyInfo.code, currencyInfo.locale)
+  const deliveryMinOrder = Number(settings?.delivery_min_order || 0)
+  const deliveryBelowMinimum = form.delivery_type === 'delivery' && deliveryMinOrder > 0 && subtotal < deliveryMinOrder
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setErrors([])
+
+    if (deliveryBelowMinimum) {
+      toast.error(`El pedido minimo para delivery es ${formatMoney(deliveryMinOrder)}`)
+      return
+    }
+
+    if (form.payment_method === 'cash' && !csrfToken) {
+      toast.error('Cargando seguridad del pedido. Intenta de nuevo en un segundo.')
+      return
+    }
+
     setLoading(true)
 
     try {
@@ -50,7 +75,7 @@ export default function CheckoutPage({ params }: Props) {
         const res = await fetch('/api/stripe/checkout', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ tenantId: tenantSlug, items, customerInfo: { name: validated.name, phone: validated.phone, email: validated.email }, deliveryType: validated.delivery_type, deliveryAddress: validated.delivery_address, notes: validated.notes }),
+          body: JSON.stringify({ tenantId, items, customerInfo: { name: validated.name, phone: validated.phone, email: validated.email }, deliveryType: validated.delivery_type, deliveryAddress: validated.delivery_address, notes: validated.notes }),
         })
         const data = await res.json()
         if (data.url) { clearCart(); window.location.href = data.url }
@@ -58,8 +83,8 @@ export default function CheckoutPage({ params }: Props) {
       } else {
         const res = await fetch('/api/orders', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ tenantId: tenantSlug, items, customerInfo: { name: validated.name, phone: validated.phone, email: validated.email }, deliveryType: validated.delivery_type, deliveryAddress: validated.delivery_address, notes: validated.notes, paymentMethod: 'cash' }),
+          headers: { 'Content-Type': 'application/json', 'x-csrf-token': csrfToken },
+          body: JSON.stringify({ tenantId, items, customerInfo: { name: validated.name, phone: validated.phone, email: validated.email }, deliveryType: validated.delivery_type, deliveryAddress: validated.delivery_address, notes: validated.notes, paymentMethod: 'cash', source: 'store' }),
         })
         const data = await res.json()
         if (data.orderId) { clearCart(); router.push(`/${tenantSlug}/gracias?order=${data.orderId}`) }
@@ -130,7 +155,7 @@ export default function CheckoutPage({ params }: Props) {
               <div className="grid grid-cols-2 gap-2">
                 {[
                   { value: 'pickup', label: 'Para recoger', icon: '🏠', sub: 'En el local' },
-                  { value: 'delivery', label: 'A domicilio', icon: '🚗', sub: settings.delivery_fee > 0 ? `+$${Number(settings.delivery_fee).toLocaleString('es-CO')}` : 'Gratis' },
+                  { value: 'delivery', label: 'A domicilio', icon: '🚗', sub: settings.delivery_fee > 0 ? `+${formatMoney(Number(settings.delivery_fee))}` : 'Gratis' },
                 ].map(opt => (
                   <button key={opt.value} type="button" onClick={() => setForm(f => ({...f, delivery_type: opt.value}))}
                     className={`p-3.5 rounded-xl border-2 text-left transition-all ${form.delivery_type === opt.value ? 'border-current bg-opacity-5' : 'border-gray-200 hover:border-gray-300'}`}
@@ -145,6 +170,11 @@ export default function CheckoutPage({ params }: Props) {
                 <div>
                   <input required value={form.delivery_address} onChange={e => setForm(f => ({...f, delivery_address: e.target.value}))} className={inputCls + (getFieldError(errors, 'delivery_address') ? ' border-red-300 focus:ring-red-500/10' : '')} placeholder="Dirección de entrega *" />
                   {getFieldError(errors, 'delivery_address') && <p className="text-red-500 text-xs mt-1">{getFieldError(errors, 'delivery_address')}</p>}
+                  {deliveryBelowMinimum && (
+                    <p className="text-red-500 text-xs mt-2">
+                      El pedido minimo para delivery es {formatMoney(deliveryMinOrder)}.
+                    </p>
+                  )}
                 </div>
               )}
             </div>
@@ -184,15 +214,15 @@ export default function CheckoutPage({ params }: Props) {
             {items.map(item => (
               <div key={item.item_id} className="flex justify-between text-sm text-gray-600">
                 <span>{item.qty}× {item.name}</span>
-                <span className="font-medium">${(item.price * item.qty).toLocaleString('es-CO')}</span>
+                <span className="font-medium">{formatMoney(item.price * item.qty)}</span>
               </div>
             ))}
             <div className="border-t border-gray-100 pt-2 mt-2 space-y-1.5">
-              <div className="flex justify-between text-sm text-gray-500"><span>Subtotal</span><span>${subtotal.toLocaleString('es-CO')}</span></div>
-              {tax > 0 && <div className="flex justify-between text-sm text-gray-500"><span>Impuestos ({taxRate}%)</span><span>${tax.toLocaleString('es-CO')}</span></div>}
-              {deliveryFee > 0 && <div className="flex justify-between text-sm text-gray-500"><span>Envío</span><span>${deliveryFee.toLocaleString('es-CO')}</span></div>}
+              <div className="flex justify-between text-sm text-gray-500"><span>Subtotal</span><span>{formatMoney(subtotal)}</span></div>
+              {tax > 0 && <div className="flex justify-between text-sm text-gray-500"><span>Impuestos ({taxRate}%)</span><span>{formatMoney(tax)}</span></div>}
+              {deliveryFee > 0 && <div className="flex justify-between text-sm text-gray-500"><span>Envío</span><span>{formatMoney(deliveryFee)}</span></div>}
               <div className="flex justify-between font-extrabold text-gray-900 text-base pt-1 border-t border-gray-100">
-                <span>Total</span><span>${finalTotal.toLocaleString('es-CO')}</span>
+                <span>Total</span><span>{formatMoney(finalTotal)}</span>
               </div>
             </div>
           </div>

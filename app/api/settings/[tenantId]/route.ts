@@ -20,8 +20,19 @@ export async function GET(_: NextRequest, { params }: { params: Promise<{ tenant
   const tenantId = await resolveTenantId(supabase, slugOrId)
   const { data } = await supabase
     .from('restaurant_settings')
-    .select('delivery_enabled, delivery_fee, delivery_min_order, delivery_time_minutes, cash_payment_enabled, tax_rate, reservations_enabled')
+    .select('delivery_enabled, delivery_fee, delivery_min_order, delivery_time_minutes, cash_payment_enabled, tax_rate, reservations_enabled, country')
     .eq('tenant_id', tenantId)
     .single()
-  return NextResponse.json(data || {})
+
+  const { data: tenant } = await supabase
+    .from('tenants')
+    .select('id, country')
+    .eq('id', tenantId)
+    .maybeSingle()
+
+  return NextResponse.json({
+    ...(data || {}),
+    tenant_id: tenantId,
+    country: data?.country || tenant?.country || 'ES',
+  })
 }

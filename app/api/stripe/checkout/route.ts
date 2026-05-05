@@ -3,6 +3,7 @@ import { cookies } from 'next/headers'
 import { NextRequest, NextResponse } from 'next/server'
 import Stripe from 'stripe'
 import { checkRateLimit, getClientIp } from '@/lib/ratelimit'
+import { getCurrencyByCountry } from '@/lib/currency'
 
 const getStripe = () => new Stripe(process.env.STRIPE_SECRET_KEY!)
 
@@ -39,7 +40,11 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { tenantId, items, customerInfo, deliveryType, deliveryAddress, notes } = body
+    const { tenantId: tenantParam, items, customerInfo, deliveryType, deliveryAddress, notes } = body
+
+    if (!tenantParam) {
+      return NextResponse.json({ error: 'Restaurante requerido' }, { status: 400 })
+    }
 
     const cookieStore = await cookies()
     const supabase = createServerClient(
@@ -55,26 +60,101 @@ export async function POST(request: NextRequest) {
       }
     )
 
+    const tenantLookup = String(tenantParam)
+    const isTenantUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(tenantLookup)
+
     const { data: tenant } = await supabase
       .from('tenants')
-      .select('stripe_account_id, primary_domain, slug')
-      .eq('id', tenantId)
+      .select('id, stripe_account_id, primary_domain, slug, country')
+      .eq(isTenantUUID ? 'id' : 'slug', tenantLookup)
       .single()
 
     if (!tenant?.stripe_account_id) {
       return NextResponse.json({ error: 'Pagos no configurados para este restaurante' }, { status: 400 })
     }
 
+    const tenantId = tenant.id
+
+    if (!Array.isArray(items) || items.length === 0) {
+      return NextResponse.json({ error: 'El pedido debe incluir productos' }, { status: 400 })
+    }
+
+    const itemIds = items
+      .map((item: any) => item.menu_item_id || item.item_id || item.id)
+      .filter(Boolean)
+
+    if (itemIds.length !== items.length) {
+      return NextResponse.json({ error: 'Todos los productos deben tener ID valido' }, { status: 400 })
+    }
+
+    const { data: menuRows, error: menuError } = await supabase
+      .from('menu_items')
+      .select('id, name, price, available')
+      .eq('tenant_id', tenantId)
+      .in('id', itemIds)
+
+    if (menuError) {
+      return NextResponse.json({ error: 'Error validando productos' }, { status: 500 })
+    }
+
+    const menuById = new Map((menuRows || []).map((item: any) => [item.id, item]))
+    const sanitizedItemsRaw = items.map((item: any) => {
+      const menuId = item.menu_item_id || item.item_id || item.id
+      const menuItem = menuById.get(menuId)
+      const qty = Math.max(1, Number(item.qty ?? item.quantity ?? 1))
+
+      if (!menuItem || menuItem.available === false) {
+        return null
+      }
+
+      return {
+        menu_item_id: menuItem.id,
+        name: menuItem.name,
+        price: Number(menuItem.price) || 0,
+        qty,
+        notes: item.notes || null,
+      }
+    })
+
+    if (sanitizedItemsRaw.some((item: any) => !item)) {
+      return NextResponse.json({ error: 'Uno o mas productos no estan disponibles' }, { status: 400 })
+    }
+
+    const sanitizedItems = sanitizedItemsRaw.filter(Boolean) as Array<{
+      menu_item_id: string
+      name: string
+      price: number
+      qty: number
+      notes: string | null
+    }>
+
     const { data: settings } = await supabase
       .from('restaurant_settings')
-      .select('tax_rate, delivery_fee')
+      .select('tax_rate, delivery_fee, delivery_min_order, delivery_enabled, country')
       .eq('tenant_id', tenantId)
       .single()
 
-    const subtotal = items.reduce((sum: number, item: any) => sum + item.price * item.qty, 0)
+    const subtotal = sanitizedItems.reduce((sum: number, item: any) => sum + item.price * item.qty, 0)
+
+    if (deliveryType === 'delivery') {
+      if (settings?.delivery_enabled === false) {
+        return NextResponse.json({ error: 'Delivery no esta habilitado para este restaurante' }, { status: 400 })
+      }
+
+      const minOrder = Number(settings?.delivery_min_order || 0)
+      if (minOrder > 0 && subtotal < minOrder) {
+        return NextResponse.json(
+          { error: `El pedido minimo para delivery es ${minOrder}` },
+          { status: 400 }
+        )
+      }
+    }
+
     const tax = settings?.tax_rate ? subtotal * (settings.tax_rate / 100) : 0
     const deliveryFee = deliveryType === 'delivery' ? (settings?.delivery_fee || 0) : 0
     const total = subtotal + tax + deliveryFee
+    const currencyInfo = getCurrencyByCountry(settings?.country || tenant.country || 'ES')
+    const stripeCurrency = currencyInfo.code.toLowerCase()
 
     // Create order in DB first
     const orderNumber = `ORD-${Date.now()}`
@@ -86,7 +166,7 @@ export async function POST(request: NextRequest) {
         customer_name: customerInfo.name,
         customer_email: customerInfo.email,
         customer_phone: customerInfo.phone,
-        items,
+        items: sanitizedItems,
         subtotal,
         tax,
         delivery_fee: deliveryFee,
@@ -107,7 +187,7 @@ export async function POST(request: NextRequest) {
 
     const domain = tenant.primary_domain
       ? `https://${tenant.primary_domain}`
-      : `${process.env.NEXT_PUBLIC_APP_URL}/${tenantId}`
+      : `${process.env.NEXT_PUBLIC_APP_URL || request.nextUrl.origin}/${tenant.slug || tenantId}`
 
     // Create Stripe Checkout Session on the restaurant's account
     const stripe = getStripe()
@@ -115,9 +195,9 @@ export async function POST(request: NextRequest) {
       {
         mode: 'payment',
         line_items: [
-          ...items.map((item: any) => ({
+          ...sanitizedItems.map((item: any) => ({
             price_data: {
-              currency: 'cop',
+              currency: stripeCurrency,
               product_data: { name: item.name },
               unit_amount: Math.round(item.price * 100),
             },
@@ -125,7 +205,7 @@ export async function POST(request: NextRequest) {
           })),
           ...(tax > 0 ? [{
             price_data: {
-              currency: 'cop',
+              currency: stripeCurrency,
               product_data: { name: `Impuestos (${settings?.tax_rate}%)` },
               unit_amount: Math.round(tax * 100),
             },
@@ -133,7 +213,7 @@ export async function POST(request: NextRequest) {
           }] : []),
           ...(deliveryFee > 0 ? [{
             price_data: {
-              currency: 'cop',
+              currency: stripeCurrency,
               product_data: { name: 'Costo de envío' },
               unit_amount: Math.round(deliveryFee * 100),
             },
