@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ChefHat, CreditCard, Lock, LogIn, ShieldCheck, UtensilsCrossed } from 'lucide-react';
+import { ChefHat, CreditCard, Lock, LogIn, Monitor, ShieldCheck, ShoppingBag, UtensilsCrossed } from 'lucide-react';
 
 interface Branding {
   appName: string;
@@ -90,6 +90,23 @@ export function RoleSelector({ tenantName, tenantSlug, logoUrl, branding }: Prop
     },
   ];
 
+  const deviceLinks = [
+    {
+      label: 'Kiosko',
+      desc: 'Autoservicio del cliente',
+      href: `/${tenantSlug}/kiosko`,
+      icon: ShoppingBag,
+      color: accent,
+    },
+    {
+      label: 'Pantalla',
+      desc: 'Estado de pedidos',
+      href: `/${tenantSlug}/pantalla`,
+      icon: Monitor,
+      color: primary,
+    },
+  ];
+
   function handleSelect(roleId: string) {
     setSelectedRole(roleId);
     router.push(`/${tenantSlug}/acceso/login/${roleId}`);
@@ -143,52 +160,82 @@ export function RoleSelector({ tenantName, tenantSlug, logoUrl, branding }: Prop
         </section>
 
         <section className="flex flex-1 items-center justify-center p-4 sm:p-8 lg:p-10">
-          <div className="grid w-full max-w-4xl grid-cols-1 gap-3 sm:gap-4 lg:grid-cols-2">
-            {roles.map((role) => {
-              const Icon = role.icon;
-              const selected = selectedRole === role.id;
-              const disabled = selectedRole !== null;
-
-              return (
-                <button
-                  key={role.id}
-                  onClick={() => handleSelect(role.id)}
-                  disabled={disabled}
-                  className={`group min-h-[138px] rounded-3xl border p-4 text-left transition-all duration-200 active:scale-[0.98] sm:min-h-[170px] sm:p-5 lg:min-h-[220px] lg:p-6 ${
-                    disabled ? 'cursor-not-allowed opacity-55' : 'hover:-translate-y-1 hover:bg-white/[0.11]'
-                  }`}
-                  style={{
-                    backgroundColor: selected ? `${role.color}20` : 'rgba(255,255,255,0.075)',
-                    borderColor: selected ? role.color : 'rgba(255,255,255,0.12)',
-                    boxShadow: selected ? `0 24px 70px ${role.color}30` : '0 20px 60px rgba(0,0,0,0.22)',
-                  }}
-                >
-                  <div className="flex h-full flex-col justify-between">
-                    <div className="flex items-start justify-between gap-4">
-                      <div
-                        className="grid h-12 w-12 place-items-center rounded-2xl border sm:h-14 sm:w-14 lg:h-16 lg:w-16"
-                        style={{
-                          backgroundColor: `${role.color}24`,
-                          borderColor: `${role.color}55`,
-                          color: role.id === 'admin' ? secondaryText : role.id === 'cocinero' ? primaryText : '#ffffff',
-                        }}
-                      >
-                        <Icon className="h-6 w-6 lg:h-8 lg:w-8" />
-                      </div>
-                      <LogIn className="h-5 w-5 text-white/30 transition group-hover:text-white/70" />
+          <div className="w-full max-w-4xl space-y-4">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              {deviceLinks.map((item) => {
+                const Icon = item.icon;
+                return (
+                  <a
+                    key={item.label}
+                    href={item.href}
+                    className="group flex items-center gap-4 rounded-3xl border border-white/12 bg-white/[0.09] p-4 text-left shadow-2xl shadow-black/20 transition-all active:scale-[0.98] hover:-translate-y-0.5 hover:bg-white/[0.13]"
+                  >
+                    <div
+                      className="grid h-14 w-14 flex-shrink-0 place-items-center rounded-2xl border"
+                      style={{ backgroundColor: `${item.color}24`, borderColor: `${item.color}55`, color: '#ffffff' }}
+                    >
+                      <Icon className="h-6 w-6" />
                     </div>
-
-                    <div>
-                      <p className="text-xs font-black uppercase tracking-[0.14em] sm:text-sm sm:tracking-[0.16em]" style={{ color: role.color }}>
-                        {role.desc}
+                    <div className="min-w-0 flex-1">
+                      <p className="text-xs font-black uppercase tracking-[0.16em]" style={{ color: item.color }}>
+                        Acceso rapido
                       </p>
-                      <h3 className="mt-1 text-2xl font-black text-white sm:mt-2 lg:text-3xl">{role.label}</h3>
-                      <p className="mt-2 text-sm font-semibold text-white/52">{role.hint}</p>
+                      <h3 className="mt-1 text-xl font-black text-white">{item.label}</h3>
+                      <p className="text-sm font-semibold text-white/52">{item.desc}</p>
                     </div>
-                  </div>
-                </button>
-              );
-            })}
+                    <LogIn className="h-5 w-5 text-white/30 transition group-hover:text-white/70" />
+                  </a>
+                );
+              })}
+            </div>
+
+            <div className="grid grid-cols-1 gap-3 sm:gap-4 lg:grid-cols-2">
+              {roles.map((role) => {
+                const Icon = role.icon;
+                const selected = selectedRole === role.id;
+                const disabled = selectedRole !== null;
+
+                return (
+                  <button
+                    key={role.id}
+                    onClick={() => handleSelect(role.id)}
+                    disabled={disabled}
+                    className={`group min-h-[138px] rounded-3xl border p-4 text-left transition-all duration-200 active:scale-[0.98] sm:min-h-[170px] sm:p-5 lg:min-h-[190px] lg:p-6 ${
+                      disabled ? 'cursor-not-allowed opacity-55' : 'hover:-translate-y-1 hover:bg-white/[0.11]'
+                    }`}
+                    style={{
+                      backgroundColor: selected ? `${role.color}20` : 'rgba(255,255,255,0.075)',
+                      borderColor: selected ? role.color : 'rgba(255,255,255,0.12)',
+                      boxShadow: selected ? `0 24px 70px ${role.color}30` : '0 20px 60px rgba(0,0,0,0.22)',
+                    }}
+                  >
+                    <div className="flex h-full flex-col justify-between">
+                      <div className="flex items-start justify-between gap-4">
+                        <div
+                          className="grid h-12 w-12 place-items-center rounded-2xl border sm:h-14 sm:w-14 lg:h-16 lg:w-16"
+                          style={{
+                            backgroundColor: `${role.color}24`,
+                            borderColor: `${role.color}55`,
+                            color: role.id === 'admin' ? secondaryText : role.id === 'cocinero' ? primaryText : '#ffffff',
+                          }}
+                        >
+                          <Icon className="h-6 w-6 lg:h-8 lg:w-8" />
+                        </div>
+                        <LogIn className="h-5 w-5 text-white/30 transition group-hover:text-white/70" />
+                      </div>
+
+                      <div>
+                        <p className="text-xs font-black uppercase tracking-[0.14em] sm:text-sm sm:tracking-[0.16em]" style={{ color: role.color }}>
+                          {role.desc}
+                        </p>
+                        <h3 className="mt-1 text-2xl font-black text-white sm:mt-2 lg:text-3xl">{role.label}</h3>
+                        <p className="mt-2 text-sm font-semibold text-white/52">{role.hint}</p>
+                      </div>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
           </div>
         </section>
       </div>

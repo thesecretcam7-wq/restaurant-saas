@@ -25,10 +25,10 @@ export default async function CartaQrPage({ params }: Props) {
   }
 
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
-  const menuUrl = tenant.primary_domain
-    ? `https://${tenant.primary_domain}/menu`
-    : `${appUrl}/${tenant.slug || tenant.id}/menu`
-  const qrDataUrl = await QRCode.toDataURL(menuUrl, {
+  const cartaUrl = tenant.primary_domain
+    ? `https://${tenant.primary_domain}/carta`
+    : `${appUrl}/${tenant.slug || tenant.id}/carta`
+  const qrDataUrl = await QRCode.toDataURL(cartaUrl, {
     width: 720,
     margin: 2,
     color: { dark: '#15130f', light: '#ffffff' },
@@ -43,7 +43,7 @@ export default async function CartaQrPage({ params }: Props) {
           <p className="admin-subtitle">Imprime este QR para que el cliente vea la carta desde su celular.</p>
         </div>
         <Link
-          href={`/${tenant.slug || tenant.id}/menu`}
+          href={`/${tenant.slug || tenant.id}/carta`}
           target="_blank"
           className="hidden h-11 items-center gap-2 rounded-xl border border-black/10 bg-white px-4 text-sm font-black text-[#15130f] transition hover:bg-black/[0.04] sm:inline-flex"
         >
@@ -80,13 +80,13 @@ export default async function CartaQrPage({ params }: Props) {
           <article className="admin-panel p-5">
             <QrCode className="size-7 text-[#e43d30]" />
             <h3 className="mt-5 text-lg font-black text-[#15130f]">URL de la carta</h3>
-            <p className="mt-2 break-all rounded-xl bg-black/[0.04] px-4 py-3 text-sm font-bold text-black/58">{menuUrl}</p>
+            <p className="mt-2 break-all rounded-xl bg-black/[0.04] px-4 py-3 text-sm font-bold text-black/58">{cartaUrl}</p>
           </article>
           <article className="admin-panel p-5">
             <Smartphone className="size-7 text-[#e43d30]" />
             <h3 className="mt-5 text-lg font-black text-[#15130f]">Uso recomendado</h3>
             <p className="mt-2 text-sm font-semibold leading-6 text-black/55">
-              Ponlo en mesas, entrada, caja, redes sociales o empaques. El cliente abre la carta y navega por categorias desde el celular.
+              Ponlo en mesas, entrada o caja. El cliente abre una carta de consulta rapida, diferente a la tienda online.
             </p>
           </article>
           <article className="admin-panel p-5 md:col-span-2">

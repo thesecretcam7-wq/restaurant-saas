@@ -46,6 +46,7 @@ interface KitchenBranding {
   secondaryColor: string;
   accentColor: string;
   backgroundColor: string;
+  surfaceColor: string;
   buttonPrimaryColor: string;
   buttonSecondaryColor: string;
   textPrimaryColor: string;
@@ -85,6 +86,7 @@ export function KitchenClient({ tenantId, tenantSlug, tenantName, country, brand
   const [tableNumber, setTableNumber] = useState('');
   const [waiterName, setWaiterName] = useState('');
   const [search, setSearch] = useState('');
+  const [searchOpen, setSearchOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const [success, setSuccess] = useState(false);
@@ -106,19 +108,23 @@ export function KitchenClient({ tenantId, tenantSlug, tenantName, country, brand
     const primary = branding.primaryColor || '#15130f';
     const accent = branding.accentColor || primary;
     const background = branding.backgroundColor || '#f6f3ed';
+    const surface = branding.surfaceColor || (isDark(background) ? '#111827' : '#ffffff');
     const button = branding.buttonPrimaryColor || primary;
+    const primaryText = branding.textPrimaryColor || readableText(background);
+    const surfaceText = readableText(surface);
     return {
       appName: branding.appName || tenantName,
       primary,
       secondary: branding.secondaryColor || '#111827',
       accent,
       background,
-      surface: isDark(background) ? 'rgba(255,255,255,0.96)' : '#ffffff',
+      surface,
+      surfaceText,
       soft: `${primary}14`,
       border: `${primary}22`,
       button,
       buttonText: readableText(button),
-      primaryText: branding.textPrimaryColor || readableText(background),
+      primaryText,
       mutedText: branding.textSecondaryColor || (isDark(background) ? 'rgba(255,255,255,0.68)' : 'rgba(21,19,15,0.58)'),
       logoUrl: branding.logoUrl,
     };
@@ -201,16 +207,23 @@ export function KitchenClient({ tenantId, tenantSlug, tenantName, country, brand
   const subtotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
   const taxAmount = taxRate > 0 ? subtotal * (taxRate / 100) : 0;
   const total = subtotal + taxAmount;
-  const openTableSubtotal = openTableOrders.reduce((sum, order) => {
-    if (typeof order.subtotal === 'number') return sum + order.subtotal;
-    return sum + (order.items || []).reduce((itemSum, item) => itemSum + item.price * (item.qty ?? item.quantity ?? 1), 0);
-  }, 0);
-  const openTableTax = openTableOrders.reduce((sum, order) => {
-    if (typeof order.tax === 'number') return sum + order.tax;
-    const orderSubtotal = (order.items || []).reduce((itemSum, item) => itemSum + item.price * (item.qty ?? item.quantity ?? 1), 0);
-    return sum + (taxRate > 0 ? orderSubtotal * (taxRate / 100) : 0);
-  }, 0);
-  const openTableTotal = openTableOrders.reduce((sum, order) => sum + Number(order.total || 0), 0);
+  const getServedOrderSubtotal = useCallback((order: OpenTableOrder) => {
+    if (typeof order.subtotal === 'number' && order.subtotal > 0) return order.subtotal;
+    return (order.items || []).reduce((itemSum, item) => itemSum + Number(item.price || 0) * (item.qty ?? item.quantity ?? 1), 0);
+  }, []);
+  const getServedOrderTax = useCallback((order: OpenTableOrder) => {
+    if (typeof order.tax === 'number' && order.tax > 0) return order.tax;
+    const orderSubtotal = getServedOrderSubtotal(order);
+    return taxRate > 0 ? orderSubtotal * (taxRate / 100) : 0;
+  }, [getServedOrderSubtotal, taxRate]);
+  const getServedOrderTotal = useCallback((order: OpenTableOrder) => {
+    const savedTotal = Number(order.total || 0);
+    if (savedTotal > 0) return savedTotal;
+    return getServedOrderSubtotal(order) + getServedOrderTax(order);
+  }, [getServedOrderSubtotal, getServedOrderTax]);
+  const openTableSubtotal = openTableOrders.reduce((sum, order) => sum + getServedOrderSubtotal(order), 0);
+  const openTableTax = openTableOrders.reduce((sum, order) => sum + getServedOrderTax(order), 0);
+  const openTableTotal = openTableOrders.reduce((sum, order) => sum + getServedOrderTotal(order), 0);
 
   const saveNote = (id: string) => {
     setCart(prev => prev.map(c => c.menu_item_id === id ? { ...c, notes: noteText } : c));
@@ -227,18 +240,12 @@ export function KitchenClient({ tenantId, tenantSlug, tenantName, country, brand
     setLoadingAccount(true);
     setAccountOpen(true);
     try {
-      const { data, error } = await supabase
-        .from('orders')
-        .select('id, order_number, table_number, waiter_name, subtotal, tax, total, created_at, items')
-        .eq('tenant_id', tenantId)
-        .eq('delivery_type', 'dine-in')
-        .eq('table_number', Number(tableNumber))
-        .eq('payment_status', 'pending')
-        .not('status', 'in', '("delivered","cancelled")')
-        .order('created_at', { ascending: true });
-
-      if (error) throw error;
-      setOpenTableOrders((data || []) as OpenTableOrder[]);
+      const res = await fetch(`/api/table-account?tenantId=${tenantId}&tableNumber=${encodeURIComponent(tableNumber)}`, {
+        cache: 'no-store',
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(json.error || 'No se pudo cargar la cuenta');
+      setOpenTableOrders((json.orders || []) as OpenTableOrder[]);
     } catch (error) {
       console.error('[fetchOpenTableAccount]', error);
       setOpenTableOrders([]);
@@ -307,9 +314,9 @@ export function KitchenClient({ tenantId, tenantSlug, tenantName, country, brand
   if (loading) {
     return (
       <div className="grid min-h-screen place-items-center" style={{ backgroundColor: brand.background }}>
-        <div className="rounded-[2rem] border border-black/10 bg-white p-8 text-center shadow-2xl shadow-black/10">
-          <div className="mx-auto mb-4 h-12 w-12 animate-spin rounded-full border-4 border-[#15130f]/15 border-t-[#15130f]" />
-          <p className="text-sm font-black text-[#15130f]">Cargando comandero</p>
+        <div className="rounded-[2rem] border p-8 text-center shadow-2xl shadow-black/10" style={{ backgroundColor: brand.surface, borderColor: brand.border }}>
+          <div className="mx-auto mb-4 h-12 w-12 animate-spin rounded-full border-4" style={{ borderColor: brand.border, borderTopColor: brand.primary }} />
+          <p className="text-sm font-black" style={{ color: brand.surfaceText }}>Cargando comandero</p>
         </div>
       </div>
     );
@@ -320,8 +327,8 @@ export function KitchenClient({ tenantId, tenantSlug, tenantName, country, brand
       <div className="border-b border-black/10 p-4">
         <div className="flex items-center justify-between">
           <div>
-            <p className="text-xs font-black uppercase text-black/40">Pedido actual</p>
-            <h2 className="text-xl font-black text-[#15130f]">{tableNumber ? `Mesa ${tableNumber}` : 'Selecciona mesa'}</h2>
+            <p className="text-xs font-black uppercase" style={{ color: brand.mutedText }}>Pedido actual</p>
+            <h2 className="text-xl font-black" style={{ color: brand.surfaceText }}>{tableNumber ? `Mesa ${tableNumber}` : 'Selecciona mesa'}</h2>
           </div>
           {isMobile && (
             <button onClick={() => setCartOpen(false)} className="grid h-10 w-10 place-items-center rounded-2xl bg-black/[0.06]">
@@ -332,11 +339,11 @@ export function KitchenClient({ tenantId, tenantSlug, tenantName, country, brand
 
         <div className="mt-4">
           <div className="mb-2 flex items-center justify-between">
-            <span className="text-xs font-black uppercase text-black/42">Mesas</span>
+            <span className="text-xs font-black uppercase" style={{ color: brand.mutedText }}>Mesas</span>
             {tableNumber && <button onClick={() => setTableNumber('')} className="text-xs font-black text-red-500">Quitar</button>}
           </div>
           {tables.length === 0 ? (
-            <p className="rounded-2xl bg-black/[0.04] px-3 py-3 text-center text-xs font-bold text-black/45">Sin mesas configuradas</p>
+            <p className="rounded-2xl px-3 py-3 text-center text-xs font-bold" style={{ backgroundColor: brand.soft, color: brand.mutedText }}>Sin mesas configuradas</p>
           ) : (
             <div className="grid grid-cols-4 gap-2">
               {tables.map(table => {
@@ -361,9 +368,9 @@ export function KitchenClient({ tenantId, tenantSlug, tenantName, country, brand
         {cart.length === 0 ? (
           <div className="grid h-full min-h-56 place-items-center rounded-[1.5rem] border border-dashed p-6 text-center" style={{ borderColor: brand.border, backgroundColor: brand.soft }}>
             <div>
-              <ShoppingCart className="mx-auto mb-3 h-8 w-8 text-black/25" />
-              <p className="text-sm font-black text-[#15130f]">Pedido vacio</p>
-              <p className="mt-1 text-xs font-semibold text-black/45">Toca productos para agregarlos.</p>
+              <ShoppingCart className="mx-auto mb-3 h-8 w-8" style={{ color: brand.mutedText }} />
+              <p className="text-sm font-black" style={{ color: brand.surfaceText }}>Pedido vacio</p>
+              <p className="mt-1 text-xs font-semibold" style={{ color: brand.mutedText }}>Toca productos para agregarlos.</p>
             </div>
           </div>
         ) : (
@@ -379,8 +386,8 @@ export function KitchenClient({ tenantId, tenantSlug, tenantName, country, brand
               <div key={item.menu_item_id} className="rounded-[1.35rem] border p-3" style={{ borderColor: brand.border, backgroundColor: brand.soft }}>
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0">
-                    <p className="line-clamp-2 text-sm font-black leading-5 text-[#15130f]">{item.name}</p>
-                    <p className="mt-1 text-xs font-black text-black/45">{money(item.price)} unidad</p>
+                    <p className="line-clamp-2 text-sm font-black leading-5" style={{ color: brand.surfaceText }}>{item.name}</p>
+                    <p className="mt-1 text-xs font-black" style={{ color: brand.mutedText }}>{money(item.price)} unidad</p>
                   </div>
                   <button onClick={() => removeFromCart(item.menu_item_id)} className="grid h-8 w-8 place-items-center rounded-xl text-black/35 transition hover:bg-red-50 hover:text-red-500">
                     <Trash2 className="h-4 w-4" />
@@ -392,12 +399,12 @@ export function KitchenClient({ tenantId, tenantSlug, tenantName, country, brand
                     <button onClick={() => updateQty(item.menu_item_id, -1)} className="grid h-10 w-10 place-items-center rounded-2xl bg-black/[0.07] active:scale-95">
                       <Minus className="h-4 w-4" />
                     </button>
-                    <span className="w-7 text-center text-lg font-black text-[#15130f]">{item.quantity}</span>
+                    <span className="w-7 text-center text-lg font-black" style={{ color: brand.surfaceText }}>{item.quantity}</span>
                     <button onClick={() => updateQty(item.menu_item_id, 1)} className="grid h-10 w-10 place-items-center rounded-2xl active:scale-95" style={{ backgroundColor: brand.button, color: brand.buttonText }}>
                       <Plus className="h-4 w-4" />
                     </button>
                   </div>
-                  <span className="text-base font-black text-[#15130f]">{money(item.price * item.quantity)}</span>
+                  <span className="text-base font-black" style={{ color: brand.surfaceText }}>{money(item.price * item.quantity)}</span>
                 </div>
 
                 {editingNote === item.menu_item_id ? (
@@ -408,14 +415,16 @@ export function KitchenClient({ tenantId, tenantSlug, tenantName, country, brand
                       onChange={e => setNoteText(e.target.value)}
                       onKeyDown={e => { if (e.key === 'Enter') saveNote(item.menu_item_id); }}
                       placeholder="Sin cebolla, bien cocido..."
-                      className="min-w-0 flex-1 rounded-2xl border border-black/10 bg-white px-3 py-2 text-xs font-semibold outline-none focus:border-[#15130f]"
+                      className="min-w-0 flex-1 rounded-2xl border px-3 py-2 text-xs font-semibold outline-none"
+                      style={{ backgroundColor: brand.surface, borderColor: brand.border, color: brand.surfaceText }}
                     />
-                    <button onClick={() => saveNote(item.menu_item_id)} className="rounded-2xl bg-[#15130f] px-4 text-xs font-black text-white">OK</button>
+                    <button onClick={() => saveNote(item.menu_item_id)} className="rounded-2xl px-4 text-xs font-black" style={{ backgroundColor: brand.button, color: brand.buttonText }}>OK</button>
                   </div>
                 ) : (
                   <button
                     onClick={() => { setEditingNote(item.menu_item_id); setNoteText(item.notes); }}
-                    className="mt-3 rounded-full bg-black/[0.04] px-3 py-1.5 text-xs font-black text-black/45"
+                    className="mt-3 rounded-full px-3 py-1.5 text-xs font-black"
+                    style={{ backgroundColor: brand.surface, color: brand.mutedText }}
                   >
                     {item.notes ? item.notes : '+ Nota'}
                   </button>
@@ -428,11 +437,11 @@ export function KitchenClient({ tenantId, tenantSlug, tenantName, country, brand
 
       <div className="border-t border-black/10 p-4" style={{ backgroundColor: brand.surface }}>
         <div className="mb-3 space-y-2 rounded-2xl p-3" style={{ backgroundColor: brand.soft }}>
-          <div className="flex items-center justify-between text-xs font-bold text-black/45">
+          <div className="flex items-center justify-between text-xs font-bold" style={{ color: brand.mutedText }}>
             <span>{cartCount} productos</span>
             <span>Pedido actual</span>
           </div>
-          <div className="space-y-1.5 text-sm font-black text-[#15130f]">
+          <div className="space-y-1.5 text-sm font-black" style={{ color: brand.surfaceText }}>
             <div className="flex items-center justify-between">
               <span>Subtotal:</span>
               <span>{money(subtotal)}</span>
@@ -498,57 +507,61 @@ export function KitchenClient({ tenantId, tenantSlug, tenantName, country, brand
 
       <div className="flex flex-1 overflow-hidden">
         <main className="flex min-w-0 flex-1 flex-col overflow-hidden">
-          <div className="border-b border-black/10 px-3 py-3" style={{ backgroundColor: brand.surface }}>
-            <div className="mb-3 xl:hidden">
-              <div className="mb-2 flex items-center justify-between gap-2">
-                <span className="text-xs font-black uppercase text-black/42">Mesa</span>
-                {tableNumber ? (
-                  <button onClick={() => setTableNumber('')} className="rounded-full bg-red-50 px-2 py-1 text-[11px] font-black text-red-500">Mesa {tableNumber} x</button>
+          <div className="border-b border-black/10 px-2 py-2" style={{ backgroundColor: brand.surface }}>
+            <div className="flex items-center gap-2">
+              <div className="min-w-0 flex-1">
+                {searchOpen ? (
+                  <input
+                    autoFocus
+                    value={search}
+                    onChange={e => { setSearch(e.target.value); setSelectedCategory(null); }}
+                    placeholder="Buscar"
+                    className="h-10 w-full rounded-xl border px-3 text-sm font-bold outline-none"
+                    style={{ backgroundColor: brand.soft, borderColor: brand.border, color: brand.surfaceText }}
+                  />
+                ) : tables.length === 0 ? (
+                  <div className="grid h-10 place-items-center rounded-xl border px-3 text-xs font-black" style={{ backgroundColor: brand.soft, borderColor: brand.border, color: brand.mutedText }}>
+                    Sin mesas
+                  </div>
                 ) : (
-                  <span className="text-[11px] font-black text-amber-600">Elige una</span>
+                  <select
+                    value={tableNumber}
+                    onChange={e => setTableNumber(e.target.value)}
+                    className="h-10 w-full rounded-xl border px-3 text-sm font-black outline-none"
+                    style={{ backgroundColor: brand.soft, borderColor: brand.border, color: tableNumber ? brand.surfaceText : brand.mutedText }}
+                  >
+                    <option value="">Mesa</option>
+                    {tables.map(table => (
+                      <option key={table.id} value={String(table.table_number)}>
+                        Mesa {table.table_number}
+                      </option>
+                    ))}
+                  </select>
                 )}
               </div>
-              {tables.length === 0 ? (
-                <p className="rounded-xl bg-black/[0.04] px-3 py-2 text-center text-xs font-bold text-black/45">Sin mesas configuradas</p>
-              ) : (
-                <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
-                  {tables.map(table => {
-                    const active = tableNumber === String(table.table_number);
-                    return (
-                      <button
-                        key={table.id}
-                        onClick={() => setTableNumber(String(table.table_number))}
-                        className="h-10 min-w-10 flex-shrink-0 rounded-xl border px-3 text-sm font-black transition active:scale-95"
-                        style={active ? { borderColor: brand.primary, backgroundColor: brand.primary, color: readableText(brand.primary), boxShadow: `0 12px 30px ${brand.primary}30` } : { borderColor: brand.border, backgroundColor: brand.soft, color: brand.primaryText }}
-                      >
-                        {table.table_number}
-                      </button>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-
-            <div className="flex gap-2">
-              <div className="relative min-w-0 flex-1">
-                <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-black/35" />
-                <input
-                  value={search}
-                  onChange={e => { setSearch(e.target.value); setSelectedCategory(null); }}
-                  placeholder="Buscar"
-                  className="h-10 w-full rounded-xl border border-black/10 bg-[#f6f3ed] pl-9 pr-3 text-sm font-bold outline-none focus:border-[#15130f]"
-                />
-              </div>
+              <button
+                onClick={() => {
+                  setSearchOpen(open => {
+                    if (open) setSearch('');
+                    return !open;
+                  });
+                }}
+                title={searchOpen ? 'Cerrar busqueda' : 'Buscar producto'}
+                className="grid h-10 w-10 place-items-center rounded-xl border transition active:scale-95"
+                style={{ backgroundColor: searchOpen ? brand.primary : brand.surface, borderColor: brand.border, color: searchOpen ? readableText(brand.primary) : brand.primary }}
+              >
+                {searchOpen ? <X className="h-4 w-4" /> : <Search className="h-4 w-4" />}
+              </button>
               <button
                 onClick={fetchOpenTableAccount}
                 disabled={!tableNumber}
                 title={tableNumber ? `Ver total de mesa ${tableNumber}` : 'Selecciona una mesa'}
-                className="grid h-10 w-10 place-items-center rounded-xl border bg-white transition active:scale-95 disabled:bg-black/5 disabled:text-black/30"
-                style={{ borderColor: brand.border, color: tableNumber ? brand.primary : undefined }}
+                className="grid h-10 w-10 place-items-center rounded-xl border transition active:scale-95 disabled:bg-black/5 disabled:text-black/30"
+                style={{ backgroundColor: brand.surface, borderColor: brand.border, color: tableNumber ? brand.primary : brand.mutedText }}
               >
                 <ReceiptText className="h-4 w-4" />
               </button>
-              <button onClick={() => setCartOpen(true)} className="relative grid h-10 w-10 place-items-center rounded-xl bg-[#15130f] text-white md:hidden">
+              <button onClick={() => setCartOpen(true)} className="relative grid h-10 w-10 place-items-center rounded-xl md:hidden" style={{ backgroundColor: brand.button, color: brand.buttonText }}>
                 <ShoppingCart className="h-5 w-5" />
                 {cartCount > 0 && <span className="absolute -right-1 -top-1 grid h-5 min-w-5 place-items-center rounded-full bg-red-500 px-1 text-[10px] font-black">{cartCount}</span>}
               </button>
@@ -560,18 +573,18 @@ export function KitchenClient({ tenantId, tenantSlug, tenantName, country, brand
                   key={cat.id}
                   onClick={() => setSelectedCategory(cat.id)}
                   className="h-9 flex-shrink-0 rounded-full border px-3 text-[11px] font-black transition active:scale-95"
-                  style={selectedCategory === cat.id ? { borderColor: brand.primary, backgroundColor: brand.primary, color: readableText(brand.primary) } : { borderColor: brand.border, backgroundColor: '#fff', color: brand.mutedText }}
+                  style={selectedCategory === cat.id ? { borderColor: brand.primary, backgroundColor: brand.primary, color: readableText(brand.primary) } : { borderColor: brand.border, backgroundColor: brand.surface, color: brand.mutedText }}
                 >
                   {cat.name}
                 </button>
               ))}
-              {search && <span className="rounded-full bg-black/[0.06] px-4 py-2 text-xs font-black text-black/45">Resultados de busqueda</span>}
+              {search && <span className="rounded-full px-4 py-2 text-xs font-black" style={{ backgroundColor: brand.soft, color: brand.mutedText }}>Resultados de busqueda</span>}
             </div>
           </div>
 
           <div className="flex-1 overflow-y-auto p-2 pb-28 md:p-3 md:pb-4">
             {filteredItems.length === 0 ? (
-              <div className="grid h-full min-h-80 place-items-center rounded-[2rem] border border-dashed" style={{ borderColor: brand.border, backgroundColor: brand.surface }}>
+              <div className="grid h-full min-h-80 place-items-center rounded-[2rem] border border-dashed" style={{ borderColor: brand.border, backgroundColor: brand.surface, color: brand.surfaceText }}>
                 <div className="text-center">
                   <ChefHat className="mx-auto mb-3 h-9 w-9 text-black/25" />
                   <p className="text-sm font-black">Sin productos</p>
@@ -584,7 +597,7 @@ export function KitchenClient({ tenantId, tenantSlug, tenantName, country, brand
                   return (
                     <article key={item.id} className="overflow-hidden rounded-[1rem] border shadow-sm" style={{ borderColor: brand.border, backgroundColor: brand.surface }}>
                       <button onClick={() => addToCart(item)} className="block w-full text-left active:scale-[0.99]">
-                        <div className="relative h-20 bg-[#f6f3ed] sm:h-28">
+                        <div className="relative h-20 sm:h-28" style={{ backgroundColor: brand.soft }}>
                           {item.image_url ? (
                             <Image src={item.image_url} alt={item.name} fill sizes="(max-width: 768px) 50vw, 25vw" className="object-cover" />
                           ) : (
@@ -593,8 +606,8 @@ export function KitchenClient({ tenantId, tenantSlug, tenantName, country, brand
                           {qty > 0 && <span className="absolute right-2 top-2 grid h-7 min-w-7 place-items-center rounded-full px-2 text-xs font-black" style={{ backgroundColor: brand.primary, color: readableText(brand.primary) }}>{qty}</span>}
                         </div>
                         <div className="p-2">
-                          <p className="line-clamp-2 min-h-8 text-xs font-black leading-4">{item.name}</p>
-                          {item.description && <p className="mt-0.5 line-clamp-1 text-[11px] font-semibold text-black/42">{item.description}</p>}
+                          <p className="line-clamp-2 min-h-8 text-xs font-black leading-4" style={{ color: brand.surfaceText }}>{item.name}</p>
+                          {item.description && <p className="mt-0.5 line-clamp-1 text-[11px] font-semibold" style={{ color: brand.mutedText }}>{item.description}</p>}
                           <p className="mt-1 text-sm font-black" style={{ color: brand.accent }}>{money(item.price)}</p>
                         </div>
                       </button>
@@ -632,7 +645,7 @@ export function KitchenClient({ tenantId, tenantSlug, tenantName, country, brand
             <span className="flex items-center gap-2"><ShoppingCart className="h-5 w-5" /> Ver pedido</span>
             <span>{money(total)}</span>
           </button>
-          <div className="mt-2 rounded-2xl bg-white/95 px-4 py-3 text-sm font-black shadow-lg shadow-black/10">
+          <div className="mt-2 rounded-2xl px-4 py-3 text-sm font-black shadow-lg shadow-black/10" style={{ backgroundColor: brand.surface, color: brand.surfaceText }}>
             <div className="flex items-center justify-between">
               <span>Subtotal:</span>
               <span>{money(subtotal)}</span>
@@ -651,7 +664,7 @@ export function KitchenClient({ tenantId, tenantSlug, tenantName, country, brand
 
       {accountOpen && (
         <div className="fixed inset-0 z-50 bg-black/45 p-3 backdrop-blur-sm">
-          <div className="mx-auto flex h-full max-w-lg flex-col overflow-hidden rounded-[1.5rem] bg-white shadow-2xl">
+          <div className="mx-auto flex h-full max-w-lg flex-col overflow-hidden rounded-[1.5rem] shadow-2xl" style={{ backgroundColor: brand.surface, color: brand.surfaceText }}>
             <div className="flex items-center justify-between border-b border-black/10 p-4">
               <div>
                 <p className="text-xs font-black uppercase text-black/40">Cuenta completa</p>
@@ -679,7 +692,7 @@ export function KitchenClient({ tenantId, tenantSlug, tenantName, country, brand
                     <div key={order.id} className="rounded-2xl border border-black/10 bg-[#fbfaf7] p-3">
                       <div className="mb-2 flex items-center justify-between gap-2">
                         <p className="text-sm font-black text-[#15130f]">#{order.order_number}</p>
-                        <p className="text-sm font-black text-red-600">{money(Number(order.total || 0))}</p>
+                        <p className="text-sm font-black text-red-600">{money(getServedOrderTotal(order))}</p>
                       </div>
                       {order.waiter_name && <p className="mb-2 text-xs font-bold text-black/42">Camarero: {order.waiter_name}</p>}
                       <div className="space-y-1">

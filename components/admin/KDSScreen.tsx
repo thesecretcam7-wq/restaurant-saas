@@ -346,12 +346,62 @@ function useSound() {
   }, [playBeeps]);
 
   const playDelayedAlert = useCallback(() => {
-    playBeeps([520, 520, 520, 760], 0.24, 0.08);
-    // Stronger vibration for delayed alert
-    if ('vibrate' in navigator) {
-      navigator.vibrate([200, 100, 200, 100, 200]); // stronger vibration pattern
+    if (!soundEnabled) {
+      setAudioStatus('Sonido deshabilitado');
+      return;
     }
-  }, [playBeeps]);
+
+    setAudioStatus('Alarma de pedido atrasado...');
+    initAudio();
+    const ctx = audioCtxRef.current;
+
+    if (ctx && ctx.state !== 'closed') {
+      try {
+        if (ctx.state === 'suspended') {
+          ctx.resume().catch(() => {});
+        }
+
+        const master = ctx.createGain();
+        const compressor = ctx.createDynamicsCompressor();
+        compressor.threshold.setValueAtTime(-32, ctx.currentTime);
+        compressor.knee.setValueAtTime(8, ctx.currentTime);
+        compressor.ratio.setValueAtTime(18, ctx.currentTime);
+        compressor.attack.setValueAtTime(0.001, ctx.currentTime);
+        compressor.release.setValueAtTime(0.1, ctx.currentTime);
+        master.gain.setValueAtTime(1, ctx.currentTime);
+        master.connect(compressor);
+        compressor.connect(ctx.destination);
+
+        let time = ctx.currentTime;
+        const steps = [420, 1120, 420, 1120, 420, 1120, 760, 760];
+        steps.forEach((freq, index) => {
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          osc.type = index % 2 === 0 ? 'sawtooth' : 'square';
+          osc.frequency.setValueAtTime(freq, time);
+          gain.gain.setValueAtTime(0.0001, time);
+          gain.gain.exponentialRampToValueAtTime(1, time + 0.015);
+          gain.gain.exponentialRampToValueAtTime(0.02, time + 0.28);
+          osc.connect(gain);
+          gain.connect(master);
+          osc.start(time);
+          osc.stop(time + 0.3);
+          time += 0.34;
+        });
+
+        setAudioStatus('Alarma de atraso reproducida');
+      } catch (err) {
+        console.error('Delayed alarm Web Audio error:', err);
+        playBeeps([420, 1120, 420, 1120, 760], 0.28, 0.06);
+      }
+    } else {
+      playBeeps([420, 1120, 420, 1120, 760], 0.28, 0.06);
+    }
+
+    if ('vibrate' in navigator) {
+      navigator.vibrate([350, 120, 350, 120, 500]);
+    }
+  }, [soundEnabled, initAudio, playBeeps]);
 
   return {
     soundEnabled,
@@ -575,7 +625,7 @@ export function KDSScreen({ tenantId }: { tenantId: string }) {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [wakeLockActive, setWakeLockActive] = useState(false);
   const wakeLockRef = useRef<WakeLockSentinel | null>(null);
-  const delayedAlertedOrders = useRef(new Set<string>());
+  const delayedAlertedOrders = useRef(new Map<string, number>());
   const {
     soundEnabled,
     setSoundEnabled,
@@ -656,25 +706,33 @@ export function KDSScreen({ tenantId }: { tenantId: string }) {
     }
   }
 
-  // Delayed Order Alerts
+  // Delayed Order Alerts: pending orders not confirmed after 10 minutes.
   useEffect(() => {
     const checkDelayedOrders = () => {
-      // Compute orders being prepared
       const activeItems = items.filter(
         (i) => i.status !== 'delivered' && i.status !== 'cancelled'
       );
       const allOrders = groupItemsByOrder(activeItems);
-      const preparingOrders = allOrders.filter((o) => o.kdsStatus === 'preparing');
+      const pendingOrders = allOrders.filter((o) => o.kdsStatus === 'pending');
+      const pendingIds = new Set(pendingOrders.map((order) => order.orderId));
+      const now = Date.now();
 
-      preparingOrders.forEach((order) => {
-        const minutes = Math.floor((Date.now() - new Date(order.createdAt).getTime()) / 60000);
-        if (minutes > 15 && !delayedAlertedOrders.current.has(order.orderId)) {
+      for (const orderId of Array.from(delayedAlertedOrders.current.keys())) {
+        if (!pendingIds.has(orderId)) delayedAlertedOrders.current.delete(orderId);
+      }
+
+      pendingOrders.forEach((order) => {
+        const minutes = Math.floor((now - new Date(order.createdAt).getTime()) / 60000);
+        const lastAlertAt = delayedAlertedOrders.current.get(order.orderId) || 0;
+        const shouldRepeat = now - lastAlertAt >= 60_000;
+        if (minutes >= 10 && shouldRepeat) {
           playDelayedAlert();
-          delayedAlertedOrders.current.add(order.orderId);
+          delayedAlertedOrders.current.set(order.orderId, now);
         }
       });
     };
 
+    checkDelayedOrders();
     const interval = setInterval(checkDelayedOrders, 30000); // Check every 30 seconds
     return () => clearInterval(interval);
   }, [items, playDelayedAlert]);

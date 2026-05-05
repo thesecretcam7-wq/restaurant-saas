@@ -67,9 +67,7 @@ export default async function AdminLayout({ children, params }: AdminLayoutProps
   const navLinks = [
     { href: `/${tenantSlug}/admin/dashboard`, label: 'Dashboard', icon: 'dashboard' },
     { href: `/${tenantSlug}/admin/pedidos`, label: 'Pedidos', icon: 'orders' },
-    { href: `/${tenantSlug}/pantalla`, label: 'Pantalla', icon: 'screen' },
     { href: `/${tenantSlug}/acceso`, label: 'Acceso personal', icon: 'staffAccess' },
-    { href: `/${tenantSlug}/kiosko`, label: 'Kiosko', icon: 'kiosk' },
     { href: `/${tenantSlug}/admin/qr-carta`, label: 'QR Carta', icon: 'qr' },
     { href: `/${tenantSlug}/admin/productos`, label: 'Productos', icon: 'products' },
     { href: `/${tenantSlug}/admin/banners`, label: 'Banners', icon: 'banners' },
@@ -78,7 +76,6 @@ export default async function AdminLayout({ children, params }: AdminLayoutProps
     { href: `/${tenantSlug}/admin/ventas`, label: 'Ventas', icon: 'sales' },
     { href: `/${tenantSlug}/admin/cierres`, label: 'Cierres de Caja', icon: 'cash' },
     { href: `/${tenantSlug}/admin/configuracion/restaurante`, label: 'Configuracion', icon: 'settings' },
-    { href: `/${tenantSlug}/admin/pos`, label: 'TPV/POS', icon: 'pos' },
     { href: `/${tenantSlug}/admin/inventario`, label: 'Inventario', icon: 'inventory' },
     { href: `/${tenantSlug}/admin/cuenta/cambiar-contrasena`, label: 'Cambiar Contrasena', icon: 'password', divider: true },
   ]

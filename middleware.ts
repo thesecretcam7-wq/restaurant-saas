@@ -83,6 +83,12 @@ function getOperationalAccess(pathname: string) {
   if (restPath === '/admin/kds' || restPath.startsWith('/admin/kds/')) {
     return { slug, roles: ['cocinero'], loginRole: 'cocinero', allowOwnerSession: false }
   }
+  if (
+    restPath === '/admin/pos' ||
+    (restPath.startsWith('/admin/pos/') && !restPath.startsWith('/admin/pos/display'))
+  ) {
+    return { slug, roles: ['cajero'], loginRole: 'cajero', allowOwnerSession: false }
+  }
   if (restPath === '/kitchen' || restPath.startsWith('/kitchen/')) {
     return { slug, roles: ['camarero'], loginRole: 'camarero', allowOwnerSession: false }
   }
