@@ -24,6 +24,7 @@ export function PrinterDeviceCard({
   loading = false,
 }: PrinterDeviceCardProps) {
   const [showConfirmDelete, setShowConfirmDelete] = useState(false);
+  const isBrowserDriver = device.config.connection_mode === 'browser_driver';
   const isConnected = device.status === 'connected';
   const lastUsed = device.last_used_at
     ? new Date(device.last_used_at).toLocaleDateString()
@@ -35,7 +36,7 @@ export function PrinterDeviceCard({
       <div className="flex items-start justify-between gap-3">
         <div className="flex-1">
           <div className="flex items-center gap-2">
-            <Printer className={`w-5 h-5 ${isConnected ? 'text-green-500' : 'text-gray-500'}`} />
+            <Printer className={`w-5 h-5 ${isConnected || isBrowserDriver ? 'text-green-500' : 'text-gray-500'}`} />
             <h3 className="font-bold text-white">{device.name}</h3>
             {isDefault && (
               <span className="px-2 py-1 bg-blue-600 text-white text-xs rounded font-medium">
@@ -44,7 +45,8 @@ export function PrinterDeviceCard({
             )}
           </div>
           <p className="text-xs text-muted-foreground mt-1">
-            {device.device_type === 'receipt' && 'Impresora de Recibos'}
+            {isBrowserDriver && 'Driver de Windows'}
+            {!isBrowserDriver && device.device_type === 'receipt' && 'Impresora de Recibos'}
             {device.device_type === 'kitchen' && 'Impresora de Cocina'}
             {device.device_type === 'scale' && 'Báscula'}
           </p>
@@ -52,7 +54,7 @@ export function PrinterDeviceCard({
 
         {/* Status Indicator */}
         <div className="text-right">
-          <div className={`text-xs font-bold ${isConnected ? 'text-green-400' : 'text-red-400'}`}>
+          <div className={`text-xs font-bold ${isConnected || isBrowserDriver ? 'text-green-400' : 'text-red-400'}`}>
             {isConnected ? '✓ Conectada' : '✗ Desconectada'}
           </div>
           <p className="text-xs text-gray-500 mt-1">Uso: {lastUsed}</p>
@@ -77,13 +79,14 @@ export function PrinterDeviceCard({
         <p>Ancho de papel: {device.config.paper_width}mm</p>
         <p>Copias: {device.config.copies}</p>
         <p>Auto-imprimir: {device.config.auto_print ? 'Habilitado' : 'Deshabilitado'}</p>
+        {isBrowserDriver && <p>Modo: impresora predeterminada de Windows/Chrome</p>}
       </div>
 
       {/* Action Buttons */}
       <div className="flex gap-2 flex-wrap">
         <button
           onClick={onTest}
-          disabled={loading || !isConnected}
+          disabled={loading || (!isConnected && !isBrowserDriver)}
           className="flex-1 min-w-fit px-2 py-1.5 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-700 disabled:cursor-not-allowed text-white text-xs rounded font-medium flex items-center justify-center gap-1 transition"
           title="Imprimir página de prueba"
         >

@@ -85,6 +85,10 @@ function getCachedDefaultReceiptPrinter(tenantId: string) {
   }
 }
 
+function isBrowserDriverPrinter(printer: PrinterDevice) {
+  return printer.config?.connection_mode === 'browser_driver' || (!printer.vendor_id && !printer.product_id);
+}
+
 /**
  * Print receipt to a configured printer
  * @param tenantId - Restaurant/tenant ID
@@ -128,8 +132,10 @@ export async function printReceipt(
       locale: data.currencyInfo.locale,
     });
 
-    // 3. Browser-side printing via WebUSB
-    if (typeof navigator !== 'undefined' && 'usb' in navigator) {
+    // 3. Browser-side printing. Windows driver mode uses the system print flow.
+    if (isBrowserDriverPrinter(printer)) {
+      printViaBrowserAPI(data);
+    } else if (typeof navigator !== 'undefined' && 'usb' in navigator) {
       await printViaWebUSB(printer, escPosData);
     } else {
       // Fallback to browser print dialog
@@ -232,21 +238,30 @@ async function printViaWebUSB(printer: PrinterDevice, data: Uint8Array): Promise
 function printViaBrowserAPI(data: ReceiptData): void {
   try {
     const html = generateReceiptHTML(data);
-    const printWindow = window.open('', '_blank');
-    if (!printWindow) {
-      throw new Error('Could not open print window');
+    const iframe = document.createElement('iframe');
+    iframe.style.position = 'fixed';
+    iframe.style.right = '0';
+    iframe.style.bottom = '0';
+    iframe.style.width = '0';
+    iframe.style.height = '0';
+    iframe.style.border = '0';
+    document.body.appendChild(iframe);
+
+    const frameWindow = iframe.contentWindow;
+    const frameDocument = iframe.contentDocument || frameWindow?.document;
+    if (!frameWindow || !frameDocument) {
+      throw new Error('No se pudo preparar la impresion del navegador');
     }
 
-    printWindow.document.write(html);
-    printWindow.document.close();
+    frameDocument.open();
+    frameDocument.write(html);
+    frameDocument.close();
 
-    printWindow.onload = () => {
-      printWindow.print();
-      // Close after print (user can cancel)
-      setTimeout(() => {
-        printWindow.close();
-      }, 500);
-    };
+    setTimeout(() => {
+      frameWindow.focus();
+      frameWindow.print();
+      setTimeout(() => iframe.remove(), 1000);
+    }, 250);
   } catch (error) {
     console.error('Browser print failed:', error);
   }
@@ -405,11 +420,25 @@ export async function testPrinterConnection(
 
     const testData = generateTestReceiptESCPOS(printer.config.paper_width || 80);
 
-    if (typeof navigator !== 'undefined' && 'usb' in navigator) {
+    if (isBrowserDriverPrinter(printer)) {
+      printViaBrowserAPI({
+        orderId: 'test',
+        orderNumber: 'TEST',
+        restaurantName: 'Eccofood',
+        items: [{ menu_item_id: 'test', name: 'Prueba impresora', price: 0, quantity: 1 }],
+        subtotal: 0,
+        discount: 0,
+        total: 0,
+        change: 0,
+        currencyInfo: { code: 'EUR', symbol: '€', locale: 'es-ES' },
+        timestamp: new Date().toISOString(),
+      });
+    } else if (typeof navigator !== 'undefined' && 'usb' in navigator) {
       await printViaWebUSB(printer, testData);
     } else {
       throw new Error('WebUSB not available');
     }
+
 
     await savePrinterLog(tenantId, printerId, 'print', 'success', {
       test: true,
@@ -470,6 +499,10 @@ export async function openCashDrawer(tenantId: string): Promise<void> {
 
     if (!printer) {
       throw new Error('No se encontro la impresora configurada');
+    }
+
+    if (isBrowserDriverPrinter(printer)) {
+      throw new Error('El cajon debe abrirse desde la configuracion del driver de Windows al imprimir el recibo');
     }
 
     await printViaWebUSB(printer, drawerCmd);

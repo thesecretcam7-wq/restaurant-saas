@@ -12,6 +12,8 @@ export interface PrinterConfig {
   auto_print: boolean;
   copies: number;
   print_on_status: 'pending' | 'confirmed' | 'preparing';
+  connection_mode?: 'webusb' | 'browser_driver';
+  browser_printer_name?: string;
 }
 
 export interface PrinterDevice {

@@ -1,4 +1,4 @@
-const CACHE_NAME = 'eccofood-v3';
+const CACHE_NAME = 'eccofood-v4';
 const STATIC_ASSETS = ['/', '/login', '/register', '/planes', '/manifest.webmanifest'];
 
 function offlinePage() {
@@ -76,6 +76,12 @@ self.addEventListener('fetch', (event) => {
 
   if (url.origin !== location.origin) return;
 
+  const isOperationalRoute =
+    url.pathname.includes('/admin/') ||
+    url.pathname.includes('/staff/pos') ||
+    url.pathname.includes('/pos-display') ||
+    url.pathname.includes('/kitchen');
+
   if (request.method !== 'GET') {
     if (url.pathname.startsWith('/api/')) {
       event.respondWith(fetch(request).catch(() => apiUnavailable()));
@@ -84,14 +90,12 @@ self.addEventListener('fetch', (event) => {
   }
 
   if (url.pathname.startsWith('/api/')) {
-    event.respondWith(
-      Promise.race([
-        fetch(request),
-        new Promise((_, reject) =>
-          setTimeout(() => reject(new Error('API timeout')), 5000)
-        ),
-      ]).catch(() => apiUnavailable())
-    );
+    event.respondWith(fetch(request).catch(() => apiUnavailable()));
+    return;
+  }
+
+  if (isOperationalRoute) {
+    event.respondWith(fetch(request).catch(() => offlinePage()));
     return;
   }
 
@@ -102,11 +106,12 @@ self.addEventListener('fetch', (event) => {
           return response;
         }
 
-        const clonedResponse = response.clone();
+        const responseForRequestCache = response.clone();
+        const responseForPathCache = request.mode === 'navigate' ? response.clone() : null;
         caches.open(CACHE_NAME).then((cache) => {
-          cache.put(request, clonedResponse);
-          if (request.mode === 'navigate') {
-            cache.put(url.pathname, response.clone());
+          cache.put(request, responseForRequestCache);
+          if (responseForPathCache) {
+            cache.put(url.pathname, responseForPathCache);
           }
         });
         return response;

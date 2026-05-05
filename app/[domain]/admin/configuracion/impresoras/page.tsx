@@ -123,6 +123,47 @@ export default function PrintersConfigPage({ params }: Props) {
     }
   };
 
+  const handleAddWindowsPrinter = async () => {
+    if (!tenantId) return;
+
+    try {
+      setLoading(true);
+
+      const response = await fetch('/api/devices', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          tenantId,
+          name: 'Impresora instalada en Windows',
+          device_type: 'receipt',
+          vendor_id: null,
+          product_id: null,
+          serial_number: null,
+          config: {
+            paper_width: 80,
+            auto_print: true,
+            copies,
+            print_on_status: 'confirmed',
+            connection_mode: 'browser_driver',
+            browser_printer_name: 'default',
+          },
+        }),
+      });
+
+      if (!response.ok) throw new Error('Error al crear impresora de Windows');
+
+      const newDevice = await response.json();
+      setDevices([newDevice.device, ...devices]);
+      await handleSetDefault(newDevice.device.id);
+      showToast('Impresora de Windows agregada como predeterminada', 'success');
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : 'Error desconocido';
+      showToast(msg, 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleSetDefault = async (deviceId: string) => {
     if (!tenantId) return;
     try {
@@ -206,6 +247,12 @@ export default function PrintersConfigPage({ params }: Props) {
         </div>
       )}
 
+      {webusb.error && (
+        <div className="rounded-lg border border-red-700 bg-red-900/30 p-4 text-sm text-red-200">
+          {webusb.error}
+        </div>
+      )}
+
       <button
         onClick={handleAddPrinter}
         disabled={loading || !webusb.isSupported || !tenantId}
@@ -214,6 +261,21 @@ export default function PrintersConfigPage({ params }: Props) {
         <Plus className="w-5 h-5" />
         Agregar Impresora
       </button>
+
+      <button
+        onClick={handleAddWindowsPrinter}
+        disabled={loading || !tenantId}
+        className="flex items-center gap-2 rounded-lg border border-emerald-500/40 bg-emerald-500/15 px-4 py-2 font-medium text-emerald-100 transition hover:bg-emerald-500/25 disabled:cursor-not-allowed disabled:border-gray-700 disabled:bg-gray-800 disabled:text-gray-400"
+      >
+        <Plus className="w-5 h-5" />
+        Usar impresora instalada en Windows
+      </button>
+
+      {!tenantId && (
+        <div className="rounded-lg border border-yellow-700 bg-yellow-900/20 p-4 text-sm text-yellow-200">
+          Cargando datos del restaurante. Espera unos segundos y vuelve a intentar.
+        </div>
+      )}
 
       {!webusb.isSupported && (
         <div className="bg-yellow-50 border border-yellow-200 text-yellow-700 p-4 rounded-lg text-sm">
