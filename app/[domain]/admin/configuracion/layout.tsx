@@ -21,7 +21,7 @@ import {
 const sections = [
   { href: 'branding', label: 'Branding', desc: 'Logo, colores, tipografia e imagenes', Icon: Palette },
   { href: 'pagina', label: 'Diseno de tienda', desc: 'Banner, secciones y pagina publica', Icon: LayoutTemplate },
-  { href: 'personalizacion', label: 'Personalizacion avanzada', desc: 'Textos, contacto y ajustes visuales', Icon: Paintbrush },
+  { href: 'personalizacion', label: 'Contenido y contacto', desc: 'Textos, redes, WhatsApp y datos visibles', Icon: Paintbrush },
   { href: 'restaurante', label: 'Restaurante', desc: 'Nombre, ubicacion y datos publicos', Icon: Store },
   { href: 'personal', label: 'Personal', desc: 'Empleados, roles y PINs', Icon: UsersRound },
   { href: 'horarios', label: 'Horarios', desc: 'Dias y horas de atencion', Icon: Clock3 },

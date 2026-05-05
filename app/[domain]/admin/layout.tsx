@@ -67,8 +67,6 @@ export default async function AdminLayout({ children, params }: AdminLayoutProps
   const navLinks = [
     { href: `/${tenantSlug}/admin/dashboard`, label: 'Dashboard', icon: 'dashboard' },
     { href: `/${tenantSlug}/admin/pedidos`, label: 'Pedidos', icon: 'orders' },
-    { href: `/${tenantSlug}/kitchen`, label: 'Comandero', icon: 'comandero' },
-    { href: `/${tenantSlug}/admin/kds`, label: 'Cocina KDS', icon: 'kds' },
     { href: `/${tenantSlug}/pantalla`, label: 'Pantalla', icon: 'screen' },
     { href: `/${tenantSlug}/acceso`, label: 'Acceso personal', icon: 'staffAccess' },
     { href: `/${tenantSlug}/kiosko`, label: 'Kiosko', icon: 'kiosk' },
@@ -82,7 +80,6 @@ export default async function AdminLayout({ children, params }: AdminLayoutProps
     { href: `/${tenantSlug}/admin/configuracion/restaurante`, label: 'Configuracion', icon: 'settings' },
     { href: `/${tenantSlug}/admin/pos`, label: 'TPV/POS', icon: 'pos' },
     { href: `/${tenantSlug}/admin/inventario`, label: 'Inventario', icon: 'inventory' },
-    { href: `/${tenantSlug}/admin/configuracion/mesas`, label: 'Mesas', icon: 'tables' },
     { href: `/${tenantSlug}/admin/cuenta/cambiar-contrasena`, label: 'Cambiar Contrasena', icon: 'password', divider: true },
   ]
 

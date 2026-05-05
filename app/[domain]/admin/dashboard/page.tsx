@@ -8,10 +8,7 @@ import {
   CalendarDays,
   CheckCircle2,
   Circle,
-  ClipboardList,
   CreditCard,
-  ExternalLink,
-  Monitor,
   LayoutTemplate,
   Lightbulb,
   Palette,
@@ -302,25 +299,7 @@ export default async function DashboardPage({ params }: DashboardProps) {
         <div>
           <p className="admin-eyebrow">Centro operativo</p>
           <h1 className="admin-title">Dashboard</h1>
-          <p className="admin-subtitle">Resumen ejecutivo de ventas, pedidos, configuracion y accesos rapidos del restaurante.</p>
-        </div>
-        <div className="flex flex-col gap-2 sm:flex-row">
-          <Link href={`/${tenantSlug}/menu`} className="admin-button-ghost">
-            <ExternalLink className="size-4" />
-            Ver tienda
-          </Link>
-          <Link href={`/${tenantSlug}/kitchen`} className="admin-button-ghost">
-            <ClipboardList className="size-4" />
-            Comandero
-          </Link>
-          <Link href={`/${tenantSlug}/admin/kds`} className="admin-button-ghost">
-            <Monitor className="size-4" />
-            Cocina KDS
-          </Link>
-          <Link href={`/${tenantSlug}/admin/pos`} className="admin-button-primary">
-            <CreditCard className="size-4" />
-            Abrir TPV
-          </Link>
+          <p className="admin-subtitle">Resumen ejecutivo de ventas, pedidos, operacion e inteligencia del restaurante.</p>
         </div>
       </div>
 

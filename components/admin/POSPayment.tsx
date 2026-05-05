@@ -122,13 +122,32 @@ export function POSPayment({
       {paymentMethod === 'cash' && (
         <div className={`pos-card rounded-xl ${compact ? 'space-y-1.5 p-2' : 'space-y-3 p-4'}`}>
           <label className="text-xs font-bold text-slate-400">Cantidad recibida</label>
-          <button
-            onClick={() => setShowNumericKeyboard(true)}
-            className={`w-full px-2 bg-emerald-400/10 border-2 border-emerald-300/35 hover:bg-emerald-400/16 rounded-xl text-center font-black text-emerald-200 transition ${compact ? 'py-1.5 text-base' : 'py-2 text-lg'}`}
-            title="Toca para ingresar cantidad"
-          >
-            {amountPaid ? formatPriceWithCurrency(Number(amountPaid), currencyInfo.code, currencyInfo.locale) : 'Ingresa cantidad'}
-          </button>
+          <div className="flex gap-2">
+            <input
+              type="number"
+              inputMode="decimal"
+              min="0"
+              step="0.01"
+              value={amountPaid}
+              onChange={(event) => handleAmountChange(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter' && isValidPayment && !disabled && !loading) {
+                  onProceedPayment(paidAmount);
+                }
+              }}
+              placeholder="0.00"
+              className={`min-w-0 flex-1 rounded-xl border-2 border-emerald-300/35 bg-emerald-400/10 px-3 text-center font-black text-emerald-200 outline-none transition placeholder:text-emerald-200/38 focus:border-emerald-200 focus:bg-emerald-400/16 ${compact ? 'py-1.5 text-base' : 'py-2 text-lg'}`}
+              title="Puedes escribir el dinero recibido con teclado"
+            />
+            <button
+              type="button"
+              onClick={() => setShowNumericKeyboard(true)}
+              className={`rounded-xl border border-white/10 bg-white/10 px-3 font-black text-slate-200 transition hover:bg-white/15 ${compact ? 'text-xs' : 'text-sm'}`}
+              title="Abrir teclado tactil"
+            >
+              Teclado
+            </button>
+          </div>
 
           {/* Billetes Sugeridos */}
           <div className={compact ? 'space-y-1' : 'space-y-2'}>

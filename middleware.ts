@@ -80,14 +80,17 @@ function getOperationalAccess(pathname: string) {
   const slug = slugMatch?.[1] || ''
   const restPath = slug ? pathname.slice(slug.length + 1) || '/' : pathname
 
+  if (restPath === '/admin/kds' || restPath.startsWith('/admin/kds/')) {
+    return { slug, roles: ['cocinero'], loginRole: 'cocinero', allowOwnerSession: false }
+  }
   if (restPath === '/kitchen' || restPath.startsWith('/kitchen/')) {
-    return { slug, roles: ['camarero'], loginRole: 'camarero' }
+    return { slug, roles: ['camarero'], loginRole: 'camarero', allowOwnerSession: false }
   }
   if (restPath === '/staff/pos' || restPath.startsWith('/staff/pos/')) {
-    return { slug, roles: ['cajero'], loginRole: 'cajero' }
+    return { slug, roles: ['cajero'], loginRole: 'cajero', allowOwnerSession: false }
   }
   if (restPath === '/staff/kds' || restPath.startsWith('/staff/kds/')) {
-    return { slug, roles: ['cocinero'], loginRole: 'cocinero' }
+    return { slug, roles: ['cocinero'], loginRole: 'cocinero', allowOwnerSession: false }
   }
 
   return null
@@ -170,7 +173,7 @@ export async function middleware(request: NextRequest) {
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
     const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 
-    if (supabaseUrl && supabaseAnonKey) {
+    if (operationalAccess.allowOwnerSession && supabaseUrl && supabaseAnonKey) {
       try {
         let response = NextResponse.next({ request })
         const supabase = createServerClient(supabaseUrl, supabaseAnonKey, {

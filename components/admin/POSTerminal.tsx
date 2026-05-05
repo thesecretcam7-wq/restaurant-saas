@@ -364,6 +364,7 @@ export function POSTerminal({
   const [loading, setLoading] = useState(true);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const searchInputRef = useRef<HTMLInputElement>(null);
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('cash');
   const [discountCode, setDiscountCode] = useState('');
   const [discount, setDiscount] = useState(0);
@@ -420,6 +421,8 @@ export function POSTerminal({
   } | null>(null);
   const audioCtxRef = useRef<AudioContext | null>(null);
   const knownOrderIds = useRef(new Set<string>());
+  const knownDineInOrderIds = useRef(new Set<string>());
+  const firstDineInFetchDone = useRef(false);
   const notificationTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const csrfTokenRef = useRef<string>('');
 
@@ -747,9 +750,9 @@ export function POSTerminal({
               await fetchIncomingOrders();
             }
           } else if (newOrder.delivery_type === 'dine-in') {
+            await fetchDineInOrders({ notify: false });
             playNewOrderSound();
             setShowDineInPanel(true);
-            await fetchDineInOrders();
             const items: any[] = newOrder.items || [];
             setOrderNotification({
               tableNumber: newOrder.table_number ?? null,
@@ -780,9 +783,25 @@ export function POSTerminal({
 
     // Initial fetch
     fetchIncomingOrders();
-    fetchDineInOrders();
+    fetchDineInOrders({ notify: false });
+
+    const polling = window.setInterval(() => {
+      fetchIncomingOrders();
+      fetchDineInOrders({ notify: true });
+    }, 5000);
+
+    const refreshWhenVisible = () => {
+      if (document.visibilityState !== 'visible') return;
+      fetchIncomingOrders();
+      fetchDineInOrders({ notify: true });
+    };
+    document.addEventListener('visibilitychange', refreshWhenVisible);
+    window.addEventListener('focus', refreshWhenVisible);
 
     return () => {
+      window.clearInterval(polling);
+      document.removeEventListener('visibilitychange', refreshWhenVisible);
+      window.removeEventListener('focus', refreshWhenVisible);
       subscription.unsubscribe();
     };
   }, [tenantId, playNewOrderSound]);
@@ -821,7 +840,7 @@ export function POSTerminal({
     if (data) setAllTables(data as RestaurantTable[]);
   }
 
-  async function fetchDineInOrders() {
+  async function fetchDineInOrders(options: { notify?: boolean } = {}) {
     try {
       const { data, error } = await supabase
         .from('orders')
@@ -833,7 +852,26 @@ export function POSTerminal({
         .limit(20);
 
       if (!error && data) {
-        setDineInOrders(data as DineInOrder[]);
+        const mapped = data as DineInOrder[];
+        const newOrders = mapped.filter((order) => !knownDineInOrderIds.current.has(order.id));
+
+        setDineInOrders(mapped);
+        mapped.forEach((order) => knownDineInOrderIds.current.add(order.id));
+
+        if (options.notify && firstDineInFetchDone.current && newOrders.length > 0) {
+          const latest = newOrders[0];
+          playNewOrderSound();
+          setShowDineInPanel(true);
+          setOrderNotification({
+            tableNumber: latest.table_number ?? null,
+            waiter: latest.waiter_name ?? null,
+            items: (latest.items || []).map((item: any) => `${item.qty ?? item.quantity ?? 1}× ${item.name}`),
+          });
+          if (notificationTimerRef.current) clearTimeout(notificationTimerRef.current);
+          notificationTimerRef.current = setTimeout(() => setOrderNotification(null), 6000);
+        }
+
+        firstDineInFetchDone.current = true;
       }
     } catch (error) {
       console.error('Error fetching dine-in orders:', error);
@@ -1347,6 +1385,117 @@ export function POSTerminal({
     return map;
   }, [cart]);
 
+  useEffect(() => {
+    const isEditableTarget = (target: EventTarget | null) => {
+      const element = target as HTMLElement | null;
+      if (!element) return false;
+      return (
+        element.tagName === 'INPUT' ||
+        element.tagName === 'TEXTAREA' ||
+        element.isContentEditable
+      );
+    };
+
+    const selectCategoryByOffset = (offset: number) => {
+      const categoryIds = [null, ...categories.map((category) => category.id)];
+      const currentIndex = categoryIds.findIndex((id) => id === selectedCategory);
+      const nextIndex = (Math.max(0, currentIndex) + offset + categoryIds.length) % categoryIds.length;
+      setSelectedCategory(categoryIds[nextIndex]);
+    };
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      const key = event.key.toLowerCase();
+      const editable = isEditableTarget(event.target);
+
+      if (event.key === 'F2' || (!editable && event.key === '/')) {
+        event.preventDefault();
+        searchInputRef.current?.focus();
+        searchInputRef.current?.select();
+        return;
+      }
+
+      if (event.key === 'Escape') {
+        if (editable) {
+          (event.target as HTMLElement).blur();
+        }
+        setSearchQuery('');
+        setShowIncomingPanel(false);
+        setShowDineInPanel(false);
+        setShowFindPayPanel(false);
+        return;
+      }
+
+      if (editable) return;
+
+      if (event.altKey && event.key === 'ArrowRight') {
+        event.preventDefault();
+        selectCategoryByOffset(1);
+        return;
+      }
+
+      if (event.altKey && event.key === 'ArrowLeft') {
+        event.preventDefault();
+        selectCategoryByOffset(-1);
+        return;
+      }
+
+      if ((event.ctrlKey || event.metaKey) && event.key === 'Enter') {
+        event.preventDefault();
+        if (paymentMethod === 'stripe') {
+          handleShowReceipt();
+        } else {
+          setToast({ message: 'Escribe el dinero recibido y presiona Enter para cobrar.', type: 'error' });
+        }
+        return;
+      }
+
+      if (event.key === 'F9') {
+        event.preventDefault();
+        if (paymentMethod === 'stripe') {
+          handleShowReceipt();
+        } else {
+          setToast({ message: 'Escribe el dinero recibido y presiona Enter para cobrar.', type: 'error' });
+        }
+        return;
+      }
+
+      if (event.key === 'F6') {
+        event.preventDefault();
+        setShowIncomingPanel(false);
+        setShowDineInPanel(false);
+        setShowFindPayPanel(false);
+        return;
+      }
+
+      if (event.key === 'F7') {
+        event.preventDefault();
+        setShowIncomingPanel(true);
+        setShowDineInPanel(false);
+        setShowFindPayPanel(false);
+        return;
+      }
+
+      if (event.key === 'F8') {
+        event.preventDefault();
+        setShowIncomingPanel(false);
+        setShowDineInPanel(true);
+        setShowFindPayPanel(false);
+        return;
+      }
+
+      if (/^[1-9]$/.test(event.key)) {
+        const item = filteredMenu[Number(event.key) - 1];
+        if (item) {
+          event.preventDefault();
+          addToCart(item);
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [categories, selectedCategory, filteredMenu, cart, paymentMethod, handleShowReceipt]);
+
   if (loading) {
     return (
       <div className="pos-premium flex h-screen items-center justify-center">
@@ -1414,8 +1563,9 @@ export function POSTerminal({
             <div className="flex-1 relative">
               <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-cyan-100/45 pointer-events-none" />
               <input
+                ref={searchInputRef}
                 type="text"
-                placeholder="Buscar producto..."
+                placeholder="Buscar producto... (/ o F2)"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="w-full pl-12 pr-4 py-2.5 rounded-xl outline-none text-white text-sm font-bold transition-all"
@@ -1492,6 +1642,7 @@ export function POSTerminal({
           <div className={`flex gap-2 overflow-x-auto pb-2 sticky z-10 border-b border-white/10 bg-black/24 backdrop-blur-xl scrollbar-none ${isFullscreen ? 'px-4 py-3' : 'px-4 py-2.5'}`}>
             <button
               onClick={() => setSelectedCategory(null)}
+              title="Alt + flechas cambia categorias"
               className={`pos-chip px-4 py-2 transition-all duration-200 shrink-0 ${
                 selectedCategory === null
                   ? 'border-cyan-300/60 bg-cyan-300/16 text-cyan-50 shadow-lg shadow-cyan-900/20'
@@ -1504,6 +1655,7 @@ export function POSTerminal({
               <button
                 key={cat.id}
                 onClick={() => setSelectedCategory(cat.id)}
+                title="Alt + flechas cambia categorias"
                 className={`pos-chip px-4 py-2 transition-all duration-200 shrink-0 ${
                   selectedCategory === cat.id
                     ? 'border-cyan-300/60 bg-cyan-300/16 text-cyan-50 shadow-lg shadow-cyan-900/20'
@@ -1518,12 +1670,13 @@ export function POSTerminal({
           {/* Menu Grid */}
           <div className={`flex-1 overflow-y-auto ${isFullscreen ? 'px-4 py-3' : 'p-4'}`}>
             <div className={`grid gap-3 h-fit ${isFullscreen ? 'grid-cols-2 sm:grid-cols-4 lg:grid-cols-8' : 'grid-cols-2 sm:grid-cols-3 md:grid-cols-5 lg:grid-cols-7'}`}>
-              {filteredMenu.map((item) => {
+              {filteredMenu.map((item, index) => {
                 const qty = cartQuantityMap.get(item.id);
                 return (
                   <button
                     key={item.id}
                     onClick={() => addToCart(item)}
+                    title={index < 9 ? `Tecla ${index + 1}: agregar ${item.name}` : `Agregar ${item.name}`}
                     className={`pos-card relative rounded-xl p-2.5 text-left transition-all duration-200 transform hover:scale-[1.025] active:scale-95 h-fit flex flex-col justify-between group ${
                       qty
                         ? 'border-2 border-cyan-300/70 bg-cyan-300/14 shadow-lg shadow-cyan-900/30'
@@ -1533,6 +1686,11 @@ export function POSTerminal({
                     {qty && (
                       <span className="absolute top-1.5 right-1.5 bg-cyan-400 text-slate-950 text-xs font-black w-5 h-5 rounded-full flex items-center justify-center z-10 shadow-md ring-2 ring-slate-950">
                         {qty}
+                      </span>
+                    )}
+                    {index < 9 && (
+                      <span className="absolute left-1.5 top-1.5 z-10 rounded-md border border-white/10 bg-black/55 px-1.5 py-0.5 text-[10px] font-black text-cyan-100">
+                        {index + 1}
                       </span>
                     )}
                     {item.image_url && (
