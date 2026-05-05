@@ -28,6 +28,7 @@ import {
   X,
 } from 'lucide-react'
 import { detectAdminSection, getSectionColorVar } from '@/lib/colors'
+import { StoreStatusToggle } from './StoreStatusToggle'
 
 interface NavLink {
   href: string
@@ -45,6 +46,8 @@ interface AdminSidebarProps {
   userTenants: { id: string; slug: string; organization_name: string }[]
   isOwner: boolean
   staffName?: string | null
+  tenantId?: string
+  storeEnabled?: boolean
 }
 
 const icons: Record<string, ComponentType<{ className?: string }>> = {
@@ -77,6 +80,8 @@ export function AdminSidebar({
   navLinks,
   userTenants,
   isOwner,
+  tenantId,
+  storeEnabled = true,
 }: AdminSidebarProps) {
   const [open, setOpen] = useState(false)
   const pathname = usePathname()
@@ -162,6 +167,7 @@ export function AdminSidebar({
       </nav>
 
       <div className="space-y-1 border-t border-white/10 p-3">
+        {tenantId && <StoreStatusToggle tenantId={tenantId} initialEnabled={storeEnabled} />}
         <Link
           href={`/${tenantSlug}/menu`}
           onClick={() => setOpen(false)}

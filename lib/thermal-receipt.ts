@@ -91,11 +91,18 @@ export function generateReceiptESCPOS(data: ReceiptData, options: ReceiptOptions
   sep();
 
   // ── Subtotal / discount ───────────────────────────────────────────────────
-  if (data.discount > 0) {
+  if (data.discount > 0 || (data.tax || 0) > 0) {
     const subStr = formatPrice(data.subtotal, data);
-    const disStr = '-' + formatPrice(data.discount, data);
     line(padR('Subtotal:', bCols - subStr.length) + subStr);
-    line(padR('Descuento:', bCols - disStr.length) + disStr);
+    if (data.discount > 0) {
+      const disStr = '-' + formatPrice(data.discount, data);
+      line(padR('Descuento:', bCols - disStr.length) + disStr);
+    }
+    if ((data.tax || 0) > 0) {
+      const taxStr = formatPrice(data.tax || 0, data);
+      const taxLabel = data.taxRate ? `IVA ${data.taxRate}%:` : 'IVA:';
+      line(padR(taxLabel, bCols - taxStr.length) + taxStr);
+    }
   }
 
   // ── TOTAL (big centered) ──────────────────────────────────────────────────

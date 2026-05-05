@@ -339,6 +339,14 @@ function generateReceiptHTML(data: ReceiptData): string {
         </tr>`
             : ''
         }
+        ${
+          (data.tax || 0) > 0
+            ? `<tr>
+          <td>IVA${data.taxRate ? ` ${data.taxRate}%` : ''}:</td>
+          <td class="number">${(data.tax || 0).toFixed(2)} ${data.currencyInfo.symbol}</td>
+        </tr>`
+            : ''
+        }
         <tr class="total-row">
           <td>TOTAL:</td>
           <td class="number">${data.total.toFixed(2)} ${data.currencyInfo.symbol}</td>

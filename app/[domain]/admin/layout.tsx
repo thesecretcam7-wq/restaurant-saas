@@ -52,6 +52,7 @@ export default async function AdminLayout({ children, params }: AdminLayoutProps
   const tenantSlug = tenant.slug || slug
   const context = await getTenantContext(tenant.id)
   const branding = context.branding
+  const storeEnabled = (context.tenant as any)?.metadata?.store_enabled !== false
 
   let userTenants: { id: string; slug: string; organization_name: string }[] = []
   if (isOwner && user) {
@@ -102,6 +103,8 @@ export default async function AdminLayout({ children, params }: AdminLayoutProps
           navLinks={navLinks}
           userTenants={userTenants}
           isOwner={!!isOwner}
+          tenantId={tenant.id}
+          storeEnabled={storeEnabled}
         />
 
         <SectionColorProvider>

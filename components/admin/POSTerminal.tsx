@@ -64,7 +64,7 @@ interface DineInOrder {
   payment_status: string;
   status: string;
   created_at: string;
-  items: { name: string; qty: number; price: number; item_id?: string }[];
+  items: { name: string; qty?: number; quantity?: number; price: number; item_id?: string }[];
 }
 
 interface TableGroup {
@@ -74,7 +74,7 @@ interface TableGroup {
   itemCount: number;
   waiters: string[];
   oldestOrder: DineInOrder;
-  allItems: { name: string; qty: number; price: number; item_id?: string }[];
+  allItems: { name: string; qty?: number; quantity?: number; price: number; item_id?: string }[];
 }
 
 interface RestaurantTable {
@@ -82,6 +82,14 @@ interface RestaurantTable {
   table_number: number;
   seats: number;
   location?: string;
+}
+
+function getOrderItemQty(item: { qty?: number; quantity?: number }) {
+  return Number(item.qty ?? item.quantity ?? 1);
+}
+
+function getOrderItemsTotal(items: Array<{ price: number; qty?: number; quantity?: number }> = []) {
+  return items.reduce((sum, item) => sum + Number(item.price || 0) * getOrderItemQty(item), 0);
 }
 
 // ─── Timer Hook ───────────────────────────────────────────────────────────────
@@ -172,9 +180,9 @@ function TableGroupCard({
           {group.orders.map(order =>
             (order.items || []).map((item, itemIdx) => (
               <div key={`${order.id}-${itemIdx}`} className="flex items-center justify-between text-xs gap-1 group/row hover:bg-gray-800/60 rounded px-1 py-0.5">
-                <span className="text-gray-300 flex-1 truncate">{item.qty}× {item.name}</span>
+                <span className="text-gray-300 flex-1 truncate">{getOrderItemQty(item)}× {item.name}</span>
                 <span className="text-gray-500 shrink-0">
-                  {formatPriceWithCurrency(item.price * item.qty, currencyInfo.code, currencyInfo.locale)}
+                  {formatPriceWithCurrency(item.price * getOrderItemQty(item), currencyInfo.code, currencyInfo.locale)}
                 </span>
                 <button
                   onClick={() => onVoidItem(order.id, itemIdx)}
@@ -359,6 +367,7 @@ export function POSTerminal({
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('cash');
   const [discountCode, setDiscountCode] = useState('');
   const [discount, setDiscount] = useState(0);
+  const [taxRate, setTaxRate] = useState(0);
   const [restaurantName, setRestaurantName] = useState('Restaurante');
   const [restaurantLogo, setRestaurantLogo] = useState<string | undefined>();
 
@@ -836,7 +845,7 @@ export function POSTerminal({
     if (!order) return;
 
     const updatedItems = order.items.filter((_, i) => i !== itemIndex);
-    const newTotal = updatedItems.reduce((sum, i) => sum + i.price * i.qty, 0);
+    const newTotal = getOrderItemsTotal(updatedItems);
 
     await supabase
       .from('orders')
@@ -851,18 +860,19 @@ export function POSTerminal({
     const mergedMap = new Map<string, CartItem>();
     tableOrders.forEach(order => {
       (order.items || []).forEach(item => {
-        const key = item.item_id || item.name;
-        if (mergedMap.has(key)) {
-          const existing = mergedMap.get(key)!;
-          mergedMap.set(key, { ...existing, quantity: existing.quantity + item.qty });
-        } else {
-          mergedMap.set(key, {
-            menu_item_id: item.item_id || item.name,
-            name: item.name,
-            price: item.price,
-            quantity: item.qty,
-          });
-        }
+          const key = item.item_id || item.name;
+          const quantity = getOrderItemQty(item);
+          if (mergedMap.has(key)) {
+            const existing = mergedMap.get(key)!;
+            mergedMap.set(key, { ...existing, quantity: existing.quantity + quantity });
+          } else {
+            mergedMap.set(key, {
+              menu_item_id: item.item_id || item.name,
+              name: item.name,
+              price: item.price,
+              quantity,
+            });
+          }
       });
     });
 
@@ -880,7 +890,7 @@ export function POSTerminal({
 
   async function fetchMenuData() {
     try {
-      const [categoriesRes, menuRes, tenantRes] = await Promise.all([
+      const [categoriesRes, menuRes, tenantRes, settingsRes] = await Promise.all([
         supabase
           .from('menu_categories')
           .select('*')
@@ -896,6 +906,11 @@ export function POSTerminal({
           .select('organization_name, logo_url')
           .eq('id', tenantId)
           .maybeSingle(),
+        supabase
+          .from('restaurant_settings')
+          .select('tax_rate')
+          .eq('tenant_id', tenantId)
+          .maybeSingle(),
       ]);
 
       if (categoriesRes.data) setCategories(categoriesRes.data);
@@ -904,6 +919,7 @@ export function POSTerminal({
         if (tenantRes.data.organization_name) setRestaurantName(tenantRes.data.organization_name);
         if (tenantRes.data.logo_url) setRestaurantLogo(tenantRes.data.logo_url);
       }
+      if (settingsRes.data) setTaxRate(Number(settingsRes.data.tax_rate || 0));
     } catch (error) {
       console.error('Error fetching menu:', error);
     } finally {
@@ -1216,6 +1232,8 @@ export function POSTerminal({
               items: cart,
               subtotal,
               discount,
+              tax: taxAmount,
+              taxRate,
               total,
               amountPaid: paymentMethod === 'cash' ? amountPaid : undefined,
               change: paymentMethod === 'cash'
@@ -1296,7 +1314,9 @@ export function POSTerminal({
   });
 
   const subtotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
-  const total = subtotal - discount + tip;
+  const taxableSubtotal = Math.max(0, subtotal - discount);
+  const taxAmount = taxRate > 0 ? taxableSubtotal * (taxRate / 100) : 0;
+  const total = taxableSubtotal + taxAmount + tip;
 
   const tableGroups = useMemo((): TableGroup[] => {
     const groups = new Map<number, DineInOrder[]>();
@@ -1308,15 +1328,18 @@ export function POSTerminal({
     return Array.from(groups.entries()).map(([tableNumber, orders]) => ({
       tableNumber,
       orders,
-      totalAmount: orders.reduce((sum, o) => sum + Number(o.total), 0),
-      itemCount: orders.reduce((sum, o) => sum + (o.items || []).reduce((s, i) => s + i.qty, 0), 0),
+      totalAmount: orders.reduce((sum, order) => {
+        const orderSubtotal = getOrderItemsTotal(order.items || []);
+        return sum + orderSubtotal + (taxRate > 0 ? orderSubtotal * (taxRate / 100) : 0);
+      }, 0),
+      itemCount: orders.reduce((sum, order) => sum + (order.items || []).reduce((s, item) => s + getOrderItemQty(item), 0), 0),
       waiters: [...new Set(orders.map(o => o.waiter_name).filter((w): w is string => Boolean(w)))],
       oldestOrder: orders.reduce((oldest, o) =>
         new Date(o.created_at) < new Date(oldest.created_at) ? o : oldest
       ),
       allItems: orders.flatMap(o => o.items || []),
     }));
-  }, [dineInOrders]);
+  }, [dineInOrders, taxRate]);
 
   const cartQuantityMap = useMemo(() => {
     const map = new Map<string, number>();
@@ -1584,7 +1607,7 @@ export function POSTerminal({
         </div>
 
         {/* Cart/Payment Section */}
-        <div className={`${isFullscreen ? 'h-[44vh] md:h-auto md:w-80' : 'h-[44vh] md:h-auto md:w-80'} pos-panel border-y-0 border-r-0 flex flex-col overflow-hidden`}>
+        <div className={`${isFullscreen ? 'h-[44vh] md:h-auto md:w-72 xl:w-80' : 'h-[44vh] md:h-auto md:w-80'} pos-panel border-y-0 border-r-0 flex flex-col overflow-hidden`}>
           {/* Tabs: Cart / Entregas / Salón */}
           <div className="border-b border-white/10 flex bg-black/20 backdrop-blur-xl">
             <button
@@ -1749,16 +1772,16 @@ export function POSTerminal({
           )}
 
           {/* Cart Items List */}
-          <div className="flex-1 overflow-y-auto min-h-0">
+          <div className={`flex-1 min-h-0 ${isFullscreen ? 'overflow-hidden' : 'overflow-y-auto'}`}>
             {cart.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-full text-slate-500 py-8">
                 <ShoppingCart className="w-8 h-8 mb-2 opacity-30" />
                 <p className="text-xs">Carrito vacío</p>
               </div>
             ) : (
-              <div className="p-2 space-y-1">
+              <div className={`${isFullscreen ? 'p-1.5 space-y-1' : 'p-2 space-y-1'}`}>
                 {cart.map((item) => (
-                  <div key={item.menu_item_id} className="pos-card flex items-center gap-2 rounded-xl px-2 py-1.5">
+                  <div key={item.menu_item_id} className={`pos-card flex items-center gap-2 rounded-xl px-2 ${isFullscreen ? 'py-1' : 'py-1.5'}`}>
                     <div className="flex-1 min-w-0">
                       <p className="text-white text-xs font-semibold truncate">{item.name}</p>
                       <p className="text-emerald-300 text-xs font-black">{formatPriceWithCurrency(item.price * item.quantity, currencyInfo.code, currencyInfo.locale)}</p>
@@ -1813,8 +1836,8 @@ export function POSTerminal({
           </div>
 
           {/* Totals */}
-          <div className={`border-b border-white/10 ${isFullscreen ? 'px-3 py-2' : 'px-3 py-2'} space-y-2 bg-black/18 text-sm backdrop-blur-xl`}>
-            <div className="space-y-1.5 text-xs">
+          <div className={`border-b border-white/10 ${isFullscreen ? 'px-2 py-1.5' : 'px-3 py-2'} ${isFullscreen ? 'space-y-1' : 'space-y-2'} bg-black/18 text-sm backdrop-blur-xl`}>
+            <div className={`${isFullscreen ? 'space-y-1' : 'space-y-1.5'} text-xs`}>
               <div className="flex justify-between">
                 <span className="text-slate-400">Subtotal:</span>
                 <span className="font-semibold text-slate-200">{formatPriceWithCurrency(subtotal, currencyInfo.code, currencyInfo.locale)}</span>
@@ -1825,10 +1848,16 @@ export function POSTerminal({
                   <span className="font-bold text-green-300">-{formatPriceWithCurrency(discount, currencyInfo.code, currencyInfo.locale)}</span>
                 </div>
               )}
+              {taxRate > 0 && (
+                <div className="flex justify-between">
+                  <span className="text-slate-400">IVA ({taxRate}%):</span>
+                  <span className="font-semibold text-slate-200">{formatPriceWithCurrency(taxAmount, currencyInfo.code, currencyInfo.locale)}</span>
+                </div>
+              )}
             </div>
-            <div className="pos-total-band pt-2 flex justify-between text-base font-black px-2 py-2 rounded-xl">
+            <div className={`pos-total-band flex justify-between font-black px-2 rounded-xl ${isFullscreen ? 'py-1.5 text-sm' : 'pt-2 py-2 text-base'}`}>
               <span className="text-white">Total:</span>
-              <span className="text-emerald-300 text-lg">{formatPriceWithCurrency(total, currencyInfo.code, currencyInfo.locale)}</span>
+              <span className={`text-emerald-300 ${isFullscreen ? 'text-base' : 'text-lg'}`}>{formatPriceWithCurrency(total, currencyInfo.code, currencyInfo.locale)}</span>
             </div>
 
           </div>
@@ -1896,7 +1925,7 @@ export function POSTerminal({
               <div className={`${isFullscreen ? 'px-2 py-1' : 'px-2 py-1'}`}>
                 <POSPayment
                   key={paymentResetKey}
-                  total={subtotal - discount}
+                  total={taxableSubtotal + taxAmount}
                   tip={tip}
                   onTipChange={setTip}
                   paymentMethod={paymentMethod}
@@ -1905,6 +1934,7 @@ export function POSTerminal({
                   disabled={cart.length === 0 || (!!selectedTableNumber && !selectedStaffId && billingOrderIds.length === 0)}
                   loading={processingPayment}
                   country={country}
+                  compact={isFullscreen}
                 />
               </div>
             </>

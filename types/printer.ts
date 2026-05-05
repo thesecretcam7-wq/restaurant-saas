@@ -53,6 +53,8 @@ export interface ReceiptData {
   }>;
   subtotal: number;
   discount: number;
+  tax?: number;
+  taxRate?: number;
   total: number;
   amountPaid?: number;
   change: number;

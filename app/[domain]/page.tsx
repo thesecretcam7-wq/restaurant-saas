@@ -17,6 +17,7 @@ import SocialSection from '@/components/store/sections/SocialSection'
 import TestimonialsSection from '@/components/store/sections/TestimonialsSection'
 import ActionsSection from '@/components/store/sections/ActionsSection'
 import WhatsAppFloat from '@/components/store/WhatsAppFloat'
+import StoreClosed from '@/components/store/StoreClosed'
 
 interface HomePageProps {
   params: Promise<{ domain: string }>
@@ -35,6 +36,18 @@ export default async function HomePage({ params }: HomePageProps) {
           <p className="mt-2 text-sm font-semibold text-gray-500">No existe un restaurante en esta direccion.</p>
         </div>
       </div>
+    )
+  }
+
+  const storeEnabled = (tenant as any).metadata?.store_enabled !== false
+  if (!storeEnabled) {
+    return (
+      <StoreClosed
+        tenantSlug={tenant.slug || domain}
+        restaurantName={branding?.app_name || tenant.organization_name}
+        logoUrl={tenant.logo_url}
+        primaryColor={branding?.primary_color}
+      />
     )
   }
 
