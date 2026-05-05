@@ -54,7 +54,7 @@ export async function POST(request: NextRequest) {
   );
   try {
     const body = await request.json();
-    const { tenantId, name, device_type, vendor_id, product_id, serial_number, config } = body;
+    const { tenantId, name, device_type, vendor_id, product_id, serial_number, config, status } = body;
 
     if (!tenantId || !name) {
       return NextResponse.json(
@@ -73,7 +73,14 @@ export async function POST(request: NextRequest) {
         vendor_id,
         product_id,
         serial_number,
-        config: config || { paper_width: 80, auto_print: true, copies: 1 },
+        status: status || (vendor_id && product_id ? 'connected' : 'disconnected'),
+        config: config || {
+          paper_width: 80,
+          auto_print: true,
+          copies: 1,
+          print_on_status: 'confirmed',
+          connection_mode: vendor_id && product_id ? 'webusb' : 'browser_driver',
+        },
       })
       .select()
       .single();

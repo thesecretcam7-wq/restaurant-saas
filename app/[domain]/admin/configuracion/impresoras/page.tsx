@@ -106,6 +106,14 @@ export default function PrintersConfigPage({ params }: Props) {
           vendor_id: device.vendorId,
           product_id: device.productId,
           serial_number: device.serialNumber,
+          status: 'connected',
+          config: {
+            paper_width: 80,
+            auto_print: true,
+            copies,
+            print_on_status: 'confirmed',
+            connection_mode: 'webusb',
+          },
         }),
       });
 

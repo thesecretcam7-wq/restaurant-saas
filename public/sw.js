@@ -1,4 +1,4 @@
-const CACHE_NAME = 'eccofood-v4';
+const CACHE_NAME = 'eccofood-v5';
 const STATIC_ASSETS = ['/', '/login', '/register', '/planes', '/manifest.webmanifest'];
 
 function offlinePage() {
@@ -106,14 +106,18 @@ self.addEventListener('fetch', (event) => {
           return response;
         }
 
-        const responseForRequestCache = response.clone();
-        const responseForPathCache = request.mode === 'navigate' ? response.clone() : null;
-        caches.open(CACHE_NAME).then((cache) => {
-          cache.put(request, responseForRequestCache);
-          if (responseForPathCache) {
-            cache.put(url.pathname, responseForPathCache);
-          }
-        });
+        try {
+          const responseForRequestCache = response.clone();
+          const responseForPathCache = request.mode === 'navigate' ? response.clone() : null;
+          caches.open(CACHE_NAME).then((cache) => {
+            cache.put(request, responseForRequestCache).catch(() => {});
+            if (responseForPathCache) {
+              cache.put(url.pathname, responseForPathCache).catch(() => {});
+            }
+          }).catch(() => {});
+        } catch (error) {
+          console.warn('Skipping cache because response could not be cloned', error);
+        }
         return response;
       })
       .catch(() =>

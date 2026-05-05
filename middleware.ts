@@ -17,6 +17,13 @@ const PUBLIC_PATHS = new Set([
 ])
 
 type TenantRoute = { id: string; slug: string }
+type StaffSession = {
+  tenantId?: string
+  staffId?: string
+  role?: string
+  permissions?: string[]
+  sessionToken?: string
+}
 const tenantCache = new Map<string, { value: TenantRoute | null; expiresAt: number }>()
 const TENANT_CACHE_TTL = 60_000
 
@@ -46,6 +53,44 @@ function getClientIp(request: NextRequest): string {
     request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ??
     '127.0.0.1'
   )
+}
+
+function getStaffSession(request: NextRequest): StaffSession | null {
+  const raw = request.cookies.get('staff_session')?.value
+  if (!raw) return null
+  try {
+    return JSON.parse(raw) as StaffSession
+  } catch {
+    return null
+  }
+}
+
+function staffCanAccessTenant(staffSession: StaffSession | null, tenantId: string) {
+  return Boolean(staffSession?.tenantId && staffSession.tenantId === tenantId)
+}
+
+function staffHasAnyRole(staffSession: StaffSession | null, roles: string[]) {
+  if (!staffSession?.role) return false
+  const permissions = staffSession.permissions || []
+  return roles.includes(staffSession.role) || permissions.some((p) => p.startsWith('admin_'))
+}
+
+function getOperationalAccess(pathname: string) {
+  const slugMatch = pathname.match(SLUG_PATH_REGEX)
+  const slug = slugMatch?.[1] || ''
+  const restPath = slug ? pathname.slice(slug.length + 1) || '/' : pathname
+
+  if (restPath === '/kitchen' || restPath.startsWith('/kitchen/')) {
+    return { slug, roles: ['camarero'], loginRole: 'camarero' }
+  }
+  if (restPath === '/staff/pos' || restPath.startsWith('/staff/pos/')) {
+    return { slug, roles: ['cajero'], loginRole: 'cajero' }
+  }
+  if (restPath === '/staff/kds' || restPath.startsWith('/staff/kds/')) {
+    return { slug, roles: ['cocinero'], loginRole: 'cocinero' }
+  }
+
+  return null
 }
 
 export async function middleware(request: NextRequest) {
@@ -104,6 +149,70 @@ export async function middleware(request: NextRequest) {
   }
 
   // ─── PROTECCIÓN DE RUTAS (solo /admin/*, excepto login y POS display) ─────
+  const operationalAccess = getOperationalAccess(pathname)
+  if (operationalAccess?.slug) {
+    const tenant = isUUID(operationalAccess.slug)
+      ? await getTenantById(operationalAccess.slug)
+      : await getTenantBySlug(operationalAccess.slug)
+
+    if (!tenant) {
+      return NextResponse.redirect(new URL(`/${operationalAccess.slug}/acceso`, request.url))
+    }
+
+    const staffSession = getStaffSession(request)
+    if (
+      staffCanAccessTenant(staffSession, tenant.id) &&
+      staffHasAnyRole(staffSession, operationalAccess.roles)
+    ) {
+      return NextResponse.next()
+    }
+
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+    const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+
+    if (supabaseUrl && supabaseAnonKey) {
+      try {
+        let response = NextResponse.next({ request })
+        const supabase = createServerClient(supabaseUrl, supabaseAnonKey, {
+          cookies: {
+            getAll() { return request.cookies.getAll() },
+            setAll(cookiesToSet) {
+              cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value))
+              response = NextResponse.next({ request })
+              cookiesToSet.forEach(({ name, value, options }) =>
+                response.cookies.set(name, value, options)
+              )
+            },
+          },
+        })
+        const { data: { user } } = await supabase.auth.getUser()
+        if (user) {
+          const superAdminEmails = ['thesecretcam7@gmail.com']
+          if (superAdminEmails.includes(user.email || '')) return response
+
+          const serviceSupabase = createClient(
+            process.env.NEXT_PUBLIC_SUPABASE_URL!,
+            process.env.SUPABASE_SERVICE_ROLE_KEY!,
+            { auth: { autoRefreshToken: false, persistSession: false } }
+          )
+          const { data: ownedTenant } = await serviceSupabase
+            .from('tenants')
+            .select('id')
+            .eq('id', tenant.id)
+            .eq('owner_id', user.id)
+            .maybeSingle()
+
+          if (ownedTenant) return response
+        }
+      } catch {
+        // Continue to PIN redirect.
+      }
+    }
+
+    const loginUrl = new URL(`/${tenant.slug}/acceso/login/${operationalAccess.loginRole}`, request.url)
+    return NextResponse.redirect(loginUrl)
+  }
+
   const isAdminLogin = pathname.includes('/admin/login')
   const isPublicAdminPage = pathname.includes('/admin/pos/display')
   const requiresAuth = pathname.includes('/admin/') && !isAdminLogin && !isPublicAdminPage
@@ -111,6 +220,7 @@ export async function middleware(request: NextRequest) {
   if (requiresAuth) {
     const slugMatch = pathname.match(SLUG_PATH_REGEX)
     const slug = slugMatch?.[1] || ''
+    const routeTenant = slug ? (isUUID(slug) ? await getTenantById(slug) : await getTenantBySlug(slug)) : null
 
     const serviceSupabase = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -119,13 +229,12 @@ export async function middleware(request: NextRequest) {
     )
 
     // VÍA 1: staff_session cookie (staff con PIN)
-    const staffSessionCookie = request.cookies.get('staff_session')?.value
-    if (staffSessionCookie) {
+    const staffSession = getStaffSession(request)
+    if (staffSession) {
       try {
-        const staffSession = JSON.parse(staffSessionCookie)
         const permissions: string[] = staffSession.permissions || []
         const hasAdminAccess = permissions.some(p => p.startsWith('admin_'))
-        if (hasAdminAccess) {
+        if (hasAdminAccess && routeTenant && staffCanAccessTenant(staffSession, routeTenant.id)) {
           // Validate single-session token
           if (staffSession.sessionToken && staffSession.staffId) {
             const { data: active } = await serviceSupabase

@@ -140,11 +140,14 @@ export function RoleLoginClient({
       const data = await res.json();
       if (data.requiresUpgrade) {
         setError('Esta funcion requiere plan Pro o Premium.');
+        setPin('');
         return;
       }
       setError('PIN incorrecto.');
+      setPin('');
     } catch {
       setError('Error de conexion.');
+      setPin('');
     } finally {
       setLoading(false);
     }
