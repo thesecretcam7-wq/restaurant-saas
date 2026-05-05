@@ -427,20 +427,24 @@ export function KitchenClient({ tenantId, tenantSlug, tenantName, country, brand
       </div>
 
       <div className="border-t border-black/10 p-4" style={{ backgroundColor: brand.surface }}>
-        <div className="mb-3 space-y-1 rounded-2xl p-3" style={{ backgroundColor: brand.soft }}>
+        <div className="mb-3 space-y-2 rounded-2xl p-3" style={{ backgroundColor: brand.soft }}>
           <div className="flex items-center justify-between text-xs font-bold text-black/45">
             <span>{cartCount} productos</span>
-            <span>Subtotal {money(subtotal)}</span>
+            <span>Pedido actual</span>
           </div>
-          {taxRate > 0 && (
-            <div className="flex items-center justify-between text-xs font-black text-black/48">
-              <span>IVA ({taxRate}%)</span>
+          <div className="space-y-1.5 text-sm font-black text-[#15130f]">
+            <div className="flex items-center justify-between">
+              <span>Subtotal:</span>
+              <span>{money(subtotal)}</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span>IVA {taxRate > 0 ? `${taxRate}%` : '0%'}:</span>
               <span>{money(taxAmount)}</span>
             </div>
-          )}
-          <div className="flex items-end justify-between">
-            <span className="text-sm font-black text-[#15130f]">Total real</span>
-            <span className="text-2xl font-black" style={{ color: brand.primary }}>{money(total)}</span>
+            <div className="flex items-end justify-between border-t border-black/10 pt-2">
+              <span>Total:</span>
+              <span className="text-2xl font-black" style={{ color: brand.primary }}>{money(total)}</span>
+            </div>
           </div>
         </div>
         <button
@@ -532,6 +536,15 @@ export function KitchenClient({ tenantId, tenantSlug, tenantName, country, brand
                   })}
                 </div>
               )}
+              <button
+                onClick={fetchOpenTableAccount}
+                disabled={!tableNumber}
+                className="mt-3 flex h-12 w-full items-center justify-center gap-2 rounded-[1.1rem] border bg-white text-sm font-black shadow-sm transition active:scale-[0.98] disabled:bg-black/5 disabled:text-black/30 disabled:shadow-none"
+                style={{ borderColor: brand.border, color: tableNumber ? brand.primary : undefined }}
+              >
+                <ReceiptText className="h-4 w-4" />
+                {tableNumber ? `Ver total de mesa ${tableNumber}` : 'Selecciona una mesa para ver la cuenta'}
+              </button>
             </div>
 
             <div className="flex gap-2">
@@ -628,6 +641,20 @@ export function KitchenClient({ tenantId, tenantSlug, tenantName, country, brand
             <span className="flex items-center gap-2"><ShoppingCart className="h-5 w-5" /> Ver pedido</span>
             <span>{money(total)}</span>
           </button>
+          <div className="mt-2 rounded-2xl bg-white/95 px-4 py-3 text-sm font-black shadow-lg shadow-black/10">
+            <div className="flex items-center justify-between">
+              <span>Subtotal:</span>
+              <span>{money(subtotal)}</span>
+            </div>
+            <div className="mt-1 flex items-center justify-between">
+              <span>IVA {taxRate > 0 ? `${taxRate}%` : '0%'}:</span>
+              <span>{money(taxAmount)}</span>
+            </div>
+            <div className="mt-1 flex items-center justify-between border-t border-black/10 pt-2" style={{ color: brand.primary }}>
+              <span>Total:</span>
+              <span>{money(total)}</span>
+            </div>
+          </div>
         </div>
       )}
 
