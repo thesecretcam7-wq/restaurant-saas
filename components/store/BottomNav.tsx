@@ -85,7 +85,7 @@ export default function BottomNav({ tenantId, primaryColor }: { tenantId: string
               {badge ? (
                 <span
                   className="absolute -top-2 -right-2 min-w-[18px] h-[18px] text-white text-[9px] font-black rounded-full flex items-center justify-center px-1 shadow-md"
-                  style={{ backgroundColor: '#DC2626' }}
+                  style={{ backgroundColor: color }}
                 >
                   {badge > 9 ? '9+' : badge}
                 </span>

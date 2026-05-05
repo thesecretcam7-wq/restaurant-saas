@@ -5,6 +5,7 @@ import { useSearchParams } from 'next/navigation';
 import { createClient } from '@supabase/supabase-js';
 import { Clock, ReceiptText, ShoppingBag, UtensilsCrossed } from 'lucide-react';
 import { getCurrencyByCountry, formatPriceWithCurrency } from '@/lib/currency';
+import { deriveBrandPalette, readableTextColor } from '@/lib/brand-colors';
 
 interface CartItem {
   name: string;
@@ -29,28 +30,6 @@ interface DisplayBranding {
   text_primary_color?: string | null;
   text_secondary_color?: string | null;
   logo_url?: string | null;
-}
-
-function hexToRgb(hex: string) {
-  const normalized = hex.replace('#', '').trim();
-  if (!/^[0-9a-fA-F]{6}$/.test(normalized)) return null;
-  return {
-    r: parseInt(normalized.slice(0, 2), 16),
-    g: parseInt(normalized.slice(2, 4), 16),
-    b: parseInt(normalized.slice(4, 6), 16),
-  };
-}
-
-function isDark(hex: string) {
-  const rgb = hexToRgb(hex);
-  if (!rgb) return true;
-  const luminance = (0.299 * rgb.r + 0.587 * rgb.g + 0.114 * rgb.b) / 255;
-  return luminance < 0.5;
-}
-
-function readableText(background: string, preferred?: string | null, fallbackDark = '#15130f', fallbackLight = '#ffffff') {
-  if (preferred && preferred !== background) return preferred;
-  return isDark(background) ? fallbackLight : fallbackDark;
 }
 
 export default function CustomerDisplayPage() {
@@ -88,14 +67,17 @@ function CustomerDisplayContent() {
     []
   );
 
-  const primary = branding?.primary_color || '#E4002B';
-  const secondary = branding?.secondary_color || '#111827';
-  const accent = branding?.accent_color || primary;
-  const background = branding?.background_color || '#f7f5f0';
-  const pageText = readableText(background, branding?.text_primary_color);
-  const mutedText = readableText(background, branding?.text_secondary_color, 'rgba(21,19,15,0.58)', 'rgba(255,255,255,0.68)');
-  const primaryText = readableText(primary);
-  const secondaryText = readableText(secondary);
+  const palette = deriveBrandPalette({
+    primary: branding?.primary_color,
+    secondary: branding?.secondary_color,
+    accent: branding?.accent_color,
+    background: branding?.background_color,
+    textPrimary: branding?.text_primary_color,
+    textSecondary: branding?.text_secondary_color,
+  });
+  const { primary, secondary, accent, background, pageText, mutedText } = palette;
+  const primaryText = readableTextColor(primary);
+  const secondaryText = readableTextColor(secondary);
   const restaurantName = branding?.app_name || 'Restaurante';
   const logoUrl = branding?.logo_url || null;
 

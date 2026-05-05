@@ -2,6 +2,7 @@ import Image from 'next/image'
 import { createClient } from '@/lib/supabase/server'
 import { formatPriceWithCurrency, getCurrencyByCountry } from '@/lib/currency'
 import { getTenantContext } from '@/lib/tenant'
+import { deriveBrandPalette, readableTextColor } from '@/lib/brand-colors'
 import type { MenuCategory, MenuItem } from '@/lib/types'
 
 export const dynamic = 'force-dynamic'
@@ -18,26 +19,6 @@ type Topping = {
   price: number
   is_required?: boolean
   sort_order?: number
-}
-
-function hexToRgb(hex: string) {
-  const normalized = hex.replace('#', '').trim()
-  if (!/^[0-9a-fA-F]{6}$/.test(normalized)) return null
-  return {
-    r: parseInt(normalized.slice(0, 2), 16),
-    g: parseInt(normalized.slice(2, 4), 16),
-    b: parseInt(normalized.slice(4, 6), 16),
-  }
-}
-
-function isDark(hex: string) {
-  const rgb = hexToRgb(hex)
-  if (!rgb) return false
-  return (0.299 * rgb.r + 0.587 * rgb.g + 0.114 * rgb.b) / 255 < 0.55
-}
-
-function readableText(background: string, dark = '#15130f', light = '#ffffff') {
-  return isDark(background) ? light : dark
 }
 
 export default async function CartaPage({ params }: CartaProps) {
@@ -92,17 +73,21 @@ export default async function CartaPage({ params }: CartaProps) {
   const branding = context.branding
   const settings = context.settings
   const tenant = context.tenant
-  const primary = branding?.primary_color || '#e43d30'
-  const secondary = branding?.secondary_color || '#15130f'
-  const accent = branding?.accent_color || primary
-  const background = branding?.background_color || '#f8f5ef'
-  const surface = branding?.section_background_color || (isDark(background) ? '#111827' : '#ffffff')
-  const surfaceText = branding?.text_primary_color || readableText(surface)
-  const mutedText = branding?.text_secondary_color || (isDark(surface) ? 'rgba(255,255,255,0.66)' : 'rgba(21,19,15,0.55)')
-  const headerText = readableText(surface)
-  const soft = `${primary}14`
-  const border = `${primary}24`
-  const heroText = readableText(secondary)
+  const palette = deriveBrandPalette({
+    primary: branding?.primary_color,
+    secondary: branding?.secondary_color,
+    accent: branding?.accent_color,
+    background: branding?.background_color,
+    surface: branding?.section_background_color,
+    buttonPrimary: branding?.button_primary_color,
+    buttonSecondary: branding?.button_secondary_color,
+    textPrimary: branding?.text_primary_color,
+    textSecondary: branding?.text_secondary_color,
+    border: branding?.border_color,
+  })
+  const { primary, secondary, accent, background, surface, cardSurface, buttonSecondary, text: surfaceText, mutedText, border } = palette
+  const headerText = readableTextColor(surface)
+  const heroText = readableTextColor(secondary)
   const fontFamily = branding?.font_family || 'Inter, system-ui, sans-serif'
   const currencyInfo = settings?.currency
     ? {
@@ -117,14 +102,14 @@ export default async function CartaPage({ params }: CartaProps) {
 
   return (
     <main className="min-h-screen overflow-x-hidden" style={{ backgroundColor: background, fontFamily }}>
-      <header className="sticky top-0 z-40 border-b shadow-lg shadow-black/[0.04] backdrop-blur-xl" style={{ backgroundColor: `${surface}f2`, borderColor: border }}>
+      <header className="fixed inset-x-0 top-0 z-40 border-b shadow-lg shadow-black/[0.04] backdrop-blur-xl" style={{ backgroundColor: `${surface}f2`, borderColor: border }}>
         <div className="mx-auto flex h-16 max-w-3xl items-center gap-3 px-4">
           {logoUrl ? (
             <div className="relative h-12 w-16 flex-shrink-0">
               <Image src={logoUrl} alt={restaurantName} fill sizes="64px" className="object-contain" priority />
             </div>
           ) : (
-            <div className="grid h-12 w-12 flex-shrink-0 place-items-center rounded-2xl text-lg font-black" style={{ backgroundColor: primary, color: readableText(primary) }}>
+            <div className="grid h-12 w-12 flex-shrink-0 place-items-center rounded-2xl text-lg font-black" style={{ backgroundColor: primary, color: readableTextColor(primary) }}>
               {restaurantName.charAt(0)}
             </div>
           )}
@@ -146,7 +131,7 @@ export default async function CartaPage({ params }: CartaProps) {
                 key={category.id}
                 href={`#cat-${category.id}`}
                 className="h-9 flex-shrink-0 rounded-full border px-4 py-2 text-xs font-black"
-                style={{ backgroundColor: soft, borderColor: border, color: surfaceText }}
+                style={{ backgroundColor: buttonSecondary, borderColor: primary, color: primary }}
               >
                 {category.name}
               </a>
@@ -155,7 +140,7 @@ export default async function CartaPage({ params }: CartaProps) {
         )}
       </header>
 
-      <section className="mx-auto max-w-3xl px-4 pb-5 pt-4">
+      <section className="mx-auto max-w-3xl px-4 pb-5 pt-[7.25rem]">
         <div className="overflow-hidden rounded-[1.7rem] shadow-2xl shadow-black/10" style={{ backgroundColor: secondary }}>
           <div className="relative min-h-[190px] p-5">
             {branding?.hero_image_url && (
@@ -197,7 +182,7 @@ export default async function CartaPage({ params }: CartaProps) {
                   key={item.id}
                   item={item}
                   toppings={toppingsByItem.get(item.id) || []}
-                  colors={{ primary, surface, surfaceText, mutedText, soft, border }}
+                  colors={{ primary, surface, cardSurface, surfaceText, mutedText, border }}
                   currencyInfo={currencyInfo}
                 />
               ))}
@@ -221,7 +206,7 @@ export default async function CartaPage({ params }: CartaProps) {
                     key={item.id}
                     item={item}
                     toppings={toppingsByItem.get(item.id) || []}
-                    colors={{ primary, surface, surfaceText, mutedText, soft, border }}
+                    colors={{ primary, surface, cardSurface, surfaceText, mutedText, border }}
                     currencyInfo={currencyInfo}
                   />
                 ))}
@@ -239,7 +224,7 @@ export default async function CartaPage({ params }: CartaProps) {
                   key={item.id}
                   item={item}
                   toppings={toppingsByItem.get(item.id) || []}
-                  colors={{ primary, surface, surfaceText, mutedText, soft, border }}
+                  colors={{ primary, surface, cardSurface, surfaceText, mutedText, border }}
                   currencyInfo={currencyInfo}
                 />
               ))}
@@ -269,15 +254,15 @@ function CartaItem({
   colors: {
     primary: string
     surface: string
+    cardSurface: string
     surfaceText: string
     mutedText: string
-    soft: string
     border: string
   }
   currencyInfo: { code: string; locale: string }
 }) {
   return (
-    <article className="grid grid-cols-[104px_minmax(0,1fr)] gap-4 rounded-[1.25rem] border p-3.5" style={{ backgroundColor: colors.soft, borderColor: colors.border }}>
+    <article className="grid grid-cols-[104px_minmax(0,1fr)] gap-4 rounded-[1.25rem] border p-3.5" style={{ backgroundColor: colors.cardSurface, borderColor: colors.border }}>
       <div className="relative h-28 overflow-hidden rounded-[1rem]" style={{ backgroundColor: colors.surface }}>
         {item.image_url ? (
           <Image src={item.image_url} alt={item.name} fill sizes="104px" className="object-cover" />

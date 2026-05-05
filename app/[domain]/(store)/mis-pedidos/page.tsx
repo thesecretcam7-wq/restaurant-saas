@@ -8,7 +8,7 @@ interface Props { params: Promise<{ domain: string }> }
 
 const STATUS: Record<string, { label: string; bg: string; dot: string; icon: string }> = {
   pending:    { label: 'Pendiente',    bg: '#FEF3C7', dot: '#F59E0B', icon: '⏳' },
-  confirmed:  { label: 'Confirmado',   bg: '#DBEAFE', dot: '#E4002B', icon: '✅' },
+  confirmed:  { label: 'Confirmado',   bg: 'color-mix(in srgb, var(--primary-color, #E4002B) 12%, white)', dot: 'var(--primary-color, #E4002B)', icon: '✅' },
   preparing:  { label: 'Preparando',   bg: '#FEE2E2', dot: '#EF4444', icon: '👨‍🍳' },
   on_the_way: { label: 'En camino',    bg: '#EDE9FE', dot: '#8B5CF6', icon: '🚗' },
   delivered:  { label: 'Entregado',    bg: '#D1FAE5', dot: '#10B981', icon: '🎉' },
@@ -79,7 +79,7 @@ export default function MisPedidosPage({ params }: Props) {
         {/* Search card */}
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
           <div className="flex items-center gap-3 mb-4">
-            <div className="w-10 h-10 rounded-xl flex items-center justify-center text-xl" style={{ backgroundColor: 'var(--primary-color, #E4002B)15', color: primary }}>
+            <div className="w-10 h-10 rounded-xl flex items-center justify-center text-xl" style={{ backgroundColor: 'color-mix(in srgb, var(--primary-color, #E4002B) 12%, white)', color: primary }}>
               📋
             </div>
             <div>
@@ -184,3 +184,4 @@ export default function MisPedidosPage({ params }: Props) {
     </div>
   )
 }
+

@@ -1096,23 +1096,14 @@ export function POSTerminal({
           throw new Error('Para cobrar mesas abiertas necesitas internet. Las ventas nuevas del TPV si pueden cobrarse offline.');
         }
 
-        // Billing existing table orders — mark as paid, no new order created
+        // Billing existing table orders — mark as paid, no new order created.
+        // Kitchen progress is independent: paying must not remove pending items from KDS.
         const paidTableOrderIds = [...billingOrderIds];
         await supabase
           .from('orders')
-          .update({ payment_status: 'paid', status: 'delivered' })
+          .update({ payment_status: 'paid' })
           .eq('tenant_id', tenantId)
           .in('id', billingOrderIds);
-        await supabase
-          .from('order_items')
-          .update({
-            status: 'delivered',
-            completed_at: new Date().toISOString(),
-            updated_at: new Date().toISOString(),
-          })
-          .eq('tenant_id', tenantId)
-          .in('order_id', billingOrderIds)
-          .neq('status', 'cancelled');
         receiptOrderId = paidTableOrderIds[0] || null;
         receiptOrderNumber = selectedTableNumber ? `Mesa ${selectedTableNumber}` : 'Cuenta salon';
         setBillingOrderIds([]);
@@ -1202,7 +1193,7 @@ export function POSTerminal({
                 body: JSON.stringify({
                   tenantId,
                   payment_status: 'paid',
-                  status: selectedTableId ? 'delivered' : 'confirmed',
+                  status: 'confirmed',
                 }),
               });
 

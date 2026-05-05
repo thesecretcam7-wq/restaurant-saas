@@ -10,10 +10,11 @@ interface Category {
 interface CategoryFilterBarProps {
   categories: Category[]
   primary: string
+  inactiveColor?: string
   btnCls: string
 }
 
-export default function CategoryFilterBar({ categories, primary, btnCls }: CategoryFilterBarProps) {
+export default function CategoryFilterBar({ categories, primary, inactiveColor = '#f3f4f6', btnCls }: CategoryFilterBarProps) {
   const [activeCatId, setActiveCatId] = useState<string | null>(null)
 
   if (categories.length === 0) return null
@@ -46,7 +47,7 @@ export default function CategoryFilterBar({ categories, primary, btnCls }: Categ
         onClick={handleShowAll}
         className={`h-10 snap-start whitespace-nowrap border px-4 text-xs font-black shadow-sm transition active:scale-[0.98] sm:px-5 sm:hover:-translate-y-0.5 ${btnCls}`}
         style={{
-          backgroundColor: activeCatId === null ? primary : 'white',
+          backgroundColor: activeCatId === null ? primary : inactiveColor,
           color: activeCatId === null ? 'white' : primary,
           borderColor: activeCatId === null ? primary : `${primary}40`,
         }}
@@ -59,7 +60,7 @@ export default function CategoryFilterBar({ categories, primary, btnCls }: Categ
           onClick={() => handleShowCategory(cat.id)}
           className={`h-10 snap-start whitespace-nowrap border px-4 text-xs font-black shadow-sm transition active:scale-[0.98] sm:px-5 sm:hover:-translate-y-0.5 ${btnCls}`}
           style={{
-            backgroundColor: activeCatId === cat.id ? primary : 'white',
+            backgroundColor: activeCatId === cat.id ? primary : inactiveColor,
             color: activeCatId === cat.id ? 'white' : primary,
             borderColor: activeCatId === cat.id ? primary : `${primary}40`,
           }}

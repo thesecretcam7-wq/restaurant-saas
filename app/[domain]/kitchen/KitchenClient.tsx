@@ -94,6 +94,7 @@ export function KitchenClient({ tenantId, tenantSlug, tenantName, country, brand
   const [noteText, setNoteText] = useState('');
   const [cartOpen, setCartOpen] = useState(false);
   const [accountOpen, setAccountOpen] = useState(false);
+  const [accountTableNumber, setAccountTableNumber] = useState('');
   const [openTableOrders, setOpenTableOrders] = useState<OpenTableOrder[]>([]);
   const [loadingAccount, setLoadingAccount] = useState(false);
   const [taxRate, setTaxRate] = useState(0);
@@ -224,23 +225,20 @@ export function KitchenClient({ tenantId, tenantSlug, tenantName, country, brand
   const openTableSubtotal = openTableOrders.reduce((sum, order) => sum + getServedOrderSubtotal(order), 0);
   const openTableTax = openTableOrders.reduce((sum, order) => sum + getServedOrderTax(order), 0);
   const openTableTotal = openTableOrders.reduce((sum, order) => sum + getServedOrderTotal(order), 0);
+  const draftBelongsToAccountTable = cart.length > 0 && tableNumber && tableNumber === accountTableNumber;
+  const accountDraftTotal = draftBelongsToAccountTable ? total : 0;
 
   const saveNote = (id: string) => {
     setCart(prev => prev.map(c => c.menu_item_id === id ? { ...c, notes: noteText } : c));
     setEditingNote(null);
   };
 
-  const fetchOpenTableAccount = useCallback(async () => {
-    if (!tableNumber) {
-      setOpenTableOrders([]);
-      setAccountOpen(true);
-      return;
-    }
-
+  const loadTableAccount = useCallback(async (selectedTable: string) => {
+    setAccountTableNumber(selectedTable);
     setLoadingAccount(true);
     setAccountOpen(true);
     try {
-      const res = await fetch(`/api/table-account?tenantId=${tenantId}&tableNumber=${encodeURIComponent(tableNumber)}`, {
+      const res = await fetch(`/api/table-account?tenantId=${tenantId}&tableNumber=${encodeURIComponent(selectedTable)}`, {
         cache: 'no-store',
       });
       const json = await res.json().catch(() => ({}));
@@ -252,7 +250,14 @@ export function KitchenClient({ tenantId, tenantSlug, tenantName, country, brand
     } finally {
       setLoadingAccount(false);
     }
-  }, [tableNumber, tenantId]);
+  }, [tenantId]);
+
+  const openAccountSelector = useCallback(() => {
+    setAccountOpen(true);
+    setAccountTableNumber('');
+    setOpenTableOrders([]);
+    setLoadingAccount(false);
+  }, []);
 
   const sendOrder = async () => {
     if (!tableNumber || cart.length === 0) return;
@@ -519,24 +524,10 @@ export function KitchenClient({ tenantId, tenantSlug, tenantName, country, brand
                     className="h-10 w-full rounded-xl border px-3 text-sm font-bold outline-none"
                     style={{ backgroundColor: brand.soft, borderColor: brand.border, color: brand.surfaceText }}
                   />
-                ) : tables.length === 0 ? (
-                  <div className="grid h-10 place-items-center rounded-xl border px-3 text-xs font-black" style={{ backgroundColor: brand.soft, borderColor: brand.border, color: brand.mutedText }}>
-                    Sin mesas
-                  </div>
                 ) : (
-                  <select
-                    value={tableNumber}
-                    onChange={e => setTableNumber(e.target.value)}
-                    className="h-10 w-full rounded-xl border px-3 text-sm font-black outline-none"
-                    style={{ backgroundColor: brand.soft, borderColor: brand.border, color: tableNumber ? brand.surfaceText : brand.mutedText }}
-                  >
-                    <option value="">Mesa</option>
-                    {tables.map(table => (
-                      <option key={table.id} value={String(table.table_number)}>
-                        Mesa {table.table_number}
-                      </option>
-                    ))}
-                  </select>
+                  <div className="flex h-10 items-center rounded-xl border px-3 text-sm font-black" style={{ backgroundColor: brand.soft, borderColor: brand.border, color: brand.surfaceText }}>
+                    Productos
+                  </div>
                 )}
               </div>
               <button
@@ -553,11 +544,10 @@ export function KitchenClient({ tenantId, tenantSlug, tenantName, country, brand
                 {searchOpen ? <X className="h-4 w-4" /> : <Search className="h-4 w-4" />}
               </button>
               <button
-                onClick={fetchOpenTableAccount}
-                disabled={!tableNumber}
-                title={tableNumber ? `Ver total de mesa ${tableNumber}` : 'Selecciona una mesa'}
-                className="grid h-10 w-10 place-items-center rounded-xl border transition active:scale-95 disabled:bg-black/5 disabled:text-black/30"
-                style={{ backgroundColor: brand.surface, borderColor: brand.border, color: tableNumber ? brand.primary : brand.mutedText }}
+                onClick={openAccountSelector}
+                title="Ver cuenta completa"
+                className="grid h-10 w-10 place-items-center rounded-xl border transition active:scale-95"
+                style={{ backgroundColor: brand.surface, borderColor: brand.border, color: brand.primary }}
               >
                 <ReceiptText className="h-4 w-4" />
               </button>
@@ -668,7 +658,7 @@ export function KitchenClient({ tenantId, tenantSlug, tenantName, country, brand
             <div className="flex items-center justify-between border-b border-black/10 p-4">
               <div>
                 <p className="text-xs font-black uppercase text-black/40">Cuenta completa</p>
-                <h3 className="text-xl font-black text-[#15130f]">{tableNumber ? `Mesa ${tableNumber}` : 'Sin mesa'}</h3>
+                <h3 className="text-xl font-black text-[#15130f]">{accountTableNumber ? `Mesa ${accountTableNumber}` : 'Selecciona una mesa'}</h3>
               </div>
               <button onClick={() => setAccountOpen(false)} className="grid h-10 w-10 place-items-center rounded-2xl bg-black/[0.06]">
                 <X className="h-5 w-5" />
@@ -676,18 +666,61 @@ export function KitchenClient({ tenantId, tenantSlug, tenantName, country, brand
             </div>
 
             <div className="flex-1 overflow-y-auto p-4">
-              {loadingAccount ? (
+              {!accountTableNumber ? (
+                <div className="space-y-4">
+                  <div>
+                    <p className="text-sm font-black text-[#15130f]">Elige la mesa para ver toda la cuenta del servicio</p>
+                    <p className="mt-1 text-xs font-bold text-black/45">Aqui no se envia pedido. Solo consulta el total acumulado de la mesa.</p>
+                  </div>
+                  {tables.length === 0 ? (
+                    <div className="rounded-2xl border border-dashed border-black/15 bg-[#f8f6f1] p-6 text-center text-sm font-black text-black/45">
+                      No hay mesas configuradas
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
+                      {tables.map(table => (
+                        <button
+                          key={table.id}
+                          onClick={() => loadTableAccount(String(table.table_number))}
+                          className="h-14 rounded-2xl border text-base font-black transition active:scale-95"
+                          style={{ borderColor: brand.border, backgroundColor: brand.soft, color: brand.primary }}
+                        >
+                          Mesa {table.table_number}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ) : loadingAccount ? (
                 <div className="grid h-48 place-items-center text-sm font-black text-black/45">Cargando cuenta...</div>
               ) : openTableOrders.length === 0 ? (
                 <div className="grid h-48 place-items-center rounded-2xl border border-dashed border-black/15 bg-[#f8f6f1] p-5 text-center">
                   <div>
                     <ReceiptText className="mx-auto mb-3 h-8 w-8 text-black/25" />
                     <p className="text-sm font-black text-[#15130f]">No hay pedidos abiertos en esta mesa</p>
-                    {cart.length > 0 && <p className="mt-1 text-xs font-bold text-black/45">El pedido actual aun no se ha enviado a cocina.</p>}
+                    {draftBelongsToAccountTable && <p className="mt-1 text-xs font-bold text-black/45">El pedido actual aun no se ha enviado a cocina.</p>}
+                    <button
+                      onClick={() => {
+                        setAccountTableNumber('');
+                        setOpenTableOrders([]);
+                      }}
+                      className="mt-4 rounded-xl border border-black/10 px-4 py-2 text-xs font-black text-[#15130f]"
+                    >
+                      Ver otra mesa
+                    </button>
                   </div>
                 </div>
               ) : (
                 <div className="space-y-3">
+                  <button
+                    onClick={() => {
+                      setAccountTableNumber('');
+                      setOpenTableOrders([]);
+                    }}
+                    className="rounded-xl border border-black/10 px-4 py-2 text-xs font-black text-[#15130f]"
+                  >
+                    Cambiar mesa
+                  </button>
                   {openTableOrders.map((order) => (
                     <div key={order.id} className="rounded-2xl border border-black/10 bg-[#fbfaf7] p-3">
                       <div className="mb-2 flex items-center justify-between gap-2">
@@ -713,28 +746,34 @@ export function KitchenClient({ tenantId, tenantSlug, tenantName, country, brand
             </div>
 
             <div className="border-t border-black/10 bg-white p-4">
-              <div className="space-y-1 rounded-2xl bg-[#f6f3ed] p-3">
-                <div className="flex justify-between text-sm font-bold text-black/50">
-                  <span>Subtotal servido</span>
-                  <span>{money(openTableSubtotal)}</span>
-                </div>
-                {taxRate > 0 && (
+              {accountTableNumber ? (
+                <div className="space-y-1 rounded-2xl bg-[#f6f3ed] p-3">
                   <div className="flex justify-between text-sm font-bold text-black/50">
-                    <span>IVA servido</span>
-                    <span>{money(openTableTax)}</span>
+                    <span>Subtotal servido</span>
+                    <span>{money(openTableSubtotal)}</span>
                   </div>
-                )}
-                {cart.length > 0 && (
-                  <div className="flex justify-between text-sm font-bold text-black/50">
-                    <span>Pedido sin enviar</span>
-                    <span>{money(total)}</span>
+                  {taxRate > 0 && (
+                    <div className="flex justify-between text-sm font-bold text-black/50">
+                      <span>IVA servido</span>
+                      <span>{money(openTableTax)}</span>
+                    </div>
+                  )}
+                  {draftBelongsToAccountTable && (
+                    <div className="flex justify-between text-sm font-bold text-black/50">
+                      <span>Pedido sin enviar</span>
+                      <span>{money(total)}</span>
+                    </div>
+                  )}
+                  <div className="flex justify-between pt-2 text-lg font-black text-[#15130f]">
+                    <span>Total cuenta</span>
+                    <span>{money(openTableTotal + accountDraftTotal)}</span>
                   </div>
-                )}
-                <div className="flex justify-between pt-2 text-lg font-black text-[#15130f]">
-                  <span>Total cuenta</span>
-                  <span>{money(openTableTotal + (cart.length > 0 ? total : 0))}</span>
                 </div>
-              </div>
+              ) : (
+                <div className="rounded-2xl bg-[#f6f3ed] p-3 text-center text-sm font-black text-black/45">
+                  Selecciona una mesa para ver la cuenta completa.
+                </div>
+              )}
             </div>
           </div>
         </div>

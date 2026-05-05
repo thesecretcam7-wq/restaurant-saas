@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { formatPriceWithCurrency, getCurrencyByCountry } from '@/lib/currency'
 import { getTenantContext } from '@/lib/tenant'
 import { getPageConfig, getBorderRadius, getCardClasses, getButtonClasses } from '@/lib/pageConfig'
+import { deriveBrandPalette } from '@/lib/brand-colors'
 import AddToCartButton from '@/components/store/AddToCartButton'
 import CartBar from '@/components/store/CartBar'
 import { MenuGridItem, MenuCompactItem, MenuListItem } from '@/components/store/MenuItems'
@@ -83,7 +84,19 @@ export default async function MenuPage({ params }: MenuProps) {
   const slug = context.tenant?.slug || tenantSlug
   const branding = context.branding
   const settings = context.settings
-  const primary = branding?.primary_color || '#E4002B'
+  const palette = deriveBrandPalette({
+    primary: branding?.primary_color,
+    secondary: branding?.secondary_color,
+    background: branding?.background_color,
+    surface: branding?.section_background_color,
+    buttonPrimary: branding?.button_primary_color,
+    buttonSecondary: branding?.button_secondary_color,
+    textPrimary: branding?.text_primary_color,
+    textSecondary: branding?.text_secondary_color,
+    border: branding?.border_color,
+  })
+  const primary = palette.primary
+  const categoryInactiveColor = palette.buttonSecondary
 
   // Typography settings from branding
   const headingFontWeight = branding?.heading_font_weight ? parseInt(branding.heading_font_weight as string) : 700
@@ -168,7 +181,7 @@ export default async function MenuPage({ params }: MenuProps) {
           </Link>
         </div>
 
-        <CategoryFilterBar categories={categories} primary={primary} btnCls={btnCls} />
+        <CategoryFilterBar categories={categories} primary={primary} inactiveColor={categoryInactiveColor} btnCls={btnCls} />
       </header>
 
       <main id="top" className="mx-auto max-w-7xl space-y-5 px-3 pb-32 pt-[122px] sm:space-y-8 sm:px-6 sm:pb-36 sm:pt-[132px] lg:px-8">
