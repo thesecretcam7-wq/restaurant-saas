@@ -4,7 +4,7 @@ import { NextRequest, NextResponse } from 'next/server'
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json()
-    const { tenantId, name, description, price, categoryId, imageUrl, available, featured, showInUpsell } = body
+    const { tenantId, name, description, price, categoryId, imageUrl, available, featured, showInUpsell, requiresKitchen } = body
 
     // Validación detallada
     if (!tenantId) {
@@ -33,7 +33,10 @@ export async function POST(req: NextRequest) {
       image_url: imageUrl || null,
       available: available ?? true,
       featured: featured ?? false,
-      variants: { show_in_upsell: showInUpsell ?? false },
+      variants: {
+        show_in_upsell: showInUpsell ?? false,
+        requires_kitchen: requiresKitchen ?? true,
+      },
     }
 
     const { error } = await supabase.from('menu_items').insert(productData)

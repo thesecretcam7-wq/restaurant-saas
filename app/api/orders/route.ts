@@ -108,7 +108,7 @@ export async function POST(request: NextRequest) {
 
     const { data: menuRows, error: menuError } = await supabase
       .from('menu_items')
-      .select('id, name, price, available')
+      .select('id, name, price, available, variants')
       .eq('tenant_id', tenantId)
       .in('id', itemIds)
 
@@ -127,12 +127,16 @@ export async function POST(request: NextRequest) {
         throw new Error('MENU_ITEM_NOT_AVAILABLE')
       }
 
+      const basePrice = Number(menuItem.price) || 0
+      const submittedPrice = Number(item.price)
+
       return {
         menu_item_id: menuItem.id,
         name: menuItem.name,
-        price: Number(menuItem.price) || 0,
+        price: Number.isFinite(submittedPrice) ? Math.max(basePrice, submittedPrice) : basePrice,
         qty,
         notes: item.notes || null,
+        requires_kitchen: menuItem.variants?.requires_kitchen !== false,
       }
     })
 
@@ -224,8 +228,9 @@ export async function POST(request: NextRequest) {
     // Auto-create order_items so KDS can display the order in real-time.
     // Exception: kiosk cash orders skip this — items are created when cashier confirms payment.
     const isKioskCash = source === 'kiosk' && paymentMethod === 'cash'
-    if (!isKioskCash && sanitizedItems.length > 0) {
-      const orderItemsData = sanitizedItems.map((item: any) => ({
+    const kitchenItems = sanitizedItems.filter((item: any) => item.requires_kitchen !== false)
+    if (!isKioskCash && kitchenItems.length > 0) {
+      const orderItemsData = kitchenItems.map((item: any) => ({
         order_id: order.id,
         tenant_id: tenantId,
         menu_item_id: item.menu_item_id || null,
