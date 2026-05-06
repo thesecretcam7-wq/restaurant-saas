@@ -14,7 +14,7 @@ interface Props { params: Promise<{ domain: string }> }
 export default function CheckoutPage({ params }: Props) {
   const { domain: tenantSlug } = use(params)
   const router = useRouter()
-  const { items, total, clearCart } = useCartStore()
+  const { items, tenantId: cartTenantId, total, clearCart } = useCartStore()
   const [settings, setSettings] = useState<any>(null)
   const [csrfToken, setCsrfToken] = useState('')
   const [loading, setLoading] = useState(false)
@@ -40,6 +40,15 @@ export default function CheckoutPage({ params }: Props) {
       })
       .catch(() => {})
   }, [tenantSlug, items.length, router])
+
+  useEffect(() => {
+    if (!settings?.tenant_id || !cartTenantId || items.length === 0) return
+    if (cartTenantId !== settings.tenant_id) {
+      clearCart()
+      toast.error('El carrito tenia productos de otro restaurante. Vuelve a elegir tu pedido.')
+      router.replace(`/${tenantSlug}/menu`)
+    }
+  }, [settings?.tenant_id, cartTenantId, items.length, clearCart, router, tenantSlug])
 
   const subtotal = total()
   const taxRate = settings?.tax_rate || 0
@@ -70,12 +79,17 @@ export default function CheckoutPage({ params }: Props) {
 
     try {
       const validated = checkoutSchema.parse(form)
+      const orderItems = items.map(item => ({
+        ...item,
+        menu_item_id: item.item_id,
+        price: item.price + (item.toppings || []).reduce((sum: number, topping: any) => sum + Number(topping.price || 0), 0),
+      }))
 
       if (form.payment_method === 'stripe') {
         const res = await fetch('/api/stripe/checkout', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ tenantId, items, customerInfo: { name: validated.name, phone: validated.phone, email: validated.email }, deliveryType: validated.delivery_type, deliveryAddress: validated.delivery_address, notes: validated.notes }),
+          body: JSON.stringify({ tenantId, tenantSlug, items: orderItems, customerInfo: { name: validated.name, phone: validated.phone, email: validated.email }, deliveryType: validated.delivery_type, deliveryAddress: validated.delivery_address, notes: validated.notes }),
         })
         const data = await res.json()
         if (data.url) { clearCart(); window.location.href = data.url }
@@ -84,11 +98,18 @@ export default function CheckoutPage({ params }: Props) {
         const res = await fetch('/api/orders', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'x-csrf-token': csrfToken },
-          body: JSON.stringify({ tenantId, items, customerInfo: { name: validated.name, phone: validated.phone, email: validated.email }, deliveryType: validated.delivery_type, deliveryAddress: validated.delivery_address, notes: validated.notes, paymentMethod: 'cash', source: 'store' }),
+          body: JSON.stringify({ tenantId, tenantSlug, items: orderItems, customerInfo: { name: validated.name, phone: validated.phone, email: validated.email }, deliveryType: validated.delivery_type, deliveryAddress: validated.delivery_address, notes: validated.notes, paymentMethod: 'cash', source: 'store' }),
         })
         const data = await res.json()
         if (data.orderId) { clearCart(); router.push(`/${tenantSlug}/gracias?order=${data.orderId}`) }
-        else { toast.error(data.error || 'Error al crear pedido') }
+        else {
+          console.error('[checkout] order error', data)
+          if (data.clearCart) {
+            clearCart()
+            router.replace(`/${tenantSlug}/menu`)
+          }
+          toast.error(data.error || 'Error al crear pedido')
+        }
       }
     } catch (error: any) {
       if (error.errors) {

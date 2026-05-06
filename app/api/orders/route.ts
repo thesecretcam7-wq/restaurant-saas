@@ -99,7 +99,8 @@ export async function POST(request: NextRequest) {
     }
 
     if (tenantError || !tenant) {
-      return NextResponse.json({ error: 'Invalid restaurant' }, { status: 400 })
+      console.warn('[orders POST] invalid restaurant', { tenantParam, tenantSlug, tenantError: tenantError?.message })
+      return NextResponse.json({ error: 'Restaurante invalido. Actualiza la pagina e intenta de nuevo.' }, { status: 400 })
     }
 
     const tenantId = tenant.id
@@ -322,7 +323,13 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ orderId: order.id, orderNumber, displayNumber })
   } catch (err) {
     if (err instanceof Error && err.message === 'MENU_ITEM_NOT_AVAILABLE') {
-      return NextResponse.json({ error: 'One or more products are not available' }, { status: 400 })
+      return NextResponse.json(
+        {
+          error: 'Uno o mas productos ya no estan disponibles. Vuelve a agregarlos al carrito.',
+          clearCart: true,
+        },
+        { status: 400 }
+      )
     }
     console.error('[orders POST] unexpected error:', err)
     return NextResponse.json({ error: 'Error interno' }, { status: 500 })

@@ -18,11 +18,27 @@ export async function GET(_: NextRequest, { params }: { params: Promise<{ tenant
   const { tenantId: slugOrId } = await params
   const supabase = createServiceClient()
   const tenantId = await resolveTenantId(supabase, slugOrId)
-  const { data } = await supabase
+  let { data, error } = await supabase
     .from('restaurant_settings')
     .select('delivery_enabled, delivery_fee, delivery_min_order, delivery_time_minutes, cash_payment_enabled, tax_rate, reservations_enabled, country')
     .eq('tenant_id', tenantId)
-    .single()
+    .maybeSingle()
+
+  if (error) {
+    console.warn('[settings] full settings query failed, using safe fallback:', error.message)
+    const fallback = await supabase
+      .from('restaurant_settings')
+      .select('delivery_enabled, delivery_fee, cash_payment_enabled, tax_rate')
+      .eq('tenant_id', tenantId)
+      .maybeSingle()
+    data = fallback.data ? {
+      ...fallback.data,
+      delivery_min_order: 0,
+      delivery_time_minutes: null,
+      reservations_enabled: false,
+      country: null,
+    } : null
+  }
 
   const { data: tenant } = await supabase
     .from('tenants')
