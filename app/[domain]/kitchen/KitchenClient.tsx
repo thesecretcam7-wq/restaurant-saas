@@ -325,6 +325,7 @@ export function KitchenClient({ tenantId, tenantSlug, tenantName, country, brand
     try {
       const payload = {
         tenantId,
+        tenantSlug,
         items: cart.map(c => ({
           menu_item_id: c.menu_item_id,
           name: c.name,
@@ -347,11 +348,16 @@ export function KitchenClient({ tenantId, tenantSlug, tenantName, country, brand
       });
 
       let order = await orderRes.json();
-      if (!orderRes.ok && order?.error === 'Invalid restaurant' && tenantSlug && tenantSlug !== tenantId) {
+      const invalidRestaurant =
+        !orderRes.ok &&
+        typeof order?.error === 'string' &&
+        order.error.toLowerCase().includes('restaurante invalido')
+
+      if (invalidRestaurant && tenantSlug && tenantSlug !== tenantId) {
         orderRes = await fetch('/api/orders', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'x-csrf-token': csrfToken },
-          body: JSON.stringify({ ...payload, tenantId: tenantSlug }),
+          body: JSON.stringify({ ...payload, tenantId: tenantSlug, tenantSlug }),
         });
         order = await orderRes.json();
       }
@@ -642,6 +648,7 @@ export function KitchenClient({ tenantId, tenantSlug, tenantName, country, brand
               <div className="grid grid-cols-2 gap-2 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
                 {filteredItems.map(item => {
                   const qty = getQty(item.id);
+                  const hasToppings = (toppingsByItem.get(item.id) || []).length > 0;
                   return (
                     <article key={item.id} className="overflow-hidden rounded-[1rem] border shadow-sm" style={{ borderColor: brand.border, backgroundColor: brand.surface }}>
                       <button onClick={() => openProduct(item)} className="block w-full text-left active:scale-[0.99]">
@@ -656,6 +663,7 @@ export function KitchenClient({ tenantId, tenantSlug, tenantName, country, brand
                         <div className="p-2">
                           <p className="line-clamp-2 min-h-8 text-xs font-black leading-4" style={{ color: brand.surfaceText }}>{item.name}</p>
                           {item.description && <p className="mt-0.5 line-clamp-1 text-[11px] font-semibold" style={{ color: brand.mutedText }}>{item.description}</p>}
+                          {hasToppings && <p className="mt-1 text-[10px] font-black uppercase tracking-wide" style={{ color: brand.primary }}>Adicionales</p>}
                           <p className="mt-1 text-sm font-black" style={{ color: brand.accent }}>{money(item.price)}</p>
                         </div>
                       </button>
@@ -669,7 +677,7 @@ export function KitchenClient({ tenantId, tenantSlug, tenantName, country, brand
                         ) : (
                           <button onClick={() => openProduct(item)} className="flex h-9 w-full items-center justify-center gap-1.5 rounded-xl text-xs font-black active:scale-[0.98]" style={{ backgroundColor: brand.button, color: brand.buttonText }}>
                             <Plus className="h-4 w-4" />
-                            Agregar
+                            {hasToppings ? 'Personalizar' : 'Agregar'}
                           </button>
                         )}
                       </div>

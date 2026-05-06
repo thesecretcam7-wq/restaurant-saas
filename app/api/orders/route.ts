@@ -79,27 +79,47 @@ export async function POST(request: NextRequest) {
 
     const supabase = createServiceClient()
 
-    // SECURITY: Validate that tenantId corresponds to an active restaurant
-    const tenantLookup = String(tenantParam || tenantSlug || '').trim()
-    const isTenantUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(tenantLookup)
-    let { data: tenant, error: tenantError } = await supabase
-      .from('tenants')
-      .select('id')
-      .eq(isTenantUUID ? 'id' : 'slug', tenantLookup)
-      .single()
+    // SECURITY: Validate that tenantId/slug corresponds to an active restaurant.
+    // Some public/staff screens can carry stale cached params, so try the explicit
+    // UUID, the slug and finally the first segment from the referring URL.
+    const referer = request.headers.get('referer') || request.headers.get('origin') || ''
+    let refererSlug = ''
+    try {
+      const parsed = new URL(referer)
+      refererSlug = parsed.pathname.split('/').filter(Boolean)[0] || ''
+    } catch {}
 
-    if ((tenantError || !tenant) && tenantSlug) {
-      const retry = await supabase
+    const tenantCandidates = Array.from(new Set(
+      [tenantParam, tenantSlug, refererSlug]
+        .map((value) => String(value || '').trim())
+        .filter(Boolean)
+    ))
+
+    let tenant: { id: string } | null = null
+    let tenantError: any = null
+    for (const candidate of tenantCandidates) {
+      const isTenantUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(candidate)
+      const result = await supabase
         .from('tenants')
         .select('id')
-        .eq('slug', String(tenantSlug).trim())
-        .single()
-      tenant = retry.data
-      tenantError = retry.error
+        .eq(isTenantUUID ? 'id' : 'slug', candidate)
+        .maybeSingle()
+
+      tenantError = result.error
+      if (result.data?.id) {
+        tenant = result.data
+        break
+      }
     }
 
     if (tenantError || !tenant) {
-      console.warn('[orders POST] invalid restaurant', { tenantParam, tenantSlug, tenantError: tenantError?.message })
+      console.warn('[orders POST] invalid restaurant', {
+        tenantParam,
+        tenantSlug,
+        refererSlug,
+        tenantCandidates,
+        tenantError: tenantError?.message,
+      })
       return NextResponse.json({ error: 'Restaurante invalido. Actualiza la pagina e intenta de nuevo.' }, { status: 400 })
     }
 

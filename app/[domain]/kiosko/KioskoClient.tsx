@@ -283,6 +283,7 @@ function CategoryProductModal({
   mutedTextColor,
   borderColor,
   headerTextColor,
+  toppings,
   onClose,
   onSelectItem,
 }: {
@@ -297,6 +298,7 @@ function CategoryProductModal({
   mutedTextColor: string
   borderColor: string
   headerTextColor: string
+  toppings: Topping[]
   onClose: () => void
   onSelectItem: (item: MenuItem) => void
 }) {
@@ -343,7 +345,9 @@ function CategoryProductModal({
           ) : (
             <div className="p-6">
               <div className="grid grid-cols-3 gap-4">
-                {products.map(item => (
+                {products.map(item => {
+                  const hasToppings = toppings.some(topping => topping.menu_item_id === item.id)
+                  return (
                   <button
                     key={item.id}
                     onClick={() => onSelectItem(item)}
@@ -358,23 +362,32 @@ function CategoryProductModal({
                           🍽️
                         </div>
                       )}
+                      {hasToppings && (
+                        <span className="absolute left-3 top-3 rounded-full px-3 py-1 text-[11px] font-black shadow-lg" style={{ backgroundColor: buttonColor, color: readableText(buttonColor) }}>
+                          Adicionales
+                        </span>
+                      )}
                     </div>
                     <div className="p-4 flex flex-col flex-1">
-                      <p className="font-bold text-sm leading-snug line-clamp-2 flex-1 mb-3" style={{ color: textColor }}>{item.name}</p>
+                      <p className="font-bold text-sm leading-snug line-clamp-2 flex-1 mb-2" style={{ color: textColor }}>{item.name}</p>
+                      {hasToppings && (
+                        <p className="mb-2 text-xs font-black uppercase tracking-wide" style={{ color: primaryColor }}>Toca para personalizar</p>
+                      )}
                       <div className="flex items-center justify-between">
                         <p className="font-black text-lg" style={{ color: primaryColor }}>
                           {fmt(item.price, currencySymbol)}
                         </p>
                         <div
-                          className="w-9 h-9 rounded-full flex items-center justify-center text-white font-black text-xl shadow-md transition-transform active:scale-90"
+                          className="min-w-9 h-9 rounded-full px-3 flex items-center justify-center text-white font-black text-sm shadow-md transition-transform active:scale-90"
                           style={{ backgroundColor: buttonColor, color: readableText(buttonColor) }}
                         >
-                          +
+                          {hasToppings ? 'Elegir' : '+'}
                         </div>
                       </div>
                     </div>
                   </button>
-                ))}
+                  )
+                })}
               </div>
             </div>
           )}
@@ -1273,6 +1286,7 @@ export default function KioskoClient({
           mutedTextColor={surfaceMutedTextColor}
           borderColor={borderColor}
           headerTextColor={primaryTextColor}
+          toppings={toppings}
           onClose={() => setIsCategoryModalOpen(false)}
           onSelectItem={item => { setSelectedItem(item); setItemQty(1) }}
         />
