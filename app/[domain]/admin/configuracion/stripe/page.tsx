@@ -4,16 +4,34 @@ import { StripeConnectClient } from './StripeConnectClient'
 
 interface Props { params: Promise<{ domain: string }> }
 
+type StripeTenant = {
+  id: string
+  slug: string | null
+  stripe_account_id: string | null
+  stripe_account_status: string | null
+  stripe_customer_id: string | null
+}
+
 export default async function StripeConnectPage({ params }: Props) {
   const { domain } = await params
-  const supabase = createServiceClient()
-  const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(domain)
+  const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(domain)
 
-  const { data: tenant, error: tenantError } = await supabase
-    .from('tenants')
-    .select('id, slug, stripe_account_id, stripe_account_status, stripe_customer_id')
-    .eq(isUUID ? 'id' : 'slug', domain)
-    .maybeSingle()
+  let tenant: StripeTenant | null = null
+  let tenantErrorMessage = ''
+
+  try {
+    const supabase = createServiceClient()
+    const { data, error } = await supabase
+      .from('tenants')
+      .select('id, slug, stripe_account_id, stripe_account_status, stripe_customer_id')
+      .eq(isUUID ? 'id' : 'slug', domain)
+      .maybeSingle()
+
+    tenant = data
+    tenantErrorMessage = error?.message || ''
+  } catch (error) {
+    tenantErrorMessage = error instanceof Error ? error.message : 'Error cargando la configuracion de Stripe'
+  }
 
   const isConnected = tenant?.stripe_account_status === 'verified'
   const isPending = tenant?.stripe_account_status === 'pending'
@@ -32,7 +50,10 @@ export default async function StripeConnectPage({ params }: Props) {
         <div className="rounded-2xl border border-red-200 bg-red-50 p-5">
           <h2 className="text-lg font-black text-red-800">No pude cargar este restaurante</h2>
           <p className="mt-1 text-sm font-semibold text-red-700">
-            {tenantError?.message || 'No se encontro el restaurante para preparar la conexion con Stripe.'}
+            {tenantErrorMessage || 'No se encontro el restaurante para preparar la conexion con Stripe.'}
+          </p>
+          <p className="mt-3 text-sm font-semibold text-red-700/80">
+            Revisa en Vercel que existan NEXT_PUBLIC_SUPABASE_URL y SUPABASE_SERVICE_ROLE_KEY.
           </p>
         </div>
       )}
@@ -54,8 +75,8 @@ export default async function StripeConnectPage({ params }: Props) {
               {isConnected
                 ? `Cuenta conectada: ${tenant?.stripe_account_id}. El restaurante puede recibir pagos online.`
                 : isPending
-                ? 'Falta completar informacion dentro de Stripe para activar los cobros.'
-                : 'Conecta Stripe para que los clientes puedan pagar directamente desde la carta, tienda o kiosko.'}
+                  ? 'Falta completar informacion dentro de Stripe para activar los cobros.'
+                  : 'Conecta Stripe para que los clientes puedan pagar directamente desde la carta, tienda o kiosko.'}
             </p>
           </div>
         </div>
