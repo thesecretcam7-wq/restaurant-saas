@@ -282,6 +282,15 @@ export default function PrintersConfigPage({ params }: Props) {
         Usar impresora instalada en Windows
       </button>
 
+      <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-4 text-sm text-amber-100">
+        <p className="font-bold">Importante para cajon monedero</p>
+        <p className="mt-1 text-amber-100/80">
+          En modo Windows/Chrome, el navegador no puede enviar el pulso ESC/POS directo al cajon.
+          Activa la apertura del cajon en las preferencias del driver de la impresora, normalmente como
+          "Open cash drawer after printing" o "Abrir cajon despues de imprimir".
+        </p>
+      </div>
+
       {!tenantId && (
         <div className="rounded-lg border border-yellow-700 bg-yellow-900/20 p-4 text-sm text-yellow-200">
           Cargando datos del restaurante. Espera unos segundos y vuelve a intentar.

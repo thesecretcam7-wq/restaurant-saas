@@ -289,42 +289,71 @@ function generateReceiptHTML(data: ReceiptData): string {
       <meta charset="UTF-8">
       <title>Recibo ${data.orderNumber}</title>
       <style>
-        body {
-          font-family: 'Courier New', monospace;
-          font-size: 12px;
-          max-width: 80mm;
+        @page {
+          size: 80mm 210mm;
           margin: 0;
-          padding: 10px;
+        }
+        * {
+          box-sizing: border-box;
+        }
+        html, body {
+          width: 80mm;
+          margin: 0;
+          padding: 0;
+          background: #fff;
+          color: #000;
+        }
+        body {
+          font-family: 'Courier New', Courier, monospace;
+          font-size: 18px;
+          font-weight: 700;
+          line-height: 1.18;
+          padding: 3mm;
         }
         .header {
           text-align: center;
           font-weight: bold;
-          margin-bottom: 10px;
-          font-size: 14px;
+          margin-bottom: 8px;
+          font-size: 21px;
         }
         .number {
           text-align: right;
+          white-space: nowrap;
         }
         table {
           width: 100%;
           border-collapse: collapse;
-          margin: 10px 0;
+          margin: 8px 0;
+        }
+        th {
+          font-size: 16px;
+          text-align: left;
+          border-bottom: 2px solid #000;
+          padding: 4px 1px;
         }
         td {
-          padding: 4px 2px;
-          border-bottom: 1px solid #000;
+          padding: 5px 1px;
+          border-bottom: 1px dashed #000;
+          vertical-align: top;
         }
         .total-row {
           font-weight: bold;
-          font-size: 14px;
+          font-size: 23px;
         }
         .footer {
           text-align: center;
-          margin-top: 10px;
-          font-size: 10px;
+          margin-top: 12px;
+          font-size: 16px;
+          font-weight: 800;
+        }
+        hr {
+          border: 0;
+          border-top: 2px solid #000;
+          margin: 7px 0;
         }
         @media print {
-          body { margin: 0; padding: 0; }
+          body { margin: 0; }
+          button { display: none !important; }
         }
       </style>
     </head>
@@ -369,6 +398,7 @@ function generateReceiptHTML(data: ReceiptData): string {
       </table>
       <div class="footer">
         <p>Gracias por su compra</p>
+        <p style="margin: 18px 0 0;">.</p>
       </div>
     </body>
     </html>
