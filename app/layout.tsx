@@ -14,6 +14,13 @@ export const metadata: Metadata = {
     title: "Eccofood",
   },
   formatDetection: { telephone: false },
+  icons: {
+    icon: [
+      { url: "/icons/icon-192.png", sizes: "192x192", type: "image/png" },
+      { url: "/icons/icon-512.png", sizes: "512x512", type: "image/png" },
+    ],
+    apple: [{ url: "/icons/icon-192.png", sizes: "192x192", type: "image/png" }],
+  },
   openGraph: {
     type: "website",
     title: "Eccofood",
@@ -35,8 +42,8 @@ export default function RootLayout({
   return (
     <html lang="es" className="h-full antialiased">
       <head>
-        <link rel="icon" href="/icons/icon.svg" type="image/svg+xml" />
-        <link rel="apple-touch-icon" href="/icons/icon.svg" />
+        <link rel="icon" href="/icons/icon-192.png" type="image/png" />
+        <link rel="apple-touch-icon" href="/icons/icon-192.png" />
         <meta name="mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="default" />

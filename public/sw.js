@@ -1,5 +1,5 @@
-const CACHE_NAME = 'eccofood-v5';
-const STATIC_ASSETS = ['/', '/login', '/register', '/planes', '/manifest.webmanifest'];
+const CACHE_NAME = 'eccofood-v6';
+const STATIC_ASSETS = ['/', '/planes', '/manifest.webmanifest', '/icons/icon-192.png', '/icons/icon-512.png'];
 
 function offlinePage() {
   return new Response(`<!doctype html>
@@ -76,6 +76,15 @@ self.addEventListener('fetch', (event) => {
 
   if (url.origin !== location.origin) return;
 
+  const isAuthRoute =
+    url.pathname.startsWith('/api/auth/') ||
+    url.pathname === '/login' ||
+    url.pathname === '/register';
+
+  // Login/register must always go straight to the server. A stale service worker
+  // should never turn credentials into a fake 503/offline response.
+  if (isAuthRoute) return;
+
   const isOperationalRoute =
     url.pathname.includes('/admin/') ||
     url.pathname.includes('/staff/pos') ||
@@ -83,14 +92,11 @@ self.addEventListener('fetch', (event) => {
     url.pathname.includes('/kitchen');
 
   if (request.method !== 'GET') {
-    if (url.pathname.startsWith('/api/')) {
-      event.respondWith(fetch(request).catch(() => apiUnavailable()));
-    }
     return;
   }
 
   if (url.pathname.startsWith('/api/')) {
-    event.respondWith(fetch(request).catch(() => apiUnavailable()));
+    event.respondWith(fetch(request));
     return;
   }
 
