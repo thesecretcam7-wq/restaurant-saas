@@ -235,10 +235,16 @@ function IncomingOrderCard({
   order,
   onUpdateStatus,
   onLoadForPayment,
+  onCancelOrder,
+  cancelling,
+  currencyInfo,
 }: {
   order: IncomingOrder;
   onUpdateStatus: (orderId: string, status: string) => Promise<void>;
   onLoadForPayment?: (order: IncomingOrder) => Promise<void>;
+  onCancelOrder?: (order: IncomingOrder) => Promise<void>;
+  cancelling?: boolean;
+  currencyInfo: ReturnType<typeof getCurrencyByCountry>;
 }) {
   const minutes = useElapsedMinutes(order.created_at);
   const isDelivery = order.delivery_type === 'delivery';
@@ -261,6 +267,11 @@ function IncomingOrderCard({
     } finally {
       setLoading(false);
     }
+  }
+
+  async function handleCancelOrder() {
+    if (!onCancelOrder) return;
+    await onCancelOrder(order);
   }
 
   // Determine action button based on status + type
@@ -328,7 +339,7 @@ function IncomingOrderCard({
         <a href={`tel:${order.customer_phone}`} className="text-xs text-blue-400 hover:underline">
           {order.customer_phone}
         </a>
-        <span className="font-bold text-green-400">${order.total.toFixed(2)}</span>
+        <span className="font-bold text-green-400">{formatPriceWithCurrency(order.total, currencyInfo.code, currencyInfo.locale)}</span>
       </div>
 
       {showPaymentButton && (
@@ -338,6 +349,16 @@ function IncomingOrderCard({
           className="w-full py-2 rounded-lg bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white font-bold text-xs transition-all active:scale-95"
         >
           {loading ? '...' : '💳 Cargar para cobrar'}
+        </button>
+      )}
+
+      {onCancelOrder && !isDone && (
+        <button
+          onClick={handleCancelOrder}
+          disabled={cancelling}
+          className="w-full py-2 rounded-lg bg-red-500/15 hover:bg-red-500/25 border border-red-400/30 disabled:opacity-50 text-red-100 font-bold text-xs transition-all active:scale-95"
+        >
+          {cancelling ? 'Anulando...' : 'Anular ticket'}
         </button>
       )}
 
@@ -411,6 +432,7 @@ export function POSTerminal({
   // Incoming Orders for delivery/pickup
   const [incomingOrders, setIncomingOrders] = useState<IncomingOrder[]>([]);
   const [showIncomingPanel, setShowIncomingPanel] = useState(false);
+  const [cancellingOrderId, setCancellingOrderId] = useState<string | null>(null);
   const [soundEnabled, setSoundEnabled] = useState(true);
   // Dine-in orders from comandero
   const [dineInOrders, setDineInOrders] = useState<DineInOrder[]>([]);
@@ -638,7 +660,7 @@ export function POSTerminal({
     try {
       // Convert order items to cart items
       const cartItems = (order.items || []).map((item: any, index: number) => ({
-        menu_item_id: item.id || `order-item-${order.id}-${index}`,
+        menu_item_id: item.menu_item_id || item.item_id || item.id || `order-item-${order.id}-${index}`,
         name: item.name,
         price: item.price,
         quantity: item.qty || item.quantity || 1,
@@ -664,6 +686,51 @@ export function POSTerminal({
     } catch (error) {
       console.error('Error loading order:', error);
       setToast({ message: 'Error al cargar el pedido', type: 'error' });
+    }
+  }
+
+  async function cancelIncomingOrder(orderId: string, orderNumber?: string) {
+    const label = orderNumber || 'este ticket';
+    const confirmed = window.confirm(
+      `Anular ${label}?\n\nEl ticket quedara registrado como anulado para auditoria, pero saldra de pendientes y no contara como venta cobrada.`
+    );
+    if (!confirmed) return;
+
+    try {
+      setCancellingOrderId(orderId);
+      const response = await fetch(`/api/orders/${orderId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          tenantId,
+          status: 'cancelled',
+          cancel_reason: selectedStaffName ? `Anulado desde TPV por ${selectedStaffName}` : 'Anulado desde TPV',
+        }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(data.error || 'No se pudo anular el ticket');
+      }
+
+      setIncomingOrders((orders) => orders.filter((order) => order.id !== orderId));
+      if (loadedOrderId === orderId) {
+        setLoadedOrderId(null);
+        setCart([]);
+        setDiscount(0);
+        setDiscountCode('');
+        setTip(0);
+      }
+      await fetchIncomingOrders();
+      setToast({ message: `${label} anulado y guardado en historial`, type: 'success' });
+    } catch (error) {
+      console.error('Error cancelling incoming order:', error);
+      setToast({
+        message: error instanceof Error ? error.message : 'Error al anular el ticket',
+        type: 'error',
+      });
+    } finally {
+      setCancellingOrderId(null);
     }
   }
 
@@ -1912,6 +1979,26 @@ export function POSTerminal({
           {/* Cart Content - Only show when not in any special panel */}
           {!showIncomingPanel && !showDineInPanel && !showFindPayPanel && (
             <>
+              {loadedOrderId && (
+                <div className="mx-2 mt-2 rounded-xl border border-red-400/25 bg-red-500/10 px-3 py-2 flex items-center gap-2">
+                  <Archive className="w-3.5 h-3.5 text-red-200 shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-red-100 font-bold text-xs">Ticket de domicilio cargado</p>
+                    <p className="text-red-200/70 text-xs">Puedes cobrarlo o anularlo si el cliente cancelo.</p>
+                  </div>
+                  <button
+                    onClick={() => {
+                      const order = incomingOrders.find((item) => item.id === loadedOrderId);
+                      cancelIncomingOrder(loadedOrderId, order?.order_number || 'ticket cargado');
+                    }}
+                    disabled={cancellingOrderId === loadedOrderId}
+                    className="shrink-0 text-xs text-red-100 hover:text-white font-bold border border-red-400/40 hover:border-red-300 rounded-lg px-2 py-1 transition disabled:opacity-50"
+                  >
+                    {cancellingOrderId === loadedOrderId ? 'Anulando...' : 'Anular'}
+                  </button>
+                </div>
+              )}
+
               {/* Mesa billing indicator */}
           {billingOrderIds.length > 0 && selectedTableNumber && (
               <div className="mx-2 mt-2 pos-total-band rounded-xl px-3 py-2 flex items-center gap-2">
@@ -2146,6 +2233,9 @@ export function POSTerminal({
                         await fetchIncomingOrders();
                       }}
                       onLoadForPayment={handleOrderSelected}
+                      onCancelOrder={(order) => cancelIncomingOrder(order.id, order.order_number)}
+                      cancelling={cancellingOrderId === order.id}
+                      currencyInfo={currencyInfo}
                     />
                   ))}
                 </div>

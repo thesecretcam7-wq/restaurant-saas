@@ -37,7 +37,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     const { id } = await params
     const orderId = id
     const body = await request.json()
-    const { status, payment_status } = body
+    const { status, payment_status, cancel_reason } = body
 
     if (!orderId) {
       return NextResponse.json({ error: 'Order ID is required' }, { status: 400 })
@@ -51,7 +51,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
 
     const { data: existingOrder, error: existingError } = await supabase
       .from('orders')
-      .select('id, tenant_id')
+      .select('id, tenant_id, notes')
       .eq('id', orderId)
       .single()
 
@@ -64,6 +64,16 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     const updateData: Record<string, any> = { updated_at: new Date().toISOString() }
     if (status) updateData.status = status
     if (payment_status) updateData.payment_status = payment_status
+    if (status === 'cancelled') {
+      const timestamp = new Date().toISOString()
+      const reason = typeof cancel_reason === 'string' && cancel_reason.trim()
+        ? cancel_reason.trim()
+        : 'Anulado desde el sistema'
+      const auditNote = `Anulado ${timestamp}: ${reason}`
+      updateData.notes = existingOrder.notes
+        ? `${existingOrder.notes}\n${auditNote}`
+        : auditNote
+    }
 
     const { data: order, error } = await supabase
       .from('orders')
@@ -117,6 +127,20 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
         .neq('status', 'cancelled')
 
       if (itemsDeliveredError) console.error('[orders PATCH] order_items delivered sync error:', itemsDeliveredError.message)
+    }
+
+    if (status === 'cancelled' && order.tenant_id) {
+      const { error: itemsCancelledError } = await supabase
+        .from('order_items')
+        .update({
+          status: 'cancelled',
+          updated_at: new Date().toISOString(),
+        })
+        .eq('order_id', orderId)
+        .eq('tenant_id', order.tenant_id)
+        .neq('status', 'delivered')
+
+      if (itemsCancelledError) console.error('[orders PATCH] order_items cancel sync error:', itemsCancelledError.message)
     }
 
     // Send status update email (non-blocking)
