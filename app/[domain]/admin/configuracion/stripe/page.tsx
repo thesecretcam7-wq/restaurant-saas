@@ -9,7 +9,6 @@ type StripeTenant = {
   slug: string | null
   stripe_account_id: string | null
   stripe_account_status: string | null
-  stripe_customer_id: string | null
 }
 
 export default async function StripeConnectPage({ params }: Props) {
@@ -23,7 +22,7 @@ export default async function StripeConnectPage({ params }: Props) {
     const supabase = createServiceClient()
     const { data, error } = await supabase
       .from('tenants')
-      .select('id, slug, stripe_account_id, stripe_account_status, stripe_customer_id')
+      .select('id, slug, stripe_account_id, stripe_account_status')
       .eq(isUUID ? 'id' : 'slug', domain)
       .maybeSingle()
 
