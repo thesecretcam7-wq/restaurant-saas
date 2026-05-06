@@ -47,6 +47,7 @@ export interface ReceiptData {
   orderId: string;
   orderNumber: string;
   restaurantName?: string;
+  restaurantPhone?: string | null;
   items: Array<{
     menu_item_id: string;
     name: string;

@@ -401,6 +401,7 @@ export function POSTerminal({
   const [discount, setDiscount] = useState(0);
   const [taxRate, setTaxRate] = useState(0);
   const [restaurantName, setRestaurantName] = useState('Restaurante');
+  const [restaurantPhone, setRestaurantPhone] = useState<string | null>(null);
   const [restaurantLogo, setRestaurantLogo] = useState<string | undefined>();
 
   // Nuevas características - Modo y selecciones
@@ -1031,7 +1032,7 @@ export function POSTerminal({
           .maybeSingle(),
         supabase
           .from('restaurant_settings')
-          .select('tax_rate')
+          .select('tax_rate, display_name, phone')
           .eq('tenant_id', tenantId)
           .maybeSingle(),
       ]);
@@ -1042,7 +1043,11 @@ export function POSTerminal({
         if (tenantRes.data.organization_name) setRestaurantName(tenantRes.data.organization_name);
         if (tenantRes.data.logo_url) setRestaurantLogo(tenantRes.data.logo_url);
       }
-      if (settingsRes.data) setTaxRate(Number(settingsRes.data.tax_rate || 0));
+      if (settingsRes.data) {
+        setTaxRate(Number(settingsRes.data.tax_rate || 0));
+        if (settingsRes.data.display_name) setRestaurantName(settingsRes.data.display_name);
+        if (settingsRes.data.phone) setRestaurantPhone(settingsRes.data.phone);
+      }
     } catch (error) {
       console.error('Error fetching menu:', error);
     } finally {
@@ -1303,7 +1308,7 @@ export function POSTerminal({
       try {
         const result = await supabase
           .from('restaurant_settings')
-          .select('default_receipt_printer_id, printer_auto_print')
+          .select('default_receipt_printer_id, printer_auto_print, display_name, phone')
           .eq('tenant_id', tenantId)
           .maybeSingle();
 
@@ -1341,7 +1346,8 @@ export function POSTerminal({
             await printReceipt(tenantId, settings.default_receipt_printer_id, {
               orderId: receiptOrderId,
               orderNumber: order?.order_number || receiptOrderNumber || 'POS',
-              restaurantName,
+              restaurantName: settings?.display_name || restaurantName,
+              restaurantPhone: settings?.phone || restaurantPhone,
               items: cart,
               subtotal,
               discount,

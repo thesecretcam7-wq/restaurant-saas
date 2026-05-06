@@ -6,6 +6,7 @@
 import { createClient } from '@/lib/supabase/client';
 import { generateReceiptESCPOS, generateTestReceiptESCPOS } from './thermal-receipt';
 import type { ReceiptData, PrinterDevice } from '@/types/printer';
+import { formatPriceWithCurrency } from '@/lib/currency';
 
 // WebUSB API type declarations
 declare global {
@@ -271,15 +272,23 @@ function printViaBrowserAPI(data: ReceiptData): void {
  * Generate HTML for browser printing (fallback)
  */
 function generateReceiptHTML(data: ReceiptData): string {
-  const detailRows = data.items.length + 3 + (data.discount > 0 ? 1 : 0) + ((data.tax || 0) > 0 ? 1 : 0);
-  const pageHeightMm = Math.min(220, Math.max(82, 48 + detailRows * 8));
+  const printedAt = data.timestamp ? new Date(data.timestamp) : new Date();
+  const locale = data.currencyInfo?.locale || 'es-ES';
+  const money = (amount: number) => formatPriceWithCurrency(amount, data.currencyInfo.code, locale);
+  const safe = (value: string | number | null | undefined) =>
+    String(value ?? '')
+      .replaceAll('&', '&amp;')
+      .replaceAll('<', '&lt;')
+      .replaceAll('>', '&gt;')
+      .replaceAll('"', '&quot;')
+      .replaceAll("'", '&#39;');
   const itemsHTML = data.items
     .map(
       (item) =>
         `<tr>
-        <td>${item.name}</td>
+        <td>${safe(item.name)}</td>
         <td class="number">${item.quantity}</td>
-        <td class="number">${(item.price * item.quantity).toFixed(2)} ${data.currencyInfo.symbol}</td>
+        <td class="number">${money(item.price * item.quantity)}</td>
       </tr>`
     )
     .join('');
@@ -289,10 +298,10 @@ function generateReceiptHTML(data: ReceiptData): string {
     <html>
     <head>
       <meta charset="UTF-8">
-      <title>Recibo ${data.orderNumber}</title>
+      <title>Recibo ${safe(data.orderNumber)}</title>
       <style>
         @page {
-          size: 80mm ${pageHeightMm}mm;
+          size: 80mm auto;
           margin: 0;
         }
         * {
@@ -300,23 +309,37 @@ function generateReceiptHTML(data: ReceiptData): string {
         }
         html, body {
           width: 80mm;
+          height: auto;
+          min-height: 0;
           margin: 0;
           padding: 0;
           background: #fff;
           color: #000;
+          overflow: visible;
         }
         body {
           font-family: 'Courier New', Courier, monospace;
           font-size: 18px;
           font-weight: 700;
           line-height: 1.18;
-          padding: 3mm;
+          padding: 3mm 3mm 1mm;
+        }
+        .receipt {
+          width: 74mm;
+          break-after: avoid;
+          page-break-after: avoid;
         }
         .header {
           text-align: center;
           font-weight: bold;
-          margin-bottom: 8px;
+          margin-bottom: 4px;
           font-size: 21px;
+        }
+        .meta {
+          text-align: center;
+          font-size: 15px;
+          font-weight: 800;
+          margin: 2px 0;
         }
         .number {
           text-align: right;
@@ -354,14 +377,27 @@ function generateReceiptHTML(data: ReceiptData): string {
           margin: 7px 0;
         }
         @media print {
-          body { margin: 0; }
+          html, body {
+            height: auto;
+            min-height: 0;
+            margin: 0;
+            overflow: visible;
+          }
+          .receipt {
+            break-after: avoid;
+            page-break-after: avoid;
+          }
           button { display: none !important; }
         }
       </style>
     </head>
     <body>
-      <div class="header">Restaurant SaaS</div>
-      <div class="header">Orden: ${data.orderNumber}</div>
+      <div class="receipt">
+      <div class="header">${safe(data.restaurantName || 'Restaurante')}</div>
+      ${data.restaurantPhone ? `<div class="meta">Tel: ${safe(data.restaurantPhone)}</div>` : ''}
+      <div class="meta">Fecha: ${printedAt.toLocaleDateString(locale)}</div>
+      <div class="meta">Hora: ${printedAt.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' })}</div>
+      <div class="header">Orden: ${safe(data.orderNumber)}</div>
       <hr>
       <table>
         <tr>
@@ -375,13 +411,13 @@ function generateReceiptHTML(data: ReceiptData): string {
       <table>
         <tr>
           <td>Subtotal:</td>
-          <td class="number">${data.subtotal.toFixed(2)} ${data.currencyInfo.symbol}</td>
+          <td class="number">${money(data.subtotal)}</td>
         </tr>
         ${
           data.discount > 0
             ? `<tr>
           <td>Descuento:</td>
-          <td class="number">-${data.discount.toFixed(2)} ${data.currencyInfo.symbol}</td>
+          <td class="number">-${money(data.discount)}</td>
         </tr>`
             : ''
         }
@@ -389,18 +425,18 @@ function generateReceiptHTML(data: ReceiptData): string {
           (data.tax || 0) > 0
             ? `<tr>
           <td>IVA${data.taxRate ? ` ${data.taxRate}%` : ''}:</td>
-          <td class="number">${(data.tax || 0).toFixed(2)} ${data.currencyInfo.symbol}</td>
+          <td class="number">${money(data.tax || 0)}</td>
         </tr>`
             : ''
         }
         <tr class="total-row">
           <td>TOTAL:</td>
-          <td class="number">${data.total.toFixed(2)} ${data.currencyInfo.symbol}</td>
+          <td class="number">${money(data.total)}</td>
         </tr>
       </table>
       <div class="footer">
         <p>Gracias por su compra</p>
-        <p style="margin: 6px 0 0;">.</p>
+      </div>
       </div>
     </body>
     </html>

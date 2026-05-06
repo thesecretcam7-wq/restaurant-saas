@@ -48,6 +48,7 @@ export function generateReceiptESCPOS(data: ReceiptData, options: ReceiptOptions
   push(ALIGN_CENTER, SIZE_2X, BOLD_ON);
   line(data.restaurantName ?? 'Restaurante');
   push(BOLD_OFF);
+  if (data.restaurantPhone) line(`Tel: ${data.restaurantPhone}`);
 
   // ── Order number (centered) ───────────────────────────────────────────────
   push(BOLD_ON);
@@ -56,10 +57,13 @@ export function generateReceiptESCPOS(data: ReceiptData, options: ReceiptOptions
 
   // ── Date/time ─────────────────────────────────────────────────────────────
   const ts = data.timestamp ? new Date(data.timestamp) : new Date();
-  line(ts.toLocaleString('es-CO', {
+  const receiptLocale = data.currencyInfo?.locale || options.locale || 'es-ES';
+  line(`Fecha: ${ts.toLocaleDateString(receiptLocale, {
     day: '2-digit', month: '2-digit', year: 'numeric',
+  })}`);
+  line(`Hora: ${ts.toLocaleTimeString(receiptLocale, {
     hour: '2-digit', minute: '2-digit',
-  }));
+  })}`);
 
   // ── Table / waiter ────────────────────────────────────────────────────────
   if (data.tableNumber) line(`Mesa: ${data.tableNumber}`);
