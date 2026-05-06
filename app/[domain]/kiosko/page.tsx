@@ -1,4 +1,5 @@
 import { createServiceClient } from '@/lib/supabase/server'
+import { getCurrencyByCountry } from '@/lib/currency'
 import KioskoClient from './KioskoClient'
 
 export const dynamic = 'force-dynamic'
@@ -16,7 +17,7 @@ export default async function KioskoPage({ params, searchParams }: Props) {
 
   const { data: tenant } = await supabase
     .from('tenants')
-    .select('id, organization_name, stripe_account_id, logo_url, metadata')
+    .select('id, organization_name, stripe_account_id, logo_url, metadata, country')
     .eq('slug', domain)
     .single()
 
@@ -52,7 +53,7 @@ export default async function KioskoPage({ params, searchParams }: Props) {
       .then(res => res, () => ({ data: [] })),
     supabase
       .from('restaurant_settings')
-      .select('tax_rate, currency_symbol')
+      .select('tax_rate, currency_symbol, country, country_code')
       .eq('tenant_id', tenant.id)
       .maybeSingle(),
     supabase
@@ -100,7 +101,8 @@ export default async function KioskoPage({ params, searchParams }: Props) {
       toppings={toppingsRes.data || []}
       banners={bannersRes.data || []}
       taxRate={settingsRes.data?.tax_rate || 0}
-      currencySymbol={settingsRes.data?.currency_symbol || '$'}
+      currencyCode={getCurrencyByCountry(settingsRes.data?.country_code || settingsRes.data?.country || tenant.country || 'ES').code}
+      currencyLocale={getCurrencyByCountry(settingsRes.data?.country_code || settingsRes.data?.country || tenant.country || 'ES').locale}
       stripeEnabled={!!tenant.stripe_account_id}
       initialConfirmed={initialConfirmed}
     />

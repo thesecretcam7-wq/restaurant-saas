@@ -1,7 +1,7 @@
 'use client'
 
-import { use } from 'react'
-import { formatPrice } from '@/lib/currency'
+import { use, useEffect, useState } from 'react'
+import { formatPriceWithCurrency, getCurrencyByCountry } from '@/lib/currency'
 import { useCartStore } from '@/lib/store/cart'
 import Link from 'next/link'
 
@@ -11,6 +11,19 @@ export default function CarritoPage({ params }: Props) {
   const { domain: tenantSlug } = use(params)
   const { items, removeItem, updateQty, total } = useCartStore()
   const primary = 'var(--button-primary-color, var(--primary-color, #E4002B))'
+  const [currencyInfo, setCurrencyInfo] = useState(() => getCurrencyByCountry('ES'))
+  const money = (amount: number) => formatPriceWithCurrency(Number(amount || 0), currencyInfo.code, currencyInfo.locale)
+
+  useEffect(() => {
+    fetch(`/api/settings/${tenantSlug}`, { cache: 'no-store' })
+      .then(res => res.ok ? res.json() : null)
+      .then(settings => {
+        if (settings?.country || settings?.country_code) {
+          setCurrencyInfo(getCurrencyByCountry(settings.country_code || settings.country))
+        }
+      })
+      .catch(() => {})
+  }, [tenantSlug])
 
   if (items.length === 0) {
     return (
@@ -71,8 +84,8 @@ export default function CarritoPage({ params }: Props) {
                     Adicionales: {item.toppings.map(t => t.name).join(', ')}
                   </p>
                 )}
-                <p className="text-xs text-muted-foreground mt-0.5">{formatPrice(item.price)} c/u</p>
-                <p className="font-extrabold text-sm mt-1 text-gray-900">{formatPrice(item.price * item.qty)}</p>
+                <p className="text-xs text-muted-foreground mt-0.5">{money(item.price)} c/u</p>
+                <p className="font-extrabold text-sm mt-1 text-gray-900">{money(item.price * item.qty)}</p>
               </div>
               <div className="flex flex-col items-end gap-2">
                 <button
@@ -109,7 +122,7 @@ export default function CarritoPage({ params }: Props) {
           <h3 className="font-bold text-gray-900 text-sm mb-3">Resumen</h3>
           <div className="flex justify-between text-sm text-gray-500">
             <span>Subtotal</span>
-            <span className="font-semibold text-gray-700">{formatPrice(total())}</span>
+            <span className="font-semibold text-gray-700">{money(total())}</span>
           </div>
           <div className="flex justify-between text-sm text-gray-500">
             <span>Envío</span>
@@ -117,7 +130,7 @@ export default function CarritoPage({ params }: Props) {
           </div>
           <div className="border-t border-gray-100 pt-2 flex justify-between">
             <span className="font-extrabold text-gray-900">Total estimado</span>
-            <span className="font-extrabold text-gray-900 text-lg">{formatPrice(total())}</span>
+            <span className="font-extrabold text-gray-900 text-lg">{money(total())}</span>
           </div>
         </div>
 
