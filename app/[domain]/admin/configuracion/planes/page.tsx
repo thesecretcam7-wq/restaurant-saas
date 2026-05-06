@@ -7,6 +7,14 @@ import { SubscriptionPlan } from '@/lib/types'
 
 interface Props { params: Promise<{ domain: string }> }
 
+interface CurrencyInfo {
+  currency: string
+  symbol: string
+  name: string
+  rate: number
+  countryCode: string
+}
+
 interface SystemFeature {
   name: string
   description: string
@@ -53,13 +61,19 @@ export default function PlanesPage({ params }: Props) {
   const [currentPlan, setCurrentPlan] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [processingPlan, setProcessingPlan] = useState<string | null>(null)
+  const [currency, setCurrency] = useState<CurrencyInfo | null>(null)
 
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const plansRes = await fetch(`/api/subscription-plans`)
+        const [plansRes, currencyRes] = await Promise.all([
+          fetch(`/api/subscription-plans`),
+          fetch('/api/currency-rates'),
+        ])
         const plansData = await plansRes.json()
+        const currencyData = await currencyRes.json()
         setPlans(plansData)
+        if (!currencyData.error) setCurrency(currencyData)
         setLoading(false)
       } catch (error) {
         console.error('Error fetching data:', error)
@@ -106,6 +120,20 @@ export default function PlanesPage({ params }: Props) {
     premium: ['POS', 'Comandera', 'KDS']
   }
 
+  const formatSubscriptionPrice = (amount: number) => {
+    const currencyCode = currency?.currency || 'EUR'
+    const rate = currency?.rate || 1
+    const convertedAmount = currencyCode === 'EUR' ? amount : amount * rate
+    const zeroDecimalCurrencies = ['COP', 'CLP', 'JPY', 'VND', 'IDR']
+
+    return new Intl.NumberFormat(currencyCode === 'EUR' ? 'es-ES' : 'es-CO', {
+      style: 'currency',
+      currency: currencyCode,
+      maximumFractionDigits: zeroDecimalCurrencies.includes(currencyCode) ? 0 : 2,
+      minimumFractionDigits: zeroDecimalCurrencies.includes(currencyCode) ? 0 : 2,
+    }).format(convertedAmount)
+  }
+
   const featureLabels: { [key: string]: string } = {
     max_products: 'Productos en menú',
     orders_per_month: 'Órdenes mensuales',
@@ -143,6 +171,11 @@ export default function PlanesPage({ params }: Props) {
       <div className="mb-8">
         <h2 className="text-2xl font-bold text-gray-900 mb-2">Planes de Suscripción</h2>
         <p className="text-gray-600">Elige el plan que mejor se adapta a tu restaurante</p>
+        {currency && (
+          <p className="mt-2 text-sm text-gray-500">
+            Precios mostrados en {currency.name} ({currency.currency}) segun tu pais: {currency.countryCode}.
+          </p>
+        )}
       </div>
 
       {currentPlan && (
@@ -172,8 +205,19 @@ export default function PlanesPage({ params }: Props) {
                 <p className="text-sm text-gray-600 mb-6">{planDescriptions[plan.name]}</p>
 
                 <div className="mb-8 pb-8 border-b">
-                  <p className="text-4xl font-bold text-gray-900">${plan.monthly_price}</p>
+                  <p className="text-4xl font-bold text-gray-900">
+                    {formatSubscriptionPrice(Number(plan.monthly_price))}
+                  </p>
                   <p className="text-sm text-gray-500">por mes</p>
+                  {currency?.currency && currency.currency !== 'EUR' && (
+                    <p className="mt-1 text-xs font-semibold text-gray-400">
+                      aprox. desde {Number(plan.monthly_price).toLocaleString('es-ES', {
+                        style: 'currency',
+                        currency: 'EUR',
+                        maximumFractionDigits: 0,
+                      })}
+                    </p>
+                  )}
                 </div>
 
                 {/* Systems Showcase */}
