@@ -58,6 +58,7 @@ function CustomerDisplayContent() {
 
   const [cart, setCart] = useState<PosCart | null>(null);
   const [branding, setBranding] = useState<DisplayBranding | null>(null);
+  const [taxRate, setTaxRate] = useState(0);
   const [time, setTime] = useState(new Date());
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [wakeLocked, setWakeLocked] = useState(false);
@@ -166,13 +167,23 @@ function CustomerDisplayContent() {
 
     async function fetchBranding() {
       try {
-        const res = await fetch(`/api/tenant/branding?tenantId=${tenantId}`, { cache: 'no-store' });
-        if (!res.ok) return;
-        const json = await res.json();
-        setBranding({
-          ...(json.branding || {}),
-          logo_url: json.branding?.logo_url || json.tenant?.logo_url || null,
-        });
+        const [brandingRes, settingsRes] = await Promise.all([
+          fetch(`/api/tenant/branding?tenantId=${tenantId}`, { cache: 'no-store' }),
+          fetch(`/api/settings/${tenantId}`, { cache: 'no-store' }),
+        ]);
+
+        if (brandingRes.ok) {
+          const json = await brandingRes.json();
+          setBranding({
+            ...(json.branding || {}),
+            logo_url: json.branding?.logo_url || json.tenant?.logo_url || null,
+          });
+        }
+
+        if (settingsRes.ok) {
+          const json = await settingsRes.json();
+          setTaxRate(Number(json.settings?.tax_rate ?? json.tax_rate ?? 0));
+        }
       } catch {}
     }
 
@@ -224,6 +235,8 @@ function CustomerDisplayContent() {
 
   const hasItems = !!cart?.items?.length;
   const itemCount = cart?.items.reduce((sum, item) => sum + item.quantity, 0) || 0;
+  const taxableSubtotal = cart ? Math.max(0, Number(cart.subtotal || 0) - Number(cart.discount || 0)) : 0;
+  const taxAmount = taxRate > 0 ? taxableSubtotal * (taxRate / 100) : 0;
   const updatedLabel = cart?.updated_at
     ? new Date(cart.updated_at).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })
     : time.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
@@ -236,12 +249,9 @@ function CustomerDisplayContent() {
       <div className="flex h-full flex-col">
         <header className="flex shrink-0 items-center justify-between gap-4 border-b px-6 py-4 lg:px-10" style={{ borderColor: palette.border, backgroundColor: palette.surface }}>
           <div className="flex items-center gap-4">
-            <div
-              className="grid h-16 w-20 place-items-center overflow-hidden rounded-2xl border shadow-sm"
-              style={{ backgroundColor: secondary, borderColor: palette.border }}
-            >
+            <div className="grid h-16 w-24 place-items-center overflow-visible">
               {logoUrl ? (
-                <img src={logoUrl} alt={restaurantName} className="h-full w-full object-contain p-1.5" />
+                <img src={logoUrl} alt={restaurantName} className="h-20 max-h-none w-28 max-w-none object-contain" />
               ) : (
                 <UtensilsCrossed className="h-8 w-8" style={{ color: secondaryText }} />
               )}
@@ -374,6 +384,12 @@ function CustomerDisplayContent() {
                     <div className="flex items-center justify-between rounded-2xl px-4 py-3 text-lg" style={{ backgroundColor: `${accent}22`, color: accent }}>
                       <span className="font-bold">Descuento</span>
                       <span className="font-black tabular-nums">-{fmt(cart!.discount)}</span>
+                    </div>
+                  )}
+                  {taxRate > 0 && (
+                    <div className="flex items-center justify-between text-lg">
+                      <span className="opacity-70">IVA {taxRate}%</span>
+                      <span className="font-black tabular-nums">{fmt(taxAmount)}</span>
                     </div>
                   )}
                 </div>

@@ -26,7 +26,8 @@ const supabase = createClient(
 
 interface Category { id: string; name: string; sort_order: number; }
 interface MenuItem { id: string; name: string; price: number; category_id: string; description: string | null; image_url: string | null; }
-interface CartItem { menu_item_id: string; name: string; price: number; quantity: number; notes: string; }
+interface Topping { id: string; menu_item_id: string; name: string; price: number; is_required?: boolean; sort_order?: number; }
+interface CartItem { line_id: string; menu_item_id: string; name: string; price: number; quantity: number; notes: string; toppings?: Topping[]; }
 interface Table { id: string; table_number: number; seats: number; status: string; }
 interface OpenTableOrder {
   id: string;
@@ -81,6 +82,7 @@ function readableText(background: string, dark = '#15130f', light = '#ffffff') {
 export function KitchenClient({ tenantId, tenantSlug, tenantName, country, branding }: Props) {
   const [categories, setCategories] = useState<Category[]>([]);
   const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
+  const [toppings, setToppings] = useState<Topping[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [cart, setCart] = useState<CartItem[]>([]);
   const [tableNumber, setTableNumber] = useState('');
@@ -100,6 +102,9 @@ export function KitchenClient({ tenantId, tenantSlug, tenantName, country, brand
   const [taxRate, setTaxRate] = useState(0);
   const [csrfToken, setCsrfToken] = useState('');
   const [tables, setTables] = useState<Table[]>([]);
+  const [customizingItem, setCustomizingItem] = useState<MenuItem | null>(null);
+  const [selectedToppings, setSelectedToppings] = useState<Topping[]>([]);
+  const [customQty, setCustomQty] = useState(1);
   const currencyInfo = useMemo(() => getCurrencyByCountry(country), [country]);
   const money = useCallback(
     (value: number) => formatPriceWithCurrency(value, currencyInfo.code, currencyInfo.locale),
@@ -135,16 +140,20 @@ export function KitchenClient({ tenantId, tenantSlug, tenantName, country, brand
     try {
       const saved = localStorage.getItem(CART_KEY(tenantId));
       if (saved) {
-        const { cart: savedCart, tableNumber: savedTable } = JSON.parse(saved);
-        if (savedCart?.length) setCart(savedCart);
-        if (savedTable) setTableNumber(savedTable);
+        const { cart: savedCart } = JSON.parse(saved);
+        if (savedCart?.length) {
+          setCart(savedCart.map((item: CartItem) => ({
+            ...item,
+            line_id: item.line_id || `${item.menu_item_id}:base`,
+          })));
+        }
       }
     } catch {}
   }, [tenantId]);
 
   useEffect(() => {
-    try { localStorage.setItem(CART_KEY(tenantId), JSON.stringify({ cart, tableNumber })); } catch {}
-  }, [cart, tableNumber, tenantId]);
+    try { localStorage.setItem(CART_KEY(tenantId), JSON.stringify({ cart })); } catch {}
+  }, [cart, tenantId]);
 
   useEffect(() => {
     try {
@@ -160,15 +169,17 @@ export function KitchenClient({ tenantId, tenantSlug, tenantName, country, brand
       .catch(() => {});
 
     async function load() {
-      const [{ data: cats }, { data: items }, { data: tbls }, settingsRes] = await Promise.all([
+      const [{ data: cats }, { data: items }, { data: itemToppings }, { data: tbls }, settingsRes] = await Promise.all([
         supabase.from('menu_categories').select('id, name, sort_order').eq('tenant_id', tenantId).eq('active', true).order('sort_order'),
         supabase.from('menu_items').select('id, name, price, category_id, description, image_url').eq('tenant_id', tenantId).eq('available', true),
+        supabase.from('product_toppings').select('id, menu_item_id, name, price, is_required, sort_order').eq('tenant_id', tenantId).order('sort_order'),
         supabase.from('tables').select('id, table_number, seats, status').eq('tenant_id', tenantId).neq('status', 'maintenance').order('table_number'),
         fetch(`/api/settings/${tenantId}`, { cache: 'no-store' }).then(r => r.ok ? r.json() : null).catch(() => null),
       ]);
 
       setCategories(cats || []);
       setMenuItems(items || []);
+      setToppings((itemToppings || []) as Topping[]);
       setTables(tbls || []);
       setTaxRate(Number(settingsRes?.tax_rate || 0));
       if (cats?.length) setSelectedCategory(cats[0].id);
@@ -187,23 +198,71 @@ export function KitchenClient({ tenantId, tenantSlug, tenantName, country, brand
     });
   }, [menuItems, search, selectedCategory]);
 
-  const addToCart = useCallback((item: MenuItem) => {
-    setCart(prev => {
-      const existing = prev.find(c => c.menu_item_id === item.id);
-      if (existing) return prev.map(c => c.menu_item_id === item.id ? { ...c, quantity: c.quantity + 1 } : c);
-      return [...prev, { menu_item_id: item.id, name: item.name, price: item.price, quantity: 1, notes: '' }];
+  const toppingsByItem = useMemo(() => {
+    const map = new Map<string, Topping[]>();
+    toppings.forEach(topping => {
+      const list = map.get(topping.menu_item_id) || [];
+      list.push(topping);
+      map.set(topping.menu_item_id, list);
     });
-  }, []);
+    return map;
+  }, [toppings]);
 
-  const updateQty = (id: string, delta: number) => {
+  const buildToppingNote = (tops: Topping[]) => (
+    tops.length ? `Adicionales: ${tops.map(t => `${t.name}${Number(t.price || 0) > 0 ? ` (+${money(Number(t.price || 0))})` : ''}`).join(', ')}` : ''
+  );
+
+  const addToCart = useCallback((item: MenuItem, tops: Topping[] = [], qty = 1) => {
+    const sortedToppings = [...tops].sort((a, b) => a.id.localeCompare(b.id));
+    const toppingIds = sortedToppings.map(t => t.id).join(',');
+    const lineId = `${item.id}:${toppingIds || 'base'}`;
+    const toppingsCost = sortedToppings.reduce((sum, topping) => sum + Number(topping.price || 0), 0);
+    const unitPrice = item.price + toppingsCost;
+    const toppingNote = buildToppingNote(sortedToppings);
+
+    setCart(prev => {
+      const existing = prev.find(c => c.line_id === lineId);
+      if (existing) return prev.map(c => c.line_id === lineId ? { ...c, quantity: c.quantity + qty } : c);
+      return [...prev, { line_id: lineId, menu_item_id: item.id, name: item.name, price: unitPrice, quantity: qty, notes: toppingNote, toppings: sortedToppings }];
+    });
+  }, [money]);
+
+  const openProduct = useCallback((item: MenuItem) => {
+    const itemToppings = toppingsByItem.get(item.id) || [];
+    if (itemToppings.length === 0) {
+      addToCart(item);
+      return;
+    }
+    setCustomizingItem(item);
+    setSelectedToppings([]);
+    setCustomQty(1);
+  }, [addToCart, toppingsByItem]);
+
+  const toggleTopping = (topping: Topping) => {
+    setSelectedToppings(prev => (
+      prev.some(t => t.id === topping.id)
+        ? prev.filter(t => t.id !== topping.id)
+        : [...prev, topping]
+    ));
+  };
+
+  const confirmCustomizedItem = () => {
+    if (!customizingItem) return;
+    addToCart(customizingItem, selectedToppings, customQty);
+    setCustomizingItem(null);
+    setSelectedToppings([]);
+    setCustomQty(1);
+  };
+
+  const updateQty = (lineId: string, delta: number) => {
     setCart(prev => prev
-      .map(c => c.menu_item_id === id ? { ...c, quantity: Math.max(0, c.quantity + delta) } : c)
+      .map(c => c.line_id === lineId ? { ...c, quantity: Math.max(0, c.quantity + delta) } : c)
       .filter(c => c.quantity > 0)
     );
   };
 
-  const removeFromCart = (id: string) => setCart(prev => prev.filter(c => c.menu_item_id !== id));
-  const getQty = (id: string) => cart.find(c => c.menu_item_id === id)?.quantity || 0;
+  const removeFromCart = (lineId: string) => setCart(prev => prev.filter(c => c.line_id !== lineId));
+  const getQty = (id: string) => cart.filter(c => c.menu_item_id === id).reduce((sum, item) => sum + item.quantity, 0);
   const cartCount = cart.reduce((sum, item) => sum + item.quantity, 0);
   const subtotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
   const taxAmount = taxRate > 0 ? subtotal * (taxRate / 100) : 0;
@@ -228,8 +287,8 @@ export function KitchenClient({ tenantId, tenantSlug, tenantName, country, brand
   const draftBelongsToAccountTable = cart.length > 0 && tableNumber && tableNumber === accountTableNumber;
   const accountDraftTotal = draftBelongsToAccountTable ? total : 0;
 
-  const saveNote = (id: string) => {
-    setCart(prev => prev.map(c => c.menu_item_id === id ? { ...c, notes: noteText } : c));
+  const saveNote = (lineId: string) => {
+    setCart(prev => prev.map(c => c.line_id === lineId ? { ...c, notes: noteText } : c));
     setEditingNote(null);
   };
 
@@ -388,46 +447,51 @@ export function KitchenClient({ tenantId, tenantSlug, tenantName, country, brand
               Limpiar
             </button>
             {cart.map(item => (
-              <div key={item.menu_item_id} className="rounded-[1.35rem] border p-3" style={{ borderColor: brand.border, backgroundColor: brand.soft }}>
+              <div key={item.line_id} className="rounded-[1.35rem] border p-3" style={{ borderColor: brand.border, backgroundColor: brand.soft }}>
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0">
                     <p className="line-clamp-2 text-sm font-black leading-5" style={{ color: brand.surfaceText }}>{item.name}</p>
                     <p className="mt-1 text-xs font-black" style={{ color: brand.mutedText }}>{money(item.price)} unidad</p>
+                    {item.toppings && item.toppings.length > 0 && (
+                      <p className="mt-1 line-clamp-2 text-[11px] font-bold" style={{ color: brand.mutedText }}>
+                        {item.toppings.map(t => t.name).join(', ')}
+                      </p>
+                    )}
                   </div>
-                  <button onClick={() => removeFromCart(item.menu_item_id)} className="grid h-8 w-8 place-items-center rounded-xl text-black/35 transition hover:bg-red-50 hover:text-red-500">
+                  <button onClick={() => removeFromCart(item.line_id)} className="grid h-8 w-8 place-items-center rounded-xl text-black/35 transition hover:bg-red-50 hover:text-red-500">
                     <Trash2 className="h-4 w-4" />
                   </button>
                 </div>
 
                 <div className="mt-3 flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <button onClick={() => updateQty(item.menu_item_id, -1)} className="grid h-10 w-10 place-items-center rounded-2xl bg-black/[0.07] active:scale-95">
+                    <button onClick={() => updateQty(item.line_id, -1)} className="grid h-10 w-10 place-items-center rounded-2xl bg-black/[0.07] active:scale-95">
                       <Minus className="h-4 w-4" />
                     </button>
                     <span className="w-7 text-center text-lg font-black" style={{ color: brand.surfaceText }}>{item.quantity}</span>
-                    <button onClick={() => updateQty(item.menu_item_id, 1)} className="grid h-10 w-10 place-items-center rounded-2xl active:scale-95" style={{ backgroundColor: brand.button, color: brand.buttonText }}>
+                    <button onClick={() => updateQty(item.line_id, 1)} className="grid h-10 w-10 place-items-center rounded-2xl active:scale-95" style={{ backgroundColor: brand.button, color: brand.buttonText }}>
                       <Plus className="h-4 w-4" />
                     </button>
                   </div>
                   <span className="text-base font-black" style={{ color: brand.surfaceText }}>{money(item.price * item.quantity)}</span>
                 </div>
 
-                {editingNote === item.menu_item_id ? (
+                {editingNote === item.line_id ? (
                   <div className="mt-3 flex gap-2">
                     <input
                       autoFocus
                       value={noteText}
                       onChange={e => setNoteText(e.target.value)}
-                      onKeyDown={e => { if (e.key === 'Enter') saveNote(item.menu_item_id); }}
+                      onKeyDown={e => { if (e.key === 'Enter') saveNote(item.line_id); }}
                       placeholder="Sin cebolla, bien cocido..."
                       className="min-w-0 flex-1 rounded-2xl border px-3 py-2 text-xs font-semibold outline-none"
                       style={{ backgroundColor: brand.surface, borderColor: brand.border, color: brand.surfaceText }}
                     />
-                    <button onClick={() => saveNote(item.menu_item_id)} className="rounded-2xl px-4 text-xs font-black" style={{ backgroundColor: brand.button, color: brand.buttonText }}>OK</button>
+                    <button onClick={() => saveNote(item.line_id)} className="rounded-2xl px-4 text-xs font-black" style={{ backgroundColor: brand.button, color: brand.buttonText }}>OK</button>
                   </div>
                 ) : (
                   <button
-                    onClick={() => { setEditingNote(item.menu_item_id); setNoteText(item.notes); }}
+                    onClick={() => { setEditingNote(item.line_id); setNoteText(item.notes); }}
                     className="mt-3 rounded-full px-3 py-1.5 text-xs font-black"
                     style={{ backgroundColor: brand.surface, color: brand.mutedText }}
                   >
@@ -580,7 +644,7 @@ export function KitchenClient({ tenantId, tenantSlug, tenantName, country, brand
                   const qty = getQty(item.id);
                   return (
                     <article key={item.id} className="overflow-hidden rounded-[1rem] border shadow-sm" style={{ borderColor: brand.border, backgroundColor: brand.surface }}>
-                      <button onClick={() => addToCart(item)} className="block w-full text-left active:scale-[0.99]">
+                      <button onClick={() => openProduct(item)} className="block w-full text-left active:scale-[0.99]">
                         <div className="relative h-20 sm:h-28" style={{ backgroundColor: brand.soft }}>
                           {item.image_url ? (
                             <Image src={item.image_url} alt={item.name} fill sizes="(max-width: 768px) 50vw, 25vw" className="object-cover" />
@@ -598,12 +662,12 @@ export function KitchenClient({ tenantId, tenantSlug, tenantName, country, brand
                       <div className="flex items-center justify-between border-t border-black/8 p-1.5">
                         {qty > 0 ? (
                           <>
-                            <button onClick={() => updateQty(item.id, -1)} className="grid h-9 w-9 place-items-center rounded-xl bg-black/[0.06] active:scale-95"><Minus className="h-4 w-4" /></button>
+                            <button onClick={() => updateQty(cart.find(c => c.menu_item_id === item.id)?.line_id || item.id, -1)} className="grid h-9 w-9 place-items-center rounded-xl bg-black/[0.06] active:scale-95"><Minus className="h-4 w-4" /></button>
                             <span className="text-base font-black">{qty}</span>
-                            <button onClick={() => addToCart(item)} className="grid h-9 w-9 place-items-center rounded-xl active:scale-95" style={{ backgroundColor: brand.button, color: brand.buttonText }}><Plus className="h-4 w-4" /></button>
+                            <button onClick={() => openProduct(item)} className="grid h-9 w-9 place-items-center rounded-xl active:scale-95" style={{ backgroundColor: brand.button, color: brand.buttonText }}><Plus className="h-4 w-4" /></button>
                           </>
                         ) : (
-                          <button onClick={() => addToCart(item)} className="flex h-9 w-full items-center justify-center gap-1.5 rounded-xl text-xs font-black active:scale-[0.98]" style={{ backgroundColor: brand.button, color: brand.buttonText }}>
+                          <button onClick={() => openProduct(item)} className="flex h-9 w-full items-center justify-center gap-1.5 rounded-xl text-xs font-black active:scale-[0.98]" style={{ backgroundColor: brand.button, color: brand.buttonText }}>
                             <Plus className="h-4 w-4" />
                             Agregar
                           </button>
@@ -778,6 +842,67 @@ export function KitchenClient({ tenantId, tenantSlug, tenantName, country, brand
           <div className="absolute inset-0 bg-black/45" onClick={() => setCartOpen(false)} />
           <div className="relative max-h-[92vh] overflow-hidden rounded-t-[2rem] bg-white shadow-2xl">
             <CartPanel isMobile />
+          </div>
+        </div>
+      )}
+
+      {customizingItem && (
+        <div className="fixed inset-0 z-50 flex items-end bg-black/45 p-0 backdrop-blur-sm sm:items-center sm:justify-center sm:p-4">
+          <div className="w-full max-w-lg overflow-hidden rounded-t-[2rem] shadow-2xl sm:rounded-[2rem]" style={{ backgroundColor: brand.surface, color: brand.surfaceText }}>
+            <div className="flex items-center justify-between border-b border-black/10 p-4">
+              <div className="min-w-0">
+                <p className="text-xs font-black uppercase" style={{ color: brand.mutedText }}>Personalizar plato</p>
+                <h3 className="truncate text-xl font-black">{customizingItem.name}</h3>
+              </div>
+              <button onClick={() => setCustomizingItem(null)} className="grid h-10 w-10 place-items-center rounded-2xl bg-black/[0.06]">
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="max-h-[58vh] space-y-3 overflow-y-auto p-4">
+              {(toppingsByItem.get(customizingItem.id) || []).map(topping => {
+                const checked = selectedToppings.some(t => t.id === topping.id);
+                return (
+                  <button
+                    key={topping.id}
+                    onClick={() => toggleTopping(topping)}
+                    className="flex w-full items-center gap-3 rounded-2xl border p-3 text-left transition active:scale-[0.99]"
+                    style={checked ? { borderColor: brand.primary, backgroundColor: brand.soft } : { borderColor: brand.border, backgroundColor: brand.surface }}
+                  >
+                    <span className="grid h-7 w-7 place-items-center rounded-xl border text-sm font-black" style={checked ? { backgroundColor: brand.primary, borderColor: brand.primary, color: readableText(brand.primary) } : { borderColor: brand.border, color: brand.mutedText }}>
+                      {checked ? '✓' : '+'}
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block text-sm font-black">{topping.name}</span>
+                      {Number(topping.price || 0) > 0 && <span className="text-xs font-bold" style={{ color: brand.mutedText }}>+ {money(Number(topping.price || 0))}</span>}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+
+            <div className="border-t border-black/10 p-4">
+              <div className="mb-3 flex items-center justify-between rounded-2xl p-3" style={{ backgroundColor: brand.soft }}>
+                <span className="text-sm font-black">Cantidad</span>
+                <div className="flex items-center gap-2">
+                  <button onClick={() => setCustomQty(q => Math.max(1, q - 1))} className="grid h-10 w-10 place-items-center rounded-2xl bg-black/[0.07] active:scale-95">
+                    <Minus className="h-4 w-4" />
+                  </button>
+                  <span className="w-8 text-center text-lg font-black">{customQty}</span>
+                  <button onClick={() => setCustomQty(q => q + 1)} className="grid h-10 w-10 place-items-center rounded-2xl active:scale-95" style={{ backgroundColor: brand.button, color: brand.buttonText }}>
+                    <Plus className="h-4 w-4" />
+                  </button>
+                </div>
+              </div>
+              <button
+                onClick={confirmCustomizedItem}
+                className="flex h-14 w-full items-center justify-between rounded-[1.25rem] px-5 text-base font-black shadow-xl shadow-black/20 active:scale-[0.98]"
+                style={{ backgroundColor: brand.button, color: brand.buttonText }}
+              >
+                <span>Agregar al pedido</span>
+                <span>{money((customizingItem.price + selectedToppings.reduce((sum, topping) => sum + Number(topping.price || 0), 0)) * customQty)}</span>
+              </button>
+            </div>
           </div>
         </div>
       )}

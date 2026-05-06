@@ -717,13 +717,14 @@ export function POSTerminal({
         selectedTableId,
         selectedTableNumber,
         tip,
+        taxRate,
       };
 
       saveCartToSupabase(tenantId, cartData, supabase).catch((err) => {
         console.error('Background cart sync failed (will use localStorage):', err);
       });
     }
-  }, [cart, discount, discountCode, tip, tenantId]);
+  }, [cart, discount, discountCode, tip, tenantId, taxRate]);
 
   // Real-time subscription for incoming orders (delivery/pickup)
   useEffect(() => {
