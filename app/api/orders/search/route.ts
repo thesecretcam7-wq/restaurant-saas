@@ -22,16 +22,40 @@ export async function GET(request: NextRequest) {
 
       const supabase = createServiceClient()
 
-      // Search by order_number (case-insensitive, ilike for partial matches)
-      const searchTerm = `%${orderNumber}%`
+      const rawSearch = orderNumber.trim()
+      const searchTerm = `%${rawSearch}%`
+      const onlyDigits = rawSearch.replace(/\D/g, '')
+      const maybeTableNumber = Number(onlyDigits || rawSearch)
 
-      const { data: orders, error } = await supabase
+      let query = supabase
         .from('orders')
         .select('id, order_number, customer_name, customer_phone, total, payment_status, status, items, created_at, delivery_type, table_number')
         .eq('tenant_id', tenantId)
-        .ilike('order_number', searchTerm)
         .order('created_at', { ascending: false })
         .limit(limit)
+
+      if (/mesa/i.test(rawSearch) && Number.isFinite(maybeTableNumber)) {
+        query = query.eq('table_number', maybeTableNumber)
+      } else {
+        const orFilters = [
+          `order_number.ilike.${searchTerm}`,
+          `customer_name.ilike.${searchTerm}`,
+          `customer_phone.ilike.${searchTerm}`,
+        ]
+
+        if (onlyDigits.length >= 3) {
+          orFilters.push(`order_number.ilike.%${onlyDigits}%`)
+          orFilters.push(`customer_phone.ilike.%${onlyDigits}%`)
+        }
+
+        if (Number.isFinite(maybeTableNumber) && maybeTableNumber > 0 && maybeTableNumber <= 999) {
+          orFilters.push(`table_number.eq.${maybeTableNumber}`)
+        }
+
+        query = query.or(orFilters.join(','))
+      }
+
+      const { data: orders, error } = await query
 
       if (error) {
         return NextResponse.json({ error: error.message }, { status: 500 })
