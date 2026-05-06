@@ -1,9 +1,15 @@
 import { createServerClient } from '@supabase/ssr'
+import { createClient } from '@supabase/supabase-js'
 import { cookies } from 'next/headers'
 import { NextRequest, NextResponse } from 'next/server'
 import Stripe from 'stripe'
 
-const getStripe = () => new Stripe(process.env.STRIPE_SECRET_KEY!)
+const getStripe = () => {
+  if (!process.env.STRIPE_SECRET_KEY) {
+    throw new Error('Falta STRIPE_SECRET_KEY en las variables de entorno')
+  }
+  return new Stripe(process.env.STRIPE_SECRET_KEY)
+}
 
 async function createConnectLink(request: NextRequest, tenantParam?: string | null) {
   try {
@@ -24,11 +30,24 @@ async function createConnectLink(request: NextRequest, tenantParam?: string | nu
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
 
+    if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
+      return NextResponse.json(
+        { error: 'Falta SUPABASE_SERVICE_ROLE_KEY en las variables de entorno' },
+        { status: 500 }
+      )
+    }
+
+    const serviceSupabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!,
+      { auth: { autoRefreshToken: false, persistSession: false } }
+    )
+
     const body = request.method === 'POST' ? await request.json().catch(() => ({})) : {}
     const requestedTenant = tenantParam || body.tenantId || body.domain || null
     const isUUID = requestedTenant && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(requestedTenant)
 
-    let tenantQuery = supabase
+    let tenantQuery = serviceSupabase
       .from('tenants')
       .select('*')
       .eq('owner_id', user.id)
@@ -38,8 +57,8 @@ async function createConnectLink(request: NextRequest, tenantParam?: string | nu
     }
 
     const { data: tenant } = requestedTenant
-      ? await tenantQuery.single()
-      : await tenantQuery.single()
+      ? await tenantQuery.maybeSingle()
+      : await tenantQuery.maybeSingle()
 
     if (!tenant) return NextResponse.json({ error: 'Tenant no encontrado' }, { status: 404 })
 
@@ -55,7 +74,7 @@ async function createConnectLink(request: NextRequest, tenantParam?: string | nu
       })
       stripeAccountId = account.id
 
-      await supabase
+      await serviceSupabase
         .from('tenants')
         .update({ stripe_account_id: stripeAccountId, stripe_account_status: 'pending' })
         .eq('id', tenant.id)
@@ -76,7 +95,8 @@ async function createConnectLink(request: NextRequest, tenantParam?: string | nu
     return NextResponse.json({ url: accountLink.url })
   } catch (error) {
     console.error('Stripe connect error:', error)
-    return NextResponse.json({ error: 'Error al conectar con Stripe' }, { status: 500 })
+    const errorMessage = error instanceof Error ? error.message : 'Error al conectar con Stripe'
+    return NextResponse.json({ error: errorMessage }, { status: 500 })
   }
 }
 
