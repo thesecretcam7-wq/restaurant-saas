@@ -4,6 +4,7 @@ import { getTenantIdFromSlug } from '@/lib/tenant'
 import type { Order } from '@/lib/types'
 import UpgradeGate from '@/components/admin/UpgradeGate'
 import { BarChart3, PackageOpen, ReceiptText, ShoppingBag, TrendingUp, Wallet } from 'lucide-react'
+import { VoidSaleButton } from '@/components/admin/VoidSaleButton'
 
 interface Props {
   params: Promise<{ domain: string }>
@@ -174,6 +175,7 @@ export default async function VentasPage({ params }: Props) {
                 <th className="px-5 py-3 text-left">Pedido</th>
                 <th className="px-5 py-3 text-left">Estado</th>
                 <th className="px-5 py-3 text-right">Total</th>
+                <th className="px-5 py-3 text-right">Acciones</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-black/8">
@@ -191,6 +193,13 @@ export default async function VentasPage({ params }: Props) {
                     </span>
                   </td>
                   <td className="px-5 py-3 text-right font-black text-[#15130f]">${Number(order.total).toLocaleString('es-CO')}</td>
+                  <td className="px-5 py-3 text-right">
+                    {order.payment_status === 'paid' && order.status !== 'cancelled' ? (
+                      <VoidSaleButton orderId={order.id} orderNumber={order.order_number} />
+                    ) : (
+                      <span className="text-xs font-bold text-black/30">-</span>
+                    )}
+                  </td>
                 </tr>
               ))}
             </tbody>
