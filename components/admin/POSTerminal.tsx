@@ -1138,6 +1138,7 @@ export function POSTerminal({
 
         const orderPayload = {
           tenantId,
+          tenantSlug: tenantSlug || null,
           customerInfo: {
             name: 'POS Counter',
             email: null,

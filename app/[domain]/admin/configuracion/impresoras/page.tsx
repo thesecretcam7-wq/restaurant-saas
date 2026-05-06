@@ -207,7 +207,7 @@ export default function PrintersConfigPage({ params }: Props) {
         method: 'DELETE',
       });
       if (!response.ok) throw new Error('Error al eliminar');
-      setDevices(devices.filter((d) => d.id !== deviceId));
+      setDevices(devices.filter((d) => d.id !== deviceId).map((d) => ({ ...d, is_default: false })));
       showToast('Dispositivo eliminado', 'success');
     } catch {
       showToast('Error al eliminar dispositivo', 'error');

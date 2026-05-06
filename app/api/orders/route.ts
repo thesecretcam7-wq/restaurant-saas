@@ -71,7 +71,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { tenantId: tenantParam, items, customerInfo, deliveryType, deliveryAddress, notes, paymentMethod, tableNumber, waiterName, table_id, waiter_id, amountPaid, source } = body
+    const { tenantId: tenantParam, tenantSlug, items, customerInfo, deliveryType, deliveryAddress, notes, paymentMethod, tableNumber, waiterName, table_id, waiter_id, amountPaid, source } = body
 
     if (!tenantParam) {
       return NextResponse.json({ error: 'tenantId is required' }, { status: 400 })
@@ -80,13 +80,23 @@ export async function POST(request: NextRequest) {
     const supabase = createServiceClient()
 
     // SECURITY: Validate that tenantId corresponds to an active restaurant
-    const tenantLookup = String(tenantParam)
+    const tenantLookup = String(tenantParam || tenantSlug || '').trim()
     const isTenantUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(tenantLookup)
-    const { data: tenant, error: tenantError } = await supabase
+    let { data: tenant, error: tenantError } = await supabase
       .from('tenants')
       .select('id')
       .eq(isTenantUUID ? 'id' : 'slug', tenantLookup)
       .single()
+
+    if ((tenantError || !tenant) && tenantSlug) {
+      const retry = await supabase
+        .from('tenants')
+        .select('id')
+        .eq('slug', String(tenantSlug).trim())
+        .single()
+      tenant = retry.data
+      tenantError = retry.error
+    }
 
     if (tenantError || !tenant) {
       return NextResponse.json({ error: 'Invalid restaurant' }, { status: 400 })

@@ -187,6 +187,17 @@ export async function DELETE(request: NextRequest) {
       );
     }
 
+    // Clear references before deleting. Otherwise default/kitchen printer foreign keys can block deletion.
+    await supabase
+      .from('restaurant_settings')
+      .update({
+        default_receipt_printer_id: null,
+        kitchen_printer_id: null,
+        printer_updated_at: new Date().toISOString(),
+      })
+      .eq('tenant_id', tenantId)
+      .or(`default_receipt_printer_id.eq.${deviceId},kitchen_printer_id.eq.${deviceId}`);
+
     // Delete device
     const { error } = await supabase
       .from('printer_devices')

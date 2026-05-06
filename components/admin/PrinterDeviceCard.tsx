@@ -117,9 +117,9 @@ export function PrinterDeviceCard({
 
         <button
           onClick={() => setShowConfirmDelete(true)}
-          disabled={loading || isDefault}
+          disabled={loading}
           className="flex-1 min-w-fit px-2 py-1.5 bg-red-600 hover:bg-red-700 disabled:bg-gray-700 disabled:cursor-not-allowed text-white text-xs rounded font-medium flex items-center justify-center gap-1 transition"
-          title="Eliminar dispositivo"
+          title={isDefault ? 'Eliminar dispositivo predeterminado' : 'Eliminar dispositivo'}
         >
           <Trash2 className="w-3 h-3" />
           Eliminar
@@ -129,7 +129,10 @@ export function PrinterDeviceCard({
       {showConfirmDelete && (
         <div className="bg-red-900/30 border border-red-700 rounded p-3 space-y-2">
           <p className="text-sm text-red-300 font-medium">Eliminar este dispositivo?</p>
-          <p className="text-xs text-red-200">Esta accion no se puede deshacer.</p>
+          <p className="text-xs text-red-200">
+            {isDefault ? 'Tambien se quitara como impresora predeterminada. ' : ''}
+            Esta accion no se puede deshacer.
+          </p>
           <div className="flex gap-2">
             <button
               onClick={() => {
