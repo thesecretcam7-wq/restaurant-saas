@@ -53,12 +53,11 @@ export default function PrintersConfigPage({ params }: Props) {
 
   const saveAutoPrint = useCallback(async (value: boolean) => {
     if (!tenantId) return;
-    await supabase
+    const { error } = await supabase
       .from('restaurant_settings')
-      .upsert(
-        { tenant_id: tenantId, printer_auto_print: value },
-        { onConflict: 'tenant_id' }
-      );
+      .update({ printer_auto_print: value, printer_updated_at: new Date().toISOString() })
+      .eq('tenant_id', tenantId);
+    if (error) showToast('Error al guardar auto-impresion', 'error');
   }, [tenantId]);
 
   const handleAutoPrintChange = async (checked: boolean) => {
@@ -183,12 +182,16 @@ export default function PrintersConfigPage({ params }: Props) {
         body: JSON.stringify({ tenantId, is_default: true }),
       });
 
-      await supabase
+      const { error: settingsError } = await supabase
         .from('restaurant_settings')
-        .upsert(
-          { tenant_id: tenantId, default_receipt_printer_id: deviceId },
-          { onConflict: 'tenant_id' }
-        );
+        .update({
+          default_receipt_printer_id: deviceId,
+          printer_auto_print: true,
+          printer_updated_at: new Date().toISOString(),
+        })
+        .eq('tenant_id', tenantId);
+
+      if (settingsError) throw settingsError;
 
       setDevices(devices.map((d) => ({ ...d, is_default: d.id === deviceId })));
       showToast('Impresora predeterminada actualizada', 'success');
