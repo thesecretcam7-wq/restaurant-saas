@@ -271,6 +271,8 @@ function printViaBrowserAPI(data: ReceiptData): void {
  * Generate HTML for browser printing (fallback)
  */
 function generateReceiptHTML(data: ReceiptData): string {
+  const detailRows = data.items.length + 3 + (data.discount > 0 ? 1 : 0) + ((data.tax || 0) > 0 ? 1 : 0);
+  const pageHeightMm = Math.min(220, Math.max(82, 48 + detailRows * 8));
   const itemsHTML = data.items
     .map(
       (item) =>
@@ -290,7 +292,7 @@ function generateReceiptHTML(data: ReceiptData): string {
       <title>Recibo ${data.orderNumber}</title>
       <style>
         @page {
-          size: 80mm 210mm;
+          size: 80mm ${pageHeightMm}mm;
           margin: 0;
         }
         * {
@@ -342,7 +344,7 @@ function generateReceiptHTML(data: ReceiptData): string {
         }
         .footer {
           text-align: center;
-          margin-top: 12px;
+          margin-top: 6px;
           font-size: 16px;
           font-weight: 800;
         }
@@ -398,7 +400,7 @@ function generateReceiptHTML(data: ReceiptData): string {
       </table>
       <div class="footer">
         <p>Gracias por su compra</p>
-        <p style="margin: 18px 0 0;">.</p>
+        <p style="margin: 6px 0 0;">.</p>
       </div>
     </body>
     </html>

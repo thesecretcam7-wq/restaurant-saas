@@ -13,6 +13,17 @@ interface Props {
   params: Promise<{ domain: string }>
 }
 
+function isBrowserDriverDevice(device: PrinterDevice) {
+  return device.config?.connection_mode === 'browser_driver' || (!device.vendor_id && !device.product_id);
+}
+
+function dedupeBrowserDriverDevices(devices: PrinterDevice[]) {
+  const browserDriverDevices = devices.filter(isBrowserDriverDevice);
+  const selectedBrowserDriver = browserDriverDevices.find((device) => device.is_default) || browserDriverDevices[0];
+  const directDevices = devices.filter((device) => !isBrowserDriverDevice(device));
+  return selectedBrowserDriver ? [selectedBrowserDriver, ...directDevices] : directDevices;
+}
+
 export default function PrintersConfigPage({ params }: Props) {
   const { domain: slug } = use(params);
   const { tenantId } = useTenantResolver(slug);
@@ -31,7 +42,7 @@ export default function PrintersConfigPage({ params }: Props) {
     async function init() {
       const res = await fetch(`/api/devices?tenantId=${tenantId}`);
       const data = await res.json();
-      setDevices(data.devices || []);
+      setDevices(dedupeBrowserDriverDevices(data.devices || []));
 
       const { data: settings } = await supabase
         .from('restaurant_settings')
@@ -136,6 +147,13 @@ export default function PrintersConfigPage({ params }: Props) {
     try {
       setLoading(true);
 
+      const existingWindowsPrinter = devices.find(isBrowserDriverDevice);
+      if (existingWindowsPrinter) {
+        await handleSetDefault(existingWindowsPrinter.id);
+        showToast('Ya existe una impresora de Windows. La deje como predeterminada.', 'success');
+        return;
+      }
+
       const response = await fetch('/api/devices', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -160,7 +178,7 @@ export default function PrintersConfigPage({ params }: Props) {
       if (!response.ok) throw new Error('Error al crear impresora de Windows');
 
       const newDevice = await response.json();
-      setDevices([newDevice.device, ...devices]);
+      setDevices(dedupeBrowserDriverDevices([newDevice.device, ...devices]));
       await handleSetDefault(newDevice.device.id);
       showToast('Impresora de Windows agregada como predeterminada', 'success');
     } catch (error) {
@@ -229,6 +247,44 @@ export default function PrintersConfigPage({ params }: Props) {
       showToast('Error al probar impresora', 'error');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleConfigureDevice = async (deviceId: string, configPatch: Partial<PrinterDevice['config']>) => {
+    if (!tenantId) return;
+    const device = devices.find((item) => item.id === deviceId);
+    if (!device) return;
+
+    const nextConfig = {
+      ...device.config,
+      ...configPatch,
+    };
+
+    setDevices((currentDevices) =>
+      currentDevices.map((item) =>
+        item.id === deviceId ? { ...item, config: nextConfig } : item
+      )
+    );
+
+    try {
+      const response = await fetch(`/api/devices?id=${deviceId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          tenantId,
+          config: nextConfig,
+        }),
+      });
+
+      if (!response.ok) throw new Error('Error al guardar configuracion');
+      showToast('Configuracion de impresora guardada', 'success');
+    } catch {
+      showToast('Error al guardar configuracion de impresora', 'error');
+      setDevices((currentDevices) =>
+        currentDevices.map((item) =>
+          item.id === deviceId ? device : item
+        )
+      );
     }
   };
 
@@ -320,7 +376,7 @@ export default function PrintersConfigPage({ params }: Props) {
               onSetDefault={() => handleSetDefault(device.id)}
               onDelete={() => handleDelete(device.id)}
               onTest={() => handleTest(device.id)}
-              onConfigure={() => {}}
+              onConfigure={(config) => handleConfigureDevice(device.id, config)}
               loading={loading}
             />
           ))

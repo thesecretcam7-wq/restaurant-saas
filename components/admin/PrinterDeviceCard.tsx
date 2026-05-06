@@ -10,7 +10,7 @@ interface PrinterDeviceCardProps {
   onSetDefault: () => void;
   onDelete: () => void;
   onTest: () => void;
-  onConfigure: () => void;
+  onConfigure: (config: Partial<PrinterDevice['config']>) => void;
   loading?: boolean;
 }
 
@@ -24,6 +24,7 @@ export function PrinterDeviceCard({
   loading = false,
 }: PrinterDeviceCardProps) {
   const [showConfirmDelete, setShowConfirmDelete] = useState(false);
+  const [showConfig, setShowConfig] = useState(false);
   const isBrowserDriver = device.config?.connection_mode === 'browser_driver' || (!device.vendor_id && !device.product_id);
   const isWebUsbPrinter = device.config?.connection_mode === 'webusb' || Boolean(device.vendor_id && device.product_id);
   const isConnected = device.status === 'connected';
@@ -95,10 +96,10 @@ export function PrinterDeviceCard({
         </button>
 
         <button
-          onClick={onConfigure}
+          onClick={() => setShowConfig((value) => !value)}
           disabled={loading}
           className="flex-1 min-w-fit px-2 py-1.5 bg-gray-700 hover:bg-gray-600 disabled:cursor-not-allowed text-white text-xs rounded font-medium flex items-center justify-center gap-1 transition"
-          title="Configurar dispositivo"
+          title={showConfig ? 'Ocultar configuracion' : 'Configurar dispositivo'}
         >
           <Settings className="w-3 h-3" />
           Config
@@ -125,6 +126,56 @@ export function PrinterDeviceCard({
           Eliminar
         </button>
       </div>
+
+      {showConfig && (
+        <div className="rounded-lg border border-gray-700 bg-gray-900/70 p-3 space-y-3">
+          <p className="text-sm font-bold text-white">Configuracion rapida</p>
+
+          <label className="block text-xs text-gray-300">
+            Ancho del papel
+            <select
+              value={device.config?.paper_width || 80}
+              disabled={loading}
+              onChange={(event) => onConfigure({ paper_width: Number(event.target.value) as 58 | 80 })}
+              className="mt-1 w-full rounded border border-gray-700 bg-gray-950 px-3 py-2 text-sm text-white"
+            >
+              <option value={80}>80mm</option>
+              <option value={58}>58mm</option>
+            </select>
+          </label>
+
+          <label className="block text-xs text-gray-300">
+            Copias
+            <input
+              type="number"
+              min={1}
+              max={5}
+              value={device.config?.copies || 1}
+              disabled={loading}
+              onChange={(event) => {
+                const copies = Math.min(5, Math.max(1, Number(event.target.value) || 1));
+                onConfigure({ copies });
+              }}
+              className="mt-1 w-full rounded border border-gray-700 bg-gray-950 px-3 py-2 text-sm text-white"
+            />
+          </label>
+
+          <label className="flex items-center justify-between gap-3 rounded border border-gray-800 bg-gray-950 px-3 py-2 text-xs text-gray-300">
+            Auto-imprimir al cobrar
+            <input
+              type="checkbox"
+              checked={device.config?.auto_print ?? true}
+              disabled={loading}
+              onChange={(event) => onConfigure({ auto_print: event.target.checked })}
+              className="h-4 w-4"
+            />
+          </label>
+
+          <p className="text-[11px] leading-relaxed text-gray-500">
+            En modo Windows se usara la impresora predeterminada que elijas en el cuadro de impresion de Chrome.
+          </p>
+        </div>
+      )}
 
       {showConfirmDelete && (
         <div className="bg-red-900/30 border border-red-700 rounded p-3 space-y-2">
