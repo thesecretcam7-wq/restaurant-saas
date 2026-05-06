@@ -36,7 +36,7 @@ export default async function CartaPage({ params }: CartaProps) {
     supabase.from('menu_items').select('*').eq('tenant_id', tenantId).eq('available', true).order('featured', { ascending: false }).order('name'),
     supabase
       .from('product_toppings')
-      .select('id, menu_item_id, name, price, is_required, sort_order')
+      .select('id, menu_item_id, name, price, sort_order')
       .eq('tenant_id', tenantId)
       .order('sort_order')
       .then(res => res, () => ({ data: [] as Topping[] })),

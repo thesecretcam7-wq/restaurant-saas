@@ -46,7 +46,7 @@ export default async function KioskoPage({ params, searchParams }: Props) {
       .order('created_at', { ascending: true }),
     supabase
       .from('product_toppings')
-      .select('id, menu_item_id, name, price, is_required, sort_order')
+      .select('id, menu_item_id, name, price, sort_order')
       .eq('tenant_id', tenant.id)
       .order('sort_order')
       .then(res => res, () => ({ data: [] })),

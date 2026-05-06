@@ -37,7 +37,7 @@ export default function ToppingsModal({ item, toppings, tenantId, primaryColor, 
     addItem({
       item_id: item.id,
       name: item.name,
-      price: item.price + toppingsCost,
+      price: item.price,
       image_url: item.image_url || undefined,
       qty,
       toppings: selectedToppings,

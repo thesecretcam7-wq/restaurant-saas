@@ -172,7 +172,7 @@ export function KitchenClient({ tenantId, tenantSlug, tenantName, country, brand
       const [{ data: cats }, { data: items }, { data: itemToppings }, { data: tbls }, settingsRes] = await Promise.all([
         supabase.from('menu_categories').select('id, name, sort_order').eq('tenant_id', tenantId).eq('active', true).order('sort_order'),
         supabase.from('menu_items').select('id, name, price, category_id, description, image_url').eq('tenant_id', tenantId).eq('available', true),
-        supabase.from('product_toppings').select('id, menu_item_id, name, price, is_required, sort_order').eq('tenant_id', tenantId).order('sort_order'),
+        supabase.from('product_toppings').select('id, menu_item_id, name, price, sort_order').eq('tenant_id', tenantId).order('sort_order'),
         supabase.from('tables').select('id, table_number, seats, status').eq('tenant_id', tenantId).neq('status', 'maintenance').order('table_number'),
         fetch(`/api/settings/${tenantId}`, { cache: 'no-store' }).then(r => r.ok ? r.json() : null).catch(() => null),
       ]);
