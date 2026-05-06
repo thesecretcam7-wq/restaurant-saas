@@ -71,7 +71,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { tenantId: tenantParam, tenantSlug, items, customerInfo, deliveryType, deliveryAddress, notes, paymentMethod, tableNumber, waiterName, table_id, waiter_id, amountPaid, source } = body
+    const { tenantId: tenantParam, tenantSlug, items, customerInfo, deliveryType, deliveryAddress, notes, paymentMethod, tableNumber, waiterName, amountPaid, source } = body
 
     if (!tenantParam) {
       return NextResponse.json({ error: 'tenantId is required' }, { status: 400 })
@@ -219,10 +219,6 @@ export async function POST(request: NextRequest) {
       status: 'pending',
       display_number: displayNumber,
     }
-
-    // Only add these fields if they exist in the schema
-    if (table_id) orderData.table_id = table_id
-    if (waiter_id) orderData.waiter_id = waiter_id
 
     const { data: order, error } = await supabase
       .from('orders')
