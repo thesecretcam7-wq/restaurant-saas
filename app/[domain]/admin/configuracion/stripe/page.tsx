@@ -9,11 +9,11 @@ export default async function StripeConnectPage({ params }: Props) {
   const supabase = createServiceClient()
   const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(domain)
 
-  const { data: tenant } = await supabase
+  const { data: tenant, error: tenantError } = await supabase
     .from('tenants')
     .select('id, slug, stripe_account_id, stripe_account_status, stripe_customer_id')
     .eq(isUUID ? 'id' : 'slug', domain)
-    .single()
+    .maybeSingle()
 
   const isConnected = tenant?.stripe_account_status === 'verified'
   const isPending = tenant?.stripe_account_status === 'pending'
@@ -27,6 +27,15 @@ export default async function StripeConnectPage({ params }: Props) {
           <p className="admin-subtitle">Conecta la cuenta del restaurante para cobrar desde tienda, QR y kiosko.</p>
         </div>
       </div>
+
+      {!tenant && (
+        <div className="rounded-2xl border border-red-200 bg-red-50 p-5">
+          <h2 className="text-lg font-black text-red-800">No pude cargar este restaurante</h2>
+          <p className="mt-1 text-sm font-semibold text-red-700">
+            {tenantError?.message || 'No se encontro el restaurante para preparar la conexion con Stripe.'}
+          </p>
+        </div>
+      )}
 
       <div className={`rounded-2xl border p-5 ${
         isConnected ? 'border-emerald-200 bg-emerald-50' : isPending ? 'border-amber-200 bg-amber-50' : 'border-black/10 bg-white'
@@ -69,8 +78,13 @@ export default async function StripeConnectPage({ params }: Props) {
         ))}
       </div>
 
-      {tenant && !isConnected && (
-        <StripeConnectClient tenantId={tenant.id} tenantSlug={tenant.slug || domain} isPending={!!isPending} />
+      {tenant && (
+        <StripeConnectClient
+          tenantId={tenant.id}
+          tenantSlug={tenant.slug || domain}
+          isPending={!!isPending}
+          isConnected={!!isConnected}
+        />
       )}
 
       {isConnected && (
