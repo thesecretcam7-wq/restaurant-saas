@@ -269,7 +269,9 @@ export async function middleware(request: NextRequest) {
           }
           return NextResponse.next()
         }
-        return NextResponse.redirect(new URL('/unauthorized', request.url))
+        // If this browser also has an owner/admin Supabase session, let the
+        // owner path below validate it instead of blocking because a staff
+        // PIN cookie from TPV/KDS is present.
       } catch {
         // Cookie corrupta, continuar a verificar Supabase
       }
