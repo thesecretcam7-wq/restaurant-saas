@@ -41,6 +41,16 @@ interface Category {
 type POSMode = 'simple' | 'table';
 type PaymentMethod = 'cash' | 'stripe';
 
+function getLoggedStaffFromBrowser(tenantId: string) {
+  if (typeof window === 'undefined') return { staffId: null as string | null, staffName: '' };
+  const storedTenant = sessionStorage.getItem('staff_tenant');
+  if (storedTenant !== tenantId) return { staffId: null, staffName: '' };
+  return {
+    staffId: sessionStorage.getItem('staff_id'),
+    staffName: sessionStorage.getItem('staff_name') || '',
+  };
+}
+
 interface IncomingOrder {
   id: string;
   order_number: string;
@@ -426,6 +436,12 @@ export function POSTerminal({
   const notificationTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const csrfTokenRef = useRef<string>('');
 
+  useEffect(() => {
+    const loggedStaff = getLoggedStaffFromBrowser(tenantId);
+    if (loggedStaff.staffId && !selectedStaffId) setSelectedStaffId(loggedStaff.staffId);
+    if (loggedStaff.staffName && !selectedStaffName) setSelectedStaffName(loggedStaff.staffName);
+  }, [tenantId, selectedStaffId, selectedStaffName]);
+
   const refreshOfflinePendingCount = useCallback(async () => {
     try {
       setOfflinePendingCount(await countPendingPOSOrders(tenantId));
@@ -662,8 +678,9 @@ export function POSTerminal({
       setDiscountCode(supabaseCart.discountCode);
       setPaymentMethod(supabaseCart.paymentMethod);
       setPosMode(supabaseCart.posMode);
-      setSelectedStaffId(supabaseCart.selectedStaffId);
-      setSelectedStaffName(supabaseCart.selectedStaffName);
+      const loggedStaff = getLoggedStaffFromBrowser(tenantId);
+      setSelectedStaffId(loggedStaff.staffId || supabaseCart.selectedStaffId);
+      setSelectedStaffName(loggedStaff.staffName || supabaseCart.selectedStaffName);
       setSelectedTableId(supabaseCart.selectedTableId);
       setSelectedTableNumber(supabaseCart.selectedTableNumber);
       if (supabaseCart.loadedOrderId) {

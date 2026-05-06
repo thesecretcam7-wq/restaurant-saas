@@ -15,6 +15,10 @@ interface CashClosingData {
   ordersCompleted: number;
   ordersCancelled: number;
   staffName: string;
+  periodStart: string;
+  periodEnd: string;
+  businessDateLabel: string;
+  operationalCloseTime: string;
 }
 
 interface CashClosingModalProps {
@@ -41,7 +45,7 @@ export function CashClosingModal({
   // Get currency info based on country
   const currencyInfo = getCurrencyByCountry(country);
 
-  const expectedTotal = data.cashSales + data.totalTax - data.totalDiscount;
+  const expectedTotal = data.cashSales;
   const difference = expectedTotal - Number(actualCash);
   const isBalanced = Math.abs(difference) < 0.01;
   const isDifferenceSignificant = Math.abs(difference) > 5;
@@ -79,6 +83,16 @@ export function CashClosingModal({
 
         {/* Content */}
         <div className="p-6 space-y-6">
+          {/* Resumen de Ventas */}
+          <div className="rounded-xl border-2 border-amber-200 bg-amber-50 p-4">
+            <p className="text-sm font-black uppercase tracking-wide text-amber-700">Dia operativo</p>
+            <p className="mt-1 text-lg font-black capitalize text-amber-950">{data.businessDateLabel}</p>
+            <p className="mt-1 text-sm font-semibold text-amber-800">
+              Cuenta ventas desde {new Date(data.periodStart).toLocaleString('es-ES', { dateStyle: 'short', timeStyle: 'short' })} hasta {new Date(data.periodEnd).toLocaleString('es-ES', { dateStyle: 'short', timeStyle: 'short' })}
+            </p>
+            <p className="mt-1 text-xs font-bold text-amber-700">Corte operativo: {data.operationalCloseTime === 'manual' ? 'manual' : data.operationalCloseTime}</p>
+          </div>
+
           {/* Resumen de Ventas */}
           <div>
             <h3 className="text-lg font-semibold text-gray-900 mb-4">Resumen de Ventas</h3>
