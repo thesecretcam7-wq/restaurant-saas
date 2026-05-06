@@ -735,6 +735,51 @@ export function POSTerminal({
     }
   }
 
+  async function voidCompletedSale(order: any): Promise<boolean> {
+    const label = order.order_number || 'esta venta';
+    const reason = window.prompt(`Motivo para anular ${label}:`);
+
+    if (reason === null) return false;
+    if (!reason.trim()) {
+      setToast({ message: 'Debes escribir un motivo para anular la venta', type: 'error' });
+      return false;
+    }
+
+    const confirmed = window.confirm(
+      `Anular ${label}?\n\nLa venta quedara registrada como anulada y no contara en el cierre de caja.`
+    );
+    if (!confirmed) return false;
+
+    const response = await fetch(`/api/orders/${order.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({
+        tenantId,
+        status: 'cancelled',
+        cancel_reason: selectedStaffName
+          ? `Venta anulada desde TPV por ${selectedStaffName}: ${reason.trim()}`
+          : `Venta anulada desde TPV: ${reason.trim()}`,
+      }),
+    });
+
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      throw new Error(data.error || 'No se pudo anular la venta');
+    }
+
+    if (loadedOrderId === order.id) {
+      setLoadedOrderId(null);
+      setCart([]);
+      setDiscount(0);
+      setDiscountCode('');
+      setTip(0);
+    }
+    await fetchIncomingOrders();
+    setToast({ message: `${label} anulado. No contara en el cierre de caja.`, type: 'success' });
+    return true;
+  }
+
   async function restoreCart() {
     // Try to restore from Supabase first (more reliable)
     const supabaseCart = await loadCartFromSupabase(tenantId, supabase);
@@ -1978,6 +2023,7 @@ export function POSTerminal({
               <POSOrderLookup
                 domain={tenantId}
                 onOrderSelected={handleOrderSelected}
+                onVoidOrder={voidCompletedSale}
               />
             </div>
           )}

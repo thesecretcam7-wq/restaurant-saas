@@ -132,6 +132,8 @@ export async function calculateCashClosingStats(
       return emptyStats(period);
     }
 
+    const countableOrders = (orders || []).filter((order: any) => order.status !== 'cancelled');
+
     const stats = {
       cashSales: 0,
       cardSales: 0,
@@ -139,13 +141,18 @@ export async function calculateCashClosingStats(
       totalSales: 0,
       totalTax: 0,
       totalDiscount: 0,
-      transactionCount: orders?.length || 0,
+      transactionCount: countableOrders.length,
       ordersCompleted: 0,
       ordersCancelled: 0,
       ...period,
     };
 
     orders?.forEach((order: any) => {
+      if (order.status === 'cancelled') {
+        stats.ordersCancelled++;
+        return;
+      }
+
       const total = Number(order.total) || 0;
       const tax = Number(order.tax ?? order.tax_amount) || 0;
       const discount = Number(order.discount_amount) || 0;
@@ -165,9 +172,6 @@ export async function calculateCashClosingStats(
 
       if (order.status === 'delivered' || order.status === 'completed') {
         stats.ordersCompleted++;
-      }
-      if (order.status === 'cancelled') {
-        stats.ordersCancelled++;
       }
     });
 
