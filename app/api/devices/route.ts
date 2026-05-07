@@ -20,7 +20,22 @@ function dedupeBrowserDriverDevices(devices: any[] = []) {
   const selectedBrowserDriver = browserDriverDevices.find((device) => device.is_default) || browserDriverDevices[0];
   const directDevices = devices.filter((device) => !isBrowserDriverDevice(device));
 
-  return selectedBrowserDriver ? [selectedBrowserDriver, ...directDevices] : directDevices;
+  const normalizedBrowserDriver = selectedBrowserDriver
+    ? {
+        ...selectedBrowserDriver,
+        status: 'connected',
+        config: {
+          ...(selectedBrowserDriver.config || {}),
+          connection_mode: 'browser_driver',
+          browser_printer_name: selectedBrowserDriver.config?.browser_printer_name || 'default',
+          local_bridge_enabled: selectedBrowserDriver.config?.local_bridge_enabled !== false,
+          local_bridge_url: selectedBrowserDriver.config?.local_bridge_url || 'http://127.0.0.1:17777',
+          cash_drawer_enabled: selectedBrowserDriver.config?.cash_drawer_enabled !== false,
+        },
+      }
+    : null;
+
+  return normalizedBrowserDriver ? [normalizedBrowserDriver, ...directDevices] : directDevices;
 }
 
 export async function GET(request: NextRequest) {
@@ -146,7 +161,7 @@ export async function POST(request: NextRequest) {
         vendor_id,
         product_id,
         serial_number,
-        status: status || (vendor_id && product_id ? 'connected' : 'disconnected'),
+        status: status || (isBrowserDriver || (vendor_id && product_id) ? 'connected' : 'disconnected'),
         config: config || {
           paper_width: 80,
           auto_print: true,

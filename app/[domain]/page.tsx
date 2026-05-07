@@ -18,6 +18,7 @@ import TestimonialsSection from '@/components/store/sections/TestimonialsSection
 import ActionsSection from '@/components/store/sections/ActionsSection'
 import WhatsAppFloat from '@/components/store/WhatsAppFloat'
 import StoreClosed from '@/components/store/StoreClosed'
+import { formatPriceWithCurrency, getCurrencyByCountry } from '@/lib/currency'
 
 interface HomePageProps {
   params: Promise<{ domain: string }>
@@ -107,6 +108,11 @@ export default async function HomePage({ params }: HomePageProps) {
   const whatsappLink = social.whatsapp || branding?.whatsapp_number || null
   const heroMinHeight = hero.height === 'small' ? '560px' : hero.height === 'medium' ? '640px' : '720px'
   const heroOverlay = Math.min(Math.max(hero.overlay_opacity || 45, 26), 78) / 100
+  const countryCurrency = getCurrencyByCountry(settings?.country_code || settings?.country || (tenant as any)?.country || 'ES')
+  const currencyInfo = settings?.currency
+    ? { ...countryCurrency, code: settings.currency, symbol: settings.currency_symbol || countryCurrency.symbol }
+    : countryCurrency
+  const formatMoney = (value: number) => formatPriceWithCurrency(Number(value || 0), currencyInfo.code, currencyInfo.locale)
 
   return (
     <div className="store-surface min-h-screen overflow-hidden bg-[#faf8f3] pb-[88px] text-[#15130f]">
@@ -200,7 +206,7 @@ export default async function HomePage({ params }: HomePageProps) {
             case 'banner':
               return <PremiumBand key={section.id}><BannerSection banner={banner} borderRadius={br} /></PremiumBand>
             case 'featured':
-              return <FeaturedSection key={section.id} tenantId={tenant.slug} items={featured || []} primary={primary} title={sTitle || 'Lo mas pedido'} borderRadius={br} cardClasses={cardCls} animations={anim} />
+              return <FeaturedSection key={section.id} tenantId={tenant.slug} items={featured || []} primary={primary} title={sTitle || 'Lo mas pedido'} borderRadius={br} cardClasses={cardCls} animations={anim} currencyInfo={currencyInfo} />
             case 'about':
               return <PremiumBand key={section.id}><AboutSection about={about} borderRadius={br} cardClasses={cardCls} /></PremiumBand>
             case 'info':
@@ -266,6 +272,3 @@ function InfoPills({ settings, primary }: { settings: any; primary: string }) {
   )
 }
 
-function formatMoney(value: number) {
-  return `$${Number(value || 0).toLocaleString('es-CO')}`
-}

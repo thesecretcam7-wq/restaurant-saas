@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { formatPrice } from '@/lib/currency'
+import { formatPriceWithCurrency } from '@/lib/currency'
 import AddToCartButton from '@/components/store/AddToCartButton'
 
 interface Props {
@@ -10,9 +10,12 @@ interface Props {
   borderRadius: string
   cardClasses: string
   animations: boolean
+  currencyInfo?: { code: string; locale: string }
 }
 
-export default function FeaturedSection({ tenantId, items, primary, title, borderRadius, cardClasses, animations }: Props) {
+export default function FeaturedSection({ tenantId, items, primary, title, borderRadius, cardClasses, animations, currencyInfo }: Props) {
+  const money = (value: number) => formatPriceWithCurrency(Number(value || 0), currencyInfo?.code || 'EUR', currencyInfo?.locale || 'es-ES')
+
   if (!items?.length) {
     return (
       <section className="rounded-[28px] border border-black/8 bg-white p-5 shadow-xl shadow-black/[0.04] sm:p-7">
@@ -54,7 +57,7 @@ export default function FeaturedSection({ tenantId, items, primary, title, borde
             <div className="p-3.5">
               <p className="line-clamp-2 min-h-10 text-sm font-black leading-5 text-[#15130f]">{item.name}</p>
               <div className="mt-3 flex items-center justify-between gap-2">
-                <p className="text-base font-black" style={{ color: primary }}>{formatPrice(item.price)}</p>
+                <p className="text-base font-black" style={{ color: primary }}>{money(item.price)}</p>
                 <AddToCartButton item={item} tenantId={tenantId} color={primary} small />
               </div>
             </div>

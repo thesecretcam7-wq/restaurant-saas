@@ -59,6 +59,7 @@ export default async function SystemHealthPage({ params }: Props) {
     printerRes,
     failedPrintsRes,
     delayedOrdersRes,
+    cancelledOrdersRes,
     voidsRes,
   ] = await Promise.all([
     supabase
@@ -96,6 +97,11 @@ export default async function SystemHealthPage({ params }: Props) {
       .eq('tenant_id', tenantId)
       .eq('status', 'pending')
       .lte('created_at', tenMinutesAgo),
+    supabase
+      .from('orders')
+      .select('id', { count: 'exact', head: true })
+      .eq('tenant_id', tenantId)
+      .eq('status', 'cancelled'),
     supabase
       .from('audit_logs')
       .select('id', { count: 'exact', head: true })
@@ -182,9 +188,11 @@ export default async function SystemHealthPage({ params }: Props) {
     },
     {
       title: 'Auditoria',
-      description: `${voidsRes.count || 0} anulaciones/cancelaciones registradas.`,
-      status: 'ok',
-      action: 'Las acciones delicadas quedan guardadas para revision del dueño.',
+      description: `${voidsRes.count || 0} anulaciones/cancelaciones auditadas. ${cancelledOrdersRes.count || 0} pedidos figuran anulados.`,
+      status: (cancelledOrdersRes.count || 0) > (voidsRes.count || 0) ? 'warning' : 'ok',
+      action: (cancelledOrdersRes.count || 0) > (voidsRes.count || 0)
+        ? 'Hay anulaciones antiguas sin auditoria historica. Las nuevas quedan registradas.'
+        : 'Las acciones delicadas quedan guardadas para revision del dueño.',
       icon: ShieldCheck,
     },
   ]

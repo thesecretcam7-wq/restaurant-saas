@@ -1,5 +1,5 @@
 import { createServiceClient } from '@/lib/supabase/server'
-import { formatPrice } from '@/lib/currency'
+import { formatPriceWithCurrency, getCurrencyByCountry } from '@/lib/currency'
 import { getTenantContext } from '@/lib/tenant'
 import { deriveBrandPalette } from '@/lib/brand-colors'
 import AddToCartButton from '@/components/store/AddToCartButton'
@@ -41,6 +41,10 @@ export default async function CategoryPage({ params }: CategoryPageProps) {
     border: branding?.border_color,
   })
   const primary = palette.primary
+  const countryCurrency = getCurrencyByCountry(context.settings?.country_code || context.settings?.country || (context.tenant as any)?.country || 'ES')
+  const currencyInfo = context.settings?.currency
+    ? { ...countryCurrency, code: context.settings.currency, symbol: context.settings.currency_symbol || countryCurrency.symbol }
+    : countryCurrency
 
   if (!category) {
     return (
@@ -83,7 +87,7 @@ export default async function CategoryPage({ params }: CategoryPageProps) {
         ) : (
           <div className="space-y-3">
             {items.map(item => (
-              <MenuItemCard key={item.id} item={item} tenantSlug={context.tenant?.slug || domain} branding={branding} />
+              <MenuItemCard key={item.id} item={item} tenantSlug={context.tenant?.slug || domain} branding={branding} currencyInfo={currencyInfo} />
             ))}
           </div>
         )}
@@ -92,7 +96,7 @@ export default async function CategoryPage({ params }: CategoryPageProps) {
   )
 }
 
-function MenuItemCard({ item, tenantSlug, branding }: { item: any; tenantSlug: string; branding: any }) {
+function MenuItemCard({ item, tenantSlug, branding, currencyInfo }: { item: any; tenantSlug: string; branding: any; currencyInfo: { code: string; locale: string } }) {
   return (
     <div className="bg-white rounded-xl border overflow-hidden flex items-center gap-4 p-3 hover:shadow-md transition-shadow">
       {item.image_url ? (
@@ -104,7 +108,7 @@ function MenuItemCard({ item, tenantSlug, branding }: { item: any; tenantSlug: s
         <p className="font-semibold text-gray-900">{item.name}</p>
         {item.description && <p className="text-sm text-gray-500 mt-0.5 line-clamp-2">{item.description}</p>}
         <p className="font-bold mt-2" style={{ color: branding?.primary_color || '#E4002B' }}>
-          {formatPrice(item.price)}
+          {formatPriceWithCurrency(item.price, currencyInfo.code, currencyInfo.locale)}
         </p>
       </div>
       <AddToCartButton item={item} tenantId={tenantSlug} color={branding?.button_primary_color || branding?.primary_color} />

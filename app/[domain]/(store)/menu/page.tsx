@@ -310,7 +310,7 @@ export default async function MenuPage({ params }: MenuProps) {
         )}
       </main>
 
-      <CartBar tenantId={slug} primaryColor={primary} />
+      <CartBar tenantId={slug} primaryColor={primary} currencyInfo={currencyInfo} />
     </div>
   )
   } catch (error) {

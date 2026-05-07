@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { createClient } from '@supabase/supabase-js';
 import { Plus, Minus, X, CheckCircle } from 'lucide-react';
+import { formatPriceWithCurrency, getCurrencyByCountry } from '@/lib/currency';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -45,6 +46,7 @@ export default function TableOrderPage() {
   const [error, setError] = useState<string | null>(null);
   const [showCart, setShowCart] = useState(false);
   const [orderDone, setOrderDone] = useState(false);
+  const [currencyInfo, setCurrencyInfo] = useState(() => getCurrencyByCountry('ES'));
 
   useEffect(() => { fetchQRData(); }, [code]);
 
@@ -59,13 +61,25 @@ export default function TableOrderPage() {
       if (qrError || !qrCodeData) { setError('Código QR inválido'); return; }
       setQrData(qrCodeData);
 
-      const [menuRes, catRes] = await Promise.all([
+      const [menuRes, catRes, settingsRes] = await Promise.all([
         supabase.from('menu_items').select('*').eq('tenant_id', qrCodeData.tenant_id).eq('available', true).order('category_id, name'),
         supabase.from('menu_categories').select('id, name').eq('tenant_id', qrCodeData.tenant_id).order('name'),
+        supabase
+          .from('restaurant_settings')
+          .select('currency, currency_symbol, country, country_code')
+          .eq('tenant_id', qrCodeData.tenant_id)
+          .maybeSingle(),
       ]);
 
       setMenu(menuRes.data || []);
       setCategories(catRes.data || []);
+      const settings = settingsRes.data as any;
+      const country = settings?.country_code || settings?.country || 'ES';
+      const countryCurrency = getCurrencyByCountry(country);
+      setCurrencyInfo(settings?.currency
+        ? { ...countryCurrency, code: settings.currency, symbol: settings.currency_symbol || countryCurrency.symbol }
+        : countryCurrency
+      );
     } catch {
       setError('Error al cargar el menú');
     } finally {
@@ -121,6 +135,7 @@ export default function TableOrderPage() {
   const total = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
   const cartCount = cart.reduce((sum, item) => sum + item.quantity, 0);
   const filteredMenu = activeCategory ? menu.filter(i => i.category_id === activeCategory) : menu;
+  const money = (value: number) => formatPriceWithCurrency(Number(value || 0), currencyInfo.code, currencyInfo.locale);
   const tableNumber = qrData?.tables?.table_number ?? '—';
 
   if (loading) {
@@ -214,7 +229,7 @@ export default function TableOrderPage() {
                   {item.description && (
                     <p className="text-gray-400 text-xs mt-0.5 line-clamp-1">{item.description}</p>
                   )}
-                  <p className="text-blue-600 font-bold text-sm mt-1">${item.price.toLocaleString()}</p>
+                  <p className="text-blue-600 font-bold text-sm mt-1">{money(item.price)}</p>
                 </div>
                 <div className="flex items-center gap-1.5 flex-shrink-0">
                   {inCart ? (
@@ -259,7 +274,7 @@ export default function TableOrderPage() {
               {cartCount}
             </span>
             <span className="text-base">Ver pedido</span>
-            <span className="text-base">${total.toLocaleString()}</span>
+            <span className="text-base">{money(total)}</span>
           </button>
         </div>
       )}
@@ -314,7 +329,7 @@ export default function TableOrderPage() {
                   </div>
                   <span className="flex-1 text-sm font-semibold text-gray-900">{item.name}</span>
                   <span className="text-sm font-bold text-gray-700 flex-shrink-0">
-                    ${(item.price * item.quantity).toLocaleString()}
+                    {money(item.price * item.quantity)}
                   </span>
                 </div>
               ))}
@@ -324,7 +339,7 @@ export default function TableOrderPage() {
             <div className="px-4 pt-3 pb-safe-bottom border-t border-gray-100 flex-shrink-0">
               <div className="flex justify-between items-center mb-4">
                 <span className="text-base font-semibold text-gray-700">Total</span>
-                <span className="text-2xl font-black text-gray-900">${total.toLocaleString()}</span>
+                <span className="text-2xl font-black text-gray-900">{money(total)}</span>
               </div>
               {error && (
                 <p className="text-red-500 text-sm mb-3 text-center">{error}</p>

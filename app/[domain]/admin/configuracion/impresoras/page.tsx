@@ -164,6 +164,7 @@ export default function PrintersConfigPage({ params }: Props) {
           vendor_id: null,
           product_id: null,
           serial_number: null,
+          status: 'connected',
           config: {
             paper_width: 80,
             auto_print: true,
