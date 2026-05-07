@@ -17,7 +17,7 @@ export default async function KioskoPage({ params, searchParams }: Props) {
 
   const { data: tenant } = await supabase
     .from('tenants')
-    .select('id, organization_name, stripe_account_id, logo_url, metadata, country')
+    .select('id, organization_name, stripe_account_id, stripe_account_status, logo_url, metadata, country')
     .eq('slug', domain)
     .single()
 
@@ -105,7 +105,7 @@ export default async function KioskoPage({ params, searchParams }: Props) {
       taxRate={Number(settingsRes.data?.tax_rate || 0)}
       currencyCode={currencyInfo.code}
       currencyLocale={currencyInfo.locale}
-      stripeEnabled={!!tenant.stripe_account_id}
+      stripeEnabled={!!tenant.stripe_account_id && tenant.stripe_account_status === 'verified'}
       initialConfirmed={initialConfirmed}
     />
   )
