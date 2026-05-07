@@ -78,6 +78,11 @@ const icons: Record<string, ComponentType<{ className?: string }>> = {
   health: Activity,
 }
 
+function getRestaurantStoreUrl(tenantSlug: string) {
+  const baseDomain = process.env.NEXT_PUBLIC_BASE_DOMAIN || 'eccofoodapp.com'
+  return `https://${tenantSlug}.${baseDomain}/menu`
+}
+
 export function AdminSidebar({
   tenantSlug,
   restaurantName,
@@ -91,6 +96,7 @@ export function AdminSidebar({
 }: AdminSidebarProps) {
   const [open, setOpen] = useState(false)
   const pathname = usePathname()
+  const storeUrl = getRestaurantStoreUrl(tenantSlug)
 
   const sidebarContent = (
     <>
@@ -174,14 +180,16 @@ export function AdminSidebar({
 
       <div className="space-y-1 border-t border-white/10 p-3">
         {tenantId && <StoreStatusToggle tenantId={tenantId} initialEnabled={storeEnabled} />}
-        <Link
-          href={`/${tenantSlug}/menu`}
+        <a
+          href={storeUrl}
+          target="_blank"
+          rel="noopener noreferrer"
           onClick={() => setOpen(false)}
           className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-bold text-white/64 transition hover:bg-white/8 hover:text-white"
         >
           <Eye className="size-4" />
           <span>Ver tienda</span>
-        </Link>
+        </a>
         <form action="/api/auth/logout" method="POST">
           <button
             type="submit"

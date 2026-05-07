@@ -358,7 +358,25 @@ export async function middleware(request: NextRequest) {
     }
   }
 
-  // CASO 2: Slug en path
+  // CASO 2: Subdominio del restaurante: elbuenpaladar.eccofoodapp.com
+  const subdomain = extractSubdomain(hostname, BASE_DOMAIN)
+  if (subdomain && subdomain !== 'www' && subdomain !== 'app') {
+    const tenant = await getTenantBySlug(subdomain)
+    if (tenant) {
+      const slugPrefix = `/${tenant.slug}`
+      if (pathname === slugPrefix || pathname.startsWith(`${slugPrefix}/`)) {
+        const cleanPath = pathname.slice(slugPrefix.length) || '/'
+        const redirectUrl = request.nextUrl.clone()
+        redirectUrl.pathname = cleanPath
+        return NextResponse.redirect(redirectUrl)
+      }
+
+      url.pathname = `/${tenant.slug}${pathname}`
+      return NextResponse.rewrite(url)
+    }
+  }
+
+  // CASO 3: Slug en path
   const slugMatch = pathname.match(SLUG_PATH_REGEX)
   if (slugMatch) {
     const slug = slugMatch[1]
@@ -366,16 +384,6 @@ export async function middleware(request: NextRequest) {
     if (tenant) {
       const restPath = pathname.slice(slug.length + 1) || '/'
       url.pathname = `/${tenant.slug}${restPath}`
-      return NextResponse.rewrite(url)
-    }
-  }
-
-  // CASO 3: Subdominio
-  const subdomain = extractSubdomain(hostname, BASE_DOMAIN)
-  if (subdomain && subdomain !== 'www' && subdomain !== 'app') {
-    const tenant = await getTenantBySlug(subdomain)
-    if (tenant) {
-      url.pathname = `/${tenant.slug}${pathname}`
       return NextResponse.rewrite(url)
     }
   }

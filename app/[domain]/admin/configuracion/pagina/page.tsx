@@ -142,6 +142,8 @@ export default function PageBuilderPage() {
   )
   const selectedSection = config.sections.find(s => s.id === selectedSectionId) || sortedSections[0]
   const activeSections = config.sections.filter(s => s.enabled).length
+  const publicBaseDomain = process.env.NEXT_PUBLIC_BASE_DOMAIN || 'eccofoodapp.com'
+  const storeUrl = `https://${tenantSlug}.${publicBaseDomain}`
 
   const markDirty = () => {
     setDirty(true)
@@ -312,7 +314,7 @@ export default function PageBuilderPage() {
           <p className="admin-subtitle">Edita la portada, el orden de secciones y los detalles visibles para tus clientes.</p>
         </div>
         <div className="flex flex-col gap-2 sm:flex-row">
-          <Link href={`/${tenantSlug}`} className="admin-button-secondary">
+          <Link href={storeUrl} target="_blank" rel="noopener noreferrer" className="admin-button-secondary">
             <ExternalLink className="size-4" />
             Ver tienda
           </Link>
