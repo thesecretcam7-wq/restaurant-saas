@@ -6,6 +6,7 @@ import { sendOrderConfirmation, sendNewOrderNotification } from '@/lib/email'
 import { sendWhatsAppOrderConfirmation } from '@/lib/whatsapp'
 import { orderLimiter, checkRateLimit, getClientIp } from '@/lib/ratelimit'
 import { requireTenantAccess, tenantAuthErrorResponse } from '@/lib/tenant-api-auth'
+import { calculateOrderTotals } from '@/lib/order-totals'
 
 export async function GET(request: NextRequest) {
   try {
@@ -213,9 +214,15 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    const tax = settings?.tax_rate ? subtotal * (settings.tax_rate / 100) : 0
-    const deliveryFee = deliveryType === 'delivery' ? (settings?.delivery_fee || 0) : 0
-    const total = subtotal + tax + deliveryFee
+    const totals = calculateOrderTotals({
+      items: sanitizedItems,
+      taxRate: settings?.tax_rate,
+      deliveryType,
+      deliveryFee: settings?.delivery_fee,
+    })
+    const tax = totals.tax
+    const deliveryFee = totals.deliveryFee
+    const total = totals.total
 
     const orderNumber = `ORD-${Date.now()}`
 

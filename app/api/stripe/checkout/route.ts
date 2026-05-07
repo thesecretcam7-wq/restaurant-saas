@@ -4,6 +4,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import Stripe from 'stripe'
 import { checkRateLimit, getClientIp } from '@/lib/ratelimit'
 import { getCurrencyByCountry } from '@/lib/currency'
+import { calculateOrderTotals } from '@/lib/order-totals'
 
 const getStripe = () => new Stripe(process.env.STRIPE_SECRET_KEY!)
 
@@ -150,9 +151,15 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    const tax = settings?.tax_rate ? subtotal * (settings.tax_rate / 100) : 0
-    const deliveryFee = deliveryType === 'delivery' ? (settings?.delivery_fee || 0) : 0
-    const total = subtotal + tax + deliveryFee
+    const totals = calculateOrderTotals({
+      items: sanitizedItems,
+      taxRate: settings?.tax_rate,
+      deliveryType,
+      deliveryFee: settings?.delivery_fee,
+    })
+    const tax = totals.tax
+    const deliveryFee = totals.deliveryFee
+    const total = totals.total
     const currencyInfo = getCurrencyByCountry(settings?.country || tenant.country || 'ES')
     const stripeCurrency = currencyInfo.code.toLowerCase()
 
