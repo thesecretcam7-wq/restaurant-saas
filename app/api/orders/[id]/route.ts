@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { sendOrderStatusUpdate } from '@/lib/email'
 import { sendWhatsAppOrderStatus } from '@/lib/whatsapp'
 import { requireTenantAccess, tenantAuthErrorResponse } from '@/lib/tenant-api-auth'
+import { writeAuditLog } from '@/lib/audit-log'
 
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -51,7 +52,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
 
     const { data: existingOrder, error: existingError } = await supabase
       .from('orders')
-      .select('id, tenant_id, notes')
+      .select('id, tenant_id, order_number, status, payment_status, total, notes')
       .eq('id', orderId)
       .single()
 
@@ -59,7 +60,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       return NextResponse.json({ error: 'Order not found' }, { status: 404 })
     }
 
-    await requireTenantAccess(existingOrder.tenant_id, { staffRoles: ['admin', 'cajero', 'camarero', 'cocinero'] })
+    const access = await requireTenantAccess(existingOrder.tenant_id, { staffRoles: ['admin', 'cajero', 'camarero', 'cocinero'] })
 
     const updateData: Record<string, any> = { updated_at: new Date().toISOString() }
     if (status) updateData.status = status
@@ -141,6 +142,25 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
         .neq('status', 'delivered')
 
       if (itemsCancelledError) console.error('[orders PATCH] order_items cancel sync error:', itemsCancelledError.message)
+
+      await writeAuditLog(supabase, {
+        tenantId: order.tenant_id,
+        actor: access,
+        action: order.payment_status === 'paid' || existingOrder.payment_status === 'paid'
+          ? 'sale.voided'
+          : 'order.cancelled',
+        entityType: 'order',
+        entityId: orderId,
+        reason: updateData.notes?.split('\n').pop() || cancel_reason || 'Anulado desde el sistema',
+        metadata: {
+          order_number: order.order_number || existingOrder.order_number,
+          total: Number(order.total ?? existingOrder.total) || 0,
+          previous_status: existingOrder.status,
+          previous_payment_status: existingOrder.payment_status,
+          new_status: order.status,
+          new_payment_status: order.payment_status,
+        },
+      })
     }
 
     // Send status update email (non-blocking)

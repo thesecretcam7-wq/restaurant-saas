@@ -14,6 +14,13 @@ export interface CashClosingStats {
   periodEnd: string;
   businessDateLabel: string;
   operationalCloseTime: string;
+  closingOrders: {
+    id: string;
+    order_number?: string | null;
+    total: number;
+    payment_method?: string | null;
+    created_at?: string | null;
+  }[];
 }
 
 const DEFAULT_OPERATIONAL_CLOSE_MINUTES = 5 * 60; // 05:00, useful for restaurants that close after midnight.
@@ -29,6 +36,7 @@ function emptyStats(period: CashClosingPeriod): CashClosingStats {
     transactionCount: 0,
     ordersCompleted: 0,
     ordersCancelled: 0,
+    closingOrders: [],
     ...period,
   };
 }
@@ -146,6 +154,13 @@ export async function calculateCashClosingStats(
       transactionCount: countableOrders.length,
       ordersCompleted: 0,
       ordersCancelled: 0,
+      closingOrders: countableOrders.map((order: any) => ({
+        id: order.id,
+        order_number: order.order_number,
+        total: Number(order.total) || 0,
+        payment_method: order.payment_method,
+        created_at: order.created_at,
+      })),
       ...period,
     };
 
@@ -233,6 +248,24 @@ export async function saveCashClosing(
     if (error) {
       console.error('Error saving cash closing:', error);
       throw error;
+    }
+
+    if (closingData.closingOrders?.length) {
+      const { error: itemsError } = await supabase
+        .from('cash_closing_items')
+        .insert(closingData.closingOrders.map(order => ({
+          cash_closing_id: data.id,
+          tenant_id: tenantId,
+          order_id: order.id,
+          order_number: order.order_number || null,
+          amount: order.total,
+          payment_method: order.payment_method || null,
+          created_at: order.created_at || new Date().toISOString(),
+        })));
+
+      if (itemsError) {
+        console.error('Error saving cash closing items:', itemsError);
+      }
     }
 
     return data;

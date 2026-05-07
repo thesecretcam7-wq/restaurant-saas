@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import {
   BarChart3,
+  Brain,
   CalendarDays,
   ChefHat,
   ClipboardList,
@@ -21,6 +22,7 @@ import {
   QrCode,
   ReceiptText,
   Settings,
+  ShieldCheck,
   ShoppingBag,
   Store,
   Table2,
@@ -70,6 +72,8 @@ const icons: Record<string, ComponentType<{ className?: string }>> = {
   comandero: ClipboardList,
   staffAccess: UsersRound,
   qr: QrCode,
+  audit: ShieldCheck,
+  ai: Brain,
 }
 
 export function AdminSidebar({

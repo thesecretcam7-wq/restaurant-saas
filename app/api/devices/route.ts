@@ -9,6 +9,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { requireTenantAccess, tenantAuthErrorResponse } from '@/lib/tenant-api-auth';
+import { writeAuditLog } from '@/lib/audit-log';
 
 function isBrowserDriverDevice(device: any) {
   return device?.config?.connection_mode === 'browser_driver' || (!device?.vendor_id && !device?.product_id);
@@ -39,7 +40,7 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    await requireTenantAccess(tenantId, { staffRoles: ['admin'], requireAdminPermission: true });
+    const access = await requireTenantAccess(tenantId, { staffRoles: ['admin'], requireAdminPermission: true });
 
     // Fetch devices for this tenant
     const { data: devices, error } = await supabase
@@ -81,7 +82,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    await requireTenantAccess(tenantId, { staffRoles: ['admin'], requireAdminPermission: true });
+    const access = await requireTenantAccess(tenantId, { staffRoles: ['admin'], requireAdminPermission: true });
 
     const isBrowserDriver = config?.connection_mode === 'browser_driver' || (!vendor_id && !product_id);
 
@@ -117,6 +118,16 @@ export async function POST(request: NextRequest) {
           .single();
 
         if (updateError) throw updateError;
+
+        await writeAuditLog(supabase, {
+          tenantId,
+          actor: access,
+          action: 'printer.updated',
+          entityType: 'printer_device',
+          entityId: updatedDevice.id,
+          reason: 'Configuracion de impresora de Windows actualizada',
+          metadata: { name, reused: true },
+        });
 
         return NextResponse.json({ device: updatedDevice, reused: true }, { status: 200 });
       }
@@ -155,6 +166,16 @@ export async function POST(request: NextRequest) {
       action: 'connect',
       status: 'success',
       details: { name },
+    });
+
+    await writeAuditLog(supabase, {
+      tenantId,
+      actor: access,
+      action: 'printer.created',
+      entityType: 'printer_device',
+      entityId: device.id,
+      reason: 'Impresora agregada',
+      metadata: { name, device_type: device.device_type, connection_mode: device.config?.connection_mode },
     });
 
     return NextResponse.json({ device }, { status: 201 });
@@ -197,7 +218,7 @@ export async function PUT(request: NextRequest) {
       );
     }
 
-    await requireTenantAccess(tenantId, { staffRoles: ['admin'], requireAdminPermission: true });
+    const access = await requireTenantAccess(tenantId, { staffRoles: ['admin'], requireAdminPermission: true });
 
     // Update device
     const { data: device, error } = await supabase
@@ -222,6 +243,16 @@ export async function PUT(request: NextRequest) {
       action: 'config',
       status: 'success',
       details: updateData,
+    });
+
+    await writeAuditLog(supabase, {
+      tenantId,
+      actor: access,
+      action: 'printer.updated',
+      entityType: 'printer_device',
+      entityId: deviceId,
+      reason: 'Configuracion de impresora actualizada',
+      metadata: updateData,
     });
 
     return NextResponse.json({ device });
@@ -254,7 +285,7 @@ export async function DELETE(request: NextRequest) {
       );
     }
 
-    await requireTenantAccess(tenantId, { staffRoles: ['admin'], requireAdminPermission: true });
+    const access = await requireTenantAccess(tenantId, { staffRoles: ['admin'], requireAdminPermission: true });
 
     // Clear references before deleting. Otherwise default/kitchen printer foreign keys can block deletion.
     await supabase
@@ -284,6 +315,15 @@ export async function DELETE(request: NextRequest) {
       device_id: deviceId,
       action: 'disconnect',
       status: 'success',
+    });
+
+    await writeAuditLog(supabase, {
+      tenantId,
+      actor: access,
+      action: 'printer.deleted',
+      entityType: 'printer_device',
+      entityId: deviceId,
+      reason: 'Impresora eliminada',
     });
 
     return NextResponse.json({ success: true });
