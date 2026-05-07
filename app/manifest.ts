@@ -2,16 +2,28 @@ import type { MetadataRoute } from 'next'
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: 'Restaurant.SV - Gestión Profesional',
-    short_name: 'Restaurant.SV',
-    description: 'Plataforma completa para gestionar tu restaurante: pedidos, menú, pagos, reservas y análisis',
+    name: 'Eccofood - Plataforma para restaurantes',
+    short_name: 'Eccofood',
+    description: 'Plataforma premium para restaurantes: TPV, pedidos QR, kiosko, cocina, delivery, reservas, inventario y pagos.',
     start_url: '/',
     scope: '/',
     display: 'standalone',
-    background_color: '#0A0A0A',
+    background_color: '#15130f',
     theme_color: '#F97316',
     orientation: 'portrait-primary',
     icons: [
+      {
+        src: '/favicon.ico',
+        sizes: '32x32',
+        type: 'image/png',
+        purpose: 'any',
+      },
+      {
+        src: '/icons/apple-touch-icon.png',
+        sizes: '180x180',
+        type: 'image/png',
+        purpose: 'any',
+      },
       {
         src: '/icons/icon-192.png',
         sizes: '192x192',
@@ -43,10 +55,10 @@ export default function manifest(): MetadataRoute.Manifest {
     prefer_related_applications: false,
     shortcuts: [
       {
-        name: 'Ver Pedidos',
+        name: 'Ver pedidos',
         short_name: 'Pedidos',
-        description: 'Accede rápidamente a tus pedidos',
-        url: '/[domain]/admin/pedidos',
+        description: 'Accede rapido a los pedidos del restaurante',
+        url: '/login',
         icons: [
           {
             src: '/icons/shortcut-pedidos.png',
@@ -56,10 +68,10 @@ export default function manifest(): MetadataRoute.Manifest {
         ],
       },
       {
-        name: 'Agregar Producto',
-        short_name: 'Nuevo Producto',
-        description: 'Crea un nuevo producto rápidamente',
-        url: '/[domain]/admin/productos/nuevo',
+        name: 'Abrir TPV',
+        short_name: 'TPV',
+        description: 'Entra al panel operativo de Eccofood',
+        url: '/login',
         icons: [
           {
             src: '/icons/shortcut-producto.png',

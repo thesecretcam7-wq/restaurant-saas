@@ -1,5 +1,14 @@
-const CACHE_NAME = 'eccofood-v6';
-const STATIC_ASSETS = ['/', '/planes', '/manifest.webmanifest', '/icons/icon-192.png', '/icons/icon-512.png'];
+const CACHE_NAME = 'eccofood-v7';
+const STATIC_ASSETS = [
+  '/',
+  '/planes',
+  '/manifest.webmanifest',
+  '/favicon.ico',
+  '/icons/icon.svg',
+  '/icons/apple-touch-icon.png',
+  '/icons/icon-192.png',
+  '/icons/icon-512.png',
+];
 
 function offlinePage() {
   return new Response(`<!doctype html>

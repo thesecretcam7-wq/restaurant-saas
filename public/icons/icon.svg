@@ -1,4 +1,29 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
-  <rect width="512" height="512" rx="80" fill="#3B82F6"/>
-  <text x="256" y="320" font-size="280" text-anchor="middle" fill="white">🍽️</text>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Eccofood">
+  <defs>
+    <linearGradient id="bg" x1="88" y1="38" x2="424" y2="474" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#ff8a1f"/>
+      <stop offset="0.48" stop-color="#f0441f"/>
+      <stop offset="1" stop-color="#15130f"/>
+    </linearGradient>
+    <linearGradient id="shine" x1="146" y1="82" x2="382" y2="320" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.55"/>
+      <stop offset="1" stop-color="#ffffff" stop-opacity="0"/>
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="18" stdDeviation="20" flood-color="#000000" flood-opacity="0.28"/>
+    </filter>
+  </defs>
+
+  <rect width="512" height="512" rx="112" fill="url(#bg)"/>
+  <path d="M86 94c78-58 222-64 338 12 20 13 8 45-15 42C264 129 174 150 94 196c-25 14-31-84-8-102z" fill="url(#shine)"/>
+
+  <g filter="url(#shadow)">
+    <circle cx="256" cy="256" r="148" fill="#fff7ed"/>
+    <circle cx="256" cy="256" r="126" fill="#15130f"/>
+    <path d="M164 222c21-42 55-64 102-64 36 0 67 12 94 36l-34 39c-18-15-37-23-59-23-25 0-45 11-59 32h121v42H197c12 28 35 42 69 42 25 0 47-9 67-27l32 39c-28 27-62 41-102 41-50 0-86-21-107-63h-34v-42h23c-1-7-1-13-1-19v-12h-22v-42h42z" fill="#ff5a1f"/>
+    <path d="M351 141c24 11 43 27 57 49l-33 20c-10-15-22-27-38-35l14-34z" fill="#fff7ed" opacity="0.95"/>
+  </g>
+
+  <path d="M382 363c20 0 36 16 36 36s-16 36-36 36-36-16-36-36 16-36 36-36z" fill="#ffb000"/>
+  <path d="M130 368c-20 0-36 16-36 36s16 36 36 36 36-16 36-36-16-36-36-36z" fill="#fff7ed" opacity="0.92"/>
 </svg>
