@@ -1,12 +1,58 @@
 import { getTenantContext } from '@/lib/tenant'
 import { Toaster } from 'react-hot-toast'
 import StoreNavigationLoader from '@/components/store/StoreNavigationLoader'
+import type { Metadata } from 'next'
 
 export const dynamic = 'force-dynamic'
 
 interface TenantLayoutProps {
   children: React.ReactNode
   params: Promise<{ domain: string }>
+}
+
+function getRestaurantDisplayName(context: Awaited<ReturnType<typeof getTenantContext>>) {
+  return context.branding?.app_name || context.tenant?.organization_name || context.tenant?.slug || 'Restaurante'
+}
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ domain: string }>
+}): Promise<Metadata> {
+  const { domain } = await params
+  const context = await getTenantContext(domain)
+  const restaurantName = getRestaurantDisplayName(context)
+  const tenantSlug = context.tenant?.slug || domain
+  const iconUrl =
+    context.branding?.favicon_url ||
+    context.branding?.logo_url ||
+    context.tenant?.logo_url ||
+    '/icons/apple-touch-icon.png'
+
+  return {
+    title: restaurantName,
+    description: context.branding?.tagline || context.branding?.description || `Tienda online de ${restaurantName}`,
+    applicationName: restaurantName,
+    manifest: `/${tenantSlug}/manifest.webmanifest`,
+    appleWebApp: {
+      capable: true,
+      statusBarStyle: 'default',
+      title: restaurantName,
+    },
+    icons: {
+      icon: [
+        { url: iconUrl },
+        { url: '/favicon.ico', sizes: '32x32', type: 'image/png' },
+      ],
+      apple: [{ url: iconUrl }],
+    },
+    openGraph: {
+      type: 'website',
+      title: restaurantName,
+      description: context.branding?.tagline || context.branding?.description || `Tienda online de ${restaurantName}`,
+      images: iconUrl ? [{ url: iconUrl }] : undefined,
+    },
+  }
 }
 
 export default async function TenantLayout({
