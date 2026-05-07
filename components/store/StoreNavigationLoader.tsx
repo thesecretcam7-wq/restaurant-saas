@@ -69,23 +69,62 @@ export default function StoreNavigationLoader({ color }: { color?: string }) {
   if (!loading || !isStorePath(currentPathRef.current)) return null
 
   return (
-    <div className="pointer-events-none fixed inset-x-0 bottom-[92px] z-[70] flex justify-center px-4 sm:bottom-6">
-      <div className="flex min-h-12 items-center gap-3 rounded-full border border-black/10 bg-white/95 px-5 py-3 text-sm font-black text-[#15130f] shadow-2xl shadow-black/15 backdrop-blur-xl">
-        <span>Cargando</span>
-        <span className="flex h-5 items-center gap-1" aria-hidden="true">
-          {[0, 1, 2].map(index => (
+    <div className="pointer-events-none fixed inset-0 z-[9990] flex items-center justify-center bg-[#15130f]/45 px-5 backdrop-blur-[6px]">
+      <div className="w-full max-w-[360px] overflow-hidden rounded-[28px] border border-white/35 bg-white/95 p-5 text-[#15130f] shadow-[0_28px_90px_rgba(0,0,0,0.28)]">
+        <div className="flex items-center gap-4">
+          <div
+            className="relative grid size-14 shrink-0 place-items-center rounded-2xl text-xl font-black text-white shadow-xl"
+            style={{ backgroundColor: primary }}
+            aria-hidden="true"
+          >
             <span
-              key={index}
-              className="block size-2 rounded-full"
+              className="absolute inset-0 rounded-2xl"
               style={{
                 backgroundColor: primary,
-                animation: 'storeLoadingDot 900ms ease-in-out infinite',
-                animationDelay: `${index * 140}ms`,
+                animation: 'storeLoaderGlow 1.35s ease-in-out infinite',
               }}
             />
-          ))}
-        </span>
-        <span className="sr-only" role="status" aria-live="polite">Cargando pagina</span>
+            <span className="relative">E</span>
+          </div>
+
+          <div className="min-w-0">
+            <p className="text-[11px] font-black uppercase tracking-[0.18em] text-black/45">Eccofood</p>
+            <p className="mt-1 text-lg font-black leading-tight">Preparando la tienda</p>
+          </div>
+        </div>
+
+        <div className="mt-5 h-2 overflow-hidden rounded-full bg-black/10">
+          <div
+            className="h-full rounded-full"
+            style={{
+              backgroundColor: primary,
+              animation: 'storeLoaderBar 1.15s ease-in-out infinite',
+            }}
+          />
+        </div>
+
+        <div className="mt-4 grid grid-cols-[68px_minmax(0,1fr)] gap-3" aria-hidden="true">
+          <div className="h-16 rounded-2xl bg-black/[0.06]" />
+          <div className="space-y-2.5 pt-1">
+            <div className="h-3 w-3/4 rounded-full bg-black/[0.10]" />
+            <div className="h-3 w-11/12 rounded-full bg-black/[0.07]" />
+            <div className="flex items-center gap-1.5 pt-1">
+              {[0, 1, 2].map(index => (
+                <span
+                  key={index}
+                  className="block size-2 rounded-full"
+                  style={{
+                    backgroundColor: primary,
+                    animation: 'storeLoadingDot 900ms ease-in-out infinite',
+                    animationDelay: `${index * 140}ms`,
+                  }}
+                />
+              ))}
+            </div>
+          </div>
+        </div>
+
+        <span className="sr-only" role="status" aria-live="polite">Cargando tienda</span>
       </div>
     </div>
   )
