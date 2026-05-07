@@ -292,6 +292,8 @@ function generateReceiptHTML(data: ReceiptData): string {
       </tr>`
     )
     .join('');
+  const extraRows = (data.discount > 0 ? 1 : 0) + ((data.tax || 0) > 0 ? 1 : 0);
+  const pageHeightMm = Math.min(190, Math.max(92, 78 + (data.items.length + extraRows) * 9));
 
   return `
     <!DOCTYPE html>
@@ -301,7 +303,7 @@ function generateReceiptHTML(data: ReceiptData): string {
       <title>Recibo ${safe(data.orderNumber)}</title>
       <style>
         @page {
-          size: 80mm auto;
+          size: 80mm ${pageHeightMm}mm;
           margin: 0;
         }
         * {
@@ -309,7 +311,7 @@ function generateReceiptHTML(data: ReceiptData): string {
         }
         html, body {
           width: 80mm;
-          height: auto;
+          height: ${pageHeightMm}mm;
           min-height: 0;
           margin: 0;
           padding: 0;
@@ -378,7 +380,7 @@ function generateReceiptHTML(data: ReceiptData): string {
         }
         @media print {
           html, body {
-            height: auto;
+            height: ${pageHeightMm}mm;
             min-height: 0;
             margin: 0;
             overflow: visible;
