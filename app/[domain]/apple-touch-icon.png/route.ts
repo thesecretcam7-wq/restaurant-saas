@@ -33,11 +33,22 @@ export async function GET(
     context.tenant?.logo_url
 
   const input = await getImageBuffer(iconUrl)
-  const png = await sharp(input)
-    .resize(180, 180, {
-      fit: 'contain',
-      background: { r: 255, g: 255, b: 255, alpha: 1 },
+  const logo = await sharp(input)
+    .resize(164, 164, {
+      fit: 'cover',
+      position: 'center',
     })
+    .png()
+    .toBuffer()
+  const png = await sharp({
+    create: {
+      width: 180,
+      height: 180,
+      channels: 4,
+      background: { r: 255, g: 255, b: 255, alpha: 1 },
+    },
+  })
+    .composite([{ input: logo, left: 8, top: 8 }])
     .png()
     .toBuffer()
 

@@ -4,7 +4,17 @@ import { getTenantContext } from '@/lib/tenant'
 export const dynamic = 'force-dynamic'
 
 function shortName(name: string) {
-  return name.length > 12 ? name.slice(0, 12).trim() : name
+  const clean = name.replace(/\s+/g, ' ').trim()
+  if (clean.length <= 11) return clean
+
+  const words = clean.split(' ')
+  if (words.length > 1) {
+    const firstTwo = words.slice(0, 2).join(' ')
+    if (firstTwo.length <= 11) return firstTwo
+    if (words[0].length <= 11) return words[0]
+  }
+
+  return clean.slice(0, 11).trim()
 }
 
 export async function GET(
