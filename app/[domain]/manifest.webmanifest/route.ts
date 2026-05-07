@@ -3,20 +3,6 @@ import { getTenantContext } from '@/lib/tenant'
 
 export const dynamic = 'force-dynamic'
 
-function shortName(name: string) {
-  const clean = name.replace(/\s+/g, ' ').trim()
-  if (clean.length <= 11) return clean
-
-  const words = clean.split(' ')
-  if (words.length > 1) {
-    const firstTwo = words.slice(0, 2).join(' ')
-    if (firstTwo.length <= 11) return firstTwo
-    if (words[0].length <= 11) return words[0]
-  }
-
-  return clean.slice(0, 11).trim()
-}
-
 export async function GET(
   _request: Request,
   { params }: { params: Promise<{ domain: string }> }
@@ -40,7 +26,7 @@ export async function GET(
   return NextResponse.json(
     {
       name: restaurantName,
-      short_name: shortName(restaurantName),
+      short_name: restaurantName,
       description:
         context.branding?.tagline ||
         context.branding?.description ||
