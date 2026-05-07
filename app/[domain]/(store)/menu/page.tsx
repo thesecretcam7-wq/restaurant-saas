@@ -188,9 +188,9 @@ export default async function MenuPage({ params }: MenuProps) {
         <section className="menu-rise overflow-hidden rounded-[22px] border border-black/8 bg-white p-4 shadow-xl shadow-black/[0.04] sm:rounded-[28px] sm:p-7">
           <p className="text-xs font-black uppercase text-black/42">Carta digital</p>
           <div className="mt-2 flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
-            <div>
+            <div className="min-w-0">
               <h1 className="text-2xl font-black leading-tight text-[#15130f] sm:text-4xl">Elige tu pedido</h1>
-              <p className="mt-2 max-w-2xl text-sm font-bold leading-6 text-black/58">Explora los productos del restaurante y agrega tus favoritos al carrito.</p>
+              <p className="mt-2 max-w-2xl break-words text-sm font-bold leading-6 text-black/58">Explora los productos del restaurante y agrega tus favoritos al carrito.</p>
             </div>
             <Link href={`/${slug}`} className="inline-flex h-11 w-full items-center justify-center rounded-full border border-black/10 px-5 text-sm font-black transition hover:bg-black/[0.04] sm:w-auto" style={{ color: primary }}>
               Volver al inicio

@@ -155,7 +155,7 @@ export default async function CartaPage({ params }: CartaProps) {
             )}
             <div className="relative z-10">
               <p className="text-xs font-black uppercase tracking-[0.18em]" style={{ color: `${heroText}99` }}>Carta de mesa</p>
-              <h1 className="mt-3 max-w-sm text-4xl font-black leading-[0.95]" style={{ color: heroText }}>
+              <h1 className="mt-3 max-w-sm text-[2rem] font-black leading-[1.02] sm:text-4xl sm:leading-[0.95]" style={{ color: heroText }}>
                 Mira la carta, elige con calma.
               </h1>
               <p className="mt-4 max-w-md text-sm font-bold leading-6" style={{ color: `${heroText}b8` }}>
@@ -262,7 +262,7 @@ function CartaItem({
   currencyInfo: { code: string; locale: string }
 }) {
   return (
-    <article className="grid grid-cols-[104px_minmax(0,1fr)] gap-4 rounded-[1.25rem] border p-3.5" style={{ backgroundColor: colors.cardSurface, borderColor: colors.border }}>
+    <article className="grid grid-cols-[92px_minmax(0,1fr)] gap-3 rounded-[1.25rem] border p-3.5 sm:grid-cols-[104px_minmax(0,1fr)] sm:gap-4" style={{ backgroundColor: colors.cardSurface, borderColor: colors.border }}>
       <div className="relative h-28 overflow-hidden rounded-[1rem]" style={{ backgroundColor: colors.surface }}>
         {item.image_url ? (
           <Image src={item.image_url} alt={item.name} fill sizes="104px" className="object-cover" />
@@ -273,14 +273,14 @@ function CartaItem({
         )}
       </div>
       <div className="min-w-0 py-1">
-        <div className="flex items-start justify-between gap-3">
-          <h3 className="line-clamp-2 text-base font-black leading-6" style={{ color: colors.surfaceText }}>{item.name}</h3>
-          <p className="flex-shrink-0 text-lg font-black" style={{ color: colors.primary }}>
+        <div className="flex min-w-0 flex-col gap-1 sm:flex-row sm:items-start sm:justify-between sm:gap-3">
+          <h3 className="line-clamp-2 break-words text-base font-black leading-6" style={{ color: colors.surfaceText }}>{item.name}</h3>
+          <p className="text-lg font-black leading-6 sm:flex-shrink-0" style={{ color: colors.primary }}>
             {formatPriceWithCurrency(item.price, currencyInfo.code, currencyInfo.locale)}
           </p>
         </div>
         {item.description && (
-          <p className="mt-1.5 line-clamp-3 text-sm font-semibold leading-6" style={{ color: colors.mutedText }}>{item.description}</p>
+          <p className="mt-1.5 line-clamp-3 break-words text-sm font-semibold leading-6" style={{ color: colors.mutedText }}>{item.description}</p>
         )}
         {toppings.length > 0 && (
           <div className="mt-3 flex flex-wrap gap-1.5">
