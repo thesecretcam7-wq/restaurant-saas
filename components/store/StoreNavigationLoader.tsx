@@ -20,7 +20,13 @@ function isStorePath(pathname: string) {
   return !STORE_ROUTE_BLOCKLIST.includes(section)
 }
 
-export default function StoreNavigationLoader({ color }: { color?: string }) {
+export default function StoreNavigationLoader({
+  color,
+  logoUrl,
+}: {
+  color?: string
+  logoUrl?: string | null
+}) {
   const pathname = usePathname()
   const [loading, setLoading] = useState(false)
   const currentPathRef = useRef(pathname)
@@ -69,11 +75,11 @@ export default function StoreNavigationLoader({ color }: { color?: string }) {
   if (!loading || !isStorePath(currentPathRef.current)) return null
 
   return (
-    <div className="pointer-events-none fixed inset-0 z-[9990] flex items-center justify-center bg-[#15130f]/45 px-5 backdrop-blur-[6px]">
-      <div className="w-full max-w-[360px] overflow-hidden rounded-[28px] border border-white/35 bg-white/95 p-5 text-[#15130f] shadow-[0_28px_90px_rgba(0,0,0,0.28)]">
-        <div className="flex items-center gap-4">
+    <div className="pointer-events-none fixed inset-0 z-[9990] flex items-center justify-center bg-white/70 px-5 backdrop-blur-[8px]">
+      <div className="w-full max-w-[430px] overflow-hidden rounded-[32px] border border-white/80 bg-white/98 p-8 text-[#15130f] shadow-[0_30px_100px_rgba(0,0,0,0.18)]">
+        <div className="flex flex-col items-center text-center">
           <div
-            className="relative grid size-14 shrink-0 place-items-center rounded-2xl text-xl font-black text-white shadow-xl"
+            className="relative grid size-28 place-items-center rounded-[30px] text-4xl font-black text-white shadow-[0_22px_60px_rgba(0,0,0,0.16)]"
             style={{ backgroundColor: primary }}
             aria-hidden="true"
           >
@@ -84,16 +90,38 @@ export default function StoreNavigationLoader({ color }: { color?: string }) {
                 animation: 'storeLoaderGlow 1.35s ease-in-out infinite',
               }}
             />
-            <span className="relative">E</span>
+            {logoUrl ? (
+              <img
+                src={logoUrl}
+                alt=""
+                className="relative h-24 w-24 object-contain drop-shadow-lg"
+                onError={(event) => {
+                  event.currentTarget.style.display = 'none'
+                }}
+              />
+            ) : (
+              <span className="relative">E</span>
+            )}
           </div>
 
-          <div className="min-w-0">
-            <p className="text-[11px] font-black uppercase tracking-[0.18em] text-black/45">Eccofood</p>
-            <p className="mt-1 text-lg font-black leading-tight">Preparando la tienda</p>
+          <div className="mt-7 flex items-center justify-center gap-0.5 text-3xl font-black tracking-wide">
+            {'Cargando'.split('').map((letter, index) => (
+              <span
+                key={`${letter}-${index}`}
+                className="inline-block"
+                style={{
+                  color: primary,
+                  animation: 'storeLoadingText 1.15s ease-in-out infinite',
+                  animationDelay: `${index * 65}ms`,
+                }}
+              >
+                {letter}
+              </span>
+            ))}
           </div>
         </div>
 
-        <div className="mt-5 h-2 overflow-hidden rounded-full bg-black/10">
+        <div className="mt-8 h-2.5 overflow-hidden rounded-full bg-black/8">
           <div
             className="h-full rounded-full"
             style={{
@@ -103,25 +131,18 @@ export default function StoreNavigationLoader({ color }: { color?: string }) {
           />
         </div>
 
-        <div className="mt-4 grid grid-cols-[68px_minmax(0,1fr)] gap-3" aria-hidden="true">
-          <div className="h-16 rounded-2xl bg-black/[0.06]" />
-          <div className="space-y-2.5 pt-1">
-            <div className="h-3 w-3/4 rounded-full bg-black/[0.10]" />
-            <div className="h-3 w-11/12 rounded-full bg-black/[0.07]" />
-            <div className="flex items-center gap-1.5 pt-1">
-              {[0, 1, 2].map(index => (
-                <span
-                  key={index}
-                  className="block size-2 rounded-full"
-                  style={{
-                    backgroundColor: primary,
-                    animation: 'storeLoadingDot 900ms ease-in-out infinite',
-                    animationDelay: `${index * 140}ms`,
-                  }}
-                />
-              ))}
-            </div>
-          </div>
+        <div className="mt-6 flex justify-center gap-2" aria-hidden="true">
+          {[0, 1, 2].map(index => (
+            <span
+              key={index}
+              className="block size-2.5 rounded-full"
+              style={{
+                backgroundColor: primary,
+                animation: 'storeLoadingDot 900ms ease-in-out infinite',
+                animationDelay: `${index * 140}ms`,
+              }}
+            />
+          ))}
         </div>
 
         <span className="sr-only" role="status" aria-live="polite">Cargando tienda</span>

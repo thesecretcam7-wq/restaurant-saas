@@ -117,7 +117,7 @@ export default async function TenantLayout({
       `}</style>
       <div className="min-h-full flex flex-col" style={{ backgroundColor }}>
         {children}
-        <StoreNavigationLoader color={primaryColor} />
+        <StoreNavigationLoader color={primaryColor} logoUrl={branding?.logo_url} />
         <Toaster position="bottom-right" />
       </div>
     </>
