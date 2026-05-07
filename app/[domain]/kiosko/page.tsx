@@ -53,7 +53,7 @@ export default async function KioskoPage({ params, searchParams }: Props) {
       .then(res => res, () => ({ data: [] })),
     supabase
       .from('restaurant_settings')
-      .select('tax_rate, currency_symbol, country, country_code')
+      .select('tax_rate, currency_symbol, country')
       .eq('tenant_id', tenant.id)
       .maybeSingle(),
     supabase
@@ -90,6 +90,8 @@ export default async function KioskoPage({ params, searchParams }: Props) {
     confirmado === 'true' && num
       ? { number: parseInt(num), name: name ? decodeURIComponent(name) : 'Cliente' }
       : undefined
+  const currencyCountry = settingsRes.data?.country || tenant.country || 'ES'
+  const currencyInfo = getCurrencyByCountry(currencyCountry)
 
   return (
     <KioskoClient
@@ -100,9 +102,9 @@ export default async function KioskoPage({ params, searchParams }: Props) {
       menuItems={itemsRes.data || []}
       toppings={toppingsRes.data || []}
       banners={bannersRes.data || []}
-      taxRate={settingsRes.data?.tax_rate || 0}
-      currencyCode={getCurrencyByCountry(settingsRes.data?.country_code || settingsRes.data?.country || tenant.country || 'ES').code}
-      currencyLocale={getCurrencyByCountry(settingsRes.data?.country_code || settingsRes.data?.country || tenant.country || 'ES').locale}
+      taxRate={Number(settingsRes.data?.tax_rate || 0)}
+      currencyCode={currencyInfo.code}
+      currencyLocale={currencyInfo.locale}
       stripeEnabled={!!tenant.stripe_account_id}
       initialConfirmed={initialConfirmed}
     />
