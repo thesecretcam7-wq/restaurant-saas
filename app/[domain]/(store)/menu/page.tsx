@@ -229,7 +229,7 @@ export default async function MenuPage({ params }: MenuProps) {
                     {item.description && <p className="mt-1 line-clamp-2 flex-1 text-xs font-semibold text-black/48">{item.description}</p>}
                     <div className="mt-2 flex items-center justify-between gap-2">
                       <p className="text-base font-black" style={{ color: primary }}>{formatPriceWithCurrency(item.price, currencyInfo.code, currencyInfo.locale)}</p>
-                      <AddToCartButton item={item} tenantId={tenantId} color={primary} small toppings={toppingsByItem[item.id] || []} />
+                      <AddToCartButton item={item} tenantId={tenantId} color={primary} small toppings={toppingsByItem[item.id] || []} currencyInfo={currencyInfo} />
                     </div>
                   </div>
                 </div>

@@ -72,7 +72,7 @@ export function MenuListItem({ item, tenantId, primary, br, cardCls, currencyInf
         </p>
       </div>
       <div className="flex-shrink-0">
-        <AddToCartButton item={item} tenantId={tenantId} color={primary} small toppings={toppings} />
+        <AddToCartButton item={item} tenantId={tenantId} color={primary} small toppings={toppings} currencyInfo={currencyInfo} />
       </div>
     </div>
   )
@@ -115,7 +115,7 @@ export function MenuGridItem({ item, tenantId, primary, br, cardCls, currencyInf
           <p className="text-base font-black" style={{ color: primary }}>
             {formatPriceWithCurrency(item.price, currencyInfo.code, currencyInfo.locale)}
           </p>
-          <AddToCartButton item={item} tenantId={tenantId} color={primary} small toppings={toppings} />
+          <AddToCartButton item={item} tenantId={tenantId} color={primary} small toppings={toppings} currencyInfo={currencyInfo} />
         </div>
       </div>
     </div>
@@ -136,7 +136,7 @@ export function MenuCompactItem({ item, tenantId, primary, currencyInfo, topping
         {formatPriceWithCurrency(item.price, currencyInfo.code, currencyInfo.locale)}
       </p>
       <div className="flex-shrink-0">
-        <AddToCartButton item={item} tenantId={tenantId} color={primary} small toppings={toppings} />
+        <AddToCartButton item={item} tenantId={tenantId} color={primary} small toppings={toppings} currencyInfo={currencyInfo} />
       </div>
     </div>
   )
