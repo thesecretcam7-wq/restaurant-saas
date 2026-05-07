@@ -43,11 +43,7 @@ export default function RootLayout({
   return (
     <html lang="es" className="h-full antialiased">
       <head>
-        <link rel="icon" href="/favicon.ico" type="image/png" sizes="32x32" />
-        <link rel="icon" href="/icons/icon-192.png" type="image/png" sizes="192x192" />
-        <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" sizes="180x180" />
         <meta name="msapplication-TileColor" content="#15130f" />
-        <meta name="msapplication-TileImage" content="/icons/icon-192.png" />
         <meta name="mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="default" />

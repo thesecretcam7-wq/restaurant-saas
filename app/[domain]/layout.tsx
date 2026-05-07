@@ -23,6 +23,7 @@ export async function generateMetadata({
   const context = await getTenantContext(domain)
   const restaurantName = getRestaurantDisplayName(context)
   const tenantSlug = context.tenant?.slug || domain
+  const tenantAppleIconUrl = `/${tenantSlug}/apple-touch-icon.png`
   const iconUrl =
     context.branding?.favicon_url ||
     context.branding?.logo_url ||
@@ -44,7 +45,7 @@ export async function generateMetadata({
         { url: iconUrl },
         { url: '/favicon.ico', sizes: '32x32', type: 'image/png' },
       ],
-      apple: [{ url: iconUrl }],
+      apple: [{ url: tenantAppleIconUrl, sizes: '180x180', type: 'image/png' }],
     },
     openGraph: {
       type: 'website',
