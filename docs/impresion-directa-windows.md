@@ -4,22 +4,28 @@ Este modo evita la vista previa de Chrome y permite abrir el cajon monedero usan
 
 ## En el computador de la impresora
 
-1. Abre PowerShell.
-2. Entra a la carpeta del proyecto.
-3. Ejecuta:
-
-```powershell
-powershell -ExecutionPolicy Bypass -File .\scripts\eccofood-print-bridge.ps1
-```
-
-Deja esa ventana abierta mientras uses el TPV.
+1. Abre Eccofood.
+2. Ve a `Configuracion > Impresoras`.
+3. Descarga `Eccofood Print Agent`.
+4. Descomprime el ZIP.
+5. Haz clic derecho en `Instalar-EccofoodPrint.bat`.
+6. Selecciona `Ejecutar como administrador`.
 
 ## En Eccofood
 
-1. Ve a Configuracion > Impresoras.
-2. Usa "Usar impresora instalada en Windows".
-3. En la tarjeta de la impresora abre "Config".
-4. Activa "Puente local".
+1. Usa `Usar impresora de Windows`.
+2. En la tarjeta de la impresora abre `Config`.
+3. Activa `Puente local`.
+4. Deja la direccion como `http://127.0.0.1:17777`.
 5. Si quieres usar la impresora predeterminada de Windows, deja el nombre como `default`.
+6. Activa `Abrir cajon al cobrar`.
 
-Si el puente local no esta abierto, Eccofood vuelve al metodo normal del navegador.
+## Verificar
+
+Abre esta direccion en el mismo computador:
+
+```text
+http://127.0.0.1:17777/health
+```
+
+Si responde `ok`, el agente esta funcionando.

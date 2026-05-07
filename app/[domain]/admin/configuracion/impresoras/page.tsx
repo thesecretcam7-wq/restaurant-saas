@@ -3,7 +3,7 @@
 import { use, useState, useEffect, useCallback } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { useTenantResolver } from '@/lib/hooks/useTenantResolver';
-import { Plus, AlertCircle, CheckCircle } from 'lucide-react';
+import { Plus, AlertCircle, CheckCircle, Download } from 'lucide-react';
 import { PrinterDeviceCard } from '@/components/admin/PrinterDeviceCard';
 import { useWebUSB } from '@/lib/hooks/useWebUSB';
 import { testPrinterConnection } from '@/lib/pos-printer';
@@ -323,30 +323,41 @@ export default function PrintersConfigPage({ params }: Props) {
         </div>
       )}
 
-      <button
-        onClick={handleAddPrinter}
-        disabled={loading || !webusb.isSupported || !tenantId}
-        className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-700 disabled:cursor-not-allowed text-white rounded-lg font-medium transition"
-      >
-        <Plus className="w-5 h-5" />
-        Agregar Impresora
-      </button>
+      <div className="flex flex-wrap gap-3">
+        <button
+          onClick={handleAddPrinter}
+          disabled={loading || !webusb.isSupported || !tenantId}
+          className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-700 disabled:cursor-not-allowed text-white rounded-lg font-medium transition"
+        >
+          <Plus className="w-5 h-5" />
+          Agregar Impresora USB
+        </button>
 
-      <button
-        onClick={handleAddWindowsPrinter}
-        disabled={loading || !tenantId}
-        className="flex items-center gap-2 rounded-lg border border-emerald-500/40 bg-emerald-500/15 px-4 py-2 font-medium text-emerald-100 transition hover:bg-emerald-500/25 disabled:cursor-not-allowed disabled:border-gray-700 disabled:bg-gray-800 disabled:text-gray-400"
-      >
-        <Plus className="w-5 h-5" />
-        Usar impresora instalada en Windows
-      </button>
+        <button
+          onClick={handleAddWindowsPrinter}
+          disabled={loading || !tenantId}
+          className="flex items-center gap-2 rounded-lg border border-emerald-500/40 bg-emerald-500/15 px-4 py-2 font-medium text-emerald-100 transition hover:bg-emerald-500/25 disabled:cursor-not-allowed disabled:border-gray-700 disabled:bg-gray-800 disabled:text-gray-400"
+        >
+          <Plus className="w-5 h-5" />
+          Usar impresora de Windows
+        </button>
+
+        <a
+          href="/downloads/eccofood-print-agent.zip"
+          download
+          className="flex items-center gap-2 rounded-lg border border-orange-400/50 bg-orange-500 px-4 py-2 font-bold text-black shadow-lg shadow-orange-500/20 transition hover:bg-orange-400"
+        >
+          <Download className="w-5 h-5" />
+          Descargar Eccofood Print Agent
+        </a>
+      </div>
 
       <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-4 text-sm text-amber-100">
         <p className="font-bold">Importante para cajon monedero</p>
         <p className="mt-1 text-amber-100/80">
-          En modo Windows/Chrome, el navegador no puede enviar el pulso ESC/POS directo al cajon.
-          Activa la apertura del cajon en las preferencias del driver de la impresora, normalmente como
-          "Open cash drawer after printing" o "Abrir cajon despues de imprimir".
+          Para imprimir sin vista previa y abrir el cajon, instala Eccofood Print Agent en el computador
+          donde estan la impresora y el cajon. Despues agrega la impresora de Windows y deja activo el
+          puente local con la URL http://127.0.0.1:17777.
         </p>
       </div>
 
