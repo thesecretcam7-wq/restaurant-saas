@@ -13,6 +13,7 @@ import {
   CreditCard,
   DoorOpen,
   Eye,
+  Activity,
   KeyRound,
   LayoutDashboard,
   Menu,
@@ -74,6 +75,7 @@ const icons: Record<string, ComponentType<{ className?: string }>> = {
   qr: QrCode,
   audit: ShieldCheck,
   ai: Brain,
+  health: Activity,
 }
 
 export function AdminSidebar({

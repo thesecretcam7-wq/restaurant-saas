@@ -1373,6 +1373,7 @@ export function POSTerminal({
         }
       }
 
+      let receiptPrintedWithDrawer = false;
       try {
         if (!settings?.default_receipt_printer_id) {
           printerWarnings.push('No hay impresora predeterminada');
@@ -1407,7 +1408,9 @@ export function POSTerminal({
               currencyInfo,
               waiterName: selectedStaffName || undefined,
               tableNumber: selectedTableNumber || undefined,
+              openCashDrawer: paymentMethod === 'cash',
             });
+            receiptPrintedWithDrawer = paymentMethod === 'cash';
           } catch (printError) {
             printerWarnings.push(`Recibo no impreso: ${printError instanceof Error ? printError.message : String(printError)}`);
           }
@@ -1420,7 +1423,9 @@ export function POSTerminal({
 
       if (paymentMethod === 'cash') {
         try {
-          await openCashDrawer(tenantId);
+          if (!receiptPrintedWithDrawer) {
+            await openCashDrawer(tenantId);
+          }
         } catch (drawerError) {
           printerWarnings.push(`Cajon no abierto: ${drawerError instanceof Error ? drawerError.message : String(drawerError)}`);
         }

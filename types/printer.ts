@@ -72,6 +72,7 @@ export interface ReceiptData {
   timestamp?: string;
   waiterName?: string;
   tableNumber?: number;
+  openCashDrawer?: boolean;
 }
 
 export interface WebUSBDevice {

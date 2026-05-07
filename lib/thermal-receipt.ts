@@ -10,6 +10,7 @@ interface ReceiptOptions {
   paperWidth: 58 | 80;
   copies: number;
   locale: string;
+  openCashDrawer?: boolean;
 }
 
 // ESC/POS command constants
@@ -138,6 +139,9 @@ export function generateReceiptESCPOS(data: ReceiptData, options: ReceiptOptions
   line('');
 
   // ── Cut ───────────────────────────────────────────────────────────────────
+  if (options.openCashDrawer) {
+    push(`${ESC}p\x00\x19\xfa`);
+  }
   push(`${GS}V\x42\x00`); // Full cut
   push(ALIGN_LEFT, SIZE_NORMAL);
 

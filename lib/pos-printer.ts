@@ -164,6 +164,7 @@ export async function printReceipt(
       paperWidth: printer.config.paper_width || 80,
       copies: printer.config.copies || 1,
       locale: data.currencyInfo.locale,
+      openCashDrawer: data.openCashDrawer === true && printer.config?.cash_drawer_enabled !== false,
     });
 
     // 3. Browser-side printing. Windows driver mode tries the local bridge first.
