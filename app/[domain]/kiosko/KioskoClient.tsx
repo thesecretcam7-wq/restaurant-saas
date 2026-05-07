@@ -876,13 +876,19 @@ export default function KioskoClient({
                   <span className="font-semibold" style={{ color: surfaceTextColor }}>{fmt(item.price * item.qty, currencyCode, currencyLocale)}</span>
                 </div>
               ))}
-              {taxRate > 0 && (
-                <div className="flex justify-between pt-3 text-sm" style={{ color: surfaceMutedTextColor }}>
-                  <span>Impuestos ({taxRate}%)</span>
-                  <span>{fmt(tax, currencyCode, currencyLocale)}</span>
+              <div className="mt-3 space-y-2 rounded-2xl p-4" style={{ backgroundColor }}>
+                <div className="flex justify-between text-sm font-bold" style={{ color: surfaceMutedTextColor }}>
+                  <span>Subtotal</span>
+                  <span>{fmt(cartTotal, currencyCode, currencyLocale)}</span>
                 </div>
-              )}
-              <div className="flex justify-between pt-3 border-t mt-2 font-black text-xl" style={{ borderColor }}>
+                {taxRate > 0 && (
+                  <div className="flex justify-between text-base font-black" style={{ color: surfaceTextColor }}>
+                    <span>IVA {taxRate}%</span>
+                    <span>{fmt(tax, currencyCode, currencyLocale)}</span>
+                  </div>
+                )}
+              </div>
+              <div className="flex justify-between pt-4 border-t mt-4 font-black text-2xl" style={{ borderColor }}>
                 <span style={{ color: surfaceTextColor }}>Total</span>
                 <span style={{ color: primaryColor }}>{fmt(grandTotal, currencyCode, currencyLocale)}</span>
               </div>
@@ -1025,7 +1031,7 @@ export default function KioskoClient({
                       {recommendedItems.map(item => (
                         <button
                           key={item.id}
-                          onClick={() => { setSelectedItem(item); setItemQty(1); setStep('menu') }}
+                          onClick={() => addToCart(item, 1)}
                           className="rounded-2xl border overflow-hidden text-left active:scale-[0.98] transition-transform"
                           style={{ borderColor, backgroundColor }}
                         >
@@ -1057,7 +1063,7 @@ export default function KioskoClient({
                       <span>Subtotal</span><span>{fmt(cartTotal, currencyCode, currencyLocale)}</span>
                     </div>
                     <div className="flex justify-between text-sm" style={{ color: surfaceMutedTextColor }}>
-                      <span>Impuestos ({taxRate}%)</span><span>{fmt(tax, currencyCode, currencyLocale)}</span>
+                      <span>IVA {taxRate}%</span><span>{fmt(tax, currencyCode, currencyLocale)}</span>
                     </div>
                   </div>
                 )}
@@ -1261,6 +1267,11 @@ export default function KioskoClient({
             <div className="hidden text-right sm:block">
               <p className="text-xs font-bold uppercase tracking-widest" style={{ color: surfaceMutedTextColor }}>Total</p>
               <p className="text-3xl font-black leading-none" style={{ color: primaryColor }}>{fmt(grandTotal, currencyCode, currencyLocale)}</p>
+              {taxRate > 0 && (
+                <p className="mt-1 text-xs font-semibold" style={{ color: surfaceMutedTextColor }}>
+                  Incluye IVA {taxRate}%: {fmt(tax, currencyCode, currencyLocale)}
+                </p>
+              )}
             </div>
             <button
               onClick={() => setStep('cart')}
