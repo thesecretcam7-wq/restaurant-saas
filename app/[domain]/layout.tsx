@@ -1,5 +1,6 @@
 import { getTenantContext } from '@/lib/tenant'
 import { Toaster } from 'react-hot-toast'
+import StoreNavigationLoader from '@/components/store/StoreNavigationLoader'
 
 export const dynamic = 'force-dynamic'
 
@@ -116,6 +117,7 @@ export default async function TenantLayout({
       `}</style>
       <div className="min-h-full flex flex-col" style={{ backgroundColor }}>
         {children}
+        <StoreNavigationLoader color={primaryColor} />
         <Toaster position="bottom-right" />
       </div>
     </>
