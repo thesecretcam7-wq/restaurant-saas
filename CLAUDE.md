@@ -133,11 +133,32 @@ eccofood/
 - [x] Dynamic home page with page builder
 
 ## Important Notes for Next Developer
+
+### Architecture & Security
 1. **RLS is critical**: All database policies must validate tenant ownership
 2. **Domain routing**: Uses URL hostname to detect tenant, not URL params
 3. **Stripe Connected**: Each restaurant has their own Stripe account
 4. **No auth cookies stored**: Uses Supabase JWT in localStorage
-5. **Dynamic styling**: Uses CSS variables for per-tenant theming
+
+### Design System & Theming
+5. **CSS Variables are mandatory**: All colors use CSS variables from `globals.css`
+   - Never hardcode colors (red-600, #FF0000, etc.)
+   - Use semantic tokens: `var(--color-primary)`, `var(--color-text-primary)`
+   - See `THEME_SYSTEM.md` for complete documentation
+6. **Three-layer token system**:
+   - **Primitive**: Brand colors (--color-eccofood-red, etc.)
+   - **Semantic**: Component intent (--color-primary, --color-danger, etc.)
+   - **Alias**: Domain-specific (--color-section-orders, etc.)
+7. **Dynamic theming**: `lib/theme.ts` provides theme engine
+   - `applyTheme()` - Switch themes at runtime
+   - `mergeTenantTheme()` - Per-tenant color customization
+8. **SectionColorProvider**: Automatically applies section-specific colors in admin pages
+   - Wraps AdminContent in `app/[domain]/admin/layout.tsx`
+   - Detects current section from URL pathname
+9. **Validation**: Run `lib/theme-validation.ts` to verify:
+   - All tokens defined
+   - No hardcoded colors
+   - Valid color values
 
 ## To Run Locally
 ```bash

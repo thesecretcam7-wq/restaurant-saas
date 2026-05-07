@@ -1,13 +1,54 @@
 import { createServiceClient } from '@/lib/supabase/server'
 import { NextRequest, NextResponse } from 'next/server'
 
-export async function GET(_: NextRequest, { params }: { params: Promise<{ tenantId: string }> }) {
-  const { tenantId } = await params
-  const supabase = createServiceClient()
+async function resolveTenantId(supabase: ReturnType<typeof createServiceClient>, slugOrId: string) {
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+  if (uuidRegex.test(slugOrId)) return slugOrId
+
   const { data } = await supabase
+    .from('tenants')
+    .select('id')
+    .eq('slug', slugOrId)
+    .maybeSingle()
+
+  return data?.id || slugOrId
+}
+
+export async function GET(_: NextRequest, { params }: { params: Promise<{ tenantId: string }> }) {
+  const { tenantId: slugOrId } = await params
+  const supabase = createServiceClient()
+  const tenantId = await resolveTenantId(supabase, slugOrId)
+  let { data, error } = await supabase
     .from('restaurant_settings')
-    .select('delivery_enabled, delivery_fee, delivery_min_order, delivery_time_minutes, cash_payment_enabled, tax_rate, reservations_enabled')
+    .select('delivery_enabled, delivery_fee, delivery_min_order, delivery_time_minutes, cash_payment_enabled, tax_rate, reservations_enabled, country')
     .eq('tenant_id', tenantId)
-    .single()
-  return NextResponse.json(data || {})
+    .maybeSingle()
+
+  if (error) {
+    console.warn('[settings] full settings query failed, using safe fallback:', error.message)
+    const fallback = await supabase
+      .from('restaurant_settings')
+      .select('delivery_enabled, delivery_fee, cash_payment_enabled, tax_rate')
+      .eq('tenant_id', tenantId)
+      .maybeSingle()
+    data = fallback.data ? {
+      ...fallback.data,
+      delivery_min_order: 0,
+      delivery_time_minutes: null,
+      reservations_enabled: false,
+      country: null,
+    } : null
+  }
+
+  const { data: tenant } = await supabase
+    .from('tenants')
+    .select('id, country')
+    .eq('id', tenantId)
+    .maybeSingle()
+
+  return NextResponse.json({
+    ...(data || {}),
+    tenant_id: tenantId,
+    country: data?.country || tenant?.country || 'ES',
+  })
 }

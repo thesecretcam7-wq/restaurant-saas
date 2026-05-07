@@ -4,7 +4,7 @@ import { NextRequest, NextResponse } from 'next/server'
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json()
-    const { tenantId, name, description, price, categoryId, imageUrl, available, featured } = body
+    const { tenantId, name, description, price, categoryId, imageUrl, available, featured, showInUpsell, requiresKitchen } = body
 
     // Validación detallada
     if (!tenantId) {
@@ -24,7 +24,7 @@ export async function POST(req: NextRequest) {
 
     const supabase = createServiceClient()
 
-    const { error } = await supabase.from('menu_items').insert({
+    const productData = {
       tenant_id: tenantId,
       name: String(name).trim(),
       description: description ? String(description).trim() : null,
@@ -33,7 +33,13 @@ export async function POST(req: NextRequest) {
       image_url: imageUrl || null,
       available: available ?? true,
       featured: featured ?? false,
-    })
+      variants: {
+        show_in_upsell: showInUpsell ?? false,
+        requires_kitchen: requiresKitchen ?? true,
+      },
+    }
+
+    const { error } = await supabase.from('menu_items').insert(productData)
 
     if (error) {
       console.error('Database error:', error)

@@ -1,69 +1,197 @@
-// Color system for admin sections
-// Each admin section has its own accent color for visual differentiation
+/**
+ * Admin Section Color System
+ *
+ * Maps admin sections to their CSS variable tokens.
+ * All colors are now CSS variable references, not hardcoded hex values.
+ *
+ * IMPORTANT: Do not add hex colors here. Add them to globals.css instead.
+ * This file only maps sections to CSS variable names.
+ */
 
-export const SECTION_COLORS = {
-  dashboard: { hex: '#475569', name: 'Slate', tailwind: 'slate-600' },
-  pedidos: { hex: '#D97706', name: 'Amber', tailwind: 'amber-600' },
-  productos: { hex: '#059669', name: 'Emerald', tailwind: 'emerald-600' },
-  clientes: { hex: '#4F46E5', name: 'Indigo', tailwind: 'indigo-600' },
-  reservas: { hex: '#7C3AED', name: 'Violet', tailwind: 'violet-600' },
-  inventario: { hex: '#0891B2', name: 'Cyan', tailwind: 'cyan-600' },
-  ventas: { hex: '#16A34A', name: 'Green', tailwind: 'green-600' },
-  configuracion: { hex: '#374151', name: 'Gray', tailwind: 'gray-700' },
-  cierres: { hex: '#16A34A', name: 'Green', tailwind: 'green-600' },
-  kds: { hex: '#D97706', name: 'Amber', tailwind: 'amber-600' },
-  pos: { hex: '#D97706', name: 'Amber', tailwind: 'amber-600' },
+/**
+ * Admin Section Color Configuration
+ * Maps section names to their CSS variable names and metadata
+ */
+export const ADMIN_SECTION_COLORS = {
+  dashboard: {
+    cssVar: '--color-section-dashboard',
+    label: 'Panel',
+    icon: '📊',
+  },
+  pedidos: {
+    cssVar: '--color-section-orders',
+    label: 'Órdenes',
+    icon: '📦',
+  },
+  productos: {
+    cssVar: '--color-section-products',
+    label: 'Productos',
+    icon: '🍔',
+  },
+  clientes: {
+    cssVar: '--color-section-customers',
+    label: 'Clientes',
+    icon: '👥',
+  },
+  reservas: {
+    cssVar: '--color-section-reservations',
+    label: 'Reservas',
+    icon: '📅',
+  },
+  inventario: {
+    cssVar: '--color-section-inventory',
+    label: 'Inventario',
+    icon: '📦',
+  },
+  ventas: {
+    cssVar: '--color-section-sales',
+    label: 'Ventas',
+    icon: '💰',
+  },
+  configuracion: {
+    cssVar: '--color-section-settings',
+    label: 'Configuración',
+    icon: '⚙️',
+  },
+  cierres: {
+    cssVar: '--color-section-sales',
+    label: 'Cierres',
+    icon: '🔐',
+  },
+  kds: {
+    cssVar: '--color-section-orders',
+    label: 'Cocina',
+    icon: '👨‍🍳',
+  },
+  pos: {
+    cssVar: '--color-section-orders',
+    label: 'TPV',
+    icon: '💳',
+  },
+  analytics: {
+    cssVar: '--color-section-analytics',
+    label: 'Analytics',
+    icon: '📈',
+  },
+  staff: {
+    cssVar: '--color-section-staff',
+    label: 'Personal',
+    icon: '👔',
+  },
+  payments: {
+    cssVar: '--color-section-payments',
+    label: 'Pagos',
+    icon: '💸',
+  },
 } as const
 
-export type SectionKey = keyof typeof SECTION_COLORS
+export type SectionKey = keyof typeof ADMIN_SECTION_COLORS
 
-// Get color for a section
-export function getSectionColor(section: string): (typeof SECTION_COLORS)[SectionKey] {
-  const key = section.toLowerCase().replace(/[^a-z]/g, '') as SectionKey
-  return SECTION_COLORS[key] || SECTION_COLORS.dashboard
+/**
+ * Get section color configuration by name
+ * @param section - Section name or pathname
+ * @returns Color configuration with CSS variable and metadata
+ */
+export function getSectionColor(section: string) {
+  const key = detectAdminSection(section)
+  return ADMIN_SECTION_COLORS[key] || ADMIN_SECTION_COLORS.dashboard
 }
 
-// Get hex color by section
-export function getSectionColorHex(section: string): string {
-  return getSectionColor(section).hex
+/**
+ * Get CSS variable name for a section
+ * Use this to apply dynamic colors via CSS
+ * @param section - Section name or pathname
+ * @returns CSS variable name (e.g., '--color-section-orders')
+ */
+export function getSectionColorVar(section: string): string {
+  const config = getSectionColor(section)
+  return config.cssVar
 }
 
-// Get tailwind class by section
-export function getSectionColorTailwind(section: string): string {
-  return getSectionColor(section).tailwind
-}
-
-// Detect current admin section from pathname
-export function detectAdminSection(pathname: string): SectionKey {
-  if (pathname.includes('/dashboard')) return 'dashboard'
-  if (pathname.includes('/pedidos')) return 'pedidos'
-  if (pathname.includes('/productos')) return 'productos'
-  if (pathname.includes('/clientes')) return 'clientes'
-  if (pathname.includes('/reservas')) return 'reservas'
-  if (pathname.includes('/inventario')) return 'inventario'
-  if (pathname.includes('/ventas')) return 'ventas'
-  if (pathname.includes('/cierres')) return 'cierres'
-  if (pathname.includes('/configuracion')) return 'configuracion'
-  if (pathname.includes('/kds')) return 'kds'
-  if (pathname.includes('/pos')) return 'pos'
-  return 'dashboard'
-}
-
-// CSS variable names for each section
-export function getCSSVariable(section: string): string {
-  const sectionKey = detectAdminSection(section)
-  const colorMap: Record<SectionKey, string> = {
-    dashboard: '--color-dashboard',
-    pedidos: '--color-orders',
-    productos: '--color-products',
-    clientes: '--color-customers',
-    reservas: '--color-reservations',
-    inventario: '--color-inventory',
-    ventas: '--color-payments',
-    configuracion: '--color-settings',
-    cierres: '--color-payments',
-    kds: '--color-orders',
-    pos: '--color-orders',
+/**
+ * Get CSS variable as inline style object
+ * Useful for React inline styles
+ * @param section - Section name or pathname
+ * @returns Object for use in style prop: { color: 'var(--color-section-orders)' }
+ */
+export function getSectionColorStyle(section: string) {
+  const cssVar = getSectionColorVar(section)
+  return {
+    color: `var(${cssVar})`,
+    borderColor: `var(${cssVar})`,
+    backgroundColor: `var(${cssVar})`,
   }
-  return colorMap[sectionKey]
+}
+
+/**
+ * Detect current admin section from pathname
+ * @param pathname - URL pathname (e.g., '/admin/pedidos/123')
+ * @returns Section key for color mapping
+ */
+export function detectAdminSection(pathname: string): SectionKey {
+  const lower = pathname.toLowerCase()
+
+  // Match specific admin sections
+  if (lower.includes('/dashboard')) return 'dashboard'
+  if (lower.includes('/pedidos')) return 'pedidos'
+  if (lower.includes('/productos')) return 'productos'
+  if (lower.includes('/clientes')) return 'clientes'
+  if (lower.includes('/reservas')) return 'reservas'
+  if (lower.includes('/inventario')) return 'inventario'
+  if (lower.includes('/ventas')) return 'ventas'
+  if (lower.includes('/cierres')) return 'cierres'
+  if (lower.includes('/configuracion')) return 'configuracion'
+  if (lower.includes('/analytics')) return 'analytics'
+  if (lower.includes('/staff')) return 'staff'
+  if (lower.includes('/kds')) return 'kds'
+  if (lower.includes('/kitchen')) return 'kds'
+  if (lower.includes('/pos')) return 'pos'
+  if (lower.includes('/payments')) return 'payments'
+
+  return 'dashboard' // Default fallback
+}
+
+/**
+ * Get section label (localized display name)
+ * @param section - Section name or pathname
+ * @returns Human-readable section label
+ */
+export function getSectionLabel(section: string): string {
+  const config = getSectionColor(section)
+  return config.label
+}
+
+/**
+ * Get section icon emoji
+ * @param section - Section name or pathname
+ * @returns Emoji icon for the section
+ */
+export function getSectionIcon(section: string): string {
+  const config = getSectionColor(section)
+  return config.icon
+}
+
+/**
+ * Get all available sections
+ * @returns Array of all section keys
+ */
+export function getAllSections(): SectionKey[] {
+  return Object.keys(ADMIN_SECTION_COLORS) as SectionKey[]
+}
+
+/**
+ * Validate if a section key is valid
+ * @param section - Section to validate
+ * @returns true if valid section key
+ */
+export function isValidSection(section: unknown): section is SectionKey {
+  return typeof section === 'string' && section in ADMIN_SECTION_COLORS
+}
+
+/**
+ * Legacy function for backwards compatibility
+ * @deprecated Use getSectionColorVar instead
+ */
+export function getCSSVariable(section: string): string {
+  return getSectionColorVar(section)
 }

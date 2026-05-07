@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import { NextRequest, NextResponse } from 'next/server';
+import { requireTenantAccess, tenantAuthErrorResponse } from '@/lib/tenant-api-auth';
 
 export async function GET(request: NextRequest) {
   const supabase = createClient(
@@ -16,6 +17,8 @@ export async function GET(request: NextRequest) {
   }
 
   try {
+    await requireTenantAccess(tenantId, { staffRoles: ['admin', 'cajero', 'camarero', 'cocinero'] });
+
     let query = supabase
       .from('order_items')
       .select(`
@@ -53,6 +56,9 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json(data);
   } catch (error) {
+    if (error instanceof Error && ['Unauthorized', 'Forbidden'].includes(error.message)) {
+      return tenantAuthErrorResponse(error) as any;
+    }
     console.error('Error fetching order items:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
@@ -73,6 +79,7 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
+    await requireTenantAccess(tenantId, { staffRoles: ['admin', 'cajero', 'camarero', 'cocinero'] });
 
     // Get order data first
     const { data: order, error: orderError } = await supabase
@@ -90,11 +97,11 @@ export async function POST(request: NextRequest) {
     const orderItems = items.map((item: any) => ({
       order_id: orderId,
       tenant_id: tenantId,
-      menu_item_id: item.menu_item_id,
+      menu_item_id: item.menu_item_id || item.item_id || null,
       name: item.name,
-      quantity: item.quantity,
+      quantity: item.qty ?? item.quantity ?? 1,
       price: item.price,
-      notes: item.notes,
+      notes: item.notes || null,
       status: 'pending',
     }));
 
@@ -107,6 +114,9 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json(data, { status: 201 });
   } catch (error) {
+    if (error instanceof Error && ['Unauthorized', 'Forbidden'].includes(error.message)) {
+      return tenantAuthErrorResponse(error) as any;
+    }
     console.error('Error creating order items:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }

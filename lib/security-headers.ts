@@ -18,7 +18,7 @@ export const SECURITY_HEADERS = {
 
   // Permissions policy - restrict powerful APIs
   'Permissions-Policy':
-    'geolocation=(), microphone=(), camera=(), payment=(), usb=(), magnetometer=(), gyroscope=(), accelerometer=()',
+    'geolocation=(), microphone=(), camera=(), payment=(), usb=(self), magnetometer=(), gyroscope=(), accelerometer=()',
 
   // Content Security Policy - prevent XSS and injection attacks
   'Content-Security-Policy': [

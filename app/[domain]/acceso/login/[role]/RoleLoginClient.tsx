@@ -2,12 +2,22 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ChefHat, ArrowLeft, Delete } from 'lucide-react';
+import { ArrowLeft, ChefHat, CreditCard, Delete, Lock, ShieldCheck, UtensilsCrossed } from 'lucide-react';
 
 interface StaffMember {
   id: string;
   name: string;
   role: string;
+}
+
+interface Branding {
+  appName: string;
+  primaryColor: string;
+  secondaryColor: string;
+  accentColor: string;
+  backgroundColor: string;
+  textPrimaryColor: string;
+  textSecondaryColor: string;
 }
 
 interface Props {
@@ -17,23 +27,46 @@ interface Props {
   logoUrl: string | null;
   role: 'cocinero' | 'camarero' | 'cajero' | 'admin';
   staffMembers: StaffMember[];
+  branding: Branding;
 }
 
 const ROLE_CONFIG = {
-  cocinero: { label: 'Cocinero', apiRole: 'cocinero' },
-  camarero: { label: 'Camarero', apiRole: 'camarero' },
-  cajero:   { label: 'Cajero',   apiRole: 'cajero' },
-  admin:    { label: 'Administrador', apiRole: 'admin' },
+  cocinero: { label: 'Cocinero', apiRole: 'cocinero', tool: 'Kitchen Display', icon: ChefHat },
+  camarero: { label: 'Camarero', apiRole: 'camarero', tool: 'Comandero', icon: UtensilsCrossed },
+  cajero: { label: 'Cajero', apiRole: 'cajero', tool: 'TPV', icon: CreditCard },
+  admin: { label: 'Administrador', apiRole: 'admin', tool: 'Panel de control', icon: Lock },
 };
 
-const PIN_COLORS = {
-  cocinero: 'bg-gradient-to-br from-red-500 to-orange-500 border-orange-500',
-  camarero: 'bg-gradient-to-br from-red-500 to-orange-500 border-orange-500',
-  cajero: 'bg-gradient-to-br from-red-500 to-orange-500 border-orange-500',
-  admin: 'bg-gradient-to-br from-red-500 to-orange-500 border-orange-500',
-} as const;
+function hexToRgb(hex: string) {
+  const normalized = hex.replace('#', '').trim();
+  if (!/^[0-9a-fA-F]{6}$/.test(normalized)) return null;
+  return {
+    r: parseInt(normalized.slice(0, 2), 16),
+    g: parseInt(normalized.slice(2, 4), 16),
+    b: parseInt(normalized.slice(4, 6), 16),
+  };
+}
 
-export function RoleLoginClient({ tenantId, tenantName, tenantSlug, logoUrl, role, staffMembers }: Props) {
+function isDark(hex: string) {
+  const rgb = hexToRgb(hex);
+  if (!rgb) return true;
+  const luminance = (0.299 * rgb.r + 0.587 * rgb.g + 0.114 * rgb.b) / 255;
+  return luminance < 0.5;
+}
+
+function readableText(background: string, fallbackDark = '#15130f', fallbackLight = '#ffffff') {
+  return isDark(background) ? fallbackLight : fallbackDark;
+}
+
+export function RoleLoginClient({
+  tenantId,
+  tenantName,
+  tenantSlug,
+  logoUrl,
+  role,
+  staffMembers,
+  branding,
+}: Props) {
   const router = useRouter();
   const [staffId, setStaffId] = useState('');
   const [staffName, setStaffName] = useState('');
@@ -41,33 +74,46 @@ export function RoleLoginClient({ tenantId, tenantName, tenantSlug, logoUrl, rol
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [phase, setPhase] = useState<'select' | 'pin'>('select');
-  const config = ROLE_CONFIG[role as keyof typeof ROLE_CONFIG];
+  const config = ROLE_CONFIG[role];
+  const RoleIcon = config.icon;
+
+  const primary = branding.primaryColor;
+  const secondary = branding.secondaryColor;
+  const accent = branding.accentColor;
+  const pageBg = isDark(branding.backgroundColor) ? branding.backgroundColor : '#0b0f19';
+  const primaryText = readableText(primary);
+  const secondaryText = readableText(secondary);
+  const appName = branding.appName || tenantName;
 
   async function handleStaffSelect(selectedId: string) {
-    const selected = staffMembers.find(s => s.id === selectedId);
-    if (!selected) { setError('Selecciona un empleado válido'); return; }
+    const selected = staffMembers.find((staff) => staff.id === selectedId);
+    if (!selected) {
+      setError('Selecciona un empleado valido');
+      return;
+    }
     setStaffId(selectedId);
     setStaffName(selected.name);
     setError('');
     setPhase('pin');
   }
 
-  async function validatePin(p: string) {
-    if (p.length < 4) return;
+  async function validatePin(value: string) {
+    if (value.length < 4) return;
     setLoading(true);
     setError('');
+
     try {
       const res = await fetch('/api/staff/auth', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ domain: tenantSlug, pin: p, role: config.apiRole }),
+        body: JSON.stringify({ domain: tenantSlug, pin: value, role: config.apiRole }),
       });
 
       if (res.ok) {
         await fetch('/api/staff/session/log', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ tenantId, employee_name: staffName, role, pin: p }),
+          body: JSON.stringify({ tenantId, employee_name: staffName, role, pin: value }),
         });
 
         sessionStorage.setItem('staff_role', role);
@@ -82,20 +128,26 @@ export function RoleLoginClient({ tenantId, tenantName, tenantSlug, logoUrl, rol
         });
 
         const roleDestinations: Record<string, string> = {
-          admin:    `/${tenantSlug}/admin/dashboard`,
+          admin: `/${tenantSlug}/admin/dashboard`,
           cocinero: `/${tenantSlug}/staff/kds`,
           camarero: `/${tenantSlug}/kitchen`,
-          cajero:   `/${tenantSlug}/staff/pos`,
+          cajero: `/${tenantSlug}/staff/pos`,
         };
         router.push(roleDestinations[role] || `/${tenantSlug}/acceso/portal/${role}`);
         return;
       }
 
       const data = await res.json();
-      if (data.requiresUpgrade) { setError('Esta función requiere plan Pro o Premium.'); return; }
+      if (data.requiresUpgrade) {
+        setError('Esta funcion requiere plan Pro o Premium.');
+        setPin('');
+        return;
+      }
       setError('PIN incorrecto.');
+      setPin('');
     } catch {
-      setError('Error de conexión.');
+      setError('Error de conexion.');
+      setPin('');
     } finally {
       setLoading(false);
     }
@@ -104,104 +156,186 @@ export function RoleLoginClient({ tenantId, tenantName, tenantSlug, logoUrl, rol
   function pressKey(key: string) {
     if (loading) return;
     setError('');
-    if (key === 'del') { setPin(p => p.slice(0, -1)); return; }
+    if (key === 'del') {
+      setPin((current) => current.slice(0, -1));
+      return;
+    }
+    if (pin.length >= 6) return;
     const next = pin + key;
     setPin(next);
     if (next.length === 6) validatePin(next);
   }
 
+  function goBack() {
+    if (phase === 'pin') {
+      setPhase('select');
+      setPin('');
+      setError('');
+      setStaffId('');
+      setStaffName('');
+      return;
+    }
+    router.push(`/${tenantSlug}/acceso`);
+  }
+
   return (
-    <div
-      className="min-h-screen flex flex-col items-center justify-center p-6"
+    <main
+      className="min-h-screen overflow-hidden text-white"
       style={{
-        background: 'linear-gradient(to bottom right, white, rgba(219, 234, 254, 0.5), rgba(220, 252, 231, 0.5))'
+        background:
+          `radial-gradient(circle at 18% 18%, ${primary}33, transparent 34%), ` +
+          `radial-gradient(circle at 86% 12%, ${accent}24, transparent 30%), ` +
+          `linear-gradient(135deg, ${pageBg}, #020617 78%)`,
       }}
     >
       <button
-        onClick={() => {
-          if (phase === 'pin') {
-            setPhase('select'); setPin(''); setError(''); setStaffId(''); setStaffName('');
-          } else {
-            router.back();
-          }
-        }}
-        className="fixed top-4 left-4 p-2 text-gray-500 hover:text-gray-900 transition-colors"
+        onClick={goBack}
+        className="fixed left-3 top-3 z-20 grid h-10 w-10 place-items-center rounded-2xl border border-white/10 bg-white/[0.07] text-white/70 transition hover:bg-white/[0.12] hover:text-white sm:left-6 sm:top-6 sm:h-12 sm:w-12"
+        title="Volver"
       >
-        <ArrowLeft className="w-5 h-5" />
+        <ArrowLeft className="h-5 w-5" />
       </button>
 
-      <div className="mb-8 text-center">
-        {logoUrl ? (
-          <img src={logoUrl} alt={tenantName} className="w-16 h-16 rounded-2xl object-cover mx-auto mb-3" />
-        ) : (
-          <div className="w-16 h-16 bg-gradient-to-br from-red-600 to-orange-600 rounded-2xl flex items-center justify-center mx-auto mb-3">
-            <ChefHat className="w-8 h-8 text-white" />
+      <div className="grid min-h-screen grid-cols-1 lg:grid-cols-[0.92fr_1.08fr]">
+        <section className="flex flex-col justify-between border-white/10 px-4 pb-3 pt-14 sm:px-10 sm:py-9 sm:pl-24 lg:border-r">
+          <div className="flex items-center gap-3 sm:gap-4">
+            <div className="grid h-12 w-12 place-items-center overflow-hidden rounded-2xl border border-white/15 bg-white/10 shadow-2xl sm:h-16 sm:w-16">
+              {logoUrl ? (
+                <img src={logoUrl} alt={appName} className="h-full w-full object-contain bg-white p-1.5 sm:p-2" />
+              ) : (
+                <ChefHat className="h-6 w-6 sm:h-8 sm:w-8" style={{ color: primary }} />
+              )}
+            </div>
+            <div>
+              <p className="text-xs font-black uppercase tracking-[0.22em] text-white/45">Acceso personal</p>
+              <h1 className="text-lg font-black tracking-tight sm:text-2xl">{appName}</h1>
+            </div>
           </div>
-        )}
-        <p className="text-gray-900 font-bold text-xl">{config.label}</p>
-        <p className="text-gray-500 text-sm mt-1">{tenantName}</p>
-      </div>
 
-      {phase === 'select' ? (
-        <div className="w-full max-w-sm space-y-4">
-          <p className="text-gray-700 text-center text-sm mb-4">Selecciona tu nombre</p>
-          <select
-            value={staffId}
-            onChange={e => handleStaffSelect(e.target.value)}
-            autoFocus
-            className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl text-gray-900 focus:outline-none focus:border-blue-500 text-center text-lg shadow-sm"
-          >
-            <option value="">-- Elige tu nombre --</option>
-            {staffMembers.map(staff => (
-              <option key={staff.id} value={staff.id}>{staff.name}</option>
-            ))}
-          </select>
-          {error && <p className="text-red-500 text-sm text-center">{error}</p>}
-          {staffMembers.length === 0 && (
-            <p className="text-red-500 text-sm text-center">No hay empleados registrados</p>
-          )}
-        </div>
-      ) : (
-        <>
-          <div className="flex gap-3 mb-6">
-            {Array.from({ length: 6 }).map((_, i) => (
+          <div className="hidden lg:block">
+            <p
+              className="mb-5 inline-flex rounded-full px-4 py-2 text-sm font-black uppercase tracking-[0.16em]"
+              style={{ backgroundColor: `${primary}24`, color: primary }}
+            >
+              {config.tool}
+            </p>
+            <h2 className="max-w-lg text-6xl font-black leading-[0.94] tracking-tight">
+              Acceso de {config.label}
+            </h2>
+            <p className="mt-6 max-w-md text-lg font-semibold leading-relaxed text-white/58">
+              Selecciona tu usuario y confirma tu PIN para continuar al entorno operativo.
+            </p>
+          </div>
+
+          <div className="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.06] px-4 py-3">
+            <ShieldCheck className="h-5 w-5" style={{ color: primary }} />
+            <p className="text-sm font-semibold text-white/62">Sesion protegida por perfil y PIN</p>
+          </div>
+        </section>
+
+        <section className="flex min-h-0 items-start justify-center px-3 pb-3 pt-1 sm:p-10 sm:pt-6 lg:items-center">
+          <div className="w-full max-w-md rounded-[1.5rem] border border-white/12 bg-white/[0.075] p-4 shadow-2xl shadow-black/30 backdrop-blur-xl sm:rounded-[2rem] sm:p-7">
+            <div className="mb-4 flex items-center gap-3 sm:mb-7 sm:gap-4">
               <div
-                key={i}
-                className={`w-10 h-10 rounded-full border-2 flex items-center justify-center transition-colors ${
-                  i < pin.length ? PIN_COLORS[role] : 'border-gray-300 bg-white'
-                }`}
+                className="grid h-12 w-12 place-items-center rounded-2xl border sm:h-16 sm:w-16"
+                style={{
+                  backgroundColor: `${primary}24`,
+                  borderColor: `${primary}55`,
+                  color: primaryText,
+                }}
               >
-                {i < pin.length && <div className="w-3 h-3 bg-white rounded-full" />}
+                <RoleIcon className="h-6 w-6 sm:h-8 sm:w-8" />
               </div>
-            ))}
-          </div>
+              <div>
+                <p className="text-xs font-black uppercase tracking-[0.16em] sm:text-sm" style={{ color: primary }}>
+                  {config.label}
+                </p>
+                <p className="text-base font-black text-white sm:text-lg">{phase === 'select' ? 'Selecciona tu nombre' : staffName}</p>
+              </div>
+            </div>
 
-          {error && <p className="text-red-500 text-sm mb-4 text-center">{error}</p>}
-          {loading && <p className="text-gray-500 text-sm mb-4">Verificando...</p>}
-
-          <div className="grid grid-cols-3 gap-3 w-64">
-            {['1','2','3','4','5','6','7','8','9','','0','del'].map((key) => {
-              if (key === '') return <div key="empty" />;
-              return (
-                <button
-                  key={key}
-                  onClick={() => pressKey(key)}
-                  disabled={loading}
-                  className={`h-16 rounded-2xl flex items-center justify-center text-xl font-semibold transition-all active:scale-95 shadow-sm ${
-                    key === 'del'
-                      ? 'bg-gray-100 text-gray-500 hover:bg-gray-200 border border-gray-200'
-                      : 'bg-white text-gray-900 hover:bg-gray-50 border border-gray-200'
-                  }`}
+            {phase === 'select' ? (
+              <div className="space-y-4">
+                <label className="block text-sm font-bold text-white/62">Empleado</label>
+                <select
+                  value={staffId}
+                  onChange={(event) => handleStaffSelect(event.target.value)}
+                  autoFocus
+                  className="w-full rounded-2xl border border-white/12 bg-black/30 px-4 py-4 text-lg font-bold text-white outline-none transition focus:border-white/35"
                 >
-                  {key === 'del' ? <Delete className="w-5 h-5" /> : key}
-                </button>
-              );
-            })}
-          </div>
+                  <option value="">Elige tu nombre</option>
+                  {staffMembers.map((staff) => (
+                    <option key={staff.id} value={staff.id}>
+                      {staff.name}
+                    </option>
+                  ))}
+                </select>
 
-          <p className="text-gray-400 text-xs mt-8 text-center">Ingresa tu PIN de 6 dígitos</p>
-        </>
-      )}
-    </div>
+                {staffMembers.length === 0 && (
+                  <p className="rounded-2xl border border-red-400/25 bg-red-500/10 px-4 py-3 text-center text-sm font-bold text-red-100">
+                    No hay empleados registrados para este rol.
+                  </p>
+                )}
+                {error && (
+                  <p className="rounded-2xl border border-red-400/25 bg-red-500/10 px-4 py-3 text-center text-sm font-bold text-red-100">
+                    {error}
+                  </p>
+                )}
+              </div>
+            ) : (
+              <>
+                <div className="mb-4 flex justify-center gap-2 sm:mb-7 sm:gap-3">
+                  {Array.from({ length: 6 }).map((_, index) => (
+                    <div
+                      key={index}
+                      className="grid h-8 w-8 place-items-center rounded-full border-2 transition-colors sm:h-11 sm:w-11"
+                      style={{
+                        backgroundColor: index < pin.length ? primary : 'rgba(255,255,255,0.08)',
+                        borderColor: index < pin.length ? primary : 'rgba(255,255,255,0.14)',
+                      }}
+                    >
+                      {index < pin.length && <div className="h-2.5 w-2.5 rounded-full sm:h-3 sm:w-3" style={{ backgroundColor: primaryText }} />}
+                    </div>
+                  ))}
+                </div>
+
+                {error && (
+                  <p className="mb-4 rounded-2xl border border-red-400/25 bg-red-500/10 px-4 py-3 text-center text-sm font-bold text-red-100">
+                    {error}
+                  </p>
+                )}
+                {loading && <p className="mb-4 text-center text-sm font-bold text-white/58">Verificando...</p>}
+
+                <div className="grid grid-cols-3 gap-2 sm:gap-3">
+                  {['1', '2', '3', '4', '5', '6', '7', '8', '9', '', '0', 'del'].map((key) => {
+                    if (key === '') return <div key="empty" />;
+                    const isDelete = key === 'del';
+                    return (
+                      <button
+                        key={key}
+                        onClick={() => pressKey(key)}
+                        disabled={loading}
+                        className="grid h-[52px] place-items-center rounded-2xl border text-xl font-black transition active:scale-95 disabled:opacity-50 sm:h-16 sm:text-2xl"
+                        style={{
+                          backgroundColor: isDelete ? `${secondary}66` : 'rgba(255,255,255,0.09)',
+                          borderColor: isDelete ? `${secondary}aa` : 'rgba(255,255,255,0.12)',
+                          color: isDelete ? secondaryText : '#ffffff',
+                        }}
+                      >
+                        {key === 'del' ? <Delete className="h-5 w-5" /> : key}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                <p className="mt-3 text-center text-[10px] font-bold uppercase tracking-[0.18em] text-white/35 sm:mt-7 sm:text-xs">
+                  PIN de 6 digitos
+                </p>
+              </>
+            )}
+          </div>
+        </section>
+      </div>
+    </main>
   );
 }

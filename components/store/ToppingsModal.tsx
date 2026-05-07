@@ -1,7 +1,9 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { useCartStore } from '@/lib/store/cart'
+import { formatPriceWithCurrency } from '@/lib/currency'
 
 interface Topping {
   id: string
@@ -14,16 +16,28 @@ interface Props {
   toppings: Topping[]
   tenantId: string
   primaryColor: string
+  currencyInfo?: { code: string; locale: string }
   onClose: () => void
 }
 
-export default function ToppingsModal({ item, toppings, tenantId, primaryColor, onClose }: Props) {
+export default function ToppingsModal({ item, toppings, tenantId, primaryColor, currencyInfo, onClose }: Props) {
   const [selectedToppings, setSelectedToppings] = useState<Topping[]>([])
   const [qty, setQty] = useState(1)
+  const [mounted, setMounted] = useState(false)
   const { addItem } = useCartStore()
 
   const toppingsCost = selectedToppings.reduce((sum, t) => sum + t.price, 0)
   const itemTotal = (item.price + toppingsCost) * qty
+  const money = (value: number) => formatPriceWithCurrency(Number(value || 0), currencyInfo?.code || 'EUR', currencyInfo?.locale || 'es-ES')
+
+  useEffect(() => {
+    setMounted(true)
+    const previousOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => {
+      document.body.style.overflow = previousOverflow
+    }
+  }, [])
 
   const toggleTopping = (topping: Topping) => {
     setSelectedToppings(prev =>
@@ -37,7 +51,7 @@ export default function ToppingsModal({ item, toppings, tenantId, primaryColor, 
     addItem({
       item_id: item.id,
       name: item.name,
-      price: item.price + toppingsCost,
+      price: item.price,
       image_url: item.image_url || undefined,
       qty,
       toppings: selectedToppings,
@@ -45,9 +59,12 @@ export default function ToppingsModal({ item, toppings, tenantId, primaryColor, 
     onClose()
   }
 
-  return (
-    <div className="fixed inset-0 z-50 bg-black/50 flex items-end">
-      <div className="w-full bg-white rounded-t-2xl max-h-[90vh] flex flex-col pb-20">
+  if (!mounted) return null
+
+  return createPortal(
+    <div className="fixed inset-0 z-[9999] flex items-end bg-black/60 backdrop-blur-sm" role="dialog" aria-modal="true">
+      <button className="absolute inset-0 cursor-default" aria-label="Cerrar adicionales" onClick={onClose} />
+      <div className="relative z-10 w-full bg-white rounded-t-2xl max-h-[90vh] flex flex-col pb-[calc(1rem+env(safe-area-inset-bottom))] shadow-2xl">
         {/* Header */}
         <div className="bg-white border-b border-gray-200 p-4 flex items-center justify-between flex-shrink-0">
           <h2 className="font-bold text-lg text-gray-900">{item.name}</h2>
@@ -72,7 +89,7 @@ export default function ToppingsModal({ item, toppings, tenantId, primaryColor, 
               <p className="font-semibold text-gray-900">{item.name}</p>
               <p className="text-sm text-gray-600 mt-1">Precio base</p>
               <p className="text-lg font-bold" style={{ color: primaryColor }}>
-                ${item.price.toFixed(2)}
+                {money(item.price)}
               </p>
             </div>
           </div>
@@ -96,7 +113,7 @@ export default function ToppingsModal({ item, toppings, tenantId, primaryColor, 
                   <div className="flex-1">
                     <p className="font-medium text-gray-900">{topping.name}</p>
                     {topping.price > 0 && (
-                      <p className="text-xs text-gray-500">+${topping.price.toFixed(2)}</p>
+                      <p className="text-xs text-gray-500">+{money(topping.price)}</p>
                     )}
                   </div>
                 </label>
@@ -131,7 +148,7 @@ export default function ToppingsModal({ item, toppings, tenantId, primaryColor, 
           <div className="flex items-center justify-between pt-2 border-t border-gray-200">
             <span className="font-semibold text-gray-900">Total</span>
             <p className="text-xl font-bold" style={{ color: primaryColor }}>
-              ${itemTotal.toFixed(2)}
+              {money(itemTotal)}
             </p>
           </div>
 
@@ -145,6 +162,7 @@ export default function ToppingsModal({ item, toppings, tenantId, primaryColor, 
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   )
 }

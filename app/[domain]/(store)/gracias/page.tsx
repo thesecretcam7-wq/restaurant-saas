@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { getTenantContext } from '@/lib/tenant'
+import { formatPriceWithCurrency, getCurrencyByCountry } from '@/lib/currency'
 import Link from 'next/link'
 
 interface Props {
@@ -14,6 +15,8 @@ export default async function GraciasPage({ params, searchParams }: Props) {
   const { branding } = context
   const tenantSlug = context.tenant?.slug || tenantId
   const primary = branding?.primary_color || '#E4002B'
+  const currencyInfo = getCurrencyByCountry(context.settings?.country_code || context.settings?.country || (context.tenant as any)?.country || 'ES')
+  const money = (amount: number) => formatPriceWithCurrency(Number(amount || 0), currencyInfo.code, currencyInfo.locale)
 
   let order = null
   if (orderId) {
@@ -56,7 +59,7 @@ export default async function GraciasPage({ params, searchParams }: Props) {
             </div>
             <div className="flex justify-between items-center">
               <span className="text-sm text-muted-foreground">Total</span>
-              <span className="font-extrabold text-lg" style={{ color: primary }}>${Number(order.total).toLocaleString('es-CO')}</span>
+              <span className="font-extrabold text-lg" style={{ color: primary }}>{money(Number(order.total))}</span>
             </div>
             <div className="flex justify-between items-center">
               <span className="text-sm text-muted-foreground">Pago</span>

@@ -25,7 +25,16 @@ export async function POST(request: NextRequest) {
       password,
       restaurantName,
       ownerName,
+      country,
+      timezone,
     } = body
+
+    const headerCountry =
+      request.headers.get('x-vercel-ip-country') ||
+      request.headers.get('cf-ipcountry') ||
+      ''
+    const restaurantCountry = String(country || headerCountry || 'ES').toUpperCase()
+    const restaurantTimezone = timezone || (restaurantCountry === 'ES' ? 'Europe/Madrid' : 'America/Bogota')
 
 
     if (!email || !password || !restaurantName) {
@@ -36,10 +45,31 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+    const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+    const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+
+    const missingEnv = [
+      !supabaseUrl && 'NEXT_PUBLIC_SUPABASE_URL',
+      !supabaseAnonKey && 'NEXT_PUBLIC_SUPABASE_ANON_KEY',
+      !supabaseServiceKey && 'SUPABASE_SERVICE_ROLE_KEY',
+    ].filter(Boolean)
+
+    if (missingEnv.length > 0) {
+      return NextResponse.json(
+        { error: `Faltan variables de Supabase en .env.local: ${missingEnv.join(', ')}` },
+        { status: 500 }
+      )
+    }
+
+    const url = supabaseUrl as string
+    const serviceKey = supabaseServiceKey as string
+    const anonKey = supabaseAnonKey as string
+
     // Use plain supabase-js client with service role key to bypass RLS
     const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!,
+      url,
+      serviceKey,
       { auth: { autoRefreshToken: false, persistSession: false } }
     )
 
@@ -86,6 +116,7 @@ export async function POST(request: NextRequest) {
         owner_id: authData.user.id,
         owner_email: email,
         owner_name: ownerName || '',
+        country: restaurantCountry,
         status: 'trial',
         trial_ends_at: trialEndsAt,
       })
@@ -132,8 +163,8 @@ export async function POST(request: NextRequest) {
       .insert({
         tenant_id: tenantData.id,
         display_name: restaurantName,
-        country: 'CO',
-        timezone: 'America/Bogota',
+        country: restaurantCountry,
+        timezone: restaurantTimezone,
       })
 
     if (settingsError) {
@@ -149,8 +180,8 @@ export async function POST(request: NextRequest) {
     // Now create authenticated session with SSR client
     const cookieStore = await cookies()
     const authClient = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      url,
+      anonKey,
       {
         cookies: {
           getAll() { return cookieStore.getAll() },
@@ -187,6 +218,7 @@ export async function POST(request: NextRequest) {
         owner_id: authData.user.id,
         owner_email: email,
         owner_name: ownerName || '',
+        country: restaurantCountry,
         status: 'trial',
         trial_ends_at: trialEndsAt,
       })
@@ -217,8 +249,8 @@ export async function POST(request: NextRequest) {
         .insert({
           tenant_id: demoTenantData.id,
           display_name: 'Restaurante Demo',
-          country: 'CO',
-          timezone: 'America/Bogota',
+          country: restaurantCountry,
+          timezone: restaurantTimezone,
           waiter_pin: '1234',
           kitchen_pin: '5678',
         })

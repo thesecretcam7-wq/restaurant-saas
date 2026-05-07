@@ -6,6 +6,26 @@ import { Redis } from '@upstash/redis'
 
 const BASE_DOMAIN = process.env.NEXT_PUBLIC_BASE_DOMAIN || 'eccofoodapp.com'
 const SLUG_PATH_REGEX = /^\/([a-zA-Z0-9-]+)(?:\/|$)/
+const PUBLIC_PATHS = new Set([
+  '/',
+  '/login',
+  '/register',
+  '/planes',
+  '/unauthorized',
+  '/manifest.webmanifest',
+  '/sw.js',
+])
+
+type TenantRoute = { id: string; slug: string }
+type StaffSession = {
+  tenantId?: string
+  staffId?: string
+  role?: string
+  permissions?: string[]
+  sessionToken?: string
+}
+const tenantCache = new Map<string, { value: TenantRoute | null; expiresAt: number }>()
+const TENANT_CACHE_TTL = 60_000
 
 // Rate limiters — inicializados lazy para evitar errores si faltan env vars
 let globalLimiter: Ratelimit | null = null
@@ -35,10 +55,79 @@ function getClientIp(request: NextRequest): string {
   )
 }
 
+function getStaffSession(request: NextRequest): StaffSession | null {
+  const raw = request.cookies.get('staff_session')?.value
+  if (!raw) return null
+  try {
+    return JSON.parse(raw) as StaffSession
+  } catch {
+    return null
+  }
+}
+
+function staffCanAccessTenant(staffSession: StaffSession | null, tenantId: string) {
+  return Boolean(staffSession?.tenantId && staffSession.tenantId === tenantId)
+}
+
+function staffHasAnyRole(staffSession: StaffSession | null, roles: string[]) {
+  if (!staffSession?.role) return false
+  const permissions = staffSession.permissions || []
+  return roles.includes(staffSession.role) || permissions.some((p) => p.startsWith('admin_'))
+}
+
+function getOperationalAccess(pathname: string) {
+  const slugMatch = pathname.match(SLUG_PATH_REGEX)
+  const slug = slugMatch?.[1] || ''
+  const restPath = slug ? pathname.slice(slug.length + 1) || '/' : pathname
+
+  if (restPath === '/admin/kds' || restPath.startsWith('/admin/kds/')) {
+    return { slug, roles: ['cocinero'], loginRole: 'cocinero', allowOwnerSession: false }
+  }
+  if (
+    restPath === '/admin/pos' ||
+    (restPath.startsWith('/admin/pos/') && !restPath.startsWith('/admin/pos/display'))
+  ) {
+    return { slug, roles: ['cajero'], loginRole: 'cajero', allowOwnerSession: false }
+  }
+  if (restPath === '/kitchen' || restPath.startsWith('/kitchen/')) {
+    return { slug, roles: ['camarero'], loginRole: 'camarero', allowOwnerSession: false }
+  }
+  if (restPath === '/staff/pos' || restPath.startsWith('/staff/pos/')) {
+    return { slug, roles: ['cajero'], loginRole: 'cajero', allowOwnerSession: false }
+  }
+  if (restPath === '/staff/kds' || restPath.startsWith('/staff/kds/')) {
+    return { slug, roles: ['cocinero'], loginRole: 'cocinero', allowOwnerSession: false }
+  }
+  if (restPath === '/cocina' || restPath.startsWith('/cocina/')) {
+    return { slug, roles: ['cocinero'], loginRole: 'cocinero', allowOwnerSession: false }
+  }
+  if (restPath === '/kiosko' || restPath.startsWith('/kiosko/')) {
+    return { slug, roles: ['cajero', 'admin', 'camarero', 'cocinero'], loginRole: 'cajero', allowOwnerSession: false }
+  }
+  if (restPath === '/pantalla' || restPath.startsWith('/pantalla/')) {
+    return { slug, roles: ['cajero', 'admin', 'camarero', 'cocinero'], loginRole: 'cajero', allowOwnerSession: false }
+  }
+  if (restPath === '/pos-display' || restPath.startsWith('/pos-display/')) {
+    return { slug, roles: ['cajero', 'admin', 'camarero', 'cocinero'], loginRole: 'cajero', allowOwnerSession: false }
+  }
+
+  return null
+}
+
 export async function middleware(request: NextRequest) {
   const url = request.nextUrl.clone()
   const hostname = request.headers.get('host') || ''
   const pathname = url.pathname
+
+  if (
+    PUBLIC_PATHS.has(pathname) ||
+    pathname.startsWith('/_next/') ||
+    pathname.startsWith('/icons/') ||
+    pathname.startsWith('/screenshots/') ||
+    pathname.match(/\.(?:ico|png|jpg|jpeg|svg|webp|avif|css|js|map|txt)$/)
+  ) {
+    return NextResponse.next()
+  }
 
   // ─── RATE LIMITING ────────────────────────────────────────────────────────
   const isStripeWebhook = pathname === '/api/stripe/webhook'
@@ -81,6 +170,70 @@ export async function middleware(request: NextRequest) {
   }
 
   // ─── PROTECCIÓN DE RUTAS (solo /admin/*, excepto login y POS display) ─────
+  const operationalAccess = getOperationalAccess(pathname)
+  if (operationalAccess?.slug) {
+    const tenant = isUUID(operationalAccess.slug)
+      ? await getTenantById(operationalAccess.slug)
+      : await getTenantBySlug(operationalAccess.slug)
+
+    if (!tenant) {
+      return NextResponse.redirect(new URL(`/${operationalAccess.slug}/acceso`, request.url))
+    }
+
+    const staffSession = getStaffSession(request)
+    if (
+      staffCanAccessTenant(staffSession, tenant.id) &&
+      staffHasAnyRole(staffSession, operationalAccess.roles)
+    ) {
+      return NextResponse.next()
+    }
+
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+    const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+
+    if (operationalAccess.allowOwnerSession && supabaseUrl && supabaseAnonKey) {
+      try {
+        let response = NextResponse.next({ request })
+        const supabase = createServerClient(supabaseUrl, supabaseAnonKey, {
+          cookies: {
+            getAll() { return request.cookies.getAll() },
+            setAll(cookiesToSet) {
+              cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value))
+              response = NextResponse.next({ request })
+              cookiesToSet.forEach(({ name, value, options }) =>
+                response.cookies.set(name, value, options)
+              )
+            },
+          },
+        })
+        const { data: { user } } = await supabase.auth.getUser()
+        if (user) {
+          const superAdminEmails = ['thesecretcam7@gmail.com']
+          if (superAdminEmails.includes(user.email || '')) return response
+
+          const serviceSupabase = createClient(
+            process.env.NEXT_PUBLIC_SUPABASE_URL!,
+            process.env.SUPABASE_SERVICE_ROLE_KEY!,
+            { auth: { autoRefreshToken: false, persistSession: false } }
+          )
+          const { data: ownedTenant } = await serviceSupabase
+            .from('tenants')
+            .select('id')
+            .eq('id', tenant.id)
+            .eq('owner_id', user.id)
+            .maybeSingle()
+
+          if (ownedTenant) return response
+        }
+      } catch {
+        // Continue to PIN redirect.
+      }
+    }
+
+    const loginUrl = new URL(`/${tenant.slug}/acceso/login/${operationalAccess.loginRole}`, request.url)
+    return NextResponse.redirect(loginUrl)
+  }
+
   const isAdminLogin = pathname.includes('/admin/login')
   const isPublicAdminPage = pathname.includes('/admin/pos/display')
   const requiresAuth = pathname.includes('/admin/') && !isAdminLogin && !isPublicAdminPage
@@ -88,6 +241,7 @@ export async function middleware(request: NextRequest) {
   if (requiresAuth) {
     const slugMatch = pathname.match(SLUG_PATH_REGEX)
     const slug = slugMatch?.[1] || ''
+    const routeTenant = slug ? (isUUID(slug) ? await getTenantById(slug) : await getTenantBySlug(slug)) : null
 
     const serviceSupabase = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -96,13 +250,12 @@ export async function middleware(request: NextRequest) {
     )
 
     // VÍA 1: staff_session cookie (staff con PIN)
-    const staffSessionCookie = request.cookies.get('staff_session')?.value
-    if (staffSessionCookie) {
+    const staffSession = getStaffSession(request)
+    if (staffSession) {
       try {
-        const staffSession = JSON.parse(staffSessionCookie)
         const permissions: string[] = staffSession.permissions || []
         const hasAdminAccess = permissions.some(p => p.startsWith('admin_'))
-        if (hasAdminAccess) {
+        if (hasAdminAccess && routeTenant && staffCanAccessTenant(staffSession, routeTenant.id)) {
           // Validate single-session token
           if (staffSession.sessionToken && staffSession.staffId) {
             const { data: active } = await serviceSupabase
@@ -119,7 +272,9 @@ export async function middleware(request: NextRequest) {
           }
           return NextResponse.next()
         }
-        return NextResponse.redirect(new URL('/unauthorized', request.url))
+        // If this browser also has an owner/admin Supabase session, let the
+        // owner path below validate it instead of blocking because a staff
+        // PIN cookie from TPV/KDS is present.
       } catch {
         // Cookie corrupta, continuar a verificar Supabase
       }
@@ -167,7 +322,20 @@ export async function middleware(request: NextRequest) {
               return res
             }
           }
-          return response
+
+          if (!routeTenant) {
+            const loginUrl = new URL(`/${slug}/admin/login`, request.url)
+            return NextResponse.redirect(loginUrl)
+          }
+
+          const { data: ownedTenant } = await serviceSupabase
+            .from('tenants')
+            .select('id')
+            .eq('id', routeTenant.id)
+            .eq('owner_id', user.id)
+            .maybeSingle()
+
+          if (ownedTenant) return response
         }
       } catch {
         // Error verificando Supabase, continuar al bloqueo
@@ -216,27 +384,44 @@ export async function middleware(request: NextRequest) {
 }
 
 async function getTenantByDomain(domain: string) {
+  return getCachedTenant(`domain:${domain}`, async () => {
   try {
     const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!, { auth: { autoRefreshToken: false, persistSession: false } })
     const { data } = await supabase.from('tenants').select('id, slug').eq('primary_domain', domain).single()
     return data
   } catch { return null }
+  })
 }
 
 async function getTenantBySlug(slug: string) {
+  return getCachedTenant(`slug:${slug}`, async () => {
   try {
     const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!, { auth: { autoRefreshToken: false, persistSession: false } })
     const { data } = await supabase.from('tenants').select('id, slug').eq('slug', slug).single()
     return data
   } catch { return null }
+  })
 }
 
 async function getTenantById(id: string) {
+  return getCachedTenant(`id:${id}`, async () => {
   try {
     const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!, { auth: { autoRefreshToken: false, persistSession: false } })
     const { data } = await supabase.from('tenants').select('id, slug').eq('id', id).single()
     return data
   } catch { return null }
+  })
+}
+
+async function getCachedTenant(key: string, fetcher: () => Promise<TenantRoute | null>) {
+  const cached = tenantCache.get(key)
+  if (cached && cached.expiresAt > Date.now()) {
+    return cached.value
+  }
+
+  const value = await fetcher()
+  tenantCache.set(key, { value, expiresAt: Date.now() + TENANT_CACHE_TTL })
+  return value
 }
 
 function extractSubdomain(hostname: string, baseDomain: string): string | null {

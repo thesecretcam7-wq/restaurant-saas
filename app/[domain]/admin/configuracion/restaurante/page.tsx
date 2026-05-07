@@ -7,6 +7,16 @@ import toast from 'react-hot-toast'
 
 interface Props { params: Promise<{ domain: string }> }
 
+const COUNTRY_OPTIONS = [
+  { code: 'ES', label: 'Espana', timezone: 'Europe/Madrid' },
+  { code: 'CO', label: 'Colombia', timezone: 'America/Bogota' },
+  { code: 'MX', label: 'Mexico', timezone: 'America/Mexico_City' },
+  { code: 'US', label: 'Estados Unidos', timezone: 'America/New_York' },
+  { code: 'AR', label: 'Argentina', timezone: 'America/Buenos_Aires' },
+  { code: 'PE', label: 'Peru', timezone: 'America/Bogota' },
+  { code: 'CL', label: 'Chile', timezone: 'America/Bogota' },
+]
+
 export default function RestauranteConfigPage({ params }: Props) {
   const { domain: tenantSlug } = use(params)
   const { tenantId: tenantUUID, loading: resolvingTenant } = useTenantResolver(tenantSlug)
@@ -19,8 +29,8 @@ export default function RestauranteConfigPage({ params }: Props) {
     phone: '',
     email: '',
     city: '',
-    country: 'CO',
-    timezone: 'America/Bogota',
+    country: 'ES',
+    timezone: 'Europe/Madrid',
     cash_payment_enabled: true,
     tax_rate: '0',
   })
@@ -40,7 +50,7 @@ export default function RestauranteConfigPage({ params }: Props) {
             phone: data.phone || '',
             email: data.email || '',
             city: data.city || '',
-            country: data.country || 'CO',
+            country: data.country || 'ES',
             timezone: data.timezone || 'America/Bogota',
             cash_payment_enabled: data.cash_payment_enabled,
             tax_rate: String(data.tax_rate),
@@ -73,6 +83,7 @@ export default function RestauranteConfigPage({ params }: Props) {
         cash_payment_enabled: form.cash_payment_enabled,
         tax_rate: parseFloat(form.tax_rate),
       }, { onConflict: 'tenant_id' })
+      await supabase.from('tenants').update({ country: form.country }).eq('id', uuid)
       setSaving(false)
       if (!error) toast.success('Configuración guardada')
       else toast.error('Error al guardar: ' + error.message)
@@ -96,6 +107,15 @@ export default function RestauranteConfigPage({ params }: Props) {
       />
     </div>
   )
+
+  const handleCountryChange = (country: string) => {
+    const option = COUNTRY_OPTIONS.find(item => item.code === country)
+    setForm(f => ({
+      ...f,
+      country,
+      timezone: option?.timezone || f.timezone,
+    }))
+  }
 
   const toggle = (label: string, desc: string, key: keyof typeof form) => (
     <label className="flex items-start gap-3 cursor-pointer">
@@ -144,6 +164,22 @@ export default function RestauranteConfigPage({ params }: Props) {
           </div>
           {field('Dirección', 'address', 'text', 'Calle 123 #45-67')}
           {field('Ciudad', 'city', 'text', 'Bogotá')}
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Pais y moneda</label>
+              <select
+                value={form.country}
+                onChange={e => handleCountryChange(e.target.value)}
+                className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                {COUNTRY_OPTIONS.map(option => (
+                  <option key={option.code} value={option.code}>{option.label}</option>
+                ))}
+              </select>
+              <p className="mt-1 text-xs text-gray-400">Define la moneda del TPV, carta, recibos y reportes.</p>
+            </div>
+            {field('Zona horaria', 'timezone', 'text', 'Europe/Madrid')}
+          </div>
         </div>
 
         {/* Pagos */}

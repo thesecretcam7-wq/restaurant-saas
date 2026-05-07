@@ -5,6 +5,8 @@ import { verifyCSRFToken, sendCSRFErrorResponse } from '@/lib/csrf'
 import { sendOrderConfirmation, sendNewOrderNotification } from '@/lib/email'
 import { sendWhatsAppOrderConfirmation } from '@/lib/whatsapp'
 import { orderLimiter, checkRateLimit, getClientIp } from '@/lib/ratelimit'
+import { requireTenantAccess, tenantAuthErrorResponse } from '@/lib/tenant-api-auth'
+import { calculateOrderTotals } from '@/lib/order-totals'
 
 export async function GET(request: NextRequest) {
   try {
@@ -71,24 +73,114 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { tenantId, items, customerInfo, deliveryType, deliveryAddress, notes, paymentMethod, tableNumber, waiterName, table_id, waiter_id, amountPaid, source } = body
+    const { tenantId: tenantParam, tenantSlug, items, customerInfo, deliveryType, deliveryAddress, notes, paymentMethod, tableNumber, waiterName, amountPaid, source } = body
 
-    if (!tenantId) {
+    if (!tenantParam) {
       return NextResponse.json({ error: 'tenantId is required' }, { status: 400 })
     }
 
     const supabase = createServiceClient()
 
-    // SECURITY: Validate that tenantId corresponds to an active restaurant
-    const { data: tenant, error: tenantError } = await supabase
-      .from('tenants')
-      .select('id')
-      .eq('id', tenantId)
-      .single()
+    // SECURITY: Validate that tenantId/slug corresponds to an active restaurant.
+    // Some public/staff screens can carry stale cached params, so try the explicit
+    // UUID, the slug and finally the first segment from the referring URL.
+    const referer = request.headers.get('referer') || request.headers.get('origin') || ''
+    let refererSlug = ''
+    try {
+      const parsed = new URL(referer)
+      refererSlug = parsed.pathname.split('/').filter(Boolean)[0] || ''
+    } catch {}
+
+    const tenantCandidates = Array.from(new Set(
+      [tenantParam, tenantSlug, refererSlug]
+        .map((value) => String(value || '').trim())
+        .filter(Boolean)
+    ))
+
+    let tenant: { id: string } | null = null
+    let tenantError: any = null
+    for (const candidate of tenantCandidates) {
+      const isTenantUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(candidate)
+      const result = await supabase
+        .from('tenants')
+        .select('id')
+        .eq(isTenantUUID ? 'id' : 'slug', candidate)
+        .maybeSingle()
+
+      tenantError = result.error
+      if (result.data?.id) {
+        tenant = result.data
+        break
+      }
+    }
 
     if (tenantError || !tenant) {
-      return NextResponse.json({ error: 'Invalid restaurant' }, { status: 400 })
+      console.warn('[orders POST] invalid restaurant', {
+        tenantParam,
+        tenantSlug,
+        refererSlug,
+        tenantCandidates,
+        tenantError: tenantError?.message,
+      })
+      return NextResponse.json({ error: 'Restaurante invalido. Actualiza la pagina e intenta de nuevo.' }, { status: 400 })
     }
+
+    const tenantId = tenant.id
+
+    const protectedSourceRoles: Record<string, string[]> = {
+      pos: ['admin', 'cajero'],
+      comandero: ['admin', 'camarero'],
+      kiosk: ['admin', 'cajero', 'camarero', 'cocinero'],
+    }
+    if (source && protectedSourceRoles[source]) {
+      await requireTenantAccess(tenantId, { staffRoles: protectedSourceRoles[source] })
+    }
+
+    if (!Array.isArray(items) || items.length === 0) {
+      return NextResponse.json({ error: 'Order must include items' }, { status: 400 })
+    }
+
+    const itemIds = items
+      .map((item: any) => item.menu_item_id || item.item_id || item.id)
+      .filter(Boolean)
+
+    if (itemIds.length !== items.length) {
+      return NextResponse.json({ error: 'Every item must include a menu item id' }, { status: 400 })
+    }
+
+    const { data: menuRows, error: menuError } = await supabase
+      .from('menu_items')
+      .select('id, name, price, available, variants')
+      .eq('tenant_id', tenantId)
+      .in('id', itemIds)
+
+    if (menuError) {
+      console.error('[orders POST] menu validation error:', menuError.message)
+      return NextResponse.json({ error: 'Error validating menu items' }, { status: 500 })
+    }
+
+    const menuById = new Map((menuRows || []).map((item: any) => [item.id, item]))
+    const sanitizedItems = items.map((item: any) => {
+      const menuId = item.menu_item_id || item.item_id || item.id
+      const menuItem = menuById.get(menuId)
+      const qty = Math.max(1, Number(item.qty ?? item.quantity ?? 1))
+
+      if (!menuItem || menuItem.available === false) {
+        throw new Error('MENU_ITEM_NOT_AVAILABLE')
+      }
+
+      const basePrice = Number(menuItem.price) || 0
+      const submittedPrice = Number(item.price)
+
+      return {
+        menu_item_id: menuItem.id,
+        name: menuItem.name,
+        price: Number.isFinite(submittedPrice) ? Math.max(basePrice, submittedPrice) : basePrice,
+        qty,
+        notes: item.notes || null,
+        requires_kitchen: menuItem.variants?.requires_kitchen !== false,
+      }
+    })
 
     // Plan limit: check monthly order count
     const orderCheck = await canCreateOrder(tenantId)
@@ -98,14 +190,39 @@ export async function POST(request: NextRequest) {
 
     const { data: settings } = await supabase
       .from('restaurant_settings')
-      .select('tax_rate, delivery_fee')
+      .select('tax_rate, delivery_fee, delivery_min_order, delivery_enabled, cash_payment_enabled')
       .eq('tenant_id', tenantId)
       .single()
 
-    const subtotal = items.reduce((sum: number, i: any) => sum + i.price * i.qty, 0)
-    const tax = settings?.tax_rate ? subtotal * (settings.tax_rate / 100) : 0
-    const deliveryFee = deliveryType === 'delivery' ? (settings?.delivery_fee || 0) : 0
-    const total = subtotal + tax + deliveryFee
+    const subtotal = sanitizedItems.reduce((sum: number, i: any) => sum + i.price * i.qty, 0)
+
+    if (source === 'store' && paymentMethod === 'cash' && settings?.cash_payment_enabled === false) {
+      return NextResponse.json({ error: 'Pago en efectivo no esta habilitado para este restaurante' }, { status: 400 })
+    }
+
+    if (deliveryType === 'delivery') {
+      if (settings?.delivery_enabled === false) {
+        return NextResponse.json({ error: 'Delivery no esta habilitado para este restaurante' }, { status: 400 })
+      }
+
+      const minOrder = Number(settings?.delivery_min_order || 0)
+      if (minOrder > 0 && subtotal < minOrder) {
+        return NextResponse.json(
+          { error: `El pedido minimo para delivery es ${minOrder}` },
+          { status: 400 }
+        )
+      }
+    }
+
+    const totals = calculateOrderTotals({
+      items: sanitizedItems,
+      taxRate: settings?.tax_rate,
+      deliveryType,
+      deliveryFee: settings?.delivery_fee,
+    })
+    const tax = totals.tax
+    const deliveryFee = totals.deliveryFee
+    const total = totals.total
 
     const orderNumber = `ORD-${Date.now()}`
 
@@ -125,7 +242,7 @@ export async function POST(request: NextRequest) {
       customer_name: customerInfo.name,
       customer_email: customerInfo.email || null,
       customer_phone: customerInfo.phone,
-      items,
+      items: sanitizedItems,
       subtotal,
       tax,
       delivery_fee: deliveryFee,
@@ -141,10 +258,6 @@ export async function POST(request: NextRequest) {
       display_number: displayNumber,
     }
 
-    // Only add these fields if they exist in the schema
-    if (table_id) orderData.table_id = table_id
-    if (waiter_id) orderData.waiter_id = waiter_id
-
     const { data: order, error } = await supabase
       .from('orders')
       .insert(orderData)
@@ -159,8 +272,9 @@ export async function POST(request: NextRequest) {
     // Auto-create order_items so KDS can display the order in real-time.
     // Exception: kiosk cash orders skip this — items are created when cashier confirms payment.
     const isKioskCash = source === 'kiosk' && paymentMethod === 'cash'
-    if (!isKioskCash && items && Array.isArray(items) && items.length > 0) {
-      const orderItemsData = items.map((item: any) => ({
+    const kitchenItems = sanitizedItems.filter((item: any) => item.requires_kitchen !== false)
+    if (!isKioskCash && kitchenItems.length > 0) {
+      const orderItemsData = kitchenItems.map((item: any) => ({
         order_id: order.id,
         tenant_id: tenantId,
         menu_item_id: item.menu_item_id || null,
@@ -208,7 +322,7 @@ export async function POST(request: NextRequest) {
         primaryColor,
         orderNumber,
         customerName: orderData.customer_name,
-        items: items.map((i: any) => ({ name: i.name, qty: i.qty ?? i.quantity ?? 1, price: i.price })),
+        items: sanitizedItems.map((i: any) => ({ name: i.name, qty: i.qty, price: i.price })),
         subtotal,
         tax,
         deliveryFee,
@@ -227,7 +341,7 @@ export async function POST(request: NextRequest) {
         orderNumber,
         customerName: orderData.customer_name,
         total,
-        items: items.map((i: any) => ({ name: i.name, qty: i.qty ?? i.quantity ?? 1 })),
+        items: sanitizedItems.map((i: any) => ({ name: i.name, qty: i.qty })),
       }).catch(e => console.error('[whatsapp] order confirmation:', e))
     }
 
@@ -239,12 +353,24 @@ export async function POST(request: NextRequest) {
         customerName: orderData.customer_name,
         total,
         deliveryType,
-        items: items.map((i: any) => ({ name: i.name, qty: i.qty ?? i.quantity ?? 1 })),
+        items: sanitizedItems.map((i: any) => ({ name: i.name, qty: i.qty })),
       }).catch(e => console.error('[email] admin notification:', e))
     }
 
     return NextResponse.json({ orderId: order.id, orderNumber, displayNumber })
   } catch (err) {
+    if (err instanceof Error && err.message === 'MENU_ITEM_NOT_AVAILABLE') {
+      return NextResponse.json(
+        {
+          error: 'Uno o mas productos ya no estan disponibles. Vuelve a agregarlos al carrito.',
+          clearCart: true,
+        },
+        { status: 400 }
+      )
+    }
+    if (err instanceof Error && ['Unauthorized', 'Forbidden'].includes(err.message)) {
+      return tenantAuthErrorResponse(err)
+    }
     console.error('[orders POST] unexpected error:', err)
     return NextResponse.json({ error: 'Error interno' }, { status: 500 })
   }

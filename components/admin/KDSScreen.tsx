@@ -2,9 +2,24 @@
 
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { createClient } from '@supabase/supabase-js';
-import { Maximize2, Minimize2, Volume2, VolumeX, Clock, CheckCircle2, ChefHat } from 'lucide-react';
+import {
+  BellRing,
+  CheckCircle2,
+  ChefHat,
+  Clock,
+  Flame,
+  LockKeyhole,
+  Maximize2,
+  Minimize2,
+  ShieldCheck,
+  Timer,
+  Utensils,
+  Volume2,
+  VolumeX,
+  Zap,
+} from 'lucide-react';
 
-// Type for Wake Lock Sentinel
+  // Wake Lock
 type WakeLockSentinel = any;
 
 const supabase = createClient(
@@ -48,7 +63,7 @@ interface KDSOrder {
   kdsStatus: 'pending' | 'preparing' | 'ready';
 }
 
-// ─── Timer Hook ───────────────────────────────────────────────────────────────
+// Timer Hook
 function useElapsedMinutes(createdAt: string): number {
   const [minutes, setMinutes] = useState(() =>
     Math.floor((Date.now() - new Date(createdAt).getTime()) / 60000)
@@ -64,30 +79,30 @@ function useElapsedMinutes(createdAt: string): number {
   return minutes;
 }
 
-// ─── Urgency Helpers ─────────────────────────────────────────────────────────
+// Urgency Helpers
 function getUrgencyBorder(minutes: number) {
-  if (minutes < 5) return 'border-green-500';
-  if (minutes < 10) return 'border-yellow-500';
-  return 'border-red-500';
+  if (minutes < 5) return 'border-emerald-400/70 shadow-emerald-500/10';
+  if (minutes < 10) return 'border-amber-400/80 shadow-amber-500/20';
+  return 'border-red-400/90 shadow-red-500/30';
 }
 
 function getUrgencyBg(minutes: number) {
-  if (minutes < 5) return 'bg-green-50';
-  if (minutes < 10) return 'bg-yellow-50';
-  return 'bg-red-50';
+  if (minutes < 5) return 'bg-slate-950';
+  if (minutes < 10) return 'bg-gradient-to-br from-slate-950 to-amber-950/70';
+  return 'bg-gradient-to-br from-slate-950 to-red-950/80';
 }
 
 function getTimerColor(minutes: number) {
-  if (minutes < 5) return 'text-green-600';
-  if (minutes < 10) return 'text-yellow-600';
-  return 'text-red-600';
+  if (minutes < 5) return 'text-emerald-300 bg-emerald-400/10 border-emerald-400/30';
+  if (minutes < 10) return 'text-amber-200 bg-amber-400/15 border-amber-400/40';
+  return 'text-red-100 bg-red-500/20 border-red-400/50';
 }
 
 function getTimerPulse(minutes: number) {
   return minutes >= 10 ? 'animate-pulse' : '';
 }
 
-// ─── Group items by order ─────────────────────────────────────────────────────
+// Group items by order
 function groupItemsByOrder(items: OrderItemWithOrder[]): KDSOrder[] {
   const orderMap = new Map<string, KDSOrder>();
 
@@ -127,9 +142,10 @@ function groupItemsByOrder(items: OrderItemWithOrder[]): KDSOrder[] {
   );
 }
 
-// ─── Sound ───────────────────────────────────────────────────────────────────
+// Sound
 function useSound() {
   const audioCtxRef = useRef<AudioContext | null>(null);
+  const alertAudioRef = useRef<HTMLAudioElement | null>(null);
   const [soundEnabled, setSoundEnabled] = useState(false);
   const [soundPermissionGranted, setSoundPermissionGranted] = useState(false);
   const [audioStatus, setAudioStatus] = useState<string>('');
@@ -140,6 +156,12 @@ function useSound() {
         audioCtxRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
       } catch (_) {}
     }
+    if (!alertAudioRef.current) {
+      const audio = new Audio('/sounds/kds-alert.wav');
+      audio.preload = 'auto';
+      audio.volume = 1;
+      alertAudioRef.current = audio;
+    }
   }, []);
 
   const unlockSound = useCallback(() => {
@@ -148,10 +170,10 @@ function useSound() {
     if (ctx && ctx.state === 'suspended') {
       ctx.resume().then(() => {
         console.log('Audio context resumed successfully');
-        setAudioStatus('✅ Contexto resumido');
+        setAudioStatus('Audio listo');
       }).catch(err => {
         console.error('Resume audio context failed:', err);
-        setAudioStatus(`❌ Error: ${err}`);
+        setAudioStatus(`Error de audio: ${err}`);
       });
     }
     setSoundPermissionGranted(true);
@@ -161,13 +183,16 @@ function useSound() {
 
   // Generar sonido de alerta en base64 para HTMLAudioElement fallback
   const generateToneDataUrl = useCallback((frequency: number, duration: number) => {
-    const sampleRate = 8000;
+    const sampleRate = 44100;
     const samples = Math.round((sampleRate * duration) / 1000);
     const audioData = new Float32Array(samples);
 
     for (let i = 0; i < samples; i++) {
       const t = i / sampleRate;
-      audioData[i] = Math.sin(2 * Math.PI * frequency * t) * 0.5;
+      const envelope = Math.max(0, 1 - i / samples);
+      const tone = Math.sin(2 * Math.PI * frequency * t) * 0.82;
+      const harmonic = Math.sin(2 * Math.PI * frequency * 1.5 * t) * 0.28;
+      audioData[i] = Math.max(-0.95, Math.min(0.95, (tone + harmonic) * envelope));
     }
 
     // Convertir a WAV y retornar como data URL
@@ -219,12 +244,18 @@ function useSound() {
 
   const playBeeps = useCallback((frequencies: number[], duration: number = 0.15, gap: number = 0.2) => {
     if (!soundEnabled) {
-      setAudioStatus('❌ Sonido deshabilitado');
+      setAudioStatus('Sonido deshabilitado');
       return;
     }
 
-    setAudioStatus('🔄 Reproduciendo sonido...');
+    setAudioStatus('Reproduciendo alerta...');
     console.log('Playing beeps:', frequencies);
+
+    const fileAlert = alertAudioRef.current;
+    if (fileAlert) {
+      fileAlert.currentTime = 0;
+      fileAlert.play().catch(() => {});
+    }
 
     // Intenta con Web Audio API primero
     initAudio();
@@ -236,17 +267,38 @@ function useSound() {
           ctx.resume().catch(() => {});
         }
 
+        const master = ctx.createGain();
+        const compressor = ctx.createDynamicsCompressor();
+        compressor.threshold.setValueAtTime(-28, ctx.currentTime);
+        compressor.knee.setValueAtTime(18, ctx.currentTime);
+        compressor.ratio.setValueAtTime(12, ctx.currentTime);
+        compressor.attack.setValueAtTime(0.002, ctx.currentTime);
+        compressor.release.setValueAtTime(0.18, ctx.currentTime);
+        master.gain.setValueAtTime(0.95, ctx.currentTime);
+        master.connect(compressor);
+        compressor.connect(ctx.destination);
+
         const beep = (start: number, freq: number, dur: number) => {
-          const osc = ctx.createOscillator();
           const gain = ctx.createGain();
-          osc.connect(gain);
-          gain.connect(ctx.destination);
-          osc.frequency.value = freq;
-          osc.type = 'sine';
-          gain.gain.setValueAtTime(0.95, start);
-          gain.gain.exponentialRampToValueAtTime(0.01, start + dur);
-          osc.start(start);
-          osc.stop(start + dur);
+          gain.connect(master);
+          gain.gain.setValueAtTime(0.0001, start);
+          gain.gain.exponentialRampToValueAtTime(0.95, start + 0.01);
+          gain.gain.exponentialRampToValueAtTime(0.02, start + dur);
+
+          const tones = [
+            { ratio: 1, type: 'square' as OscillatorType },
+            { ratio: 1.5, type: 'sawtooth' as OscillatorType },
+            { ratio: 2, type: 'triangle' as OscillatorType },
+          ];
+
+          tones.forEach(({ ratio, type }) => {
+            const osc = ctx.createOscillator();
+            osc.connect(gain);
+            osc.frequency.value = freq * ratio;
+            osc.type = type;
+            osc.start(start);
+            osc.stop(start + dur);
+          });
         };
 
         let time = ctx.currentTime;
@@ -255,7 +307,7 @@ function useSound() {
           time += duration + gap;
         });
 
-        setAudioStatus('✅ Sonido reproducido (Web Audio)');
+        setAudioStatus('Alerta reproducida');
         console.log('Beeps scheduled with Web Audio API');
         return;
       } catch (err) {
@@ -265,7 +317,7 @@ function useSound() {
 
     // Fallback: Usar HTMLAudioElement para Android
     try {
-      setAudioStatus('🔄 Intentando con HTML Audio...');
+      setAudioStatus('Reproduciendo alerta de respaldo...');
       frequencies.forEach((freq, idx) => {
         setTimeout(() => {
           const dataUrl = generateToneDataUrl(freq, duration * 1000);
@@ -273,20 +325,20 @@ function useSound() {
           audio.volume = 1.0;
           audio.play().catch(err => {
             console.error('HTML Audio play error:', err);
-            setAudioStatus(`❌ Error de audio: ${err}`);
+            setAudioStatus(`Error de audio: ${err}`);
           });
         }, (duration + gap) * 1000 * idx);
       });
 
-      setAudioStatus('✅ Sonido reproducido (HTML Audio)');
+      setAudioStatus('Alerta reproducida');
     } catch (err) {
       console.error('Fallback error:', err);
-      setAudioStatus(`❌ Error: ${err}`);
+        setAudioStatus(`Error de audio: ${err}`);
     }
   }, [soundEnabled, initAudio, generateToneDataUrl]);
 
   const playNewOrder = useCallback(() => {
-    playBeeps([880, 1100], 0.15, 0.2); // 2 quick beeps
+    playBeeps([740, 980, 1240], 0.22, 0.07);
     // Vibration as fallback for Android
     if ('vibrate' in navigator) {
       navigator.vibrate([100, 50, 100]); // vibrate pattern: 100ms on, 50ms off, 100ms on
@@ -294,12 +346,62 @@ function useSound() {
   }, [playBeeps]);
 
   const playDelayedAlert = useCallback(() => {
-    playBeeps([600, 600, 600], 0.2, 0.3); // 3 slower beeps at 600Hz
-    // Stronger vibration for delayed alert
-    if ('vibrate' in navigator) {
-      navigator.vibrate([200, 100, 200, 100, 200]); // stronger vibration pattern
+    if (!soundEnabled) {
+      setAudioStatus('Sonido deshabilitado');
+      return;
     }
-  }, [playBeeps]);
+
+    setAudioStatus('Alarma de pedido atrasado...');
+    initAudio();
+    const ctx = audioCtxRef.current;
+
+    if (ctx && ctx.state !== 'closed') {
+      try {
+        if (ctx.state === 'suspended') {
+          ctx.resume().catch(() => {});
+        }
+
+        const master = ctx.createGain();
+        const compressor = ctx.createDynamicsCompressor();
+        compressor.threshold.setValueAtTime(-32, ctx.currentTime);
+        compressor.knee.setValueAtTime(8, ctx.currentTime);
+        compressor.ratio.setValueAtTime(18, ctx.currentTime);
+        compressor.attack.setValueAtTime(0.001, ctx.currentTime);
+        compressor.release.setValueAtTime(0.1, ctx.currentTime);
+        master.gain.setValueAtTime(1, ctx.currentTime);
+        master.connect(compressor);
+        compressor.connect(ctx.destination);
+
+        let time = ctx.currentTime;
+        const steps = [420, 1120, 420, 1120, 420, 1120, 760, 760];
+        steps.forEach((freq, index) => {
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          osc.type = index % 2 === 0 ? 'sawtooth' : 'square';
+          osc.frequency.setValueAtTime(freq, time);
+          gain.gain.setValueAtTime(0.0001, time);
+          gain.gain.exponentialRampToValueAtTime(1, time + 0.015);
+          gain.gain.exponentialRampToValueAtTime(0.02, time + 0.28);
+          osc.connect(gain);
+          gain.connect(master);
+          osc.start(time);
+          osc.stop(time + 0.3);
+          time += 0.34;
+        });
+
+        setAudioStatus('Alarma de atraso reproducida');
+      } catch (err) {
+        console.error('Delayed alarm Web Audio error:', err);
+        playBeeps([420, 1120, 420, 1120, 760], 0.28, 0.06);
+      }
+    } else {
+      playBeeps([420, 1120, 420, 1120, 760], 0.28, 0.06);
+    }
+
+    if ('vibrate' in navigator) {
+      navigator.vibrate([350, 120, 350, 120, 500]);
+    }
+  }, [soundEnabled, initAudio, playBeeps]);
 
   return {
     soundEnabled,
@@ -315,7 +417,7 @@ function useSound() {
   };
 }
 
-// ─── Order Card ───────────────────────────────────────────────────────────────
+// Order Card
 function OrderCard({
   order,
   onAction,
@@ -335,54 +437,55 @@ function OrderCard({
 
   // Determine urgency badge
   const getUrgencyBadge = (mins: number) => {
-    if (mins < 5) return { label: 'A tiempo', color: 'bg-green-100 text-green-700 border-green-200' };
-    if (mins < 10) return { label: 'Moderado', color: 'bg-amber-100 text-amber-700 border-amber-200' };
-    return { label: 'URGENTE', color: 'bg-red-100 text-red-700 border-red-200' };
+    if (mins < 5) return { label: 'A tiempo', color: 'bg-emerald-400/10 text-emerald-200 border-emerald-400/30' };
+    if (mins < 10) return { label: 'Moderado', color: 'bg-amber-400/15 text-amber-100 border-amber-400/40' };
+    return { label: 'Urgente', color: 'bg-red-500/20 text-red-100 border-red-400/50' };
   };
 
   const urgency = getUrgencyBadge(minutes);
 
   return (
     <div
-      className={`rounded-xl border transition-all duration-200 overflow-hidden ${getUrgencyBorder(minutes)} ${getUrgencyBg(minutes)} ${getTimerPulse(minutes)}`}
+      className={`rounded-2xl border transition-all duration-200 overflow-hidden shadow-2xl ${getUrgencyBorder(minutes)} ${getUrgencyBg(minutes)} ${getTimerPulse(minutes)}`}
       style={{
         borderWidth: '2px',
       }}
     >
       {/* Card Content */}
-      <div className="p-4 flex flex-col gap-3 h-full">
+      <div className="p-4 flex flex-col gap-3 h-full relative">
+        <div className="absolute inset-x-4 top-0 h-px bg-gradient-to-r from-transparent via-white/40 to-transparent" />
         {/* Header with Order Number and Timer */}
         <div className="flex items-start justify-between gap-3">
           <div className="flex-1">
             {/* Order Number - Large and Bold */}
-            <p className="text-3xl font-black text-gray-900 tracking-wider leading-tight">
+            <p className="text-4xl font-black text-white tracking-wider leading-tight">
               {order.orderNumber}
             </p>
 
             {/* Meta Info */}
             <div className="flex items-center gap-2 mt-2 flex-wrap">
               {order.deliveryType === 'delivery' && (
-                <span className="text-xs font-bold bg-purple-100 text-purple-700 px-2.5 py-1 rounded-md border border-purple-200">
-                  🚗 A domicilio
+                <span className="text-xs font-bold bg-violet-400/15 text-violet-100 px-2.5 py-1 rounded-lg border border-violet-300/20">
+                  A domicilio
                 </span>
               )}
               {order.deliveryType === 'pickup' && (
-                <span className="text-xs font-bold bg-green-100 text-green-700 px-2.5 py-1 rounded-md border border-green-200">
-                  🏪 Para recoger
+                <span className="text-xs font-bold bg-emerald-400/15 text-emerald-100 px-2.5 py-1 rounded-lg border border-emerald-300/20">
+                  Para recoger
                 </span>
               )}
               {order.tableNumber && (
-                <span className="text-xs font-semibold bg-blue-100 text-blue-700 px-2.5 py-1 rounded-md border border-blue-200">
+                <span className="text-xs font-semibold bg-cyan-400/15 text-cyan-100 px-2.5 py-1 rounded-lg border border-cyan-300/20">
                   Mesa {order.tableNumber}
                 </span>
               )}
               {order.waiterName && (
-                <span className="text-xs font-medium text-gray-500 px-2.5 py-1 bg-gray-100 rounded-md">
+                <span className="text-xs font-medium text-slate-200 px-2.5 py-1 bg-white/10 rounded-lg border border-white/10">
                   {order.waiterName}
                 </span>
               )}
               {(order.deliveryType === 'delivery' || order.deliveryType === 'pickup') && order.customerName && (
-                <span className="text-xs font-medium text-gray-500 px-2.5 py-1 bg-gray-100 rounded-md truncate max-w-[120px]">
+                <span className="text-xs font-medium text-slate-200 px-2.5 py-1 bg-white/10 rounded-lg border border-white/10 truncate max-w-[120px]">
                   {order.customerName}
                 </span>
               )}
@@ -391,7 +494,7 @@ function OrderCard({
 
           {/* Timer - Right Side */}
           <div className="flex flex-col items-end gap-2">
-            <div className={`flex items-center gap-2 rounded-lg px-3 py-2 font-black text-lg ${getTimerColor(minutes)} transition-all`}>
+            <div className={`flex items-center gap-2 rounded-xl px-3 py-2 font-black text-lg border ${getTimerColor(minutes)} transition-all`}>
               <Clock className="w-5 h-5" />
               <span>{minutes}m</span>
             </div>
@@ -401,34 +504,34 @@ function OrderCard({
                   e.stopPropagation();
                   onPlayTestSound();
                 }}
-                className="px-2 py-1 bg-purple-600/60 hover:bg-purple-600 rounded-md text-xs font-semibold text-white transition active:scale-95"
+                className="grid h-8 w-8 place-items-center rounded-lg bg-white/10 hover:bg-white/20 border border-white/10 text-xs font-semibold text-white transition active:scale-95"
                 title="Test sound"
               >
-                🔊
+                <BellRing className="h-4 w-4" />
               </button>
             )}
           </div>
         </div>
 
         {/* Urgency Badge */}
-        <div className={`border rounded-lg px-3 py-1.5 text-xs font-bold text-center ${urgency.color}`}>
+        <div className={`border rounded-xl px-3 py-2 text-xs font-bold text-center uppercase tracking-[0.18em] ${urgency.color}`}>
           {urgency.label}
         </div>
 
         {/* Items List */}
-        <div className="flex-1 space-y-2 border-t border-gray-200 pt-3">
+        <div className="flex-1 space-y-2 border-t border-white/10 pt-3">
           {order.items
             .filter((i) => i.status !== 'cancelled' && i.status !== 'delivered')
             .map((item) => (
-              <div key={item.id} className="flex items-start gap-2">
-                <span className="text-gray-900 font-bold text-base bg-gray-100 rounded px-2.5 py-1 min-w-fit leading-none">
-                  ×{item.quantity}
+              <div key={item.id} className="flex items-start gap-3 rounded-xl bg-white/[0.06] border border-white/10 p-3">
+                <span className="text-white font-black text-base bg-white/10 rounded-lg px-2.5 py-1 min-w-fit leading-none">
+                  x{item.quantity}
                 </span>
                 <div className="flex-1">
-                  <p className="text-gray-900 font-semibold text-sm leading-snug">{item.name}</p>
+                  <p className="text-white font-semibold text-sm leading-snug">{item.name}</p>
                   {item.notes && (
-                    <p className="text-amber-700 text-xs mt-1 leading-snug">
-                      📝 {item.notes}
+                    <p className="text-amber-200 text-xs mt-1 leading-snug">
+                      Nota: {item.notes}
                     </p>
                   )}
                 </div>
@@ -440,7 +543,7 @@ function OrderCard({
         <button
           onClick={() => onAction(order)}
           disabled={loading}
-          className={`w-full py-3 rounded-lg font-bold text-white text-sm tracking-wide transition-all duration-200 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed hover:shadow-lg ${actionColor}`}
+          className={`w-full py-3.5 rounded-xl font-black text-white text-sm tracking-[0.14em] transition-all duration-200 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed hover:shadow-lg ${actionColor}`}
         >
           {actionLabel}
         </button>
@@ -449,7 +552,7 @@ function OrderCard({
   );
 }
 
-// ─── Column ───────────────────────────────────────────────────────────────────
+// Column
 function KDSColumn({
   title,
   orders,
@@ -472,28 +575,28 @@ function KDSColumn({
   onPlayTestSound?: () => void;
 }) {
   return (
-    <div className="flex flex-col rounded-2xl overflow-hidden border border-gray-200 bg-white h-full shadow-sm">
+    <div className="flex flex-col rounded-3xl overflow-hidden border border-white/10 bg-slate-950/92 h-full shadow-2xl shadow-black/30 backdrop-blur-xl">
       {/* Column Header */}
-      <div className={`px-4 py-4 flex items-center justify-between border-b border-gray-200 ${headerColor}`}>
+      <div className={`px-4 py-4 flex items-center justify-between border-b border-white/10 ${headerColor}`}>
         <div className="flex items-center gap-3">
-          <span className="text-2xl">{icon}</span>
+          <span className="grid h-10 w-10 place-items-center rounded-2xl bg-white/10 border border-white/10">{icon}</span>
           <div>
-            <span className="font-black text-gray-900 text-base tracking-wider block">{title}</span>
-            <span className="text-xs text-gray-500 mt-0.5">{orders.length} {orders.length === 1 ? 'orden' : 'órdenes'}</span>
+            <span className="font-black text-white text-base tracking-[0.18em] block">{title}</span>
+            <span className="text-xs text-slate-400 mt-0.5">{orders.length} {orders.length === 1 ? 'orden' : 'ordenes'}</span>
           </div>
         </div>
-        <span className="bg-white text-gray-900 font-black text-lg rounded-lg px-3 py-2 border border-gray-200 shadow-sm">
+        <span className="bg-white text-slate-950 font-black text-lg rounded-xl px-3 py-2 border border-white/20 shadow-sm">
           {orders.length}
         </span>
       </div>
 
       {/* Cards Container */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-3 max-h-[calc(100vh-200px)]">
+      <div className="flex-1 overflow-y-auto p-4 space-y-3 max-h-[calc(100vh-230px)]">
         {orders.length === 0 ? (
           <div className="text-center py-16 flex flex-col items-center justify-center h-full">
-            <p className="text-5xl mb-3 opacity-30">🍽️</p>
-            <p className="text-sm font-medium text-gray-500">Sin órdenes</p>
-            <p className="text-xs text-gray-400 mt-1">Esperando nuevas órdenes...</p>
+            <Utensils className="h-12 w-12 text-slate-500" />
+            <p className="text-sm font-medium text-slate-300">Sin ordenes</p>
+            <p className="text-xs text-slate-500 mt-1">Esperando nuevas ordenes...</p>
           </div>
         ) : (
           orders.map((order, index) => (
@@ -514,7 +617,7 @@ function KDSColumn({
   );
 }
 
-// ─── Main KDSScreen Component ────────────────────────────────────────────────
+// Main KDSScreen Component
 export function KDSScreen({ tenantId }: { tenantId: string }) {
   const [items, setItems] = useState<OrderItemWithOrder[]>([]);
   const [loading, setLoading] = useState(true);
@@ -522,7 +625,7 @@ export function KDSScreen({ tenantId }: { tenantId: string }) {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [wakeLockActive, setWakeLockActive] = useState(false);
   const wakeLockRef = useRef<WakeLockSentinel | null>(null);
-  const delayedAlertedOrders = useRef(new Set<string>());
+  const delayedAlertedOrders = useRef(new Map<string, number>());
   const {
     soundEnabled,
     setSoundEnabled,
@@ -535,7 +638,7 @@ export function KDSScreen({ tenantId }: { tenantId: string }) {
   } = useSound();
   const knownOrderIds = useRef(new Set<string>());
 
-  // ── Fullscreen ──
+  // Fullscreen
   useEffect(() => {
     const onChange = () => setIsFullscreen(!!document.fullscreenElement);
     document.addEventListener('fullscreenchange', onChange);
@@ -549,7 +652,7 @@ export function KDSScreen({ tenantId }: { tenantId: string }) {
     } catch (_) {}
   }
 
-  // ── Wake Lock ──
+  // Wake Lock
   async function activateWakeLock() {
     try {
       if ('wakeLock' in navigator) {
@@ -566,7 +669,7 @@ export function KDSScreen({ tenantId }: { tenantId: string }) {
         };
         sentinel.addEventListener('release', handleRelease);
 
-        // Release wake lock on visibility change
+  // Wake Lock
         const handleVisibilityChange = async () => {
           if (document.hidden && wakeLockRef.current) {
             try {
@@ -603,30 +706,38 @@ export function KDSScreen({ tenantId }: { tenantId: string }) {
     }
   }
 
-  // ── Delayed Order Alerts ──
+  // Delayed Order Alerts: pending orders not confirmed after 10 minutes.
   useEffect(() => {
     const checkDelayedOrders = () => {
-      // Compute orders being prepared
       const activeItems = items.filter(
         (i) => i.status !== 'delivered' && i.status !== 'cancelled'
       );
       const allOrders = groupItemsByOrder(activeItems);
-      const preparingOrders = allOrders.filter((o) => o.kdsStatus === 'preparing');
+      const pendingOrders = allOrders.filter((o) => o.kdsStatus === 'pending');
+      const pendingIds = new Set(pendingOrders.map((order) => order.orderId));
+      const now = Date.now();
 
-      preparingOrders.forEach((order) => {
-        const minutes = Math.floor((Date.now() - new Date(order.createdAt).getTime()) / 60000);
-        if (minutes > 15 && !delayedAlertedOrders.current.has(order.orderId)) {
+      for (const orderId of Array.from(delayedAlertedOrders.current.keys())) {
+        if (!pendingIds.has(orderId)) delayedAlertedOrders.current.delete(orderId);
+      }
+
+      pendingOrders.forEach((order) => {
+        const minutes = Math.floor((now - new Date(order.createdAt).getTime()) / 60000);
+        const lastAlertAt = delayedAlertedOrders.current.get(order.orderId) || 0;
+        const shouldRepeat = now - lastAlertAt >= 60_000;
+        if (minutes >= 10 && shouldRepeat) {
           playDelayedAlert();
-          delayedAlertedOrders.current.add(order.orderId);
+          delayedAlertedOrders.current.set(order.orderId, now);
         }
       });
     };
 
+    checkDelayedOrders();
     const interval = setInterval(checkDelayedOrders, 30000); // Check every 30 seconds
     return () => clearInterval(interval);
   }, [items, playDelayedAlert]);
 
-  // ── Fetch ──
+  // Fetch
   const fetchOrderItems = useCallback(async () => {
     try {
       const res = await fetch(
@@ -658,7 +769,7 @@ export function KDSScreen({ tenantId }: { tenantId: string }) {
     }
   }, [tenantId, playNewOrder]);
 
-  // ── Realtime ──
+  // Realtime
   useEffect(() => {
     fetchOrderItems();
 
@@ -668,16 +779,16 @@ export function KDSScreen({ tenantId }: { tenantId: string }) {
         'postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'order_items', filter: `tenant_id=eq.${tenantId}` },
         async (payload) => {
-          console.log('[KDS] 🔔 REALTIME EVENT RECEIVED - New order item:', payload.new);
+          console.log('[KDS] REALTIME EVENT RECEIVED - New order item:', payload.new);
           const newItem = payload.new as OrderItemWithOrder;
           const isNewOrder = !knownOrderIds.current.has(newItem.order_id);
           console.log(`[KDS] Is new order? ${isNewOrder} | Order ID: ${newItem.order_id}`);
           if (isNewOrder) {
-            console.log('[KDS] 🔊 Playing sound from REALTIME event');
+            console.log('[KDS] Playing sound from REALTIME event');
             playNewOrder();
             knownOrderIds.current.add(newItem.order_id);
           }
-          // Re-fetch to get full data with order join
+  // Fetch
           await fetchOrderItems();
         }
       )
@@ -686,7 +797,7 @@ export function KDSScreen({ tenantId }: { tenantId: string }) {
         { event: 'UPDATE', schema: 'public', table: 'order_items', filter: `tenant_id=eq.${tenantId}` },
         async (payload) => {
           console.log('[KDS] Order item updated:', payload.new);
-          // Re-fetch to get full data with order join (same as INSERT)
+  // Fetch
           await fetchOrderItems();
         }
       )
@@ -709,16 +820,16 @@ export function KDSScreen({ tenantId }: { tenantId: string }) {
     };
   }, [tenantId, fetchOrderItems, playNewOrder]);
 
-  // ── Polling Fallback (si Realtime no funciona) ──
+  // Realtime
   useEffect(() => {
     const interval = setInterval(() => {
       console.log('[KDS] Polling fallback - refetching data');
       fetchOrderItems();
-    }, 3000); // Más agresivo: cada 3 segundos
+    }, 3000); // More aggressive fallback: every 3 seconds
     return () => clearInterval(interval);
   }, [fetchOrderItems]);
 
-  // ── Update all items in an order ──
+  // Update all items in an order
   async function updateOrderStatus(order: KDSOrder, targetStatus: string) {
     const activeItems = order.items.filter(
       (i) => i.status !== 'cancelled' && i.status !== 'delivered'
@@ -737,7 +848,7 @@ export function KDSScreen({ tenantId }: { tenantId: string }) {
         )
       );
       console.log('[KDS] Status updated successfully, refetching...');
-      // Refetch immediately after successful update
+  // Fetch
       await fetchOrderItems();
     } catch (err) {
       console.error('KDS update error:', err);
@@ -746,7 +857,7 @@ export function KDSScreen({ tenantId }: { tenantId: string }) {
     }
   }
 
-  // ── Group and filter ──
+  // Group and filter
   const activeItems = items.filter(
     (i) => i.status !== 'delivered' && i.status !== 'cancelled'
   );
@@ -755,7 +866,7 @@ export function KDSScreen({ tenantId }: { tenantId: string }) {
   const preparingOrders = allOrders.filter((o) => o.kdsStatus === 'preparing');
   const readyOrders = allOrders.filter((o) => o.kdsStatus === 'ready');
 
-  // ── Trust-building metrics ──
+  // Trust-building metrics
   const totalDeliveredItems = items.filter((i) => i.status === 'delivered').length;
   const avgPrepTime = allOrders.length > 0
     ? Math.round(
@@ -768,16 +879,16 @@ export function KDSScreen({ tenantId }: { tenantId: string }) {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-screen bg-gray-50 text-gray-900">
+      <div className="flex items-center justify-center h-screen bg-slate-950 text-white">
         <div className="text-center space-y-6">
           <div className="flex justify-center">
             <div className="relative w-20 h-20">
-              <ChefHat className="w-20 h-20 text-blue-500 animate-bounce" />
+              <ChefHat className="w-20 h-20 text-cyan-300 animate-bounce" />
             </div>
           </div>
           <div>
-            <p className="text-2xl font-black tracking-wider mb-2 text-gray-900">Cargando Sistema de Cocina</p>
-            <p className="text-gray-500 text-sm">Inicializando componentes...</p>
+            <p className="text-2xl font-black tracking-wider mb-2 text-white">Cargando cocina digital</p>
+            <p className="text-slate-400 text-sm">Preparando la pantalla de servicio...</p>
           </div>
         </div>
       </div>
@@ -787,31 +898,31 @@ export function KDSScreen({ tenantId }: { tenantId: string }) {
   return (
     // Clicking anywhere inits audio (required by iOS/Safari)
     <div
-      className={`bg-gray-50 text-gray-900 flex flex-col select-none overflow-hidden ${isFullscreen ? 'fixed inset-0 z-50' : 'h-screen'}`}
+      className={`bg-slate-950 text-white flex flex-col select-none overflow-hidden ${isFullscreen ? 'fixed inset-0 z-50' : 'h-screen'}`}
       onClick={initAudio}
     >
-      {/* ── Top Bar with Eccofood Brand Gradient ── */}
-      <div className="bg-gradient-to-r from-blue-600 via-blue-700 to-indigo-700 border-b border-blue-900/50 shrink-0 shadow-lg">
-        <div className="flex items-center justify-between px-6 py-4">
+      {/* Top Bar */}
+      <div className="bg-slate-950/95 border-b border-white/10 shrink-0 shadow-2xl shadow-black/30">
+        <div className="flex flex-col gap-3 px-3 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-6 sm:py-4">
           {/* Left Section */}
-          <div className="flex items-center gap-4">
-            <div className="bg-white/10 backdrop-blur-sm rounded-xl p-2.5 border border-white/20">
-              <ChefHat className="w-6 h-6 text-white" />
+          <div className="flex min-w-0 items-center gap-3 sm:gap-4">
+            <div className="bg-cyan-400/10 backdrop-blur-sm rounded-2xl p-3 border border-cyan-300/20 shadow-lg shadow-cyan-500/10">
+              <ChefHat className="w-6 h-6 text-cyan-200" />
             </div>
             <div>
-              <span className="font-black text-xl tracking-wider text-white block">COCINA DIGITAL</span>
-              <span className="text-blue-100 text-sm font-medium">
+              <span className="block text-base font-black tracking-[0.08em] text-white sm:text-xl sm:tracking-[0.22em]">KITCHEN DISPLAY</span>
+              <span className="text-slate-400 text-sm font-medium">
                 {allOrders.length} orden{allOrders.length !== 1 ? 'es' : ''} activa{allOrders.length !== 1 ? 's' : ''}
               </span>
             </div>
           </div>
 
           {/* Right Section - Controls */}
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 overflow-x-auto scrollbar-hide">
             {/* Sound Toggle */}
             <button
               onClick={(e) => { e.stopPropagation(); setSoundEnabled((v) => !v); }}
-              className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-white/10 hover:bg-white/20 backdrop-blur-sm border border-white/20 text-sm font-semibold text-white transition-all duration-200"
+              className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 backdrop-blur-sm border border-white/15 text-sm font-semibold text-white transition-all duration-200"
               title={soundEnabled ? 'Silenciar alertas' : 'Activar alertas'}
             >
               {soundEnabled ? (
@@ -830,7 +941,7 @@ export function KDSScreen({ tenantId }: { tenantId: string }) {
             {/* Fullscreen Toggle */}
             <button
               onClick={(e) => { e.stopPropagation(); toggleFullscreen(); }}
-              className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-white/10 hover:bg-white/20 backdrop-blur-sm border border-white/20 text-sm font-semibold text-white transition-all duration-200"
+              className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 backdrop-blur-sm border border-white/15 text-sm font-semibold text-white transition-all duration-200"
               title={isFullscreen ? 'Salir de pantalla completa' : 'Pantalla completa'}
             >
               {isFullscreen ? (
@@ -849,15 +960,15 @@ export function KDSScreen({ tenantId }: { tenantId: string }) {
         </div>
       </div>
 
-      {/* ── Permission Banners ── */}
+      {/* Permission banners */}
       {!soundPermissionGranted && (
-        <div className="bg-red-50 border-b border-red-200 px-6 py-4 flex items-center justify-between shrink-0">
+        <div className="bg-red-950/90 border-b border-red-400/20 px-3 py-3 flex flex-col gap-3 shrink-0 sm:flex-row sm:items-center sm:justify-between sm:px-6 sm:py-4">
           <div className="flex items-center gap-4 flex-1">
-            <div className="text-3xl animate-pulse">🔊</div>
+            <BellRing className="h-8 w-8 text-red-200 animate-pulse" />
             <div>
-              <p className="text-sm font-bold text-red-900">Se requieren permisos de sonido</p>
-              <p className="text-xs text-red-600 mt-1">Las alertas de órdenes no funcionarán sin audio habilitado</p>
-              {audioStatus && <p className="text-xs text-red-700 mt-2 font-medium">{audioStatus}</p>}
+              <p className="text-sm font-bold text-red-100">Se requieren permisos de sonido</p>
+              <p className="text-xs text-red-200/80 mt-1">Las alertas de ordenes no funcionaran sin audio habilitado</p>
+              {audioStatus && <p className="text-xs text-red-100 mt-2 font-medium">{audioStatus}</p>}
             </div>
           </div>
           <button
@@ -868,7 +979,7 @@ export function KDSScreen({ tenantId }: { tenantId: string }) {
                 playNewOrder();
               }, 300);
             }}
-            className="px-6 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-lg font-bold text-sm transition-all duration-200 whitespace-nowrap ml-4"
+            className="px-6 py-2.5 bg-red-500 hover:bg-red-400 text-white rounded-xl font-bold text-sm transition-all duration-200 whitespace-nowrap sm:ml-4"
           >
             Habilitar Sonido
           </button>
@@ -876,12 +987,12 @@ export function KDSScreen({ tenantId }: { tenantId: string }) {
       )}
 
       {!wakeLockActive && (
-        <div className="bg-amber-50 border-b border-amber-200 px-6 py-4 flex items-center justify-between shrink-0">
+        <div className="bg-amber-950/90 border-b border-amber-400/20 px-3 py-3 flex flex-col gap-3 shrink-0 sm:flex-row sm:items-center sm:justify-between sm:px-6 sm:py-4">
           <div className="flex items-center gap-4">
-            <div className="text-3xl">🔒</div>
+            <LockKeyhole className="h-8 w-8 text-amber-200" />
             <div>
-              <p className="text-sm font-bold text-amber-900">Activar protección de pantalla</p>
-              <p className="text-xs text-amber-600 mt-1">Mantén la pantalla activa durante el servicio</p>
+              <p className="text-sm font-bold text-amber-100">Activar proteccion de pantalla</p>
+              <p className="text-xs text-amber-200/80 mt-1">Manten la pantalla activa durante el servicio</p>
             </div>
           </div>
           <button
@@ -889,67 +1000,69 @@ export function KDSScreen({ tenantId }: { tenantId: string }) {
               e.stopPropagation();
               activateWakeLock();
             }}
-            className="px-6 py-2.5 bg-amber-600 hover:bg-amber-700 text-white rounded-lg font-bold text-sm transition-all duration-200 whitespace-nowrap ml-4"
+            className="px-6 py-2.5 bg-amber-500 hover:bg-amber-400 text-slate-950 rounded-xl font-bold text-sm transition-all duration-200 whitespace-nowrap sm:ml-4"
           >
             Bloquear Pantalla
           </button>
         </div>
       )}
 
-      {/* ── Legend / Urgency Guide ── */}
-      <div className="bg-white border-b border-gray-200 px-6 py-3 shrink-0">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-8 text-xs font-medium">
+      {/* Legend / urgency guide */}
+      <div className="bg-slate-900 border-b border-white/10 px-3 py-3 shrink-0 sm:px-6">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+          <div className="flex gap-4 overflow-x-auto text-xs font-medium scrollbar-hide lg:gap-8">
             <div className="flex items-center gap-2">
               <div className="w-3 h-3 rounded-full bg-green-500 ring-2 ring-green-400/30" />
-              <span className="text-gray-600">Menos de 5 min <span className="text-gray-400">(A tiempo)</span></span>
+              <span className="text-slate-300">Menos de 5 min <span className="text-slate-500">(A tiempo)</span></span>
             </div>
             <div className="flex items-center gap-2">
               <div className="w-3 h-3 rounded-full bg-amber-500 ring-2 ring-amber-400/30" />
-              <span className="text-gray-600">5 a 10 minutos <span className="text-gray-400">(Moderado)</span></span>
+              <span className="text-slate-300">5 a 10 minutos <span className="text-slate-500">(Moderado)</span></span>
             </div>
             <div className="flex items-center gap-2">
               <div className="w-3 h-3 rounded-full bg-red-500 ring-2 ring-red-400/30 animate-pulse" />
-              <span className="text-gray-600">Más de 10 min <span className="text-gray-400 font-bold">(URGENTE)</span></span>
+              <span className="text-slate-300">Mas de 10 min <span className="text-slate-500 font-bold">(Urgente)</span></span>
             </div>
           </div>
 
           {/* Trust-Building Stats */}
-          <div className="flex items-center gap-6 ml-auto">
+          <div className="flex items-center gap-4 lg:ml-auto lg:gap-6">
             <div className="flex items-center gap-2 text-center">
-              <div className="text-2xl font-black text-green-600">{totalDeliveredItems}</div>
-              <span className="text-xs text-gray-500 font-medium">Completadas</span>
+              <ShieldCheck className="h-4 w-4 text-emerald-300" />
+              <div className="text-2xl font-black text-emerald-300">{totalDeliveredItems}</div>
+              <span className="text-xs text-slate-400 font-medium">Completadas</span>
             </div>
-            <div className="w-px h-4 bg-gray-200" />
+            <div className="w-px h-4 bg-white/10" />
             <div className="flex items-center gap-2 text-center">
-              <div className="text-2xl font-black text-blue-600">{avgPrepTime}m</div>
-              <span className="text-xs text-gray-500 font-medium">Tiempo Prom.</span>
+              <Zap className="h-4 w-4 text-cyan-300" />
+              <div className="text-2xl font-black text-cyan-300">{avgPrepTime}m</div>
+              <span className="text-xs text-slate-400 font-medium">Tiempo prom.</span>
             </div>
           </div>
         </div>
       </div>
 
-      {/* ── Columns ── */}
-      <div className="flex-1 grid grid-cols-3 gap-4 p-6 overflow-hidden bg-gradient-to-b from-gray-950/50 to-gray-900">
+      {/* Columns */}
+      <div className="flex-1 grid grid-cols-1 gap-3 overflow-y-auto p-3 bg-[radial-gradient(circle_at_top_left,rgba(34,211,238,0.14),transparent_34%),linear-gradient(180deg,#020617,#0f172a)] md:grid-cols-3 md:gap-4 md:overflow-hidden md:p-6">
         <KDSColumn
           title="PENDIENTES"
           orders={pendingOrders}
-          actionLabel="🔥 INICIAR"
-          actionColor="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800"
-          headerColor="bg-gradient-to-r from-blue-600/40 to-blue-700/40 border-l-4 border-blue-500"
-          icon={<span className="text-xl">🔴</span>}
+          actionLabel="INICIAR"
+          actionColor="bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-400 hover:to-cyan-400 shadow-blue-500/30"
+          headerColor="bg-gradient-to-r from-blue-500/20 to-cyan-400/10 border-l-4 border-blue-400"
+          icon={<Flame className="h-5 w-5 text-blue-200" />}
           onAction={(o) => updateOrderStatus(o, 'preparing')}
           loading={actionLoading}
           onPlayTestSound={playNewOrder}
         />
 
         <KDSColumn
-          title="EN PREPARACIÓN"
+          title="EN PREPARACION"
           orders={preparingOrders}
-          actionLabel="✅ LISTO"
-          actionColor="bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700"
-          headerColor="bg-gradient-to-r from-amber-600/40 to-amber-700/40 border-l-4 border-amber-500"
-          icon={<span className="text-xl">⚙️</span>}
+          actionLabel="LISTO"
+          actionColor="bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 shadow-amber-500/30"
+          headerColor="bg-gradient-to-r from-amber-500/20 to-orange-400/10 border-l-4 border-amber-400"
+          icon={<Timer className="h-5 w-5 text-amber-100" />}
           onAction={(o) => updateOrderStatus(o, 'ready')}
           loading={actionLoading}
           onPlayTestSound={playNewOrder}
@@ -958,10 +1071,10 @@ export function KDSScreen({ tenantId }: { tenantId: string }) {
         <KDSColumn
           title="LISTOS"
           orders={readyOrders}
-          actionLabel="🎯 ENTREGADO"
-          actionColor="bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700"
-          headerColor="bg-gradient-to-r from-green-600/40 to-emerald-700/40 border-l-4 border-green-500"
-          icon={<CheckCircle2 className="w-5 h-5 text-green-400" />}
+          actionLabel="ENTREGADO"
+          actionColor="bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 shadow-emerald-500/30"
+          headerColor="bg-gradient-to-r from-emerald-500/20 to-teal-400/10 border-l-4 border-emerald-400"
+          icon={<CheckCircle2 className="w-5 h-5 text-emerald-100" />}
           onAction={(o) => updateOrderStatus(o, 'delivered')}
           loading={actionLoading}
           onPlayTestSound={playNewOrder}

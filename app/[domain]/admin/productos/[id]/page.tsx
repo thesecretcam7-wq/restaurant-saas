@@ -27,6 +27,8 @@ export default function EditProductoPage({ params }: Props) {
     image_url: '',
     available: true,
     featured: false,
+    show_in_upsell: false,
+    requires_kitchen: true,
   })
 
   const supabase = createClient()
@@ -49,6 +51,8 @@ export default function EditProductoPage({ params }: Props) {
           image_url: item.image_url || '',
           available: item.available,
           featured: item.featured,
+          show_in_upsell: item.variants?.show_in_upsell || false,
+          requires_kitchen: item.variants?.requires_kitchen !== false,
         })
       }
       setLoading(false)
@@ -75,7 +79,7 @@ export default function EditProductoPage({ params }: Props) {
     if (!tenantId) return
     if (!form.price || parseFloat(form.price) <= 0) { toast.error('Ingresa un precio válido'); return }
     setSaving(true)
-    const { error } = await supabase.from('menu_items').update({
+    const updateData = {
       name: form.name.trim(),
       description: form.description.trim() || null,
       price: parseFloat(form.price),
@@ -83,8 +87,13 @@ export default function EditProductoPage({ params }: Props) {
       image_url: form.image_url || null,
       available: form.available,
       featured: form.featured,
+      variants: {
+        show_in_upsell: form.show_in_upsell,
+        requires_kitchen: form.requires_kitchen,
+      },
       updated_at: new Date().toISOString(),
-    }).eq('id', id).eq('tenant_id', tenantId)
+    }
+    const { error } = await supabase.from('menu_items').update(updateData).eq('id', id).eq('tenant_id', tenantId)
     setSaving(false)
     if (error) { toast.error('Error: ' + error.message) }
     else { toast.success('Cambios guardados'); router.push(`/${domain}/admin/productos`) }
@@ -266,6 +275,18 @@ export default function EditProductoPage({ params }: Props) {
                 description="Aparece en la sección de destacados"
                 checked={form.featured}
                 onChange={v => setForm(f => ({ ...f, featured: v }))}
+              />
+              <ToggleRow
+                label="Completa tu pedido"
+                description="Mostrar como sugerencia pequena en el kiosko"
+                checked={form.show_in_upsell}
+                onChange={v => setForm(f => ({ ...f, show_in_upsell: v }))}
+              />
+              <ToggleRow
+                label="Requiere cocina"
+                description="Desactivalo para bebidas o productos de entrega directa"
+                checked={form.requires_kitchen}
+                onChange={v => setForm(f => ({ ...f, requires_kitchen: v }))}
               />
             </div>
 

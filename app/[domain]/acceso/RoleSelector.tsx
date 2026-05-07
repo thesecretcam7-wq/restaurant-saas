@@ -2,50 +2,108 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ChefHat, Lock, UtensilsCrossed, CreditCard, LogIn } from 'lucide-react';
+import { ChefHat, CreditCard, Lock, LogIn, Monitor, ShieldCheck, ShoppingBag, UtensilsCrossed } from 'lucide-react';
+
+interface Branding {
+  appName: string;
+  primaryColor: string;
+  secondaryColor: string;
+  accentColor: string;
+  backgroundColor: string;
+  textPrimaryColor: string;
+  textSecondaryColor: string;
+}
 
 interface Props {
   tenantId: string;
   tenantName: string;
   tenantSlug: string;
   logoUrl: string | null;
+  branding: Branding;
 }
 
-const ROLE_COLORS = {
-  cocinero: 'bg-gradient-to-br from-red-600 to-orange-600',
-  camarero: 'bg-gradient-to-br from-red-600 to-orange-600',
-  cajero: 'bg-gradient-to-br from-red-600 to-orange-600',
-  admin: 'bg-gradient-to-br from-red-600 to-orange-600',
-} as const;
+function hexToRgb(hex: string) {
+  const normalized = hex.replace('#', '').trim();
+  if (!/^[0-9a-fA-F]{6}$/.test(normalized)) return null;
+  return {
+    r: parseInt(normalized.slice(0, 2), 16),
+    g: parseInt(normalized.slice(2, 4), 16),
+    b: parseInt(normalized.slice(4, 6), 16),
+  };
+}
 
-export function RoleSelector({ tenantId, tenantName, tenantSlug, logoUrl }: Props) {
+function isDark(hex: string) {
+  const rgb = hexToRgb(hex);
+  if (!rgb) return true;
+  const luminance = (0.299 * rgb.r + 0.587 * rgb.g + 0.114 * rgb.b) / 255;
+  return luminance < 0.5;
+}
+
+function readableText(background: string, fallbackDark = '#15130f', fallbackLight = '#ffffff') {
+  return isDark(background) ? fallbackLight : fallbackDark;
+}
+
+export function RoleSelector({ tenantName, tenantSlug, logoUrl, branding }: Props) {
   const router = useRouter();
   const [selectedRole, setSelectedRole] = useState<string | null>(null);
+
+  const primary = branding.primaryColor;
+  const secondary = branding.secondaryColor;
+  const accent = branding.accentColor;
+  const pageBg = isDark(branding.backgroundColor) ? branding.backgroundColor : '#0b0f19';
+  const primaryText = readableText(primary);
+  const secondaryText = readableText(secondary);
+  const appName = branding.appName || tenantName;
 
   const roles = [
     {
       id: 'cocinero' as const,
       label: 'Cocinero',
-      icon: <ChefHat className="w-10 h-10" />,
-      desc: 'Kitchen Display System',
+      icon: ChefHat,
+      desc: 'Kitchen Display',
+      hint: 'Pedidos en cocina',
+      color: primary,
     },
     {
       id: 'camarero' as const,
       label: 'Camarero',
-      icon: <UtensilsCrossed className="w-10 h-10" />,
-      desc: 'Tomar pedidos y servir',
+      icon: UtensilsCrossed,
+      desc: 'Comandero',
+      hint: 'Mesas y servicio',
+      color: accent,
     },
     {
       id: 'cajero' as const,
       label: 'Cajero',
-      icon: <CreditCard className="w-10 h-10" />,
-      desc: 'Procesar pagos',
+      icon: CreditCard,
+      desc: 'TPV',
+      hint: 'Pagos y caja',
+      color: '#22c55e',
     },
     {
       id: 'admin' as const,
       label: 'Administrador',
-      icon: <Lock className="w-10 h-10" />,
+      icon: Lock,
       desc: 'Panel de control',
+      hint: 'Gestion completa',
+      color: secondary,
+    },
+  ];
+
+  const deviceLinks = [
+    {
+      label: 'Kiosko',
+      desc: 'Autoservicio del cliente',
+      href: `/${tenantSlug}/kiosko`,
+      icon: ShoppingBag,
+      color: accent,
+    },
+    {
+      label: 'Pantalla',
+      desc: 'Estado de pedidos',
+      href: `/${tenantSlug}/pantalla`,
+      icon: Monitor,
+      color: primary,
     },
   ];
 
@@ -55,45 +113,132 @@ export function RoleSelector({ tenantId, tenantName, tenantSlug, logoUrl }: Prop
   }
 
   return (
-    <div
-      className="min-h-screen flex flex-col items-center justify-center p-6"
+    <main
+      className="min-h-screen overflow-x-hidden text-white"
       style={{
-        background: 'linear-gradient(to bottom right, white, rgba(219, 234, 254, 0.5), rgba(220, 252, 231, 0.5))'
+        background:
+          `radial-gradient(circle at 16% 12%, ${primary}33, transparent 34%), ` +
+          `radial-gradient(circle at 88% 18%, ${accent}24, transparent 30%), ` +
+          `linear-gradient(135deg, ${pageBg}, #020617 78%)`,
       }}
     >
-      <div className="mb-10 text-center">
-        {logoUrl ? (
-          <img src={logoUrl} alt={tenantName} className="w-20 h-20 rounded-2xl object-cover mx-auto mb-4" />
-        ) : (
-          <div className="w-20 h-20 bg-gradient-to-br from-red-600 to-orange-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
-            <ChefHat className="w-10 h-10 text-white" />
-          </div>
-        )}
-        <p className="text-gray-500 text-sm">Bienvenido a</p>
-        <p className="text-gray-900 font-bold text-3xl">{tenantName}</p>
-      </div>
-
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 w-full max-w-lg">
-        {roles.map(role => (
-          <button
-            key={role.id}
-            onClick={() => handleSelect(role.id)}
-            disabled={selectedRole !== null}
-            className={`bg-white border border-gray-200 rounded-2xl p-6 flex flex-col items-center justify-center gap-3 active:scale-95 transition-all shadow-sm ${
-              selectedRole ? 'opacity-50 cursor-not-allowed' : 'hover:border-gray-300 hover:shadow-md'
-            }`}
-          >
-            <div className={`w-14 h-14 rounded-xl flex items-center justify-center text-white ${ROLE_COLORS[role.id]}`}>
-              {role.icon}
+      <div className="flex min-h-screen flex-col lg:flex-row">
+        <section className="flex flex-col justify-between border-b border-white/10 px-5 py-6 sm:px-8 lg:w-[42%] lg:min-w-[380px] lg:border-b-0 lg:border-r lg:px-10 lg:py-9">
+          <div className="flex items-center gap-4">
+            <div className="grid h-16 w-16 place-items-center overflow-hidden rounded-2xl border border-white/15 bg-white/10 shadow-2xl">
+              {logoUrl ? (
+                <img src={logoUrl} alt={appName} className="h-full w-full object-contain bg-white p-2" />
+              ) : (
+                <ChefHat className="h-8 w-8" style={{ color: primary }} />
+              )}
             </div>
             <div>
-              <p className="text-gray-900 font-bold text-sm">{role.label}</p>
-              <p className="text-gray-500 text-xs mt-0.5">{role.desc}</p>
+              <p className="text-xs font-black uppercase tracking-[0.22em] text-white/45">Acceso personal</p>
+              <h1 className="text-2xl font-black tracking-tight">{appName}</h1>
             </div>
-            <LogIn className="w-4 h-4 text-gray-400 mt-1" />
-          </button>
-        ))}
+          </div>
+
+          <div>
+            <p
+              className="mb-5 inline-flex rounded-full px-4 py-2 text-sm font-black uppercase tracking-[0.16em]"
+              style={{ backgroundColor: `${primary}24`, color: primary }}
+            >
+              Equipo operativo
+            </p>
+            <h2 className="max-w-lg text-4xl font-black leading-[0.98] tracking-tight sm:text-5xl lg:text-6xl">
+              Elige tu puesto para entrar
+            </h2>
+            <p className="mt-4 max-w-md text-base font-semibold leading-relaxed text-white/58 sm:text-lg lg:mt-6">
+              Cada perfil abre solo las herramientas que necesita durante el servicio.
+            </p>
+          </div>
+
+          <div className="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.06] px-4 py-3">
+            <ShieldCheck className="h-5 w-5" style={{ color: primary }} />
+            <p className="text-sm font-semibold text-white/62">Entrada segura con PIN del empleado</p>
+          </div>
+        </section>
+
+        <section className="flex flex-1 items-center justify-center p-4 sm:p-8 lg:p-10">
+          <div className="w-full max-w-4xl space-y-4">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              {deviceLinks.map((item) => {
+                const Icon = item.icon;
+                return (
+                  <a
+                    key={item.label}
+                    href={item.href}
+                    className="group flex items-center gap-4 rounded-3xl border border-white/12 bg-white/[0.09] p-4 text-left shadow-2xl shadow-black/20 transition-all active:scale-[0.98] hover:-translate-y-0.5 hover:bg-white/[0.13]"
+                  >
+                    <div
+                      className="grid h-14 w-14 flex-shrink-0 place-items-center rounded-2xl border"
+                      style={{ backgroundColor: `${item.color}24`, borderColor: `${item.color}55`, color: '#ffffff' }}
+                    >
+                      <Icon className="h-6 w-6" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-xs font-black uppercase tracking-[0.16em]" style={{ color: item.color }}>
+                        Acceso rapido
+                      </p>
+                      <h3 className="mt-1 text-xl font-black text-white">{item.label}</h3>
+                      <p className="text-sm font-semibold text-white/52">{item.desc}</p>
+                    </div>
+                    <LogIn className="h-5 w-5 text-white/30 transition group-hover:text-white/70" />
+                  </a>
+                );
+              })}
+            </div>
+
+            <div className="grid grid-cols-1 gap-3 sm:gap-4 lg:grid-cols-2">
+              {roles.map((role) => {
+                const Icon = role.icon;
+                const selected = selectedRole === role.id;
+                const disabled = selectedRole !== null;
+
+                return (
+                  <button
+                    key={role.id}
+                    onClick={() => handleSelect(role.id)}
+                    disabled={disabled}
+                    className={`group min-h-[138px] rounded-3xl border p-4 text-left transition-all duration-200 active:scale-[0.98] sm:min-h-[170px] sm:p-5 lg:min-h-[190px] lg:p-6 ${
+                      disabled ? 'cursor-not-allowed opacity-55' : 'hover:-translate-y-1 hover:bg-white/[0.11]'
+                    }`}
+                    style={{
+                      backgroundColor: selected ? `${role.color}20` : 'rgba(255,255,255,0.075)',
+                      borderColor: selected ? role.color : 'rgba(255,255,255,0.12)',
+                      boxShadow: selected ? `0 24px 70px ${role.color}30` : '0 20px 60px rgba(0,0,0,0.22)',
+                    }}
+                  >
+                    <div className="flex h-full flex-col justify-between">
+                      <div className="flex items-start justify-between gap-4">
+                        <div
+                          className="grid h-12 w-12 place-items-center rounded-2xl border sm:h-14 sm:w-14 lg:h-16 lg:w-16"
+                          style={{
+                            backgroundColor: `${role.color}24`,
+                            borderColor: `${role.color}55`,
+                            color: role.id === 'admin' ? secondaryText : role.id === 'cocinero' ? primaryText : '#ffffff',
+                          }}
+                        >
+                          <Icon className="h-6 w-6 lg:h-8 lg:w-8" />
+                        </div>
+                        <LogIn className="h-5 w-5 text-white/30 transition group-hover:text-white/70" />
+                      </div>
+
+                      <div>
+                        <p className="text-xs font-black uppercase tracking-[0.14em] sm:text-sm sm:tracking-[0.16em]" style={{ color: role.color }}>
+                          {role.desc}
+                        </p>
+                        <h3 className="mt-1 text-2xl font-black text-white sm:mt-2 lg:text-3xl">{role.label}</h3>
+                        <p className="mt-2 text-sm font-semibold text-white/52">{role.hint}</p>
+                      </div>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </section>
       </div>
-    </div>
+    </main>
   );
 }

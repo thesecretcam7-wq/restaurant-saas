@@ -3,44 +3,59 @@ import { Redis } from '@upstash/redis'
 
 let redis: Redis | null = null
 
-function getRedis(): Redis {
+function hasUpstashEnv(): boolean {
+  const url = process.env.UPSTASH_REDIS_REST_URL
+  const token = process.env.UPSTASH_REDIS_REST_TOKEN
+  return !!url && /^https?:\/\//.test(url) && !!token
+}
+
+function getRedis(): Redis | null {
+  if (!hasUpstashEnv()) return null
   if (!redis) {
     redis = Redis.fromEnv()
   }
   return redis
 }
 
-// 500 req/min — protección general contra DDoS (Next.js genera ~10 RSC prefetch por página)
+// 500 req/min - general DDoS protection.
 export function getGlobalLimiter() {
+  const redis = getRedis()
+  if (!redis) return null
   return new Ratelimit({
-    redis: getRedis(),
+    redis,
     limiter: Ratelimit.slidingWindow(500, '1 m'),
     prefix: 'eccofood:global',
   })
 }
 
-// 5 req/min — prevención de fuerza bruta en login/registro
+// 5 req/min - login/register brute-force protection.
 export function getAuthLimiter() {
+  const redis = getRedis()
+  if (!redis) return null
   return new Ratelimit({
-    redis: getRedis(),
+    redis,
     limiter: Ratelimit.slidingWindow(5, '1 m'),
     prefix: 'eccofood:auth',
   })
 }
 
-// 10 req/min — protección de costo en endpoints de IA
+// 10 req/min - cost protection on AI endpoints.
 export function getAiLimiter() {
+  const redis = getRedis()
+  if (!redis) return null
   return new Ratelimit({
-    redis: getRedis(),
+    redis,
     limiter: Ratelimit.slidingWindow(10, '1 m'),
     prefix: 'eccofood:ai',
   })
 }
 
-// 20 req/min — prevención de spam en pedidos
+// 20 req/min - order spam protection.
 export function getOrdersLimiter() {
+  const redis = getRedis()
+  if (!redis) return null
   return new Ratelimit({
-    redis: getRedis(),
+    redis,
     limiter: Ratelimit.slidingWindow(20, '1 m'),
     prefix: 'eccofood:orders',
   })
@@ -55,9 +70,13 @@ export function getClientIp(request: Request): string {
 }
 
 export async function applyRateLimit(
-  limiter: Ratelimit,
+  limiter: Ratelimit | null,
   identifier: string
 ): Promise<{ limited: boolean; headers: Record<string, string> }> {
+  if (!limiter) {
+    return { limited: false, headers: {} }
+  }
+
   const { success, limit, remaining, reset } = await limiter.limit(identifier)
 
   const headers: Record<string, string> = {

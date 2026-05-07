@@ -1,10 +1,37 @@
 'use client'
 
 import { useState } from 'react'
+import type { ComponentType } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Menu, X } from 'lucide-react'
-import { detectAdminSection, getSectionColorHex } from '@/lib/colors'
+import {
+  BarChart3,
+  Brain,
+  CalendarDays,
+  ChefHat,
+  ClipboardList,
+  CreditCard,
+  DoorOpen,
+  Eye,
+  Activity,
+  KeyRound,
+  LayoutDashboard,
+  Menu,
+  Monitor,
+  Package,
+  PanelsTopLeft,
+  QrCode,
+  ReceiptText,
+  Settings,
+  ShieldCheck,
+  ShoppingBag,
+  Store,
+  Table2,
+  UsersRound,
+  X,
+} from 'lucide-react'
+import { detectAdminSection, getSectionColorVar } from '@/lib/colors'
+import { StoreStatusToggle } from './StoreStatusToggle'
 
 interface NavLink {
   href: string
@@ -22,6 +49,33 @@ interface AdminSidebarProps {
   userTenants: { id: string; slug: string; organization_name: string }[]
   isOwner: boolean
   staffName?: string | null
+  tenantId?: string
+  storeEnabled?: boolean
+}
+
+const icons: Record<string, ComponentType<{ className?: string }>> = {
+  dashboard: LayoutDashboard,
+  orders: ShoppingBag,
+  screen: Monitor,
+  kiosk: PanelsTopLeft,
+  products: ChefHat,
+  banners: ReceiptText,
+  reservations: CalendarDays,
+  customers: UsersRound,
+  sales: BarChart3,
+  cash: CreditCard,
+  settings: Settings,
+  pos: CreditCard,
+  inventory: Package,
+  tables: Table2,
+  password: KeyRound,
+  kds: ChefHat,
+  comandero: ClipboardList,
+  staffAccess: UsersRound,
+  qr: QrCode,
+  audit: ShieldCheck,
+  ai: Brain,
+  health: Activity,
 }
 
 export function AdminSidebar({
@@ -32,55 +86,58 @@ export function AdminSidebar({
   navLinks,
   userTenants,
   isOwner,
+  tenantId,
+  storeEnabled = true,
 }: AdminSidebarProps) {
   const [open, setOpen] = useState(false)
   const pathname = usePathname()
-  const currentSection = detectAdminSection(pathname)
-  const currentSectionColor = getSectionColorHex(currentSection)
 
   const sidebarContent = (
     <>
-      {/* Header */}
-      <div className="p-4 border-b border-gray-200 flex items-center justify-between">
-        <div className="flex items-center gap-2 min-w-0">
-          {logoUrl && (
-            <img src={logoUrl} alt="" className="w-8 h-8 rounded object-cover flex-shrink-0" />
-          )}
-          <div className="min-w-0">
-            <p className="font-semibold text-sm truncate text-gray-900" style={{ color: primaryColor ?? undefined }}>
-              {restaurantName}
-            </p>
-            <p className="text-xs text-gray-500">Panel Admin</p>
+      <div className="border-b border-white/10 p-4">
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex min-w-0 items-center gap-3">
+            {logoUrl ? (
+              <img src={logoUrl} alt="" className="size-10 flex-shrink-0 rounded-lg object-cover shadow-sm" />
+            ) : (
+              <div className="flex size-10 flex-shrink-0 items-center justify-center rounded-lg bg-white text-sm font-black text-[#15130f]">
+                {restaurantName.charAt(0)}
+              </div>
+            )}
+            <div className="min-w-0">
+              <p className="truncate text-sm font-black text-white" style={{ color: primaryColor ?? undefined }}>
+                {restaurantName}
+              </p>
+              <p className="text-xs font-semibold text-white/45">Panel operativo</p>
+            </div>
           </div>
+          <button
+            className="rounded-lg p-2 text-white/55 transition hover:bg-white/10 hover:text-white md:hidden"
+            onClick={() => setOpen(false)}
+            aria-label="Cerrar menu"
+          >
+            <X className="size-5" />
+          </button>
         </div>
-        {/* Close button — mobile only */}
-        <button
-          className="md:hidden ml-2 p-1 rounded text-gray-500 hover:bg-gray-100"
-          onClick={() => setOpen(false)}
-          aria-label="Cerrar menú"
-        >
-          <X className="w-5 h-5" />
-        </button>
       </div>
 
-      {/* Nav */}
-      <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
+      <nav className="flex-1 space-y-1 overflow-y-auto p-3">
         {isOwner && userTenants.length > 1 && (
-          <div className="mb-4 pb-4 border-b border-gray-200">
-            <p className="text-xs font-semibold text-gray-500 px-3 mb-2">MIS RESTAURANTES</p>
+          <div className="mb-4 border-b border-white/10 pb-4">
+            <p className="px-3 pb-2 text-[11px] font-black uppercase text-white/35">Mis restaurantes</p>
             <div className="space-y-1">
               {userTenants.map(t => (
                 <Link
                   key={t.id}
                   href={`/${t.slug}/admin/dashboard`}
                   onClick={() => setOpen(false)}
-                  className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors ${
+                  className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-semibold transition ${
                     t.slug === tenantSlug
-                      ? 'bg-orange-100 text-orange-700 font-semibold border border-orange-300'
-                      : 'text-gray-600 hover:bg-gray-100'
+                      ? 'bg-white text-[#15130f]'
+                      : 'text-white/62 hover:bg-white/8 hover:text-white'
                   }`}
                 >
-                  <span>{t.organization_name.includes('Demo') ? '🎮' : '🏪'}</span>
+                  <Store className="size-4 flex-shrink-0" />
                   <span className="truncate">{t.organization_name}</span>
                 </Link>
               ))}
@@ -91,47 +148,47 @@ export function AdminSidebar({
         {navLinks.map(link => {
           const isActive = pathname.includes(link.href.split('/').pop() || '')
           const linkSection = detectAdminSection(link.href)
-          const linkColor = getSectionColorHex(linkSection)
+          const linkColor = `var(${getSectionColorVar(linkSection)})`
+          const Icon = icons[link.icon] || LayoutDashboard
 
           return (
             <div key={link.href}>
-              {link.divider && <div className="my-2 border-t" />}
+              {link.divider && <div className="my-3 border-t border-white/10" />}
               <Link
                 href={link.href}
                 onClick={() => setOpen(false)}
-                className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors ${
+                className={`group flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-bold transition ${
                   isActive
-                    ? 'font-semibold text-white'
-                    : 'text-gray-700 hover:bg-gray-100'
+                    ? 'bg-white text-[#15130f] shadow-sm'
+                    : 'text-white/64 hover:bg-white/8 hover:text-white'
                 }`}
-                style={isActive ? { backgroundColor: linkColor } : undefined}
+                style={isActive ? { boxShadow: `inset 3px 0 0 ${linkColor}` } : undefined}
               >
-                <span>{link.icon}</span>
-                <span>{link.label}</span>
+                <Icon className="size-4 flex-shrink-0" />
+                <span className="truncate">{link.label}</span>
               </Link>
             </div>
           )
         })}
       </nav>
 
-      {/* Footer */}
-      <div className="p-3 border-t border-gray-200 space-y-1">
+      <div className="space-y-1 border-t border-white/10 p-3">
+        {tenantId && <StoreStatusToggle tenantId={tenantId} initialEnabled={storeEnabled} />}
         <Link
           href={`/${tenantSlug}/menu`}
           onClick={() => setOpen(false)}
-          className="flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-gray-600 hover:bg-gray-100"
-          target="_blank"
+          className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-bold text-white/64 transition hover:bg-white/8 hover:text-white"
         >
-          <span>👁️</span>
+          <Eye className="size-4" />
           <span>Ver tienda</span>
         </Link>
         <form action="/api/auth/logout" method="POST">
           <button
             type="submit"
-            className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-gray-600 hover:bg-gray-100 text-left"
+            className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm font-bold text-white/64 transition hover:bg-white/8 hover:text-white"
           >
-            <span>🚪</span>
-            <span>Cerrar sesión</span>
+            <DoorOpen className="size-4" />
+            <span>Cerrar sesion</span>
           </button>
         </form>
       </div>
@@ -140,31 +197,24 @@ export function AdminSidebar({
 
   return (
     <>
-      {/* ── Desktop sidebar (always visible) ── */}
-      <aside className="hidden md:flex w-64 bg-white border-r border-gray-200 flex-col fixed inset-y-0 left-0 z-30">
+      <aside className="hidden md:flex fixed inset-y-0 left-0 z-30 w-64 flex-col border-r border-black/10 bg-[#15130f] shadow-2xl shadow-black/10">
         {sidebarContent}
       </aside>
 
-      {/* ── Mobile: hamburger button ── */}
       <button
-        className="md:hidden fixed top-3 left-3 z-40 p-2 bg-white border border-gray-200 rounded-lg shadow-sm"
+        className="fixed left-3 top-3 z-40 rounded-lg border border-black/10 bg-white p-2 text-[#15130f] shadow-sm md:hidden"
         onClick={() => setOpen(true)}
-        aria-label="Abrir menú"
+        aria-label="Abrir menu"
       >
-        <Menu className="w-5 h-5 text-gray-600" />
+        <Menu className="size-5" />
       </button>
 
-      {/* ── Mobile: overlay ── */}
       {open && (
-        <div
-          className="md:hidden fixed inset-0 z-30 bg-black/20"
-          onClick={() => setOpen(false)}
-        />
+        <div className="fixed inset-0 z-30 bg-black/35 md:hidden" onClick={() => setOpen(false)} />
       )}
 
-      {/* ── Mobile: slide-in sidebar ── */}
       <aside
-        className={`md:hidden fixed inset-y-0 left-0 z-40 w-72 bg-white flex flex-col shadow-xl transition-transform duration-200 ${
+        className={`fixed inset-y-0 left-0 z-40 flex w-72 flex-col bg-[#15130f] shadow-2xl transition-transform duration-200 md:hidden ${
           open ? 'translate-x-0' : '-translate-x-full'
         }`}
       >

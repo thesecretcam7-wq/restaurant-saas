@@ -1,95 +1,121 @@
 import { createServiceClient } from '@/lib/supabase/server'
-import Link from 'next/link'
+import { CreditCard, ShieldCheck, Zap } from 'lucide-react'
+import { StripeConnectClient } from './StripeConnectClient'
 
 interface Props { params: Promise<{ domain: string }> }
 
-export default async function StripeConnectPage({ params }: Props) {
-  const { domain: tenantId } = await params
-  const supabase = createServiceClient()
+type StripeTenant = {
+  id: string
+  slug: string | null
+  stripe_account_id: string | null
+  stripe_account_status: string | null
+}
 
-  const { data: tenant } = await supabase
-    .from('tenants')
-    .select('stripe_account_id, stripe_account_status, stripe_customer_id')
-    .eq('id', tenantId)
-    .single()
+export default async function StripeConnectPage({ params }: Props) {
+  const { domain } = await params
+  const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(domain)
+
+  let tenant: StripeTenant | null = null
+  let tenantErrorMessage = ''
+
+  try {
+    const supabase = createServiceClient()
+    const { data, error } = await supabase
+      .from('tenants')
+      .select('id, slug, stripe_account_id, stripe_account_status')
+      .eq(isUUID ? 'id' : 'slug', domain)
+      .maybeSingle()
+
+    tenant = data
+    tenantErrorMessage = error?.message || ''
+  } catch (error) {
+    tenantErrorMessage = error instanceof Error ? error.message : 'Error cargando la configuracion de Stripe'
+  }
 
   const isConnected = tenant?.stripe_account_status === 'verified'
   const isPending = tenant?.stripe_account_status === 'pending'
 
   return (
-    <div className="max-w-2xl space-y-6">
-      {/* Estado actual */}
-      <div className={`rounded-xl border p-5 ${isConnected ? 'bg-green-50 border-green-200' : isPending ? 'bg-yellow-50 border-yellow-200' : 'bg-white'}`}>
-        <div className="flex items-center gap-3">
-          <span className="text-2xl">{isConnected ? '✅' : isPending ? '⏳' : '🔗'}</span>
+    <div className="space-y-6">
+      <div className="admin-page-header">
+        <div>
+          <p className="admin-eyebrow">Pagos online</p>
+          <h1 className="admin-title">Stripe</h1>
+          <p className="admin-subtitle">Conecta la cuenta del restaurante para cobrar desde tienda, QR y kiosko.</p>
+        </div>
+      </div>
+
+      {!tenant && (
+        <div className="rounded-2xl border border-red-200 bg-red-50 p-5">
+          <h2 className="text-lg font-black text-red-800">No pude cargar este restaurante</h2>
+          <p className="mt-1 text-sm font-semibold text-red-700">
+            {tenantErrorMessage || 'No se encontro el restaurante para preparar la conexion con Stripe.'}
+          </p>
+          <p className="mt-3 text-sm font-semibold text-red-700/80">
+            Revisa en Vercel que existan NEXT_PUBLIC_SUPABASE_URL y SUPABASE_SERVICE_ROLE_KEY.
+          </p>
+        </div>
+      )}
+
+      <div className={`rounded-2xl border p-5 ${
+        isConnected ? 'border-emerald-200 bg-emerald-50' : isPending ? 'border-amber-200 bg-amber-50' : 'border-black/10 bg-white'
+      }`}>
+        <div className="flex items-start gap-4">
+          <div className={`grid size-12 flex-shrink-0 place-items-center rounded-xl ${
+            isConnected ? 'bg-emerald-600 text-white' : isPending ? 'bg-amber-500 text-white' : 'bg-[#15130f] text-white'
+          }`}>
+            <CreditCard className="size-5" />
+          </div>
           <div>
-            <p className="font-semibold text-gray-900">
-              {isConnected ? 'Stripe conectado' : isPending ? 'Conexión pendiente de verificación' : 'Stripe no conectado'}
-            </p>
-            <p className="text-sm text-gray-600 mt-0.5">
+            <h2 className="text-lg font-black text-[#15130f]">
+              {isConnected ? 'Stripe conectado' : isPending ? 'Conexion pendiente' : 'Stripe no conectado'}
+            </h2>
+            <p className="mt-1 text-sm font-semibold leading-6 text-black/58">
               {isConnected
-                ? `Cuenta: ${tenant?.stripe_account_id} — Puedes recibir pagos.`
+                ? `Cuenta conectada: ${tenant?.stripe_account_id}. El restaurante puede recibir pagos online.`
                 : isPending
-                ? 'Completa la verificación en tu dashboard de Stripe.'
-                : 'Conecta tu cuenta para recibir pagos de tus clientes directamente.'}
+                  ? 'Falta completar informacion dentro de Stripe para activar los cobros.'
+                  : 'Conecta Stripe para que los clientes puedan pagar directamente desde la carta, tienda o kiosko.'}
             </p>
           </div>
         </div>
       </div>
 
-      {/* Cómo funciona */}
-      <div className="bg-white rounded-xl border p-5">
-        <h2 className="font-semibold text-gray-900 mb-4">¿Cómo funciona Stripe Connect?</h2>
-        <div className="space-y-3">
-          {[
-            { n: '1', t: 'Conectas tu cuenta Stripe', d: 'Crea o vincula tu cuenta Stripe existente en minutos.' },
-            { n: '2', t: 'Clientes pagan en tu tienda', d: 'Los pagos se procesan de forma segura con Stripe.' },
-            { n: '3', t: 'Recibes el dinero directo', d: 'Los fondos van directamente a tu cuenta bancaria.' },
-          ].map(s => (
-            <div key={s.n} className="flex gap-3">
-              <div className="w-7 h-7 rounded-full bg-blue-600 text-white text-sm font-bold flex items-center justify-center flex-shrink-0">{s.n}</div>
-              <div>
-                <p className="text-sm font-medium text-gray-800">{s.t}</p>
-                <p className="text-xs text-gray-500">{s.d}</p>
-              </div>
+      <div className="grid gap-4 lg:grid-cols-3">
+        {[
+          ['1', 'Cuenta segura', 'Stripe valida la identidad del restaurante y la cuenta bancaria.', ShieldCheck],
+          ['2', 'Pago del cliente', 'El cliente paga con tarjeta desde un enlace seguro de Stripe.', CreditCard],
+          ['3', 'Dinero directo', 'Los fondos llegan a la cuenta del restaurante segun los tiempos de Stripe.', Zap],
+        ].map(([step, title, text, Icon]) => (
+          <article key={String(step)} className="admin-panel p-5">
+            <div className="flex items-center gap-3">
+              <span className="grid size-9 place-items-center rounded-lg bg-[#15130f] text-sm font-black text-white">{String(step)}</span>
+              <Icon className="size-5 text-[#e43d30]" />
             </div>
-          ))}
-        </div>
+            <h3 className="mt-5 text-base font-black text-[#15130f]">{String(title)}</h3>
+            <p className="mt-2 text-sm font-semibold leading-6 text-black/55">{String(text)}</p>
+          </article>
+        ))}
       </div>
 
-      {/* Botón conectar */}
-      {!isConnected && (
-        <div className="bg-white rounded-xl border p-5">
-          <h2 className="font-semibold text-gray-900 mb-2">
-            {isPending ? 'Completar verificación' : 'Conectar Stripe'}
-          </h2>
-          <p className="text-sm text-gray-600 mb-4">
-            {isPending
-              ? 'Accede a tu dashboard de Stripe para completar los datos requeridos.'
-              : 'Serás redirigido a Stripe para conectar o crear tu cuenta. El proceso toma menos de 5 minutos.'}
-          </p>
-          <a
-            href={`/api/stripe/connect?tenantId=${tenantId}`}
-            className="inline-block px-6 py-3 bg-[#635BFF] hover:bg-[#4f46e5] text-white rounded-lg font-medium text-sm transition-colors"
-          >
-            {isPending ? 'Ir a Stripe Dashboard →' : 'Conectar con Stripe →'}
-          </a>
-        </div>
+      {tenant && (
+        <StripeConnectClient
+          tenantId={tenant.id}
+          tenantSlug={tenant.slug || domain}
+          isPending={!!isPending}
+          isConnected={!!isConnected}
+        />
       )}
 
       {isConnected && (
-        <div className="bg-white rounded-xl border p-5">
-          <h2 className="font-semibold text-gray-900 mb-2">Gestionar cuenta</h2>
-          <p className="text-sm text-gray-600 mb-4">Administra tus pagos, transferencias y configuración desde el dashboard de Stripe.</p>
-          <a
-            href="https://dashboard.stripe.com"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-block px-6 py-3 bg-[#635BFF] hover:bg-[#4f46e5] text-white rounded-lg font-medium text-sm transition-colors"
-          >
-            Abrir Stripe Dashboard →
-          </a>
-        </div>
+        <a
+          href="https://dashboard.stripe.com"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex h-12 items-center justify-center rounded-xl bg-[#635BFF] px-5 text-sm font-black text-white shadow-lg shadow-indigo-900/15 transition hover:bg-[#5148f0]"
+        >
+          Abrir dashboard de Stripe
+        </a>
       )}
     </div>
   )

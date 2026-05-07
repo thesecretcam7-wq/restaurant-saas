@@ -29,6 +29,13 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
+dev-server.log
+
+# local backups
+_backup_avance_*/
+_github_deploy_*/
+_github_deploy_test/
+respaldo-para-documentos-*.zip
 
 # env files (can opt-in for committing if needed)
 .env*

@@ -36,9 +36,10 @@ declare global {
   }
 }
 
-// Common thermal printer vendor/product IDs
+// Keep known filters available, but default to an empty filter list so generic
+// ESC/POS USB printers can appear in Chrome's device picker.
 const KNOWN_PRINTERS = [
-  { vendor: 0x04b8, name: 'Epson' },        // Epson
+  { vendor: 0x04b8, name: 'Epson' },          // Epson
   { vendor: 0x0519, name: 'Star Micronics' }, // Star Micronics
   { vendor: 0x03f0, name: 'HP' },             // HP
   { vendor: 0x1055, name: 'Microchip' },      // Microchip
@@ -97,9 +98,19 @@ export function useWebUSB(): UseWebUSBReturn {
           return null;
         }
 
-        const filters = options?.filters || KNOWN_PRINTERS.map((p) => ({ vendorId: p.vendor }));
+        const filters = options?.filters ?? [];
+        let device: USBDevice | null = null;
 
-        const device = await navigator.usb.requestDevice({ filters });
+        try {
+          device = await navigator.usb.requestDevice({ filters });
+        } catch (err) {
+          const isFilterError = err instanceof TypeError && filters.length === 0;
+          if (!isFilterError) throw err;
+
+          device = await navigator.usb.requestDevice({
+            filters: KNOWN_PRINTERS.map((p) => ({ vendorId: p.vendor })),
+          });
+        }
 
         if (!device) return null;
 

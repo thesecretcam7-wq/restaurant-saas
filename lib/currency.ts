@@ -45,6 +45,23 @@ export function getCurrencyByCountry(countryCode: string): {
   name: string
   locale: string
 } {
+  const normalizedCountry = String(countryCode || 'ES')
+    .trim()
+    .toUpperCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+  const countryAliases: Record<string, string> = {
+    ESPANA: 'ES',
+    SPAIN: 'ES',
+    ESP: 'ES',
+    COLOMBIA: 'CO',
+    MEXICO: 'MX',
+    USA: 'US',
+    EEUU: 'US',
+    'ESTADOS UNIDOS': 'US',
+  }
+  const lookupCountry = countryAliases[normalizedCountry] || normalizedCountry
+
   const currencyMap: Record<
     string,
     { code: string; symbol: string; name: string; locale: string }
@@ -95,7 +112,7 @@ export function getCurrencyByCountry(countryCode: string): {
   }
 
   // Default a USD si no encuentra el país
-  return currencyMap[countryCode.toUpperCase()] || currencyMap['US']
+  return currencyMap[lookupCountry] || currencyMap['ES']
 }
 
 /**

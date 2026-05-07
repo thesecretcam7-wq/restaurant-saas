@@ -27,6 +27,8 @@ export default function NuevoProductoClient({ domain, tenantId, categories }: Pr
     image_url: '',
     available: true,
     featured: false,
+    show_in_upsell: false,
+    requires_kitchen: true,
   })
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -63,6 +65,8 @@ export default function NuevoProductoClient({ domain, tenantId, categories }: Pr
           imageUrl: validated.image_url || null,
           available: validated.available,
           featured: validated.featured,
+          showInUpsell: validated.show_in_upsell,
+          requiresKitchen: validated.requires_kitchen,
         }),
       })
 
@@ -243,6 +247,18 @@ export default function NuevoProductoClient({ domain, tenantId, categories }: Pr
                 description="Aparece en la sección de destacados"
                 checked={form.featured}
                 onChange={v => setForm(f => ({ ...f, featured: v }))}
+              />
+              <ToggleRow
+                label="Completa tu pedido"
+                description="Mostrar como sugerencia pequena en el kiosko"
+                checked={form.show_in_upsell}
+                onChange={v => setForm(f => ({ ...f, show_in_upsell: v }))}
+              />
+              <ToggleRow
+                label="Requiere cocina"
+                description="Desactivalo para bebidas o productos de entrega directa"
+                checked={form.requires_kitchen}
+                onChange={v => setForm(f => ({ ...f, requires_kitchen: v }))}
               />
             </div>
 

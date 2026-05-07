@@ -1,5 +1,67 @@
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { NextRequest, NextResponse } from 'next/server'
+import { revalidatePath } from 'next/cache'
+
+const TENANT_BRANDING_COLUMNS = new Set([
+  'primary_color',
+  'secondary_color',
+  'accent_color',
+  'background_color',
+  'button_primary_color',
+  'button_secondary_color',
+  'text_primary_color',
+  'text_secondary_color',
+  'border_color',
+  'font_family',
+  'heading_font',
+  'font_url',
+  'heading_font_url',
+  'heading_font_size',
+  'body_font_size',
+  'border_radius',
+  'button_border_radius',
+  'shadow_intensity',
+  'button_style',
+  'app_name',
+  'tagline',
+  'hero_image_url',
+  'description',
+  'favicon_url',
+  'instagram_url',
+  'facebook_url',
+  'whatsapp_number',
+  'contact_email',
+  'contact_phone',
+  'booking_description',
+  'delivery_description',
+  'featured_text',
+  'custom_texts',
+  'custom_css',
+  'page_config',
+])
+
+function pickTenantBrandingColumns(branding: Record<string, any>) {
+  return Object.fromEntries(
+    Object.entries(branding).filter(([key]) => TENANT_BRANDING_COLUMNS.has(key))
+  )
+}
+
+function normalizeBrandingColors(branding: Record<string, any>) {
+  const primary = branding.primary_color
+  if (!primary) return branding
+
+  return {
+    ...branding,
+    accent_color:
+      !branding.accent_color || branding.accent_color === '#F59E0B' || branding.accent_color === '#f59e0b'
+        ? primary
+        : branding.accent_color,
+    button_primary_color:
+      !branding.button_primary_color || branding.button_primary_color === '#3B82F6' || branding.button_primary_color === '#3b82f6'
+        ? primary
+        : branding.button_primary_color,
+  }
+}
 
 export async function GET(request: NextRequest) {
   try {
@@ -13,11 +75,16 @@ export async function GET(request: NextRequest) {
 
     const [brandingRes, tenantRes] = await Promise.all([
       supabase.from('tenant_branding').select('*').eq('tenant_id', tenantId).maybeSingle(),
-      supabase.from('tenants').select('logo_url').eq('id', tenantId).maybeSingle(),
+      supabase.from('tenants').select('logo_url, metadata').eq('id', tenantId).maybeSingle(),
     ])
 
+    const metadataBranding = (tenantRes.data?.metadata || {}) as Record<string, any>
+
     return NextResponse.json({
-      branding: brandingRes.data || null,
+      branding: {
+        ...(metadataBranding || {}),
+        ...(brandingRes.data || {}),
+      },
       tenant: tenantRes.data || null,
     })
   } catch (error) {
@@ -38,16 +105,30 @@ export async function PUT(request: NextRequest) {
 
     const supabase = createServiceClient()
 
-    // Save branding data to tenant_branding table (this is what API reads from)
-    // Exclude logo_url since it goes to tenants table
-    const { logo_url, ...brandingDataWithoutLogo } = branding
-    const brandingData = { ...brandingDataWithoutLogo, tenant_id: tenantId }
+    const { data: currentTenant } = await supabase
+      .from('tenants')
+      .select('metadata, slug')
+      .eq('id', tenantId)
+      .maybeSingle()
+
+    // tenant_branding has a stable schema, while advanced visual controls live in tenant metadata.
+    // This lets us add UI options without breaking saves when a database migration has not run yet.
+    const normalizedBranding = normalizeBrandingColors(branding)
+    const { logo_url, ...brandingDataWithoutLogo } = normalizedBranding
+    const brandingData = {
+      ...pickTenantBrandingColumns(brandingDataWithoutLogo),
+      tenant_id: tenantId,
+    }
+    const metadata = {
+      ...(currentTenant?.metadata || {}),
+      ...normalizedBranding,
+    }
     const [brandingRes, tenantRes] = await Promise.all([
       supabase.from('tenant_branding').upsert(brandingData, { onConflict: 'tenant_id' }),
       supabase.from('tenants').update({
         logo_url: logo_url || null,
-        metadata: branding,
-      }).eq('id', tenantId),
+        metadata,
+      }).eq('id', tenantId).select('slug').maybeSingle(),
     ])
 
     if (brandingRes.error) {
@@ -63,6 +144,14 @@ export async function PUT(request: NextRequest) {
         { error: 'Database error: ' + tenantRes.error.message },
         { status: 500 }
       )
+    }
+
+    const slug = tenantRes.data?.slug || currentTenant?.slug
+    if (slug) {
+      revalidatePath(`/${slug}`, 'layout')
+      revalidatePath(`/${slug}`)
+      revalidatePath(`/${slug}/menu`)
+      revalidatePath(`/${slug}/carta`)
     }
 
     return NextResponse.json({ success: true })

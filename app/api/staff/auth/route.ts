@@ -1,6 +1,7 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextRequest, NextResponse } from 'next/server'
 import { logSecurityEvent } from '@/lib/error-handler'
+import { createStaffAuthProof } from '@/lib/staff-auth-proof'
 
 const RATE_LIMIT_MAX = 10
 const RATE_LIMIT_WINDOW_MINUTES = 5
@@ -100,12 +101,26 @@ export async function POST(request: NextRequest) {
       ip: clientIP,
     }, 'low')
 
-    return NextResponse.json({
+    const response = NextResponse.json({
       success: true,
       staff_id: staff.id,
       staff_name: staff.name,
       role: staff.role,
     })
+    response.cookies.set('staff_auth_proof', createStaffAuthProof({
+      tenantId: tenant.id,
+      staffId: staff.id,
+      staffName: staff.name,
+      role: staff.role,
+    }), {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'strict',
+      maxAge: 120,
+      path: '/',
+    })
+
+    return response
   } catch (error) {
     const isDev = process.env.NODE_ENV === 'development'
     logSecurityEvent('staff_auth_exception', {

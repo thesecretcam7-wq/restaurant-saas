@@ -1,5 +1,9 @@
 import { createServiceClient } from '@/lib/supabase/server'
 import { KitchenClient } from './KitchenClient'
+import { getTenantContext } from '@/lib/tenant'
+
+export const dynamic = 'force-dynamic'
+export const revalidate = 0
 
 interface Props {
   params: Promise<{ domain: string }>
@@ -13,9 +17,13 @@ export default async function KitchenPage({ params }: Props) {
 
   const { data: tenant } = await supabase
     .from('tenants')
-    .select('id, organization_name')
+    .select('id, organization_name, slug, country')
     .eq(isUUID ? 'id' : 'slug', slug)
     .single()
+
+  const context = tenant ? await getTenantContext(tenant.slug || slug) : null
+  const settings = context?.settings
+  const branding = context?.branding
 
   if (!tenant) {
     return (
@@ -25,5 +33,25 @@ export default async function KitchenPage({ params }: Props) {
     )
   }
 
-  return <KitchenClient tenantId={tenant.id} tenantName={tenant.organization_name} />
+  return (
+    <KitchenClient
+      tenantId={tenant.id}
+      tenantSlug={tenant.slug || slug}
+      tenantName={tenant.organization_name}
+      country={settings?.country || tenant.country || 'ES'}
+      branding={{
+        appName: branding?.app_name || tenant.organization_name,
+        primaryColor: branding?.primary_color || '#15130f',
+        secondaryColor: branding?.secondary_color || '#111827',
+        accentColor: branding?.accent_color || branding?.primary_color || '#e43d30',
+        backgroundColor: branding?.background_color || '#f6f3ed',
+        surfaceColor: branding?.section_background_color || branding?.background_color || '#ffffff',
+        buttonPrimaryColor: branding?.button_primary_color || branding?.primary_color || '#15130f',
+        buttonSecondaryColor: branding?.button_secondary_color || branding?.secondary_color || '#111827',
+        textPrimaryColor: branding?.text_primary_color || '#15130f',
+        textSecondaryColor: branding?.text_secondary_color || '#6b7280',
+        logoUrl: branding?.logo_url || null,
+      }}
+    />
+  )
 }

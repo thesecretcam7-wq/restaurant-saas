@@ -7,6 +7,7 @@ import { useTenantResolver } from '@/lib/hooks/useTenantResolver'
 import toast from 'react-hot-toast'
 
 const GOOGLE_FONTS = ['Inter', 'Roboto', 'Open Sans', 'Lato', 'Montserrat', 'Playfair Display', 'Nunito', 'Raleway', 'Poppins', 'Oswald']
+const BUTTON_HOVER_EFFECTS = ['none', 'scale', 'glow', 'shadow']
 
 interface PersonalizacionProps { params: Promise<{ domain: string }> }
 
@@ -86,6 +87,22 @@ export default function PersonalizacionPage({ params }: PersonalizacionProps) {
     // Page Config
     page_config: {} as any,
   })
+
+  const handleColorChange = (key: keyof typeof form, value: string) => {
+    setForm(prev => {
+      const next: typeof prev = { ...prev, [key]: value }
+
+      if (key === 'primary_color') {
+        const oldPrimary = prev.primary_color
+        const shouldSyncAccent = !prev.accent_color || prev.accent_color === oldPrimary || prev.accent_color === '#F59E0B'
+        const shouldSyncButton = !prev.button_primary_color || prev.button_primary_color === oldPrimary || prev.button_primary_color === '#3B82F6'
+        if (shouldSyncAccent) next.accent_color = value
+        if (shouldSyncButton) next.button_primary_color = value
+      }
+
+      return next
+    })
+  }
 
   useEffect(() => {
     if (!tenantId) return
@@ -198,9 +215,9 @@ export default function PersonalizacionPage({ params }: PersonalizacionProps) {
             gradient_start_color: form.gradient_start_color,
             gradient_end_color: form.gradient_end_color,
             gradient_direction: form.gradient_direction,
-            button_hover_effect: form.button_hover_effect,
-            button_hover_color: form.button_hover_color,
-            link_hover_color: form.link_hover_color,
+            button_hover_effect: BUTTON_HOVER_EFFECTS.includes(form.button_hover_effect) ? form.button_hover_effect : 'scale',
+            button_hover_color: '',
+            link_hover_color: '',
             link_hover_underline: form.link_hover_underline,
             transition_speed: form.transition_speed,
           }
@@ -220,7 +237,11 @@ export default function PersonalizacionPage({ params }: PersonalizacionProps) {
     }
   }
 
-  if (resolvingTenant || loading) return <div className="flex items-center justify-center h-64 text-gray-400">Cargando...</div>
+  if (resolvingTenant || loading) return (
+    <div className="admin-panel flex h-64 items-center justify-center text-black/45">
+      Cargando personalizacion...
+    </div>
+  )
 
   const imageUploadField = (label: string, field: keyof typeof form) => (
     <div>
@@ -251,22 +272,32 @@ export default function PersonalizacionPage({ params }: PersonalizacionProps) {
   ]
 
   return (
-    <div className="max-w-5xl">
-      <div className="mb-8">
-        <h1 className="text-2xl font-bold text-gray-900">Personalización Completa</h1>
-        <p className="text-gray-500 text-sm mt-1">Configura todo sobre tu restaurante en un solo lugar</p>
+    <div className="brand-studio max-w-6xl">
+      <div className="admin-page-header">
+        <div>
+          <p className="admin-eyebrow">Marca</p>
+          <h1 className="admin-title">Personalizacion</h1>
+          <p className="admin-subtitle">Define identidad, colores, textos, contacto y apariencia publica del restaurante desde una sola cabina visual.</p>
+        </div>
+        <button
+          onClick={handleSave}
+          disabled={saving}
+          className="admin-button-primary"
+        >
+          {saving ? 'Guardando...' : 'Guardar cambios'}
+        </button>
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-2 mb-6 border-b overflow-x-auto">
+      <div className="brand-tabs mb-6">
         {tabs.map(tab => (
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id)}
-            className={`px-4 py-3 font-medium text-sm whitespace-nowrap transition-colors ${
+            className={`brand-tab ${
               activeTab === tab.id
-                ? 'text-blue-600 border-b-2 border-blue-600'
-                : 'text-gray-600 hover:text-gray-900'
+                ? 'brand-tab-active'
+                : ''
             }`}
           >
             {tab.label}
@@ -334,7 +365,7 @@ export default function PersonalizacionPage({ params }: PersonalizacionProps) {
                   <input
                     type="color"
                     value={(form as any)[key]}
-                    onChange={e => setForm(f => ({ ...f, [key]: e.target.value }))}
+                    onChange={e => handleColorChange(key as keyof typeof form, e.target.value)}
                     className="w-12 h-12 rounded-lg border cursor-pointer p-1"
                   />
                   <div>
@@ -360,7 +391,7 @@ export default function PersonalizacionPage({ params }: PersonalizacionProps) {
                   <input
                     type="color"
                     value={(form as any)[key]}
-                    onChange={e => setForm(f => ({ ...f, [key]: e.target.value }))}
+                    onChange={e => handleColorChange(key as keyof typeof form, e.target.value)}
                     className="w-12 h-12 rounded-lg border cursor-pointer p-1"
                   />
                   <div>
@@ -900,7 +931,7 @@ export default function PersonalizacionPage({ params }: PersonalizacionProps) {
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Efecto Botones al Pasar</label>
                 <select
-                  value={form.button_hover_effect}
+                  value={BUTTON_HOVER_EFFECTS.includes(form.button_hover_effect) ? form.button_hover_effect : 'scale'}
                   onChange={e => setForm(f => ({ ...f, button_hover_effect: e.target.value }))}
                   className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
@@ -908,7 +939,6 @@ export default function PersonalizacionPage({ params }: PersonalizacionProps) {
                   <option value="scale">Escala</option>
                   <option value="glow">Brillo</option>
                   <option value="shadow">Sombra</option>
-                  <option value="color-shift">Cambio de Color</option>
                 </select>
               </div>
               <div>
@@ -923,29 +953,8 @@ export default function PersonalizacionPage({ params }: PersonalizacionProps) {
                   <option value="fast">Rápida</option>
                 </select>
               </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-3">Color Hover Botones</label>
-                <div className="flex items-center gap-3">
-                  <input
-                    type="color"
-                    value={form.button_hover_color || form.primary_color}
-                    onChange={e => setForm(f => ({ ...f, button_hover_color: e.target.value }))}
-                    className="w-12 h-12 rounded-lg border cursor-pointer p-1"
-                  />
-                  <p className="text-xs text-gray-400">{form.button_hover_color || 'Por defecto'}</p>
-                </div>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-3">Color Hover Enlaces</label>
-                <div className="flex items-center gap-3">
-                  <input
-                    type="color"
-                    value={form.link_hover_color || form.primary_color}
-                    onChange={e => setForm(f => ({ ...f, link_hover_color: e.target.value }))}
-                    className="w-12 h-12 rounded-lg border cursor-pointer p-1"
-                  />
-                  <p className="text-xs text-gray-400">{form.link_hover_color || 'Por defecto'}</p>
-                </div>
+              <div className="col-span-2 rounded-xl border border-blue-100 bg-blue-50 px-4 py-3 text-sm text-blue-900">
+                Los colores al pasar el mouse se calculan automaticamente desde el color principal y el color del boton.
               </div>
               <div className="col-span-2">
                 <label className="block text-sm font-medium text-gray-700 mb-3 flex items-center gap-2">
@@ -965,7 +974,7 @@ export default function PersonalizacionPage({ params }: PersonalizacionProps) {
 
       {/* Preview */}
       <div
-        className="bg-white rounded-xl border p-8 mt-6 overflow-hidden"
+        className="brand-preview-frame bg-white rounded-xl border p-8 mt-6 overflow-hidden"
         style={{
           backgroundColor: form.background_color,
           fontFamily: form.font_family,
@@ -992,7 +1001,7 @@ export default function PersonalizacionPage({ params }: PersonalizacionProps) {
       <button
         onClick={handleSave}
         disabled={saving}
-        className="w-full mt-6 py-3 bg-blue-600 text-white rounded-xl font-medium hover:bg-blue-700 disabled:bg-blue-300"
+        className="admin-button-primary mt-6 w-full disabled:opacity-50"
       >
         {saving ? 'Guardando...' : 'Guardar Cambios'}
       </button>

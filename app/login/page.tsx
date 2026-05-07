@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
+import { ArrowRight, Eye, EyeOff, LockKeyhole, Mail, ShieldCheck } from 'lucide-react'
 
 export default function LoginPage() {
   const router = useRouter()
@@ -18,136 +19,129 @@ export default function LoginPage() {
     try {
       const res = await fetch('/api/auth/login', {
         method: 'POST',
+        cache: 'no-store',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(form),
       })
-      const data = await res.json()
-      if (!res.ok) { setError(data.error || 'Email o contraseña incorrectos'); return }
+      const data = await res.json().catch(() => ({
+        error: 'No pudimos conectar con el servidor. Revisa internet e intenta de nuevo.',
+      }))
+      if (!res.ok) {
+        setError(data.error || 'Email o contrasena incorrectos')
+        return
+      }
       router.push(data.redirectUrl || `/${data.tenant.slug}/acceso`)
     } catch {
-      setError('Error de conexión. Intenta de nuevo.')
+      setError('Error de conexion. Intenta de nuevo.')
     } finally {
       setLoading(false)
     }
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-white via-blue-50/50 to-green-50/50 flex flex-col relative overflow-hidden">
-      {/* Background accents */}
-      <div className="absolute -top-40 -right-40 w-96 h-96 bg-red-100/30 rounded-full blur-3xl" />
-      <div className="absolute -bottom-32 -left-32 w-80 h-80 bg-orange-100/20 rounded-full blur-3xl" />
-
-      {/* Header */}
-      <nav className="relative z-10 px-6 py-5 flex items-center justify-between border-b border-gray-200/50 backdrop-blur-sm">
-        <Link href="/" className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-lg flex items-center justify-center bg-gradient-to-br from-red-600 to-orange-600">
-            <span className="text-white text-sm font-black">E</span>
-          </div>
-          <span className="font-bold text-lg tracking-tight text-gray-900">Eccofood</span>
-        </Link>
-        <Link href="/register" className="text-sm text-gray-600 hover:text-gray-900 transition-colors">
-          ¿Sin cuenta? <span className="text-orange-500 font-medium">Regístrate aquí</span>
-        </Link>
+    <main className="min-h-screen bg-[#f7f5f0] text-[#15130f]">
+      <nav className="border-b border-black/10 bg-white/55 backdrop-blur-xl">
+        <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4 sm:px-6">
+          <Link href="/" className="flex items-center gap-3">
+            <span className="flex size-9 items-center justify-center rounded-lg bg-[#e43d30] text-sm font-black text-white">E</span>
+            <span className="text-lg font-black tracking-tight">Eccofood</span>
+          </Link>
+          <Link href="/register" className="text-sm font-bold text-black/60 transition hover:text-black">
+            Crear cuenta
+          </Link>
+        </div>
       </nav>
 
-      {/* Main */}
-      <div className="flex-1 flex items-center justify-center px-4 py-12 relative z-10">
-        <div className="w-full max-w-[420px]">
-          {/* Header */}
-          <div className="text-center mb-8 animate-fade-in">
-            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-orange-200 bg-orange-50 mb-5">
-              <span className="w-1.5 h-1.5 rounded-full bg-orange-500 animate-pulse" />
-              <span className="text-xs text-orange-700 font-medium">Panel de administración</span>
+      <section className="mx-auto grid min-h-[calc(100vh-64px)] max-w-6xl gap-10 px-4 py-10 sm:px-6 lg:grid-cols-[0.9fr_1.1fr] lg:py-16">
+        <aside className="hidden flex-col justify-between rounded-2xl bg-[#15130f] p-8 text-white shadow-2xl shadow-black/15 lg:flex">
+          <div>
+            <div className="inline-flex items-center gap-2 rounded-full border border-white/12 bg-white/8 px-3 py-1.5 text-xs font-black uppercase text-white/72">
+              <ShieldCheck className="size-4 text-[#f4b860]" />
+              Acceso seguro
             </div>
-            <h1 className="text-3xl font-black text-gray-900 mb-2 leading-tight">
-              Bienvenido a<br />
-              <span className="bg-gradient-to-r from-red-600 to-orange-600 bg-clip-text text-transparent">
-                Eccofood
-              </span>
-            </h1>
-            <p className="text-gray-600 text-sm">Accede al panel de administración de tu restaurante</p>
+            <h1 className="mt-8 text-5xl font-black leading-tight tracking-tight">Vuelve al centro de control.</h1>
+            <p className="mt-5 max-w-md text-base leading-7 text-white/62">
+              Gestiona pedidos, POS, cocina, reservas, productos, staff y ventas desde una interfaz preparada para trabajar rapido.
+            </p>
           </div>
-
-          {/* Form card */}
-          <div className="rounded-2xl border border-gray-200/60 p-8 bg-white/80 backdrop-blur-sm shadow-lg animate-slide-up" style={{ animationDelay: '100ms' }}>
-
-            {error && (
-              <div className="mb-5 flex items-center gap-2.5 p-3.5 rounded-xl bg-red-50 border border-red-200">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#DC2626" strokeWidth="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
-                <p className="text-red-700 text-sm">{error}</p>
+          <div className="grid gap-3">
+            {['Panel multi restaurante', 'Roles y permisos', 'Datos protegidos'].map((item) => (
+              <div key={item} className="rounded-xl border border-white/10 bg-white/[0.06] px-4 py-3 text-sm font-semibold text-white/82">
+                {item}
               </div>
-            )}
+            ))}
+          </div>
+        </aside>
 
-            <form onSubmit={handleSubmit} className="space-y-4">
-              {/* Email */}
-              <div>
-                <label className="block text-sm font-semibold text-gray-900 mb-2">Email</label>
-                <input
-                  type="email"
-                  required
-                  value={form.email}
-                  onChange={e => setForm(f => ({ ...f, email: e.target.value }))}
-                  className="w-full px-4 py-3 rounded-lg bg-gray-50 border border-gray-300 text-gray-900 placeholder-gray-500 text-sm outline-none transition-all focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-500/10"
-                  placeholder="tu@restaurante.com"
-                />
-              </div>
+        <div className="flex items-center justify-center">
+          <div className="w-full max-w-md">
+            <div className="mb-8">
+              <p className="text-sm font-black uppercase text-[#e43d30]">Panel de administracion</p>
+              <h2 className="mt-3 text-4xl font-black tracking-tight">Inicia sesion</h2>
+              <p className="mt-3 text-sm leading-6 text-black/58">Accede al restaurante y continua donde lo dejaste.</p>
+            </div>
 
-              {/* Password */}
-              <div>
-                <label className="block text-sm font-semibold text-gray-900 mb-2">Contraseña</label>
-                <div className="relative">
-                  <input
-                    type={showPass ? 'text' : 'password'}
-                    required
-                    value={form.password}
-                    onChange={e => setForm(f => ({ ...f, password: e.target.value }))}
-                    className="w-full px-4 py-3 pr-11 rounded-lg bg-gray-50 border border-gray-300 text-gray-900 placeholder-gray-500 text-sm outline-none transition-all focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-500/10"
-                    placeholder="Tu contraseña"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPass(v => !v)}
-                    className="absolute right-3.5 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700 transition-colors"
-                  >
-                    {showPass ? (
-                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/><path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
-                    ) : (
-                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
-                    )}
-                  </button>
+            <div className="rounded-2xl border border-black/10 bg-white p-6 shadow-xl shadow-black/5 sm:p-8">
+              {error && (
+                <div className="mb-5 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">
+                  {error}
                 </div>
-              </div>
+              )}
 
-              {/* Submit */}
-              <button
-                type="submit"
-                disabled={loading}
-                className="w-full py-3.5 rounded-lg font-bold text-sm text-white transition-all active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed mt-6 shadow-lg hover:shadow-xl bg-gradient-to-r from-red-600 to-orange-600 hover:from-red-700 hover:to-orange-700"
-              >
-                {loading ? (
-                  <span className="flex items-center justify-center gap-2">
-                    <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                    Entrando...
+              <form onSubmit={handleSubmit} className="space-y-5">
+                <label className="block">
+                  <span className="mb-2 block text-xs font-black uppercase text-black/48">Email</span>
+                  <span className="relative block">
+                    <Mail className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-black/35" />
+                    <input
+                      type="email"
+                      required
+                      value={form.email}
+                      onChange={e => setForm(f => ({ ...f, email: e.target.value }))}
+                      className="h-12 w-full rounded-lg border border-black/10 bg-[#fbfaf7] pl-10 pr-4 text-sm font-semibold outline-none transition focus:border-[#e43d30] focus:bg-white focus:ring-4 focus:ring-red-500/10"
+                      placeholder="tu@restaurante.com"
+                    />
                   </span>
-                ) : 'Iniciar Sesión'}
-              </button>
-            </form>
+                </label>
+
+                <label className="block">
+                  <span className="mb-2 block text-xs font-black uppercase text-black/48">Contrasena</span>
+                  <span className="relative block">
+                    <LockKeyhole className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-black/35" />
+                    <input
+                      type={showPass ? 'text' : 'password'}
+                      required
+                      value={form.password}
+                      onChange={e => setForm(f => ({ ...f, password: e.target.value }))}
+                      className="h-12 w-full rounded-lg border border-black/10 bg-[#fbfaf7] pl-10 pr-11 text-sm font-semibold outline-none transition focus:border-[#e43d30] focus:bg-white focus:ring-4 focus:ring-red-500/10"
+                      placeholder="Tu contrasena"
+                    />
+                    <button type="button" onClick={() => setShowPass(v => !v)} className="absolute right-3 top-1/2 -translate-y-1/2 rounded-md p-1 text-black/42 transition hover:bg-black/5 hover:text-black" aria-label={showPass ? 'Ocultar contrasena' : 'Mostrar contrasena'}>
+                      {showPass ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+                    </button>
+                  </span>
+                </label>
+
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-lg bg-[#e43d30] text-sm font-black text-white shadow-lg shadow-red-900/15 transition hover:bg-[#c93228] disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {loading ? 'Entrando...' : 'Entrar al panel'}
+                  {!loading && <ArrowRight className="size-4" />}
+                </button>
+              </form>
+            </div>
+
+            <p className="mt-6 text-center text-sm font-semibold text-black/55">
+              No tienes cuenta?{' '}
+              <Link href="/register" className="text-[#e43d30] hover:text-[#b72920]">
+                Crea tu restaurante gratis
+              </Link>
+            </p>
           </div>
-
-          {/* Footer link */}
-          <p className="text-center text-sm text-gray-600 mt-6">
-            ¿No tienes cuenta?{' '}
-            <Link href="/register" className="text-red-600 hover:text-red-700 font-medium transition-colors">
-              Crea tu restaurante gratis
-            </Link>
-          </p>
         </div>
-      </div>
-
-      {/* Bottom credits */}
-      <div className="relative z-10 pb-6 text-center">
-        <p className="text-xs text-gray-500">© 2026 Eccofood — Todos los derechos reservados</p>
-      </div>
-    </div>
+      </section>
+    </main>
   )
 }

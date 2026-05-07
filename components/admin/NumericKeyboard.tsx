@@ -25,7 +25,7 @@ export function NumericKeyboard({
   const [input, setInput] = useState<string>(initialValue.toString());
 
   useEffect(() => {
-    setInput(initialValue.toString());
+    setInput(initialValue > 0 ? initialValue.toString() : '0');
   }, [initialValue, isOpen]);
 
   // Handle physical keyboard input
@@ -68,15 +68,17 @@ export function NumericKeyboard({
   }, [isOpen, allowDecimal, onCancel]);
 
   const handleNumberClick = (num: string) => {
-    if (input.length < maxLength) {
-      setInput((prev) => (prev === '0' ? num : prev + num));
-    }
+    setInput((prev) => {
+      if (prev.length >= maxLength) return prev;
+      return prev === '0' ? num : prev + num;
+    });
   };
 
   const handleDecimalClick = () => {
-    if (!input.includes('.') && input.length < maxLength) {
-      setInput((prev) => prev + '.');
-    }
+    setInput((prev) => {
+      if (prev.includes('.') || prev.length >= maxLength) return prev;
+      return `${prev}.`;
+    });
   };
 
   const handleBackspace = () => {
@@ -115,13 +117,9 @@ export function NumericKeyboard({
         {/* Display */}
         <div className="bg-gradient-to-b from-gray-50 to-white px-6 py-6 border-b-2 border-gray-200">
           <div className="text-center mb-2 text-xs text-gray-500 font-semibold uppercase tracking-wide">Cantidad</div>
-          <input
-            type="text"
-            value={input}
-            onChange={(e) => setInput(e.target.value.replace(/[^\d.]/g, '').slice(0, maxLength))}
-            className="w-full text-center text-6xl font-black text-blue-600 bg-white border-3 border-blue-300 rounded-2xl p-6 focus:outline-none focus:border-blue-600 focus:ring-4 focus:ring-blue-100 transition-all"
-            readOnly={false}
-          />
+          <div className="w-full overflow-hidden rounded-2xl border-2 border-blue-300 bg-white p-6 text-center text-6xl font-black tabular-nums text-blue-600 shadow-inner">
+            {input || '0'}
+          </div>
         </div>
 
         {/* Keypad */}
@@ -129,18 +127,21 @@ export function NumericKeyboard({
           {/* Row 1: 7 8 9 */}
           <div className="grid grid-cols-3 gap-3">
             <button
+              type="button"
               onClick={() => handleNumberClick('7')}
               className="bg-white hover:bg-blue-50 border-2 border-gray-200 hover:border-blue-400 text-5xl font-black text-gray-800 py-6 rounded-xl active:scale-95 transition shadow-sm"
             >
               7
             </button>
             <button
+              type="button"
               onClick={() => handleNumberClick('8')}
               className="bg-white hover:bg-blue-50 border-2 border-gray-200 hover:border-blue-400 text-5xl font-black text-gray-800 py-6 rounded-xl active:scale-95 transition shadow-sm"
             >
               8
             </button>
             <button
+              type="button"
               onClick={() => handleNumberClick('9')}
               className="bg-white hover:bg-blue-50 border-2 border-gray-200 hover:border-blue-400 text-5xl font-black text-gray-800 py-6 rounded-xl active:scale-95 transition shadow-sm"
             >
@@ -151,18 +152,21 @@ export function NumericKeyboard({
           {/* Row 2: 4 5 6 */}
           <div className="grid grid-cols-3 gap-3">
             <button
+              type="button"
               onClick={() => handleNumberClick('4')}
               className="bg-white hover:bg-blue-50 border-2 border-gray-200 hover:border-blue-400 text-5xl font-black text-gray-800 py-6 rounded-xl active:scale-95 transition shadow-sm"
             >
               4
             </button>
             <button
+              type="button"
               onClick={() => handleNumberClick('5')}
               className="bg-white hover:bg-blue-50 border-2 border-gray-200 hover:border-blue-400 text-5xl font-black text-gray-800 py-6 rounded-xl active:scale-95 transition shadow-sm"
             >
               5
             </button>
             <button
+              type="button"
               onClick={() => handleNumberClick('6')}
               className="bg-white hover:bg-blue-50 border-2 border-gray-200 hover:border-blue-400 text-5xl font-black text-gray-800 py-6 rounded-xl active:scale-95 transition shadow-sm"
             >
@@ -173,18 +177,21 @@ export function NumericKeyboard({
           {/* Row 3: 1 2 3 */}
           <div className="grid grid-cols-3 gap-3">
             <button
+              type="button"
               onClick={() => handleNumberClick('1')}
               className="bg-white hover:bg-blue-50 border-2 border-gray-200 hover:border-blue-400 text-5xl font-black text-gray-800 py-6 rounded-xl active:scale-95 transition shadow-sm"
             >
               1
             </button>
             <button
+              type="button"
               onClick={() => handleNumberClick('2')}
               className="bg-white hover:bg-blue-50 border-2 border-gray-200 hover:border-blue-400 text-5xl font-black text-gray-800 py-6 rounded-xl active:scale-95 transition shadow-sm"
             >
               2
             </button>
             <button
+              type="button"
               onClick={() => handleNumberClick('3')}
               className="bg-white hover:bg-blue-50 border-2 border-gray-200 hover:border-blue-400 text-5xl font-black text-gray-800 py-6 rounded-xl active:scale-95 transition shadow-sm"
             >
@@ -195,6 +202,7 @@ export function NumericKeyboard({
           {/* Row 4: 0 . Delete */}
           <div className="grid grid-cols-3 gap-3">
             <button
+              type="button"
               onClick={() => handleNumberClick('0')}
               className="bg-white hover:bg-blue-50 border-2 border-gray-200 hover:border-blue-400 text-5xl font-black text-gray-800 py-6 rounded-xl active:scale-95 transition shadow-sm"
             >
@@ -202,6 +210,7 @@ export function NumericKeyboard({
             </button>
             {allowDecimal && (
               <button
+                type="button"
                 onClick={handleDecimalClick}
                 className="bg-white hover:bg-blue-50 border-2 border-gray-200 hover:border-blue-400 text-5xl font-black text-gray-800 py-6 rounded-xl active:scale-95 transition shadow-sm"
               >
@@ -209,6 +218,7 @@ export function NumericKeyboard({
               </button>
             )}
             <button
+              type="button"
               onClick={handleBackspace}
               className="bg-red-50 hover:bg-red-100 border-2 border-red-300 hover:border-red-500 text-red-600 font-bold py-6 rounded-xl active:scale-95 transition shadow-sm flex items-center justify-center"
             >
@@ -219,12 +229,14 @@ export function NumericKeyboard({
           {/* Action Buttons */}
           <div className="grid grid-cols-2 gap-3 pt-2 border-t-2 border-gray-200">
             <button
+              type="button"
               onClick={handleClear}
               className="bg-orange-500 hover:bg-orange-600 text-white font-bold text-lg py-4 rounded-xl active:scale-95 transition shadow-md"
             >
               Limpiar
             </button>
             <button
+              type="button"
               onClick={handleConfirm}
               className="bg-green-600 hover:bg-green-700 text-white font-bold text-lg py-4 rounded-xl active:scale-95 transition shadow-md"
             >
@@ -233,6 +245,7 @@ export function NumericKeyboard({
           </div>
 
           <button
+            type="button"
             onClick={onCancel}
             className="w-full bg-gray-400 hover:bg-gray-500 text-white font-bold text-lg py-4 rounded-xl active:scale-95 transition shadow-md"
           >

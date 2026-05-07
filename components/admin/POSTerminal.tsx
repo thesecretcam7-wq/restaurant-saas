@@ -15,6 +15,7 @@ import { saveCartToSupabase, loadCartFromSupabase, abandonCart, loadOrderToCart 
 import { calculateCashClosingStats, saveCashClosing, CashClosingStats } from '@/lib/cash-closing';
 import { getCurrencyByCountry, formatPriceWithCurrency } from '@/lib/currency';
 import { printReceipt, savePrinterLog, openCashDrawer } from '@/lib/pos-printer';
+import { countPendingPOSOrders, isNetworkPaymentError, saveOfflinePOSOrder, syncOfflinePOSOrders } from '@/lib/offline/pos-sync';
 
 interface MenuItem {
   id: string;
@@ -40,6 +41,16 @@ interface Category {
 type POSMode = 'simple' | 'table';
 type PaymentMethod = 'cash' | 'stripe';
 
+function getLoggedStaffFromBrowser(tenantId: string) {
+  if (typeof window === 'undefined') return { staffId: null as string | null, staffName: '' };
+  const storedTenant = sessionStorage.getItem('staff_tenant');
+  if (storedTenant !== tenantId) return { staffId: null, staffName: '' };
+  return {
+    staffId: sessionStorage.getItem('staff_id'),
+    staffName: sessionStorage.getItem('staff_name') || '',
+  };
+}
+
 interface IncomingOrder {
   id: string;
   order_number: string;
@@ -49,6 +60,7 @@ interface IncomingOrder {
   delivery_address?: string;
   total: number;
   status: string;
+  payment_status?: string | null;
   items: { name: string; qty?: number; quantity?: number; price: number }[];
   created_at: string;
 }
@@ -62,7 +74,7 @@ interface DineInOrder {
   payment_status: string;
   status: string;
   created_at: string;
-  items: { name: string; qty: number; price: number; item_id?: string }[];
+  items: { name: string; qty?: number; quantity?: number; price: number; item_id?: string }[];
 }
 
 interface TableGroup {
@@ -72,7 +84,7 @@ interface TableGroup {
   itemCount: number;
   waiters: string[];
   oldestOrder: DineInOrder;
-  allItems: { name: string; qty: number; price: number; item_id?: string }[];
+  allItems: { name: string; qty?: number; quantity?: number; price: number; item_id?: string }[];
 }
 
 interface RestaurantTable {
@@ -80,6 +92,14 @@ interface RestaurantTable {
   table_number: number;
   seats: number;
   location?: string;
+}
+
+function getOrderItemQty(item: { qty?: number; quantity?: number }) {
+  return Number(item.qty ?? item.quantity ?? 1);
+}
+
+function getOrderItemsTotal(items: Array<{ price: number; qty?: number; quantity?: number }> = []) {
+  return items.reduce((sum, item) => sum + Number(item.price || 0) * getOrderItemQty(item), 0);
 }
 
 // ─── Timer Hook ───────────────────────────────────────────────────────────────
@@ -130,11 +150,11 @@ function TableGroupCard({
   const minutes = useElapsedMinutes(group.oldestOrder.created_at);
 
   return (
-    <div className={`border-2 ${getUrgencyBorder(minutes)} rounded-xl bg-gray-800/80 overflow-hidden transition-all duration-200`}>
+    <div className={`pos-card border-2 ${getUrgencyBorder(minutes)} rounded-xl overflow-hidden transition-all duration-200`}>
       <div className="p-3 flex items-start justify-between gap-2">
         <div className="flex items-center gap-2.5">
-          <div className="bg-blue-600/20 border border-blue-500/40 rounded-xl w-11 h-11 flex items-center justify-center shrink-0">
-            <span className="text-blue-300 font-black text-base">{group.tableNumber}</span>
+          <div className="bg-cyan-300/12 border border-cyan-300/35 rounded-xl w-11 h-11 flex items-center justify-center shrink-0">
+            <span className="text-cyan-200 font-black text-base">{group.tableNumber}</span>
           </div>
           <div>
             <p className="text-white font-bold text-sm">Mesa {group.tableNumber}</p>
@@ -166,13 +186,13 @@ function TableGroupCard({
       </button>
 
       {expanded && (
-        <div className="mx-3 mb-2 bg-gray-900/60 rounded-lg p-1.5 max-h-36 overflow-y-auto space-y-0.5">
+        <div className="mx-3 mb-2 bg-black/24 rounded-lg p-1.5 max-h-36 overflow-y-auto space-y-0.5">
           {group.orders.map(order =>
             (order.items || []).map((item, itemIdx) => (
               <div key={`${order.id}-${itemIdx}`} className="flex items-center justify-between text-xs gap-1 group/row hover:bg-gray-800/60 rounded px-1 py-0.5">
-                <span className="text-gray-300 flex-1 truncate">{item.qty}× {item.name}</span>
+                <span className="text-gray-300 flex-1 truncate">{getOrderItemQty(item)}× {item.name}</span>
                 <span className="text-gray-500 shrink-0">
-                  {formatPriceWithCurrency(item.price * item.qty, currencyInfo.code, currencyInfo.locale)}
+                  {formatPriceWithCurrency(item.price * getOrderItemQty(item), currencyInfo.code, currencyInfo.locale)}
                 </span>
                 <button
                   onClick={() => onVoidItem(order.id, itemIdx)}
@@ -215,10 +235,16 @@ function IncomingOrderCard({
   order,
   onUpdateStatus,
   onLoadForPayment,
+  onCancelOrder,
+  cancelling,
+  currencyInfo,
 }: {
   order: IncomingOrder;
   onUpdateStatus: (orderId: string, status: string) => Promise<void>;
   onLoadForPayment?: (order: IncomingOrder) => Promise<void>;
+  onCancelOrder?: (order: IncomingOrder) => Promise<void>;
+  cancelling?: boolean;
+  currencyInfo: ReturnType<typeof getCurrencyByCountry>;
 }) {
   const minutes = useElapsedMinutes(order.created_at);
   const isDelivery = order.delivery_type === 'delivery';
@@ -243,6 +269,11 @@ function IncomingOrderCard({
     }
   }
 
+  async function handleCancelOrder() {
+    if (!onCancelOrder) return;
+    await onCancelOrder(order);
+  }
+
   // Determine action button based on status + type
   let actionBtn: { label: string; status: string; cls: string } | null = null;
   if (isDelivery && order.status === 'ready') {
@@ -256,7 +287,7 @@ function IncomingOrderCard({
   const showPaymentButton = order.status === 'pending';
 
   return (
-    <div className={`border-2 rounded-lg p-3 flex flex-col gap-2 transition-all ${isDone ? 'border-gray-700 opacity-60' : getUrgencyBorder(minutes)} bg-card text-xs`}>
+    <div className={`pos-card border-2 rounded-xl p-3 flex flex-col gap-2 transition-all ${isDone ? 'border-white/10 opacity-60' : getUrgencyBorder(minutes)} text-xs`}>
       <div className="flex items-start justify-between gap-2">
         <div className="flex-1 min-w-0">
           <p className="font-black text-white text-sm">{order.order_number}</p>
@@ -308,7 +339,7 @@ function IncomingOrderCard({
         <a href={`tel:${order.customer_phone}`} className="text-xs text-blue-400 hover:underline">
           {order.customer_phone}
         </a>
-        <span className="font-bold text-green-400">${order.total.toFixed(2)}</span>
+        <span className="font-bold text-green-400">{formatPriceWithCurrency(order.total, currencyInfo.code, currencyInfo.locale)}</span>
       </div>
 
       {showPaymentButton && (
@@ -318,6 +349,16 @@ function IncomingOrderCard({
           className="w-full py-2 rounded-lg bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white font-bold text-xs transition-all active:scale-95"
         >
           {loading ? '...' : '💳 Cargar para cobrar'}
+        </button>
+      )}
+
+      {onCancelOrder && !isDone && (
+        <button
+          onClick={handleCancelOrder}
+          disabled={cancelling}
+          className="w-full py-2 rounded-lg bg-red-500/15 hover:bg-red-500/25 border border-red-400/30 disabled:opacity-50 text-red-100 font-bold text-xs transition-all active:scale-95"
+        >
+          {cancelling ? 'Anulando...' : 'Anular ticket'}
         </button>
       )}
 
@@ -334,7 +375,15 @@ function IncomingOrderCard({
   );
 }
 
-export function POSTerminal({ tenantId, country = 'CO' }: { tenantId: string; country?: string }) {
+export function POSTerminal({
+  tenantId,
+  tenantSlug,
+  country = 'CO',
+}: {
+  tenantId: string;
+  tenantSlug?: string;
+  country?: string;
+}) {
   const currencyInfo = getCurrencyByCountry(country);
 
   // Initialize Supabase client once inside component for proper type compatibility
@@ -346,10 +395,13 @@ export function POSTerminal({ tenantId, country = 'CO' }: { tenantId: string; co
   const [loading, setLoading] = useState(true);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const searchInputRef = useRef<HTMLInputElement>(null);
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('cash');
   const [discountCode, setDiscountCode] = useState('');
   const [discount, setDiscount] = useState(0);
+  const [taxRate, setTaxRate] = useState(0);
   const [restaurantName, setRestaurantName] = useState('Restaurante');
+  const [restaurantPhone, setRestaurantPhone] = useState<string | null>(null);
   const [restaurantLogo, setRestaurantLogo] = useState<string | undefined>();
 
   // Nuevas características - Modo y selecciones
@@ -360,6 +412,9 @@ export function POSTerminal({ tenantId, country = 'CO' }: { tenantId: string; co
   const [selectedTableId, setSelectedTableId] = useState<string | null>(null);
   const [selectedTableNumber, setSelectedTableNumber] = useState<number | null>(null);
   const [processingPayment, setProcessingPayment] = useState(false);
+  const [isOnline, setIsOnline] = useState(true);
+  const [offlinePendingCount, setOfflinePendingCount] = useState(0);
+  const [syncingOffline, setSyncingOffline] = useState(false);
 
   // Receipt state
   const [pendingPaymentData, setPendingPaymentData] = useState<{
@@ -368,6 +423,7 @@ export function POSTerminal({ tenantId, country = 'CO' }: { tenantId: string; co
   const [paymentResetKey, setPaymentResetKey] = useState(0);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const posRootRef = useRef<HTMLDivElement>(null);
   const [showCartDrawer, setShowCartDrawer] = useState(false);
   const [showAdminMenu, setShowAdminMenu] = useState(false);
   const [showCashClosing, setShowCashClosing] = useState(false);
@@ -377,6 +433,7 @@ export function POSTerminal({ tenantId, country = 'CO' }: { tenantId: string; co
   // Incoming Orders for delivery/pickup
   const [incomingOrders, setIncomingOrders] = useState<IncomingOrder[]>([]);
   const [showIncomingPanel, setShowIncomingPanel] = useState(false);
+  const [cancellingOrderId, setCancellingOrderId] = useState<string | null>(null);
   const [soundEnabled, setSoundEnabled] = useState(true);
   // Dine-in orders from comandero
   const [dineInOrders, setDineInOrders] = useState<DineInOrder[]>([]);
@@ -397,8 +454,57 @@ export function POSTerminal({ tenantId, country = 'CO' }: { tenantId: string; co
   } | null>(null);
   const audioCtxRef = useRef<AudioContext | null>(null);
   const knownOrderIds = useRef(new Set<string>());
+  const knownDineInOrderIds = useRef(new Set<string>());
+  const firstDineInFetchDone = useRef(false);
   const notificationTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const csrfTokenRef = useRef<string>('');
+
+  useEffect(() => {
+    const loggedStaff = getLoggedStaffFromBrowser(tenantId);
+    if (loggedStaff.staffId && !selectedStaffId) setSelectedStaffId(loggedStaff.staffId);
+    if (loggedStaff.staffName && !selectedStaffName) setSelectedStaffName(loggedStaff.staffName);
+  }, [tenantId, selectedStaffId, selectedStaffName]);
+
+  const refreshOfflinePendingCount = useCallback(async () => {
+    try {
+      setOfflinePendingCount(await countPendingPOSOrders(tenantId));
+    } catch (error) {
+      console.error('Error counting offline POS orders:', error);
+    }
+  }, [tenantId]);
+
+  const syncOfflineSales = useCallback(async (showToast = false) => {
+    if (typeof navigator !== 'undefined' && !navigator.onLine) return;
+
+    setSyncingOffline(true);
+    try {
+      if (!csrfTokenRef.current) {
+        const csrfResponse = await fetch('/api/csrf-token', { credentials: 'include' }).catch(() => null);
+        const csrfData = csrfResponse ? await csrfResponse.json().catch(() => null) : null;
+        if (csrfData?.token) csrfTokenRef.current = csrfData.token;
+      }
+
+      const result = await syncOfflinePOSOrders(tenantId, csrfTokenRef.current);
+      setOfflinePendingCount(result.remaining);
+
+      if (showToast && result.synced > 0) {
+        setToast({
+          message: `${result.synced} venta${result.synced > 1 ? 's' : ''} offline sincronizada${result.synced > 1 ? 's' : ''}`,
+          type: result.errors.length > 0 ? 'error' : 'success',
+        });
+      }
+    } catch (error) {
+      console.error('Error syncing offline sales:', error);
+      if (showToast) {
+        setToast({
+          message: 'No se pudieron sincronizar las ventas offline todavia',
+          type: 'error',
+        });
+      }
+    } finally {
+      setSyncingOffline(false);
+    }
+  }, [tenantId]);
 
   // Initialize audio — called on first user interaction to satisfy autoplay policy
   const initAudio = useCallback(() => {
@@ -445,7 +551,28 @@ export function POSTerminal({ tenantId, country = 'CO' }: { tenantId: string; co
     fetchMenuData();
     restoreCart();
     fetchAllTables();
+    refreshOfflinePendingCount();
   }, [tenantId]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const updateOnlineState = () => setIsOnline(navigator.onLine);
+    const handleOnline = () => {
+      updateOnlineState();
+      syncOfflineSales(true);
+    };
+
+    updateOnlineState();
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', updateOnlineState);
+    syncOfflineSales(false);
+
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', updateOnlineState);
+    };
+  }, [syncOfflineSales]);
 
   // Listen for fullscreen changes
   useEffect(() => {
@@ -480,8 +607,8 @@ export function POSTerminal({ tenantId, country = 'CO' }: { tenantId: string; co
 
   async function toggleFullscreen() {
     try {
-      if (!isFullscreen && document.documentElement.requestFullscreen) {
-        await document.documentElement.requestFullscreen();
+      if (!isFullscreen && posRootRef.current?.requestFullscreen) {
+        await posRootRef.current.requestFullscreen();
       } else if (isFullscreen && document.fullscreenElement) {
         await document.exitFullscreen();
       }
@@ -534,7 +661,7 @@ export function POSTerminal({ tenantId, country = 'CO' }: { tenantId: string; co
     try {
       // Convert order items to cart items
       const cartItems = (order.items || []).map((item: any, index: number) => ({
-        menu_item_id: item.id || `order-item-${order.id}-${index}`,
+        menu_item_id: item.menu_item_id || item.item_id || item.id || `order-item-${order.id}-${index}`,
         name: item.name,
         price: item.price,
         quantity: item.qty || item.quantity || 1,
@@ -563,6 +690,96 @@ export function POSTerminal({ tenantId, country = 'CO' }: { tenantId: string; co
     }
   }
 
+  async function cancelIncomingOrder(orderId: string, orderNumber?: string) {
+    const label = orderNumber || 'este ticket';
+    const confirmed = window.confirm(
+      `Anular ${label}?\n\nEl ticket quedara registrado como anulado para auditoria, pero saldra de pendientes y no contara como venta cobrada.`
+    );
+    if (!confirmed) return;
+
+    try {
+      setCancellingOrderId(orderId);
+      const response = await fetch(`/api/orders/${orderId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          tenantId,
+          status: 'cancelled',
+          cancel_reason: selectedStaffName ? `Anulado desde TPV por ${selectedStaffName}` : 'Anulado desde TPV',
+        }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(data.error || 'No se pudo anular el ticket');
+      }
+
+      setIncomingOrders((orders) => orders.filter((order) => order.id !== orderId));
+      if (loadedOrderId === orderId) {
+        setLoadedOrderId(null);
+        setCart([]);
+        setDiscount(0);
+        setDiscountCode('');
+        setTip(0);
+      }
+      await fetchIncomingOrders();
+      setToast({ message: `${label} anulado y guardado en historial`, type: 'success' });
+    } catch (error) {
+      console.error('Error cancelling incoming order:', error);
+      setToast({
+        message: error instanceof Error ? error.message : 'Error al anular el ticket',
+        type: 'error',
+      });
+    } finally {
+      setCancellingOrderId(null);
+    }
+  }
+
+  async function voidCompletedSale(order: any): Promise<boolean> {
+    const label = order.order_number || 'esta venta';
+    const reason = window.prompt(`Motivo para anular ${label}:`);
+
+    if (reason === null) return false;
+    if (!reason.trim()) {
+      setToast({ message: 'Debes escribir un motivo para anular la venta', type: 'error' });
+      return false;
+    }
+
+    const confirmed = window.confirm(
+      `Anular ${label}?\n\nLa venta quedara registrada como anulada y no contara en el cierre de caja.`
+    );
+    if (!confirmed) return false;
+
+    const response = await fetch(`/api/orders/${order.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({
+        tenantId,
+        status: 'cancelled',
+        cancel_reason: selectedStaffName
+          ? `Venta anulada desde TPV por ${selectedStaffName}: ${reason.trim()}`
+          : `Venta anulada desde TPV: ${reason.trim()}`,
+      }),
+    });
+
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      throw new Error(data.error || 'No se pudo anular la venta');
+    }
+
+    if (loadedOrderId === order.id) {
+      setLoadedOrderId(null);
+      setCart([]);
+      setDiscount(0);
+      setDiscountCode('');
+      setTip(0);
+    }
+    await fetchIncomingOrders();
+    setToast({ message: `${label} anulado. No contara en el cierre de caja.`, type: 'success' });
+    return true;
+  }
+
   async function restoreCart() {
     // Try to restore from Supabase first (more reliable)
     const supabaseCart = await loadCartFromSupabase(tenantId, supabase);
@@ -574,8 +791,9 @@ export function POSTerminal({ tenantId, country = 'CO' }: { tenantId: string; co
       setDiscountCode(supabaseCart.discountCode);
       setPaymentMethod(supabaseCart.paymentMethod);
       setPosMode(supabaseCart.posMode);
-      setSelectedStaffId(supabaseCart.selectedStaffId);
-      setSelectedStaffName(supabaseCart.selectedStaffName);
+      const loggedStaff = getLoggedStaffFromBrowser(tenantId);
+      setSelectedStaffId(loggedStaff.staffId || supabaseCart.selectedStaffId);
+      setSelectedStaffName(loggedStaff.staffName || supabaseCart.selectedStaffName);
       setSelectedTableId(supabaseCart.selectedTableId);
       setSelectedTableNumber(supabaseCart.selectedTableNumber);
       if (supabaseCart.loadedOrderId) {
@@ -629,13 +847,14 @@ export function POSTerminal({ tenantId, country = 'CO' }: { tenantId: string; co
         selectedTableId,
         selectedTableNumber,
         tip,
+        taxRate,
       };
 
       saveCartToSupabase(tenantId, cartData, supabase).catch((err) => {
         console.error('Background cart sync failed (will use localStorage):', err);
       });
     }
-  }, [cart, discount, discountCode, tip, tenantId]);
+  }, [cart, discount, discountCode, tip, tenantId, taxRate]);
 
   // Real-time subscription for incoming orders (delivery/pickup)
   useEffect(() => {
@@ -662,9 +881,9 @@ export function POSTerminal({ tenantId, country = 'CO' }: { tenantId: string; co
               await fetchIncomingOrders();
             }
           } else if (newOrder.delivery_type === 'dine-in') {
+            await fetchDineInOrders({ notify: false });
             playNewOrderSound();
             setShowDineInPanel(true);
-            await fetchDineInOrders();
             const items: any[] = newOrder.items || [];
             setOrderNotification({
               tableNumber: newOrder.table_number ?? null,
@@ -695,9 +914,25 @@ export function POSTerminal({ tenantId, country = 'CO' }: { tenantId: string; co
 
     // Initial fetch
     fetchIncomingOrders();
-    fetchDineInOrders();
+    fetchDineInOrders({ notify: false });
+
+    const polling = window.setInterval(() => {
+      fetchIncomingOrders();
+      fetchDineInOrders({ notify: true });
+    }, 5000);
+
+    const refreshWhenVisible = () => {
+      if (document.visibilityState !== 'visible') return;
+      fetchIncomingOrders();
+      fetchDineInOrders({ notify: true });
+    };
+    document.addEventListener('visibilitychange', refreshWhenVisible);
+    window.addEventListener('focus', refreshWhenVisible);
 
     return () => {
+      window.clearInterval(polling);
+      document.removeEventListener('visibilitychange', refreshWhenVisible);
+      window.removeEventListener('focus', refreshWhenVisible);
       subscription.unsubscribe();
     };
   }, [tenantId, playNewOrderSound]);
@@ -706,10 +941,11 @@ export function POSTerminal({ tenantId, country = 'CO' }: { tenantId: string; co
     try {
       const { data, error } = await supabase
         .from('orders')
-        .select('id, order_number, customer_name, customer_phone, delivery_type, delivery_address, total, status, items, created_at')
+        .select('id, order_number, customer_name, customer_phone, delivery_type, delivery_address, total, status, payment_status, items, created_at')
         .eq('tenant_id', tenantId)
         .or(`delivery_type.eq.delivery,delivery_type.eq.pickup`)
         .not('status', 'in', '("delivered","cancelled")')
+        .or('payment_status.is.null,payment_status.neq.paid')
         .order('created_at', { ascending: false })
         .limit(20);
 
@@ -735,7 +971,7 @@ export function POSTerminal({ tenantId, country = 'CO' }: { tenantId: string; co
     if (data) setAllTables(data as RestaurantTable[]);
   }
 
-  async function fetchDineInOrders() {
+  async function fetchDineInOrders(options: { notify?: boolean } = {}) {
     try {
       const { data, error } = await supabase
         .from('orders')
@@ -747,7 +983,26 @@ export function POSTerminal({ tenantId, country = 'CO' }: { tenantId: string; co
         .limit(20);
 
       if (!error && data) {
-        setDineInOrders(data as DineInOrder[]);
+        const mapped = data as DineInOrder[];
+        const newOrders = mapped.filter((order) => !knownDineInOrderIds.current.has(order.id));
+
+        setDineInOrders(mapped);
+        mapped.forEach((order) => knownDineInOrderIds.current.add(order.id));
+
+        if (options.notify && firstDineInFetchDone.current && newOrders.length > 0) {
+          const latest = newOrders[0];
+          playNewOrderSound();
+          setShowDineInPanel(true);
+          setOrderNotification({
+            tableNumber: latest.table_number ?? null,
+            waiter: latest.waiter_name ?? null,
+            items: (latest.items || []).map((item: any) => `${item.qty ?? item.quantity ?? 1}× ${item.name}`),
+          });
+          if (notificationTimerRef.current) clearTimeout(notificationTimerRef.current);
+          notificationTimerRef.current = setTimeout(() => setOrderNotification(null), 6000);
+        }
+
+        firstDineInFetchDone.current = true;
       }
     } catch (error) {
       console.error('Error fetching dine-in orders:', error);
@@ -759,7 +1014,7 @@ export function POSTerminal({ tenantId, country = 'CO' }: { tenantId: string; co
     if (!order) return;
 
     const updatedItems = order.items.filter((_, i) => i !== itemIndex);
-    const newTotal = updatedItems.reduce((sum, i) => sum + i.price * i.qty, 0);
+    const newTotal = getOrderItemsTotal(updatedItems);
 
     await supabase
       .from('orders')
@@ -774,18 +1029,19 @@ export function POSTerminal({ tenantId, country = 'CO' }: { tenantId: string; co
     const mergedMap = new Map<string, CartItem>();
     tableOrders.forEach(order => {
       (order.items || []).forEach(item => {
-        const key = item.item_id || item.name;
-        if (mergedMap.has(key)) {
-          const existing = mergedMap.get(key)!;
-          mergedMap.set(key, { ...existing, quantity: existing.quantity + item.qty });
-        } else {
-          mergedMap.set(key, {
-            menu_item_id: item.item_id || item.name,
-            name: item.name,
-            price: item.price,
-            quantity: item.qty,
-          });
-        }
+          const key = item.item_id || item.name;
+          const quantity = getOrderItemQty(item);
+          if (mergedMap.has(key)) {
+            const existing = mergedMap.get(key)!;
+            mergedMap.set(key, { ...existing, quantity: existing.quantity + quantity });
+          } else {
+            mergedMap.set(key, {
+              menu_item_id: item.item_id || item.name,
+              name: item.name,
+              price: item.price,
+              quantity,
+            });
+          }
       });
     });
 
@@ -803,7 +1059,7 @@ export function POSTerminal({ tenantId, country = 'CO' }: { tenantId: string; co
 
   async function fetchMenuData() {
     try {
-      const [categoriesRes, menuRes, tenantRes] = await Promise.all([
+      const [categoriesRes, menuRes, tenantRes, settingsRes] = await Promise.all([
         supabase
           .from('menu_categories')
           .select('*')
@@ -819,6 +1075,11 @@ export function POSTerminal({ tenantId, country = 'CO' }: { tenantId: string; co
           .select('organization_name, logo_url')
           .eq('id', tenantId)
           .maybeSingle(),
+        supabase
+          .from('restaurant_settings')
+          .select('tax_rate, display_name, phone')
+          .eq('tenant_id', tenantId)
+          .maybeSingle(),
       ]);
 
       if (categoriesRes.data) setCategories(categoriesRes.data);
@@ -826,6 +1087,11 @@ export function POSTerminal({ tenantId, country = 'CO' }: { tenantId: string; co
       if (tenantRes.data) {
         if (tenantRes.data.organization_name) setRestaurantName(tenantRes.data.organization_name);
         if (tenantRes.data.logo_url) setRestaurantLogo(tenantRes.data.logo_url);
+      }
+      if (settingsRes.data) {
+        setTaxRate(Number(settingsRes.data.tax_rate || 0));
+        if (settingsRes.data.display_name) setRestaurantName(settingsRes.data.display_name);
+        if (settingsRes.data.phone) setRestaurantPhone(settingsRes.data.phone);
       }
     } catch (error) {
       console.error('Error fetching menu:', error);
@@ -920,14 +1186,22 @@ export function POSTerminal({ tenantId, country = 'CO' }: { tenantId: string; co
 
     // Auto-print receipt without modal
     setPendingPaymentData({ amountPaid });
-    processPaymentAfterReceipt();
+    processPaymentAfterReceipt(amountPaid);
   }
 
-  async function processPaymentAfterReceipt() {
+  async function processPaymentAfterReceipt(amountPaid?: number) {
     try {
       setProcessingPayment(true);
+      let receiptOrderId: string | null = null;
+      let receiptOrderNumber: string | null = null;
+      let savedOfflineSale = false;
+      const printerWarnings: string[] = [];
 
       if (loadedOrderId) {
+        if (typeof navigator !== 'undefined' && !navigator.onLine) {
+          throw new Error('Para cobrar un pedido ya creado necesitas internet. Las ventas nuevas del TPV si pueden cobrarse offline.');
+        }
+
         // Paying for a loaded existing order
         const response = await fetch(`/api/orders/${loadedOrderId}`, {
           method: 'PATCH',
@@ -945,14 +1219,28 @@ export function POSTerminal({ tenantId, country = 'CO' }: { tenantId: string; co
           throw new Error(errorData.error || 'Failed to update payment');
         }
 
+        const updatedOrder = await response.json();
+        receiptOrderId = updatedOrder?.order?.id || loadedOrderId;
+        receiptOrderNumber = updatedOrder?.order?.order_number || null;
+        const paidOrderId = loadedOrderId;
+        setIncomingOrders((orders) => orders.filter((order) => order.id !== paidOrderId));
         setLoadedOrderId(null);
-        setToast({ message: '✓ Pago procesado correctamente', type: 'success' });
+        await fetchIncomingOrders();
       } else if (billingOrderIds.length > 0) {
-        // Billing existing table orders — mark as paid, no new order created
+        if (typeof navigator !== 'undefined' && !navigator.onLine) {
+          throw new Error('Para cobrar mesas abiertas necesitas internet. Las ventas nuevas del TPV si pueden cobrarse offline.');
+        }
+
+        // Billing existing table orders — mark as paid, no new order created.
+        // Kitchen progress is independent: paying must not remove pending items from KDS.
+        const paidTableOrderIds = [...billingOrderIds];
         await supabase
           .from('orders')
-          .update({ payment_status: 'paid', status: 'delivered' })
+          .update({ payment_status: 'paid' })
+          .eq('tenant_id', tenantId)
           .in('id', billingOrderIds);
+        receiptOrderId = paidTableOrderIds[0] || null;
+        receiptOrderNumber = selectedTableNumber ? `Mesa ${selectedTableNumber}` : 'Cuenta salon';
         setBillingOrderIds([]);
         await fetchDineInOrders();
       } else {
@@ -965,90 +1253,182 @@ export function POSTerminal({ tenantId, country = 'CO' }: { tenantId: string; co
           notes: item.notes || null,
         }));
 
-        const response = await fetch('/api/orders', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'x-csrf-token': csrfTokenRef.current },
-          credentials: 'include',
-          body: JSON.stringify({
-            tenantId,
-            customerInfo: {
-              name: 'POS Counter',
-              email: null,
-              phone: 'N/A',
-            },
-            items: formattedItems,
+        const orderPayload = {
+          tenantId,
+          tenantSlug: tenantSlug || null,
+          customerInfo: {
+            name: 'POS Counter',
+            email: null,
+            phone: 'N/A',
+          },
+          items: formattedItems,
+          paymentMethod,
+          deliveryType: selectedTableId ? 'dine-in' : posOrderType,
+          waiterName: selectedStaffName || null,
+          tableNumber: selectedTableNumber || null,
+          tip: tip > 0 ? tip : null,
+          notes: discount > 0 ? `Descuento: $${discount.toFixed(2)}` : null,
+          amountPaid: paymentMethod === 'cash' ? amountPaid : null,
+          source: 'pos',
+        };
+
+        const saveSaleOffline = async () => {
+          if (paymentMethod === 'stripe') {
+            throw new Error('Stripe necesita internet. Para cobrar sin internet usa efectivo o datafono externo y marca la venta en caja.');
+          }
+
+          const offlineOrder = await saveOfflinePOSOrder({
+            ...orderPayload,
             paymentMethod,
             deliveryType: selectedTableId ? 'dine-in' : posOrderType,
-            waiter_id: selectedStaffId || null,
-            waiterName: selectedStaffName || null,
-            table_id: selectedTableId || null,
-            tableNumber: selectedTableNumber || null,
-            tip: tip > 0 ? tip : null,
-            notes: discount > 0 ? `Descuento: $${discount.toFixed(2)}` : null,
-            amountPaid: paymentMethod === 'cash' ? pendingPaymentData?.amountPaid : null,
-          }),
-        });
+            items: formattedItems.map((item) => ({
+              menu_item_id: item.menu_item_id,
+              name: item.name,
+              price: item.price,
+              quantity: item.qty,
+              notes: item.notes,
+            })),
+            subtotal,
+            discount,
+            total,
+            amountPaid: paymentMethod === 'cash' ? amountPaid : null,
+          });
 
-        if (!response.ok) {
-          const errorData = await response.json();
-          throw new Error(errorData.error || 'Failed to process order');
+          receiptOrderId = offlineOrder.id;
+          receiptOrderNumber = offlineOrder.orderNumber;
+          savedOfflineSale = true;
+          printerWarnings.push('Venta offline guardada y pendiente de sincronizar');
+          await refreshOfflinePendingCount();
+        };
+
+        if (typeof navigator !== 'undefined' && !navigator.onLine) {
+          await saveSaleOffline();
+        } else {
+          try {
+            const response = await fetch('/api/orders', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', 'x-csrf-token': csrfTokenRef.current },
+              credentials: 'include',
+              body: JSON.stringify(orderPayload),
+            });
+
+            if (!response.ok) {
+              const errorData = await response.json();
+              throw new Error(errorData.error || 'Failed to process order');
+            }
+
+            const createdOrder = await response.json();
+            if (createdOrder?.orderId) {
+              receiptOrderId = createdOrder.orderId;
+              receiptOrderNumber = createdOrder.orderNumber || null;
+              const paidResponse = await fetch(`/api/orders/${createdOrder.orderId}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+                body: JSON.stringify({
+                  tenantId,
+                  payment_status: 'paid',
+                  status: 'confirmed',
+                }),
+              });
+
+              if (!paidResponse.ok) {
+                const errorData = await paidResponse.json();
+                throw new Error(errorData.error || 'Failed to mark order as paid');
+              }
+            }
+          } catch (orderError) {
+            if (!isNetworkPaymentError(orderError)) throw orderError;
+            await saveSaleOffline();
+          }
         }
       }
 
-      // Open cash drawer on cash payments (best-effort)
-      if (paymentMethod === 'cash') {
-        openCashDrawer(tenantId).catch(() => {});
-      }
-
       // Mark cart as abandoned in Supabase
-      await abandonCart(tenantId, supabase);
+      if (!savedOfflineSale) {
+        await abandonCart(tenantId, supabase);
+      }
 
       // Attempt to print receipt if printer is configured
       let settings: any = null;
       try {
         const result = await supabase
           .from('restaurant_settings')
-          .select('default_receipt_printer_id, printer_auto_print')
+          .select('default_receipt_printer_id, printer_auto_print, display_name, phone')
           .eq('tenant_id', tenantId)
-          .single();
+          .maybeSingle();
 
+        if (result.error) throw new Error(result.error.message);
         settings = result.data;
+        if (settings?.default_receipt_printer_id && typeof window !== 'undefined') {
+          localStorage.setItem(`eccofood-pos-printer-settings-${tenantId}`, JSON.stringify(settings));
+        }
+      } catch (settingsError) {
+        if (typeof window !== 'undefined') {
+          const cachedSettings = localStorage.getItem(`eccofood-pos-printer-settings-${tenantId}`);
+          settings = cachedSettings ? JSON.parse(cachedSettings) : null;
+        }
+        if (!settings) {
+          printerWarnings.push(`No se pudo leer configuracion de impresora: ${settingsError instanceof Error ? settingsError.message : String(settingsError)}`);
+        }
+      }
 
-        if (settings?.printer_auto_print && settings?.default_receipt_printer_id) {
-          // Get the order data for receipt
-          const { data: order } = await supabase
-            .from('orders')
-            .select('*')
-            .eq('tenant_id', tenantId)
-            .order('created_at', { ascending: false })
-            .limit(1)
-            .single();
+      let receiptPrintedWithDrawer = false;
+      try {
+        if (!settings?.default_receipt_printer_id) {
+          printerWarnings.push('No hay impresora predeterminada');
+        } else if (!settings?.printer_auto_print) {
+          printerWarnings.push('Auto impresion desactivada');
+        } else if (receiptOrderId) {
+          const { data: order } = savedOfflineSale
+            ? { data: null }
+            : await supabase
+                .from('orders')
+                .select('id, order_number')
+                .eq('id', receiptOrderId)
+                .eq('tenant_id', tenantId)
+                .maybeSingle();
 
-          if (order) {
+          try {
             await printReceipt(tenantId, settings.default_receipt_printer_id, {
-              orderId: order.id,
-              orderNumber: order.order_number,
-              restaurantName,
+              orderId: receiptOrderId,
+              orderNumber: order?.order_number || receiptOrderNumber || 'POS',
+              restaurantName: settings?.display_name || restaurantName,
+              restaurantPhone: settings?.phone || restaurantPhone,
               items: cart,
               subtotal,
               discount,
+              tax: taxAmount,
+              taxRate,
               total,
-              amountPaid: paymentMethod === 'cash' ? pendingPaymentData?.amountPaid : undefined,
+              amountPaid: paymentMethod === 'cash' ? amountPaid : undefined,
               change: paymentMethod === 'cash'
-                ? (pendingPaymentData?.amountPaid || 0) - total
+                ? (amountPaid || 0) - total
                 : 0,
               currencyInfo,
               waiterName: selectedStaffName || undefined,
               tableNumber: selectedTableNumber || undefined,
+              openCashDrawer: paymentMethod === 'cash',
             });
+            receiptPrintedWithDrawer = paymentMethod === 'cash';
+          } catch (printError) {
+            printerWarnings.push(`Recibo no impreso: ${printError instanceof Error ? printError.message : String(printError)}`);
           }
+        } else {
+          printerWarnings.push('No se pudo identificar el pedido para imprimir');
         }
-      } catch (printError) {
-        // Log print error but don't fail the order
-        console.error('Print error (non-blocking):', printError);
-        await savePrinterLog(tenantId, settings?.default_receipt_printer_id || null, 'print', 'failed', {
-          error: printError instanceof Error ? printError.message : String(printError),
-        });
+      } catch (printFlowError) {
+        printerWarnings.push(`No se pudo preparar el recibo: ${printFlowError instanceof Error ? printFlowError.message : String(printFlowError)}`);
+      }
+
+      if (paymentMethod === 'cash') {
+        try {
+          if (!receiptPrintedWithDrawer) {
+            await openCashDrawer(tenantId);
+          }
+        } catch (drawerError) {
+          printerWarnings.push(`Cajon no abierto: ${drawerError instanceof Error ? drawerError.message : String(drawerError)}`);
+        }
       }
 
       // Clear cart and reset all states
@@ -1078,7 +1458,14 @@ export function POSTerminal({ tenantId, country = 'CO' }: { tenantId: string; co
       setPaymentResetKey(paymentResetKey + 1);
 
       // Show success toast (auto-closes after 3 seconds)
-      setToast({ message: '✅ Orden completada exitosamente', type: 'success' });
+      setToast({
+        message: savedOfflineSale
+          ? 'Venta cobrada en modo offline. Se subira sola cuando vuelva internet.'
+          : printerWarnings.length > 0
+          ? `Venta guardada. ${printerWarnings.slice(0, 2).join(' | ')}`
+          : 'Orden completada, recibo impreso y cajon abierto',
+        type: savedOfflineSale ? 'success' : printerWarnings.length > 0 ? 'error' : 'success',
+      });
     } catch (error) {
       console.error('Error processing payment:', error);
       setToast({
@@ -1097,7 +1484,9 @@ export function POSTerminal({ tenantId, country = 'CO' }: { tenantId: string; co
   });
 
   const subtotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
-  const total = subtotal - discount + tip;
+  const taxableSubtotal = Math.max(0, subtotal - discount);
+  const taxAmount = taxRate > 0 ? taxableSubtotal * (taxRate / 100) : 0;
+  const total = taxableSubtotal + taxAmount + tip;
 
   const tableGroups = useMemo((): TableGroup[] => {
     const groups = new Map<number, DineInOrder[]>();
@@ -1109,15 +1498,18 @@ export function POSTerminal({ tenantId, country = 'CO' }: { tenantId: string; co
     return Array.from(groups.entries()).map(([tableNumber, orders]) => ({
       tableNumber,
       orders,
-      totalAmount: orders.reduce((sum, o) => sum + Number(o.total), 0),
-      itemCount: orders.reduce((sum, o) => sum + (o.items || []).reduce((s, i) => s + i.qty, 0), 0),
+      totalAmount: orders.reduce((sum, order) => {
+        const orderSubtotal = getOrderItemsTotal(order.items || []);
+        return sum + orderSubtotal + (taxRate > 0 ? orderSubtotal * (taxRate / 100) : 0);
+      }, 0),
+      itemCount: orders.reduce((sum, order) => sum + (order.items || []).reduce((s, item) => s + getOrderItemQty(item), 0), 0),
       waiters: [...new Set(orders.map(o => o.waiter_name).filter((w): w is string => Boolean(w)))],
       oldestOrder: orders.reduce((oldest, o) =>
         new Date(o.created_at) < new Date(oldest.created_at) ? o : oldest
       ),
       allItems: orders.flatMap(o => o.items || []),
     }));
-  }, [dineInOrders]);
+  }, [dineInOrders, taxRate]);
 
   const cartQuantityMap = useMemo(() => {
     const map = new Map<string, number>();
@@ -1125,28 +1517,159 @@ export function POSTerminal({ tenantId, country = 'CO' }: { tenantId: string; co
     return map;
   }, [cart]);
 
+  useEffect(() => {
+    const isEditableTarget = (target: EventTarget | null) => {
+      const element = target as HTMLElement | null;
+      if (!element) return false;
+      return (
+        element.tagName === 'INPUT' ||
+        element.tagName === 'TEXTAREA' ||
+        element.isContentEditable
+      );
+    };
+
+    const selectCategoryByOffset = (offset: number) => {
+      const categoryIds = [null, ...categories.map((category) => category.id)];
+      const currentIndex = categoryIds.findIndex((id) => id === selectedCategory);
+      const nextIndex = (Math.max(0, currentIndex) + offset + categoryIds.length) % categoryIds.length;
+      setSelectedCategory(categoryIds[nextIndex]);
+    };
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      const key = event.key.toLowerCase();
+      const editable = isEditableTarget(event.target);
+
+      if (event.key === 'F2' || (!editable && event.key === '/')) {
+        event.preventDefault();
+        searchInputRef.current?.focus();
+        searchInputRef.current?.select();
+        return;
+      }
+
+      if (event.key === 'Escape') {
+        if (editable) {
+          (event.target as HTMLElement).blur();
+        }
+        setSearchQuery('');
+        setShowIncomingPanel(false);
+        setShowDineInPanel(false);
+        setShowFindPayPanel(false);
+        return;
+      }
+
+      if (editable) return;
+
+      if (event.altKey && event.key === 'ArrowRight') {
+        event.preventDefault();
+        selectCategoryByOffset(1);
+        return;
+      }
+
+      if (event.altKey && event.key === 'ArrowLeft') {
+        event.preventDefault();
+        selectCategoryByOffset(-1);
+        return;
+      }
+
+      if ((event.ctrlKey || event.metaKey) && event.key === 'Enter') {
+        event.preventDefault();
+        if (paymentMethod === 'stripe') {
+          handleShowReceipt();
+        } else {
+          setToast({ message: 'Escribe el dinero recibido y presiona Enter para cobrar.', type: 'error' });
+        }
+        return;
+      }
+
+      if (event.key === 'F9') {
+        event.preventDefault();
+        if (paymentMethod === 'stripe') {
+          handleShowReceipt();
+        } else {
+          setToast({ message: 'Escribe el dinero recibido y presiona Enter para cobrar.', type: 'error' });
+        }
+        return;
+      }
+
+      if (event.key === 'F6') {
+        event.preventDefault();
+        setShowIncomingPanel(false);
+        setShowDineInPanel(false);
+        setShowFindPayPanel(false);
+        return;
+      }
+
+      if (event.key === 'F7') {
+        event.preventDefault();
+        setShowIncomingPanel(true);
+        setShowDineInPanel(false);
+        setShowFindPayPanel(false);
+        return;
+      }
+
+      if (event.key === 'F8') {
+        event.preventDefault();
+        setShowIncomingPanel(false);
+        setShowDineInPanel(true);
+        setShowFindPayPanel(false);
+        return;
+      }
+
+      if (/^[1-9]$/.test(event.key)) {
+        const item = filteredMenu[Number(event.key) - 1];
+        if (item) {
+          event.preventDefault();
+          addToCart(item);
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [categories, selectedCategory, filteredMenu, cart, paymentMethod, handleShowReceipt]);
+
   if (loading) {
-    return <div className="flex items-center justify-center h-screen bg-muted">Cargando TPV...</div>;
+    return (
+      <div className="pos-premium flex h-screen items-center justify-center">
+        <div className="pos-panel rounded-2xl px-6 py-4 text-sm font-black text-cyan-100">
+          Cargando TPV...
+        </div>
+      </div>
+    );
   }
 
   return (
-    <div className={`${isFullscreen ? 'w-screen h-screen p-0 m-0 overflow-hidden flex flex-col' : 'h-full'} bg-muted text-white flex`}>
+    <div ref={posRootRef} className={`pos-premium ${isFullscreen ? 'fixed inset-0 z-[9999] h-screen w-screen p-0 m-0 overflow-hidden flex flex-col bg-[#020617]' : 'h-full'} text-white flex`}>
       {/* Fullscreen Header - Logo and Controls - TPV Header with Eccofood Brand */}
       {isFullscreen && (
-        <div className="bg-gradient-to-r from-blue-600 via-blue-700 to-indigo-700 border-b border-blue-900/50 px-6 py-4 flex items-center justify-between shadow-lg">
+        <div className="pos-panel border-x-0 border-t-0 px-6 py-4 flex items-center justify-between">
           <div className="flex items-center gap-4">
-            <div className="bg-white/10 backdrop-blur-sm rounded-xl p-2.5 border border-white/20">
-              <DollarSign className="w-6 h-6 text-white" />
+            <div className="rounded-xl border border-cyan-300/25 bg-cyan-300/10 p-2.5 shadow-lg shadow-cyan-900/20">
+              <DollarSign className="w-6 h-6 text-cyan-100" />
             </div>
             <div>
-              <p className="text-white/60 text-xs font-semibold tracking-wider">PUNTO DE VENTA</p>
-              <h1 className="text-white font-black text-lg tracking-wide">{restaurantName}</h1>
+              <p className="text-cyan-100/55 text-xs font-black uppercase">Punto de venta</p>
+              <h1 className="text-white font-black text-lg">{restaurantName}</h1>
             </div>
           </div>
           <div className="flex items-center gap-2">
             <button
+              onClick={() => syncOfflineSales(true)}
+              disabled={!isOnline || syncingOffline}
+              className={`pos-action-ghost ${!isOnline ? 'border-amber-300/45 bg-amber-300/12 text-amber-100' : offlinePendingCount > 0 ? 'border-emerald-300/45 bg-emerald-300/12 text-emerald-100' : ''} disabled:opacity-75`}
+              title={isOnline ? 'Sincronizar ventas offline' : 'Modo offline activo'}
+            >
+              <span className={`h-2.5 w-2.5 rounded-full ${isOnline ? 'bg-emerald-300' : 'bg-amber-300 animate-pulse'}`} />
+              <span className="hidden sm:inline">{isOnline ? (syncingOffline ? 'Sync...' : 'Online') : 'Offline'}</span>
+              {offlinePendingCount > 0 && (
+                <span className="rounded-full bg-amber-400 px-1.5 py-0.5 text-[10px] font-black text-slate-950">
+                  {offlinePendingCount}
+                </span>
+              )}
+            </button>
+            <button
               onClick={() => setShowAdminMenu(true)}
-              className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-white/10 hover:bg-white/20 backdrop-blur-sm border border-white/20 text-white text-sm font-semibold transition-all duration-200"
+              className="pos-action-ghost"
               title="Panel de administración"
             >
               <span>⚙️</span>
@@ -1154,7 +1677,7 @@ export function POSTerminal({ tenantId, country = 'CO' }: { tenantId: string; co
             </button>
             <button
               onClick={toggleFullscreen}
-              className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-white/10 hover:bg-white/20 backdrop-blur-sm border border-white/20 text-white text-sm font-semibold transition-all duration-200"
+              className="pos-action-ghost"
               title={isFullscreen ? 'Salir de pantalla completa (ESC)' : 'Pantalla completa'}
             >
               {isFullscreen ? <Minimize2 className="w-5 h-5" /> : <Maximize2 className="w-5 h-5" />}
@@ -1164,34 +1687,63 @@ export function POSTerminal({ tenantId, country = 'CO' }: { tenantId: string; co
         </div>
       )}
 
-      <div className={`flex-1 flex overflow-hidden ${isFullscreen ? 'gap-0' : 'gap-0'}`}>
+      <div className={`flex-1 flex flex-col overflow-hidden md:flex-row ${isFullscreen ? 'gap-0' : 'gap-0'}`}>
         {/* Menu Section */}
-        <div className={`flex-1 flex flex-col bg-card overflow-hidden`}>
+        <div className="min-h-0 flex-1 flex flex-col overflow-hidden">
           {/* Search and Controls - Sticky Header */}
-          <div className={`flex gap-3 items-center bg-card sticky top-0 z-10 border-b border-border backdrop-blur-sm ${isFullscreen ? 'px-4 py-3' : 'p-4'}`}>
+          <div className={`pos-panel border-x-0 border-t-0 flex gap-3 items-center sticky top-0 z-10 ${isFullscreen ? 'px-4 py-3' : 'p-4'}`}>
             <div className="flex-1 relative">
-              <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground pointer-events-none" />
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-cyan-100/45 pointer-events-none" />
               <input
+                ref={searchInputRef}
                 type="text"
-                placeholder="Buscar producto..."
+                placeholder="Buscar producto... (/ o F2)"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-12 pr-4 py-2.5 rounded-lg bg-gray-800 border border-gray-700 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none text-white text-sm font-medium transition-all"
+                className="w-full pl-12 pr-4 py-2.5 rounded-xl outline-none text-white text-sm font-bold transition-all"
               />
             </div>
             {!isFullscreen && (
               <>
                 <button
-                  onClick={() => window.open(`/${tenantId}/pos-display?tid=${tenantId}&country=${country}`, '_blank', 'width=900,height=600')}
-                  className="flex items-center gap-2 px-3 py-2.5 bg-purple-600 hover:bg-purple-500 text-white rounded-lg font-semibold text-sm transition-all duration-200"
+                  onClick={() => syncOfflineSales(true)}
+                  disabled={!isOnline || syncingOffline}
+                  className={`pos-action-ghost ${!isOnline ? 'border-amber-300/45 bg-amber-300/12 text-amber-100' : offlinePendingCount > 0 ? 'border-emerald-300/45 bg-emerald-300/12 text-emerald-100' : ''} disabled:opacity-75`}
+                  title={isOnline ? 'Sincronizar ventas offline' : 'Modo offline activo'}
+                >
+                  <span className={`h-2.5 w-2.5 rounded-full ${isOnline ? 'bg-emerald-300' : 'bg-amber-300 animate-pulse'}`} />
+                  <span className="hidden sm:inline">
+                    {isOnline ? (syncingOffline ? 'Sync...' : 'Online') : 'Offline'}
+                  </span>
+                  {offlinePendingCount > 0 && (
+                    <span className="rounded-full bg-amber-400 px-1.5 py-0.5 text-[10px] font-black text-slate-950">
+                      {offlinePendingCount}
+                    </span>
+                  )}
+                </button>
+                <button
+                  onClick={() => {
+                    window.location.href = `/${tenantSlug || tenantId}/pos-display?tid=${tenantId}&country=${country}`;
+                  }}
+                  className="pos-action-ghost"
                   title="Abrir pantalla de cliente"
                 >
                   <Monitor className="w-5 h-5" />
-                  <span className="hidden sm:inline">Pantalla</span>
+                  <span className="hidden sm:inline">Cliente</span>
                 </button>
                 <button
-                  onClick={() => openCashDrawer(tenantId)}
-                  className="flex items-center gap-2 px-3 py-2.5 bg-yellow-600 hover:bg-yellow-500 text-white rounded-lg font-semibold text-sm transition-all duration-200"
+                  onClick={async () => {
+                    try {
+                      await openCashDrawer(tenantId);
+                      setToast({ message: 'Cajon abierto', type: 'success' });
+                    } catch (error) {
+                      setToast({
+                        message: `No se pudo abrir el cajon: ${error instanceof Error ? error.message : 'Error desconocido'}`,
+                        type: 'error',
+                      });
+                    }
+                  }}
+                  className="pos-action-ghost"
                   title="Abrir cajón de dinero"
                 >
                   <Archive className="w-5 h-5" />
@@ -1200,7 +1752,7 @@ export function POSTerminal({ tenantId, country = 'CO' }: { tenantId: string; co
                 <button
                   onClick={handleOpenCashClosing}
                   disabled={closingLoading}
-                  className="flex items-center gap-2 px-3 py-2.5 bg-orange-600 hover:bg-orange-700 text-white rounded-lg font-semibold text-sm transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="pos-action-danger disabled:opacity-50 disabled:cursor-not-allowed"
                   title="Cerrar caja diaria"
                 >
                   <Lock className="w-5 h-5" />
@@ -1208,24 +1760,25 @@ export function POSTerminal({ tenantId, country = 'CO' }: { tenantId: string; co
                 </button>
                 <button
                   onClick={toggleFullscreen}
-                  className="flex items-center gap-2 px-3 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold text-sm transition-all duration-200"
+                  className="pos-action"
                   title="Pantalla completa"
                 >
                   <Maximize2 className="w-5 h-5" />
-                  <span className="hidden sm:inline">Pantalla</span>
+                  <span className="hidden sm:inline">Completa</span>
                 </button>
               </>
             )}
           </div>
 
           {/* Categories - Sticky */}
-          <div className={`flex gap-2 overflow-x-auto pb-2 sticky z-10 bg-gradient-to-r from-gray-900/80 to-gray-800/80 border-b border-gray-800 backdrop-blur-sm scrollbar-none ${isFullscreen ? 'px-4 py-3' : 'px-4 py-2.5'}`}>
+          <div className={`flex gap-2 overflow-x-auto pb-2 sticky z-10 border-b border-white/10 bg-black/24 backdrop-blur-xl scrollbar-none ${isFullscreen ? 'px-4 py-3' : 'px-4 py-2.5'}`}>
             <button
               onClick={() => setSelectedCategory(null)}
-              className={`px-4 py-2 rounded-full whitespace-nowrap transition-all duration-200 text-sm font-bold tracking-wide shrink-0 ${
+              title="Alt + flechas cambia categorias"
+              className={`pos-chip px-4 py-2 transition-all duration-200 shrink-0 ${
                 selectedCategory === null
-                  ? 'bg-blue-600 text-white shadow-lg shadow-blue-900/40 ring-2 ring-blue-400/30'
-                  : 'bg-gray-800/80 text-gray-400 hover:bg-gray-700 hover:text-white border border-gray-700'
+                  ? 'border-cyan-300/60 bg-cyan-300/16 text-cyan-50 shadow-lg shadow-cyan-900/20'
+                  : 'hover:border-cyan-300/35 hover:text-white'
               }`}
             >
               Todos
@@ -1234,10 +1787,11 @@ export function POSTerminal({ tenantId, country = 'CO' }: { tenantId: string; co
               <button
                 key={cat.id}
                 onClick={() => setSelectedCategory(cat.id)}
-                className={`px-4 py-2 rounded-full whitespace-nowrap transition-all duration-200 text-sm font-bold tracking-wide shrink-0 ${
+                title="Alt + flechas cambia categorias"
+                className={`pos-chip px-4 py-2 transition-all duration-200 shrink-0 ${
                   selectedCategory === cat.id
-                    ? 'bg-blue-600 text-white shadow-lg shadow-blue-900/40 ring-2 ring-blue-400/30'
-                    : 'bg-gray-800/80 text-gray-400 hover:bg-gray-700 hover:text-white border border-gray-700'
+                    ? 'border-cyan-300/60 bg-cyan-300/16 text-cyan-50 shadow-lg shadow-cyan-900/20'
+                    : 'hover:border-cyan-300/35 hover:text-white'
                 }`}
               >
                 {cat.name}
@@ -1246,23 +1800,29 @@ export function POSTerminal({ tenantId, country = 'CO' }: { tenantId: string; co
           </div>
 
           {/* Menu Grid */}
-          <div className={`flex-1 overflow-y-auto bg-gradient-to-b from-gray-900/50 to-gray-950 ${isFullscreen ? 'px-4 py-3' : 'p-4'}`}>
-            <div className={`grid gap-3 h-fit ${isFullscreen ? 'grid-cols-8' : 'grid-cols-5 md:grid-cols-6 lg:grid-cols-7'}`}>
-              {filteredMenu.map((item) => {
+          <div className={`flex-1 overflow-y-auto ${isFullscreen ? 'px-4 py-3' : 'p-4'}`}>
+            <div className={`grid gap-3 h-fit ${isFullscreen ? 'grid-cols-2 sm:grid-cols-4 lg:grid-cols-8' : 'grid-cols-2 sm:grid-cols-3 md:grid-cols-5 lg:grid-cols-7'}`}>
+              {filteredMenu.map((item, index) => {
                 const qty = cartQuantityMap.get(item.id);
                 return (
                   <button
                     key={item.id}
                     onClick={() => addToCart(item)}
-                    className={`relative rounded-xl p-2.5 text-left transition-all duration-200 transform hover:scale-105 active:scale-95 h-fit flex flex-col justify-between group ${
+                    title={index < 9 ? `Tecla ${index + 1}: agregar ${item.name}` : `Agregar ${item.name}`}
+                    className={`pos-card relative rounded-xl p-2.5 text-left transition-all duration-200 transform hover:scale-[1.025] active:scale-95 h-fit flex flex-col justify-between group ${
                       qty
-                        ? 'bg-gradient-to-br from-blue-900/60 to-blue-800/40 border-2 border-blue-500 shadow-lg shadow-blue-900/30'
-                        : 'bg-gradient-to-br from-gray-800 to-gray-900 hover:from-blue-700/40 hover:to-blue-900/40 border border-gray-700 hover:border-blue-500'
+                        ? 'border-2 border-cyan-300/70 bg-cyan-300/14 shadow-lg shadow-cyan-900/30'
+                        : ''
                     }`}
                   >
                     {qty && (
-                      <span className="absolute top-1.5 right-1.5 bg-blue-500 text-white text-xs font-black w-5 h-5 rounded-full flex items-center justify-center z-10 shadow-md ring-2 ring-gray-900">
+                      <span className="absolute top-1.5 right-1.5 bg-cyan-400 text-slate-950 text-xs font-black w-5 h-5 rounded-full flex items-center justify-center z-10 shadow-md ring-2 ring-slate-950">
                         {qty}
+                      </span>
+                    )}
+                    {index < 9 && (
+                      <span className="absolute left-1.5 top-1.5 z-10 rounded-md border border-white/10 bg-black/55 px-1.5 py-0.5 text-[10px] font-black text-cyan-100">
+                        {index + 1}
                       </span>
                     )}
                     {item.image_url && (
@@ -1272,8 +1832,8 @@ export function POSTerminal({ tenantId, country = 'CO' }: { tenantId: string; co
                         className={`w-full object-contain rounded-lg mb-2 group-hover:scale-110 transition-transform duration-200 ${isFullscreen ? 'h-16' : 'max-h-20'}`}
                       />
                     )}
-                    <p className="font-bold text-xs truncate flex-1 text-white group-hover:text-blue-300 transition-colors">{item.name}</p>
-                    <p className={`font-bold text-xs mt-1 ${qty ? 'text-blue-300' : 'text-green-400'}`}>
+                    <p className="font-bold text-xs truncate flex-1 text-white group-hover:text-cyan-200 transition-colors">{item.name}</p>
+                    <p className={`font-black text-xs mt-1 ${qty ? 'text-cyan-200' : 'text-emerald-300'}`}>
                       {formatPriceWithCurrency(item.price, currencyInfo.code, currencyInfo.locale)}
                     </p>
                   </button>
@@ -1284,8 +1844,8 @@ export function POSTerminal({ tenantId, country = 'CO' }: { tenantId: string; co
 
           {/* Tables Bottom Strip */}
           {allTables.length > 0 && (
-            <div className="border-t border-gray-800 bg-gray-950 px-3 py-2 shrink-0">
-              <p className="text-gray-600 text-xs font-bold mb-2 tracking-wider uppercase">Mesas</p>
+            <div className="pos-panel border-x-0 border-b-0 px-3 py-2 shrink-0">
+              <p className="text-cyan-100/42 text-xs font-black mb-2 uppercase">Mesas</p>
               <div className="flex gap-2 overflow-x-auto scrollbar-none pb-1">
                 {allTables.map(table => {
                   const group = tableGroups.find(g => g.tableNumber === table.table_number);
@@ -1307,13 +1867,13 @@ export function POSTerminal({ tenantId, country = 'CO' }: { tenantId: string; co
                       }}
                       className={`shrink-0 flex flex-col items-center justify-center rounded-xl px-3 py-2 min-w-[58px] border-2 transition-all duration-200 active:scale-95 ${
                         group
-                          ? `${getUrgencyBorder(minutes)} bg-gray-800 hover:bg-gray-700`
+                          ? `${getUrgencyBorder(minutes)} bg-white/10 hover:bg-white/15`
                           : isSelected
-                          ? 'border-blue-500 bg-blue-900/30'
-                          : 'border-gray-700 bg-gray-800/40 hover:bg-gray-800'
+                          ? 'border-cyan-300 bg-cyan-300/16'
+                          : 'border-white/10 bg-white/5 hover:bg-white/10'
                       }`}
                     >
-                      <span className={`font-black text-sm leading-tight ${group ? 'text-white' : isSelected ? 'text-blue-300' : 'text-gray-400'}`}>
+                      <span className={`font-black text-sm leading-tight ${group ? 'text-white' : isSelected ? 'text-cyan-200' : 'text-slate-400'}`}>
                         {table.table_number}
                       </span>
                       {group ? (
@@ -1324,7 +1884,7 @@ export function POSTerminal({ tenantId, country = 'CO' }: { tenantId: string; co
                           </span>
                         </>
                       ) : (
-                        <span className={`text-xs mt-0.5 ${isSelected ? 'text-blue-400' : 'text-gray-600'}`}>
+                        <span className={`text-xs mt-0.5 ${isSelected ? 'text-cyan-300' : 'text-slate-500'}`}>
                           {isSelected ? '✓ Sel.' : 'Libre'}
                         </span>
                       )}
@@ -1337,21 +1897,21 @@ export function POSTerminal({ tenantId, country = 'CO' }: { tenantId: string; co
         </div>
 
         {/* Cart/Payment Section */}
-        <div className={`${isFullscreen ? 'w-80' : 'w-80'} bg-gradient-to-b from-gray-900 to-gray-950 border-l border-gray-800 flex flex-col overflow-hidden shadow-xl`}>
+        <div className={`${isFullscreen ? 'h-[44vh] md:h-auto md:w-72 xl:w-80' : 'h-[44vh] md:h-auto md:w-80'} pos-panel border-y-0 border-r-0 flex flex-col overflow-hidden`}>
           {/* Tabs: Cart / Entregas / Salón */}
-          <div className="border-b border-gray-800 flex bg-gray-950/50 backdrop-blur-sm">
+          <div className="border-b border-white/10 flex bg-black/20 backdrop-blur-xl">
             <button
               onClick={() => { setShowIncomingPanel(false); setShowDineInPanel(false); setShowFindPayPanel(false); }}
               className={`flex-1 flex flex-col items-center justify-center gap-0.5 py-2 border-b-2 transition relative ${
                 !showIncomingPanel && !showDineInPanel && !showFindPayPanel
-                  ? 'border-blue-600 bg-blue-600/20 text-white'
-                  : 'border-transparent text-gray-400 hover:text-gray-300'
+                  ? 'border-cyan-300 bg-cyan-300/14 text-white'
+                  : 'border-transparent text-slate-400 hover:text-white'
               }`}
             >
               <div className="relative">
                 <ShoppingCart className="w-4 h-4" />
                 {cart.length > 0 && (
-                  <span className="absolute -top-1.5 -right-2 bg-blue-600 text-white rounded-full w-4 h-4 text-[9px] font-black flex items-center justify-center">{cart.length}</span>
+                  <span className="absolute -top-1.5 -right-2 bg-cyan-400 text-slate-950 rounded-full w-4 h-4 text-[9px] font-black flex items-center justify-center">{cart.length}</span>
                 )}
               </div>
               <span className="text-[10px] font-bold">Carrito</span>
@@ -1360,8 +1920,8 @@ export function POSTerminal({ tenantId, country = 'CO' }: { tenantId: string; co
               onClick={() => { setShowIncomingPanel(true); setShowDineInPanel(false); setShowFindPayPanel(false); }}
               className={`flex-1 flex flex-col items-center justify-center gap-0.5 py-2 border-b-2 transition relative ${
                 showIncomingPanel && !showDineInPanel && !showFindPayPanel
-                  ? 'border-blue-600 bg-blue-600/20 text-white'
-                  : 'border-transparent text-gray-400 hover:text-gray-300'
+                  ? 'border-cyan-300 bg-cyan-300/14 text-white'
+                  : 'border-transparent text-slate-400 hover:text-white'
               }`}
             >
               <div className="relative">
@@ -1376,8 +1936,8 @@ export function POSTerminal({ tenantId, country = 'CO' }: { tenantId: string; co
               onClick={() => { setShowDineInPanel(true); setShowIncomingPanel(false); setShowFindPayPanel(false); }}
               className={`flex-1 flex flex-col items-center justify-center gap-0.5 py-2 border-b-2 transition relative ${
                 showDineInPanel
-                  ? 'border-emerald-500 bg-emerald-500/20 text-white'
-                  : 'border-transparent text-gray-400 hover:text-gray-300'
+                  ? 'border-emerald-400 bg-emerald-400/14 text-white'
+                  : 'border-transparent text-slate-400 hover:text-white'
               }`}
             >
               <div className="relative">
@@ -1388,36 +1948,22 @@ export function POSTerminal({ tenantId, country = 'CO' }: { tenantId: string; co
               </div>
               <span className="text-[10px] font-bold">Salón</span>
             </button>
-            <button
-              onClick={() => { setShowFindPayPanel(true); setShowIncomingPanel(false); setShowDineInPanel(false); }}
-              className={`flex-1 flex flex-col items-center justify-center gap-0.5 py-2 border-b-2 transition relative ${
-                showFindPayPanel
-                  ? 'border-purple-600 bg-purple-600/20 text-white'
-                  : 'border-transparent text-gray-400 hover:text-gray-300'
-              }`}
-              title="Buscar y pagar pedidos pendientes"
-            >
-              <div className="relative">
-                <Search className="w-4 h-4" />
-              </div>
-              <span className="text-[10px] font-bold">Buscar</span>
-            </button>
           </div>
 
           {/* Mesas / Dine-in Panel */}
           {showDineInPanel && (
             <div className="flex-1 flex flex-col overflow-hidden">
               {/* Toggle Mapa / Lista */}
-              <div className="flex border-b border-gray-800 shrink-0">
+              <div className="flex border-b border-white/10 shrink-0 bg-black/18">
                 <button
                   onClick={() => setMesasView('map')}
-                  className={`flex-1 py-2 text-xs font-bold transition ${mesasView === 'map' ? 'text-white bg-gray-800' : 'text-gray-500 hover:text-gray-300'}`}
+                  className={`flex-1 py-2 text-xs font-black transition ${mesasView === 'map' ? 'text-white bg-cyan-300/14' : 'text-slate-500 hover:text-slate-200'}`}
                 >
                   🗺 Mapa
                 </button>
                 <button
                   onClick={() => setMesasView('list')}
-                  className={`flex-1 py-2 text-xs font-bold transition ${mesasView === 'list' ? 'text-white bg-gray-800' : 'text-gray-500 hover:text-gray-300'}`}
+                  className={`flex-1 py-2 text-xs font-black transition ${mesasView === 'list' ? 'text-white bg-cyan-300/14' : 'text-slate-500 hover:text-slate-200'}`}
                 >
                   📋 Comandas {tableGroups.length > 0 && `(${tableGroups.length})`}
                 </button>
@@ -1449,7 +1995,7 @@ export function POSTerminal({ tenantId, country = 'CO' }: { tenantId: string; co
               {mesasView === 'list' && (
                 <>
                   {tableGroups.length === 0 ? (
-                    <div className="flex-1 flex items-center justify-center text-gray-500">
+                    <div className="flex-1 flex items-center justify-center text-slate-500">
                       <div className="text-center">
                         <p className="text-3xl mb-2">🍽️</p>
                         <p className="text-sm font-medium">Sin comandas pendientes</p>
@@ -1483,6 +2029,7 @@ export function POSTerminal({ tenantId, country = 'CO' }: { tenantId: string; co
               <POSOrderLookup
                 domain={tenantId}
                 onOrderSelected={handleOrderSelected}
+                onVoidOrder={voidCompletedSale}
               />
             </div>
           )}
@@ -1490,13 +2037,33 @@ export function POSTerminal({ tenantId, country = 'CO' }: { tenantId: string; co
           {/* Cart Content - Only show when not in any special panel */}
           {!showIncomingPanel && !showDineInPanel && !showFindPayPanel && (
             <>
+              {loadedOrderId && (
+                <div className="mx-2 mt-2 rounded-xl border border-red-400/25 bg-red-500/10 px-3 py-2 flex items-center gap-2">
+                  <Archive className="w-3.5 h-3.5 text-red-200 shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-red-100 font-bold text-xs">Ticket de domicilio cargado</p>
+                    <p className="text-red-200/70 text-xs">Puedes cobrarlo o anularlo si el cliente cancelo.</p>
+                  </div>
+                  <button
+                    onClick={() => {
+                      const order = incomingOrders.find((item) => item.id === loadedOrderId);
+                      cancelIncomingOrder(loadedOrderId, order?.order_number || 'ticket cargado');
+                    }}
+                    disabled={cancellingOrderId === loadedOrderId}
+                    className="shrink-0 text-xs text-red-100 hover:text-white font-bold border border-red-400/40 hover:border-red-300 rounded-lg px-2 py-1 transition disabled:opacity-50"
+                  >
+                    {cancellingOrderId === loadedOrderId ? 'Anulando...' : 'Anular'}
+                  </button>
+                </div>
+              )}
+
               {/* Mesa billing indicator */}
           {billingOrderIds.length > 0 && selectedTableNumber && (
-            <div className="mx-2 mt-2 bg-emerald-900/40 border border-emerald-600/50 rounded-xl px-3 py-2 flex items-center gap-2">
+              <div className="mx-2 mt-2 pos-total-band rounded-xl px-3 py-2 flex items-center gap-2">
               <UtensilsCrossed className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
               <div className="flex-1 min-w-0">
                 <p className="text-emerald-300 font-bold text-xs">Cobrando Mesa {selectedTableNumber}</p>
-                <p className="text-emerald-600 text-xs">{billingOrderIds.length} ronda{billingOrderIds.length > 1 ? 's' : ''} acumulada{billingOrderIds.length > 1 ? 's' : ''}</p>
+                <p className="text-emerald-400/70 text-xs">{billingOrderIds.length} ronda{billingOrderIds.length > 1 ? 's' : ''} acumulada{billingOrderIds.length > 1 ? 's' : ''}</p>
               </div>
               <button
                 onClick={() => {
@@ -1508,7 +2075,7 @@ export function POSTerminal({ tenantId, country = 'CO' }: { tenantId: string; co
                   setSelectedStaffName('');
                   setPosMode('simple');
                 }}
-                className="shrink-0 text-xs text-red-400 hover:text-red-300 font-bold border border-red-800/50 hover:border-red-600 rounded-lg px-2 py-1 transition"
+                className="shrink-0 text-xs text-red-300 hover:text-red-100 font-bold border border-red-500/35 hover:border-red-400 rounded-lg px-2 py-1 transition"
               >
                 Cancelar
               </button>
@@ -1516,37 +2083,37 @@ export function POSTerminal({ tenantId, country = 'CO' }: { tenantId: string; co
           )}
 
           {/* Cart Items List */}
-          <div className="flex-1 overflow-y-auto min-h-0">
+          <div className={`flex-1 min-h-0 ${isFullscreen ? 'overflow-hidden' : 'overflow-y-auto'}`}>
             {cart.length === 0 ? (
-              <div className="flex flex-col items-center justify-center h-full text-gray-600 py-8">
+              <div className="flex flex-col items-center justify-center h-full text-slate-500 py-8">
                 <ShoppingCart className="w-8 h-8 mb-2 opacity-30" />
                 <p className="text-xs">Carrito vacío</p>
               </div>
             ) : (
-              <div className="p-2 space-y-1">
+              <div className={`${isFullscreen ? 'p-1.5 space-y-1' : 'p-2 space-y-1'}`}>
                 {cart.map((item) => (
-                  <div key={item.menu_item_id} className="flex items-center gap-2 bg-gray-800/60 rounded-lg px-2 py-1.5 border border-gray-700/50">
+                  <div key={item.menu_item_id} className={`pos-card flex items-center gap-2 rounded-xl px-2 ${isFullscreen ? 'py-1' : 'py-1.5'}`}>
                     <div className="flex-1 min-w-0">
                       <p className="text-white text-xs font-semibold truncate">{item.name}</p>
-                      <p className="text-green-400 text-xs font-bold">{formatPriceWithCurrency(item.price * item.quantity, currencyInfo.code, currencyInfo.locale)}</p>
+                      <p className="text-emerald-300 text-xs font-black">{formatPriceWithCurrency(item.price * item.quantity, currencyInfo.code, currencyInfo.locale)}</p>
                     </div>
                     <div className="flex items-center gap-1 shrink-0">
                       <button
                         onClick={() => updateQuantity(item.menu_item_id, item.quantity - 1)}
-                        className="w-6 h-6 rounded bg-gray-700 hover:bg-gray-600 text-white font-black text-sm flex items-center justify-center transition active:scale-90"
+                        className="w-6 h-6 rounded-lg bg-white/10 hover:bg-white/16 text-white font-black text-sm flex items-center justify-center transition active:scale-90"
                       >
                         −
                       </button>
                       <span className="text-white font-bold text-xs w-5 text-center">{item.quantity}</span>
                       <button
                         onClick={() => updateQuantity(item.menu_item_id, item.quantity + 1)}
-                        className="w-6 h-6 rounded bg-gray-700 hover:bg-gray-600 text-white font-black text-sm flex items-center justify-center transition active:scale-90"
+                        className="w-6 h-6 rounded-lg bg-white/10 hover:bg-white/16 text-white font-black text-sm flex items-center justify-center transition active:scale-90"
                       >
                         +
                       </button>
                       <button
                         onClick={() => removeFromCart(item.menu_item_id)}
-                        className="w-6 h-6 rounded bg-red-900/60 hover:bg-red-700 text-red-400 hover:text-white font-black text-xs flex items-center justify-center transition active:scale-90 ml-0.5"
+                        className="w-6 h-6 rounded-lg bg-red-500/16 hover:bg-red-500/26 text-red-300 hover:text-white font-black text-xs flex items-center justify-center transition active:scale-90 ml-0.5"
                       >
                         ✕
                       </button>
@@ -1558,18 +2125,18 @@ export function POSTerminal({ tenantId, country = 'CO' }: { tenantId: string; co
           </div>
 
           {/* Discount Code */}
-              <div className={`border-b border-border ${isFullscreen ? 'px-2 py-1' : 'px-2 py-1'} space-y-1 text-xs`}>
+              <div className={`border-b border-white/10 ${isFullscreen ? 'px-2 py-1' : 'px-2 py-1'} space-y-1 text-xs`}>
             <div className="flex gap-1">
               <input
                 type="text"
                 placeholder="Código descuento"
                 value={discountCode}
                 onChange={(e) => setDiscountCode(e.target.value.toUpperCase())}
-                className="flex-1 px-2 py-1 rounded bg-card border border-border focus:border-blue-500 outline-none text-white text-xs"
+                className="flex-1 px-2 py-1 rounded-lg outline-none text-white text-xs"
               />
               <button
                 onClick={applyDiscountCode}
-                className="px-3 py-1 bg-green-600 hover:bg-green-700 rounded font-bold text-xs transition"
+                className="px-3 py-1 rounded-lg bg-emerald-500/18 hover:bg-emerald-500/26 border border-emerald-400/30 text-emerald-100 font-black text-xs transition"
               >
                 Aplicar
               </button>
@@ -1580,11 +2147,11 @@ export function POSTerminal({ tenantId, country = 'CO' }: { tenantId: string; co
           </div>
 
           {/* Totals */}
-          <div className={`border-b border-gray-800 ${isFullscreen ? 'px-3 py-2' : 'px-3 py-2'} space-y-2 bg-gray-950/50 text-sm backdrop-blur-sm`}>
-            <div className="space-y-1.5 text-xs">
+          <div className={`border-b border-white/10 ${isFullscreen ? 'px-2 py-1.5' : 'px-3 py-2'} ${isFullscreen ? 'space-y-1' : 'space-y-2'} bg-black/18 text-sm backdrop-blur-xl`}>
+            <div className={`${isFullscreen ? 'space-y-1' : 'space-y-1.5'} text-xs`}>
               <div className="flex justify-between">
-                <span className="text-gray-400">Subtotal:</span>
-                <span className="font-semibold text-gray-200">{formatPriceWithCurrency(subtotal, currencyInfo.code, currencyInfo.locale)}</span>
+                <span className="text-slate-400">Subtotal:</span>
+                <span className="font-semibold text-slate-200">{formatPriceWithCurrency(subtotal, currencyInfo.code, currencyInfo.locale)}</span>
               </div>
               {discount > 0 && (
                 <div className="flex justify-between bg-green-500/20 px-2 py-1.5 rounded-lg border border-green-500/30">
@@ -1592,17 +2159,23 @@ export function POSTerminal({ tenantId, country = 'CO' }: { tenantId: string; co
                   <span className="font-bold text-green-300">-{formatPriceWithCurrency(discount, currencyInfo.code, currencyInfo.locale)}</span>
                 </div>
               )}
+              {taxRate > 0 && (
+                <div className="flex justify-between">
+                  <span className="text-slate-400">IVA ({taxRate}%):</span>
+                  <span className="font-semibold text-slate-200">{formatPriceWithCurrency(taxAmount, currencyInfo.code, currencyInfo.locale)}</span>
+                </div>
+              )}
             </div>
-            <div className="border-t border-gray-700 pt-2 flex justify-between text-base font-black bg-gradient-to-r from-green-600/20 to-emerald-600/20 px-2 py-2 rounded-lg border border-green-600/30">
+            <div className={`pos-total-band flex justify-between font-black px-2 rounded-xl ${isFullscreen ? 'py-1.5 text-sm' : 'pt-2 py-2 text-base'}`}>
               <span className="text-white">Total:</span>
-              <span className="text-green-400 text-lg">{formatPriceWithCurrency(total, currencyInfo.code, currencyInfo.locale)}</span>
+              <span className={`text-emerald-300 ${isFullscreen ? 'text-base' : 'text-lg'}`}>{formatPriceWithCurrency(total, currencyInfo.code, currencyInfo.locale)}</span>
             </div>
 
           </div>
 
           {/* Mesa indicator + staff selector */}
           {selectedTableNumber ? (
-            <div className="border-b border-border px-2 py-2 space-y-1.5">
+            <div className="border-b border-white/10 px-2 py-2 space-y-1.5">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-1.5">
                   <UtensilsCrossed className="w-3.5 h-3.5 text-emerald-400" />
@@ -1616,7 +2189,7 @@ export function POSTerminal({ tenantId, country = 'CO' }: { tenantId: string; co
                     setSelectedStaffName('');
                     setPosMode('simple');
                   }}
-                  className="text-gray-500 hover:text-red-400 text-xs transition-colors"
+                  className="text-slate-500 hover:text-red-300 text-xs transition-colors"
                 >
                   ✕ Quitar
                 </button>
@@ -1632,15 +2205,15 @@ export function POSTerminal({ tenantId, country = 'CO' }: { tenantId: string; co
               />
             </div>
           ) : (
-            <div className="border-b border-border px-2 py-2 space-y-1.5">
-              <p className="text-gray-600 text-xs font-bold uppercase tracking-wider">Tipo de pedido</p>
+            <div className="border-b border-white/10 px-2 py-2 space-y-1.5">
+              <p className="text-cyan-100/42 text-xs font-black uppercase">Tipo de pedido</p>
               <div className="flex gap-1">
                 <button
                   onClick={() => setPosOrderType('takeaway')}
                   className={`flex-1 py-1.5 rounded-lg text-xs font-bold transition ${
                     posOrderType === 'takeaway'
-                      ? 'bg-blue-600 text-white'
-                      : 'bg-gray-800 text-gray-400 hover:text-gray-200'
+                      ? 'bg-cyan-300/18 text-cyan-50 border border-cyan-300/35'
+                      : 'bg-white/10 text-slate-400 hover:text-slate-100 border border-white/10'
                   }`}
                 >
                   🥡 Para llevar
@@ -1649,8 +2222,8 @@ export function POSTerminal({ tenantId, country = 'CO' }: { tenantId: string; co
                   onClick={() => setPosOrderType('pickup')}
                   className={`flex-1 py-1.5 rounded-lg text-xs font-bold transition ${
                     posOrderType === 'pickup'
-                      ? 'bg-blue-600 text-white'
-                      : 'bg-gray-800 text-gray-400 hover:text-gray-200'
+                      ? 'bg-cyan-300/18 text-cyan-50 border border-cyan-300/35'
+                      : 'bg-white/10 text-slate-400 hover:text-slate-100 border border-white/10'
                   }`}
                 >
                   🏠 Para recoger
@@ -1663,7 +2236,7 @@ export function POSTerminal({ tenantId, country = 'CO' }: { tenantId: string; co
               <div className={`${isFullscreen ? 'px-2 py-1' : 'px-2 py-1'}`}>
                 <POSPayment
                   key={paymentResetKey}
-                  total={subtotal - discount}
+                  total={taxableSubtotal + taxAmount}
                   tip={tip}
                   onTipChange={setTip}
                   paymentMethod={paymentMethod}
@@ -1672,6 +2245,7 @@ export function POSTerminal({ tenantId, country = 'CO' }: { tenantId: string; co
                   disabled={cart.length === 0 || (!!selectedTableNumber && !selectedStaffId && billingOrderIds.length === 0)}
                   loading={processingPayment}
                   country={country}
+                  compact={isFullscreen}
                 />
               </div>
             </>
@@ -1680,17 +2254,22 @@ export function POSTerminal({ tenantId, country = 'CO' }: { tenantId: string; co
           {/* Incoming Orders Panel */}
           {showIncomingPanel && (
             <div className="flex-1 flex flex-col overflow-hidden">
-              <div className="p-2 border-b border-gray-800 shrink-0">
+              <div className="p-2 border-b border-white/10 shrink-0">
                 <button
-                  onClick={() => setShowFindPayPanel(true)}
-                  className="w-full bg-blue-600 hover:bg-blue-700 text-white rounded-lg px-3 py-2 font-semibold text-xs transition-all flex items-center justify-center gap-2"
+                  onClick={() => {
+                    setShowFindPayPanel(true);
+                    setShowIncomingPanel(false);
+                    setShowDineInPanel(false);
+                  }}
+                  className="w-full pos-action text-xs"
+                  title="Buscar ticket del cliente para cobrar"
                 >
                   <Search className="w-4 h-4" />
-                  Buscar pedido
+                  Buscar ticket para cobrar
                 </button>
               </div>
               {incomingOrders.length === 0 ? (
-                <div className="flex-1 flex items-center justify-center text-muted-foreground">
+                <div className="flex-1 flex items-center justify-center text-slate-500">
                   <div className="text-center">
                     <p className="text-3xl mb-2">📦</p>
                     <p className="text-sm">No hay pedidos pendientes</p>
@@ -1712,6 +2291,9 @@ export function POSTerminal({ tenantId, country = 'CO' }: { tenantId: string; co
                         await fetchIncomingOrders();
                       }}
                       onLoadForPayment={handleOrderSelected}
+                      onCancelOrder={(order) => cancelIncomingOrder(order.id, order.order_number)}
+                      cancelling={cancellingOrderId === order.id}
+                      currencyInfo={currencyInfo}
                     />
                   ))}
                 </div>

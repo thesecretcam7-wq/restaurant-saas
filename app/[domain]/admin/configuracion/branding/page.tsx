@@ -6,6 +6,7 @@ import { useTenantResolver } from '@/lib/hooks/useTenantResolver'
 import toast from 'react-hot-toast'
 
 const GOOGLE_FONTS = ['Inter', 'Roboto', 'Open Sans', 'Lato', 'Montserrat', 'Playfair Display', 'Nunito', 'Raleway', 'Poppins', 'Oswald']
+const BUTTON_HOVER_EFFECTS = ['none', 'scale', 'glow', 'shadow']
 
 interface BrandingProps { params: Promise<{ domain: string }> }
 
@@ -82,6 +83,22 @@ export default function BrandingPage({ params }: BrandingProps) {
     link_hover_underline: true,
     transition_speed: 'normal',
   })
+
+  const handleColorChange = (key: keyof typeof form, value: string) => {
+    setForm(prev => {
+      const next: typeof prev = { ...prev, [key]: value }
+
+      if (key === 'primary_color') {
+        const oldPrimary = prev.primary_color
+        const shouldSyncAccent = !prev.accent_color || prev.accent_color === oldPrimary || prev.accent_color === '#F59E0B'
+        const shouldSyncButton = !prev.button_primary_color || prev.button_primary_color === oldPrimary || prev.button_primary_color === '#3B82F6'
+        if (shouldSyncAccent) next.accent_color = value
+        if (shouldSyncButton) next.button_primary_color = value
+      }
+
+      return next
+    })
+  }
 
   useEffect(() => {
     if (!tenantUUID) return
@@ -191,9 +208,9 @@ export default function BrandingPage({ params }: BrandingProps) {
         gradient_start_color: form.gradient_start_color,
         gradient_end_color: form.gradient_end_color,
         gradient_direction: form.gradient_direction,
-        button_hover_effect: form.button_hover_effect,
-        button_hover_color: form.button_hover_color,
-        link_hover_color: form.link_hover_color,
+        button_hover_effect: BUTTON_HOVER_EFFECTS.includes(form.button_hover_effect) ? form.button_hover_effect : 'scale',
+        button_hover_color: '',
+        link_hover_color: '',
         link_hover_underline: form.link_hover_underline,
         transition_speed: form.transition_speed,
       }
@@ -218,7 +235,11 @@ export default function BrandingPage({ params }: BrandingProps) {
     }
   }
 
-  if (resolvingTenant || loading) return <div className="flex items-center justify-center h-64 text-gray-400">Cargando...</div>
+  if (resolvingTenant || loading) return (
+    <div className="admin-panel flex h-64 items-center justify-center text-black/45">
+      Cargando branding...
+    </div>
+  )
 
   const imageUploadField = (label: string, field: keyof typeof form, bucket = 'images') => (
     <div>
@@ -241,10 +262,20 @@ export default function BrandingPage({ params }: BrandingProps) {
   )
 
   return (
-    <div className="max-w-4xl">
-      <div className="mb-8">
-        <h1 className="text-2xl font-bold text-gray-900">Branding Completo</h1>
-        <p className="text-gray-500 text-sm mt-1">Personaliza completamente la apariencia de tu restaurante</p>
+    <div className="brand-studio max-w-6xl">
+      <div className="admin-page-header">
+        <div>
+          <p className="admin-eyebrow">Marca</p>
+          <h1 className="admin-title">Branding completo</h1>
+          <p className="admin-subtitle">Personaliza identidad, imagen, tipografia, colores y microtextos con la misma experiencia visual del panel.</p>
+        </div>
+        <button
+          onClick={handleSave}
+          disabled={saving}
+          className="admin-button-primary"
+        >
+          {saving ? 'Guardando...' : 'Guardar cambios'}
+        </button>
       </div>
 
       <div className="space-y-6">
@@ -285,7 +316,7 @@ export default function BrandingPage({ params }: BrandingProps) {
         <div className="bg-white rounded-xl border p-6 space-y-6">
           <h2 className="font-semibold text-lg">Imágenes</h2>
           {imageUploadField('Logo', 'logo_url')}
-          {imageUploadField('Imagen Hero / Banner', 'hero_image_url')}
+          {imageUploadField('Imagen portada tienda y carta QR', 'hero_image_url')}
           {imageUploadField('Favicon', 'favicon_url')}
         </div>
 
@@ -303,7 +334,7 @@ export default function BrandingPage({ params }: BrandingProps) {
                 <input
                   type="color"
                   value={(form as any)[key] || '#000000'}
-                  onChange={e => setForm(f => ({ ...f, [key]: e.target.value }))}
+                  onChange={e => handleColorChange(key as keyof typeof form, e.target.value)}
                   className="w-12 h-12 rounded-lg border cursor-pointer p-1"
                 />
                 <div>
@@ -330,7 +361,7 @@ export default function BrandingPage({ params }: BrandingProps) {
                 <input
                   type="color"
                   value={(form as any)[key] || '#000000'}
-                  onChange={e => setForm(f => ({ ...f, [key]: e.target.value }))}
+                  onChange={e => handleColorChange(key as keyof typeof form, e.target.value)}
                   className="w-12 h-12 rounded-lg border cursor-pointer p-1"
                 />
                 <div>
@@ -788,7 +819,7 @@ export default function BrandingPage({ params }: BrandingProps) {
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Efecto Botones al Pasar</label>
               <select
-                value={form.button_hover_effect}
+                value={BUTTON_HOVER_EFFECTS.includes(form.button_hover_effect) ? form.button_hover_effect : 'scale'}
                 onChange={e => setForm(f => ({ ...f, button_hover_effect: e.target.value }))}
                 className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
@@ -796,7 +827,6 @@ export default function BrandingPage({ params }: BrandingProps) {
                 <option value="scale">Escala</option>
                 <option value="glow">Brillo</option>
                 <option value="shadow">Sombra</option>
-                <option value="color-shift">Cambio de Color</option>
               </select>
             </div>
             <div>
@@ -811,29 +841,8 @@ export default function BrandingPage({ params }: BrandingProps) {
                 <option value="fast">Rápida</option>
               </select>
             </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-3">Color Hover Botones</label>
-              <div className="flex items-center gap-3">
-                <input
-                  type="color"
-                  value={form.button_hover_color || form.primary_color}
-                  onChange={e => setForm(f => ({ ...f, button_hover_color: e.target.value }))}
-                  className="w-12 h-12 rounded-lg border cursor-pointer p-1"
-                />
-                <p className="text-xs text-gray-400">{form.button_hover_color || 'Por defecto'}</p>
-              </div>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-3">Color Hover Enlaces</label>
-              <div className="flex items-center gap-3">
-                <input
-                  type="color"
-                  value={form.link_hover_color || form.primary_color}
-                  onChange={e => setForm(f => ({ ...f, link_hover_color: e.target.value }))}
-                  className="w-12 h-12 rounded-lg border cursor-pointer p-1"
-                />
-                <p className="text-xs text-gray-400">{form.link_hover_color || 'Por defecto'}</p>
-              </div>
+            <div className="col-span-2 rounded-xl border border-blue-100 bg-blue-50 px-4 py-3 text-sm text-blue-900">
+              Los colores al pasar el mouse se calculan automaticamente desde el color principal y el color del boton.
             </div>
             <div className="col-span-2">
               <label className="block text-sm font-medium text-gray-700 mb-3 flex items-center gap-2">
@@ -851,7 +860,7 @@ export default function BrandingPage({ params }: BrandingProps) {
 
         {/* Preview */}
         <div
-          className="rounded-xl border p-8 overflow-hidden"
+          className="brand-preview-frame rounded-xl border p-8 overflow-hidden"
           style={{
             backgroundColor: form.background_color,
             fontFamily: form.font_family,
@@ -898,7 +907,6 @@ export default function BrandingPage({ params }: BrandingProps) {
               if (form.button_hover_effect === 'scale') el.style.transform = 'scale(1.05)'
               if (form.button_hover_effect === 'glow') el.style.boxShadow = `0 0 12px ${form.button_primary_color}80`
               if (form.button_hover_effect === 'shadow') el.style.boxShadow = '0 8px 16px rgba(0,0,0,0.2)'
-              if (form.button_hover_effect === 'color-shift' && form.button_hover_color) el.style.backgroundColor = form.button_hover_color
             }}
             onMouseLeave={e => {
               const el = e.target as any
@@ -914,7 +922,7 @@ export default function BrandingPage({ params }: BrandingProps) {
         <button
           onClick={handleSave}
           disabled={saving}
-          className="w-full py-3 bg-blue-600 text-white rounded-xl font-medium hover:bg-blue-700 disabled:bg-blue-300"
+          className="admin-button-primary w-full disabled:opacity-50"
         >
           {saving ? 'Guardando...' : 'Guardar Cambios'}
         </button>

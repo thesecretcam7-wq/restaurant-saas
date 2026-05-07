@@ -1,28 +1,30 @@
 import type { Metadata, Viewport } from "next";
-import { Geist } from "next/font/google";
 import "./globals.css";
 import PWARegister from "@/components/PWARegister";
 
 // EccoFood - Restaurant SaaS Platform
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
-
 export const metadata: Metadata = {
-  title: "Restaurant.SV",
-  description: "Gestiona tu restaurante desde cualquier dispositivo",
-  applicationName: "Restaurant.SV",
+  title: "Eccofood",
+  description: "Plataforma SaaS para restaurantes: pedidos, POS, cocina, reservas y analitica.",
+  applicationName: "Eccofood",
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
-    title: "Restaurant.SV",
+    title: "Eccofood",
   },
   formatDetection: { telephone: false },
+  icons: {
+    icon: [
+      { url: "/favicon.ico", sizes: "32x32", type: "image/png" },
+      { url: "/icons/icon-192.png", sizes: "192x192", type: "image/png" },
+      { url: "/icons/icon-512.png", sizes: "512x512", type: "image/png" },
+    ],
+    apple: [{ url: "/icons/apple-touch-icon.png", sizes: "180x180", type: "image/png" }],
+  },
   openGraph: {
     type: "website",
-    title: "Restaurant.SV",
+    title: "Eccofood",
     description: "La plataforma todo-en-uno para restaurantes",
   },
 };
@@ -39,15 +41,14 @@ export default function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="es" className={`${geistSans.variable} h-full antialiased`}>
+    <html lang="es" className="h-full antialiased">
       <head>
-        <link rel="icon" href="/icons/icon.svg" type="image/svg+xml" />
-        <link rel="apple-touch-icon" href="/icons/icon.svg" />
+        <meta name="msapplication-TileColor" content="#15130f" />
         <meta name="mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="default" />
       </head>
-      <body className="min-h-full flex flex-col bg-white text-gray-900 relative overflow-x-hidden">
+      <body className="min-h-full flex flex-col bg-[#f7f5f0] text-gray-900 relative overflow-x-hidden">
         <PWARegister />
         {children}
       </body>

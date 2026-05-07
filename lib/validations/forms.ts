@@ -56,6 +56,8 @@ export const productSchema = z.object({
   image_url: z.string().optional(),
   available: z.boolean().default(true),
   featured: z.boolean().default(false),
+  show_in_upsell: z.boolean().default(false),
+  requires_kitchen: z.boolean().default(true),
 })
 
 // Categories

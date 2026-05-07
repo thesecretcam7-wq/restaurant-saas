@@ -69,7 +69,7 @@ export default function ClientMenuContent({
               onClick={() => setSelectedCategoryId(cat.id)}
               className={`px-4 py-2 text-xs font-semibold whitespace-nowrap rounded-full transition-all ${btnCls}`}
               style={{
-                backgroundColor: selectedCategoryId === cat.id ? primary : 'white',
+                backgroundColor: selectedCategoryId === cat.id ? primary : '#f3f4f6',
                 color: selectedCategoryId === cat.id ? 'white' : primary,
                 borderColor: selectedCategoryId === cat.id ? primary : `${primary}40`,
                 borderWidth: '1px'

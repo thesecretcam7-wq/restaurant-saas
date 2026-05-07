@@ -16,6 +16,7 @@ interface CartData {
   selectedTableId: string | null;
   selectedTableNumber: number | null;
   tip?: number;
+  taxRate?: number;
   readonly?: boolean;
   loadedOrderId?: string;
 }
@@ -46,7 +47,9 @@ export async function saveCartToSupabase(
 
     const sessionId = getCartSessionId();
     const subtotal = cartData.items.reduce((sum, item) => sum + item.price * item.quantity, 0);
-    const total = subtotal - cartData.discount + (cartData.tip ?? 0);
+    const taxableSubtotal = Math.max(0, subtotal - cartData.discount);
+    const tax = cartData.taxRate && cartData.taxRate > 0 ? taxableSubtotal * (cartData.taxRate / 100) : 0;
+    const total = taxableSubtotal + tax + (cartData.tip ?? 0);
 
     // Check if cart session already exists
     const { data: existingCart } = await supabase

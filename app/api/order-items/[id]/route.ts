@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import { NextRequest, NextResponse } from 'next/server';
+import { requireTenantAccess, tenantAuthErrorResponse } from '@/lib/tenant-api-auth';
 
 export async function PATCH(
   request: NextRequest,
@@ -20,6 +21,7 @@ export async function PATCH(
         { status: 400 }
       );
     }
+    await requireTenantAccess(tenantId, { staffRoles: ['admin', 'cajero', 'camarero', 'cocinero'] });
 
     const validStatuses = ['pending', 'confirmed', 'preparing', 'ready', 'delivered', 'cancelled'];
     if (!validStatuses.includes(status)) {
@@ -79,6 +81,9 @@ export async function PATCH(
 
     return NextResponse.json(data);
   } catch (error: any) {
+    if (error instanceof Error && ['Unauthorized', 'Forbidden'].includes(error.message)) {
+      return tenantAuthErrorResponse(error);
+    }
     console.error('PATCH order-item error:', error);
     return NextResponse.json({ error: error?.message || 'Internal server error' }, { status: 500 });
   }
@@ -100,6 +105,7 @@ export async function DELETE(
     if (!tenantId) {
       return NextResponse.json({ error: 'Missing tenantId' }, { status: 400 });
     }
+    await requireTenantAccess(tenantId, { staffRoles: ['admin', 'cajero', 'camarero', 'cocinero'] });
 
     const { error } = await supabase
       .from('order_items')
@@ -113,6 +119,9 @@ export async function DELETE(
 
     return NextResponse.json({ success: true });
   } catch (error: any) {
+    if (error instanceof Error && ['Unauthorized', 'Forbidden'].includes(error.message)) {
+      return tenantAuthErrorResponse(error);
+    }
     return NextResponse.json({ error: error?.message || 'Internal server error' }, { status: 500 });
   }
 }

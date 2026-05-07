@@ -1,5 +1,8 @@
 import { createServiceClient } from '@/lib/supabase/server'
+import { getCurrencyByCountry } from '@/lib/currency'
 import KioskoClient from './KioskoClient'
+
+export const dynamic = 'force-dynamic'
 
 interface Props {
   params: Promise<{ domain: string }>
@@ -14,7 +17,7 @@ export default async function KioskoPage({ params, searchParams }: Props) {
 
   const { data: tenant } = await supabase
     .from('tenants')
-    .select('id, organization_name, stripe_account_id')
+    .select('id, organization_name, stripe_account_id, logo_url, metadata, country')
     .eq('slug', domain)
     .single()
 
@@ -26,10 +29,10 @@ export default async function KioskoPage({ params, searchParams }: Props) {
     )
   }
 
-  const [brandingRes, categoriesRes, itemsRes, settingsRes, bannersRes] = await Promise.all([
+  const [brandingRes, categoriesRes, itemsRes, toppingsRes, settingsRes, bannersRes] = await Promise.all([
     supabase
       .from('tenant_branding')
-      .select('app_name, primary_color, logo_url: favicon_url')
+      .select('app_name, primary_color, secondary_color, accent_color, background_color, button_primary_color, button_secondary_color, text_primary_color, text_secondary_color, border_color, logo_url, favicon_url')
       .eq('tenant_id', tenant.id)
       .maybeSingle(),
     supabase
@@ -39,12 +42,18 @@ export default async function KioskoPage({ params, searchParams }: Props) {
       .order('sort_order'),
     supabase
       .from('menu_items')
-      .select('id, name, description, price, image_url, available, category_id, featured')
+      .select('*')
       .eq('tenant_id', tenant.id)
       .order('created_at', { ascending: true }),
     supabase
+      .from('product_toppings')
+      .select('id, menu_item_id, name, price, sort_order')
+      .eq('tenant_id', tenant.id)
+      .order('sort_order')
+      .then(res => res, () => ({ data: [] })),
+    supabase
       .from('restaurant_settings')
-      .select('tax_rate, currency_symbol')
+      .select('tax_rate, currency_symbol, country, country_code')
       .eq('tenant_id', tenant.id)
       .maybeSingle(),
     supabase
@@ -55,10 +64,26 @@ export default async function KioskoPage({ params, searchParams }: Props) {
       .order('sort_order'),
   ])
 
+  const tenantMetadata = (tenant.metadata || {}) as Record<string, any>
+  const metadataBranding = (tenantMetadata.branding || {}) as Record<string, any>
+
   const branding = {
     appName: brandingRes.data?.app_name || tenant.organization_name,
     primaryColor: brandingRes.data?.primary_color || '#E4002B',
-    logoUrl: (brandingRes.data as any)?.logo_url || null,
+    secondaryColor: brandingRes.data?.secondary_color || '#111827',
+    accentColor: brandingRes.data?.accent_color || brandingRes.data?.primary_color || '#E4002B',
+    backgroundColor: brandingRes.data?.background_color || '#F3F4F6',
+    buttonPrimaryColor: brandingRes.data?.button_primary_color || brandingRes.data?.primary_color || '#E4002B',
+    buttonSecondaryColor: brandingRes.data?.button_secondary_color || brandingRes.data?.secondary_color || '#111827',
+    textPrimaryColor: brandingRes.data?.text_primary_color || '#111827',
+    textSecondaryColor: brandingRes.data?.text_secondary_color || '#6B7280',
+    borderColor: brandingRes.data?.border_color || '#E5E7EB',
+    logoUrl:
+      tenant.logo_url ||
+      metadataBranding.logo_url ||
+      (brandingRes.data as any)?.logo_url ||
+      (brandingRes.data as any)?.favicon_url ||
+      null,
   }
 
   const initialConfirmed =
@@ -73,9 +98,11 @@ export default async function KioskoPage({ params, searchParams }: Props) {
       branding={branding}
       categories={categoriesRes.data || []}
       menuItems={itemsRes.data || []}
+      toppings={toppingsRes.data || []}
       banners={bannersRes.data || []}
       taxRate={settingsRes.data?.tax_rate || 0}
-      currencySymbol={settingsRes.data?.currency_symbol || '$'}
+      currencyCode={getCurrencyByCountry(settingsRes.data?.country_code || settingsRes.data?.country || tenant.country || 'ES').code}
+      currencyLocale={getCurrencyByCountry(settingsRes.data?.country_code || settingsRes.data?.country || tenant.country || 'ES').locale}
       stripeEnabled={!!tenant.stripe_account_id}
       initialConfirmed={initialConfirmed}
     />

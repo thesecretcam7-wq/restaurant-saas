@@ -12,6 +12,11 @@ export interface PrinterConfig {
   auto_print: boolean;
   copies: number;
   print_on_status: 'pending' | 'confirmed' | 'preparing';
+  connection_mode?: 'webusb' | 'browser_driver';
+  browser_printer_name?: string;
+  local_bridge_enabled?: boolean;
+  local_bridge_url?: string;
+  cash_drawer_enabled?: boolean;
 }
 
 export interface PrinterDevice {
@@ -45,6 +50,7 @@ export interface ReceiptData {
   orderId: string;
   orderNumber: string;
   restaurantName?: string;
+  restaurantPhone?: string | null;
   items: Array<{
     menu_item_id: string;
     name: string;
@@ -53,6 +59,8 @@ export interface ReceiptData {
   }>;
   subtotal: number;
   discount: number;
+  tax?: number;
+  taxRate?: number;
   total: number;
   amountPaid?: number;
   change: number;
@@ -64,6 +72,7 @@ export interface ReceiptData {
   timestamp?: string;
   waiterName?: string;
   tableNumber?: number;
+  openCashDrawer?: boolean;
 }
 
 export interface WebUSBDevice {

@@ -3,12 +3,13 @@
 import { use, useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
 import type { Order } from '@/lib/types'
+import { formatPriceWithCurrency, getCurrencyByCountry } from '@/lib/currency'
 
 interface Props { params: Promise<{ domain: string }> }
 
 const STATUS: Record<string, { label: string; bg: string; dot: string; icon: string }> = {
   pending:    { label: 'Pendiente',    bg: '#FEF3C7', dot: '#F59E0B', icon: '⏳' },
-  confirmed:  { label: 'Confirmado',   bg: '#DBEAFE', dot: '#E4002B', icon: '✅' },
+  confirmed:  { label: 'Confirmado',   bg: 'color-mix(in srgb, var(--primary-color, #E4002B) 12%, white)', dot: 'var(--primary-color, #E4002B)', icon: '✅' },
   preparing:  { label: 'Preparando',   bg: '#FEE2E2', dot: '#EF4444', icon: '👨‍🍳' },
   on_the_way: { label: 'En camino',    bg: '#EDE9FE', dot: '#8B5CF6', icon: '🚗' },
   delivered:  { label: 'Entregado',    bg: '#D1FAE5', dot: '#10B981', icon: '🎉' },
@@ -24,10 +25,23 @@ export default function MisPedidosPage({ params }: Props) {
   const [orders, setOrders] = useState<Order[] | null>(null)
   const [loading, setLoading] = useState(false)
   const [searched, setSearched] = useState(false)
+  const [currencyInfo, setCurrencyInfo] = useState(() => getCurrencyByCountry('ES'))
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const activePhoneRef = useRef<string>('')
 
   const primary = 'var(--primary-color, #E4002B)'
+  const money = (amount: number) => formatPriceWithCurrency(Number(amount || 0), currencyInfo.code, currencyInfo.locale)
+
+  useEffect(() => {
+    fetch(`/api/settings/${tenantSlug}`, { cache: 'no-store' })
+      .then(res => res.ok ? res.json() : null)
+      .then(settings => {
+        if (settings?.country || settings?.country_code) {
+          setCurrencyInfo(getCurrencyByCountry(settings.country_code || settings.country))
+        }
+      })
+      .catch(() => {})
+  }, [tenantSlug])
 
   async function fetchOrders(tel: string, silent = false) {
     if (!silent) setLoading(true)
@@ -79,7 +93,7 @@ export default function MisPedidosPage({ params }: Props) {
         {/* Search card */}
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
           <div className="flex items-center gap-3 mb-4">
-            <div className="w-10 h-10 rounded-xl flex items-center justify-center text-xl" style={{ backgroundColor: 'var(--primary-color, #E4002B)15', color: primary }}>
+            <div className="w-10 h-10 rounded-xl flex items-center justify-center text-xl" style={{ backgroundColor: 'color-mix(in srgb, var(--primary-color, #E4002B) 12%, white)', color: primary }}>
               📋
             </div>
             <div>
@@ -164,7 +178,7 @@ export default function MisPedidosPage({ params }: Props) {
                       {order.items.map((item, i) => (
                         <div key={i} className="flex justify-between text-sm text-gray-600">
                           <span>{item.qty}× {item.name}</span>
-                          <span className="font-medium">${(item.price * item.qty).toLocaleString('es-CO')}</span>
+                          <span className="font-medium">{money(item.price * item.qty)}</span>
                         </div>
                       ))}
                     </div>
@@ -172,7 +186,7 @@ export default function MisPedidosPage({ params }: Props) {
                     {/* Total */}
                     <div className="flex justify-between items-center px-4 py-3 bg-gray-50 border-t border-gray-100">
                       <span className="text-sm font-bold text-gray-600">Total pagado</span>
-                      <span className="font-extrabold text-base" style={{ color: primary }}>${Number(order.total).toLocaleString('es-CO')}</span>
+                      <span className="font-extrabold text-base" style={{ color: primary }}>{money(Number(order.total))}</span>
                     </div>
                   </div>
                 )
@@ -184,3 +198,4 @@ export default function MisPedidosPage({ params }: Props) {
     </div>
   )
 }
+

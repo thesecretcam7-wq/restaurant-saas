@@ -10,6 +10,7 @@ interface ReceiptOptions {
   paperWidth: 58 | 80;
   copies: number;
   locale: string;
+  openCashDrawer?: boolean;
 }
 
 // ESC/POS command constants
@@ -48,6 +49,7 @@ export function generateReceiptESCPOS(data: ReceiptData, options: ReceiptOptions
   push(ALIGN_CENTER, SIZE_2X, BOLD_ON);
   line(data.restaurantName ?? 'Restaurante');
   push(BOLD_OFF);
+  if (data.restaurantPhone) line(`Tel: ${data.restaurantPhone}`);
 
   // ── Order number (centered) ───────────────────────────────────────────────
   push(BOLD_ON);
@@ -56,10 +58,13 @@ export function generateReceiptESCPOS(data: ReceiptData, options: ReceiptOptions
 
   // ── Date/time ─────────────────────────────────────────────────────────────
   const ts = data.timestamp ? new Date(data.timestamp) : new Date();
-  line(ts.toLocaleString('es-CO', {
+  const receiptLocale = data.currencyInfo?.locale || options.locale || 'es-ES';
+  line(`Fecha: ${ts.toLocaleDateString(receiptLocale, {
     day: '2-digit', month: '2-digit', year: 'numeric',
+  })}`);
+  line(`Hora: ${ts.toLocaleTimeString(receiptLocale, {
     hour: '2-digit', minute: '2-digit',
-  }));
+  })}`);
 
   // ── Table / waiter ────────────────────────────────────────────────────────
   if (data.tableNumber) line(`Mesa: ${data.tableNumber}`);
@@ -91,11 +96,18 @@ export function generateReceiptESCPOS(data: ReceiptData, options: ReceiptOptions
   sep();
 
   // ── Subtotal / discount ───────────────────────────────────────────────────
-  if (data.discount > 0) {
+  if (data.discount > 0 || (data.tax || 0) > 0) {
     const subStr = formatPrice(data.subtotal, data);
-    const disStr = '-' + formatPrice(data.discount, data);
     line(padR('Subtotal:', bCols - subStr.length) + subStr);
-    line(padR('Descuento:', bCols - disStr.length) + disStr);
+    if (data.discount > 0) {
+      const disStr = '-' + formatPrice(data.discount, data);
+      line(padR('Descuento:', bCols - disStr.length) + disStr);
+    }
+    if ((data.tax || 0) > 0) {
+      const taxStr = formatPrice(data.tax || 0, data);
+      const taxLabel = data.taxRate ? `IVA ${data.taxRate}%:` : 'IVA:';
+      line(padR(taxLabel, bCols - taxStr.length) + taxStr);
+    }
   }
 
   // ── TOTAL (big centered) ──────────────────────────────────────────────────
@@ -127,6 +139,9 @@ export function generateReceiptESCPOS(data: ReceiptData, options: ReceiptOptions
   line('');
 
   // ── Cut ───────────────────────────────────────────────────────────────────
+  if (options.openCashDrawer) {
+    push(`${ESC}p\x00\x19\xfa`);
+  }
   push(`${GS}V\x42\x00`); // Full cut
   push(ALIGN_LEFT, SIZE_NORMAL);
 

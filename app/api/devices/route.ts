@@ -8,6 +8,35 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { requireTenantAccess, tenantAuthErrorResponse } from '@/lib/tenant-api-auth';
+import { writeAuditLog } from '@/lib/audit-log';
+
+function isBrowserDriverDevice(device: any) {
+  return device?.config?.connection_mode === 'browser_driver' || (!device?.vendor_id && !device?.product_id);
+}
+
+function dedupeBrowserDriverDevices(devices: any[] = []) {
+  const browserDriverDevices = devices.filter(isBrowserDriverDevice);
+  const selectedBrowserDriver = browserDriverDevices.find((device) => device.is_default) || browserDriverDevices[0];
+  const directDevices = devices.filter((device) => !isBrowserDriverDevice(device));
+
+  const normalizedBrowserDriver = selectedBrowserDriver
+    ? {
+        ...selectedBrowserDriver,
+        status: 'connected',
+        config: {
+          ...(selectedBrowserDriver.config || {}),
+          connection_mode: 'browser_driver',
+          browser_printer_name: selectedBrowserDriver.config?.browser_printer_name || 'default',
+          local_bridge_enabled: selectedBrowserDriver.config?.local_bridge_enabled !== false,
+          local_bridge_url: selectedBrowserDriver.config?.local_bridge_url || 'http://127.0.0.1:17777',
+          cash_drawer_enabled: selectedBrowserDriver.config?.cash_drawer_enabled !== false,
+        },
+      }
+    : null;
+
+  return normalizedBrowserDriver ? [normalizedBrowserDriver, ...directDevices] : directDevices;
+}
 
 export async function GET(request: NextRequest) {
   const supabase = createClient(
@@ -26,6 +55,8 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    const access = await requireTenantAccess(tenantId, { staffRoles: ['admin'], requireAdminPermission: true });
+
     // Fetch devices for this tenant
     const { data: devices, error } = await supabase
       .from('printer_devices')
@@ -37,8 +68,11 @@ export async function GET(request: NextRequest) {
       throw error;
     }
 
-    return NextResponse.json({ devices });
+    return NextResponse.json({ devices: dedupeBrowserDriverDevices(devices || []) });
   } catch (error) {
+    if (error instanceof Error && ['Unauthorized', 'Forbidden'].includes(error.message)) {
+      return tenantAuthErrorResponse(error);
+    }
     console.error('Error fetching devices:', error);
     return NextResponse.json(
       { error: 'Error al obtener dispositivos' },
@@ -54,13 +88,67 @@ export async function POST(request: NextRequest) {
   );
   try {
     const body = await request.json();
-    const { tenantId, name, device_type, vendor_id, product_id, serial_number, config } = body;
+    const { tenantId, name, device_type, vendor_id, product_id, serial_number, config, status } = body;
 
     if (!tenantId || !name) {
       return NextResponse.json(
         { error: 'tenantId y name son requeridos' },
         { status: 400 }
       );
+    }
+
+    const access = await requireTenantAccess(tenantId, { staffRoles: ['admin'], requireAdminPermission: true });
+
+    const isBrowserDriver = config?.connection_mode === 'browser_driver' || (!vendor_id && !product_id);
+
+    if (isBrowserDriver) {
+      const { data: existingDevices, error: existingError } = await supabase
+        .from('printer_devices')
+        .select('*')
+        .eq('tenant_id', tenantId)
+        .order('created_at', { ascending: false });
+
+      if (existingError) throw existingError;
+
+      const existingBrowserDriver = dedupeBrowserDriverDevices(existingDevices || []).find(isBrowserDriverDevice);
+
+      if (existingBrowserDriver) {
+        const { data: updatedDevice, error: updateError } = await supabase
+          .from('printer_devices')
+          .update({
+            name,
+            device_type: device_type || existingBrowserDriver.device_type || 'receipt',
+            status: 'connected',
+            config: {
+              ...(existingBrowserDriver.config || {}),
+              ...(config || {}),
+              connection_mode: 'browser_driver',
+              browser_printer_name: 'default',
+              local_bridge_enabled: config?.local_bridge_enabled ?? existingBrowserDriver.config?.local_bridge_enabled ?? true,
+              local_bridge_url: config?.local_bridge_url || existingBrowserDriver.config?.local_bridge_url || 'http://127.0.0.1:17777',
+              cash_drawer_enabled: config?.cash_drawer_enabled ?? existingBrowserDriver.config?.cash_drawer_enabled ?? true,
+            },
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', existingBrowserDriver.id)
+          .eq('tenant_id', tenantId)
+          .select()
+          .single();
+
+        if (updateError) throw updateError;
+
+        await writeAuditLog(supabase, {
+          tenantId,
+          actor: access,
+          action: 'printer.updated',
+          entityType: 'printer_device',
+          entityId: updatedDevice.id,
+          reason: 'Configuracion de impresora de Windows actualizada',
+          metadata: { name, reused: true },
+        });
+
+        return NextResponse.json({ device: updatedDevice, reused: true }, { status: 200 });
+      }
     }
 
     // Insert new device
@@ -73,7 +161,18 @@ export async function POST(request: NextRequest) {
         vendor_id,
         product_id,
         serial_number,
-        config: config || { paper_width: 80, auto_print: true, copies: 1 },
+        status: status || (isBrowserDriver || (vendor_id && product_id) ? 'connected' : 'disconnected'),
+        config: config || {
+          paper_width: 80,
+          auto_print: true,
+          copies: 1,
+          print_on_status: 'confirmed',
+          connection_mode: vendor_id && product_id ? 'webusb' : 'browser_driver',
+          browser_printer_name: vendor_id && product_id ? undefined : 'default',
+          local_bridge_enabled: !(vendor_id && product_id),
+          local_bridge_url: 'http://127.0.0.1:17777',
+          cash_drawer_enabled: true,
+        },
       })
       .select()
       .single();
@@ -91,8 +190,21 @@ export async function POST(request: NextRequest) {
       details: { name },
     });
 
+    await writeAuditLog(supabase, {
+      tenantId,
+      actor: access,
+      action: 'printer.created',
+      entityType: 'printer_device',
+      entityId: device.id,
+      reason: 'Impresora agregada',
+      metadata: { name, device_type: device.device_type, connection_mode: device.config?.connection_mode },
+    });
+
     return NextResponse.json({ device }, { status: 201 });
   } catch (error) {
+    if (error instanceof Error && ['Unauthorized', 'Forbidden'].includes(error.message)) {
+      return tenantAuthErrorResponse(error);
+    }
     console.error('Error creating device:', error);
     const errorMsg = error instanceof Error ? error.message : String(error);
     return NextResponse.json(
@@ -128,6 +240,8 @@ export async function PUT(request: NextRequest) {
       );
     }
 
+    const access = await requireTenantAccess(tenantId, { staffRoles: ['admin'], requireAdminPermission: true });
+
     // Update device
     const { data: device, error } = await supabase
       .from('printer_devices')
@@ -153,8 +267,21 @@ export async function PUT(request: NextRequest) {
       details: updateData,
     });
 
+    await writeAuditLog(supabase, {
+      tenantId,
+      actor: access,
+      action: 'printer.updated',
+      entityType: 'printer_device',
+      entityId: deviceId,
+      reason: 'Configuracion de impresora actualizada',
+      metadata: updateData,
+    });
+
     return NextResponse.json({ device });
   } catch (error) {
+    if (error instanceof Error && ['Unauthorized', 'Forbidden'].includes(error.message)) {
+      return tenantAuthErrorResponse(error);
+    }
     console.error('Error updating device:', error);
     return NextResponse.json(
       { error: 'Error al actualizar dispositivo' },
@@ -180,6 +307,19 @@ export async function DELETE(request: NextRequest) {
       );
     }
 
+    const access = await requireTenantAccess(tenantId, { staffRoles: ['admin'], requireAdminPermission: true });
+
+    // Clear references before deleting. Otherwise default/kitchen printer foreign keys can block deletion.
+    await supabase
+      .from('restaurant_settings')
+      .update({
+        default_receipt_printer_id: null,
+        kitchen_printer_id: null,
+        printer_updated_at: new Date().toISOString(),
+      })
+      .eq('tenant_id', tenantId)
+      .or(`default_receipt_printer_id.eq.${deviceId},kitchen_printer_id.eq.${deviceId}`);
+
     // Delete device
     const { error } = await supabase
       .from('printer_devices')
@@ -199,8 +339,20 @@ export async function DELETE(request: NextRequest) {
       status: 'success',
     });
 
+    await writeAuditLog(supabase, {
+      tenantId,
+      actor: access,
+      action: 'printer.deleted',
+      entityType: 'printer_device',
+      entityId: deviceId,
+      reason: 'Impresora eliminada',
+    });
+
     return NextResponse.json({ success: true });
   } catch (error) {
+    if (error instanceof Error && ['Unauthorized', 'Forbidden'].includes(error.message)) {
+      return tenantAuthErrorResponse(error);
+    }
     console.error('Error deleting device:', error);
     return NextResponse.json(
       { error: 'Error al eliminar dispositivo' },

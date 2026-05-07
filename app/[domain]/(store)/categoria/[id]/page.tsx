@@ -1,6 +1,7 @@
 import { createServiceClient } from '@/lib/supabase/server'
-import { formatPrice } from '@/lib/currency'
+import { formatPriceWithCurrency, getCurrencyByCountry } from '@/lib/currency'
 import { getTenantContext } from '@/lib/tenant'
+import { deriveBrandPalette } from '@/lib/brand-colors'
 import AddToCartButton from '@/components/store/AddToCartButton'
 
 interface CategoryPageProps {
@@ -17,7 +18,7 @@ export default async function CategoryPage({ params }: CategoryPageProps) {
       <div className="min-h-screen flex items-center justify-center bg-gray-100">
         <div className="text-center">
           <h1 className="text-2xl font-bold text-gray-900 mb-2">Restaurante No Encontrado</h1>
-          <a href="/" className="text-blue-600 hover:underline">Volver al inicio</a>
+          <a href="/" className="font-semibold text-gray-900 hover:underline">Volver al inicio</a>
         </div>
       </div>
     )
@@ -31,20 +32,33 @@ export default async function CategoryPage({ params }: CategoryPageProps) {
   const category = categoryRes.data
   const items = itemsRes.data || []
   const branding = context.branding
+  const palette = deriveBrandPalette({
+    primary: branding?.primary_color,
+    background: branding?.background_color,
+    surface: branding?.section_background_color,
+    textPrimary: branding?.text_primary_color,
+    textSecondary: branding?.text_secondary_color,
+    border: branding?.border_color,
+  })
+  const primary = palette.primary
+  const countryCurrency = getCurrencyByCountry(context.settings?.country_code || context.settings?.country || (context.tenant as any)?.country || 'ES')
+  const currencyInfo = context.settings?.currency
+    ? { ...countryCurrency, code: context.settings.currency, symbol: context.settings.currency_symbol || countryCurrency.symbol }
+    : countryCurrency
 
   if (!category) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-100">
         <div className="text-center">
           <h1 className="text-2xl font-bold text-gray-900 mb-2">Categoría No Encontrada</h1>
-          <a href={`/${context.tenant?.slug || domain}`} className="text-blue-600 hover:underline">Volver al menú</a>
+          <a href={`/${context.tenant?.slug || domain}`} className="font-semibold hover:underline" style={{ color: primary }}>Volver al menú</a>
         </div>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen" style={{ backgroundColor: branding?.background_color }}>
+    <div className="min-h-screen" style={{ backgroundColor: palette.background }}>
       {/* Header */}
       <header className="sticky top-0 z-10 bg-white/90 backdrop-blur border-b">
         <div className="max-w-4xl mx-auto px-4 py-4">
@@ -55,7 +69,7 @@ export default async function CategoryPage({ params }: CategoryPageProps) {
             </a>
           </div>
           <div>
-            <h1 className="font-bold text-2xl" style={{ color: branding?.primary_color }}>
+            <h1 className="font-bold text-2xl" style={{ color: primary }}>
               {category.name}
             </h1>
             {category.description && (
@@ -73,7 +87,7 @@ export default async function CategoryPage({ params }: CategoryPageProps) {
         ) : (
           <div className="space-y-3">
             {items.map(item => (
-              <MenuItemCard key={item.id} item={item} tenantSlug={context.tenant?.slug || domain} branding={branding} />
+              <MenuItemCard key={item.id} item={item} tenantSlug={context.tenant?.slug || domain} branding={branding} currencyInfo={currencyInfo} />
             ))}
           </div>
         )}
@@ -82,7 +96,7 @@ export default async function CategoryPage({ params }: CategoryPageProps) {
   )
 }
 
-function MenuItemCard({ item, tenantSlug, branding }: { item: any; tenantSlug: string; branding: any }) {
+function MenuItemCard({ item, tenantSlug, branding, currencyInfo }: { item: any; tenantSlug: string; branding: any; currencyInfo: { code: string; locale: string } }) {
   return (
     <div className="bg-white rounded-xl border overflow-hidden flex items-center gap-4 p-3 hover:shadow-md transition-shadow">
       {item.image_url ? (
@@ -93,11 +107,11 @@ function MenuItemCard({ item, tenantSlug, branding }: { item: any; tenantSlug: s
       <div className="flex-1 min-w-0">
         <p className="font-semibold text-gray-900">{item.name}</p>
         {item.description && <p className="text-sm text-gray-500 mt-0.5 line-clamp-2">{item.description}</p>}
-        <p className="font-bold mt-2" style={{ color: branding?.primary_color }}>
-          {formatPrice(item.price)}
+        <p className="font-bold mt-2" style={{ color: branding?.primary_color || '#E4002B' }}>
+          {formatPriceWithCurrency(item.price, currencyInfo.code, currencyInfo.locale)}
         </p>
       </div>
-      <AddToCartButton item={item} tenantId={tenantSlug} color={branding?.primary_color} />
+      <AddToCartButton item={item} tenantId={tenantSlug} color={branding?.button_primary_color || branding?.primary_color} />
     </div>
   )
 }

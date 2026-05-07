@@ -1,13 +1,22 @@
 'use client'
 
 import { useCartStore } from '@/lib/store/cart'
-import { formatPrice } from '@/lib/currency'
+import { formatPriceWithCurrency } from '@/lib/currency'
 import Link from 'next/link'
 
-export default function CartBar({ tenantId, primaryColor }: { tenantId: string; primaryColor?: string }) {
+export default function CartBar({
+  tenantId,
+  primaryColor,
+  currencyInfo,
+}: {
+  tenantId: string
+  primaryColor?: string
+  currencyInfo?: { code: string; locale: string }
+}) {
   const { items, total } = useCartStore()
   const count = items.reduce((s, i) => s + i.qty, 0)
   const color = primaryColor || '#4F46E5'
+  const money = (value: number) => formatPriceWithCurrency(Number(value || 0), currencyInfo?.code || 'EUR', currencyInfo?.locale || 'es-ES')
 
   if (count === 0) return null
 
@@ -22,7 +31,7 @@ export default function CartBar({ tenantId, primaryColor }: { tenantId: string; 
           <span className="w-6 h-6 bg-white/25 rounded-full text-xs font-extrabold flex items-center justify-center">{count}</span>
           <span className="font-semibold text-sm">Ver pedido</span>
         </span>
-        <span className="font-extrabold text-sm">{formatPrice(total())}</span>
+        <span className="font-extrabold text-sm">{money(total())}</span>
       </Link>
     </div>
   )

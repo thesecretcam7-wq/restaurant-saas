@@ -10,6 +10,91 @@ export interface CashClosingStats {
   transactionCount: number;
   ordersCompleted: number;
   ordersCancelled: number;
+  periodStart: string;
+  periodEnd: string;
+  businessDateLabel: string;
+  operationalCloseTime: string;
+  closingOrders: {
+    id: string;
+    order_number?: string | null;
+    total: number;
+    payment_method?: string | null;
+    created_at?: string | null;
+  }[];
+}
+
+const DEFAULT_OPERATIONAL_CLOSE_MINUTES = 5 * 60; // 05:00, useful for restaurants that close after midnight.
+
+function emptyStats(period: CashClosingPeriod): CashClosingStats {
+  return {
+    cashSales: 0,
+    cardSales: 0,
+    otherSales: 0,
+    totalSales: 0,
+    totalTax: 0,
+    totalDiscount: 0,
+    transactionCount: 0,
+    ordersCompleted: 0,
+    ordersCancelled: 0,
+    closingOrders: [],
+    ...period,
+  };
+}
+
+type CashClosingPeriod = {
+  periodStart: string;
+  periodEnd: string;
+  businessDateLabel: string;
+  operationalCloseTime: string;
+};
+
+function parseTimeToMinutes(value?: string | null) {
+  if (!value || !/^\d{1,2}:\d{2}$/.test(value)) return null;
+  const [hours, minutes] = value.split(':').map(Number);
+  if (hours < 0 || hours > 23 || minutes < 0 || minutes > 59) return null;
+  return hours * 60 + minutes;
+}
+
+function formatMinutes(minutes: number) {
+  const h = Math.floor(minutes / 60).toString().padStart(2, '0');
+  const m = (minutes % 60).toString().padStart(2, '0');
+  return `${h}:${m}`;
+}
+
+function findOperationalCloseMinutes(operatingHours: any) {
+  const overnightCloseMinutes: number[] = [];
+
+  Object.values(operatingHours || {}).forEach((day: any) => {
+    Object.values(day || {}).forEach((shift: any) => {
+      const open = parseTimeToMinutes(shift?.open);
+      const close = parseTimeToMinutes(shift?.close);
+      if (open === null || close === null) return;
+      if (close <= open) overnightCloseMinutes.push(close);
+    });
+  });
+
+  if (overnightCloseMinutes.length === 0) return DEFAULT_OPERATIONAL_CLOSE_MINUTES;
+  return Math.max(...overnightCloseMinutes);
+}
+
+function calculateBusinessPeriod(closeMinutes: number, now = new Date()): CashClosingPeriod {
+  const currentMinutes = now.getHours() * 60 + now.getMinutes();
+  const start = new Date(now);
+  start.setHours(Math.floor(closeMinutes / 60), closeMinutes % 60, 0, 0);
+
+  if (currentMinutes < closeMinutes) {
+    start.setDate(start.getDate() - 1);
+  }
+
+  const end = new Date(start);
+  end.setDate(end.getDate() + 1);
+
+  return {
+    periodStart: start.toISOString(),
+    periodEnd: end.toISOString(),
+    businessDateLabel: start.toLocaleDateString('es-ES', { weekday: 'long', day: '2-digit', month: 'long' }),
+    operationalCloseTime: formatMinutes(closeMinutes),
+  };
 }
 
 /**
@@ -22,10 +107,26 @@ export async function calculateCashClosingStats(
   toDate?: Date
 ): Promise<CashClosingStats> {
   const supabase = createClient();
-  const startDate = fromDate || new Date(new Date().setHours(0, 0, 0, 0));
-  const endDate = toDate || new Date();
 
   try {
+    const { data: settings } = await supabase
+      .from('restaurant_settings')
+      .select('operating_hours')
+      .eq('tenant_id', tenantId)
+      .maybeSingle();
+
+    const period = fromDate && toDate
+      ? {
+          periodStart: fromDate.toISOString(),
+          periodEnd: toDate.toISOString(),
+          businessDateLabel: fromDate.toLocaleDateString('es-ES', { weekday: 'long', day: '2-digit', month: 'long' }),
+          operationalCloseTime: 'manual',
+        }
+      : calculateBusinessPeriod(findOperationalCloseMinutes(settings?.operating_hours));
+
+    const startDate = fromDate || new Date(period.periodStart);
+    const endDate = toDate || new Date(period.periodEnd);
+
     const { data: orders, error } = await supabase
       .from('orders')
       .select('*')
@@ -36,18 +137,12 @@ export async function calculateCashClosingStats(
 
     if (error) {
       console.error('Error fetching orders:', error);
-      return {
-        cashSales: 0,
-        cardSales: 0,
-        otherSales: 0,
-        totalSales: 0,
-        totalTax: 0,
-        totalDiscount: 0,
-        transactionCount: 0,
-        ordersCompleted: 0,
-        ordersCancelled: 0,
-      };
+      return emptyStats(period);
     }
+
+    const countableOrders = (orders || []).filter((order: any) =>
+      order.status !== 'cancelled' && order.payment_status === 'paid'
+    );
 
     const stats = {
       cashSales: 0,
@@ -56,14 +151,28 @@ export async function calculateCashClosingStats(
       totalSales: 0,
       totalTax: 0,
       totalDiscount: 0,
-      transactionCount: orders?.length || 0,
+      transactionCount: countableOrders.length,
       ordersCompleted: 0,
       ordersCancelled: 0,
+      closingOrders: countableOrders.map((order: any) => ({
+        id: order.id,
+        order_number: order.order_number,
+        total: Number(order.total) || 0,
+        payment_method: order.payment_method,
+        created_at: order.created_at,
+      })),
+      ...period,
     };
 
     orders?.forEach((order: any) => {
+      if (order.status === 'cancelled') {
+        stats.ordersCancelled++;
+        return;
+      }
+      if (order.payment_status !== 'paid') return;
+
       const total = Number(order.total) || 0;
-      const tax = Number(order.tax_amount) || 0;
+      const tax = Number(order.tax ?? order.tax_amount) || 0;
       const discount = Number(order.discount_amount) || 0;
 
       // Desglose por método de pago
@@ -82,25 +191,12 @@ export async function calculateCashClosingStats(
       if (order.status === 'delivered' || order.status === 'completed') {
         stats.ordersCompleted++;
       }
-      if (order.status === 'cancelled') {
-        stats.ordersCancelled++;
-      }
     });
 
     return stats;
   } catch (error) {
     console.error('Error calculating cash closing stats:', error);
-    return {
-      cashSales: 0,
-      cardSales: 0,
-      otherSales: 0,
-      totalSales: 0,
-      totalTax: 0,
-      totalDiscount: 0,
-      transactionCount: 0,
-      ordersCompleted: 0,
-      ordersCancelled: 0,
-    };
+    return emptyStats(calculateBusinessPeriod(DEFAULT_OPERATIONAL_CLOSE_MINUTES));
   }
 }
 
@@ -118,8 +214,10 @@ export async function saveCashClosing(
 ) {
   const supabase = createClient();
 
-  const expectedTotal = closingData.cashSales + closingData.totalTax - closingData.totalDiscount;
+  const expectedTotal = closingData.cashSales;
   const difference = expectedTotal - closingData.actualCashCount;
+  const periodNote = `Periodo operativo: ${new Date(closingData.periodStart).toLocaleString('es-ES')} - ${new Date(closingData.periodEnd).toLocaleString('es-ES')}`;
+  const notes = closingData.notes ? `${periodNote}\n${closingData.notes}` : periodNote;
 
   try {
     const { data, error } = await supabase
@@ -141,7 +239,7 @@ export async function saveCashClosing(
         transaction_count: closingData.transactionCount,
         orders_completed: closingData.ordersCompleted,
         orders_cancelled: closingData.ordersCancelled,
-        notes: closingData.notes,
+        notes,
         closed_at: new Date().toISOString(),
       })
       .select()
@@ -150,6 +248,24 @@ export async function saveCashClosing(
     if (error) {
       console.error('Error saving cash closing:', error);
       throw error;
+    }
+
+    if (closingData.closingOrders?.length) {
+      const { error: itemsError } = await supabase
+        .from('cash_closing_items')
+        .insert(closingData.closingOrders.map(order => ({
+          cash_closing_id: data.id,
+          tenant_id: tenantId,
+          order_id: order.id,
+          order_number: order.order_number || null,
+          amount: order.total,
+          payment_method: order.payment_method || null,
+          created_at: order.created_at || new Date().toISOString(),
+        })));
+
+      if (itemsError) {
+        console.error('Error saving cash closing items:', itemsError);
+      }
     }
 
     return data;

@@ -20,7 +20,7 @@ export async function GET(
 
   const { data: branding } = await supabase
     .from('tenant_branding')
-    .select('app_name, primary_color')
+    .select('app_name, primary_color, secondary_color, accent_color, background_color, text_primary_color, text_secondary_color')
     .eq('tenant_id', tenant.id)
     .maybeSingle()
 
@@ -39,6 +39,11 @@ export async function GET(
     {
       restaurantName: branding?.app_name || tenant.organization_name,
       primaryColor: branding?.primary_color || '#2563eb',
+      secondaryColor: branding?.secondary_color || '#111827',
+      accentColor: branding?.accent_color || branding?.primary_color || '#2563eb',
+      backgroundColor: branding?.background_color || '#0b0b0b',
+      textPrimaryColor: branding?.text_primary_color || '#ffffff',
+      textSecondaryColor: branding?.text_secondary_color || '#d1d5db',
       orders: orders || [],
     },
     {

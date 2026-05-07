@@ -1,7 +1,7 @@
 'use client'
 
-import { use } from 'react'
-import { formatPrice } from '@/lib/currency'
+import { use, useEffect, useState } from 'react'
+import { formatPriceWithCurrency, getCurrencyByCountry } from '@/lib/currency'
 import { useCartStore } from '@/lib/store/cart'
 import Link from 'next/link'
 
@@ -10,12 +10,26 @@ interface Props { params: Promise<{ domain: string }> }
 export default function CarritoPage({ params }: Props) {
   const { domain: tenantSlug } = use(params)
   const { items, removeItem, updateQty, total } = useCartStore()
+  const primary = 'var(--button-primary-color, var(--primary-color, #E4002B))'
+  const [currencyInfo, setCurrencyInfo] = useState(() => getCurrencyByCountry('ES'))
+  const money = (amount: number) => formatPriceWithCurrency(Number(amount || 0), currencyInfo.code, currencyInfo.locale)
+
+  useEffect(() => {
+    fetch(`/api/settings/${tenantSlug}`, { cache: 'no-store' })
+      .then(res => res.ok ? res.json() : null)
+      .then(settings => {
+        if (settings?.country || settings?.country_code) {
+          setCurrencyInfo(getCurrencyByCountry(settings.country_code || settings.country))
+        }
+      })
+      .catch(() => {})
+  }, [tenantSlug])
 
   if (items.length === 0) {
     return (
       <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white flex flex-col items-center justify-center gap-6 p-6">
-        <div className="w-28 h-28 rounded-2xl bg-gradient-to-br from-blue-50 to-blue-100 flex items-center justify-center shadow-sm">
-          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#E4002B" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+        <div className="w-28 h-28 rounded-2xl flex items-center justify-center shadow-sm" style={{ backgroundColor: 'color-mix(in srgb, var(--primary-color, #E4002B) 10%, white)' }}>
+          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="var(--primary-color, #E4002B)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
             <path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/>
             <line x1="3" y1="6" x2="21" y2="6"/>
             <path d="M16 10a4 4 0 0 1-8 0"/>
@@ -28,7 +42,7 @@ export default function CarritoPage({ params }: Props) {
         <Link
           href={`/${tenantSlug}/menu`}
           className="px-8 py-3.5 rounded-xl text-white font-bold text-sm shadow-lg hover:shadow-xl active:scale-95 transition-all"
-          style={{ backgroundColor: '#E4002B' }}
+          style={{ backgroundColor: primary }}
         >
           Explorar menú
         </Link>
@@ -70,8 +84,8 @@ export default function CarritoPage({ params }: Props) {
                     Adicionales: {item.toppings.map(t => t.name).join(', ')}
                   </p>
                 )}
-                <p className="text-xs text-muted-foreground mt-0.5">{formatPrice(item.price)} c/u</p>
-                <p className="font-extrabold text-sm mt-1 text-gray-900">{formatPrice(item.price * item.qty)}</p>
+                <p className="text-xs text-muted-foreground mt-0.5">{money(item.price)} c/u</p>
+                <p className="font-extrabold text-sm mt-1 text-gray-900">{money(item.price * item.qty)}</p>
               </div>
               <div className="flex flex-col items-end gap-2">
                 <button
@@ -108,7 +122,7 @@ export default function CarritoPage({ params }: Props) {
           <h3 className="font-bold text-gray-900 text-sm mb-3">Resumen</h3>
           <div className="flex justify-between text-sm text-gray-500">
             <span>Subtotal</span>
-            <span className="font-semibold text-gray-700">{formatPrice(total())}</span>
+            <span className="font-semibold text-gray-700">{money(total())}</span>
           </div>
           <div className="flex justify-between text-sm text-gray-500">
             <span>Envío</span>
@@ -116,13 +130,14 @@ export default function CarritoPage({ params }: Props) {
           </div>
           <div className="border-t border-gray-100 pt-2 flex justify-between">
             <span className="font-extrabold text-gray-900">Total estimado</span>
-            <span className="font-extrabold text-gray-900 text-lg">{formatPrice(total())}</span>
+            <span className="font-extrabold text-gray-900 text-lg">{money(total())}</span>
           </div>
         </div>
 
         <Link
           href={`/${tenantSlug}/checkout`}
-          className="flex items-center justify-between w-full px-5 py-4 rounded-2xl text-white font-bold shadow-xl active:scale-95 transition-transform bg-blue-500"
+          className="flex items-center justify-between w-full px-5 py-4 rounded-2xl text-white font-bold shadow-xl active:scale-95 transition-transform"
+          style={{ backgroundColor: primary }}
         >
           <span className="text-sm">Continuar con el pedido</span>
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">

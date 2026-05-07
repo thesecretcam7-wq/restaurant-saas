@@ -39,7 +39,7 @@ export default function MenuFilter({ categories, items, primary }: MenuFilterPro
               onClick={() => setSelectedCategoryId(selectedCategoryId === cat.id ? null : cat.id)}
               className="px-4 py-2 text-xs font-semibold whitespace-nowrap rounded-full transition-all border"
               style={{
-                backgroundColor: selectedCategoryId === cat.id ? primary : 'white',
+                backgroundColor: selectedCategoryId === cat.id ? primary : '#f3f4f6',
                 color: selectedCategoryId === cat.id ? 'white' : primary,
                 borderColor: selectedCategoryId === cat.id ? primary : `${primary}40`
               }}

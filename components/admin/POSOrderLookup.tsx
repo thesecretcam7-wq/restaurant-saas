@@ -20,12 +20,14 @@ interface Order {
 interface POSOrderLookupProps {
   domain: string;
   onOrderSelected: (order: Order) => void;
+  onVoidOrder?: (order: Order) => Promise<boolean | void>;
 }
 
-export function POSOrderLookup({ domain, onOrderSelected }: POSOrderLookupProps) {
+export function POSOrderLookup({ domain, onOrderSelected, onVoidOrder }: POSOrderLookupProps) {
   const [searchInput, setSearchInput] = useState('');
   const [results, setResults] = useState<Order[]>([]);
   const [loading, setLoading] = useState(false);
+  const [voidingOrderId, setVoidingOrderId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [searched, setSearched] = useState(false);
 
@@ -96,6 +98,25 @@ export function POSOrderLookup({ domain, onOrderSelected }: POSOrderLookupProps)
       minute: '2-digit',
     });
   };
+
+  async function handleVoidOrder(order: Order) {
+    if (!onVoidOrder) return;
+    setVoidingOrderId(order.id);
+    try {
+      const voided = await onVoidOrder(order);
+      if (voided !== false) {
+        setResults((current) =>
+          current.map((item) =>
+            item.id === order.id ? { ...item, status: 'cancelled' } : item
+          )
+        );
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'No se pudo anular la venta');
+    } finally {
+      setVoidingOrderId(null);
+    }
+  }
 
   return (
     <div className="w-full h-full flex flex-col bg-gradient-to-b from-gray-900 to-gray-950">
@@ -197,15 +218,32 @@ export function POSOrderLookup({ domain, onOrderSelected }: POSOrderLookupProps)
                   </div>
                 )}
 
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onOrderSelected(order);
-                  }}
-                  className="w-full mt-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg py-2 font-semibold text-xs transition-all"
-                >
-                  Cargar pedido
-                </button>
+                {order.status === 'cancelled' ? (
+                  <div className="w-full mt-2 rounded-lg bg-red-950/35 border border-red-500/35 py-2 text-center text-red-200 font-semibold text-xs">
+                    Ticket anulado
+                  </div>
+                ) : order.payment_status === 'paid' ? (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleVoidOrder(order);
+                    }}
+                    disabled={!onVoidOrder || voidingOrderId === order.id}
+                    className="w-full mt-2 bg-red-600 hover:bg-red-700 disabled:opacity-50 text-white rounded-lg py-2 font-semibold text-xs transition-all"
+                  >
+                    {voidingOrderId === order.id ? 'Anulando...' : 'Anular venta terminada'}
+                  </button>
+                ) : (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onOrderSelected(order);
+                    }}
+                    className="w-full mt-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg py-2 font-semibold text-xs transition-all"
+                  >
+                    Cargar para cobrar
+                  </button>
+                )}
               </div>
             ))}
           </div>

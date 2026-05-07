@@ -21,7 +21,9 @@ export default function PWARegister() {
 
         // Check for updates periodically
         const interval = setInterval(() => {
-          registration.update()
+          registration.update().catch((error) => {
+            console.warn('Service Worker update skipped:', error)
+          })
         }, 60000) // Check every minute
 
         return () => clearInterval(interval)

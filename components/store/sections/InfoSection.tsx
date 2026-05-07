@@ -1,4 +1,4 @@
-import { formatPrice } from '@/lib/currency'
+import { formatPriceWithCurrency, getCurrencyByCountry } from '@/lib/currency'
 import type { RestaurantSettings } from '@/lib/types'
 
 interface Props {
@@ -10,6 +10,8 @@ interface Props {
 
 export default function InfoSection({ settings, primary, borderRadius, cardClasses }: Props) {
   if (!settings?.address && !settings?.phone && !settings?.email) return null
+  const currencyInfo = getCurrencyByCountry((settings as any).country_code || (settings as any).country || 'ES')
+  const money = (amount: number) => formatPriceWithCurrency(Number(amount || 0), currencyInfo.code, currencyInfo.locale)
 
   return (
     <section className="px-4 pt-4 pb-2">
@@ -51,8 +53,8 @@ export default function InfoSection({ settings, primary, borderRadius, cardClass
               <div>
                 <p className="text-xs text-muted-foreground font-medium">A domicilio</p>
                 <p className="text-sm text-gray-800 font-medium">
-                  {settings.delivery_time_minutes} min · {settings.delivery_fee > 0 ? `${formatPrice(settings.delivery_fee)} envío` : 'Envío gratis'}
-                  {settings.delivery_min_order > 0 ? ` · Mínimo ${formatPrice(settings.delivery_min_order)}` : ''}
+                  {settings.delivery_time_minutes} min · {settings.delivery_fee > 0 ? `${money(settings.delivery_fee)} envío` : 'Envío gratis'}
+                  {settings.delivery_min_order > 0 ? ` · Mínimo ${money(settings.delivery_min_order)}` : ''}
                 </p>
               </div>
             </div>
@@ -62,3 +64,4 @@ export default function InfoSection({ settings, primary, borderRadius, cardClass
     </section>
   )
 }
+

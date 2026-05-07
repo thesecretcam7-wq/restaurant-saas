@@ -2,6 +2,8 @@ import { createServiceClient } from '@/lib/supabase/server'
 import { NextRequest, NextResponse } from 'next/server'
 import { sendOrderStatusUpdate } from '@/lib/email'
 import { sendWhatsAppOrderStatus } from '@/lib/whatsapp'
+import { requireTenantAccess, tenantAuthErrorResponse } from '@/lib/tenant-api-auth'
+import { writeAuditLog } from '@/lib/audit-log'
 
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -24,8 +26,13 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       return NextResponse.json({ error: 'Order not found' }, { status: 404 })
     }
 
+    await requireTenantAccess(order.tenant_id, { staffRoles: ['admin', 'cajero', 'camarero', 'cocinero'] })
+
     return NextResponse.json({ order })
   } catch (err) {
+    if (err instanceof Error && ['Unauthorized', 'Forbidden'].includes(err.message)) {
+      return tenantAuthErrorResponse(err)
+    }
     console.error('Get order error:', err)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
@@ -36,7 +43,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     const { id } = await params
     const orderId = id
     const body = await request.json()
-    const { status, payment_status } = body
+    const { status, payment_status, cancel_reason } = body
 
     if (!orderId) {
       return NextResponse.json({ error: 'Order ID is required' }, { status: 400 })
@@ -48,9 +55,31 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
 
     const supabase = createServiceClient()
 
+    const { data: existingOrder, error: existingError } = await supabase
+      .from('orders')
+      .select('id, tenant_id, order_number, status, payment_status, total, notes')
+      .eq('id', orderId)
+      .single()
+
+    if (existingError || !existingOrder) {
+      return NextResponse.json({ error: 'Order not found' }, { status: 404 })
+    }
+
+    const access = await requireTenantAccess(existingOrder.tenant_id, { staffRoles: ['admin', 'cajero', 'camarero', 'cocinero'] })
+
     const updateData: Record<string, any> = { updated_at: new Date().toISOString() }
     if (status) updateData.status = status
     if (payment_status) updateData.payment_status = payment_status
+    if (status === 'cancelled') {
+      const timestamp = new Date().toISOString()
+      const reason = typeof cancel_reason === 'string' && cancel_reason.trim()
+        ? cancel_reason.trim()
+        : 'Anulado desde el sistema'
+      const auditNote = `Anulado ${timestamp}: ${reason}`
+      updateData.notes = existingOrder.notes
+        ? `${existingOrder.notes}\n${auditNote}`
+        : auditNote
+    }
 
     const { data: order, error } = await supabase
       .from('orders')
@@ -66,13 +95,14 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     // When confirming an order, ensure order_items exist for KDS visibility.
     // Kiosk cash orders skip order_items at creation time, so we create them here.
     if (status === 'confirmed' && Array.isArray(order.items) && order.items.length > 0) {
+      const kitchenItems = order.items.filter((item: any) => item.requires_kitchen !== false)
       const { count } = await supabase
         .from('order_items')
         .select('*', { count: 'exact', head: true })
         .eq('order_id', orderId)
 
-      if ((count ?? 0) === 0) {
-        const orderItemsData = order.items.map((item: any) => ({
+      if ((count ?? 0) === 0 && kitchenItems.length > 0) {
+        const orderItemsData = kitchenItems.map((item: any) => ({
           order_id: orderId,
           tenant_id: order.tenant_id,
           menu_item_id: item.menu_item_id || null,
@@ -85,6 +115,57 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
         const { error: itemsError } = await supabase.from('order_items').insert(orderItemsData)
         if (itemsError) console.error('[orders PATCH] order_items creation error:', itemsError.message)
       }
+    }
+
+    // Payment and kitchen progress are separate flows: paying should not mark KDS items ready.
+    if (status === 'delivered' && order.tenant_id) {
+      const itemUpdate: Record<string, any> = {
+        status: 'delivered',
+        updated_at: new Date().toISOString(),
+        completed_at: new Date().toISOString(),
+      }
+
+      const { error: itemsDeliveredError } = await supabase
+        .from('order_items')
+        .update(itemUpdate)
+        .eq('order_id', orderId)
+        .eq('tenant_id', order.tenant_id)
+        .neq('status', 'cancelled')
+
+      if (itemsDeliveredError) console.error('[orders PATCH] order_items delivered sync error:', itemsDeliveredError.message)
+    }
+
+    if (status === 'cancelled' && order.tenant_id) {
+      const { error: itemsCancelledError } = await supabase
+        .from('order_items')
+        .update({
+          status: 'cancelled',
+          updated_at: new Date().toISOString(),
+        })
+        .eq('order_id', orderId)
+        .eq('tenant_id', order.tenant_id)
+        .neq('status', 'delivered')
+
+      if (itemsCancelledError) console.error('[orders PATCH] order_items cancel sync error:', itemsCancelledError.message)
+
+      await writeAuditLog(supabase, {
+        tenantId: order.tenant_id,
+        actor: access,
+        action: order.payment_status === 'paid' || existingOrder.payment_status === 'paid'
+          ? 'sale.voided'
+          : 'order.cancelled',
+        entityType: 'order',
+        entityId: orderId,
+        reason: updateData.notes?.split('\n').pop() || cancel_reason || 'Anulado desde el sistema',
+        metadata: {
+          order_number: order.order_number || existingOrder.order_number,
+          total: Number(order.total ?? existingOrder.total) || 0,
+          previous_status: existingOrder.status,
+          previous_payment_status: existingOrder.payment_status,
+          new_status: order.status,
+          new_payment_status: order.payment_status,
+        },
+      })
     }
 
     // Send status update email (non-blocking)
@@ -121,6 +202,9 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
 
     return NextResponse.json({ order })
   } catch (err) {
+    if (err instanceof Error && ['Unauthorized', 'Forbidden'].includes(err.message)) {
+      return tenantAuthErrorResponse(err)
+    }
     console.error('Update order error:', err)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
