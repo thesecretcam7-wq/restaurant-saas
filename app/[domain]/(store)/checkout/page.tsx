@@ -11,6 +11,9 @@ import toast from 'react-hot-toast'
 
 interface Props { params: Promise<{ domain: string }> }
 
+const onlyDigits = (value: string) => value.replace(/\D/g, '')
+const profileStorageKey = (tenantSlug: string, phone: string) => `eccofood:customer:${tenantSlug}:${onlyDigits(phone)}`
+
 export default function CheckoutPage({ params }: Props) {
   const { domain: tenantSlug } = use(params)
   const router = useRouter()
@@ -18,12 +21,14 @@ export default function CheckoutPage({ params }: Props) {
   const [settings, setSettings] = useState<any>(null)
   const [csrfToken, setCsrfToken] = useState('')
   const [loading, setLoading] = useState(false)
+  const [profileLookup, setProfileLookup] = useState<'idle' | 'searching' | 'found' | 'none'>('idle')
   const [errors, setErrors] = useState<Array<{ field: string; message: string }>>([])
   const [form, setForm] = useState({
     name: '', phone: '', email: '',
     delivery_type: 'pickup', delivery_address: '',
     payment_method: 'stripe', notes: '',
   })
+  const tenantId = settings?.tenant_id || tenantSlug
 
   useEffect(() => {
     if (items.length === 0) router.replace(`/${tenantSlug}/menu`)
@@ -50,16 +55,87 @@ export default function CheckoutPage({ params }: Props) {
     }
   }, [settings?.tenant_id, cartTenantId, items.length, clearCart, router, tenantSlug])
 
+  useEffect(() => {
+    const phoneDigits = onlyDigits(form.phone)
+    if (phoneDigits.length < 7) {
+      setProfileLookup('idle')
+      return
+    }
+
+    let cancelled = false
+    const controller = new AbortController()
+
+    const applyProfile = (customer: any, source: 'server' | 'local') => {
+      setForm(current => ({
+        ...current,
+        name: current.name || customer.name || '',
+        email: current.email || '',
+        delivery_address: current.delivery_address || customer.delivery_address || '',
+        delivery_type:
+          current.delivery_type === 'pickup' && customer.delivery_type === 'delivery'
+            ? 'delivery'
+            : current.delivery_type,
+      }))
+      setProfileLookup('found')
+      if (source === 'server') {
+        try {
+          localStorage.setItem(profileStorageKey(tenantSlug, form.phone), JSON.stringify(customer))
+        } catch {}
+      }
+    }
+
+    const timer = window.setTimeout(async () => {
+      try {
+        const localProfile = localStorage.getItem(profileStorageKey(tenantSlug, form.phone))
+        if (localProfile) {
+          applyProfile(JSON.parse(localProfile), 'local')
+          return
+        }
+      } catch {}
+
+      setProfileLookup('searching')
+      try {
+        const res = await fetch(
+          `/api/customer-profile?tenantId=${encodeURIComponent(tenantId)}&tenantSlug=${encodeURIComponent(tenantSlug)}&phone=${encodeURIComponent(form.phone)}`,
+          { signal: controller.signal }
+        )
+        const data = await res.json()
+        if (cancelled) return
+        if (data.found && data.customer) applyProfile(data.customer, 'server')
+        else setProfileLookup('none')
+      } catch {
+        if (!cancelled) setProfileLookup('idle')
+      }
+    }, 550)
+
+    return () => {
+      cancelled = true
+      controller.abort()
+      window.clearTimeout(timer)
+    }
+  }, [form.phone, tenantId, tenantSlug])
+
   const subtotal = total()
   const taxRate = settings?.tax_rate || 0
   const tax = subtotal * (taxRate / 100)
   const deliveryFee = form.delivery_type === 'delivery' ? (settings?.delivery_fee || 0) : 0
   const finalTotal = subtotal + tax + deliveryFee
-  const tenantId = settings?.tenant_id || tenantSlug
   const currencyInfo = getCurrencyByCountry(settings?.country || 'ES')
   const formatMoney = (amount: number) => formatPriceWithCurrency(amount, currencyInfo.code, currencyInfo.locale)
   const deliveryMinOrder = Number(settings?.delivery_min_order || 0)
   const deliveryBelowMinimum = form.delivery_type === 'delivery' && deliveryMinOrder > 0 && subtotal < deliveryMinOrder
+
+  const saveCustomerProfile = (validated: CheckoutInput) => {
+    try {
+      localStorage.setItem(profileStorageKey(tenantSlug, validated.phone), JSON.stringify({
+        name: validated.name,
+        email: validated.email || '',
+        phone: validated.phone,
+        delivery_address: validated.delivery_address || '',
+        delivery_type: validated.delivery_type,
+      }))
+    } catch {}
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -79,6 +155,7 @@ export default function CheckoutPage({ params }: Props) {
 
     try {
       const validated = checkoutSchema.parse(form)
+      saveCustomerProfile(validated)
       const orderItems = items.map(item => ({
         ...item,
         menu_item_id: item.item_id,
@@ -153,15 +230,17 @@ export default function CheckoutPage({ params }: Props) {
               Tus datos
             </h2>
             <div>
-              <input required value={form.name} onChange={e => setForm(f => ({...f, name: e.target.value}))} className={inputCls + (getFieldError(errors, 'name') ? ' border-red-300 focus:ring-red-500/10' : '')} placeholder="Nombre completo *" />
+              <input required value={form.phone} onChange={e => setForm(f => ({...f, phone: e.target.value}))} className={inputCls + (getFieldError(errors, 'phone') ? ' border-red-300 focus:ring-red-500/10' : '')} placeholder="Escribe primero tu celular *" type="tel" autoComplete="tel" inputMode="tel" />
+              {getFieldError(errors, 'phone') && <p className="text-red-500 text-xs mt-1">{getFieldError(errors, 'phone')}</p>}
+              {profileLookup === 'searching' && <p className="text-xs mt-2 font-semibold text-gray-500">Buscando tus datos...</p>}
+              {profileLookup === 'found' && <p className="text-xs mt-2 font-bold" style={{ color: primary }}>Datos encontrados y autocompletados</p>}
+            </div>
+            <div>
+              <input required value={form.name} onChange={e => setForm(f => ({...f, name: e.target.value}))} className={inputCls + (getFieldError(errors, 'name') ? ' border-red-300 focus:ring-red-500/10' : '')} placeholder="Nombre completo *" autoComplete="name" />
               {getFieldError(errors, 'name') && <p className="text-red-500 text-xs mt-1">{getFieldError(errors, 'name')}</p>}
             </div>
             <div>
-              <input required value={form.phone} onChange={e => setForm(f => ({...f, phone: e.target.value}))} className={inputCls + (getFieldError(errors, 'phone') ? ' border-red-300 focus:ring-red-500/10' : '')} placeholder="Teléfono *" type="tel" />
-              {getFieldError(errors, 'phone') && <p className="text-red-500 text-xs mt-1">{getFieldError(errors, 'phone')}</p>}
-            </div>
-            <div>
-              <input value={form.email} onChange={e => setForm(f => ({...f, email: e.target.value}))} className={inputCls + (getFieldError(errors, 'email') ? ' border-red-300 focus:ring-red-500/10' : '')} placeholder="Email (opcional)" type="email" />
+              <input value={form.email} onChange={e => setForm(f => ({...f, email: e.target.value}))} className={inputCls + (getFieldError(errors, 'email') ? ' border-red-300 focus:ring-red-500/10' : '')} placeholder="Email (opcional)" type="email" autoComplete="email" />
               {getFieldError(errors, 'email') && <p className="text-red-500 text-xs mt-1">{getFieldError(errors, 'email')}</p>}
             </div>
           </div>
@@ -189,7 +268,7 @@ export default function CheckoutPage({ params }: Props) {
               </div>
               {form.delivery_type === 'delivery' && (
                 <div>
-                  <input required value={form.delivery_address} onChange={e => setForm(f => ({...f, delivery_address: e.target.value}))} className={inputCls + (getFieldError(errors, 'delivery_address') ? ' border-red-300 focus:ring-red-500/10' : '')} placeholder="Dirección de entrega *" />
+                  <input required value={form.delivery_address} onChange={e => setForm(f => ({...f, delivery_address: e.target.value}))} className={inputCls + (getFieldError(errors, 'delivery_address') ? ' border-red-300 focus:ring-red-500/10' : '')} placeholder="Dirección de entrega *" autoComplete="street-address" />
                   {getFieldError(errors, 'delivery_address') && <p className="text-red-500 text-xs mt-1">{getFieldError(errors, 'delivery_address')}</p>}
                   {deliveryBelowMinimum && (
                     <p className="text-red-500 text-xs mt-2">
