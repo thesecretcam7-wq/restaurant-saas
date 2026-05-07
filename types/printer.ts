@@ -14,6 +14,9 @@ export interface PrinterConfig {
   print_on_status: 'pending' | 'confirmed' | 'preparing';
   connection_mode?: 'webusb' | 'browser_driver';
   browser_printer_name?: string;
+  local_bridge_enabled?: boolean;
+  local_bridge_url?: string;
+  cash_drawer_enabled?: boolean;
 }
 
 export interface PrinterDevice {

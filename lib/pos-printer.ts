@@ -90,6 +90,39 @@ function isBrowserDriverPrinter(printer: PrinterDevice) {
   return printer.config?.connection_mode === 'browser_driver' || (!printer.vendor_id && !printer.product_id);
 }
 
+function bytesToBase64(bytes: Uint8Array) {
+  let binary = '';
+  const chunkSize = 0x8000;
+  for (let i = 0; i < bytes.length; i += chunkSize) {
+    binary += String.fromCharCode(...bytes.subarray(i, i + chunkSize));
+  }
+  return btoa(binary);
+}
+
+function getBridgeUrl(printer: PrinterDevice) {
+  return (printer.config?.local_bridge_url || 'http://127.0.0.1:17777').replace(/\/$/, '');
+}
+
+function shouldUseLocalBridge(printer: PrinterDevice) {
+  return isBrowserDriverPrinter(printer) && printer.config?.local_bridge_enabled !== false;
+}
+
+async function printViaLocalBridge(printer: PrinterDevice, data: Uint8Array): Promise<void> {
+  const response = await fetch(`${getBridgeUrl(printer)}/print`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      printerName: printer.config?.browser_printer_name || 'default',
+      dataBase64: bytesToBase64(data),
+    }),
+  });
+
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok || payload?.ok === false) {
+    throw new Error(payload?.error || 'No se pudo imprimir con el puente local');
+  }
+}
+
 /**
  * Print receipt to a configured printer
  * @param tenantId - Restaurant/tenant ID
@@ -133,8 +166,15 @@ export async function printReceipt(
       locale: data.currencyInfo.locale,
     });
 
-    // 3. Browser-side printing. Windows driver mode uses the system print flow.
-    if (isBrowserDriverPrinter(printer)) {
+    // 3. Browser-side printing. Windows driver mode tries the local bridge first.
+    if (shouldUseLocalBridge(printer)) {
+      try {
+        await printViaLocalBridge(printer, escPosData);
+      } catch (bridgeError) {
+        console.warn('Local print bridge unavailable, using browser print dialog:', bridgeError);
+        printViaBrowserAPI(data);
+      }
+    } else if (isBrowserDriverPrinter(printer)) {
       printViaBrowserAPI(data);
     } else if (typeof navigator !== 'undefined' && 'usb' in navigator) {
       await printViaWebUSB(printer, escPosData);
@@ -490,7 +530,25 @@ export async function testPrinterConnection(
 
     const testData = generateTestReceiptESCPOS(printer.config.paper_width || 80);
 
-    if (isBrowserDriverPrinter(printer)) {
+    if (shouldUseLocalBridge(printer)) {
+      try {
+        await printViaLocalBridge(printer, testData);
+      } catch (bridgeError) {
+        console.warn('Local print bridge unavailable, using browser print dialog:', bridgeError);
+        printViaBrowserAPI({
+          orderId: 'test',
+          orderNumber: 'TEST',
+          restaurantName: 'Eccofood',
+          items: [{ menu_item_id: 'test', name: 'Prueba impresora', price: 0, quantity: 1 }],
+          subtotal: 0,
+          discount: 0,
+          total: 0,
+          change: 0,
+          currencyInfo: { code: 'EUR', symbol: 'EUR', locale: 'es-ES' },
+          timestamp: new Date().toISOString(),
+        });
+      }
+    } else if (isBrowserDriverPrinter(printer)) {
       printViaBrowserAPI({
         orderId: 'test',
         orderNumber: 'TEST',
@@ -534,10 +592,6 @@ export async function testPrinterConnection(
  */
 export async function openCashDrawer(tenantId: string): Promise<void> {
   try {
-    if (typeof navigator === 'undefined' || !('usb' in navigator) || !navigator.usb) {
-      throw new Error('WebUSB no esta disponible para abrir el cajon');
-    }
-
     // ESC p m t1 t2 — open drawer on pin 2
     const drawerCmd = new Uint8Array([0x1b, 0x70, 0x00, 0x19, 0xfa]);
 
@@ -571,8 +625,21 @@ export async function openCashDrawer(tenantId: string): Promise<void> {
       throw new Error('No se encontro la impresora configurada');
     }
 
+    if (printer.config?.cash_drawer_enabled === false) {
+      return;
+    }
+
+    if (shouldUseLocalBridge(printer)) {
+      await printViaLocalBridge(printer, drawerCmd);
+      return;
+    }
+
     if (isBrowserDriverPrinter(printer)) {
-      throw new Error('El cajon debe abrirse desde la configuracion del driver de Windows al imprimir el recibo');
+      throw new Error('Para abrir el cajon con impresora Windows, enciende el puente local de Eccofood');
+    }
+
+    if (typeof navigator === 'undefined' || !('usb' in navigator) || !navigator.usb) {
+      throw new Error('WebUSB no esta disponible para abrir el cajon');
     }
 
     await printViaWebUSB(printer, drawerCmd);

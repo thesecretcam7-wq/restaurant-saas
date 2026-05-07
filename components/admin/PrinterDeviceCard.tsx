@@ -80,7 +80,12 @@ export function PrinterDeviceCard({
         <p>Ancho de papel: {device.config?.paper_width || 80}mm</p>
         <p>Copias: {device.config?.copies || 1}</p>
         <p>Auto-imprimir: {device.config?.auto_print ? 'Habilitado' : 'Deshabilitado'}</p>
-        {isBrowserDriver && <p>Modo: impresora predeterminada de Windows/Chrome</p>}
+        {isBrowserDriver && (
+          <>
+            <p>Modo: impresora de Windows</p>
+            <p>Puente local: {device.config?.local_bridge_enabled !== false ? 'Activo' : 'Desactivado'}</p>
+          </>
+        )}
         {isWebUsbPrinter && !isBrowserDriver && <p>Modo: USB directo autorizado por Chrome</p>}
       </div>
 
@@ -171,8 +176,57 @@ export function PrinterDeviceCard({
             />
           </label>
 
+          {isBrowserDriver && (
+            <>
+              <label className="flex items-center justify-between gap-3 rounded border border-emerald-900/60 bg-emerald-950/30 px-3 py-2 text-xs text-emerald-100">
+                Puente local sin vista previa
+                <input
+                  type="checkbox"
+                  checked={device.config?.local_bridge_enabled !== false}
+                  disabled={loading}
+                  onChange={(event) => onConfigure({ local_bridge_enabled: event.target.checked })}
+                  className="h-4 w-4"
+                />
+              </label>
+
+              <label className="block text-xs text-gray-300">
+                Direccion del puente local
+                <input
+                  type="text"
+                  value={device.config?.local_bridge_url || 'http://127.0.0.1:17777'}
+                  disabled={loading}
+                  onChange={(event) => onConfigure({ local_bridge_url: event.target.value })}
+                  className="mt-1 w-full rounded border border-gray-700 bg-gray-950 px-3 py-2 text-sm text-white"
+                />
+              </label>
+
+              <label className="block text-xs text-gray-300">
+                Nombre de impresora Windows
+                <input
+                  type="text"
+                  value={device.config?.browser_printer_name || 'default'}
+                  disabled={loading}
+                  onChange={(event) => onConfigure({ browser_printer_name: event.target.value || 'default' })}
+                  className="mt-1 w-full rounded border border-gray-700 bg-gray-950 px-3 py-2 text-sm text-white"
+                />
+                <span className="mt-1 block text-[11px] text-gray-500">Usa "default" para la impresora predeterminada de Windows.</span>
+              </label>
+
+              <label className="flex items-center justify-between gap-3 rounded border border-gray-800 bg-gray-950 px-3 py-2 text-xs text-gray-300">
+                Abrir cajon al cobrar
+                <input
+                  type="checkbox"
+                  checked={device.config?.cash_drawer_enabled !== false}
+                  disabled={loading}
+                  onChange={(event) => onConfigure({ cash_drawer_enabled: event.target.checked })}
+                  className="h-4 w-4"
+                />
+              </label>
+            </>
+          )}
+
           <p className="text-[11px] leading-relaxed text-gray-500">
-            En modo Windows se usara la impresora predeterminada que elijas en el cuadro de impresion de Chrome.
+            En modo Windows, el puente local permite imprimir sin vista previa. Si no esta abierto, se usara Chrome como respaldo.
           </p>
         </div>
       )}

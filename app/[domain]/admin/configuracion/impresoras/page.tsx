@@ -171,6 +171,9 @@ export default function PrintersConfigPage({ params }: Props) {
             print_on_status: 'confirmed',
             connection_mode: 'browser_driver',
             browser_printer_name: 'default',
+            local_bridge_enabled: true,
+            local_bridge_url: 'http://127.0.0.1:17777',
+            cash_drawer_enabled: true,
           },
         }),
       });

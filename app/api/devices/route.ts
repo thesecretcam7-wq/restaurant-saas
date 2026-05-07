@@ -109,6 +109,9 @@ export async function POST(request: NextRequest) {
               ...(config || {}),
               connection_mode: 'browser_driver',
               browser_printer_name: 'default',
+              local_bridge_enabled: config?.local_bridge_enabled ?? existingBrowserDriver.config?.local_bridge_enabled ?? true,
+              local_bridge_url: config?.local_bridge_url || existingBrowserDriver.config?.local_bridge_url || 'http://127.0.0.1:17777',
+              cash_drawer_enabled: config?.cash_drawer_enabled ?? existingBrowserDriver.config?.cash_drawer_enabled ?? true,
             },
             updated_at: new Date().toISOString(),
           })
@@ -150,6 +153,10 @@ export async function POST(request: NextRequest) {
           copies: 1,
           print_on_status: 'confirmed',
           connection_mode: vendor_id && product_id ? 'webusb' : 'browser_driver',
+          browser_printer_name: vendor_id && product_id ? undefined : 'default',
+          local_bridge_enabled: !(vendor_id && product_id),
+          local_bridge_url: 'http://127.0.0.1:17777',
+          cash_drawer_enabled: true,
         },
       })
       .select()
