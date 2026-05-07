@@ -45,7 +45,7 @@ export const PLANS: Record<PlanId, { label: string; price: string; limits: PlanL
       reservations: true,
       delivery: true,
       analytics: true,
-      custom_domain: true,
+      custom_domain: false,
       multiple_locations: false,
     },
   },
@@ -69,7 +69,7 @@ export const FEATURE_MIN_PLAN: Record<keyof PlanLimits, PlanId> = {
   reservations: 'pro',
   delivery: 'pro',
   analytics: 'pro',
-  custom_domain: 'pro',
+  custom_domain: 'premium',
   multiple_locations: 'premium',
 }
 

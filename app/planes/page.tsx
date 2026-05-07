@@ -31,7 +31,6 @@ const PLANS = [
       'Sistema de reservas',
       'Delivery integrado',
       'Analytics avanzado',
-      'Dominio personalizado',
       'Sistema mesero / cocina',
       'Soporte prioritario',
     ],
@@ -45,6 +44,7 @@ const PLANS = [
     desc: 'Para cadenas y franquicias',
     features: [
       'Todo en Professional',
+      'Dominio personalizado',
       'Múltiples sucursales',
       'Gestión avanzada de staff',
       'Programas de lealtad',
@@ -251,7 +251,7 @@ export default function PlanesPage() {
                     ['Sistema de reservas', false, true, true],
                     ['Delivery integrado', false, true, true],
                     ['Analytics avanzado', false, true, true],
-                    ['Dominio personalizado', false, true, true],
+                    ['Dominio personalizado', false, false, true],
                     ['Sistema mesero / cocina', false, true, true],
                     ['Múltiples sucursales', false, false, true],
                     ['API access', false, false, true],
@@ -279,7 +279,7 @@ export default function PlanesPage() {
                 ['¿Puedo cambiar de plan?', 'Sí, puedes subir o bajar de plan en cualquier momento desde tu panel. Los cambios aplican en el siguiente ciclo.'],
                 ['¿Qué pasa si cancelo?', 'Puedes cancelar cuando quieras. No hay penalidades ni cargos ocultos.'],
                 ['¿Cómo funciona el pago?', 'Procesamos pagos con Stripe. Aceptamos tarjetas de crédito/débito de todos los países.'],
-                ['¿Puedo conectar mi propio dominio?', 'Sí, desde el plan Professional puedes conectar tu dominio propio (ej: mipizzeria.com) con instrucciones paso a paso.'],
+                ['¿Puedo conectar mi propio dominio?', 'Sí, desde el plan Enterprise/Premium puedes conectar tu dominio propio (ej: mipizzeria.com) con instrucciones paso a paso.'],
               ].map(([q, a]) => (
                 <div key={q} className="border border-border rounded-2xl p-6 bg-card/50 backdrop-blur-sm hover:border-primary/30 hover:bg-primary/5 transition-all">
                   <p className="font-bold text-foreground mb-2">{q}</p>

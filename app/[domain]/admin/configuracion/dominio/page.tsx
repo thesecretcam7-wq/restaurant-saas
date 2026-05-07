@@ -12,7 +12,7 @@ export default async function DominioPage({ params }: Props) {
     <UpgradeGate
       tenantId={tenantId}
       feature="Dominio personalizado"
-      requiredPlan="pro"
+      requiredPlan="premium"
       currentPlan={planInfo.planId}
     >
       <DominioForm tenantId={tenantId} />

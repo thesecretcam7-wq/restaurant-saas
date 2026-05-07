@@ -85,6 +85,26 @@ export default function DominioForm({ tenantId }: Props) {
         <p className="text-gray-500 text-sm mt-1">Conecta tu propio dominio para que los clientes accedan a tu restaurante</p>
       </div>
 
+      <div className="bg-gradient-to-br from-slate-950 to-slate-800 rounded-2xl border border-slate-700 p-5 text-white shadow-xl">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <p className="text-xs font-bold uppercase tracking-[0.18em] text-orange-300">Aun no tienes dominio?</p>
+            <h2 className="mt-1 text-lg font-black">Compra tu dominio en Vercel</h2>
+            <p className="mt-1 text-sm text-white/65">
+              Se abre la tienda de dominios de Vercel para comprar tu dominio y luego conectarlo aqui.
+            </p>
+          </div>
+          <a
+            href="https://vercel.com/dashboard/domains"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex h-11 shrink-0 items-center justify-center rounded-xl bg-white px-5 text-sm font-black text-slate-950 transition hover:bg-orange-100"
+          >
+            Comprar dominio
+          </a>
+        </div>
+      </div>
+
       {/* Current status banner */}
       {currentDomain && (
         <div className={`rounded-xl p-4 flex items-center gap-3 ${
