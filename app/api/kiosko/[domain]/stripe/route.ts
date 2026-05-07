@@ -75,7 +75,7 @@ export async function POST(
       return NextResponse.json({ error: 'Error al crear el pedido' }, { status: 500 })
     }
 
-    const origin = request.headers.get('origin') || process.env.NEXT_PUBLIC_APP_URL || 'https://eccofood.vercel.app'
+    const origin = request.headers.get('origin') || process.env.NEXT_PUBLIC_APP_URL || 'https://eccofoodapp.com'
     const base = origin.endsWith('/') ? origin.slice(0, -1) : origin
     const successUrl = `${base}/${domain}/kiosko?confirmado=true&num=${displayNumber}&name=${encodeURIComponent(customerName.trim())}`
     const cancelUrl = `${base}/${domain}/kiosko`

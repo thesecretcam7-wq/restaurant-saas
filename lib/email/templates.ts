@@ -363,7 +363,7 @@ export function adminOrderNotificationEmail(
     </div>
 
     <p style="text-align: center; margin-top: 30px;">
-      <a href="https://eccofood.vercel.app" style="background: #f97316; color: white; padding: 10px 20px; border-radius: 6px; text-decoration: none;">
+      <a href="https://eccofoodapp.com" style="background: #f97316; color: white; padding: 10px 20px; border-radius: 6px; text-decoration: none;">
         Ver Detalles del Pedido
       </a>
     </p>

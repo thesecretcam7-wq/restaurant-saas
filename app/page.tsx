@@ -77,7 +77,7 @@ export default function LandingPage() {
                   <div className="w-3 h-3 rounded-full bg-green-500" />
                 </div>
                 <div className="mx-auto bg-slate-800/60 px-4 py-1 rounded-md text-[10px] text-slate-400 font-mono tracking-widest uppercase">
-                  eccofood.vercel.app/admin
+                  eccofoodapp.com/admin
                 </div>
               </div>
 

@@ -131,7 +131,7 @@ export default async function OwnerDashboard() {
                       </td>
                       <td className="px-6 py-4 text-sm">
                         <a
-                          href={`https://${tenant.slug}.eccofood.vercel.app/admin`}
+                          href={`https://${tenant.slug}.eccofoodapp.com/admin`}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="inline-flex items-center px-3 py-1 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors text-xs font-semibold"

@@ -88,7 +88,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Build redirect URLs from request origin to avoid env var misconfiguration
-    const origin = request.headers.get('origin') || process.env.NEXT_PUBLIC_APP_URL || `https://eccofood.vercel.app`
+    const origin = request.headers.get('origin') || process.env.NEXT_PUBLIC_APP_URL || `https://eccofoodapp.com`
     const baseUrl = origin.endsWith('/') ? origin.slice(0, -1) : origin
 
     // Create checkout session for subscription
