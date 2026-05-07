@@ -118,13 +118,26 @@ export async function middleware(request: NextRequest) {
   const url = request.nextUrl.clone()
   const hostname = request.headers.get('host') || ''
   const pathname = url.pathname
-
-  if (
-    PUBLIC_PATHS.has(pathname) ||
+  const isAssetPath =
     pathname.startsWith('/_next/') ||
     pathname.startsWith('/icons/') ||
     pathname.startsWith('/screenshots/') ||
     pathname.match(/\.(?:ico|png|jpg|jpeg|svg|webp|avif|css|js|map|txt)$/)
+
+  // En subdominios de restaurantes, la raiz debe abrir la tienda:
+  // elbuenpaladar.eccofoodapp.com -> /elbuenpaladar
+  const earlySubdomain = extractSubdomain(hostname, BASE_DOMAIN)
+  if (!isAssetPath && earlySubdomain && earlySubdomain !== 'www' && earlySubdomain !== 'app' && pathname === '/') {
+    const tenant = await getTenantBySlug(earlySubdomain)
+    if (tenant) {
+      url.pathname = `/${tenant.slug}`
+      return NextResponse.rewrite(url)
+    }
+  }
+
+  if (
+    PUBLIC_PATHS.has(pathname) ||
+    isAssetPath
   ) {
     return NextResponse.next()
   }

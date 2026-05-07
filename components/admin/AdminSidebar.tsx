@@ -80,7 +80,7 @@ const icons: Record<string, ComponentType<{ className?: string }>> = {
 
 function getRestaurantStoreUrl(tenantSlug: string) {
   const baseDomain = process.env.NEXT_PUBLIC_BASE_DOMAIN || 'eccofoodapp.com'
-  return `https://${tenantSlug}.${baseDomain}/menu`
+  return `https://${tenantSlug}.${baseDomain}/`
 }
 
 export function AdminSidebar({

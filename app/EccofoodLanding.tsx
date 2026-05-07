@@ -301,7 +301,7 @@ export function EccofoodLanding() {
                 Crear mi restaurante
                 <ArrowRight className="size-4 transition group-hover:translate-x-1" />
               </Link>
-              <Link href="https://elbuenpaladar.eccofoodapp.com/menu" target="_blank" rel="noopener noreferrer" className="inline-flex h-14 items-center justify-center gap-2 rounded-2xl border border-black/10 bg-white px-7 text-sm font-black text-black shadow-sm transition hover:-translate-y-0.5 hover:shadow-xl">
+              <Link href="https://elbuenpaladar.eccofoodapp.com/" target="_blank" rel="noopener noreferrer" className="inline-flex h-14 items-center justify-center gap-2 rounded-2xl border border-black/10 bg-white px-7 text-sm font-black text-black shadow-sm transition hover:-translate-y-0.5 hover:shadow-xl">
                 Ver demo en vivo
               </Link>
             </div>
