@@ -58,6 +58,45 @@ function readableText(background: string, fallbackDark = '#15130f', fallbackLigh
   return isDark(background) ? fallbackLight : fallbackDark;
 }
 
+function RoleAccessLoader({
+  appName,
+  tool,
+  logoUrl,
+  primary,
+  message,
+}: {
+  appName: string;
+  tool: string;
+  logoUrl: string | null;
+  primary: string;
+  message: string;
+}) {
+  return (
+    <div className="fixed inset-0 z-50 grid place-items-center bg-black/55 px-5 backdrop-blur-lg">
+      <div className="w-full max-w-sm rounded-[2rem] border border-white/15 bg-white/[0.92] p-7 text-center text-[#17120d] shadow-[0_30px_100px_rgba(0,0,0,0.34)]">
+        <div className="relative mx-auto mb-5 grid h-20 w-20 place-items-center">
+          <div className="absolute inset-0 animate-[storeLoaderGlow_1.6s_ease-in-out_infinite] rounded-[1.75rem]" style={{ backgroundColor: primary }} />
+          <div className="relative grid h-20 w-20 place-items-center overflow-hidden rounded-[1.75rem] bg-[#111111] shadow-2xl">
+            {logoUrl ? (
+              <img src={logoUrl} alt={appName} className="h-full w-full object-contain bg-white p-2" />
+            ) : (
+              <span className="text-3xl font-black text-white">E</span>
+            )}
+          </div>
+        </div>
+        <p className="text-xs font-black uppercase tracking-[0.24em]" style={{ color: primary }}>
+          {tool}
+        </p>
+        <h2 className="mt-2 text-2xl font-black tracking-tight">{message}</h2>
+        <p className="mt-2 text-sm font-semibold text-black/48">Preparando tu sesion operativa.</p>
+        <div className="mt-6 h-2 overflow-hidden rounded-full bg-black/10">
+          <div className="h-full w-1/2 animate-[eccoGlobalLoaderBar_1.05s_ease-in-out_infinite] rounded-full" style={{ backgroundColor: primary }} />
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function RoleLoginClient({
   tenantId,
   tenantName,
@@ -72,6 +111,7 @@ export function RoleLoginClient({
   const [staffName, setStaffName] = useState('');
   const [pin, setPin] = useState('');
   const [loading, setLoading] = useState(false);
+  const [loadingMessage, setLoadingMessage] = useState('Verificando acceso');
   const [error, setError] = useState('');
   const [phase, setPhase] = useState<'select' | 'pin'>('select');
   const config = ROLE_CONFIG[role];
@@ -100,7 +140,9 @@ export function RoleLoginClient({
   async function validatePin(value: string) {
     if (value.length < 4) return;
     setLoading(true);
+    setLoadingMessage('Verificando acceso');
     setError('');
+    let keepLoader = false;
 
     try {
       const res = await fetch('/api/staff/auth', {
@@ -110,6 +152,7 @@ export function RoleLoginClient({
       });
 
       if (res.ok) {
+        setLoadingMessage('Registrando sesion');
         await fetch('/api/staff/session/log', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -127,12 +170,14 @@ export function RoleLoginClient({
           body: JSON.stringify({ tenantId, role, staffId, staffName }),
         });
 
+        setLoadingMessage(`Abriendo ${config.tool}`);
         const roleDestinations: Record<string, string> = {
           admin: `/${tenantSlug}/admin/dashboard`,
           cocinero: `/${tenantSlug}/staff/kds`,
           camarero: `/${tenantSlug}/kitchen`,
           cajero: `/${tenantSlug}/staff/pos`,
         };
+        keepLoader = true;
         router.push(roleDestinations[role] || `/${tenantSlug}/acceso/portal/${role}`);
         return;
       }
@@ -149,7 +194,10 @@ export function RoleLoginClient({
       setError('Error de conexion.');
       setPin('');
     } finally {
-      setLoading(false);
+      if (!keepLoader) {
+        setLoading(false);
+        setLoadingMessage('Verificando acceso');
+      }
     }
   }
 
@@ -186,8 +234,18 @@ export function RoleLoginClient({
           `radial-gradient(circle at 18% 18%, ${primary}33, transparent 34%), ` +
           `radial-gradient(circle at 86% 12%, ${accent}24, transparent 30%), ` +
           `linear-gradient(135deg, ${pageBg}, #020617 78%)`,
-      }}
+        }}
     >
+      {loading && (
+        <RoleAccessLoader
+          appName={appName}
+          tool={config.tool}
+          logoUrl={logoUrl}
+          primary={primary}
+          message={loadingMessage}
+        />
+      )}
+
       <button
         onClick={goBack}
         className="fixed left-3 top-3 z-20 grid h-10 w-10 place-items-center rounded-2xl border border-white/10 bg-white/[0.07] text-white/70 transition hover:bg-white/[0.12] hover:text-white sm:left-6 sm:top-6 sm:h-12 sm:w-12"
@@ -304,7 +362,7 @@ export function RoleLoginClient({
                     {error}
                   </p>
                 )}
-                {loading && <p className="mb-4 text-center text-sm font-bold text-white/58">Verificando...</p>}
+                {loading && <p className="mb-4 text-center text-sm font-bold text-white/58">{loadingMessage}...</p>}
 
                 <div className="grid grid-cols-3 gap-2 sm:gap-3">
                   {['1', '2', '3', '4', '5', '6', '7', '8', '9', '', '0', 'del'].map((key) => {
