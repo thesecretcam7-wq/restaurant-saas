@@ -31,7 +31,7 @@ export async function GET(
         context.branding?.tagline ||
         context.branding?.description ||
         `Tienda online de ${restaurantName}`,
-      start_url: `/${tenantSlug}`,
+      start_url: `/${tenantSlug}/`,
       scope: `/${tenantSlug}/`,
       display: 'standalone',
       background_color: backgroundColor,

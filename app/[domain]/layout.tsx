@@ -22,6 +22,7 @@ export async function generateMetadata({
   const { domain } = await params
   const context = await getTenantContext(domain)
   const restaurantName = getRestaurantDisplayName(context)
+  const brandedTitle = `${restaurantName} | Eccofood`
   const tenantSlug = context.tenant?.slug || domain
   const tenantAppleIconUrl = `/${tenantSlug}/apple-touch-icon.png`
   const iconUrl =
@@ -31,7 +32,10 @@ export async function generateMetadata({
     '/icons/apple-touch-icon.png'
 
   return {
-    title: restaurantName,
+    title: {
+      default: brandedTitle,
+      template: `%s | ${restaurantName} | Eccofood`,
+    },
     description: context.branding?.tagline || context.branding?.description || `Tienda online de ${restaurantName}`,
     applicationName: restaurantName,
     manifest: `/${tenantSlug}/manifest.webmanifest`,
@@ -49,7 +53,7 @@ export async function generateMetadata({
     },
     openGraph: {
       type: 'website',
-      title: restaurantName,
+      title: brandedTitle,
       description: context.branding?.tagline || context.branding?.description || `Tienda online de ${restaurantName}`,
       images: iconUrl ? [{ url: iconUrl }] : undefined,
     },

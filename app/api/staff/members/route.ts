@@ -2,6 +2,9 @@ import { createServiceClient } from '@/lib/supabase/server'
 import { NextRequest, NextResponse } from 'next/server'
 import { requireTenantAccess, tenantAuthErrorResponse } from '@/lib/tenant-api-auth'
 
+const CREATE_STAFF_ROLES = ['cocinero', 'camarero', 'cajero']
+const UPDATE_STAFF_ROLES = ['cocinero', 'camarero', 'cajero', 'admin']
+
 export async function GET(request: NextRequest) {
   try {
     const tenantId = request.nextUrl.searchParams.get('tenantId')
@@ -29,13 +32,19 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const { tenantId, name, role, pin } = await request.json()
+    const cleanName = typeof name === 'string' ? name.trim() : ''
+    const cleanPin = typeof pin === 'string' ? pin.trim() : ''
 
-    if (!tenantId || !name || !role || !pin) {
+    if (!tenantId || !cleanName || !role || !cleanPin) {
       return NextResponse.json({ error: 'Faltan campos requeridos' }, { status: 400 })
     }
 
-    if (!['cocinero', 'camarero', 'cajero'].includes(role)) {
+    if (!CREATE_STAFF_ROLES.includes(role)) {
       return NextResponse.json({ error: 'Rol invalido' }, { status: 400 })
+    }
+
+    if (!/^\d{6}$/.test(cleanPin)) {
+      return NextResponse.json({ error: 'El PIN debe tener 6 numeros' }, { status: 400 })
     }
 
     await requireTenantAccess(tenantId, { staffRoles: ['admin'], requireAdminPermission: true })
@@ -43,7 +52,7 @@ export async function POST(request: NextRequest) {
     const supabase = createServiceClient()
     const { data, error } = await supabase
       .from('staff_members')
-      .insert([{ tenant_id: tenantId, name, role, pin, is_active: true }])
+      .insert([{ tenant_id: tenantId, name: cleanName, role, pin: cleanPin, is_active: true }])
       .select()
       .single()
 
@@ -74,9 +83,43 @@ export async function PUT(request: NextRequest) {
 
     await requireTenantAccess(current.tenant_id, { staffRoles: ['admin'], requireAdminPermission: true })
 
+    const updateData: Record<string, string | boolean> = {}
+
+    if (name !== undefined) {
+      const cleanName = typeof name === 'string' ? name.trim() : ''
+      if (!cleanName) return NextResponse.json({ error: 'Nombre invalido' }, { status: 400 })
+      updateData.name = cleanName
+    }
+
+    if (role !== undefined) {
+      if (!UPDATE_STAFF_ROLES.includes(role)) {
+        return NextResponse.json({ error: 'Rol invalido' }, { status: 400 })
+      }
+      updateData.role = role
+    }
+
+    if (pin !== undefined) {
+      const cleanPin = typeof pin === 'string' ? pin.trim() : ''
+      if (!/^\d{6}$/.test(cleanPin)) {
+        return NextResponse.json({ error: 'El PIN debe tener 6 numeros' }, { status: 400 })
+      }
+      updateData.pin = cleanPin
+    }
+
+    if (is_active !== undefined) {
+      if (typeof is_active !== 'boolean') {
+        return NextResponse.json({ error: 'Estado invalido' }, { status: 400 })
+      }
+      updateData.is_active = is_active
+    }
+
+    if (Object.keys(updateData).length === 0) {
+      return NextResponse.json({ error: 'No hay cambios para guardar' }, { status: 400 })
+    }
+
     const { data, error } = await supabase
       .from('staff_members')
-      .update({ name, role, pin, is_active, updated_at: new Date().toISOString() })
+      .update(updateData)
       .eq('id', id)
       .select()
       .single()
