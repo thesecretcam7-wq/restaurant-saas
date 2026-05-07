@@ -26,8 +26,13 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       return NextResponse.json({ error: 'Order not found' }, { status: 404 })
     }
 
+    await requireTenantAccess(order.tenant_id, { staffRoles: ['admin', 'cajero', 'camarero', 'cocinero'] })
+
     return NextResponse.json({ order })
   } catch (err) {
+    if (err instanceof Error && ['Unauthorized', 'Forbidden'].includes(err.message)) {
+      return tenantAuthErrorResponse(err)
+    }
     console.error('Get order error:', err)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }

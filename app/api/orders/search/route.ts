@@ -1,5 +1,6 @@
 import { createServiceClient } from '@/lib/supabase/server'
 import { NextRequest, NextResponse } from 'next/server'
+import { requireTenantAccess, tenantAuthErrorResponse } from '@/lib/tenant-api-auth'
 
 export async function GET(request: NextRequest) {
   try {
@@ -15,12 +16,20 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    // SECURITY: Verify user owns the tenant
-    const { verifyTenantOwnership } = await import('@/lib/auth-helpers')
     try {
-      const { tenantId } = await verifyTenantOwnership(request, domain)
-
       const supabase = createServiceClient()
+      const { data: tenant } = await supabase
+        .from('tenants')
+        .select('id')
+        .eq('slug', domain)
+        .maybeSingle()
+
+      if (!tenant?.id) {
+        return NextResponse.json({ error: 'Restaurante no encontrado' }, { status: 404 })
+      }
+
+      const tenantId = tenant.id
+      await requireTenantAccess(tenantId, { staffRoles: ['admin', 'cajero'] })
 
       const rawSearch = orderNumber.trim()
       const searchTerm = `%${rawSearch}%`
@@ -63,11 +72,7 @@ export async function GET(request: NextRequest) {
 
       return NextResponse.json({ orders: orders || [] })
     } catch (authError) {
-      const { sendErrorResponse } = await import('@/lib/auth-helpers')
-      const statusCode =
-        authError instanceof Error && authError.message.includes('Unauthorized') ? 401 :
-        authError instanceof Error && authError.message.includes('Forbidden') ? 403 : 500
-      return sendErrorResponse(authError, statusCode)
+      return tenantAuthErrorResponse(authError)
     }
   } catch (err) {
     console.error('Order search error:', err)
