@@ -132,7 +132,9 @@ export async function calculateCashClosingStats(
       return emptyStats(period);
     }
 
-    const countableOrders = (orders || []).filter((order: any) => order.status !== 'cancelled');
+    const countableOrders = (orders || []).filter((order: any) =>
+      order.status !== 'cancelled' && order.payment_status === 'paid'
+    );
 
     const stats = {
       cashSales: 0,
@@ -152,6 +154,7 @@ export async function calculateCashClosingStats(
         stats.ordersCancelled++;
         return;
       }
+      if (order.payment_status !== 'paid') return;
 
       const total = Number(order.total) || 0;
       const tax = Number(order.tax ?? order.tax_amount) || 0;

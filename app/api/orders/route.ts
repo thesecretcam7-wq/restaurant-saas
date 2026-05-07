@@ -5,6 +5,7 @@ import { verifyCSRFToken, sendCSRFErrorResponse } from '@/lib/csrf'
 import { sendOrderConfirmation, sendNewOrderNotification } from '@/lib/email'
 import { sendWhatsAppOrderConfirmation } from '@/lib/whatsapp'
 import { orderLimiter, checkRateLimit, getClientIp } from '@/lib/ratelimit'
+import { requireTenantAccess, tenantAuthErrorResponse } from '@/lib/tenant-api-auth'
 
 export async function GET(request: NextRequest) {
   try {
@@ -124,6 +125,15 @@ export async function POST(request: NextRequest) {
     }
 
     const tenantId = tenant.id
+
+    const protectedSourceRoles: Record<string, string[]> = {
+      pos: ['admin', 'cajero'],
+      comandero: ['admin', 'camarero'],
+      kiosk: ['admin', 'cajero', 'camarero', 'cocinero'],
+    }
+    if (source && protectedSourceRoles[source]) {
+      await requireTenantAccess(tenantId, { staffRoles: protectedSourceRoles[source] })
+    }
 
     if (!Array.isArray(items) || items.length === 0) {
       return NextResponse.json({ error: 'Order must include items' }, { status: 400 })
@@ -350,6 +360,9 @@ export async function POST(request: NextRequest) {
         },
         { status: 400 }
       )
+    }
+    if (err instanceof Error && ['Unauthorized', 'Forbidden'].includes(err.message)) {
+      return tenantAuthErrorResponse(err)
     }
     console.error('[orders POST] unexpected error:', err)
     return NextResponse.json({ error: 'Error interno' }, { status: 500 })

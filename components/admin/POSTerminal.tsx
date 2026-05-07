@@ -1269,6 +1269,7 @@ export function POSTerminal({
           tip: tip > 0 ? tip : null,
           notes: discount > 0 ? `Descuento: $${discount.toFixed(2)}` : null,
           amountPaid: paymentMethod === 'cash' ? amountPaid : null,
+          source: 'pos',
         };
 
         const saveSaleOffline = async () => {

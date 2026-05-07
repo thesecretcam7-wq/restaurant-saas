@@ -8,6 +8,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { requireTenantAccess, tenantAuthErrorResponse } from '@/lib/tenant-api-auth';
 
 function isBrowserDriverDevice(device: any) {
   return device?.config?.connection_mode === 'browser_driver' || (!device?.vendor_id && !device?.product_id);
@@ -38,6 +39,8 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    await requireTenantAccess(tenantId, { staffRoles: ['admin'], requireAdminPermission: true });
+
     // Fetch devices for this tenant
     const { data: devices, error } = await supabase
       .from('printer_devices')
@@ -51,6 +54,9 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({ devices: dedupeBrowserDriverDevices(devices || []) });
   } catch (error) {
+    if (error instanceof Error && ['Unauthorized', 'Forbidden'].includes(error.message)) {
+      return tenantAuthErrorResponse(error);
+    }
     console.error('Error fetching devices:', error);
     return NextResponse.json(
       { error: 'Error al obtener dispositivos' },
@@ -74,6 +80,8 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
+
+    await requireTenantAccess(tenantId, { staffRoles: ['admin'], requireAdminPermission: true });
 
     const isBrowserDriver = config?.connection_mode === 'browser_driver' || (!vendor_id && !product_id);
 
@@ -151,6 +159,9 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ device }, { status: 201 });
   } catch (error) {
+    if (error instanceof Error && ['Unauthorized', 'Forbidden'].includes(error.message)) {
+      return tenantAuthErrorResponse(error);
+    }
     console.error('Error creating device:', error);
     const errorMsg = error instanceof Error ? error.message : String(error);
     return NextResponse.json(
@@ -186,6 +197,8 @@ export async function PUT(request: NextRequest) {
       );
     }
 
+    await requireTenantAccess(tenantId, { staffRoles: ['admin'], requireAdminPermission: true });
+
     // Update device
     const { data: device, error } = await supabase
       .from('printer_devices')
@@ -213,6 +226,9 @@ export async function PUT(request: NextRequest) {
 
     return NextResponse.json({ device });
   } catch (error) {
+    if (error instanceof Error && ['Unauthorized', 'Forbidden'].includes(error.message)) {
+      return tenantAuthErrorResponse(error);
+    }
     console.error('Error updating device:', error);
     return NextResponse.json(
       { error: 'Error al actualizar dispositivo' },
@@ -237,6 +253,8 @@ export async function DELETE(request: NextRequest) {
         { status: 400 }
       );
     }
+
+    await requireTenantAccess(tenantId, { staffRoles: ['admin'], requireAdminPermission: true });
 
     // Clear references before deleting. Otherwise default/kitchen printer foreign keys can block deletion.
     await supabase
@@ -270,6 +288,9 @@ export async function DELETE(request: NextRequest) {
 
     return NextResponse.json({ success: true });
   } catch (error) {
+    if (error instanceof Error && ['Unauthorized', 'Forbidden'].includes(error.message)) {
+      return tenantAuthErrorResponse(error);
+    }
     console.error('Error deleting device:', error);
     return NextResponse.json(
       { error: 'Error al eliminar dispositivo' },

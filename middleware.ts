@@ -319,7 +319,20 @@ export async function middleware(request: NextRequest) {
               return res
             }
           }
-          return response
+
+          if (!routeTenant) {
+            const loginUrl = new URL(`/${slug}/admin/login`, request.url)
+            return NextResponse.redirect(loginUrl)
+          }
+
+          const { data: ownedTenant } = await serviceSupabase
+            .from('tenants')
+            .select('id')
+            .eq('id', routeTenant.id)
+            .eq('owner_id', user.id)
+            .maybeSingle()
+
+          if (ownedTenant) return response
         }
       } catch {
         // Error verificando Supabase, continuar al bloqueo
