@@ -88,6 +88,7 @@ export default function GlobalNavigationLoader() {
 
   useEffect(() => {
     function show(nextPathname: string, fallbackLabel = 'Procesando solicitud') {
+      if (isStoreRoute(window.location.pathname)) return;
       setLabel(nextPathname ? getLoadingLabel(nextPathname) : fallbackLabel);
       setVisible(true);
       if (timeoutRef.current) clearTimeout(timeoutRef.current);
@@ -110,6 +111,7 @@ export default function GlobalNavigationLoader() {
       if (!form || form.method.toLowerCase() !== 'get') return;
       const action = form.action ? new URL(form.action, window.location.href) : new URL(window.location.href);
       if (action.origin !== window.location.origin) return;
+      if (isStoreRoute(window.location.pathname) || isStoreRoute(action.pathname)) return;
       show(action.pathname, 'Procesando solicitud');
     }
 
