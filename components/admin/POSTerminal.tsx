@@ -16,6 +16,7 @@ import { calculateCashClosingStats, saveCashClosing, CashClosingStats } from '@/
 import { getCurrencyByCountry, formatPriceWithCurrency } from '@/lib/currency';
 import { printReceipt, savePrinterLog, openCashDrawer } from '@/lib/pos-printer';
 import { countPendingPOSOrders, isNetworkPaymentError, saveOfflinePOSOrder, syncOfflinePOSOrders } from '@/lib/offline/pos-sync';
+import { useWakeLock } from '@/lib/hooks/useWakeLock';
 
 interface MenuItem {
   id: string;
@@ -424,6 +425,7 @@ export function POSTerminal({
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const posRootRef = useRef<HTMLDivElement>(null);
+  const { wakeLockActive, wakeLockSupported, activateWakeLock } = useWakeLock();
   const [showCartDrawer, setShowCartDrawer] = useState(false);
   const [showAdminMenu, setShowAdminMenu] = useState(false);
   const [showCashClosing, setShowCashClosing] = useState(false);
@@ -1639,7 +1641,7 @@ export function POSTerminal({
   }
 
   return (
-    <div ref={posRootRef} className={`pos-premium ${isFullscreen ? 'fixed inset-0 z-[9999] h-screen w-screen p-0 m-0 overflow-hidden flex flex-col bg-[#020617]' : 'h-full'} text-white flex flex-col`}>
+    <div ref={posRootRef} className={`pos-premium ${isFullscreen ? 'fixed inset-0 z-[9999] h-[100dvh] w-screen p-0 m-0 overflow-hidden flex flex-col bg-[#020617]' : 'min-h-[100dvh]'} text-white flex flex-col`}>
       {/* Fullscreen Header - Logo and Controls - TPV Header with Eccofood Brand */}
       {isFullscreen && (
         <div className="pos-panel border-x-0 border-t-0 px-6 py-4 flex items-center justify-between">
@@ -1653,6 +1655,14 @@ export function POSTerminal({
             </div>
           </div>
           <div className="flex items-center gap-2">
+            <button
+              onClick={() => activateWakeLock()}
+              className={`pos-action-ghost ${wakeLockActive ? 'border-emerald-300/45 bg-emerald-300/12 text-emerald-100' : 'border-amber-300/35 bg-amber-300/10 text-amber-100'}`}
+              title={wakeLockSupported ? 'Mantener la pantalla activa' : 'Tu navegador puede no soportar bloqueo de pantalla'}
+            >
+              <Lock className="w-5 h-5" />
+              <span className="hidden sm:inline">{wakeLockActive ? 'Activa' : 'Bloquear'}</span>
+            </button>
             <button
               onClick={() => syncOfflineSales(true)}
               disabled={!isOnline || syncingOffline}
@@ -1700,6 +1710,17 @@ export function POSTerminal({
               </div>
             </div>
 
+            {!wakeLockActive && (
+              <button
+                onClick={() => activateWakeLock()}
+                className="pos-action-ghost border-amber-300/35 bg-amber-300/10 text-amber-100"
+                title={wakeLockSupported ? 'Mantener pantalla activa' : 'Tu navegador puede no soportar esta funcion'}
+              >
+                <Lock className="size-4" />
+                <span>Bloquear pantalla</span>
+              </button>
+            )}
+
             <div className="grid grid-cols-3 gap-2 lg:min-w-[420px]">
               <div className="pos-kpi">
                 <span>Carrito</span>
@@ -1718,12 +1739,12 @@ export function POSTerminal({
         </div>
       )}
 
-      <div className={`flex-1 flex flex-col overflow-hidden md:flex-row ${isFullscreen ? 'gap-0' : 'gap-0'}`}>
+      <div className={`flex-1 flex min-h-0 flex-col overflow-hidden lg:flex-row ${isFullscreen ? 'gap-0' : 'gap-0'}`}>
         {/* Menu Section */}
         <div className="min-h-0 flex-1 flex flex-col overflow-hidden">
           {/* Search and Controls - Sticky Header */}
-          <div className={`pos-panel pos-command-bar border-x-0 border-t-0 flex gap-3 items-center sticky top-0 z-10 ${isFullscreen ? 'px-4 py-3' : 'p-4'}`}>
-            <div className="flex-1 relative">
+          <div className={`pos-panel pos-command-bar border-x-0 border-t-0 flex flex-wrap gap-2.5 items-center sticky top-0 z-10 lg:flex-nowrap ${isFullscreen ? 'px-4 py-3' : 'p-3 sm:p-4'}`}>
+            <div className="relative min-w-[220px] flex-[1_1_260px]">
               <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-cyan-100/45 pointer-events-none" />
               <input
                 ref={searchInputRef}
@@ -1831,8 +1852,8 @@ export function POSTerminal({
           </div>
 
           {/* Menu Grid */}
-          <div className={`flex-1 overflow-y-auto ${isFullscreen ? 'px-4 py-3' : 'p-4'}`}>
-            <div className={`grid gap-3 h-fit ${isFullscreen ? 'grid-cols-2 sm:grid-cols-4 lg:grid-cols-8' : 'grid-cols-2 sm:grid-cols-3 md:grid-cols-5 lg:grid-cols-7'}`}>
+          <div className={`flex-1 overflow-y-auto ${isFullscreen ? 'px-4 py-3' : 'p-3 sm:p-4'}`}>
+            <div className={`grid gap-3 h-fit ${isFullscreen ? 'grid-cols-2 sm:grid-cols-4 lg:grid-cols-8' : 'grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-6 2xl:grid-cols-7'}`}>
               {filteredMenu.map((item, index) => {
                 const qty = cartQuantityMap.get(item.id);
                 return (
@@ -1928,7 +1949,7 @@ export function POSTerminal({
         </div>
 
         {/* Cart/Payment Section */}
-        <div className={`${isFullscreen ? 'h-[44vh] md:h-auto md:w-72 xl:w-80' : 'h-[44vh] md:h-auto md:w-80'} pos-panel border-y-0 border-r-0 flex flex-col overflow-hidden`}>
+        <div className={`${isFullscreen ? 'h-[44dvh] lg:h-auto lg:w-72 xl:w-80' : 'h-[52dvh] min-h-[390px] lg:h-auto lg:w-80'} pos-panel border-x-0 border-b-0 lg:border-y-0 lg:border-r-0 flex flex-col overflow-hidden`}>
           {/* Tabs: Cart / Entregas / Salón */}
           <div className="border-b border-white/10 flex bg-black/20 backdrop-blur-xl">
             <button

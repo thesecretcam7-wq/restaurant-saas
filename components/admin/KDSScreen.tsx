@@ -18,9 +18,7 @@ import {
   VolumeX,
   Zap,
 } from 'lucide-react';
-
-  // Wake Lock
-type WakeLockSentinel = any;
+import { useWakeLock } from '@/lib/hooks/useWakeLock';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -580,7 +578,7 @@ function KDSColumn({
   onPlayTestSound?: () => void;
 }) {
   return (
-    <div className="flex flex-col rounded-2xl overflow-hidden border border-white/10 bg-slate-950/92 h-full shadow-2xl shadow-black/30 backdrop-blur-xl">
+    <div className="flex min-h-[72dvh] flex-col rounded-2xl overflow-hidden border border-white/10 bg-slate-950/92 shadow-2xl shadow-black/30 backdrop-blur-xl md:min-h-0 md:h-full">
       {/* Column Header */}
       <div className={`px-3 py-3 flex items-center justify-between border-b border-white/10 ${headerColor}`}>
         <div className="flex items-center gap-2.5">
@@ -596,7 +594,7 @@ function KDSColumn({
       </div>
 
       {/* Cards Container */}
-      <div className="flex-1 overflow-y-auto p-2.5 space-y-2.5 max-h-[calc(100vh-190px)]">
+      <div className="flex-1 overflow-y-auto p-2.5 space-y-2.5 md:max-h-[calc(100vh-190px)]">
         {orders.length === 0 ? (
           <div className="text-center py-16 flex flex-col items-center justify-center h-full">
             <Utensils className="h-12 w-12 text-slate-500" />
@@ -628,8 +626,7 @@ export function KDSScreen({ tenantId }: { tenantId: string }) {
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
-  const [wakeLockActive, setWakeLockActive] = useState(false);
-  const wakeLockRef = useRef<WakeLockSentinel | null>(null);
+  const { wakeLockActive, activateWakeLock } = useWakeLock();
   const delayedAlertedOrders = useRef(new Map<string, number>());
   const {
     soundEnabled,
@@ -655,60 +652,6 @@ export function KDSScreen({ tenantId }: { tenantId: string }) {
       if (!isFullscreen) await document.documentElement.requestFullscreen();
       else await document.exitFullscreen();
     } catch (_) {}
-  }
-
-  // Wake Lock
-  async function activateWakeLock() {
-    try {
-      if ('wakeLock' in navigator) {
-        const sentinel = await (navigator as any).wakeLock.request('screen');
-        wakeLockRef.current = sentinel;
-        setWakeLockActive(true);
-        console.log('Wake Lock activated successfully');
-
-        // Handle release event (battery saver, user action, etc)
-        const handleRelease = () => {
-          console.log('Wake Lock released by system');
-          wakeLockRef.current = null;
-          setWakeLockActive(false);
-        };
-        sentinel.addEventListener('release', handleRelease);
-
-  // Wake Lock
-        const handleVisibilityChange = async () => {
-          if (document.hidden && wakeLockRef.current) {
-            try {
-              await wakeLockRef.current.release();
-              wakeLockRef.current = null;
-              setWakeLockActive(false);
-              console.log('Wake Lock released on tab hide');
-            } catch (_) {}
-          } else if (!document.hidden && !wakeLockRef.current) {
-            try {
-              const newSentinel = await (navigator as any).wakeLock.request('screen');
-              wakeLockRef.current = newSentinel;
-              setWakeLockActive(true);
-              console.log('Wake Lock re-activated on tab show');
-              newSentinel.addEventListener('release', handleRelease);
-            } catch (err) {
-              console.error('Re-activate wake lock failed:', err);
-            }
-          }
-        };
-
-        document.addEventListener('visibilitychange', handleVisibilityChange);
-        return () => {
-          document.removeEventListener('visibilitychange', handleVisibilityChange);
-          sentinel.removeEventListener('release', handleRelease);
-        };
-      } else {
-        console.warn('Wake Lock API not supported');
-        setWakeLockActive(false);
-      }
-    } catch (err) {
-      console.error('Wake Lock error:', err);
-      setWakeLockActive(false);
-    }
   }
 
   // Delayed Order Alerts: pending orders not confirmed after 10 minutes.
@@ -903,7 +846,7 @@ export function KDSScreen({ tenantId }: { tenantId: string }) {
   return (
     // Clicking anywhere inits audio (required by iOS/Safari)
     <div
-      className={`bg-slate-950 text-white flex flex-col select-none overflow-hidden ${isFullscreen ? 'fixed inset-0 z-50' : 'h-screen'}`}
+      className={`bg-slate-950 text-white flex flex-col select-none ${isFullscreen ? 'fixed inset-0 z-50 overflow-hidden' : 'min-h-[100dvh] md:h-screen md:overflow-hidden'}`}
       onClick={initAudio}
     >
       {/* Top Bar */}
@@ -1031,7 +974,7 @@ export function KDSScreen({ tenantId }: { tenantId: string }) {
           </div>
 
           {/* Trust-Building Stats */}
-          <div className="flex items-center gap-4 lg:ml-auto lg:gap-6">
+          <div className="grid grid-cols-2 gap-2 sm:flex sm:items-center sm:gap-4 lg:ml-auto lg:gap-6">
             <div className="flex items-center gap-2 text-center">
               <ShieldCheck className="h-4 w-4 text-emerald-300" />
               <div className="text-2xl font-black text-emerald-300">{totalDeliveredItems}</div>
@@ -1048,7 +991,7 @@ export function KDSScreen({ tenantId }: { tenantId: string }) {
       </div>
 
       {/* Columns */}
-      <div className="flex-1 grid grid-cols-1 gap-2.5 overflow-y-auto p-2.5 bg-[radial-gradient(circle_at_top_left,rgba(34,211,238,0.14),transparent_34%),linear-gradient(180deg,#020617,#0f172a)] md:grid-cols-3 md:gap-3 md:overflow-hidden md:p-4">
+      <div className="grid flex-1 grid-cols-1 gap-2.5 overflow-y-auto p-2.5 bg-[radial-gradient(circle_at_top_left,rgba(34,211,238,0.14),transparent_34%),linear-gradient(180deg,#020617,#0f172a)] md:grid-cols-3 md:gap-3 md:overflow-hidden md:p-4">
         <KDSColumn
           title="PENDIENTES"
           orders={pendingOrders}
