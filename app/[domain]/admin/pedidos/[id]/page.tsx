@@ -3,6 +3,7 @@ import { getTenantIdFromSlug } from '@/lib/tenant'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import type { Order, OrderItem } from '@/lib/types'
+import { ReprintReceiptButton } from '@/components/admin/ReprintReceiptButton'
 
 interface PedidoDetailProps {
   params: Promise<{ domain: string; id: string }>
@@ -119,6 +120,11 @@ export default async function PedidoDetailPage({ params }: PedidoDetailProps) {
           <span className="text-xs text-gray-500">
             {order.payment_method === 'stripe' ? 'Tarjeta' : order.payment_method === 'cash' ? 'Efectivo' : '-'}
           </span>
+          {order.payment_status === 'paid' && (
+            <div className="ml-auto">
+              <ReprintReceiptButton tenantId={tenantId} orderId={order.id} orderNumber={order.order_number} />
+            </div>
+          )}
         </div>
       </div>
 

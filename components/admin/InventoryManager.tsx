@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { createClient } from '@supabase/supabase-js';
-import { AlertTriangle, Plus, Minus, PackagePlus, X, Hash, Boxes, DollarSign, Truck } from 'lucide-react';
+import { AlertTriangle, Plus, Minus, PackagePlus, X, Hash, Boxes, DollarSign, Truck, History, ReceiptText } from 'lucide-react';
 import { NumericKeyboard } from './NumericKeyboard';
 
 const supabase = createClient(
@@ -28,12 +28,32 @@ interface StockAlert {
   is_resolved: boolean;
 }
 
+interface StockMovement {
+  id: string;
+  movement_type: 'sale' | 'purchase' | 'adjustment' | 'damage' | 'return';
+  quantity: number;
+  notes?: string | null;
+  reference_id?: string | null;
+  created_by?: string | null;
+  created_at: string;
+  order?: {
+    id: string;
+    order_number: string | null;
+    customer_name: string | null;
+    total: number | string | null;
+    created_at: string;
+  } | null;
+}
+
 export function InventoryManager({ tenantId }: { tenantId: string }) {
   const [inventory, setInventory] = useState<InventoryItem[]>([]);
   const [alerts, setAlerts] = useState<StockAlert[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAddForm, setShowAddForm] = useState(false);
   const [selectedItem, setSelectedItem] = useState<string | null>(null);
+  const [movementItem, setMovementItem] = useState<InventoryItem | null>(null);
+  const [movements, setMovements] = useState<StockMovement[]>([]);
+  const [loadingMovements, setLoadingMovements] = useState(false);
   const [movementType, setMovementType] = useState<'purchase' | 'sale' | 'adjustment'>('purchase');
   const [quantity, setQuantity] = useState(0);
   const [showNumericKeyboard, setShowNumericKeyboard] = useState(false);
@@ -116,6 +136,23 @@ export function InventoryManager({ tenantId }: { tenantId: string }) {
     }
   }
 
+  async function openMovements(item: InventoryItem) {
+    setMovementItem(item);
+    setLoadingMovements(true);
+    try {
+      const response = await fetch(`/api/inventory/${item.id}/stock-movement?tenantId=${tenantId}`, {
+        credentials: 'include',
+      });
+      const data = await response.json();
+      setMovements(Array.isArray(data) ? data : []);
+    } catch (error) {
+      console.error('Error fetching stock movements:', error);
+      setMovements([]);
+    } finally {
+      setLoadingMovements(false);
+    }
+  }
+
   const getStockStatus = (current: number, min: number, max: number) => {
     if (current <= 0) return { status: 'Agotado', color: 'bg-red-100 text-red-900' };
     if (current <= min) return { status: 'Bajo', color: 'bg-yellow-100 text-yellow-900' };
@@ -128,6 +165,8 @@ export function InventoryManager({ tenantId }: { tenantId: string }) {
   }
 
   const lowStockItems = inventory.filter((item) => item.current_stock <= item.min_stock);
+  const outOfStockItems = inventory.filter((item) => item.current_stock <= 0);
+  const nearLowStockItems = lowStockItems.filter((item) => item.current_stock > 0);
   const totalInventoryValue = inventory.reduce(
     (sum, item) => sum + item.current_stock * item.cost_per_unit,
     0
@@ -154,27 +193,45 @@ export function InventoryManager({ tenantId }: { tenantId: string }) {
 
         {/* Alerts */}
         {lowStockItems.length > 0 && (
-          <div className="admin-panel mb-5 border-amber-200 bg-amber-50/80 p-5">
-            <div className="flex gap-3">
-              <AlertTriangle className="w-6 h-6 text-yellow-600 flex-shrink-0 mt-0.5" />
-              <div>
-                <h3 className="font-bold text-yellow-900">Stock Bajo</h3>
-                <p className="text-yellow-800 text-sm">
-                  {lowStockItems.length} producto{lowStockItems.length > 1 ? 's' : ''} con stock
-                  bajo:
-                </p>
-                <div className="mt-2 space-y-1">
-                  {lowStockItems.map((item) => (
-                    <p key={item.id} className="text-sm text-yellow-800">
-                      • {item.product_name}: {item.current_stock} unidades
-                    </p>
-                  ))}
+          <div className="mb-5 grid gap-3 lg:grid-cols-2">
+            {outOfStockItems.length > 0 && (
+              <div className="admin-panel border-red-200 bg-red-50/90 p-5">
+                <div className="flex gap-3">
+                  <AlertTriangle className="w-6 h-6 text-red-600 flex-shrink-0 mt-0.5" />
+                  <div>
+                    <h3 className="font-black text-red-950">Agotados</h3>
+                    <p className="text-red-800 text-sm font-semibold">{outOfStockItems.length} insumo{outOfStockItems.length > 1 ? 's' : ''} sin stock.</p>
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      {outOfStockItems.slice(0, 8).map((item) => (
+                        <span key={item.id} className="rounded-full border border-red-200 bg-white/70 px-3 py-1 text-xs font-black text-red-800">
+                          {item.product_name}: {item.current_stock}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
                 </div>
               </div>
-            </div>
+            )}
+            {nearLowStockItems.length > 0 && (
+              <div className="admin-panel border-amber-200 bg-amber-50/90 p-5">
+                <div className="flex gap-3">
+                  <AlertTriangle className="w-6 h-6 text-yellow-600 flex-shrink-0 mt-0.5" />
+                  <div>
+                    <h3 className="font-black text-yellow-950">Stock bajo</h3>
+                    <p className="text-yellow-800 text-sm font-semibold">{nearLowStockItems.length} insumo{nearLowStockItems.length > 1 ? 's' : ''} por debajo del minimo.</p>
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      {nearLowStockItems.slice(0, 8).map((item) => (
+                        <span key={item.id} className="rounded-full border border-amber-200 bg-white/70 px-3 py-1 text-xs font-black text-yellow-900">
+                          {item.product_name}: {item.current_stock}/{item.min_stock}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         )}
-
         {/* Add Form Modal */}
         {showAddForm && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/55 p-4 backdrop-blur-sm">
@@ -390,6 +447,84 @@ export function InventoryManager({ tenantId }: { tenantId: string }) {
           allowDecimal={false}
         />
 
+        {movementItem && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/55 p-4 backdrop-blur-sm">
+            <div className="admin-panel max-h-[86vh] w-full max-w-3xl overflow-hidden">
+              <div className="flex items-start justify-between gap-4 border-b border-black/10 bg-white/70 px-6 py-5">
+                <div>
+                  <p className="admin-eyebrow">Kardex</p>
+                  <h2 className="text-2xl font-black tracking-tight text-[#15130f]">{movementItem.product_name}</h2>
+                  <p className="mt-1 text-sm font-semibold text-black/52">Stock actual: {movementItem.current_stock}</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMovementItem(null);
+                    setMovements([]);
+                  }}
+                  className="rounded-lg p-2 text-black/45 transition hover:bg-black/5 hover:text-black"
+                  aria-label="Cerrar"
+                >
+                  <X className="size-5" />
+                </button>
+              </div>
+
+              <div className="max-h-[60vh] overflow-y-auto">
+                {loadingMovements ? (
+                  <div className="admin-empty m-5">Cargando movimientos...</div>
+                ) : movements.length === 0 ? (
+                  <div className="admin-empty m-5">
+                    <History className="mb-3 size-8 text-black/24" />
+                    <p className="font-black text-[#15130f]">Sin movimientos</p>
+                    <p className="mt-1 text-sm">Este ingrediente todavia no tiene compras, ajustes o ventas asociadas.</p>
+                  </div>
+                ) : (
+                  <div className="divide-y divide-black/8">
+                    {movements.map((movement) => {
+                      const isOut = movement.movement_type === 'sale' || movement.movement_type === 'damage';
+                      const movementLabel: Record<string, string> = {
+                        sale: 'Venta',
+                        purchase: 'Compra',
+                        adjustment: 'Ajuste',
+                        damage: 'Merma',
+                        return: 'Devolucion',
+                      };
+                      return (
+                        <div key={movement.id} className="grid gap-3 px-6 py-4 sm:grid-cols-[1fr_auto] sm:items-center">
+                          <div>
+                            <div className="flex flex-wrap items-center gap-2">
+                              <span className={`rounded-full px-2.5 py-1 text-xs font-black ${isOut ? 'bg-red-50 text-red-700' : 'bg-emerald-50 text-emerald-700'}`}>
+                                {movementLabel[movement.movement_type] || movement.movement_type}
+                              </span>
+                              <span className="text-xs font-bold text-black/42">
+                                {new Date(movement.created_at).toLocaleString('es-CO', { month: 'short', day: '2-digit', hour: '2-digit', minute: '2-digit' })}
+                              </span>
+                            </div>
+                            <p className="mt-2 text-sm font-bold text-[#15130f]">
+                              {movement.order?.order_number ? `Pedido ${movement.order.order_number}` : movement.notes || 'Movimiento manual'}
+                            </p>
+                            {movement.order?.customer_name && (
+                              <p className="mt-0.5 text-xs font-semibold text-black/45">
+                                Cliente: {movement.order.customer_name} - Total ${Number(movement.order.total || 0).toLocaleString('es-CO')}
+                              </p>
+                            )}
+                            {movement.reference_id && !movement.order?.order_number && (
+                              <p className="mt-0.5 text-xs font-semibold text-black/35">Referencia: {movement.reference_id}</p>
+                            )}
+                          </div>
+                          <p className={`text-right text-lg font-black ${isOut ? 'text-red-600' : 'text-emerald-700'}`}>
+                            {isOut ? '-' : '+'}{Number(movement.quantity).toLocaleString('es-CO')}
+                          </p>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Inventory Table */}
         <div className="admin-panel overflow-hidden">
           <table className="w-full">
@@ -440,6 +575,12 @@ export function InventoryManager({ tenantId }: { tenantId: string }) {
                         className="bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded text-sm flex items-center gap-1 transition"
                       >
                         <Minus className="w-4 h-4" /> Venta
+                      </button>
+                      <button
+                        onClick={() => openMovements(item)}
+                        className="bg-slate-800 hover:bg-slate-900 text-white px-3 py-1 rounded text-sm flex items-center gap-1 transition"
+                      >
+                        <ReceiptText className="w-4 h-4" /> Movimientos
                       </button>
                     </td>
                   </tr>

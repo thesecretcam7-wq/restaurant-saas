@@ -134,7 +134,25 @@ export async function GET(
 
     if (error) throw error;
 
-    return NextResponse.json(data);
+    const referenceIds = (data || [])
+      .map((movement: any) => movement.reference_id)
+      .filter(Boolean);
+    const uniqueReferenceIds = [...new Set(referenceIds)];
+
+    let ordersById = new Map<string, any>();
+    if (uniqueReferenceIds.length > 0) {
+      const { data: orders } = await supabase
+        .from('orders')
+        .select('id, order_number, customer_name, total, created_at')
+        .eq('tenant_id', tenantId)
+        .in('id', uniqueReferenceIds);
+      ordersById = new Map((orders || []).map((order: any) => [order.id, order]));
+    }
+
+    return NextResponse.json((data || []).map((movement: any) => ({
+      ...movement,
+      order: movement.reference_id ? ordersById.get(movement.reference_id) || null : null,
+    })));
   } catch (error) {
     console.error('Error fetching stock movements:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });

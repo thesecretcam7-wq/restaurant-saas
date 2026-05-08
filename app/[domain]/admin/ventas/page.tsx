@@ -5,6 +5,7 @@ import type { Order } from '@/lib/types'
 import UpgradeGate from '@/components/admin/UpgradeGate'
 import { BarChart3, PackageOpen, ReceiptText, ShoppingBag, TrendingUp, Wallet } from 'lucide-react'
 import { VoidSaleButton } from '@/components/admin/VoidSaleButton'
+import { ReprintReceiptButton } from '@/components/admin/ReprintReceiptButton'
 
 interface Props {
   params: Promise<{ domain: string }>
@@ -194,8 +195,13 @@ export default async function VentasPage({ params }: Props) {
                   </td>
                   <td className="px-5 py-3 text-right font-black text-[#15130f]">${Number(order.total).toLocaleString('es-CO')}</td>
                   <td className="px-5 py-3 text-right">
-                    {order.payment_status === 'paid' && order.status !== 'cancelled' ? (
-                      <VoidSaleButton orderId={order.id} orderNumber={order.order_number} />
+                    {order.payment_status === 'paid' ? (
+                      <div className="flex flex-wrap justify-end gap-2">
+                        <ReprintReceiptButton tenantId={tenantId} orderId={order.id} orderNumber={order.order_number} />
+                        {order.status !== 'cancelled' && (
+                          <VoidSaleButton orderId={order.id} orderNumber={order.order_number} />
+                        )}
+                      </div>
                     ) : (
                       <span className="text-xs font-bold text-black/30">-</span>
                     )}
