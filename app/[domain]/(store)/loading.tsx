@@ -32,6 +32,19 @@ export default function StoreLoading() {
           ))}
         </div>
 
+        <div className="mt-5 flex h-5 items-center justify-center gap-1" aria-hidden="true">
+          {[0, 1, 2].map(index => (
+            <span
+              key={index}
+              className="block size-2.5 rounded-full bg-[var(--primary-color,#E4002B)]"
+              style={{
+                animation: 'storeLoadingDot 900ms ease-in-out infinite',
+                animationDelay: `${index * 140}ms`,
+              }}
+            />
+          ))}
+        </div>
+
         <div className="mt-8 h-2.5 overflow-hidden rounded-full bg-black/8">
           <div
             className="h-full rounded-full"

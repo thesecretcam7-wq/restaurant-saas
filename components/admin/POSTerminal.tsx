@@ -1639,7 +1639,7 @@ export function POSTerminal({
   }
 
   return (
-    <div ref={posRootRef} className={`pos-premium ${isFullscreen ? 'fixed inset-0 z-[9999] h-screen w-screen p-0 m-0 overflow-hidden flex flex-col bg-[#020617]' : 'h-full'} text-white flex`}>
+    <div ref={posRootRef} className={`pos-premium ${isFullscreen ? 'fixed inset-0 z-[9999] h-screen w-screen p-0 m-0 overflow-hidden flex flex-col bg-[#020617]' : 'h-full'} text-white flex flex-col`}>
       {/* Fullscreen Header - Logo and Controls - TPV Header with Eccofood Brand */}
       {isFullscreen && (
         <div className="pos-panel border-x-0 border-t-0 px-6 py-4 flex items-center justify-between">
@@ -1687,11 +1687,42 @@ export function POSTerminal({
         </div>
       )}
 
+      {!isFullscreen && (
+        <div className="pos-topbar shrink-0 px-4 py-4">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+            <div className="flex min-w-0 items-center gap-3">
+              <div className="flex size-12 shrink-0 items-center justify-center rounded-xl border border-cyan-300/25 bg-cyan-300/10 shadow-lg shadow-cyan-950/20">
+                <DollarSign className="size-6 text-cyan-100" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-xs font-black uppercase text-cyan-100/55">Punto de venta</p>
+                <h1 className="truncate text-xl font-black tracking-tight text-white">{restaurantName}</h1>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-3 gap-2 lg:min-w-[420px]">
+              <div className="pos-kpi">
+                <span>Carrito</span>
+                <strong>{cart.length}</strong>
+              </div>
+              <div className="pos-kpi">
+                <span>Delivery</span>
+                <strong>{incomingOrders.length}</strong>
+              </div>
+              <div className="pos-kpi">
+                <span>Total</span>
+                <strong>{formatPriceWithCurrency(total, currencyInfo.code, currencyInfo.locale)}</strong>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className={`flex-1 flex flex-col overflow-hidden md:flex-row ${isFullscreen ? 'gap-0' : 'gap-0'}`}>
         {/* Menu Section */}
         <div className="min-h-0 flex-1 flex flex-col overflow-hidden">
           {/* Search and Controls - Sticky Header */}
-          <div className={`pos-panel border-x-0 border-t-0 flex gap-3 items-center sticky top-0 z-10 ${isFullscreen ? 'px-4 py-3' : 'p-4'}`}>
+          <div className={`pos-panel pos-command-bar border-x-0 border-t-0 flex gap-3 items-center sticky top-0 z-10 ${isFullscreen ? 'px-4 py-3' : 'p-4'}`}>
             <div className="flex-1 relative">
               <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-cyan-100/45 pointer-events-none" />
               <input
@@ -1700,7 +1731,7 @@ export function POSTerminal({
                 placeholder="Buscar producto... (/ o F2)"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-12 pr-4 py-2.5 rounded-xl outline-none text-white text-sm font-bold transition-all"
+                className="w-full pl-12 pr-4 py-3 rounded-xl outline-none text-white text-sm font-bold transition-all"
               />
             </div>
             {!isFullscreen && (

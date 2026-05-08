@@ -183,7 +183,11 @@ export default function CheckoutPage({ params }: Props) {
           body: JSON.stringify({ tenantId, tenantSlug, items: orderItems, customerInfo: { name: validated.name, phone: validated.phone, email: validated.email }, deliveryType: validated.delivery_type, deliveryAddress: validated.delivery_address, notes: validated.notes }),
         })
         const data = await res.json()
-        if (data.url) { clearCart(); window.location.href = data.url }
+        if (data.url) {
+          clearCart()
+          window.dispatchEvent(new Event('store:navigation-start'))
+          window.location.href = data.url
+        }
         else { toast.error(data.error || 'Error al procesar') }
       } else {
         const res = await fetch('/api/orders', {
@@ -192,11 +196,16 @@ export default function CheckoutPage({ params }: Props) {
           body: JSON.stringify({ tenantId, tenantSlug, items: orderItems, customerInfo: { name: validated.name, phone: validated.phone, email: validated.email }, deliveryType: validated.delivery_type, deliveryAddress: validated.delivery_address, notes: validated.notes, paymentMethod: 'cash', source: 'store' }),
         })
         const data = await res.json()
-        if (data.orderId) { clearCart(); router.push(getStorePath(tenantSlug, `/gracias?order=${data.orderId}`)) }
+        if (data.orderId) {
+          clearCart()
+          window.dispatchEvent(new Event('store:navigation-start'))
+          router.push(getStorePath(tenantSlug, `/gracias?order=${data.orderId}`))
+        }
         else {
           console.error('[checkout] order error', data)
           if (data.clearCart) {
             clearCart()
+            window.dispatchEvent(new Event('store:navigation-start'))
             router.replace(getStorePath(tenantSlug, '/menu'))
           }
           toast.error(data.error || 'Error al crear pedido')

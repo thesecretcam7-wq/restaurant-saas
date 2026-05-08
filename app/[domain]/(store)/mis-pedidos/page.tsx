@@ -46,7 +46,7 @@ export default function MisPedidosPage({ params }: Props) {
   async function fetchOrders(tel: string, silent = false) {
     if (!silent) setLoading(true)
     try {
-      const res = await fetch(`/api/orders/track?tenantId=${tenantSlug}&phone=${encodeURIComponent(tel.trim())}`)
+      const res = await fetch(`/api/orders/track?tenantId=${tenantSlug}&query=${encodeURIComponent(tel.trim())}`)
       const data = await res.json()
       setOrders(data.orders || [])
     } catch {
@@ -98,7 +98,7 @@ export default function MisPedidosPage({ params }: Props) {
             </div>
             <div>
               <p className="font-extrabold text-gray-900 text-sm">Buscar mis pedidos</p>
-              <p className="text-xs text-muted-foreground">Ingresa el teléfono con el que pediste</p>
+              <p className="text-xs text-muted-foreground">Ingresa tu telefono o numero de pedido</p>
             </div>
           </div>
           <form onSubmit={handleSearch} className="flex gap-2">
@@ -106,7 +106,7 @@ export default function MisPedidosPage({ params }: Props) {
               type="tel"
               value={phone}
               onChange={e => setPhone(e.target.value)}
-              placeholder="Ej: 3001234567"
+              placeholder="Telefono o pedido"
               className="flex-1 px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:bg-white transition-all"
               required
             />
@@ -127,7 +127,7 @@ export default function MisPedidosPage({ params }: Props) {
             <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-10 text-center">
               <div className="text-5xl mb-3">📦</div>
               <p className="font-bold text-gray-900 mb-1">Sin pedidos encontrados</p>
-              <p className="text-sm text-muted-foreground">Verifica que el número sea el mismo que usaste</p>
+              <p className="text-sm text-muted-foreground">Verifica el telefono o el numero de pedido.</p>
             </div>
           ) : (
             <div className="space-y-3">

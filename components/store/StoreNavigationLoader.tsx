@@ -44,6 +44,13 @@ export default function StoreNavigationLoader({
   }, [pathname])
 
   useEffect(() => {
+    const showLoader = () => {
+      setLoading(true)
+
+      if (timeoutRef.current) clearTimeout(timeoutRef.current)
+      timeoutRef.current = setTimeout(() => setLoading(false), 8000)
+    }
+
     const handleClick = (event: MouseEvent) => {
       if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) {
         return
@@ -58,16 +65,15 @@ export default function StoreNavigationLoader({
       if (url.pathname === window.location.pathname && url.search === window.location.search) return
       if (!isStorePath(window.location.pathname) || !isStorePath(url.pathname)) return
 
-      setLoading(true)
-
-      if (timeoutRef.current) clearTimeout(timeoutRef.current)
-      timeoutRef.current = setTimeout(() => setLoading(false), 8000)
+      showLoader()
     }
 
     document.addEventListener('click', handleClick, true)
+    window.addEventListener('store:navigation-start', showLoader)
 
     return () => {
       document.removeEventListener('click', handleClick, true)
+      window.removeEventListener('store:navigation-start', showLoader)
       if (timeoutRef.current) clearTimeout(timeoutRef.current)
     }
   }, [])
