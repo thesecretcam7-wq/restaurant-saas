@@ -81,17 +81,24 @@ export default function PageBuilderPage() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [dirty, setDirty] = useState(false)
-  const [saveStatus, setSaveStatus] = useState<'saved' | 'pending' | 'saving' | 'error'>('saved')
+  const [saveStatus, setSaveStatus] = useState<'idle' | 'saved' | 'pending' | 'saving' | 'error'>('idle')
   const [tab, setTab] = useState<TabId>('home')
   const [selectedSectionId, setSelectedSectionId] = useState<string>('featured')
   const [uploadingImage, setUploadingImage] = useState<string | null>(null)
   const autosaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => {
-    fetch(`/api/tenant/page-config?tenantId=${tenantSlug}`)
+    fetch(`/api/tenant/page-config?tenantId=${tenantSlug}`, { credentials: 'include' })
       .then(r => r.json())
-      .then(data => setConfig(getPageConfig(data.page_config)))
-      .catch(() => toast.error('No se pudo cargar el diseno'))
+      .then(data => {
+        setConfig(getPageConfig(data.page_config))
+        setDirty(false)
+        setSaveStatus('idle')
+      })
+      .catch(() => {
+        setSaveStatus('error')
+        toast.error('No se pudo cargar el diseño')
+      })
       .finally(() => setLoading(false))
   }, [tenantSlug])
 
@@ -157,12 +164,13 @@ export default function PageBuilderPage() {
       const res = await fetch('/api/tenant/page-config', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({ tenantId: tenantSlug, page_config: config }),
       })
       if (!res.ok) throw new Error('Error al guardar')
       setDirty(false)
       setSaveStatus('saved')
-      if (mode === 'manual') toast.success('Diseno guardado')
+      if (mode === 'manual') toast.success('Diseño guardado')
     } catch {
       setSaveStatus('error')
       toast.error('No se pudo guardar')
@@ -309,8 +317,8 @@ export default function PageBuilderPage() {
     <div className="space-y-5">
       <div className="admin-page-header">
         <div>
-          <p className="admin-eyebrow">Tienda publica</p>
-          <h1 className="admin-title">Diseno de tienda</h1>
+          <p className="admin-eyebrow">Tienda pública</p>
+          <h1 className="admin-title">Diseño de tienda</h1>
           <p className="admin-subtitle">Edita la portada, el orden de secciones y los detalles visibles para tus clientes.</p>
         </div>
         <div className="flex flex-col gap-2 sm:flex-row">
@@ -326,17 +334,35 @@ export default function PageBuilderPage() {
           ? 'border-red-200 bg-red-50/95 text-red-800'
           : saveStatus === 'saved'
             ? 'border-emerald-200 bg-emerald-50/95 text-emerald-800'
+            : saveStatus === 'idle'
+              ? 'border-slate-200 bg-white text-slate-800'
             : 'border-amber-200 bg-amber-50/95 text-amber-900'
       }`}>
         <div>
           <p className="text-sm font-black">
-            {saveStatus === 'saving' ? 'Guardando cambios...' : saveStatus === 'pending' ? 'Cambios pendientes' : saveStatus === 'error' ? 'No se pudo guardar' : 'Cambios guardados'}
+            {saveStatus === 'saving'
+              ? 'Guardando cambios...'
+              : saveStatus === 'pending'
+                ? 'Cambios pendientes'
+                : saveStatus === 'error'
+                  ? 'No se pudo guardar'
+                  : saveStatus === 'saved'
+                    ? 'Cambios guardados'
+                    : 'Diseño cargado'}
           </p>
           <p className="text-sm font-bold opacity-90">
-            {saveStatus === 'pending' ? 'Se guardaran automaticamente en un momento.' : saveStatus === 'saved' ? 'El diseno esta sincronizado con la tienda.' : 'Tambien puedes guardar manualmente.'}
+            {saveStatus === 'pending'
+              ? 'Se guardarán automáticamente en un momento.'
+              : saveStatus === 'saved'
+                ? 'El diseño está sincronizado con la tienda.'
+                : saveStatus === 'saving'
+                  ? 'Estamos actualizando la tienda.'
+                  : saveStatus === 'error'
+                    ? 'Revisa la conexión e intenta guardar de nuevo.'
+                    : 'No hay cambios pendientes por guardar.'}
           </p>
         </div>
-        <button onClick={() => save('manual')} disabled={saving || (!dirty && saveStatus === 'saved')} className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-[#15130f] px-4 text-sm font-black text-white transition hover:bg-black disabled:cursor-not-allowed disabled:opacity-45">
+        <button onClick={() => save('manual')} disabled={saving || (!dirty && (saveStatus === 'saved' || saveStatus === 'idle'))} className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-[#15130f] px-4 text-sm font-black text-white transition hover:bg-black disabled:cursor-not-allowed disabled:opacity-45">
           <Save className="size-4" />
           Guardar ahora
         </button>
@@ -373,7 +399,7 @@ export default function PageBuilderPage() {
                 <StatCard label="Portada" value={config.hero.image_url ? 'Con imagen' : 'Sin imagen'} />
                 <StatCard label="Menu" value={labelFor(config.appearance.menu_layout, menuLayoutOptions)} />
               </div>
-              <Panel title="Que quieres cambiar?" desc="Elige una accion rapida. Todo queda guardado solo cuando presionas Guardar.">
+              <Panel title="¿Qué quieres cambiar?" desc="Elige una acción rápida. Todo queda guardado solo cuando presionas Guardar.">
                 <div className="grid gap-3 md:grid-cols-2">
                   <QuickButton title="Cambiar foto principal" desc="Imagen grande de entrada" onClick={() => setTab('hero')} />
                   <QuickButton title="Ordenar secciones" desc="Mostrar u ocultar bloques" onClick={() => setTab('sections')} />
@@ -512,16 +538,16 @@ export default function PageBuilderPage() {
                 <Field label="Texto del footer" value={config.footer.custom_text} placeholder="Ej: 2026 El Buen Paladar" onChange={v => updateFooter('custom_text', v)} />
                 <button
                   onClick={() => {
-                    if (confirm('Restablecer el diseno de tienda? Se perderan los cambios no guardados.')) {
+                    if (confirm('¿Restablecer el diseño de tienda? Se perderán los cambios no guardados.')) {
                       setConfig(DEFAULT_PAGE_CONFIG)
                       markDirty()
-                      toast.success('Diseno restablecido')
+                      toast.success('Diseño restablecido')
                     }
                   }}
                   className="inline-flex h-11 items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 text-sm font-black text-red-700 transition hover:bg-red-100"
                 >
                   <RotateCcw className="size-4" />
-                  Restablecer diseno
+                  Restablecer diseño
                 </button>
               </div>
             </Panel>
