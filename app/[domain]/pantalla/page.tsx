@@ -101,7 +101,10 @@ function OrderDisplayCard({
         <p className="truncate text-[11px] font-black uppercase tracking-[0.18em]" style={{ color: finalText }}>
           Pedido
         </p>
-        <p className="mt-1 text-5xl font-black leading-none tabular-nums" style={{ color: isNew ? finalText : color }}>
+        <p
+          className="mt-1 text-5xl font-black leading-none tabular-nums drop-shadow-[0_3px_10px_rgba(0,0,0,0.22)]"
+          style={{ color: finalText }}
+        >
           {getShortNumber(order)}
         </p>
         <p className="mt-2 truncate text-sm font-black" style={{ color: finalText }}>
