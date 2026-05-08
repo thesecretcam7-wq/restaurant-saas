@@ -1,5 +1,5 @@
-import EccofoodPageLoader from '@/components/EccofoodPageLoader';
+import RouteAwarePageLoader from '@/components/RouteAwarePageLoader';
 
 export default function Loading() {
-  return <EccofoodPageLoader />;
+  return <RouteAwarePageLoader />;
 }

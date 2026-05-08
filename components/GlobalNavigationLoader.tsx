@@ -114,6 +114,7 @@ export default function GlobalNavigationLoader() {
     }
 
     function handleBeforeUnload() {
+      if (isStoreRoute(window.location.pathname)) return;
       show(window.location.pathname, 'Cargando Eccofood');
     }
 

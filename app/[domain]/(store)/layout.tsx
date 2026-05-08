@@ -4,6 +4,7 @@ import { deriveBrandPalette } from '@/lib/brand-colors'
 import BottomNav from '@/components/store/BottomNav'
 import WhatsAppFloat from '@/components/store/WhatsAppFloat'
 import StoreClosed from '@/components/store/StoreClosed'
+import StoreBrandingMemory from '@/components/store/StoreBrandingMemory'
 
 interface Props {
   children: React.ReactNode
@@ -18,6 +19,7 @@ export default async function StoreLayout({ children, params }: Props) {
   const pageConfig = getPageConfig((tenant as any)?.metadata?.page_config || branding?.page_config)
   const whatsappLink = pageConfig.social.whatsapp || branding?.whatsapp_number || null
   const restaurantName = branding?.app_name || tenant?.organization_name || null
+  const storeLogoUrl = branding?.logo_url || tenant?.logo_url || null
   const storeEnabled = (tenant as any)?.metadata?.store_enabled !== false
   const palette = deriveBrandPalette({
     primary: branding?.primary_color,
@@ -56,6 +58,11 @@ export default async function StoreLayout({ children, params }: Props) {
         '--brand-muted-color': palette.mutedText,
       } as React.CSSProperties}
     >
+      <StoreBrandingMemory
+        appName={restaurantName}
+        logoUrl={storeLogoUrl}
+        primaryColor={branding?.primary_color}
+      />
       {children}
       <BottomNav tenantId={tenantSlug} primaryColor={branding?.primary_color} />
       <WhatsAppFloat whatsapp={whatsappLink} restaurantName={restaurantName} primaryColor="#25D366" />
