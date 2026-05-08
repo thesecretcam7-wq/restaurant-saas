@@ -1,6 +1,7 @@
 import { createServiceClient } from '@/lib/supabase/server'
 import { NextRequest, NextResponse } from 'next/server'
 import { getOrdersLimiter, getClientIp, applyRateLimit } from '@/lib/rate-limit'
+import { getTenantContext } from '@/lib/tenant'
 
 export async function GET(request: NextRequest) {
   const tenantId = request.nextUrl.searchParams.get('tenantId')
@@ -25,43 +26,30 @@ export async function GET(request: NextRequest) {
     )
   }
 
-  const supabase = createServiceClient()
   const safeQuery = query.replace(/[,%]/g, '').trim()
 
   if (!safeQuery && queryDigits.length < 3) {
     return NextResponse.json({ error: 'Formato invalido' }, { status: 400 })
   }
 
-  const { data: tenant, error: tenantError } = await supabase
-    .from('tenants')
-    .select('id')
-    .or(`id.eq.${tenantId},slug.eq.${tenantId}`)
-    .single()
+  const context = await getTenantContext(tenantId)
+  const tenant = context.tenant
 
-  if (tenantError || !tenant) {
+  if (!tenant?.id) {
     return NextResponse.json({ error: 'Restaurante no encontrado' }, { status: 404 })
   }
 
-  const filters = safeQuery
-    ? [
-        `order_number.ilike.%${safeQuery}%`,
-        `customer_phone.ilike.%${safeQuery}%`,
-      ]
-    : []
-
-  if (queryDigits.length >= 3) {
-    filters.push(`order_number.ilike.%${queryDigits}%`)
-    filters.push(`customer_phone.ilike.%${queryDigits}%`)
-    if (queryDigits.length > 7) filters.push(`customer_phone.ilike.%${queryDigits.slice(-7)}%`)
-  }
+  const supabase = createServiceClient()
+  const since = new Date()
+  since.setDate(since.getDate() - 120)
 
   const { data: rawOrders, error } = await supabase
     .from('orders')
     .select('id, order_number, status, items, total, created_at, delivery_type, payment_method, customer_phone')
     .eq('tenant_id', tenant.id)
-    .or(filters.join(','))
+    .gte('created_at', since.toISOString())
     .order('created_at', { ascending: false })
-    .limit(25)
+    .limit(200)
 
   if (error) {
     console.error('Orders track error:', error)
@@ -72,12 +60,13 @@ export async function GET(request: NextRequest) {
   const orders = (rawOrders || []).filter((order: any) => {
     const phoneDigits = String(order.customer_phone || '').replace(/\D/g, '')
     const orderNumber = String(order.order_number || '').toLowerCase()
+    const lastSeven = queryDigits.slice(-7)
     return (
       orderNumber.includes(queryLower) ||
       (queryDigits.length >= 3 && orderNumber.includes(queryDigits.toLowerCase())) ||
       (queryDigits.length >= 3 && (
         phoneDigits.includes(queryDigits) ||
-        phoneDigits.endsWith(queryDigits.slice(-7))
+        (lastSeven.length >= 7 && phoneDigits.endsWith(lastSeven))
       ))
     )
   }).slice(0, 10).map(({ customer_phone, ...order }: any) => order)
