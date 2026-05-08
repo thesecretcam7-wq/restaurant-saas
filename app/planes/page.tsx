@@ -6,7 +6,7 @@ import { useState, useEffect } from 'react'
 const PLANS = [
   {
     id: 'basic',
-    name: 'Essentials',
+    name: 'Basic',
     price: 39,
     desc: 'Para restaurantes que empiezan',
     features: [
@@ -22,11 +22,11 @@ const PLANS = [
   },
   {
     id: 'pro',
-    name: 'Professional',
+    name: 'Pro',
     price: 99,
     desc: 'El más popular — todo lo que necesitas',
     features: [
-      'Todo en Essentials',
+      'Todo en Basic',
       'Pedidos ilimitados',
       'Sistema de reservas',
       'Delivery integrado',
@@ -39,11 +39,11 @@ const PLANS = [
   },
   {
     id: 'premium',
-    name: 'Enterprise',
-    price: null,
-    desc: 'Para cadenas y franquicias',
+    name: 'Premium',
+    price: 299,
+    desc: 'Para cadenas, franquicias y operaciones avanzadas',
     features: [
-      'Todo en Professional',
+      'Todo en Pro',
       'Dominio personalizado',
       'Múltiples sucursales',
       'Gestión avanzada de staff',
@@ -53,7 +53,7 @@ const PLANS = [
       'Soporte 24/7 dedicado',
       'Onboarding personalizado',
     ],
-    cta: 'Hablar con ventas',
+    cta: 'Empezar gratis',
     highlight: false,
   },
 ]
@@ -190,7 +190,7 @@ export default function PlanesPage() {
                         <span className="text-5xl font-black text-foreground">
                           {formatPrice(plan.price, currency, yearly)}
                         </span>
-                        <span className="text-muted-foreground text-sm mb-2">/mes</span>
+                        <span className="text-muted-foreground text-sm mb-2">{yearly ? '/año' : '/mes'}</span>
                       </>
                     ) : (
                       <span className="text-3xl font-black text-foreground">Personalizado</span>
@@ -212,7 +212,7 @@ export default function PlanesPage() {
                 </ul>
 
                 <Link
-                  href={plan.id === 'premium' ? '/register?plan=enterprise' : `/register?plan=${plan.id}`}
+                  href={`/register?plan=${plan.id}${yearly ? '&billing=year' : ''}`}
                   className={`block w-full py-3.5 rounded-lg text-sm font-bold text-center transition-all active:scale-95 hover:-translate-y-0.5 ${
                     plan.highlight
                       ? 'bg-gradient-to-r from-primary via-secondary to-primary text-white shadow-lg shadow-primary/40 hover:shadow-xl hover:shadow-primary/50'
@@ -227,7 +227,7 @@ export default function PlanesPage() {
 
           {/* TRIAL NOTE */}
           <p className="text-center text-sm text-muted-foreground">
-            Todos los planes incluyen <span className="text-foreground font-semibold">14 días de prueba gratis</span> · Sin tarjeta de crédito · Cancela cuando quieras
+            Todos los planes incluyen <span className="text-foreground font-semibold">30 días de prueba gratis</span> · Sin tarjeta de crédito · Cancela cuando quieras
           </p>
 
           {/* FEATURE COMPARISON */}
@@ -238,9 +238,9 @@ export default function PlanesPage() {
                 <thead>
                   <tr className="border-b border-border">
                     <th className="text-left py-4 px-6 text-muted-foreground font-semibold w-1/2">Función</th>
-                    <th className="text-center py-4 px-4 text-muted-foreground font-semibold">Essentials</th>
-                    <th className="text-center py-4 px-4 text-primary font-bold">Professional</th>
-                    <th className="text-center py-4 px-4 text-muted-foreground font-semibold">Enterprise</th>
+                    <th className="text-center py-4 px-4 text-muted-foreground font-semibold">Basic</th>
+                    <th className="text-center py-4 px-4 text-primary font-bold">Pro</th>
+                    <th className="text-center py-4 px-4 text-muted-foreground font-semibold">Premium</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border/50">
@@ -275,11 +275,11 @@ export default function PlanesPage() {
             <h2 className="text-3xl font-black text-center mb-10 text-foreground">Preguntas frecuentes</h2>
             <div className="space-y-5">
               {[
-                ['¿Hay período de prueba?', '14 días gratis en cualquier plan. Sin tarjeta de crédito. Sin compromisos.'],
+                ['¿Hay período de prueba?', '30 días gratis en cualquier plan. Sin tarjeta de crédito. Sin compromisos.'],
                 ['¿Puedo cambiar de plan?', 'Sí, puedes subir o bajar de plan en cualquier momento desde tu panel. Los cambios aplican en el siguiente ciclo.'],
                 ['¿Qué pasa si cancelo?', 'Puedes cancelar cuando quieras. No hay penalidades ni cargos ocultos.'],
                 ['¿Cómo funciona el pago?', 'Procesamos pagos con Stripe. Aceptamos tarjetas de crédito/débito de todos los países.'],
-                ['¿Puedo conectar mi propio dominio?', 'Sí, desde el plan Enterprise/Premium puedes conectar tu dominio propio (ej: mipizzeria.com) con instrucciones paso a paso.'],
+                ['¿Puedo conectar mi propio dominio?', 'Sí, desde el plan Premium puedes conectar tu dominio propio (ej: mipizzeria.com) con instrucciones paso a paso.'],
               ].map(([q, a]) => (
                 <div key={q} className="border border-border rounded-2xl p-6 bg-card/50 backdrop-blur-sm hover:border-primary/30 hover:bg-primary/5 transition-all">
                   <p className="font-bold text-foreground mb-2">{q}</p>
@@ -295,7 +295,7 @@ export default function PlanesPage() {
               <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-secondary/5 pointer-events-none" />
               <div className="relative z-10">
                 <h2 className="text-3xl font-black mb-3 text-foreground">¿Listo para empezar?</h2>
-                <p className="text-muted-foreground mb-7">14 días gratis. Sin tarjeta. Sin sorpresas.</p>
+                <p className="text-muted-foreground mb-7">30 días gratis. Sin tarjeta. Sin sorpresas.</p>
                 <Link
                   href="/register"
                   className="inline-block px-8 py-4 bg-gradient-to-r from-primary via-secondary to-primary hover:from-primary/90 hover:via-secondary/90 hover:to-primary/90 text-white font-bold rounded-xl transition-all text-lg shadow-lg shadow-primary/40 hover:shadow-2xl hover:shadow-primary/50 active:scale-95 hover:-translate-y-1"

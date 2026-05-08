@@ -119,9 +119,9 @@ const testimonials = [
 ]
 
 const pricingPlans = [
-  { name: 'Basic', monthly: 99, annual: 948, discount: 'Ahorra 240 EUR', features: ['POS completo', 'Carta QR', 'Pedidos online'] },
-  { name: 'Pro', monthly: 149, annual: 1428, discount: 'Ahorra 360 EUR', features: ['POS + KDS', 'Inventario', 'Reportes avanzados'], popular: true },
-  { name: 'Premium', monthly: 249, annual: 2388, discount: 'Ahorra 600 EUR', features: ['Multi sucursal', 'IA Insights', 'Soporte prioritario'] },
+  { name: 'Basic', monthly: 39, annual: 421.20, discount: 'Ahorra 46.80 EUR', features: ['POS completo', 'Carta QR', 'Pedidos online'] },
+  { name: 'Pro', monthly: 99, annual: 1069.20, discount: 'Ahorra 118.80 EUR', features: ['POS + KDS', 'Inventario', 'Reportes avanzados'], popular: true },
+  { name: 'Premium', monthly: 299, annual: 3229.20, discount: 'Ahorra 358.80 EUR', features: ['Multi sucursal', 'IA Insights', 'Soporte prioritario'] },
 ]
 
 const before = ['Pedidos por llamada', 'Comandas en papel', 'Errores en cocina', 'Caja desconectada', 'Reportes manuales']
@@ -510,7 +510,7 @@ export function EccofoodLanding() {
                 <p className="text-sm font-bold text-black/45">por mes</p>
                 <div className="mt-4 rounded-2xl border border-[#ff6b1a]/20 bg-white px-4 py-3">
                   <p className="text-xs font-black uppercase text-[#c54a0c]">Pago anual</p>
-                  <p className="mt-1 text-2xl font-black">{plan.annual} EUR/año</p>
+                  <p className="mt-1 text-2xl font-black">{plan.annual.toLocaleString('es-ES')} EUR/año</p>
                   <p className="text-xs font-black text-emerald-700">{plan.discount}</p>
                 </div>
                 <div className="mt-5 space-y-2">
