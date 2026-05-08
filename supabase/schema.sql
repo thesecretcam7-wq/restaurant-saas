@@ -229,9 +229,11 @@ CREATE TABLE subscription_plans (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   name TEXT NOT NULL UNIQUE,
   monthly_price NUMERIC(10,2) NOT NULL,
+  annual_price NUMERIC(10,2),
   features JSONB NOT NULL,
   stripe_product_id TEXT,
   stripe_price_id TEXT,
+  stripe_annual_price_id TEXT,
   created_at TIMESTAMPTZ DEFAULT now()
 );
 

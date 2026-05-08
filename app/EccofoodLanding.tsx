@@ -119,8 +119,8 @@ const testimonials = [
 ]
 
 const pricingPlans = [
-  { name: 'Basic', monthly: 39, annual: 421.20, discount: 'Ahorra 46.80 EUR', features: ['POS completo', 'Carta QR', 'Pedidos online'] },
-  { name: 'Pro', monthly: 99, annual: 1069.20, discount: 'Ahorra 118.80 EUR', features: ['POS + KDS', 'Inventario', 'Reportes avanzados'], popular: true },
+  { name: 'Basic', monthly: 39, annual: 421.20, discount: 'Ahorra 46.80 EUR', features: ['POS completo', 'Carta QR', 'KDS cocina'] },
+  { name: 'Pro', monthly: 99, annual: 1069.20, discount: 'Ahorra 118.80 EUR', features: ['Kiosko autoservicio', 'Inventario', 'Reportes avanzados'], popular: true },
   { name: 'Premium', monthly: 299, annual: 3229.20, discount: 'Ahorra 358.80 EUR', features: ['Multi sucursal', 'IA Insights', 'Soporte prioritario'] },
 ]
 

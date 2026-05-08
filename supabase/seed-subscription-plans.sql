@@ -17,6 +17,8 @@ VALUES
       "categories": 10,
       "support": "email",
       "delivery": true,
+      "kds": true,
+      "kiosko": false,
       "reservations": true,
       "custom_domain": false
     }'::jsonb,
@@ -34,6 +36,8 @@ VALUES
       "categories": 50,
       "support": "priority_email",
       "delivery": true,
+      "kds": true,
+      "kiosko": true,
       "reservations": true,
       "custom_domain": true,
       "analytics": true
@@ -52,6 +56,8 @@ VALUES
       "categories": "unlimited",
       "support": "24/7_phone",
       "delivery": true,
+      "kds": true,
+      "kiosko": true,
       "reservations": true,
       "custom_domain": true,
       "analytics": true,
