@@ -246,6 +246,8 @@ export interface SubscriptionPlan {
   };
   stripe_product_id: string | null;
   stripe_price_id: string | null;
+  annual_price: number | null;
+  stripe_annual_price_id: string | null;
   created_at: string;
 }
 

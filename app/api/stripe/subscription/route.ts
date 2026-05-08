@@ -7,11 +7,18 @@ const getStripe = () => new Stripe(process.env.STRIPE_SECRET_KEY!)
 
 export async function POST(request: NextRequest) {
   try {
-    const { tenantId, planName } = await request.json()
+    const { tenantId, planName, billingInterval = 'month' } = await request.json()
 
     if (!tenantId || !planName) {
       return NextResponse.json(
         { error: 'Missing tenantId or planName' },
+        { status: 400 }
+      )
+    }
+
+    if (!['month', 'year'].includes(billingInterval)) {
+      return NextResponse.json(
+        { error: 'Intervalo de facturacion invalido' },
         { status: 400 }
       )
     }
@@ -84,12 +91,23 @@ export async function POST(request: NextRequest) {
       await supabase
         .from('tenants')
         .update({ stripe_customer_id: customerId })
-        .eq('id', tenantId)
+        .eq('id', tenant.id)
     }
 
     // Build redirect URLs from request origin to avoid env var misconfiguration
     const origin = request.headers.get('origin') || process.env.NEXT_PUBLIC_APP_URL || `https://eccofoodapp.com`
     const baseUrl = origin.endsWith('/') ? origin.slice(0, -1) : origin
+
+    const priceId = billingInterval === 'year'
+      ? plan.stripe_annual_price_id
+      : plan.stripe_price_id
+
+    if (!priceId) {
+      return NextResponse.json(
+        { error: billingInterval === 'year' ? 'El pago anual no esta configurado para este plan' : 'El pago mensual no esta configurado para este plan' },
+        { status: 400 }
+      )
+    }
 
     // Create checkout session for subscription
     const session = await stripe.checkout.sessions.create({
@@ -97,7 +115,7 @@ export async function POST(request: NextRequest) {
       customer: customerId,
       line_items: [
         {
-          price: plan.stripe_price_id!,
+          price: priceId,
           quantity: 1,
         },
       ],
@@ -106,6 +124,7 @@ export async function POST(request: NextRequest) {
         metadata: {
           tenant_id: tenant.id,
           plan_name: planName,
+          billing_interval: billingInterval,
         },
       },
       success_url: `${baseUrl}/${tenant.slug}/admin/dashboard`,
@@ -113,6 +132,7 @@ export async function POST(request: NextRequest) {
       metadata: {
         tenant_id: tenant.id,
         plan_name: planName,
+        billing_interval: billingInterval,
       },
     })
 

@@ -6,6 +6,22 @@ import { applyRecipeStockMovement } from '@/lib/inventory-recipes'
 
 const getStripe = () => new Stripe(process.env.STRIPE_SECRET_KEY!)
 
+function getSubscriptionExpiry(subscription: Stripe.Subscription, fallbackInterval?: string | null) {
+  const periodEnd = (subscription as any).current_period_end
+  if (typeof periodEnd === 'number' && periodEnd > 0) {
+    return new Date(periodEnd * 1000).toISOString()
+  }
+
+  const interval = fallbackInterval || subscription.items.data[0]?.price?.recurring?.interval
+  const expiresAt = new Date()
+  if (interval === 'year') {
+    expiresAt.setFullYear(expiresAt.getFullYear() + 1)
+  } else {
+    expiresAt.setDate(expiresAt.getDate() + 30)
+  }
+  return expiresAt.toISOString()
+}
+
 // Returns true if already processed (skip), false if new (proceed)
 async function trackWebhookEvent(supabase: any, eventId: string): Promise<boolean> {
   const { data } = await supabase
@@ -68,15 +84,18 @@ export async function POST(request: NextRequest) {
         // Subscription checkout — activate the tenant's plan
         if (session.mode === 'subscription' && tenant_id) {
           const plan = plan_name || 'basic'
-          const expiresAt = new Date()
-          expiresAt.setDate(expiresAt.getDate() + 30)
+          const subscription = session.subscription
+            ? await stripe.subscriptions.retrieve(session.subscription as string)
+            : null
 
           const { error } = await supabase
             .from('tenants')
             .update({
               subscription_plan: plan,
               status: 'active',
-              subscription_expires_at: expiresAt.toISOString(),
+              subscription_expires_at: subscription
+                ? getSubscriptionExpiry(subscription, session.metadata?.billing_interval)
+                : null,
               subscription_stripe_id: session.subscription as string,
             })
             .eq('id', tenant_id)
@@ -181,16 +200,13 @@ export async function POST(request: NextRequest) {
                      subscription.items.data[0]?.price?.nickname ||
                      'basic'
 
-        const expiresAt = new Date()
-        expiresAt.setDate(expiresAt.getDate() + 30)
-
         const { error } = await supabase
           .from('tenants')
           .update({
             subscription_stripe_id: subscription.id,
             subscription_plan: plan,
             status: subscription.status === 'active' ? 'active' : 'suspended',
-            subscription_expires_at: expiresAt.toISOString(),
+            subscription_expires_at: getSubscriptionExpiry(subscription, subscription.metadata?.billing_interval),
           })
           .eq('id', tenant_id)
 
@@ -213,16 +229,13 @@ export async function POST(request: NextRequest) {
         const isActive = subscription.status === 'active'
         const status = isActive ? 'active' : 'suspended'
 
-        const expiresAt = new Date()
-        expiresAt.setDate(expiresAt.getDate() + 30)
-
         const { error } = await supabase
           .from('tenants')
           .update({
             subscription_stripe_id: subscription.id,
             subscription_plan: plan,
             status,
-            subscription_expires_at: isActive ? expiresAt.toISOString() : null,
+            subscription_expires_at: isActive ? getSubscriptionExpiry(subscription, subscription.metadata?.billing_interval) : null,
           })
           .eq('id', tenant_id)
 
@@ -282,14 +295,13 @@ export async function POST(request: NextRequest) {
           .single()
 
         if (tenant) {
-          const expiresAt = new Date()
-          expiresAt.setDate(expiresAt.getDate() + 30)
+          const subscription = await stripe.subscriptions.retrieve((invoice as any).subscription as string)
 
           const { error } = await supabase
             .from('tenants')
             .update({
               status: 'active',
-              subscription_expires_at: expiresAt.toISOString(),
+              subscription_expires_at: getSubscriptionExpiry(subscription, subscription.metadata?.billing_interval),
             })
             .eq('id', tenant.id)
           if (error) console.error('Error updating tenant status on invoice success:', error)

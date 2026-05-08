@@ -62,6 +62,7 @@ export default function PlanesPage({ params }: Props) {
   const [loading, setLoading] = useState(true)
   const [processingPlan, setProcessingPlan] = useState<string | null>(null)
   const [currency, setCurrency] = useState<CurrencyInfo | null>(null)
+  const [billingInterval, setBillingInterval] = useState<'month' | 'year'>('month')
 
   useEffect(() => {
     const fetchData = async () => {
@@ -85,12 +86,12 @@ export default function PlanesPage({ params }: Props) {
 
   const handleSelectPlan = async (planName: string) => {
     if (!tenantId) return
-    setProcessingPlan(planName)
+    setProcessingPlan(`${planName}-${billingInterval}`)
     try {
       const res = await fetch('/api/stripe/subscription', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ tenantId, planName }),
+        body: JSON.stringify({ tenantId, planName, billingInterval }),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Error')
@@ -132,6 +133,19 @@ export default function PlanesPage({ params }: Props) {
       maximumFractionDigits: zeroDecimalCurrencies.includes(currencyCode) ? 0 : 2,
       minimumFractionDigits: zeroDecimalCurrencies.includes(currencyCode) ? 0 : 2,
     }).format(convertedAmount)
+  }
+
+  const getPlanPrice = (plan: SubscriptionPlan) => {
+    if (billingInterval === 'year' && plan.annual_price) {
+      return Number(plan.annual_price)
+    }
+    return Number(plan.monthly_price)
+  }
+
+  const getAnnualSavings = (plan: SubscriptionPlan) => {
+    const annualPrice = Number(plan.annual_price || 0)
+    if (!annualPrice) return 0
+    return Math.max(0, Number(plan.monthly_price) * 12 - annualPrice)
   }
 
   const featureLabels: { [key: string]: string } = {
@@ -176,6 +190,26 @@ export default function PlanesPage({ params }: Props) {
             Precios mostrados en {currency.name} ({currency.currency}) segun tu pais: {currency.countryCode}.
           </p>
         )}
+        <div className="mt-5 inline-flex rounded-xl border border-gray-200 bg-white p-1 shadow-sm">
+          <button
+            type="button"
+            onClick={() => setBillingInterval('month')}
+            className={`rounded-lg px-4 py-2 text-sm font-black transition ${
+              billingInterval === 'month' ? 'bg-gray-900 text-white' : 'text-gray-600 hover:bg-gray-50'
+            }`}
+          >
+            Mensual
+          </button>
+          <button
+            type="button"
+            onClick={() => setBillingInterval('year')}
+            className={`rounded-lg px-4 py-2 text-sm font-black transition ${
+              billingInterval === 'year' ? 'bg-gray-900 text-white' : 'text-gray-600 hover:bg-gray-50'
+            }`}
+          >
+            Anual <span className="ml-1 text-xs">-10%</span>
+          </button>
+        </div>
       </div>
 
       {currentPlan && (
@@ -188,6 +222,10 @@ export default function PlanesPage({ params }: Props) {
         {plans.map(plan => {
           const systems = systemsIncluded[plan.name] || []
           const highlights = planHighlights[plan.name] || []
+          const planPrice = getPlanPrice(plan)
+          const annualSavings = getAnnualSavings(plan)
+          const canSelectInterval = billingInterval === 'month' || Boolean(plan.stripe_annual_price_id)
+          const processingKey = `${plan.name}-${billingInterval}`
 
           return (
             <div key={plan.id} className={`bg-white rounded-xl border-2 overflow-hidden transition-all shadow-md hover:shadow-lg ${
@@ -206,12 +244,19 @@ export default function PlanesPage({ params }: Props) {
 
                 <div className="mb-8 pb-8 border-b">
                   <p className="text-4xl font-bold text-gray-900">
-                    {formatSubscriptionPrice(Number(plan.monthly_price))}
+                    {formatSubscriptionPrice(planPrice)}
                   </p>
-                  <p className="text-sm text-gray-500">por mes</p>
+                  <p className="text-sm text-gray-500">
+                    {billingInterval === 'year' ? 'por año' : 'por mes'}
+                  </p>
+                  {billingInterval === 'year' && annualSavings > 0 && (
+                    <p className="mt-2 rounded-full bg-green-50 px-3 py-1 text-xs font-black text-green-700">
+                      Ahorras {formatSubscriptionPrice(annualSavings)} al año
+                    </p>
+                  )}
                   {currency?.currency && currency.currency !== 'EUR' && (
                     <p className="mt-1 text-xs font-semibold text-gray-400">
-                      aprox. desde {Number(plan.monthly_price).toLocaleString('es-ES', {
+                      aprox. desde {planPrice.toLocaleString('es-ES', {
                         style: 'currency',
                         currency: 'EUR',
                         maximumFractionDigits: 0,
@@ -280,16 +325,26 @@ export default function PlanesPage({ params }: Props) {
 
                 <button
                   onClick={() => handleSelectPlan(plan.name)}
-                  disabled={processingPlan !== null || currentPlan === plan.name}
+                  disabled={processingPlan !== null || currentPlan === plan.name || !canSelectInterval}
                   className={`w-full py-3 rounded-lg text-sm font-bold transition-all ${
                     currentPlan === plan.name
                       ? 'bg-gray-100 text-gray-500 cursor-not-allowed'
-                      : processingPlan === plan.name
+                      : !canSelectInterval
+                        ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                      : processingPlan === processingKey
                         ? 'bg-blue-400 text-white cursor-wait'
                         : 'bg-blue-600 hover:bg-blue-700 text-white shadow-md hover:shadow-lg'
                   }`}
                 >
-                  {processingPlan === plan.name ? 'Procesando...' : currentPlan === plan.name ? 'Plan Actual' : 'Seleccionar Plan'}
+                  {processingPlan === processingKey
+                    ? 'Procesando...'
+                    : currentPlan === plan.name
+                      ? 'Plan Actual'
+                      : !canSelectInterval
+                        ? 'Pago anual no configurado'
+                        : billingInterval === 'year'
+                          ? 'Pagar anual'
+                          : 'Seleccionar Plan'}
                 </button>
               </div>
             </div>
