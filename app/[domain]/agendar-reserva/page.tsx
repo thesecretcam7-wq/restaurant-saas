@@ -9,6 +9,7 @@ export default function ReservasPage() {
   const domain = params.domain as string
 
   const [settings, setSettings] = useState<any>(null)
+  const [tenantId, setTenantId] = useState('')
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
@@ -27,10 +28,13 @@ export default function ReservasPage() {
   useEffect(() => {
     const fetchSettings = async () => {
       try {
-        const res = await fetch(`/api/tenant/branding?domain=${domain}`)
+        const res = await fetch(`/api/tenant/reservas?tenantId=${domain}`, {
+          credentials: 'include',
+        })
         if (!res.ok) throw new Error('Error loading settings')
         const data = await res.json()
-        setSettings(data)
+        setSettings(data.data)
+        setTenantId(data.tenantId || '')
       } catch (err) {
         setError('Error al cargar la configuración')
       } finally {
@@ -51,6 +55,7 @@ export default function ReservasPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          tenantId,
           domain,
           customerName: formData.customerName,
           customerEmail: formData.customerEmail,
@@ -90,7 +95,7 @@ export default function ReservasPage() {
     )
   }
 
-  if (!settings?.subscription_plan) {
+  if (!settings?.reservations_enabled) {
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center">
         <div className="bg-white rounded-lg border border-slate-200 p-8 max-w-md">

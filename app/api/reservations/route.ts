@@ -4,6 +4,19 @@ import { NextRequest, NextResponse } from 'next/server'
 import { sendReservationConfirmation } from '@/lib/email'
 import { reservationLimiter, checkRateLimit, getClientIp } from '@/lib/ratelimit'
 
+async function resolveTenantId(supabase: ReturnType<typeof createServiceClient>, slugOrId: string) {
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+  if (uuidRegex.test(slugOrId)) return slugOrId
+
+  const { data } = await supabase
+    .from('tenants')
+    .select('id')
+    .eq('slug', slugOrId)
+    .maybeSingle()
+
+  return data?.id || null
+}
+
 export async function GET(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams
@@ -67,11 +80,15 @@ export async function POST(request: NextRequest) {
     const body = await request.json()
     const { tenantId, domain, customerName, customerEmail, customerPhone, partySize, reservationDate, reservationTime, notes } = body
 
-    // Determine which ID to use
-    const idToUse = tenantId
+    if (!tenantId && !domain) {
+      return NextResponse.json({ error: 'tenantId or domain required' }, { status: 400 })
+    }
+
+    const supabase = createServiceClient()
+    const idToUse = await resolveTenantId(supabase, tenantId || domain)
 
     if (!idToUse) {
-      return NextResponse.json({ error: 'tenantId or domain required' }, { status: 400 })
+      return NextResponse.json({ error: 'Restaurante no encontrado' }, { status: 404 })
     }
 
     // Plan check: reservations feature
@@ -80,49 +97,62 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: featureCheck.reason, upgradeRequired: true }, { status: 403 })
     }
 
-    const supabase = createServiceClient()
+    const { data: settings } = await supabase
+      .from('restaurant_settings')
+      .select('reservations_enabled, total_tables, seats_per_table')
+      .eq('tenant_id', idToUse)
+      .maybeSingle()
 
-    // Find available table
-    const { data: tables } = await supabase
+    if (!settings?.reservations_enabled) {
+      return NextResponse.json({ error: 'Este restaurante no tiene reservas habilitadas' }, { status: 503 })
+    }
+
+    const totalCapacity = Number(settings.total_tables || 0) * Number(settings.seats_per_table || 0)
+    if (totalCapacity > 0 && Number(partySize) > totalCapacity) {
+      return NextResponse.json({ error: 'La cantidad de personas supera la capacidad configurada del restaurante' }, { status: 400 })
+    }
+
+    // Find available table when the restaurant has individual tables configured.
+    const { data: tables, error: tablesError } = await supabase
       .from('tables')
       .select('*')
       .eq('tenant_id', idToUse)
-      .gte('capacity', partySize)
-      .order('capacity', { ascending: true })
+      .gte('seats', partySize)
+      .order('seats', { ascending: true })
 
-    if (!tables || tables.length === 0) {
-      return NextResponse.json({ error: 'No tables available for this party size' }, { status: 400 })
-    }
+    if (tablesError) console.error('Tables lookup error:', tablesError)
 
-    let tableId = tables[0].id
+    let tableId = tables?.[0]?.id || null
 
     // Check table availability at this time
     const reservationDateTime = new Date(`${reservationDate}T${reservationTime}`)
     const oneHourLater = new Date(reservationDateTime.getTime() + 60 * 60 * 1000)
 
-    const { data: conflicts } = await supabase
-      .from('reservations')
-      .select('*')
-      .eq('table_id', tableId)
-      .eq('status', 'confirmed')
-      .gte('reservation_date', reservationDate)
-      .lte('reservation_date', reservationDate)
-      .gte('reservation_time', reservationTime)
-      .lt('reservation_time', oneHourLater.toISOString().split('T')[1])
+    if (tableId && tables && tables.length > 0) {
+      const { data: conflicts } = await supabase
+        .from('reservations')
+        .select('*')
+        .eq('table_id', tableId)
+        .eq('status', 'confirmed')
+        .gte('reservation_date', reservationDate)
+        .lte('reservation_date', reservationDate)
+        .gte('reservation_time', reservationTime)
+        .lt('reservation_time', oneHourLater.toISOString().split('T')[1])
 
-    if (conflicts && conflicts.length > 0) {
-      // Try next available table
-      for (const table of tables.slice(1)) {
-        const { data: tableConflicts } = await supabase
-          .from('reservations')
-          .select('*')
-          .eq('table_id', table.id)
-          .eq('status', 'confirmed')
-          .eq('reservation_date', reservationDate)
+      if (conflicts && conflicts.length > 0) {
+        // Try next available table
+        for (const table of tables.slice(1)) {
+          const { data: tableConflicts } = await supabase
+            .from('reservations')
+            .select('*')
+            .eq('table_id', table.id)
+            .eq('status', 'confirmed')
+            .eq('reservation_date', reservationDate)
 
-        if (!tableConflicts || tableConflicts.length === 0) {
-          tableId = table.id
-          break
+          if (!tableConflicts || tableConflicts.length === 0) {
+            tableId = table.id
+            break
+          }
         }
       }
     }

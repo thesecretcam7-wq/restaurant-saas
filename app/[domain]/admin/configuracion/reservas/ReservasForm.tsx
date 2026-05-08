@@ -16,7 +16,7 @@ export default function ReservasForm({ tenantId }: Props) {
   const [message, setMessage] = useState('')
 
   useEffect(() => {
-    fetch(`/api/tenant/reservas?tenantId=${tenantId}`)
+    fetch(`/api/tenant/reservas?tenantId=${tenantId}`, { credentials: 'include' })
       .then(r => r.json())
       .then(data => {
         if (data.data) {
@@ -40,6 +40,7 @@ export default function ReservasForm({ tenantId }: Props) {
       const res = await fetch('/api/tenant/reservas', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({ tenantId, ...form }),
       })
       const data = await res.json()
