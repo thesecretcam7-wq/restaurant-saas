@@ -2,6 +2,7 @@ import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 import { NextRequest, NextResponse } from 'next/server'
 import Stripe from 'stripe'
+import { applyRecipeStockMovement } from '@/lib/inventory-recipes'
 
 const getStripe = () => new Stripe(process.env.STRIPE_SECRET_KEY!)
 
@@ -88,6 +89,21 @@ export async function POST(request: NextRequest) {
         if (!order_id || !tenant_id) {
           console.warn('checkout.session.completed missing metadata:', { tenant_id, order_id })
           break
+        }
+
+        const { data: currentOrder } = await supabase
+          .from('orders')
+          .select('id, tenant_id, order_number, payment_status, items')
+          .eq('id', order_id)
+          .eq('tenant_id', tenant_id)
+          .maybeSingle()
+
+        if (currentOrder && currentOrder.payment_status !== 'paid') {
+          try {
+            await applyRecipeStockMovement(supabase, currentOrder, 'sale')
+          } catch (stockError) {
+            console.error('[webhook] stock deduction error:', stockError)
+          }
         }
 
         const { data: updatedOrder, error } = await supabase

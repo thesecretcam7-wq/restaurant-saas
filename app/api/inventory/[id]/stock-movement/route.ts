@@ -14,7 +14,9 @@ export async function POST(
     const { tenantId, movementType, quantity, notes, referenceId, createdBy } = body;
     const { id } = await params;
 
-    if (!tenantId || !movementType || !quantity) {
+    const movementQuantity = Math.abs(Number(quantity))
+
+    if (!tenantId || !movementType || !Number.isFinite(movementQuantity) || movementQuantity <= 0) {
       return NextResponse.json(
         { error: 'Missing required fields' },
         { status: 400 }
@@ -34,11 +36,11 @@ export async function POST(
     }
 
     // Calculate new stock
-    let newStock = inventory.current_stock;
+    let newStock = Number(inventory.current_stock || 0);
     if (movementType === 'sale' || movementType === 'damage') {
-      newStock -= quantity;
+      newStock -= movementQuantity;
     } else if (movementType === 'purchase' || movementType === 'return') {
-      newStock += quantity;
+      newStock += movementQuantity;
     }
 
     if (newStock < 0) {
@@ -56,7 +58,7 @@ export async function POST(
           tenant_id: tenantId,
           inventory_id: id,
           movement_type: movementType,
-          quantity: Math.abs(quantity),
+          quantity: movementQuantity,
           notes,
           reference_id: referenceId,
           created_by: createdBy,

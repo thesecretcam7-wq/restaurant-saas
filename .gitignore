@@ -48,3 +48,4 @@ respaldo-para-documentos-*.zip
 next-env.d.ts
 
 .vercel
+.env*.local

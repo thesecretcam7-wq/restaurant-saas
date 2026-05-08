@@ -9,6 +9,18 @@ import ToppingsManager from '@/components/admin/ToppingsManager'
 
 interface Props { params: Promise<{ domain: string; id: string }> }
 
+interface InventoryOption {
+  id: string
+  product_name: string
+  current_stock: number | string
+}
+
+interface RecipeIngredient {
+  inventory_id: string
+  quantity: string
+  unit: string
+}
+
 export default function EditProductoPage({ params }: Props) {
   const { domain, id } = use(params)
   const router = useRouter()
@@ -18,7 +30,10 @@ export default function EditProductoPage({ params }: Props) {
   const [saving, setSaving] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [uploadingImage, setUploadingImage] = useState(false)
+  const [savingRecipe, setSavingRecipe] = useState(false)
   const [notFound, setNotFound] = useState(false)
+  const [inventory, setInventory] = useState<InventoryOption[]>([])
+  const [recipe, setRecipe] = useState<RecipeIngredient[]>([])
   const [form, setForm] = useState({
     name: '',
     description: '',
@@ -38,7 +53,9 @@ export default function EditProductoPage({ params }: Props) {
     Promise.all([
       supabase.from('menu_categories').select('id, name').eq('tenant_id', tenantId).order('sort_order'),
       supabase.from('menu_items').select('*').eq('id', id).eq('tenant_id', tenantId).single(),
-    ]).then(([catRes, itemRes]) => {
+      fetch(`/api/inventory?tenantId=${tenantId}`, { credentials: 'include' }).then(res => res.json()).catch(() => []),
+      fetch(`/api/products/${id}/recipe?tenantId=${tenantId}`, { credentials: 'include' }).then(res => res.json()).catch(() => ({ recipe: [] })),
+    ]).then(([catRes, itemRes, inventoryRes, recipeRes]) => {
       setCategories(catRes.data || [])
       if (!itemRes.data) { setNotFound(true) }
       else {
@@ -55,9 +72,50 @@ export default function EditProductoPage({ params }: Props) {
           requires_kitchen: item.variants?.requires_kitchen !== false,
         })
       }
+      setInventory(Array.isArray(inventoryRes) ? inventoryRes : inventoryRes?.inventory || [])
+      setRecipe((recipeRes?.recipe || []).map((row: any) => ({
+        inventory_id: row.inventory_id,
+        quantity: String(row.quantity || ''),
+        unit: row.unit || '',
+      })))
       setLoading(false)
     })
   }, [tenantId, id])
+
+  const addRecipeRow = () => {
+    setRecipe(current => [...current, { inventory_id: '', quantity: '1', unit: '' }])
+  }
+
+  const updateRecipeRow = (index: number, updates: Partial<RecipeIngredient>) => {
+    setRecipe(current => current.map((row, rowIndex) => rowIndex === index ? { ...row, ...updates } : row))
+  }
+
+  const removeRecipeRow = (index: number) => {
+    setRecipe(current => current.filter((_, rowIndex) => rowIndex !== index))
+  }
+
+  const saveRecipe = async () => {
+    if (!tenantId) return
+    setSavingRecipe(true)
+    try {
+      const res = await fetch(`/api/products/${id}/recipe`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          tenantId,
+          ingredients: recipe,
+        }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(data.error || 'No se pudo guardar la receta')
+      toast.success('Receta de inventario guardada')
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Error al guardar receta')
+    } finally {
+      setSavingRecipe(false)
+    }
+  }
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -288,6 +346,82 @@ export default function EditProductoPage({ params }: Props) {
                 checked={form.requires_kitchen}
                 onChange={v => setForm(f => ({ ...f, requires_kitchen: v }))}
               />
+            </div>
+
+            <div className="bg-white sm:rounded-xl sm:border">
+              <div className="px-4 py-4 border-b">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <h2 className="font-bold text-gray-900 text-sm">Receta de inventario</h2>
+                    <p className="text-xs text-gray-400 mt-1">
+                      Ingredientes que se descuentan automaticamente al vender este producto.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={addRecipeRow}
+                    className="shrink-0 px-3 py-2 rounded-xl bg-emerald-50 text-emerald-700 text-xs font-bold hover:bg-emerald-100"
+                  >
+                    Agregar
+                  </button>
+                </div>
+              </div>
+
+              <div className="divide-y">
+                {recipe.length === 0 ? (
+                  <div className="px-4 py-5 text-sm text-gray-400">
+                    Sin ingredientes configurados. Este producto no descontara inventario hasta que agregues una receta.
+                  </div>
+                ) : (
+                  recipe.map((ingredient, index) => (
+                    <div key={index} className="px-4 py-3 grid gap-2 sm:grid-cols-[1fr_90px_90px_auto] sm:items-center">
+                      <select
+                        value={ingredient.inventory_id}
+                        onChange={event => updateRecipeRow(index, { inventory_id: event.target.value })}
+                        className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm text-gray-900"
+                      >
+                        <option value="">Selecciona ingrediente</option>
+                        {inventory.map(item => (
+                          <option key={item.id} value={item.id}>
+                            {item.product_name} - Stock {Number(item.current_stock || 0)}
+                          </option>
+                        ))}
+                      </select>
+                      <input
+                        inputMode="decimal"
+                        value={ingredient.quantity}
+                        onChange={event => updateRecipeRow(index, { quantity: event.target.value })}
+                        className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm text-gray-900"
+                        placeholder="Cant."
+                      />
+                      <input
+                        value={ingredient.unit}
+                        onChange={event => updateRecipeRow(index, { unit: event.target.value })}
+                        className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm text-gray-900"
+                        placeholder="unidad"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => removeRecipeRow(index)}
+                        className="rounded-xl border border-red-100 px-3 py-2 text-xs font-bold text-red-600 hover:bg-red-50"
+                      >
+                        Quitar
+                      </button>
+                    </div>
+                  ))
+                )}
+              </div>
+
+              <div className="px-4 py-3 border-t">
+                <button
+                  type="button"
+                  onClick={saveRecipe}
+                  disabled={savingRecipe}
+                  className="w-full py-2.5 rounded-xl bg-emerald-600 text-white text-sm font-bold hover:bg-emerald-700 disabled:opacity-50"
+                >
+                  {savingRecipe ? 'Guardando receta...' : 'Guardar receta'}
+                </button>
+              </div>
             </div>
 
             {tenantId && (

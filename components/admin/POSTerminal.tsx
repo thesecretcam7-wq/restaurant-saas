@@ -1236,11 +1236,22 @@ export function POSTerminal({
         // Billing existing table orders — mark as paid, no new order created.
         // Kitchen progress is independent: paying must not remove pending items from KDS.
         const paidTableOrderIds = [...billingOrderIds];
-        await supabase
-          .from('orders')
-          .update({ payment_status: 'paid' })
-          .eq('tenant_id', tenantId)
-          .in('id', billingOrderIds);
+        for (const orderId of billingOrderIds) {
+          const paidResponse = await fetch(`/api/orders/${orderId}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify({
+              tenantId,
+              payment_status: 'paid',
+            }),
+          });
+
+          if (!paidResponse.ok) {
+            const errorData = await paidResponse.json().catch(() => ({}));
+            throw new Error(errorData.error || 'No se pudo marcar la mesa como pagada');
+          }
+        }
         receiptOrderId = paidTableOrderIds[0] || null;
         receiptOrderNumber = selectedTableNumber ? `Mesa ${selectedTableNumber}` : 'Cuenta salon';
         setBillingOrderIds([]);

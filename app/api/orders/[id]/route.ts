@@ -4,6 +4,7 @@ import { sendOrderStatusUpdate } from '@/lib/email'
 import { sendWhatsAppOrderStatus } from '@/lib/whatsapp'
 import { requireTenantAccess, tenantAuthErrorResponse } from '@/lib/tenant-api-auth'
 import { writeAuditLog } from '@/lib/audit-log'
+import { applyRecipeStockMovement } from '@/lib/inventory-recipes'
 
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -57,7 +58,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
 
     const { data: existingOrder, error: existingError } = await supabase
       .from('orders')
-      .select('id, tenant_id, order_number, status, payment_status, total, notes')
+      .select('id, tenant_id, order_number, status, payment_status, total, notes, items')
       .eq('id', orderId)
       .single()
 
@@ -66,6 +67,17 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     }
 
     const access = await requireTenantAccess(existingOrder.tenant_id, { staffRoles: ['admin', 'cajero', 'camarero', 'cocinero'] })
+
+    if (payment_status === 'paid' && existingOrder.payment_status !== 'paid') {
+      try {
+        await applyRecipeStockMovement(supabase, existingOrder, 'sale')
+      } catch (stockError) {
+        return NextResponse.json(
+          { error: stockError instanceof Error ? stockError.message : 'No se pudo descontar inventario' },
+          { status: 400 }
+        )
+      }
+    }
 
     const updateData: Record<string, any> = { updated_at: new Date().toISOString() }
     if (status) updateData.status = status
@@ -90,6 +102,14 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 })
+    }
+
+    if (status === 'cancelled' && existingOrder.payment_status === 'paid') {
+      try {
+        await applyRecipeStockMovement(supabase, existingOrder, 'return')
+      } catch (stockError) {
+        console.error('[orders PATCH] stock return error:', stockError)
+      }
     }
 
     // When confirming an order, ensure order_items exist for KDS visibility.
