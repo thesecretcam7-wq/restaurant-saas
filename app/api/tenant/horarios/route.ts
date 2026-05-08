@@ -1,5 +1,8 @@
 import { createServiceClient } from '@/lib/supabase/server'
+import { requireTenantAccess, tenantAuthErrorResponse } from '@/lib/tenant-api-auth'
 import { NextRequest, NextResponse } from 'next/server'
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 export async function PUT(request: NextRequest) {
   try {
@@ -11,34 +14,36 @@ export async function PUT(request: NextRequest) {
     // tenantId might be a slug, so we need to get the actual UUID and name
     let actualTenantId = tenantId
     let tenantName = ''
-    if (!tenantId.includes('-')) {
+    if (!UUID_RE.test(tenantId)) {
       // If it doesn't contain a hyphen, it's likely a slug, not a UUID
       // Look up the tenant by slug
       const { data: tenantData } = await supabase
         .from('tenants')
-        .select('id, name')
+        .select('id, organization_name')
         .eq('slug', tenantId)
-        .single()
+        .maybeSingle()
 
       if (!tenantData) {
         return NextResponse.json({ error: 'Tenant no encontrado' }, { status: 404 })
       }
       actualTenantId = tenantData.id
-      tenantName = tenantData.name
+      tenantName = tenantData.organization_name
     } else {
       // If it's a UUID, fetch the tenant name
       const { data: tenantData } = await supabase
         .from('tenants')
-        .select('name')
+        .select('organization_name')
         .eq('id', tenantId)
-        .single()
+        .maybeSingle()
 
       if (!tenantData) {
         return NextResponse.json({ error: 'Tenant no encontrado' }, { status: 404 })
       }
       actualTenantId = tenantId
-      tenantName = tenantData.name
+      tenantName = tenantData.organization_name
     }
+
+    await requireTenantAccess(actualTenantId, { staffRoles: ['admin'] })
 
     // Use upsert: insert if not exists, update if exists
     const { data, error } = await supabase
@@ -61,6 +66,9 @@ export async function PUT(request: NextRequest) {
     }
     return NextResponse.json({ success: true, data, message: 'Horarios actualizados' })
   } catch (error) {
+    if (error instanceof Error && ['Unauthorized', 'Forbidden'].includes(error.message)) {
+      return tenantAuthErrorResponse(error)
+    }
     console.error('PUT /api/tenant/horarios error:', error)
     return NextResponse.json({ error: `Error interno: ${error instanceof Error ? error.message : 'Unknown'}` }, { status: 500 })
   }
@@ -72,8 +80,8 @@ export async function GET(request: NextRequest) {
 
   const supabase = createServiceClient()
   let actualTenantId = slugOrId
-  if (!slugOrId.includes('-')) {
-    const { data: tenantData } = await supabase.from('tenants').select('id').eq('slug', slugOrId).single()
+  if (!UUID_RE.test(slugOrId)) {
+    const { data: tenantData } = await supabase.from('tenants').select('id').eq('slug', slugOrId).maybeSingle()
     if (!tenantData) return NextResponse.json({ error: 'Tenant no encontrado' }, { status: 404 })
     actualTenantId = tenantData.id
   }
