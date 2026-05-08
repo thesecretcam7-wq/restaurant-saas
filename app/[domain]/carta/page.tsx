@@ -99,13 +99,22 @@ export default async function CartaPage({ params }: CartaProps) {
 
   const restaurantName = branding?.app_name || tenant?.organization_name || 'Restaurante'
   const logoUrl = branding?.logo_url || tenant?.logo_url
+  const visibleProducts = items.length
+  const visibleCategories = categories.length + (featured.length > 0 ? 1 : 0) + (uncategorized.length > 0 ? 1 : 0)
 
   return (
-    <main className="min-h-screen overflow-x-hidden" style={{ backgroundColor: background, fontFamily }}>
-      <header className="fixed inset-x-0 top-0 z-40 border-b shadow-lg shadow-black/[0.04] backdrop-blur-xl" style={{ backgroundColor: `${surface}f2`, borderColor: border }}>
+    <main
+      className="min-h-screen overflow-x-hidden"
+      style={{
+        backgroundColor: background,
+        fontFamily,
+        backgroundImage: `radial-gradient(circle at top left, ${primary}18, transparent 32rem), radial-gradient(circle at top right, ${secondary}14, transparent 28rem)`,
+      }}
+    >
+      <header className="fixed inset-x-0 top-0 z-40 border-b shadow-lg shadow-black/[0.04] backdrop-blur-xl" style={{ backgroundColor: `${surface}f7`, borderColor: border }}>
         <div className="mx-auto flex h-16 max-w-3xl items-center gap-3 px-4">
           {logoUrl ? (
-            <div className="relative h-12 w-16 flex-shrink-0">
+            <div className="relative h-12 w-16 flex-shrink-0 overflow-hidden rounded-2xl bg-white/80 p-1.5 shadow-sm ring-1" style={{ '--tw-ring-color': border } as React.CSSProperties}>
               <Image src={logoUrl} alt={restaurantName} fill sizes="64px" className="object-contain" priority />
             </div>
           ) : (
@@ -115,8 +124,11 @@ export default async function CartaPage({ params }: CartaProps) {
           )}
           <div className="min-w-0 flex-1">
             <p className="truncate text-base font-black" style={{ color: headerText }}>{restaurantName}</p>
-            <p className="text-xs font-black uppercase tracking-[0.18em]" style={{ color: mutedText }}>Carta QR</p>
+            <p className="text-xs font-black uppercase tracking-[0.18em]" style={{ color: mutedText }}>Carta digital</p>
           </div>
+          <span className="hidden rounded-full px-3 py-1.5 text-[11px] font-black uppercase tracking-[0.12em] sm:inline-flex" style={{ backgroundColor: `${primary}18`, color: primary }}>
+            Consulta
+          </span>
         </div>
 
         {categories.length > 0 && (
@@ -141,26 +153,44 @@ export default async function CartaPage({ params }: CartaProps) {
       </header>
 
       <section className="mx-auto max-w-3xl px-4 pb-5 pt-[7.25rem]">
-        <div className="overflow-hidden rounded-[1.7rem] shadow-2xl shadow-black/10" style={{ backgroundColor: secondary }}>
-          <div className="relative min-h-[190px] p-5">
+        <div className="overflow-hidden rounded-[2rem] border shadow-2xl shadow-black/10" style={{ backgroundColor: secondary, borderColor: `${primary}33` }}>
+          <div className="relative min-h-[220px] p-5 sm:p-7">
             {branding?.hero_image_url && (
               <Image
                 src={branding.hero_image_url}
                 alt=""
                 fill
                 sizes="100vw"
-                className="object-cover opacity-35"
+                className="object-cover opacity-32"
                 priority
               />
             )}
-            <div className="relative z-10">
-              <p className="text-xs font-black uppercase tracking-[0.18em]" style={{ color: `${heroText}99` }}>Carta de mesa</p>
-              <h1 className="mt-3 max-w-sm text-[2rem] font-black leading-[1.02] sm:text-4xl sm:leading-[0.95]" style={{ color: heroText }}>
+            <div className="absolute inset-0 bg-gradient-to-br from-black/18 via-transparent to-black/20" />
+            <div className="relative z-10 flex min-h-[170px] flex-col justify-between">
+              <div>
+                <p className="text-xs font-black uppercase tracking-[0.18em]" style={{ color: `${heroText}99` }}>Carta de mesa</p>
+                <h1 className="mt-3 max-w-sm text-[2.2rem] font-black leading-[1.02] sm:text-5xl sm:leading-[0.95]" style={{ color: heroText }}>
                 Mira la carta, elige con calma.
-              </h1>
-              <p className="mt-4 max-w-md text-sm font-bold leading-6" style={{ color: `${heroText}b8` }}>
-                Esta vista es solo para consultar productos, precios y opciones. Para pedir, avisa al camarero.
-              </p>
+                </h1>
+                <p className="mt-4 max-w-md text-base font-bold leading-7" style={{ color: `${heroText}c7` }}>
+                  Consulta productos, precios y opciones con una vista clara pensada para mesa.
+                </p>
+              </div>
+
+              <div className="mt-6 grid grid-cols-3 gap-2">
+                <div className="rounded-2xl border border-white/18 bg-white/12 px-3 py-2 backdrop-blur">
+                  <p className="text-xl font-black leading-none" style={{ color: heroText }}>{visibleProducts}</p>
+                  <p className="mt-1 text-[10px] font-black uppercase tracking-[0.12em]" style={{ color: `${heroText}9f` }}>Productos</p>
+                </div>
+                <div className="rounded-2xl border border-white/18 bg-white/12 px-3 py-2 backdrop-blur">
+                  <p className="text-xl font-black leading-none" style={{ color: heroText }}>{visibleCategories}</p>
+                  <p className="mt-1 text-[10px] font-black uppercase tracking-[0.12em]" style={{ color: `${heroText}9f` }}>Secciones</p>
+                </div>
+                <div className="rounded-2xl border border-white/18 bg-white/12 px-3 py-2 backdrop-blur">
+                  <p className="text-xl font-black leading-none" style={{ color: heroText }}>QR</p>
+                  <p className="mt-1 text-[10px] font-black uppercase tracking-[0.12em]" style={{ color: `${heroText}9f` }}>Siempre activo</p>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -168,11 +198,11 @@ export default async function CartaPage({ params }: CartaProps) {
 
       <div className="mx-auto max-w-3xl space-y-5 px-4 pb-12">
         {featured.length > 0 && (
-          <section id="destacados" className="scroll-mt-36 rounded-[1.5rem] border p-4 shadow-xl shadow-black/[0.04]" style={{ backgroundColor: surface, borderColor: border }}>
+          <section id="destacados" className="scroll-mt-36 rounded-[1.75rem] border p-4 shadow-xl shadow-black/[0.05] sm:p-5" style={{ backgroundColor: surface, borderColor: border }}>
             <div className="mb-4 flex items-center justify-between gap-3">
               <div>
                 <p className="text-xs font-black uppercase tracking-[0.16em]" style={{ color: mutedText }}>Recomendados</p>
-                <h2 className="text-xl font-black" style={{ color: surfaceText }}>Lo mas pedido</h2>
+                <h2 className="text-2xl font-black" style={{ color: surfaceText }}>Lo mas pedido</h2>
               </div>
               <span className="h-3 w-3 rounded-full" style={{ backgroundColor: accent }} />
             </div>
@@ -194,10 +224,10 @@ export default async function CartaPage({ params }: CartaProps) {
           const categoryItems = itemsByCategory.get(category.id) || []
           if (categoryItems.length === 0) return null
           return (
-            <section key={category.id} id={`cat-${category.id}`} className="scroll-mt-36 rounded-[1.5rem] border p-4 shadow-xl shadow-black/[0.04]" style={{ backgroundColor: surface, borderColor: border }}>
+            <section key={category.id} id={`cat-${category.id}`} className="scroll-mt-36 rounded-[1.75rem] border p-4 shadow-xl shadow-black/[0.05] sm:p-5" style={{ backgroundColor: surface, borderColor: border }}>
               <div className="mb-4">
                 <p className="text-xs font-black uppercase tracking-[0.16em]" style={{ color: mutedText }}>Categoria</p>
-                <h2 className="text-2xl font-black" style={{ color: surfaceText }}>{category.name}</h2>
+                <h2 className="text-3xl font-black tracking-tight" style={{ color: surfaceText }}>{category.name}</h2>
                 {category.description && <p className="mt-1 text-sm font-semibold leading-6" style={{ color: mutedText }}>{category.description}</p>}
               </div>
               <div className="grid gap-3">
@@ -216,7 +246,7 @@ export default async function CartaPage({ params }: CartaProps) {
         })}
 
         {uncategorized.length > 0 && (
-          <section className="rounded-[1.5rem] border p-4 shadow-xl shadow-black/[0.04]" style={{ backgroundColor: surface, borderColor: border }}>
+          <section className="rounded-[1.75rem] border p-4 shadow-xl shadow-black/[0.05] sm:p-5" style={{ backgroundColor: surface, borderColor: border }}>
             <h2 className="mb-4 text-2xl font-black" style={{ color: surfaceText }}>Otros productos</h2>
             <div className="grid gap-3">
               {uncategorized.map(item => (
@@ -262,10 +292,10 @@ function CartaItem({
   currencyInfo: { code: string; locale: string }
 }) {
   return (
-    <article className="grid grid-cols-[92px_minmax(0,1fr)] gap-3 rounded-[1.25rem] border p-3.5 sm:grid-cols-[104px_minmax(0,1fr)] sm:gap-4" style={{ backgroundColor: colors.cardSurface, borderColor: colors.border }}>
-      <div className="relative h-28 overflow-hidden rounded-[1rem]" style={{ backgroundColor: colors.surface }}>
+    <article className="grid grid-cols-[112px_minmax(0,1fr)] gap-4 rounded-[1.35rem] border p-3.5 shadow-sm transition-transform duration-200 sm:grid-cols-[132px_minmax(0,1fr)] sm:p-4" style={{ backgroundColor: colors.cardSurface, borderColor: colors.border }}>
+      <div className="relative h-32 overflow-hidden rounded-[1.1rem] bg-white p-2 ring-1 sm:h-36" style={{ '--tw-ring-color': colors.border } as React.CSSProperties}>
         {item.image_url ? (
-          <Image src={item.image_url} alt={item.name} fill sizes="104px" className="object-cover" />
+          <Image src={item.image_url} alt={item.name} fill sizes="132px" className="object-contain p-1" />
         ) : (
           <div className="grid h-full place-items-center text-2xl font-black" style={{ color: colors.mutedText }}>
             {item.name.charAt(0)}
@@ -274,13 +304,13 @@ function CartaItem({
       </div>
       <div className="min-w-0 py-1">
         <div className="flex min-w-0 flex-col gap-1 sm:flex-row sm:items-start sm:justify-between sm:gap-3">
-          <h3 className="line-clamp-2 break-words text-base font-black leading-6" style={{ color: colors.surfaceText }}>{item.name}</h3>
-          <p className="text-lg font-black leading-6 sm:flex-shrink-0" style={{ color: colors.primary }}>
+          <h3 className="line-clamp-2 break-words text-lg font-black leading-6 sm:text-xl sm:leading-7" style={{ color: colors.surfaceText }}>{item.name}</h3>
+          <p className="text-xl font-black leading-7 sm:flex-shrink-0" style={{ color: colors.primary }}>
             {formatPriceWithCurrency(item.price, currencyInfo.code, currencyInfo.locale)}
           </p>
         </div>
         {item.description && (
-          <p className="mt-1.5 line-clamp-3 break-words text-sm font-semibold leading-6" style={{ color: colors.mutedText }}>{item.description}</p>
+          <p className="mt-2 line-clamp-3 break-words text-[15px] font-semibold leading-6" style={{ color: colors.mutedText }}>{item.description}</p>
         )}
         {toppings.length > 0 && (
           <div className="mt-3 flex flex-wrap gap-1.5">
