@@ -19,6 +19,7 @@ export default function CheckoutPage({ params }: Props) {
   const router = useRouter()
   const { items, tenantId: cartTenantId, total, clearCart } = useCartStore()
   const [settings, setSettings] = useState<any>(null)
+  const [storeBranding, setStoreBranding] = useState<{ appName?: string; logoUrl?: string | null; primaryColor?: string } | null>(null)
   const [csrfToken, setCsrfToken] = useState('')
   const [loading, setLoading] = useState(false)
   const [profileLookup, setProfileLookup] = useState<'idle' | 'searching' | 'found' | 'none'>('idle')
@@ -31,11 +32,24 @@ export default function CheckoutPage({ params }: Props) {
   const tenantId = settings?.tenant_id || tenantSlug
 
   useEffect(() => {
-    if (items.length === 0) router.replace(`/${tenantSlug}/menu`)
+    if (items.length === 0) router.replace(getStorePath(tenantSlug, '/menu'))
     fetch(`/api/settings/${tenantSlug}`)
       .then(r => r.json())
       .then(data => {
         setSettings(data)
+        if (data?.tenant_id) {
+          fetch(`/api/tenant/branding?tenantId=${encodeURIComponent(data.tenant_id)}`)
+            .then(r => r.json())
+            .then(brandData => {
+              const branding = brandData?.branding || {}
+              setStoreBranding({
+                appName: branding.app_name,
+                logoUrl: branding.logo_url || brandData?.tenant?.logo_url || null,
+                primaryColor: branding.primary_color,
+              })
+            })
+            .catch(() => {})
+        }
       })
 
     fetch('/api/csrf-token')
@@ -51,7 +65,7 @@ export default function CheckoutPage({ params }: Props) {
     if (cartTenantId !== settings.tenant_id) {
       clearCart()
       toast.error('El carrito tenia productos de otro restaurante. Vuelve a elegir tu pedido.')
-      router.replace(`/${tenantSlug}/menu`)
+      router.replace(getStorePath(tenantSlug, '/menu'))
     }
   }, [settings?.tenant_id, cartTenantId, items.length, clearCart, router, tenantSlug])
 
@@ -178,12 +192,12 @@ export default function CheckoutPage({ params }: Props) {
           body: JSON.stringify({ tenantId, tenantSlug, items: orderItems, customerInfo: { name: validated.name, phone: validated.phone, email: validated.email }, deliveryType: validated.delivery_type, deliveryAddress: validated.delivery_address, notes: validated.notes, paymentMethod: 'cash', source: 'store' }),
         })
         const data = await res.json()
-        if (data.orderId) { clearCart(); router.push(`/${tenantSlug}/gracias?order=${data.orderId}`) }
+        if (data.orderId) { clearCart(); router.push(getStorePath(tenantSlug, `/gracias?order=${data.orderId}`)) }
         else {
           console.error('[checkout] order error', data)
           if (data.clearCart) {
             clearCart()
-            router.replace(`/${tenantSlug}/menu`)
+            router.replace(getStorePath(tenantSlug, '/menu'))
           }
           toast.error(data.error || 'Error al crear pedido')
         }
@@ -206,6 +220,13 @@ export default function CheckoutPage({ params }: Props) {
 
   return (
     <div className="min-h-screen bg-gray-50">
+      {loading && (
+        <CheckoutStoreLoader
+          logoUrl={storeBranding?.logoUrl}
+          appName={storeBranding?.appName}
+          primaryColor={storeBranding?.primaryColor}
+        />
+      )}
       <header className="bg-white border-b">
         <div className="max-w-lg mx-auto px-4 h-14 flex items-center gap-3">
           <Link href={`/${tenantSlug}/carrito`} className="w-9 h-9 rounded-full bg-gray-100 flex items-center justify-center">
@@ -336,6 +357,82 @@ export default function CheckoutPage({ params }: Props) {
           <p className="text-center text-xs text-muted-foreground pb-2">Tu información está protegida y segura</p>
         </form>
       </main>
+    </div>
+  )
+}
+
+function getStorePath(tenantSlug: string, path: string) {
+  if (typeof window === 'undefined') return `/${tenantSlug}${path}`
+  const host = window.location.hostname
+  const isTenantSubdomain =
+    host !== 'localhost' &&
+    host !== '127.0.0.1' &&
+    host !== 'eccofoodapp.com' &&
+    host !== 'www.eccofoodapp.com' &&
+    (host.endsWith('.eccofoodapp.com') || host.endsWith('.vercel.app'))
+
+  return isTenantSubdomain ? path : `/${tenantSlug}${path}`
+}
+
+function CheckoutStoreLoader({
+  logoUrl,
+  appName,
+  primaryColor,
+}: {
+  logoUrl?: string | null
+  appName?: string
+  primaryColor?: string
+}) {
+  const primary = primaryColor || 'var(--primary-color, #E4002B)'
+
+  return (
+    <div className="fixed inset-0 z-[10020] flex items-center justify-center bg-white/75 px-5 backdrop-blur-[10px]">
+      <div className="w-full max-w-[460px] overflow-hidden rounded-[34px] border border-white/80 bg-white/98 p-8 text-center text-[#15130f] shadow-[0_30px_100px_rgba(0,0,0,0.2)]">
+        <div
+          className="relative mx-auto grid size-28 place-items-center rounded-[30px] text-4xl font-black text-white shadow-[0_22px_60px_rgba(0,0,0,0.16)]"
+          style={{ backgroundColor: primary }}
+        >
+          <span
+            className="absolute inset-0 rounded-2xl"
+            style={{
+              backgroundColor: primary,
+              animation: 'storeLoaderGlow 1.35s ease-in-out infinite',
+            }}
+          />
+          {logoUrl ? (
+            <img src={logoUrl} alt={appName || ''} className="relative h-24 w-24 object-contain drop-shadow-lg" />
+          ) : (
+            <span className="relative">{appName?.charAt(0) || 'R'}</span>
+          )}
+        </div>
+
+        <div className="mt-7 flex items-center justify-center gap-0.5 text-3xl font-black tracking-wide">
+          {'Cargando'.split('').map((letter, index) => (
+            <span
+              key={`${letter}-${index}`}
+              className="inline-block"
+              style={{
+                color: primary,
+                animation: 'storeLoadingText 1.15s ease-in-out infinite',
+                animationDelay: `${index * 65}ms`,
+              }}
+            >
+              {letter}
+            </span>
+          ))}
+        </div>
+
+        <p className="mt-3 text-sm font-bold text-black/45">Confirmando tu pedido</p>
+        <div className="mt-8 h-2.5 overflow-hidden rounded-full bg-black/8">
+          <div
+            className="h-full rounded-full"
+            style={{
+              backgroundColor: primary,
+              animation: 'storeLoaderBar 1.15s ease-in-out infinite',
+            }}
+          />
+        </div>
+      </div>
     </div>
   )
 }
