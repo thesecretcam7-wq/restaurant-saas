@@ -101,16 +101,6 @@ function getOperationalAccess(pathname: string) {
   if (restPath === '/cocina' || restPath.startsWith('/cocina/')) {
     return { slug, roles: ['cocinero'], loginRole: 'cocinero', allowOwnerSession: false }
   }
-  if (restPath === '/kiosko' || restPath.startsWith('/kiosko/')) {
-    return { slug, roles: ['cajero', 'admin', 'camarero', 'cocinero'], loginRole: 'cajero', allowOwnerSession: false }
-  }
-  if (restPath === '/pantalla' || restPath.startsWith('/pantalla/')) {
-    return { slug, roles: ['cajero', 'admin', 'camarero', 'cocinero'], loginRole: 'cajero', allowOwnerSession: false }
-  }
-  if (restPath === '/pos-display' || restPath.startsWith('/pos-display/')) {
-    return { slug, roles: ['cajero', 'admin', 'camarero', 'cocinero'], loginRole: 'cajero', allowOwnerSession: false }
-  }
-
   return null
 }
 
