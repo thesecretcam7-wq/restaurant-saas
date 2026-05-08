@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { createClient } from '@supabase/supabase-js';
-import { AlertTriangle, Plus, Minus, PackagePlus, X, Hash, Boxes, DollarSign, Truck, History, ReceiptText } from 'lucide-react';
+import { AlertTriangle, Plus, Minus, PackagePlus, X, Hash, Boxes, DollarSign, Truck, History, ReceiptText, Search } from 'lucide-react';
 import { NumericKeyboard } from './NumericKeyboard';
 
 const supabase = createClient(
@@ -54,6 +54,7 @@ export function InventoryManager({ tenantId }: { tenantId: string }) {
   const [movementItem, setMovementItem] = useState<InventoryItem | null>(null);
   const [movements, setMovements] = useState<StockMovement[]>([]);
   const [loadingMovements, setLoadingMovements] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
   const [movementType, setMovementType] = useState<'purchase' | 'sale' | 'adjustment'>('purchase');
   const [quantity, setQuantity] = useState(0);
   const [showNumericKeyboard, setShowNumericKeyboard] = useState(false);
@@ -171,6 +172,16 @@ export function InventoryManager({ tenantId }: { tenantId: string }) {
     (sum, item) => sum + item.current_stock * item.cost_per_unit,
     0
   );
+  const normalizedSearch = searchTerm.trim().toLowerCase();
+  const filteredInventory = normalizedSearch
+    ? inventory.filter((item) =>
+        [
+          item.product_name,
+          item.sku,
+          item.supplier,
+        ].some((value) => String(value || '').toLowerCase().includes(normalizedSearch))
+      )
+    : inventory;
 
   return (
     <div>
@@ -527,6 +538,37 @@ export function InventoryManager({ tenantId }: { tenantId: string }) {
 
         {/* Inventory Table */}
         <div className="admin-panel overflow-hidden">
+          <div className="border-b border-black/10 bg-white/80 p-4">
+            <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+              <div>
+                <h3 className="text-sm font-black text-[#15130f]">Inventario</h3>
+                <p className="text-xs font-semibold text-black/45">
+                  {filteredInventory.length} de {inventory.length} insumo{inventory.length === 1 ? '' : 's'}
+                </p>
+              </div>
+              <div className="flex w-full flex-col gap-2 sm:flex-row lg:max-w-xl">
+                <div className="relative flex-1">
+                  <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-black/35" />
+                  <input
+                    type="search"
+                    value={searchTerm}
+                    onChange={(event) => setSearchTerm(event.target.value)}
+                    placeholder="Buscar por nombre o codigo de barras"
+                    className="admin-input pl-10"
+                  />
+                </div>
+                {searchTerm && (
+                  <button
+                    type="button"
+                    onClick={() => setSearchTerm('')}
+                    className="admin-button-ghost whitespace-nowrap sm:w-auto"
+                  >
+                    Limpiar
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
           <table className="w-full">
             <thead className="bg-gray-100 border-b">
               <tr>
@@ -539,7 +581,7 @@ export function InventoryManager({ tenantId }: { tenantId: string }) {
               </tr>
             </thead>
             <tbody className="divide-y">
-              {inventory.map((item) => {
+              {filteredInventory.map((item) => {
                 const stockStatus = getStockStatus(item.current_stock, item.min_stock, item.max_stock);
                 return (
                   <tr key={item.id} className="hover:bg-gray-50">
@@ -588,6 +630,13 @@ export function InventoryManager({ tenantId }: { tenantId: string }) {
               })}
             </tbody>
           </table>
+          {filteredInventory.length === 0 && (
+            <div className="admin-empty m-5">
+              <Search className="mb-3 size-8 text-black/24" />
+              <p className="font-black text-[#15130f]">No se encontraron insumos</p>
+              <p className="mt-1 text-sm">Prueba con otro nombre, SKU o codigo de barras.</p>
+            </div>
+          )}
         </div>
       </div>
     </div>
