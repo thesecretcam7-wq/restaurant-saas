@@ -6,6 +6,9 @@ interface DisplayOrder {
   id: string
   display_number: number | null
   order_number: string
+  customer_name?: string | null
+  delivery_type?: string | null
+  table_number?: number | null
   status: 'confirmed' | 'preparing' | 'ready'
   created_at: string
 }
@@ -56,6 +59,63 @@ function isDark(hex: string) {
 function readableText(background: string, preferred?: string, fallbackDark = '#15130f', fallbackLight = '#ffffff') {
   if (preferred && preferred !== background) return preferred
   return isDark(background) ? fallbackLight : fallbackDark
+}
+
+function getCustomerLabel(order: DisplayOrder) {
+  if (order.customer_name?.trim()) return order.customer_name.trim()
+  if (order.table_number) return `Mesa ${order.table_number}`
+  if (order.delivery_type === 'pickup') return 'Para recoger'
+  if (order.delivery_type === 'delivery') return 'A domicilio'
+  return 'Cliente'
+}
+
+function OrderDisplayCard({
+  order,
+  color,
+  backgroundColor,
+  textColor,
+  isNew = false,
+}: {
+  order: DisplayOrder
+  color: string
+  backgroundColor: string
+  textColor: string
+  isNew?: boolean
+}) {
+  const finalText = isNew ? readableText(color) : textColor
+  const finalBg = isNew ? color : backgroundColor
+
+  return (
+    <div
+      className="flex items-center justify-center rounded-2xl border-2 transition-all duration-500"
+      style={{
+        width: 176,
+        minHeight: 176,
+        borderColor: color,
+        backgroundColor: finalBg,
+        transform: isNew ? 'scale(1.08)' : 'scale(1)',
+        boxShadow: isNew ? `0 0 46px ${color}` : `0 0 0 1px ${color} inset`,
+      }}
+    >
+      <div className="w-full px-3 text-center">
+        <p className="truncate text-[11px] font-black uppercase tracking-[0.18em]" style={{ color: finalText }}>
+          Pedido
+        </p>
+        <p className="mt-1 text-5xl font-black leading-none tabular-nums" style={{ color: isNew ? finalText : color }}>
+          {getShortNumber(order)}
+        </p>
+        <p className="mt-2 truncate text-sm font-black" style={{ color: finalText }}>
+          {getCustomerLabel(order)}
+        </p>
+        <p className="mt-1 truncate text-[11px] font-bold opacity-70" style={{ color: finalText }}>
+          {order.order_number}
+        </p>
+        {isNew && (
+          <p className="mt-2 text-xs font-bold animate-bounce" style={{ color: finalText }}>LISTO</p>
+        )}
+      </div>
+    </div>
+  )
 }
 
 export default function PantallaPage({ params }: Props) {
@@ -315,24 +375,13 @@ export default function PantallaPage({ params }: Props) {
             ) : (
               <div className="flex flex-wrap gap-6">
                 {confirmed.map(order => (
-                  <div
+                  <OrderDisplayCard
                     key={order.id}
-                    className="flex items-center justify-center rounded-2xl border-2"
-                    style={{
-                      width: 160,
-                      height: 160,
-                      borderColor: primary,
-                      backgroundColor: cardBg,
-                      boxShadow: `0 0 0 1px ${primary} inset`,
-                    }}
-                  >
-                    <div className="text-center">
-                      <p className="text-xs font-semibold tracking-widest uppercase mb-1" style={{ color: cardText }}>Pedido</p>
-                      <p className="text-6xl font-black tabular-nums" style={{ color: primary }}>
-                        {getShortNumber(order)}
-                      </p>
-                    </div>
-                  </div>
+                    order={order}
+                    color={primary}
+                    backgroundColor={cardBg}
+                    textColor={cardText}
+                  />
                 ))}
               </div>
             )}
@@ -356,23 +405,13 @@ export default function PantallaPage({ params }: Props) {
             ) : (
               <div className="flex flex-wrap gap-6">
                 {preparing.map(order => (
-                  <div
+                  <OrderDisplayCard
                     key={order.id}
-                    className="flex items-center justify-center rounded-2xl border-2"
-                    style={{
-                      width: 160,
-                      height: 160,
-                      borderColor: secondary,
-                      backgroundColor: cardBg,
-                    }}
-                  >
-                    <div className="text-center">
-                      <p className="text-xs font-semibold tracking-widest uppercase mb-1" style={{ color: cardText }}>Pedido</p>
-                      <p className="text-6xl font-black tabular-nums" style={{ color: accent }}>
-                        {getShortNumber(order)}
-                      </p>
-                    </div>
-                  </div>
+                    order={order}
+                    color={accent}
+                    backgroundColor={cardBg}
+                    textColor={cardText}
+                  />
                 ))}
               </div>
             )}
@@ -414,6 +453,12 @@ export default function PantallaPage({ params }: Props) {
                         <p className="text-xs font-semibold tracking-widest uppercase mb-1" style={{ color: isNew ? accentText : cardText }}>Pedido</p>
                         <p className="text-6xl font-black tabular-nums" style={{ color: isNew ? accentText : accent }}>
                           {getShortNumber(order)}
+                        </p>
+                        <p className="mt-2 max-w-[140px] truncate text-sm font-black" style={{ color: isNew ? accentText : cardText }}>
+                          {getCustomerLabel(order)}
+                        </p>
+                        <p className="mt-1 max-w-[140px] truncate text-[11px] font-bold opacity-70" style={{ color: isNew ? accentText : cardText }}>
+                          {order.order_number}
                         </p>
                         {isNew && (
                           <p className="text-xs font-bold mt-2 animate-bounce" style={{ color: accentText }}>¡LISTO!</p>

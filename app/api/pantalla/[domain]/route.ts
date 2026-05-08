@@ -29,7 +29,7 @@ export async function GET(
 
   const { data: orders } = await supabase
     .from('orders')
-    .select('id, display_number, order_number, status, created_at')
+    .select('id, display_number, order_number, customer_name, delivery_type, table_number, status, created_at')
     .eq('tenant_id', tenant.id)
     .in('status', ['confirmed', 'preparing', 'ready'])
     .gte('created_at', todayStart.toISOString())
