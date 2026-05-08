@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, ChefHat, CreditCard, Delete, Lock, ShieldCheck, UtensilsCrossed } from 'lucide-react';
 
@@ -114,6 +114,7 @@ export function RoleLoginClient({
   const [loadingMessage, setLoadingMessage] = useState('Verificando acceso');
   const [error, setError] = useState('');
   const [phase, setPhase] = useState<'select' | 'pin'>('select');
+  const pinInputRef = useRef<HTMLInputElement | null>(null);
   const config = ROLE_CONFIG[role];
   const RoleIcon = config.icon;
 
@@ -136,6 +137,12 @@ export function RoleLoginClient({
     setError('');
     setPhase('pin');
   }
+
+  useEffect(() => {
+    if (phase === 'pin') {
+      window.setTimeout(() => pinInputRef.current?.focus(), 80);
+    }
+  }, [phase]);
 
   async function validatePin(value: string) {
     if (value.length < 4) return;
@@ -210,6 +217,14 @@ export function RoleLoginClient({
     }
     if (pin.length >= 6) return;
     const next = pin + key;
+    setPin(next);
+    if (next.length === 6) validatePin(next);
+  }
+
+  function handlePinInput(value: string) {
+    if (loading) return;
+    const next = value.replace(/\D/g, '').slice(0, 6);
+    setError('');
     setPin(next);
     if (next.length === 6) validatePin(next);
   }
@@ -356,6 +371,24 @@ export function RoleLoginClient({
                     </div>
                   ))}
                 </div>
+
+                <label className="mb-4 block">
+                  <span className="mb-2 block text-center text-xs font-black uppercase tracking-[0.16em] text-white/40">
+                    Escribe tu PIN
+                  </span>
+                  <input
+                    ref={pinInputRef}
+                    type="password"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
+                    autoComplete="one-time-code"
+                    value={pin}
+                    onChange={(event) => handlePinInput(event.target.value)}
+                    disabled={loading}
+                    className="w-full rounded-2xl border border-white/12 bg-black/30 px-4 py-3 text-center text-2xl font-black tracking-[0.55em] text-white outline-none transition placeholder:tracking-normal placeholder:text-white/25 focus:border-white/35 disabled:opacity-50"
+                    placeholder="PIN"
+                  />
+                </label>
 
                 {error && (
                   <p className="mb-4 rounded-2xl border border-red-400/25 bg-red-500/10 px-4 py-3 text-center text-sm font-bold text-red-100">
