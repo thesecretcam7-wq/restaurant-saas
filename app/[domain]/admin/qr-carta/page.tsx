@@ -25,9 +25,14 @@ export default async function CartaQrPage({ params }: Props) {
   }
 
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
+  const baseDomain = process.env.NEXT_PUBLIC_BASE_DOMAIN || 'eccofoodapp.com'
+  const tenantSlug = tenant.slug || tenant.id
+  const isLocalApp = appUrl.includes('localhost') || appUrl.includes('127.0.0.1') || baseDomain.includes('localhost')
   const cartaUrl = tenant.primary_domain
     ? `https://${tenant.primary_domain}/carta`
-    : `${appUrl}/${tenant.slug || tenant.id}/carta`
+    : isLocalApp
+      ? `${appUrl}/${tenantSlug}/carta`
+      : `https://${tenantSlug}.${baseDomain}/carta`
   const qrDataUrl = await QRCode.toDataURL(cartaUrl, {
     width: 720,
     margin: 2,
@@ -39,11 +44,11 @@ export default async function CartaQrPage({ params }: Props) {
       <div className="admin-page-header">
         <div>
           <p className="admin-eyebrow">Carta digital</p>
-          <h1 className="admin-title">QR de la carta</h1>
+          <h1 className="admin-title">{tenant.organization_name || tenantSlug} | QR de la carta</h1>
           <p className="admin-subtitle">Imprime este QR para que el cliente vea la carta desde su celular.</p>
         </div>
         <Link
-          href={`/${tenant.slug || tenant.id}/carta`}
+          href={cartaUrl}
           target="_blank"
           className="hidden h-11 items-center gap-2 rounded-xl border border-black/10 bg-white px-4 text-sm font-black text-[#15130f] transition hover:bg-black/[0.04] sm:inline-flex"
         >
