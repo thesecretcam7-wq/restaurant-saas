@@ -141,6 +141,7 @@ export default async function TenantLayout({
   const accentColor = branding?.accent_color || eccofoodDefaults.accent
   const backgroundColor = branding?.background_color || eccofoodDefaults.background
   const fontFamily = branding?.font_family || eccofoodDefaults.fontFamily
+  const logoUrl = branding?.logo_url || context.tenant?.logo_url || null
 
   return (
     <>
@@ -168,7 +169,7 @@ export default async function TenantLayout({
       `}</style>
       <div className="min-h-full flex flex-col" style={{ backgroundColor }}>
         {children}
-        <StoreNavigationLoader color={primaryColor} logoUrl={branding?.logo_url} />
+        <StoreNavigationLoader color={primaryColor} logoUrl={logoUrl} />
         <Toaster position="bottom-right" />
       </div>
     </>
