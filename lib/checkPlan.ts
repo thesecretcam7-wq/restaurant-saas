@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import { PLANS, getPlanLimits, type PlanId } from './plans'
+import { getTenantAccessInfo } from './tenant-access'
 
 function serviceClient() {
   return createClient(
@@ -15,7 +16,7 @@ export interface TenantPlanInfo {
   label: string
   price: string
   isTrial: boolean
-  trialActive: boolean      // trial period still running (14 days)
+  trialActive: boolean      // trial period still running (30 days)
   isActive: boolean         // subscription active (paid) or trial running
 }
 
@@ -26,23 +27,20 @@ export async function getTenantPlanInfo(tenantIdOrSlug: string): Promise<TenantP
   const column = UUID_RE.test(tenantIdOrSlug) ? 'id' : 'slug'
   const { data: tenant } = await supabase
     .from('tenants')
-    .select('subscription_plan, status, created_at')
+    .select('subscription_plan, status, created_at, trial_ends_at, subscription_stripe_id, subscription_expires_at')
     .eq(column, tenantIdOrSlug)
     .single()
 
   const rawPlan = (tenant?.subscription_plan || 'basic') as PlanId
   const status = tenant?.status || 'trial'
-  const isTrial = status === 'trial'
-
-  // Trial is active for 30 days from creation
-  const trialActive = isTrial && tenant?.created_at
-    ? (Date.now() - new Date(tenant.created_at).getTime()) < 30 * 24 * 60 * 60 * 1000
-    : false
+  const access = getTenantAccessInfo(tenant)
+  const isTrial = access.reason === 'trial_active' || status === 'trial'
+  const trialActive = access.reason === 'trial_active'
 
   // Effective plan: during active trial use trial limits (which are generous)
   const effectivePlan: PlanId = (isTrial && trialActive) ? 'trial' : rawPlan
 
-  const isActive = status === 'active' || trialActive
+  const isActive = access.allowed
 
   return {
     planId: effectivePlan,
@@ -78,6 +76,16 @@ export async function canCreateOrder(tenantId: string): Promise<{ allowed: boole
     getTenantPlanInfo(tenantId),
     getMonthlyOrderCount(tenantId),
   ])
+
+  if (!planInfo.isActive) {
+    return {
+      allowed: false,
+      reason: planInfo.isTrial
+        ? 'La prueba gratuita de 30 dias ha vencido. Activa un plan para seguir recibiendo pedidos.'
+        : 'La suscripcion esta vencida. Renueva el plan para seguir recibiendo pedidos.',
+      used,
+    }
+  }
 
   const limit = planInfo.limits.orders_per_month
   if (limit === Infinity) return { allowed: true, used, limit }

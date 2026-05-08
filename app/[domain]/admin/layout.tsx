@@ -4,7 +4,7 @@ import { getTenantContext } from '@/lib/tenant'
 import { AdminSidebar } from '@/components/admin/AdminSidebar'
 import { AdminContent } from './AdminContent'
 import { SectionColorProvider } from '@/components/admin/SectionColorProvider'
-import TrialExpiredGuard from '@/components/admin/TrialExpiredGuard'
+import { getTenantAccessInfo } from '@/lib/tenant-access'
 import { cookies } from 'next/headers'
 
 interface AdminLayoutProps {
@@ -34,7 +34,7 @@ export default async function AdminLayout({ children, params }: AdminLayoutProps
   const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(slug)
   const tenantQuery = supabase
     .from('tenants')
-    .select('id, slug, organization_name, status, owner_id, trial_ends_at, subscription_plan, subscription_stripe_id, subscription_expires_at')
+    .select('id, slug, organization_name, status, owner_id, trial_ends_at, subscription_plan, subscription_stripe_id, subscription_expires_at, created_at')
 
   const { data: tenant, error } = isUUID
     ? await tenantQuery.eq('id', slug).single()
@@ -50,6 +50,7 @@ export default async function AdminLayout({ children, params }: AdminLayoutProps
   if (staffSession?.role === 'cajero') redirect(`/${tenant.slug || slug}/staff/pos`)
 
   const tenantSlug = tenant.slug || slug
+  const access = getTenantAccessInfo(tenant)
   const context = await getTenantContext(tenant.id)
   const branding = context.branding
   const storeEnabled = (context.tenant as any)?.metadata?.store_enabled !== false
@@ -84,30 +85,22 @@ export default async function AdminLayout({ children, params }: AdminLayoutProps
   ]
 
   return (
-    <TrialExpiredGuard
-      trialEndsAt={tenant.trial_ends_at}
-      slug={tenantSlug}
-      hasActiveSubscription={!!tenant.subscription_stripe_id}
-      subscriptionPlan={tenant.subscription_plan}
-      subscriptionExpiresAt={tenant.subscription_expires_at}
-    >
-      <div className="min-h-screen bg-[#f5f3ee] flex relative overflow-hidden">
-        <AdminSidebar
-          tenantSlug={tenantSlug}
-          restaurantName={branding?.app_name || tenant.organization_name}
-          logoUrl={context.tenant?.logo_url}
-          primaryColor={branding?.primary_color}
-          navLinks={navLinks}
-          userTenants={userTenants}
-          isOwner={!!isOwner}
-          tenantId={tenant.id}
-          storeEnabled={storeEnabled}
-        />
+    <div className="min-h-screen bg-[#f5f3ee] flex relative overflow-hidden">
+      <AdminSidebar
+        tenantSlug={tenantSlug}
+        restaurantName={branding?.app_name || tenant.organization_name}
+        logoUrl={context.tenant?.logo_url}
+        primaryColor={branding?.primary_color}
+        navLinks={navLinks}
+        userTenants={userTenants}
+        isOwner={!!isOwner}
+        tenantId={tenant.id}
+        storeEnabled={storeEnabled}
+      />
 
-        <SectionColorProvider>
-          <AdminContent trialEndsAt={tenant.trial_ends_at} slug={tenantSlug}>{children}</AdminContent>
-        </SectionColorProvider>
-      </div>
-    </TrialExpiredGuard>
+      <SectionColorProvider>
+        <AdminContent trialEndsAt={access.trialEndsAt} slug={tenantSlug}>{children}</AdminContent>
+      </SectionColorProvider>
+    </div>
   )
 }

@@ -1,6 +1,8 @@
 import { getTenantContext } from '@/lib/tenant'
 import { Toaster } from 'react-hot-toast'
 import StoreNavigationLoader from '@/components/store/StoreNavigationLoader'
+import TenantAccessGuard from '@/components/TenantAccessGuard'
+import { getTenantAccessInfo } from '@/lib/tenant-access'
 import type { Metadata } from 'next'
 
 export const dynamic = 'force-dynamic'
@@ -125,6 +127,7 @@ export default async function TenantLayout({
   }
 
   const branding = context.branding
+  const access = getTenantAccessInfo(context.tenant)
 
   // Eccofood Default Brand Colors - Professional Foundation
   const eccofoodDefaults = {
@@ -168,7 +171,13 @@ export default async function TenantLayout({
         }
       `}</style>
       <div className="min-h-full flex flex-col" style={{ backgroundColor }}>
-        {children}
+        <TenantAccessGuard
+          access={access}
+          slug={context.tenant.slug}
+          restaurantName={getRestaurantDisplayName(context)}
+        >
+          {children}
+        </TenantAccessGuard>
         <StoreNavigationLoader color={primaryColor} logoUrl={logoUrl} />
         <Toaster position="bottom-right" />
       </div>

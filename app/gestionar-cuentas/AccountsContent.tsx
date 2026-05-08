@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { calculateTrialStatus } from '@/lib/trial'
+import { calculateTrialStatus, getTrialEndsAt } from '@/lib/trial'
 import UnlockAccountModal from '@/components/admin/UnlockAccountModal'
 
 interface Tenant {
@@ -47,7 +47,7 @@ export default function AccountsContent({ initialTenants }: AccountsContentProps
     }
 
     if (tenant.status === 'trial') {
-      const trialStatus = calculateTrialStatus(tenant.trial_ends_at)
+      const trialStatus = calculateTrialStatus(getTrialEndsAt(tenant.trial_ends_at, tenant.created_at))
       if (trialStatus.isExpired) {
         return <span className="px-3 py-1 bg-red-100 text-red-800 rounded-full text-xs font-semibold">Prueba Expirada</span>
       }
@@ -111,7 +111,7 @@ export default function AccountsContent({ initialTenants }: AccountsContentProps
                 </tr>
               ) : (
                 filteredTenants.map(tenant => {
-                  const trialStatus = calculateTrialStatus(tenant.trial_ends_at)
+                  const trialStatus = calculateTrialStatus(getTrialEndsAt(tenant.trial_ends_at, tenant.created_at))
                   return (
                     <tr key={tenant.id} className="hover:bg-gray-50 transition-colors">
                       <td className="px-6 py-4">

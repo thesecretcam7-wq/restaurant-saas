@@ -5,6 +5,7 @@ import Stripe from 'stripe'
 import { checkRateLimit, getClientIp } from '@/lib/ratelimit'
 import { getCurrencyByCountry } from '@/lib/currency'
 import { calculateOrderTotals } from '@/lib/order-totals'
+import { canCreateOrder } from '@/lib/checkPlan'
 
 const getStripe = () => new Stripe(process.env.STRIPE_SECRET_KEY!)
 
@@ -75,6 +76,11 @@ export async function POST(request: NextRequest) {
     }
 
     const tenantId = tenant.id
+
+    const orderAccess = await canCreateOrder(tenantId)
+    if (!orderAccess.allowed) {
+      return NextResponse.json({ error: orderAccess.reason || 'El restaurante no puede recibir pedidos en este momento' }, { status: 403 })
+    }
 
     if (!Array.isArray(items) || items.length === 0) {
       return NextResponse.json({ error: 'El pedido debe incluir productos' }, { status: 400 })

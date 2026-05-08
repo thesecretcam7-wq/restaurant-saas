@@ -30,13 +30,19 @@ import {
 
 const navItems = ['Funciones', 'Precios', 'Demo', 'Casos de exito']
 
-const restaurantLogos = ['Parrilla Norte', 'Casa Brava', 'Sushi Alto', 'Bistro 88', 'La Terraza']
+const restaurantLogos = [
+  { name: 'Parrilla Norte', initials: 'PN', color: '#101010' },
+  { name: 'Casa Brava', initials: 'CB', color: '#b91c1c' },
+  { name: 'Sushi Alto', initials: 'SA', color: '#0f766e' },
+  { name: 'Bistro 88', initials: 'B8', color: '#4338ca' },
+  { name: 'La Terraza', initials: 'LT', color: '#c2410c' },
+]
 
 const impactMetrics = [
-  { value: '+32%', label: 'mas pedidos', detail: 'promedio en restaurantes con QR y tienda activa' },
-  { value: '-40%', label: 'errores operativos', detail: 'menos pedidos perdidos entre caja y cocina' },
-  { value: '+18h', label: 'ahorradas por semana', detail: 'en tareas repetitivas de operacion' },
-  { value: '98%', label: 'satisfaccion clientes', detail: 'experiencia rapida desde celular y mesa' },
+  { value: '24/7', label: 'tienda abierta', detail: 'pedidos, QR y reservas aunque el equipo este ocupado' },
+  { value: '1 flujo', label: 'caja y cocina', detail: 'TPV, comandas, KDS e inventario trabajando juntos' },
+  { value: '30 dias', label: 'prueba gratis', detail: 'tiempo real para probarlo con el equipo del restaurante' },
+  { value: '0%', label: 'comision propia', detail: 'vende desde tu canal sin depender solo de marketplaces' },
 ]
 
 const features = [
@@ -51,7 +57,7 @@ const features = [
     icon: QrCode,
     title: 'QR Menu Digital',
     text: 'Carta responsive con branding del restaurante, categorias fijas, productos visuales y pedido directo.',
-    stat: '+500 negocios activos',
+    stat: 'QR listo',
     visual: 'qr',
   },
   {
@@ -93,23 +99,29 @@ const features = [
 
 const testimonials = [
   {
-    name: 'Camila R.',
-    role: 'Duena, Parrilla Urbana',
+    name: 'Parrilla Urbana',
+    role: 'Escenario restaurante casual',
     quote: 'Pasamos de manejar pedidos en WhatsApp a tener caja, cocina y QR en el mismo flujo. Se siente como software de cadena grande.',
-    result: '+27% ventas online',
+    result: 'QR + tienda',
   },
   {
-    name: 'Miguel A.',
-    role: 'Administrador, Brasa 42',
+    name: 'Brasa 42',
+    role: 'Escenario cocina con alta demanda',
     quote: 'El equipo entendio la app rapido. Lo que mas nos cambio fue cocina: menos gritos, menos errores y mejor velocidad.',
-    result: '-35% reclamos',
+    result: 'cocina ordenada',
   },
   {
-    name: 'Laura M.',
-    role: 'Socia, Terraza Central',
+    name: 'Terraza Central',
+    role: 'Escenario restaurante con QR',
     quote: 'La carta se ve premium en celular y podemos cambiar banners y productos sin llamar a nadie. Eso nos da control.',
-    result: '+18h ahorradas',
+    result: 'marca premium',
   },
+]
+
+const pricingPlans = [
+  { name: 'Basic', monthly: 99, annual: 948, discount: 'Ahorra 240 EUR', features: ['POS completo', 'Carta QR', 'Pedidos online'] },
+  { name: 'Pro', monthly: 149, annual: 1428, discount: 'Ahorra 360 EUR', features: ['POS + KDS', 'Inventario', 'Reportes avanzados'], popular: true },
+  { name: 'Premium', monthly: 249, annual: 2388, discount: 'Ahorra 600 EUR', features: ['Multi sucursal', 'IA Insights', 'Soporte prioritario'] },
 ]
 
 const before = ['Pedidos por llamada', 'Comandas en papel', 'Errores en cocina', 'Caja desconectada', 'Reportes manuales']
@@ -286,7 +298,7 @@ export function EccofoodLanding() {
           <motion.div {...fadeUp()}>
             <div className="mb-7 inline-flex items-center gap-2 rounded-full border border-black/8 bg-white px-4 py-2 text-xs font-black uppercase text-black/58 shadow-sm">
               <Star className="size-4 fill-[#ffb366] text-[#ff9f43]" />
-              +500 negocios activos · Rating 4.9/5
+              30 dias gratis · Sin permanencia mensual
             </div>
 
             <h1 className="max-w-4xl text-5xl font-black leading-[0.96] tracking-tight sm:text-6xl lg:text-7xl">
@@ -308,9 +320,9 @@ export function EccofoodLanding() {
 
             <div className="mt-8 flex flex-col gap-4 sm:flex-row sm:items-center">
               <div className="flex -space-x-2">
-                {restaurantLogos.slice(0, 4).map(name => (
-                  <div key={name} className="grid size-10 place-items-center rounded-full border-2 border-[#f8f7f3] bg-white text-xs font-black text-black shadow-sm">
-                    {name.charAt(0)}
+                {restaurantLogos.slice(0, 4).map(restaurant => (
+                  <div key={restaurant.name} className="grid size-10 place-items-center rounded-full border-2 border-[#f8f7f3] text-xs font-black text-white shadow-sm" style={{ backgroundColor: restaurant.color }}>
+                    {restaurant.initials}
                   </div>
                 ))}
               </div>
@@ -318,7 +330,7 @@ export function EccofoodLanding() {
                 <div className="flex gap-1 text-[#ff9f43]">
                   {[0, 1, 2, 3, 4].map(i => <Star key={i} className="size-4 fill-current" />)}
                 </div>
-                <p className="mt-1 text-sm font-bold text-black/50">Restaurantes independientes, cadenas y cocinas dark.</p>
+                <p className="mt-1 text-sm font-bold text-black/50">Para restaurantes independientes, cadenas y cocinas dark.</p>
               </div>
             </div>
           </motion.div>
@@ -329,11 +341,14 @@ export function EccofoodLanding() {
 
       <section className="border-y border-black/[0.06] bg-white px-4 py-8 sm:px-6">
         <div className="mx-auto flex max-w-7xl flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
-          <p className="text-sm font-black uppercase text-black/38">Equipos que operan mejor con Eccofood</p>
+          <p className="text-sm font-black uppercase text-black/38">Ejemplos de restaurantes que pueden operar con Eccofood</p>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
-            {restaurantLogos.map(name => (
-              <div key={name} className="rounded-2xl border border-black/8 bg-[#faf9f6] px-4 py-3 text-center text-sm font-black text-black/48">
-                {name}
+            {restaurantLogos.map(restaurant => (
+              <div key={restaurant.name} className="flex items-center justify-center gap-2 rounded-2xl border border-black/8 bg-[#faf9f6] px-4 py-3 text-center text-sm font-black text-black/58">
+                <span className="grid size-8 place-items-center rounded-xl text-[11px] text-white" style={{ backgroundColor: restaurant.color }}>
+                  {restaurant.initials}
+                </span>
+                {restaurant.name}
               </div>
             ))}
           </div>
@@ -394,14 +409,14 @@ export function EccofoodLanding() {
         <div className="mx-auto max-w-7xl">
           <motion.div {...fadeUp()} className="flex flex-col justify-between gap-6 md:flex-row md:items-end">
             <div>
-              <p className="text-sm font-black uppercase text-[#ff6b1a]">Casos de exito</p>
+              <p className="text-sm font-black uppercase text-[#ff6b1a]">Escenarios de uso</p>
               <h2 className="mt-4 max-w-3xl text-4xl font-black leading-tight tracking-tight sm:text-5xl">
-                Duenos de restaurantes felices, con resultados visibles.
+                Historias tipo para mostrar como se ve Eccofood en operacion real.
               </h2>
             </div>
             <div className="rounded-2xl border border-black/8 bg-white px-5 py-4 shadow-sm">
-              <p className="text-3xl font-black text-[#101010]">4.9/5</p>
-              <p className="text-sm font-bold text-black/45">rating promedio de usuarios</p>
+              <p className="text-3xl font-black text-[#101010]">30 dias</p>
+              <p className="text-sm font-bold text-black/45">para probar el flujo completo</p>
             </div>
           </motion.div>
 
@@ -462,14 +477,14 @@ export function EccofoodLanding() {
       </section>
 
       <section id="precios" className="bg-white px-4 py-18 sm:px-6 lg:py-24">
-        <div className="mx-auto grid max-w-7xl gap-8 lg:grid-cols-[0.86fr_1.14fr] lg:items-center">
+        <div className="mx-auto grid max-w-7xl gap-8 lg:grid-cols-[0.72fr_1.28fr] lg:items-center">
           <motion.div {...fadeUp()}>
             <p className="text-sm font-black uppercase text-[#ff6b1a]">Precios</p>
             <h2 className="mt-4 text-4xl font-black leading-tight tracking-tight sm:text-5xl">
-              Desde 99 EUR/mes. Sin permanencia. Sin comision abusiva.
+              Paga mensual o ahorra con planes anuales.
             </h2>
             <p className="mt-5 text-base font-semibold leading-7 text-black/55">
-              Empieza con lo esencial y crece hacia POS, KDS, delivery, reservas, analiticas y multi sucursal.
+              El pago anual incluye descuento y mantiene el restaurante activo durante 12 meses sin interrupciones.
             </p>
             <Link href="/planes" className="mt-8 inline-flex h-14 items-center justify-center gap-2 rounded-2xl bg-[#101010] px-7 text-sm font-black text-white shadow-xl shadow-black/14 transition hover:-translate-y-0.5">
               Ver planes
@@ -477,27 +492,37 @@ export function EccofoodLanding() {
             </Link>
           </motion.div>
 
-          <motion.div {...fadeUp(0.1)} className="rounded-[2rem] border border-black/8 bg-[#faf9f6] p-5 shadow-sm">
-            <div className="rounded-[1.5rem] bg-white p-6 shadow-sm">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-black uppercase text-[#ff6b1a]">Growth</p>
-                  <p className="mt-2 text-5xl font-black">99 EUR</p>
-                  <p className="text-sm font-bold text-black/45">por mes</p>
-                </div>
-                <div className="grid size-14 place-items-center rounded-2xl bg-[#101010] text-white">
-                  <Layers3 className="size-6" />
-                </div>
-              </div>
-              <div className="mt-7 grid gap-3 sm:grid-cols-2">
-                {['POS completo', 'Carta QR', 'KDS cocina', 'Reservas online', 'Delivery propio', 'Analiticas'].map(item => (
-                  <div key={item} className="flex items-center gap-2 text-sm font-black">
-                    <Check className="size-4 text-[#ff6b1a]" />
-                    {item}
+          <motion.div {...fadeUp(0.1)} className="grid gap-4 md:grid-cols-3">
+            {pricingPlans.map(plan => (
+              <div key={plan.name} className={`rounded-[1.6rem] border p-5 shadow-sm ${plan.popular ? 'border-[#ff6b1a] bg-[#fff7ed]' : 'border-black/8 bg-[#faf9f6]'}`}>
+                {plan.popular && (
+                  <p className="mb-3 w-fit rounded-full bg-[#ff6b1a] px-3 py-1 text-[11px] font-black uppercase text-white">
+                    Mas elegido
+                  </p>
+                )}
+                <div className="flex items-center justify-between">
+                  <p className="text-lg font-black">{plan.name}</p>
+                  <div className="grid size-10 place-items-center rounded-xl bg-[#101010] text-white">
+                    <Layers3 className="size-4" />
                   </div>
-                ))}
+                </div>
+                <p className="mt-5 text-4xl font-black">{plan.monthly} EUR</p>
+                <p className="text-sm font-bold text-black/45">por mes</p>
+                <div className="mt-4 rounded-2xl border border-[#ff6b1a]/20 bg-white px-4 py-3">
+                  <p className="text-xs font-black uppercase text-[#c54a0c]">Pago anual</p>
+                  <p className="mt-1 text-2xl font-black">{plan.annual} EUR/año</p>
+                  <p className="text-xs font-black text-emerald-700">{plan.discount}</p>
+                </div>
+                <div className="mt-5 space-y-2">
+                  {plan.features.map(item => (
+                    <div key={item} className="flex items-center gap-2 text-sm font-black">
+                      <Check className="size-4 text-[#ff6b1a]" />
+                      {item}
+                    </div>
+                  ))}
+                </div>
               </div>
-            </div>
+            ))}
           </motion.div>
         </div>
       </section>

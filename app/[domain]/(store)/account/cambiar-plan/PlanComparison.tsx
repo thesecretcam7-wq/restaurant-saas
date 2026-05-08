@@ -8,6 +8,7 @@ interface Tenant {
   subscription_plan: string | null
   subscription_expires_at: string | null
   trial_ends_at: string | null
+  created_at?: string | null
   status: string
 }
 

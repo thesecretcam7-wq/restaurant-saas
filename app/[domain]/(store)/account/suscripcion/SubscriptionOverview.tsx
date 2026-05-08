@@ -2,12 +2,14 @@
 
 import Link from 'next/link'
 import { useParams } from 'next/navigation'
+import { getTrialEndsAt } from '@/lib/trial'
 
 interface Tenant {
   id: string
   subscription_plan: string | null
   subscription_expires_at: string | null
   trial_ends_at: string | null
+  created_at?: string | null
   status: string
 }
 
@@ -42,8 +44,8 @@ export default function SubscriptionOverview({ tenant }: { tenant: Tenant }) {
   let statusInfo: { label: string; color: string; description: string } | null = null
 
   if (tenant.status === 'trial') {
-    if (tenant.trial_ends_at) {
-      const trialEndsAt = new Date(tenant.trial_ends_at)
+    const trialEndsAt = getTrialEndsAt(tenant.trial_ends_at, tenant.created_at)
+    if (trialEndsAt) {
       const daysRemaining = Math.ceil((trialEndsAt.getTime() - now.getTime()) / (24 * 60 * 60 * 1000))
 
       if (daysRemaining > 0) {
