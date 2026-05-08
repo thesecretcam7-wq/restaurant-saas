@@ -51,8 +51,15 @@ export default function ProductosClient({
   const filtered = search.trim()
     ? products.filter(p => p.name.toLowerCase().includes(search.toLowerCase()))
     : products
+  const isSearching = search.trim().length > 0
   const uncategorized = filtered.filter(p => !p.category_id)
   const availableCount = products.filter(p => p.available).length
+  const visibleCategories = categories
+    .map(category => ({
+      category,
+      products: filtered.filter(p => p.category_id === category.id),
+    }))
+    .filter(group => group.products.length > 0 || !isSearching)
 
   return (
     <div className="admin-page">
@@ -87,29 +94,31 @@ export default function ProductosClient({
       </div>
 
       <div className="space-y-5">
-        {filtered.length === 0 ? (
+        {products.length === 0 && categories.length === 0 ? (
           <div className="admin-empty">
             <PackageOpen className="mb-3 size-8 text-black/24" />
-            <p className="font-black text-[#15130f]">{search ? 'Sin resultados' : 'Sin productos aun'}</p>
-            <p className="mt-1 text-sm">{search ? `No encontramos "${search}".` : 'Crea tu primer producto para empezar a vender.'}</p>
+            <p className="font-black text-[#15130f]">Sin productos aun</p>
+            <p className="mt-1 text-sm">Crea tu primera categoria o producto para empezar a vender.</p>
+          </div>
+        ) : isSearching && filtered.length === 0 ? (
+          <div className="admin-empty">
+            <PackageOpen className="mb-3 size-8 text-black/24" />
+            <p className="font-black text-[#15130f]">Sin resultados</p>
+            <p className="mt-1 text-sm">No encontramos "{search}".</p>
           </div>
         ) : (
           <>
-            {categories.map(category => {
-              const categoryProducts = filtered.filter(p => p.category_id === category.id)
-              if (categoryProducts.length === 0) return null
-              return (
-                <CategoryGroup
-                  key={category.id}
-                  name={category.name}
-                  editHref={`/${domain}/admin/productos/categoria/${category.id}`}
-                  products={categoryProducts}
-                  domain={domain}
-                  togglingId={togglingId}
-                  onToggle={toggleAvailable}
-                />
-              )
-            })}
+            {visibleCategories.map(({ category, products: categoryProducts }) => (
+              <CategoryGroup
+                key={category.id}
+                name={category.name}
+                editHref={`/${domain}/admin/productos/categoria/${category.id}`}
+                products={categoryProducts}
+                domain={domain}
+                togglingId={togglingId}
+                onToggle={toggleAvailable}
+              />
+            ))}
             {uncategorized.length > 0 && (
               <CategoryGroup
                 name="Sin categoria"
@@ -122,6 +131,11 @@ export default function ProductosClient({
           </>
         )}
       </div>
+      {categories.length > 0 && products.length === 0 && (
+        <p className="mt-5 text-center text-sm font-semibold text-black/45">
+          Las categorias ya estan listas. Agrega productos cuando quieras.
+        </p>
+      )}
     </div>
   )
 }
@@ -156,7 +170,13 @@ function CategoryGroup({
         )}
       </div>
       <div className="divide-y divide-black/8">
-        {products.map(product => (
+        {products.length === 0 ? (
+          <div className="px-5 py-8 text-center">
+            <PackageOpen className="mx-auto mb-3 size-7 text-black/22" />
+            <p className="text-sm font-bold text-black/45">Categoria vacia</p>
+            <p className="mt-1 text-xs font-semibold text-black/35">Agrega un producto cuando este listo.</p>
+          </div>
+        ) : products.map(product => (
           <ProductRow
             key={product.id}
             product={product}
