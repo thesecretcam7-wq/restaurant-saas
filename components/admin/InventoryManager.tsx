@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { createClient } from '@supabase/supabase-js';
-import { AlertTriangle, Plus, Minus, PackagePlus, X, Hash, Boxes, DollarSign, Truck, History, ReceiptText, Search } from 'lucide-react';
+import { AlertTriangle, Plus, Minus, PackagePlus, X, Hash, Boxes, DollarSign, Truck, History, ReceiptText, Search, Pencil, Trash2 } from 'lucide-react';
 import { NumericKeyboard } from './NumericKeyboard';
 
 const supabase = createClient(
@@ -51,6 +51,9 @@ export function InventoryManager({ tenantId }: { tenantId: string }) {
   const [loading, setLoading] = useState(true);
   const [showAddForm, setShowAddForm] = useState(false);
   const [selectedItem, setSelectedItem] = useState<string | null>(null);
+  const [editingItem, setEditingItem] = useState<InventoryItem | null>(null);
+  const [savingEdit, setSavingEdit] = useState(false);
+  const [deletingItemId, setDeletingItemId] = useState<string | null>(null);
   const [movementItem, setMovementItem] = useState<InventoryItem | null>(null);
   const [movements, setMovements] = useState<StockMovement[]>([]);
   const [loadingMovements, setLoadingMovements] = useState(false);
@@ -134,6 +137,64 @@ export function InventoryManager({ tenantId }: { tenantId: string }) {
       await fetchInventory();
     } catch (error) {
       console.error('Error recording movement:', error);
+    }
+  }
+
+  async function updateInventoryItem(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    if (!editingItem) return;
+
+    const formData = new FormData(e.currentTarget);
+    setSavingEdit(true);
+
+    try {
+      const response = await fetch(`/api/inventory/${editingItem.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          tenantId,
+          productName: formData.get('productName'),
+          sku: formData.get('sku'),
+          minStock: parseInt(formData.get('minStock') as string) || 0,
+          maxStock: parseInt(formData.get('maxStock') as string) || 0,
+          costPerUnit: parseFloat(formData.get('costPerUnit') as string) || 0,
+          supplier: formData.get('supplier'),
+        }),
+      });
+
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.error || 'No se pudo actualizar el insumo');
+
+      setEditingItem(null);
+      await fetchInventory();
+    } catch (error) {
+      window.alert(error instanceof Error ? error.message : 'No se pudo actualizar el insumo');
+    } finally {
+      setSavingEdit(false);
+    }
+  }
+
+  async function deleteInventoryItem(item: InventoryItem) {
+    const confirmed = window.confirm(
+      `Vas a eliminar "${item.product_name}" del inventario. Si esta usado en recetas, tambien se quitara de esas recetas. Esta accion no se puede deshacer.`
+    );
+    if (!confirmed) return;
+
+    setDeletingItemId(item.id);
+    try {
+      const response = await fetch(`/api/inventory/${item.id}?tenantId=${tenantId}`, {
+        method: 'DELETE',
+        credentials: 'include',
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.error || 'No se pudo eliminar el insumo');
+
+      await fetchInventory();
+    } catch (error) {
+      window.alert(error instanceof Error ? error.message : 'No se pudo eliminar el insumo');
+    } finally {
+      setDeletingItemId(null);
     }
   }
 
@@ -390,6 +451,151 @@ export function InventoryManager({ tenantId }: { tenantId: string }) {
           </div>
         )}
 
+        {editingItem && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/55 p-4 backdrop-blur-sm">
+            <div className="admin-panel w-full max-w-2xl overflow-hidden">
+              <div className="flex items-start justify-between gap-4 border-b border-black/10 bg-white/70 px-6 py-5">
+                <div className="flex items-start gap-4">
+                  <span className="flex size-12 flex-shrink-0 items-center justify-center rounded-xl bg-[#15130f] text-white shadow-sm">
+                    <Pencil className="size-5" />
+                  </span>
+                  <div>
+                    <p className="admin-eyebrow">Editar insumo</p>
+                    <h2 className="mt-1 text-2xl font-black tracking-tight text-[#15130f]">{editingItem.product_name}</h2>
+                    <p className="mt-1 text-sm font-semibold leading-6 text-black/52">
+                      Ajusta nombre, codigo, proveedor, alertas y costo. El stock actual se modifica con movimientos.
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setEditingItem(null)}
+                  className="rounded-lg p-2 text-black/45 transition hover:bg-black/5 hover:text-black"
+                  aria-label="Cerrar"
+                >
+                  <X className="size-5" />
+                </button>
+              </div>
+
+              <form onSubmit={updateInventoryItem} className="space-y-5 p-6">
+                <div>
+                  <label className="mb-2 block text-xs font-black uppercase text-black/45">Producto *</label>
+                  <div className="relative">
+                    <Boxes className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-black/32" />
+                    <input
+                      type="text"
+                      name="productName"
+                      defaultValue={editingItem.product_name}
+                      required
+                      className="admin-input pl-10"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div>
+                    <label className="mb-2 block text-xs font-black uppercase text-black/45">SKU / codigo de barras</label>
+                    <div className="relative">
+                      <Hash className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-black/32" />
+                      <input
+                        type="text"
+                        name="sku"
+                        defaultValue={editingItem.sku || ''}
+                        className="admin-input pl-10"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="mb-2 block text-xs font-black uppercase text-black/45">Proveedor</label>
+                    <div className="relative">
+                      <Truck className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-black/32" />
+                      <input
+                        type="text"
+                        name="supplier"
+                        defaultValue={editingItem.supplier || ''}
+                        className="admin-input pl-10"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="grid gap-4 sm:grid-cols-3">
+                  <div>
+                    <label className="mb-2 block text-xs font-black uppercase text-black/45">Stock minimo</label>
+                    <input
+                      type="number"
+                      name="minStock"
+                      min="0"
+                      defaultValue={editingItem.min_stock}
+                      className="admin-input"
+                    />
+                  </div>
+                  <div>
+                    <label className="mb-2 block text-xs font-black uppercase text-black/45">Stock maximo</label>
+                    <input
+                      type="number"
+                      name="maxStock"
+                      min="0"
+                      defaultValue={editingItem.max_stock}
+                      className="admin-input"
+                    />
+                  </div>
+                  <div>
+                    <label className="mb-2 block text-xs font-black uppercase text-black/45">Costo unitario *</label>
+                    <div className="relative">
+                      <DollarSign className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-black/32" />
+                      <input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        name="costPerUnit"
+                        defaultValue={editingItem.cost_per_unit}
+                        required
+                        className="admin-input pl-10"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
+                  <p className="text-xs font-semibold leading-5 text-amber-900">
+                    Stock actual: {editingItem.current_stock}. Para corregir cantidad usa Compra o Venta, asi queda registrado en movimientos.
+                  </p>
+                </div>
+
+                <div className="flex flex-col-reverse gap-3 border-t border-black/10 pt-5 sm:flex-row sm:justify-between">
+                  <button
+                    type="button"
+                    onClick={() => deleteInventoryItem(editingItem)}
+                    disabled={deletingItemId === editingItem.id || savingEdit}
+                    className="inline-flex items-center justify-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm font-black text-red-700 transition hover:bg-red-100 disabled:opacity-50 sm:w-auto"
+                  >
+                    <Trash2 className="size-4" />
+                    {deletingItemId === editingItem.id ? 'Eliminando...' : 'Eliminar'}
+                  </button>
+                  <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+                    <button
+                      type="button"
+                      onClick={() => setEditingItem(null)}
+                      className="admin-button-ghost sm:w-auto"
+                    >
+                      Cancelar
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={savingEdit}
+                      className="admin-button-primary sm:w-auto disabled:opacity-50"
+                    >
+                      <Pencil className="size-4" />
+                      {savingEdit ? 'Guardando...' : 'Guardar cambios'}
+                    </button>
+                  </div>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
         {/* Stock Movement Modal */}
         {selectedItem && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-40">
@@ -600,6 +806,12 @@ export function InventoryManager({ tenantId }: { tenantId: string }) {
                     </td>
                     <td className="px-6 py-4 text-gray-900">${item.cost_per_unit.toFixed(2)}</td>
                     <td className="px-6 py-4 flex gap-2">
+                      <button
+                        onClick={() => setEditingItem(item)}
+                        className="bg-white hover:bg-gray-50 text-gray-900 border border-gray-200 px-3 py-1 rounded text-sm flex items-center gap-1 transition"
+                      >
+                        <Pencil className="w-4 h-4" /> Editar
+                      </button>
                       <button
                         onClick={() => {
                           setSelectedItem(item.id);
