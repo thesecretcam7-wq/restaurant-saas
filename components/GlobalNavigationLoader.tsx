@@ -3,6 +3,50 @@
 import { useEffect, useRef, useState } from 'react';
 import { usePathname } from 'next/navigation';
 
+const APP_SECTIONS = new Set([
+  'acceso',
+  'admin',
+  'staff',
+  'kitchen',
+  'cocina',
+  'pantalla',
+  'pos-display',
+  'kiosko',
+]);
+
+const ROOT_APP_ROUTES = new Set([
+  '',
+  'login',
+  'register',
+  'planes',
+  'gestionar-cuentas',
+  'owner-dashboard',
+  'unauthorized',
+]);
+
+function isTenantSubdomainHost() {
+  if (typeof window === 'undefined') return false;
+  const host = window.location.hostname;
+  if (host === 'localhost' || host === '127.0.0.1') return false;
+  if (host === 'eccofoodapp.com' || host === 'www.eccofoodapp.com') return false;
+  if (host === 'eccofood.vercel.app') return false;
+  return host.endsWith('.eccofoodapp.com') || host.endsWith('.vercel.app');
+}
+
+function isStoreRoute(pathname: string) {
+  const parts = pathname.split('/').filter(Boolean);
+  if (parts[0] === 'api' || parts[0] === '_next') return false;
+
+  if (isTenantSubdomainHost()) {
+    return !APP_SECTIONS.has(parts[0] || '');
+  }
+
+  const first = parts[0] || '';
+  if (ROOT_APP_ROUTES.has(first) || first.includes('.')) return false;
+  const section = parts[1] || '';
+  return !APP_SECTIONS.has(section);
+}
+
 function getLoadingLabel(pathname: string) {
   if (pathname.includes('/acceso')) return 'Cargando acceso';
   if (pathname.includes('/admin/pos') || pathname.includes('/staff/pos')) return 'Abriendo TPV';
@@ -56,6 +100,7 @@ export default function GlobalNavigationLoader() {
       const anchor = target?.closest('a[href]') as HTMLAnchorElement | null;
       if (!anchor || !isInternalNavigation(anchor)) return;
       const url = new URL(anchor.href, window.location.href);
+      if (isStoreRoute(window.location.pathname) || isStoreRoute(url.pathname)) return;
       show(url.pathname);
     }
 
