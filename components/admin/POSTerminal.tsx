@@ -1739,9 +1739,9 @@ export function POSTerminal({
         </div>
       )}
 
-      <div className={`flex-1 flex min-h-0 flex-col overflow-hidden lg:flex-row ${isFullscreen ? 'gap-0' : 'gap-0'}`}>
+      <div className={`flex-1 flex min-h-0 flex-col overflow-y-auto lg:overflow-hidden lg:flex-row ${isFullscreen ? 'gap-0' : 'gap-0'}`}>
         {/* Menu Section */}
-        <div className="min-h-0 flex-1 flex flex-col overflow-hidden">
+        <div className={`${isFullscreen ? 'min-h-0 flex-1' : 'min-h-[44dvh] max-h-[58dvh] lg:min-h-0 lg:max-h-none lg:flex-1'} flex flex-col overflow-hidden`}>
           {/* Search and Controls - Sticky Header */}
           <div className={`pos-panel pos-command-bar border-x-0 border-t-0 flex flex-wrap gap-2.5 items-center sticky top-0 z-10 lg:flex-nowrap ${isFullscreen ? 'px-4 py-3' : 'p-3 sm:p-4'}`}>
             <div className="relative min-w-[220px] flex-[1_1_260px]">
@@ -1949,7 +1949,7 @@ export function POSTerminal({
         </div>
 
         {/* Cart/Payment Section */}
-        <div className={`${isFullscreen ? 'h-[44dvh] lg:h-auto lg:w-72 xl:w-80' : 'h-[52dvh] min-h-[390px] lg:h-auto lg:w-80'} pos-panel border-x-0 border-b-0 lg:border-y-0 lg:border-r-0 flex flex-col overflow-hidden`}>
+        <div className={`${isFullscreen ? 'h-[44dvh] overflow-hidden lg:h-auto lg:w-72 xl:w-80' : 'min-h-[520px] flex-none overflow-y-auto pb-6 lg:min-h-0 lg:h-auto lg:w-80 lg:overflow-hidden lg:pb-0'} pos-panel border-x-0 border-b-0 lg:border-y-0 lg:border-r-0 flex flex-col`}>
           {/* Tabs: Cart / Entregas / Salón */}
           <div className="border-b border-white/10 flex bg-black/20 backdrop-blur-xl">
             <button
@@ -2135,7 +2135,7 @@ export function POSTerminal({
           )}
 
           {/* Cart Items List */}
-          <div className={`flex-1 min-h-0 ${isFullscreen ? 'overflow-hidden' : 'overflow-y-auto'}`}>
+          <div className={`${isFullscreen ? 'flex-1 min-h-0 overflow-hidden' : 'max-h-48 overflow-y-auto lg:flex-1 lg:max-h-none lg:min-h-0'}`}>
             {cart.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-full text-slate-500 py-8">
                 <ShoppingCart className="w-8 h-8 mb-2 opacity-30" />
@@ -2285,7 +2285,7 @@ export function POSTerminal({
           )}
 
           {/* Payment Component */}
-              <div className={`${isFullscreen ? 'px-2 py-1' : 'px-2 py-1'}`}>
+              <div className={`${isFullscreen ? 'px-2 py-1' : 'px-2 pb-[calc(env(safe-area-inset-bottom)+1.25rem)] pt-1 lg:pb-1'}`}>
                 <POSPayment
                   key={paymentResetKey}
                   total={taxableSubtotal + taxAmount}
