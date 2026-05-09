@@ -17,6 +17,7 @@ Copy-Item -Path (Join-Path $sourceDir "EccofoodPrintAgent.ps1") -Destination $in
 Copy-Item -Path (Join-Path $sourceDir "start.ps1") -Destination $installDir -Force
 Copy-Item -Path (Join-Path $sourceDir "stop.ps1") -Destination $installDir -Force
 Copy-Item -Path (Join-Path $sourceDir "status.ps1") -Destination $installDir -Force
+Copy-Item -Path (Join-Path $sourceDir "Abrir-EccofoodPrint.bat") -Destination $installDir -Force
 
 $urlAcl = "http://127.0.0.1:$Port/"
 try {
@@ -39,4 +40,5 @@ Write-Host ""
 Write-Host "Eccofood Print Agent instalado correctamente."
 Write-Host "URL local: http://127.0.0.1:$Port"
 Write-Host "La herramienta arrancara sola cuando inicie sesion en Windows."
+Write-Host "Si el estado dice que no responde, ejecuta Abrir-EccofoodPrint.bat y deja la ventana abierta."
 Write-Host ""
