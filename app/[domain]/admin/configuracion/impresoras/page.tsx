@@ -355,7 +355,7 @@ export default function PrintersConfigPage({ params }: Props) {
             <span className="rounded-full bg-orange-500 px-2 py-1 text-xs font-black text-black">Paso 1</span>
           </div>
           <p className="mb-4 text-xs leading-relaxed text-orange-100/75">
-            Descarga, descomprime y ejecuta Instalar-EccofoodPrint.bat con clic derecho: Ejecutar como administrador.
+            Descarga, descomprime y ejecuta "1 - Instalar como administrador.bat" con clic derecho.
           </p>
           <a
             href="/downloads/eccofood-print-agent.zip"
@@ -427,7 +427,7 @@ export default function PrintersConfigPage({ params }: Props) {
         <p className="font-bold">Instrucciones para el administrador</p>
         <ol className="mt-2 list-decimal space-y-1 pl-5 text-amber-100/85">
           <li>Instala este agente solo en el computador donde estan conectados la impresora y el cajon.</li>
-          <li>Ejecuta el instalador como administrador para que pueda arrancar solo con Windows.</li>
+          <li>Ejecuta "1 - Instalar como administrador.bat" como administrador para que pueda arrancar solo con Windows.</li>
           <li>Despues de instalar, pulsa "Comprobar puente activo". Si aparece activo, el TPV puede imprimir sin vista previa.</li>
           <li>Si algun Windows lo bloquea, abre Abrir-EccofoodPrint.bat y deja esa ventana abierta mientras cobras.</li>
         </ol>
