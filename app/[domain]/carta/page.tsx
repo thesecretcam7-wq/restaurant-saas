@@ -1,9 +1,12 @@
 import Image from 'next/image'
+import { cookies } from 'next/headers'
 import { createClient } from '@/lib/supabase/server'
 import { formatPriceWithCurrency, getCurrencyByCountry } from '@/lib/currency'
 import { getTenantContext } from '@/lib/tenant'
 import { deriveBrandPalette, readableTextColor } from '@/lib/brand-colors'
 import type { MenuCategory, MenuItem } from '@/lib/types'
+import LanguageSwitcher from '@/components/LanguageSwitcher'
+import { normalizeLocale, translate } from '@/lib/i18n'
 
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
@@ -23,12 +26,15 @@ type Topping = {
 
 export default async function CartaPage({ params }: CartaProps) {
   const { domain: tenantSlug } = await params
+  const cookieStore = await cookies()
+  const locale = normalizeLocale(cookieStore.get('eccofood_locale')?.value)
+  const tr = (key: string) => translate(locale, key)
   const supabase = await createClient()
   const context = await getTenantContext(tenantSlug)
   const tenantId = context.tenant?.id
 
   if (!tenantId) {
-    return <div className="grid min-h-screen place-items-center bg-white text-sm font-black text-black/55">Restaurante no encontrado</div>
+    return <div className="grid min-h-screen place-items-center bg-white text-sm font-black text-black/55">{tr('store.notFound')}</div>
   }
 
   const [categoriesRes, itemsRes, toppingsRes] = await Promise.all([
@@ -124,18 +130,16 @@ export default async function CartaPage({ params }: CartaProps) {
           )}
           <div className="min-w-0 flex-1">
             <p className="truncate text-base font-black" style={{ color: headerText }}>{restaurantName}</p>
-            <p className="text-xs font-black uppercase tracking-[0.18em]" style={{ color: mutedText }}>Carta digital</p>
+            <p className="text-xs font-black uppercase tracking-[0.18em]" style={{ color: mutedText }}>{tr('qr.digitalMenu')}</p>
           </div>
-          <span className="hidden rounded-full px-3 py-1.5 text-[11px] font-black uppercase tracking-[0.12em] sm:inline-flex" style={{ backgroundColor: `${primary}18`, color: primary }}>
-            Consulta
-          </span>
+          <LanguageSwitcher compact reloadOnChange className="border-black/10 bg-white/80" />
         </div>
 
         {categories.length > 0 && (
           <nav className="mx-auto flex max-w-3xl gap-2 overflow-x-auto px-4 pb-3 scrollbar-hide">
             {featured.length > 0 && (
               <a href="#destacados" className="h-9 flex-shrink-0 rounded-full px-4 py-2 text-xs font-black text-white" style={{ backgroundColor: primary }}>
-                Destacados
+                {tr('qr.mostOrdered')}
               </a>
             )}
             {categories.map(category => (
@@ -168,27 +172,27 @@ export default async function CartaPage({ params }: CartaProps) {
             <div className="absolute inset-0 bg-gradient-to-br from-black/18 via-transparent to-black/20" />
             <div className="relative z-10 flex min-h-[170px] flex-col justify-between">
               <div>
-                <p className="text-xs font-black uppercase tracking-[0.18em]" style={{ color: `${heroText}99` }}>Carta de mesa</p>
+                <p className="text-xs font-black uppercase tracking-[0.18em]" style={{ color: `${heroText}99` }}>{tr('qr.tableMenu')}</p>
                 <h1 className="mt-3 max-w-sm text-[2.2rem] font-black leading-[1.02] sm:text-5xl sm:leading-[0.95]" style={{ color: heroText }}>
-                Mira la carta, elige con calma.
+                  {tr('qr.heroTitle')}
                 </h1>
                 <p className="mt-4 max-w-md text-base font-bold leading-7" style={{ color: `${heroText}c7` }}>
-                  Consulta productos, precios y opciones con una vista clara pensada para mesa.
+                  {tr('qr.heroSubtitle')}
                 </p>
               </div>
 
               <div className="mt-6 grid grid-cols-3 gap-2">
                 <div className="rounded-2xl border border-white/18 bg-white/12 px-3 py-2 backdrop-blur">
                   <p className="text-xl font-black leading-none" style={{ color: heroText }}>{visibleProducts}</p>
-                  <p className="mt-1 text-[10px] font-black uppercase tracking-[0.12em]" style={{ color: `${heroText}9f` }}>Productos</p>
+                  <p className="mt-1 text-[10px] font-black uppercase tracking-[0.12em]" style={{ color: `${heroText}9f` }}>{tr('qr.products')}</p>
                 </div>
                 <div className="rounded-2xl border border-white/18 bg-white/12 px-3 py-2 backdrop-blur">
                   <p className="text-xl font-black leading-none" style={{ color: heroText }}>{visibleCategories}</p>
-                  <p className="mt-1 text-[10px] font-black uppercase tracking-[0.12em]" style={{ color: `${heroText}9f` }}>Secciones</p>
+                  <p className="mt-1 text-[10px] font-black uppercase tracking-[0.12em]" style={{ color: `${heroText}9f` }}>{tr('qr.sections')}</p>
                 </div>
                 <div className="rounded-2xl border border-white/18 bg-white/12 px-3 py-2 backdrop-blur">
                   <p className="text-xl font-black leading-none" style={{ color: heroText }}>QR</p>
-                  <p className="mt-1 text-[10px] font-black uppercase tracking-[0.12em]" style={{ color: `${heroText}9f` }}>Siempre activo</p>
+                  <p className="mt-1 text-[10px] font-black uppercase tracking-[0.12em]" style={{ color: `${heroText}9f` }}>{tr('qr.alwaysActive')}</p>
                 </div>
               </div>
             </div>
@@ -201,8 +205,8 @@ export default async function CartaPage({ params }: CartaProps) {
           <section id="destacados" className="scroll-mt-36 rounded-[1.75rem] border p-4 shadow-xl shadow-black/[0.05] sm:p-5" style={{ backgroundColor: surface, borderColor: border }}>
             <div className="mb-4 flex items-center justify-between gap-3">
               <div>
-                <p className="text-xs font-black uppercase tracking-[0.16em]" style={{ color: mutedText }}>Recomendados</p>
-                <h2 className="text-2xl font-black" style={{ color: surfaceText }}>Lo mas pedido</h2>
+                <p className="text-xs font-black uppercase tracking-[0.16em]" style={{ color: mutedText }}>{tr('qr.recommended')}</p>
+                <h2 className="text-2xl font-black" style={{ color: surfaceText }}>{tr('qr.mostOrdered')}</h2>
               </div>
               <span className="h-3 w-3 rounded-full" style={{ backgroundColor: accent }} />
             </div>
@@ -226,7 +230,7 @@ export default async function CartaPage({ params }: CartaProps) {
           return (
             <section key={category.id} id={`cat-${category.id}`} className="scroll-mt-36 rounded-[1.75rem] border p-4 shadow-xl shadow-black/[0.05] sm:p-5" style={{ backgroundColor: surface, borderColor: border }}>
               <div className="mb-4">
-                <p className="text-xs font-black uppercase tracking-[0.16em]" style={{ color: mutedText }}>Categoria</p>
+                <p className="text-xs font-black uppercase tracking-[0.16em]" style={{ color: mutedText }}>{tr('qr.category')}</p>
                 <h2 className="text-3xl font-black tracking-tight" style={{ color: surfaceText }}>{category.name}</h2>
                 {category.description && <p className="mt-1 text-sm font-semibold leading-6" style={{ color: mutedText }}>{category.description}</p>}
               </div>
@@ -247,7 +251,7 @@ export default async function CartaPage({ params }: CartaProps) {
 
         {uncategorized.length > 0 && (
           <section className="rounded-[1.75rem] border p-4 shadow-xl shadow-black/[0.05] sm:p-5" style={{ backgroundColor: surface, borderColor: border }}>
-            <h2 className="mb-4 text-2xl font-black" style={{ color: surfaceText }}>Otros productos</h2>
+            <h2 className="mb-4 text-2xl font-black" style={{ color: surfaceText }}>{tr('qr.otherProducts')}</h2>
             <div className="grid gap-3">
               {uncategorized.map(item => (
                 <CartaItem

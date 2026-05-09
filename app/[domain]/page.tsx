@@ -3,6 +3,7 @@ export const revalidate = 0
 export const dynamicParams = true
 
 import Link from 'next/link'
+import { cookies } from 'next/headers'
 import { createClient } from '@/lib/supabase/server'
 import { getTenantContext } from '@/lib/tenant'
 import { getPageConfig, getBorderRadius, getCardClasses, getButtonClasses } from '@/lib/pageConfig'
@@ -18,7 +19,9 @@ import TestimonialsSection from '@/components/store/sections/TestimonialsSection
 import ActionsSection from '@/components/store/sections/ActionsSection'
 import WhatsAppFloat from '@/components/store/WhatsAppFloat'
 import StoreClosed from '@/components/store/StoreClosed'
+import LanguageSwitcher from '@/components/LanguageSwitcher'
 import { formatPriceWithCurrency, getCurrencyByCountry } from '@/lib/currency'
+import { normalizeLocale, translate } from '@/lib/i18n'
 
 interface HomePageProps {
   params: Promise<{ domain: string }>
@@ -26,6 +29,9 @@ interface HomePageProps {
 
 export default async function HomePage({ params }: HomePageProps) {
   const { domain } = await params
+  const cookieStore = await cookies()
+  const locale = normalizeLocale(cookieStore.get('eccofood_locale')?.value)
+  const tr = (key: string) => translate(locale, key)
   const context = await getTenantContext(domain)
   const { tenant, settings, branding } = context
 
@@ -33,8 +39,8 @@ export default async function HomePage({ params }: HomePageProps) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-gray-50 px-6">
         <div className="max-w-sm text-center">
-          <h1 className="text-2xl font-black text-gray-900">Restaurante no encontrado</h1>
-          <p className="mt-2 text-sm font-semibold text-gray-500">No existe un restaurante en esta direccion.</p>
+          <h1 className="text-2xl font-black text-gray-900">{tr('store.notFound')}</h1>
+          <p className="mt-2 text-sm font-semibold text-gray-500">{tr('store.notFoundText')}</p>
         </div>
       </div>
     )
@@ -140,18 +146,21 @@ export default async function HomePage({ params }: HomePageProps) {
             )}
             <span className="min-w-0">
               <span className="block truncate text-base font-black text-white">{appName}</span>
-              <span className="block truncate text-xs font-bold uppercase text-white/70">Ordena en linea</span>
+              <span className="block truncate text-xs font-bold uppercase text-white/70">{tr('store.onlineOrder')}</span>
             </span>
           </Link>
-          <Link href={`/${tenant.slug}/menu`} className={`hidden px-5 py-3 text-sm font-black text-white shadow-xl transition hover:scale-[1.02] sm:inline-flex ${btnCls}`} style={{ backgroundColor: primary }}>
-            Ver menu
-          </Link>
+          <div className="flex items-center gap-2">
+            <LanguageSwitcher compact className="border-white/20 bg-white/16 text-white [&_select]:text-white" reloadOnChange />
+            <Link href={`/${tenant.slug}/menu`} className={`hidden px-5 py-3 text-sm font-black text-white shadow-xl transition hover:scale-[1.02] sm:inline-flex ${btnCls}`} style={{ backgroundColor: primary }}>
+              {tr('store.viewMenu')}
+            </Link>
+          </div>
         </header>
 
         <div className="relative z-10 mx-auto grid max-w-7xl gap-10 px-4 pb-16 pt-14 sm:px-6 lg:grid-cols-[minmax(0,1fr)_380px] lg:px-8 lg:pb-24 lg:pt-24">
           <div className="max-w-3xl">
             <div className="mb-5 inline-flex rounded-full border border-white/18 bg-white/12 px-4 py-2 text-xs font-black uppercase text-white/80 backdrop-blur-md">
-              Experiencia directa del restaurante
+              {tr('store.experience')}
             </div>
             <h1 className="text-5xl font-black leading-[0.92] text-white drop-shadow-xl sm:text-6xl lg:text-7xl">
               {heroTitle}
@@ -164,11 +173,11 @@ export default async function HomePage({ params }: HomePageProps) {
             {hero.show_info_pills && <InfoPills settings={settings} primary={primary} />}
             <div className="mt-8 flex flex-col gap-3 sm:flex-row">
               <Link href={`/${tenant.slug}/menu`} className={`inline-flex h-14 items-center justify-center px-7 text-sm font-black text-white shadow-2xl transition hover:scale-[1.02] ${btnCls}`} style={{ backgroundColor: primary }}>
-                {hero.cta_primary_text || 'Ver menu'}
+                {hero.cta_primary_text || tr('store.viewMenu')}
               </Link>
               {settings?.reservations_enabled && (
                 <Link href={`/${tenant.slug}/reservas`} className={`inline-flex h-14 items-center justify-center border border-white/35 bg-white/14 px-7 text-sm font-black text-white backdrop-blur-md transition hover:bg-white/22 ${btnCls}`}>
-                  {hero.cta_secondary_text || 'Reservar'}
+                  {hero.cta_secondary_text || tr('store.reserve')}
                 </Link>
               )}
             </div>
@@ -177,7 +186,7 @@ export default async function HomePage({ params }: HomePageProps) {
           {featured.length > 0 && (
             <div className="hidden self-end rounded-[28px] border border-white/18 bg-white/14 p-3 shadow-2xl backdrop-blur-xl lg:block">
               <div className="rounded-[22px] bg-white p-4">
-                <p className="text-xs font-black uppercase text-black/45">Favoritos de la casa</p>
+                <p className="text-xs font-black uppercase text-black/45">{tr('store.favorites')}</p>
                 <div className="mt-4 space-y-3">
                   {featured.slice(0, 3).map((item: any) => (
                     <Link key={item.id} href={`/${tenant.slug}/menu`} className="flex items-center gap-3 rounded-2xl border border-black/8 p-2 transition hover:border-black/18 hover:bg-black/[0.025]">
@@ -206,17 +215,17 @@ export default async function HomePage({ params }: HomePageProps) {
             case 'banner':
               return <PremiumBand key={section.id}><BannerSection banner={banner} borderRadius={br} /></PremiumBand>
             case 'featured':
-              return <FeaturedSection key={section.id} tenantId={tenant.slug} items={featured || []} primary={primary} title={sTitle || 'Lo mas pedido'} borderRadius={br} cardClasses={cardCls} animations={anim} currencyInfo={currencyInfo} />
+              return <FeaturedSection key={section.id} tenantId={tenant.slug} items={featured || []} primary={primary} title={sTitle || tr('store.mostOrdered')} borderRadius={br} cardClasses={cardCls} animations={anim} currencyInfo={currencyInfo} />
             case 'about':
               return <PremiumBand key={section.id}><AboutSection about={about} borderRadius={br} cardClasses={cardCls} /></PremiumBand>
             case 'info':
               return settings ? <PremiumBand key={section.id}><InfoSection settings={settings} primary={primary} borderRadius={br} cardClasses={cardCls} /></PremiumBand> : null
             case 'gallery':
-              return <PremiumBand key={section.id}><GallerySection gallery={gallery} title={sTitle || 'Galeria'} borderRadius={br} /></PremiumBand>
+              return <PremiumBand key={section.id}><GallerySection gallery={gallery} title={sTitle || tr('store.gallery')} borderRadius={br} /></PremiumBand>
             case 'hours':
-              return settings ? <PremiumBand key={section.id}><HoursSection settings={settings} primary={primary} title={sTitle || 'Horarios'} borderRadius={br} cardClasses={cardCls} /></PremiumBand> : null
+              return settings ? <PremiumBand key={section.id}><HoursSection settings={settings} primary={primary} title={sTitle || tr('store.hours')} borderRadius={br} cardClasses={cardCls} /></PremiumBand> : null
             case 'testimonials':
-              return <PremiumBand key={section.id}><TestimonialsSection testimonials={testimonials} primary={primary} title={sTitle || 'Opiniones'} borderRadius={br} cardClasses={cardCls} /></PremiumBand>
+              return <PremiumBand key={section.id}><TestimonialsSection testimonials={testimonials} primary={primary} title={sTitle || tr('store.reviews')} borderRadius={br} cardClasses={cardCls} /></PremiumBand>
             case 'actions':
               return settings ? <ActionsSection key={section.id} tenantId={tenant.slug} settings={settings} primary={primary} borderRadius={br} /> : null
             case 'social':

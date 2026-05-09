@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import Image from 'next/image';
 import { createClient } from '@supabase/supabase-js';
 import { formatPriceWithCurrency, getCurrencyByCountry } from '@/lib/currency';
+import LanguageSwitcher, { useI18n } from '@/components/LanguageSwitcher';
 import {
   CheckCircle,
   ChefHat,
@@ -80,6 +81,7 @@ function readableText(background: string, dark = '#15130f', light = '#ffffff') {
 }
 
 export function KitchenClient({ tenantId, tenantSlug, tenantName, country, branding }: Props) {
+  const { tr } = useI18n();
   const [categories, setCategories] = useState<Category[]>([]);
   const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
   const [toppings, setToppings] = useState<Topping[]>([]);
@@ -386,7 +388,7 @@ export function KitchenClient({ tenantId, tenantSlug, tenantName, country, brand
       <div className="grid min-h-screen place-items-center" style={{ backgroundColor: brand.background }}>
         <div className="rounded-[2rem] border p-8 text-center shadow-2xl shadow-black/10" style={{ backgroundColor: brand.surface, borderColor: brand.border }}>
           <div className="mx-auto mb-4 h-12 w-12 animate-spin rounded-full border-4" style={{ borderColor: brand.border, borderTopColor: brand.primary }} />
-          <p className="text-sm font-black" style={{ color: brand.surfaceText }}>Cargando comandero</p>
+          <p className="text-sm font-black" style={{ color: brand.surfaceText }}>{tr('common.loading')}</p>
         </div>
       </div>
     );
@@ -398,7 +400,7 @@ export function KitchenClient({ tenantId, tenantSlug, tenantName, country, brand
         <div className="flex items-center justify-between">
           <div>
             <p className="text-xs font-black uppercase" style={{ color: brand.mutedText }}>Pedido actual</p>
-            <h2 className="text-xl font-black" style={{ color: brand.surfaceText }}>{tableNumber ? `Mesa ${tableNumber}` : 'Selecciona mesa'}</h2>
+            <h2 className="text-xl font-black" style={{ color: brand.surfaceText }}>{tableNumber ? `${tr('kitchen.table')} ${tableNumber}` : tr('kitchen.selectTable')}</h2>
           </div>
           {isMobile && (
             <button onClick={() => setCartOpen(false)} className="grid h-10 w-10 place-items-center rounded-2xl bg-black/[0.06]">
@@ -518,15 +520,15 @@ export function KitchenClient({ tenantId, tenantSlug, tenantName, country, brand
           </div>
           <div className="space-y-1.5 text-sm font-black" style={{ color: brand.surfaceText }}>
             <div className="flex items-center justify-between">
-              <span>Subtotal:</span>
+              <span>{tr('kitchen.subtotal')}:</span>
               <span>{money(subtotal)}</span>
             </div>
             <div className="flex items-center justify-between">
-              <span>IVA {taxRate > 0 ? `${taxRate}%` : '0%'}:</span>
+              <span>{tr('kitchen.tax')} {taxRate > 0 ? `${taxRate}%` : '0%'}:</span>
               <span>{money(taxAmount)}</span>
             </div>
             <div className="flex items-end justify-between border-t border-black/10 pt-2">
-              <span>Total:</span>
+              <span>{tr('kitchen.total')}:</span>
               <span className="text-2xl font-black" style={{ color: brand.primary }}>{money(total)}</span>
             </div>
           </div>
@@ -537,9 +539,9 @@ export function KitchenClient({ tenantId, tenantSlug, tenantName, country, brand
           className="flex h-14 w-full items-center justify-center gap-2 rounded-[1.25rem] text-base font-black shadow-xl shadow-black/20 transition active:scale-[0.98] disabled:bg-black/10 disabled:text-black/35 disabled:shadow-none"
           style={!cart.length || !tableNumber || sending ? undefined : { backgroundColor: brand.button, color: brand.buttonText }}
         >
-          {sending ? <div className="h-5 w-5 animate-spin rounded-full border-2 border-white border-t-transparent" /> : <><Send className="h-5 w-5" /> Enviar a cocina</>}
+          {sending ? <div className="h-5 w-5 animate-spin rounded-full border-2 border-white border-t-transparent" /> : <><Send className="h-5 w-5" /> {tr('kitchen.send')}</>}
         </button>
-        {!tableNumber && cart.length > 0 && <p className="mt-2 text-center text-xs font-black text-amber-600">Selecciona una mesa para enviar.</p>}
+        {!tableNumber && cart.length > 0 && <p className="mt-2 text-center text-xs font-black text-amber-600">{tr('kitchen.selectTable')}</p>}
       </div>
     </div>
   );
@@ -592,6 +594,7 @@ export function KitchenClient({ tenantId, tenantSlug, tenantName, country, brand
             >
               <ReceiptText className="h-4 w-4" />
             </button>
+            <LanguageSwitcher compact className="border-black/10 bg-white/80" />
             <button onClick={() => setCartOpen(true)} className="relative grid h-10 w-10 place-items-center rounded-xl md:hidden" style={{ backgroundColor: brand.button, color: brand.buttonText }}>
               <ShoppingCart className="h-5 w-5" />
               {cartCount > 0 && <span className="absolute -right-1 -top-1 grid h-5 min-w-5 place-items-center rounded-full bg-red-500 px-1 text-[10px] font-black">{cartCount}</span>}
@@ -615,7 +618,7 @@ export function KitchenClient({ tenantId, tenantSlug, tenantName, country, brand
                 autoFocus
                 value={search}
                 onChange={e => { setSearch(e.target.value); setSelectedCategory(null); }}
-                placeholder="Buscar producto"
+                placeholder={tr('kitchen.search')}
                 className="mb-2 h-10 w-full rounded-xl border px-3 text-sm font-bold outline-none"
                 style={{ backgroundColor: brand.soft, borderColor: brand.border, color: brand.surfaceText }}
               />
@@ -698,20 +701,20 @@ export function KitchenClient({ tenantId, tenantSlug, tenantName, country, brand
         <div className="fixed inset-x-0 bottom-0 z-20 bg-gradient-to-t from-[#f6f3ed] via-[#f6f3ed]/95 to-transparent p-3 md:hidden">
           <button onClick={() => setCartOpen(true)} className="flex h-16 w-full items-center justify-between rounded-[1.4rem] px-4 font-black shadow-2xl shadow-black/20 active:scale-[0.98]" style={{ backgroundColor: brand.button, color: brand.buttonText }}>
             <span className="grid h-9 min-w-9 place-items-center rounded-full bg-white/15 px-2 text-sm">{cartCount}</span>
-            <span className="flex items-center gap-2"><ShoppingCart className="h-5 w-5" /> Ver pedido</span>
+            <span className="flex items-center gap-2"><ShoppingCart className="h-5 w-5" /> {tr('kitchen.viewOrder')}</span>
             <span>{money(total)}</span>
           </button>
           <div className="mt-2 rounded-2xl px-4 py-3 text-sm font-black shadow-lg shadow-black/10" style={{ backgroundColor: brand.surface, color: brand.surfaceText }}>
             <div className="flex items-center justify-between">
-              <span>Subtotal:</span>
+              <span>{tr('kitchen.subtotal')}:</span>
               <span>{money(subtotal)}</span>
             </div>
             <div className="mt-1 flex items-center justify-between">
-              <span>IVA {taxRate > 0 ? `${taxRate}%` : '0%'}:</span>
+              <span>{tr('kitchen.tax')} {taxRate > 0 ? `${taxRate}%` : '0%'}:</span>
               <span>{money(taxAmount)}</span>
             </div>
             <div className="mt-1 flex items-center justify-between border-t border-black/10 pt-2" style={{ color: brand.primary }}>
-              <span>Total:</span>
+              <span>{tr('kitchen.total')}:</span>
               <span>{money(total)}</span>
             </div>
           </div>
@@ -723,8 +726,8 @@ export function KitchenClient({ tenantId, tenantSlug, tenantName, country, brand
           <div className="mx-auto flex h-full max-w-lg flex-col overflow-hidden rounded-[1.5rem] shadow-2xl" style={{ backgroundColor: brand.surface, color: brand.surfaceText }}>
             <div className="flex items-center justify-between border-b border-black/10 p-4">
               <div>
-                <p className="text-xs font-black uppercase text-black/40">Cuenta completa</p>
-                <h3 className="text-xl font-black text-[#15130f]">{accountTableNumber ? `Mesa ${accountTableNumber}` : 'Selecciona una mesa'}</h3>
+                <p className="text-xs font-black uppercase text-black/40">{tr('kitchen.fullAccount')}</p>
+                <h3 className="text-xl font-black text-[#15130f]">{accountTableNumber ? `${tr('kitchen.table')} ${accountTableNumber}` : tr('kitchen.selectTable')}</h3>
               </div>
               <button onClick={() => setAccountOpen(false)} className="grid h-10 w-10 place-items-center rounded-2xl bg-black/[0.06]">
                 <X className="h-5 w-5" />

@@ -1,6 +1,7 @@
 'use client'
 
 import { use, useEffect, useState, useRef, useCallback } from 'react'
+import LanguageSwitcher, { useI18n } from '@/components/LanguageSwitcher'
 
 interface DisplayOrder {
   id: string
@@ -75,12 +76,14 @@ function OrderDisplayCard({
   backgroundColor,
   textColor,
   isNew = false,
+  orderLabel = 'Pedido',
 }: {
   order: DisplayOrder
   color: string
   backgroundColor: string
   textColor: string
   isNew?: boolean
+  orderLabel?: string
 }) {
   const finalText = isNew ? readableText(color) : textColor
   const finalBg = isNew ? color : backgroundColor
@@ -99,7 +102,7 @@ function OrderDisplayCard({
     >
       <div className="w-full px-3 text-center">
         <p className="truncate text-[11px] font-black uppercase tracking-[0.18em]" style={{ color: finalText }}>
-          Pedido
+          {orderLabel}
         </p>
         <p
           className="mt-1 text-5xl font-black leading-none tabular-nums drop-shadow-[0_3px_10px_rgba(0,0,0,0.22)]"
@@ -123,6 +126,7 @@ function OrderDisplayCard({
 
 export default function PantallaPage({ params }: Props) {
   const { domain } = use(params)
+  const { tr } = useI18n()
   const [data, setData] = useState<DisplayData | null>(null)
   const [mounted, setMounted] = useState(false)
   const [time, setTime] = useState<Date | null>(null)
@@ -346,7 +350,7 @@ export default function PantallaPage({ params }: Props) {
             }}
             title={wakeLockSupported ? 'Mantener pantalla activa' : 'Este navegador no permite bloquear reposo'}
           >
-            {wakeLockActive ? 'Pantalla activa' : 'Evitar reposo'}
+            {wakeLockActive ? tr('display.active') : tr('display.active')}
           </button>
           <div className="text-right">
             <p className="text-3xl font-mono font-semibold tabular-nums" style={{ color: textColor }}>
@@ -366,14 +370,14 @@ export default function PantallaPage({ params }: Props) {
           <div className="px-10 py-6 flex items-center gap-3" style={{ borderBottom: `1px solid ${primary}`, backgroundColor: primary }}>
             <span className="text-3xl">🧾</span>
             <div>
-              <h2 className="text-xl font-bold tracking-wide uppercase" style={{ color: primaryText }}>Confirmado</h2>
+              <h2 className="text-xl font-bold tracking-wide uppercase" style={{ color: primaryText }}>{tr('display.confirmed')}</h2>
               <p className="text-sm" style={{ color: primaryText }}>{confirmed.length} {confirmed.length === 1 ? 'pedido' : 'pedidos'}</p>
             </div>
           </div>
           <div className="flex-1 p-8 overflow-auto">
             {confirmed.length === 0 ? (
               <div className="flex items-center justify-center h-full">
-                <p className="text-xl" style={{ color: mutedText }}>Sin pedidos nuevos</p>
+                <p className="text-xl" style={{ color: mutedText }}>{tr('kds.noOrders')}</p>
               </div>
             ) : (
               <div className="flex flex-wrap gap-6">
@@ -384,6 +388,7 @@ export default function PantallaPage({ params }: Props) {
                     color={primary}
                     backgroundColor={cardBg}
                     textColor={cardText}
+                    orderLabel={tr('display.order')}
                   />
                 ))}
               </div>
@@ -396,14 +401,14 @@ export default function PantallaPage({ params }: Props) {
           <div className="px-10 py-6 flex items-center gap-3" style={{ borderBottom: `1px solid ${secondary}`, borderLeft: `1px solid ${secondary}`, borderRight: `1px solid ${secondary}`, backgroundColor: secondary }}>
             <span className="text-3xl">🔥</span>
             <div>
-              <h2 className="text-xl font-bold tracking-wide uppercase" style={{ color: secondaryText }}>En Preparación</h2>
+              <h2 className="text-xl font-bold tracking-wide uppercase" style={{ color: secondaryText }}>{tr('display.preparing')}</h2>
               <p className="text-sm" style={{ color: secondaryText }}>{preparing.length} {preparing.length === 1 ? 'pedido' : 'pedidos'}</p>
             </div>
           </div>
           <div className="flex-1 p-8 overflow-auto">
             {preparing.length === 0 ? (
               <div className="flex items-center justify-center h-full">
-                <p className="text-xl" style={{ color: mutedText }}>Sin pedidos en preparación</p>
+                <p className="text-xl" style={{ color: mutedText }}>{tr('display.noPreparing')}</p>
               </div>
             ) : (
               <div className="flex flex-wrap gap-6">
@@ -414,6 +419,7 @@ export default function PantallaPage({ params }: Props) {
                     color={accent}
                     backgroundColor={cardBg}
                     textColor={cardText}
+                    orderLabel={tr('display.order')}
                   />
                 ))}
               </div>
@@ -426,14 +432,14 @@ export default function PantallaPage({ params }: Props) {
           <div className="px-10 py-6 flex items-center gap-3" style={{ borderBottom: `1px solid ${accent}`, borderLeft: `1px solid ${accent}`, backgroundColor: accent }}>
             <span className="text-3xl">✅</span>
             <div>
-              <h2 className="text-xl font-bold tracking-wide uppercase" style={{ color: accentText }}>Listos para Recoger</h2>
+              <h2 className="text-xl font-bold tracking-wide uppercase" style={{ color: accentText }}>{tr('display.ready')}</h2>
               <p className="text-sm" style={{ color: accentText }}>{ready.length} {ready.length === 1 ? 'pedido' : 'pedidos'}</p>
             </div>
           </div>
           <div className="flex-1 p-8 overflow-auto">
             {ready.length === 0 ? (
               <div className="flex items-center justify-center h-full">
-                <p className="text-xl" style={{ color: mutedText }}>Sin pedidos listos</p>
+                <p className="text-xl" style={{ color: mutedText }}>{tr('display.noReady')}</p>
               </div>
             ) : (
               <div className="flex flex-wrap gap-6">
@@ -453,7 +459,7 @@ export default function PantallaPage({ params }: Props) {
                       }}
                     >
                       <div className="text-center">
-                        <p className="text-xs font-semibold tracking-widest uppercase mb-1" style={{ color: isNew ? accentText : cardText }}>Pedido</p>
+                        <p className="text-xs font-semibold tracking-widest uppercase mb-1" style={{ color: isNew ? accentText : cardText }}>{tr('display.order')}</p>
                         <p className="text-6xl font-black tabular-nums" style={{ color: isNew ? accentText : accent }}>
                           {getShortNumber(order)}
                         </p>
@@ -478,8 +484,11 @@ export default function PantallaPage({ params }: Props) {
 
       {/* Footer */}
       <footer className="px-10 py-3 flex items-center justify-between" style={{ borderTop: `1px solid ${primary}`, backgroundColor: screenBg }}>
-        <p className="text-xs" style={{ color: mutedText }}>Pasa a recoger tu pedido cuando aparezca en "Listos"</p>
-        <p className="text-xs" style={{ color: mutedText }}>Actualización automática cada 4 segundos</p>
+        <p className="text-xs" style={{ color: mutedText }}>{tr('display.pickupHint')}</p>
+        <div className="flex items-center gap-3">
+          <p className="text-xs" style={{ color: mutedText }}>{tr('display.autoRefresh')}</p>
+          <LanguageSwitcher compact reloadOnChange className="border-black/10 bg-white/80" />
+        </div>
       </footer>
     </div>
   )

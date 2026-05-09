@@ -19,6 +19,7 @@ import {
   Zap,
 } from 'lucide-react';
 import { useWakeLock } from '@/lib/hooks/useWakeLock';
+import LanguageSwitcher, { useI18n } from '@/components/LanguageSwitcher';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -622,6 +623,7 @@ function KDSColumn({
 
 // Main KDSScreen Component
 export function KDSScreen({ tenantId }: { tenantId: string }) {
+  const { tr } = useI18n();
   const [items, setItems] = useState<OrderItemWithOrder[]>([]);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
@@ -835,8 +837,8 @@ export function KDSScreen({ tenantId }: { tenantId: string }) {
             </div>
           </div>
           <div>
-            <p className="text-2xl font-black tracking-wider mb-2 text-white">Cargando cocina digital</p>
-            <p className="text-slate-400 text-sm">Preparando la pantalla de servicio...</p>
+            <p className="text-2xl font-black tracking-wider mb-2 text-white">{tr('common.loading')}</p>
+            <p className="text-slate-400 text-sm">{tr('display.active')}</p>
           </div>
         </div>
       </div>
@@ -867,6 +869,7 @@ export function KDSScreen({ tenantId }: { tenantId: string }) {
 
           {/* Right Section - Controls */}
           <div className="flex items-center gap-2 overflow-x-auto scrollbar-hide">
+            <LanguageSwitcher compact className="border-white/15 bg-white/10 text-white [&_select]:text-white" />
             {/* Sound Toggle */}
             <button
               onClick={(e) => { e.stopPropagation(); setSoundEnabled((v) => !v); }}
@@ -876,12 +879,12 @@ export function KDSScreen({ tenantId }: { tenantId: string }) {
               {soundEnabled ? (
                 <>
                   <Volume2 className="w-4 h-4" />
-                  <span>Sonido</span>
+                  <span>{tr('kds.sound')}</span>
                 </>
               ) : (
                 <>
                   <VolumeX className="w-4 h-4" />
-                  <span>Mudo</span>
+                  <span>{tr('kds.sound')}</span>
                 </>
               )}
             </button>
@@ -900,7 +903,7 @@ export function KDSScreen({ tenantId }: { tenantId: string }) {
               ) : (
                 <>
                   <Maximize2 className="w-4 h-4" />
-                  <span className="hidden sm:inline">Fullscreen</span>
+                  <span className="hidden sm:inline">{tr('kds.fullscreen')}</span>
                 </>
               )}
             </button>
@@ -929,7 +932,7 @@ export function KDSScreen({ tenantId }: { tenantId: string }) {
             }}
             className="px-6 py-2.5 bg-red-500 hover:bg-red-400 text-white rounded-xl font-bold text-sm transition-all duration-200 whitespace-nowrap sm:ml-4"
           >
-            Habilitar Sonido
+            {tr('kds.sound')}
           </button>
         </div>
       )}
@@ -993,7 +996,7 @@ export function KDSScreen({ tenantId }: { tenantId: string }) {
       {/* Columns */}
       <div className="grid flex-1 grid-cols-1 gap-2.5 overflow-y-auto p-2.5 bg-[radial-gradient(circle_at_top_left,rgba(34,211,238,0.14),transparent_34%),linear-gradient(180deg,#020617,#0f172a)] md:grid-cols-3 md:gap-3 md:overflow-hidden md:p-4">
         <KDSColumn
-          title="PENDIENTES"
+          title={tr('kds.pending').toUpperCase()}
           orders={pendingOrders}
           actionLabel="INICIAR"
           actionColor="bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-400 hover:to-cyan-400 shadow-blue-500/30"
@@ -1005,7 +1008,7 @@ export function KDSScreen({ tenantId }: { tenantId: string }) {
         />
 
         <KDSColumn
-          title="EN PREPARACION"
+          title={tr('kds.preparing').toUpperCase()}
           orders={preparingOrders}
           actionLabel="LISTO"
           actionColor="bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 shadow-amber-500/30"
@@ -1017,7 +1020,7 @@ export function KDSScreen({ tenantId }: { tenantId: string }) {
         />
 
         <KDSColumn
-          title="LISTOS"
+          title={tr('kds.ready').toUpperCase()}
           orders={readyOrders}
           actionLabel="ENTREGADO"
           actionColor="bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 shadow-emerald-500/30"

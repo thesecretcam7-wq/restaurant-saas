@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { formatPriceWithCurrency } from '@/lib/currency'
+import LanguageSwitcher, { useI18n } from '@/components/LanguageSwitcher'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -117,6 +118,7 @@ function AppHeader({
         </div>
       </div>
       <div className="flex flex-shrink-0 items-center gap-3 md:gap-6">
+        <LanguageSwitcher compact className="border-black/10 bg-white/80" />
         {cartCount !== undefined && cartCount > 0 && (
           <div className="flex items-center gap-2 rounded-full px-3 py-2 md:px-4" style={{ backgroundColor: `${textColor}22`, color: textColor }}>
             <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>
@@ -407,6 +409,7 @@ export default function KioskoClient({
   tenantId, domain, branding, categories, menuItems, toppings, banners,
   taxRate, currencyCode, currencyLocale, stripeEnabled, initialConfirmed,
 }: Props) {
+  const { tr } = useI18n()
   const [step, setStep] = useState<Step>(initialConfirmed ? 'confirmed' : 'menu')
   const [activeCategory, setActiveCategory] = useState<string | null>(categories[0]?.id ?? null)
   const [pressedCategory, setPressedCategory] = useState<string | null>(null)
@@ -827,7 +830,7 @@ export default function KioskoClient({
                 <p className="text-lg font-black" style={{ color: surfaceTextColor }}>Enviado a cocina</p>
               </div>
               <div className="rounded-2xl border p-4" style={{ backgroundColor: surfaceColor, borderColor }}>
-                <p className="text-xs font-black uppercase tracking-widest" style={{ color: surfaceMutedTextColor }}>Pedido</p>
+                <p className="text-xs font-black uppercase tracking-widest" style={{ color: surfaceMutedTextColor }}>{tr('display.order')}</p>
                 <p className="text-lg font-black" style={{ color: surfaceTextColor }}>{cartCount} productos</p>
               </div>
             </div>
@@ -855,10 +858,10 @@ export default function KioskoClient({
   if (step === 'checkout') {
     return (
       <div className="h-screen flex flex-col" style={{ fontFamily: 'Inter, system-ui, sans-serif', backgroundColor, color: pageTextColor }}>
-        <AppHeader primaryColor={primaryColor} textColor={primaryTextColor} appName={appName} logoUrl={logoUrl} time={time} backLabel="Volver al carrito" onBack={() => setStep('cart')} />
+        <AppHeader primaryColor={primaryColor} textColor={primaryTextColor} appName={appName} logoUrl={logoUrl} time={time} backLabel={tr('kitchen.viewOrder')} onBack={() => setStep('cart')} />
         <div className="flex-1 overflow-y-auto">
           <div className="max-w-lg mx-auto p-6">
-            <h2 className="text-2xl font-black mb-6" style={{ color: pageTextColor }}>Finalizar pedido</h2>
+            <h2 className="text-2xl font-black mb-6" style={{ color: pageTextColor }}>{tr('checkout.finishOrder')}</h2>
 
             {/* Order summary */}
             <div className="rounded-2xl shadow-sm border p-5 mb-6" style={{ backgroundColor: surfaceColor, borderColor }}>
@@ -878,18 +881,18 @@ export default function KioskoClient({
               ))}
               <div className="mt-3 space-y-2 rounded-2xl p-4" style={{ backgroundColor }}>
                 <div className="flex justify-between text-sm font-bold" style={{ color: surfaceMutedTextColor }}>
-                  <span>Subtotal</span>
+                  <span>{tr('kitchen.subtotal')}</span>
                   <span>{fmt(cartTotal, currencyCode, currencyLocale)}</span>
                 </div>
                 {taxRate > 0 && (
                   <div className="flex justify-between text-base font-black" style={{ color: surfaceTextColor }}>
-                    <span>IVA {taxRate}%</span>
+                    <span>{tr('kitchen.tax')} {taxRate}%</span>
                     <span>{fmt(tax, currencyCode, currencyLocale)}</span>
                   </div>
                 )}
               </div>
               <div className="flex justify-between pt-4 border-t mt-4 font-black text-2xl" style={{ borderColor }}>
-                <span style={{ color: surfaceTextColor }}>Total</span>
+                <span style={{ color: surfaceTextColor }}>{tr('kitchen.total')}</span>
                 <span style={{ color: primaryColor }}>{fmt(grandTotal, currencyCode, currencyLocale)}</span>
               </div>
             </div>
@@ -941,7 +944,7 @@ export default function KioskoClient({
                 className="w-full py-5 rounded-2xl font-black text-xl flex items-center justify-center gap-3 shadow-lg transition-all active:scale-98 disabled:opacity-50"
                 style={{ backgroundColor: buttonPrimaryColor, color: buttonTextColor }}
               >
-                🏧 Pagar en Caja
+                {tr('pos.cash')}
               </button>
               {stripeEnabled && (
                 <button
@@ -950,7 +953,7 @@ export default function KioskoClient({
                   className="w-full py-5 rounded-2xl font-black text-xl flex items-center justify-center gap-3 shadow-lg transition-all active:scale-98 disabled:opacity-50"
                   style={{ backgroundColor: buttonSecondaryColor, color: secondaryButtonTextColor }}
                 >
-                  💳 Pagar con Tarjeta
+                  {tr('pos.card')}
                 </button>
               )}
               {loading && (
@@ -973,7 +976,7 @@ export default function KioskoClient({
         <AppHeader primaryColor={primaryColor} textColor={primaryTextColor} appName={appName} logoUrl={logoUrl} time={time} backLabel="Seguir pidiendo" onBack={() => setStep('menu')} />
         <div className="flex-1 overflow-y-auto">
           <div className="max-w-lg mx-auto p-6 pb-40">
-            <h2 className="text-2xl font-black mb-5" style={{ color: pageTextColor }}>Tu pedido</h2>
+            <h2 className="text-2xl font-black mb-5" style={{ color: pageTextColor }}>{tr('kitchen.viewOrder')}</h2>
 
             {cart.length === 0 ? (
               <div className="text-center py-20" style={{ color: mutedTextColor }}>
@@ -1020,7 +1023,7 @@ export default function KioskoClient({
                     <div className="flex items-end justify-between gap-3 mb-4">
                       <div>
                         <p className="text-xs font-black uppercase tracking-[0.22em]" style={{ color: surfaceMutedTextColor }}>
-                          Completa tu pedido
+                          {tr('checkout.completeOrder')}
                         </p>
                         <p className="text-xl font-black" style={{ color: surfaceTextColor }}>
                           Algo mas para acompanar?
@@ -1047,7 +1050,7 @@ export default function KioskoClient({
                             <div className="flex items-center justify-between mt-2">
                               <span className="font-black" style={{ color: primaryColor }}>{fmt(item.price, currencyCode, currencyLocale)}</span>
                               <span className="rounded-full px-3 py-1 text-xs font-black" style={{ backgroundColor: buttonPrimaryColor, color: buttonTextColor }}>
-                                Agregar
+                                {tr('cart.add')}
                               </span>
                             </div>
                           </div>
@@ -1060,10 +1063,10 @@ export default function KioskoClient({
                 {taxRate > 0 && (
                   <div className="rounded-2xl shadow-sm border p-4 space-y-2" style={{ backgroundColor: surfaceColor, borderColor }}>
                     <div className="flex justify-between text-sm" style={{ color: surfaceMutedTextColor }}>
-                      <span>Subtotal</span><span>{fmt(cartTotal, currencyCode, currencyLocale)}</span>
+                      <span>{tr('kitchen.subtotal')}</span><span>{fmt(cartTotal, currencyCode, currencyLocale)}</span>
                     </div>
                     <div className="flex justify-between text-sm" style={{ color: surfaceMutedTextColor }}>
-                      <span>IVA {taxRate}%</span><span>{fmt(tax, currencyCode, currencyLocale)}</span>
+                      <span>{tr('kitchen.tax')} {taxRate}%</span><span>{fmt(tax, currencyCode, currencyLocale)}</span>
                     </div>
                   </div>
                 )}
@@ -1076,7 +1079,7 @@ export default function KioskoClient({
           <div className="fixed bottom-0 left-0 right-0 border-t p-4 shadow-2xl" style={{ backgroundColor: surfaceColor, borderColor }}>
             <div className="max-w-lg mx-auto">
               <div className="flex items-center justify-between mb-3 px-1">
-                <span className="font-medium" style={{ color: surfaceMutedTextColor }}>Total a pagar</span>
+                <span className="font-medium" style={{ color: surfaceMutedTextColor }}>{tr('checkout.totalToPay')}</span>
                 <span className="text-2xl font-black" style={{ color: primaryColor }}>{fmt(grandTotal, currencyCode, currencyLocale)}</span>
               </div>
               <button
@@ -1258,14 +1261,14 @@ export default function KioskoClient({
             </div>
             <div className="min-w-0 flex-1">
               <p className="text-xs font-black uppercase tracking-[0.24em]" style={{ color: surfaceMutedTextColor }}>
-                Pedido en curso
+                {tr('checkout.orderInProgress')}
               </p>
               <p className="truncate text-xl font-black" style={{ color: surfaceTextColor }}>
                 {cartCount} {cartCount === 1 ? 'producto seleccionado' : 'productos seleccionados'}
               </p>
             </div>
             <div className="hidden text-right sm:block">
-              <p className="text-xs font-bold uppercase tracking-widest" style={{ color: surfaceMutedTextColor }}>Total</p>
+              <p className="text-xs font-bold uppercase tracking-widest" style={{ color: surfaceMutedTextColor }}>{tr('kitchen.total')}</p>
               <p className="text-3xl font-black leading-none" style={{ color: primaryColor }}>{fmt(grandTotal, currencyCode, currencyLocale)}</p>
               {taxRate > 0 && (
                 <p className="mt-1 text-xs font-semibold" style={{ color: surfaceMutedTextColor }}>
@@ -1278,7 +1281,7 @@ export default function KioskoClient({
               className="flex min-w-0 flex-shrink-0 items-center justify-between gap-3 rounded-2xl px-4 py-4 text-sm font-black shadow-xl transition-transform active:scale-[0.98] md:min-w-[260px] md:gap-5 md:px-6 md:py-5 md:text-xl"
               style={{ backgroundColor: buttonPrimaryColor, color: buttonTextColor }}
             >
-              <span>Ver pedido</span>
+              <span>{tr('kitchen.viewOrder')}</span>
               <span className="rounded-full px-4 py-2 text-base" style={{ backgroundColor: `${buttonTextColor}24` }}>
                 {fmt(grandTotal, currencyCode, currencyLocale)}
               </span>

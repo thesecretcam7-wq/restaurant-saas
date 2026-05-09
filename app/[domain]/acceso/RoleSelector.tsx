@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ChefHat, CreditCard, Lock, LogIn, Monitor, ShieldCheck, ShoppingBag, UtensilsCrossed } from 'lucide-react';
+import LanguageSwitcher, { useI18n } from '@/components/LanguageSwitcher';
 
 interface Branding {
   appName: string;
@@ -46,6 +47,7 @@ function readableText(background: string, fallbackDark = '#15130f', fallbackLigh
 export function RoleSelector({ tenantName, tenantSlug, logoUrl, branding }: Props) {
   const router = useRouter();
   const [selectedRole, setSelectedRole] = useState<string | null>(null);
+  const { tr } = useI18n();
 
   const primary = branding.primaryColor;
   const secondary = branding.secondaryColor;
@@ -58,49 +60,49 @@ export function RoleSelector({ tenantName, tenantSlug, logoUrl, branding }: Prop
   const roles = [
     {
       id: 'cocinero' as const,
-      label: 'Cocinero',
+      label: tr('access.cook'),
       icon: ChefHat,
       desc: 'Kitchen Display',
-      hint: 'Pedidos en cocina',
+      hint: tr('access.cookDesc'),
       color: primary,
     },
     {
       id: 'camarero' as const,
-      label: 'Camarero',
+      label: tr('access.waiter'),
       icon: UtensilsCrossed,
       desc: 'Comandero',
-      hint: 'Mesas y servicio',
+      hint: tr('access.waiterDesc'),
       color: accent,
     },
     {
       id: 'cajero' as const,
-      label: 'Cajero',
+      label: tr('access.cashier'),
       icon: CreditCard,
       desc: 'TPV',
-      hint: 'Pagos y caja',
+      hint: tr('access.cashierDesc'),
       color: '#22c55e',
     },
     {
       id: 'admin' as const,
-      label: 'Administrador',
+      label: tr('access.admin'),
       icon: Lock,
-      desc: 'Panel de control',
-      hint: 'Gestion completa',
+      desc: tr('admin.subtitle'),
+      hint: tr('access.adminDesc'),
       color: secondary,
     },
   ];
 
   const deviceLinks = [
     {
-      label: 'Kiosko',
-      desc: 'Autoservicio del cliente',
+      label: tr('access.kiosk'),
+      desc: tr('access.kioskDesc'),
       href: `/${tenantSlug}/kiosko`,
       icon: ShoppingBag,
       color: accent,
     },
     {
-      label: 'Pantalla',
-      desc: 'Estado de pedidos',
+      label: tr('access.screen'),
+      desc: tr('access.screenDesc'),
       href: `/${tenantSlug}/pantalla`,
       icon: Monitor,
       color: primary,
@@ -133,9 +135,10 @@ export function RoleSelector({ tenantName, tenantSlug, logoUrl, branding }: Prop
               )}
             </div>
             <div>
-              <p className="text-xs font-black uppercase tracking-[0.22em] text-white/45">Acceso personal</p>
+              <p className="text-xs font-black uppercase tracking-[0.22em] text-white/45">{tr('admin.nav.staffAccess')}</p>
               <h1 className="text-2xl font-black tracking-tight">{appName}</h1>
             </div>
+            <LanguageSwitcher compact className="ml-auto border-white/15 bg-white/10 text-white [&_select]:text-white" />
           </div>
 
           <div>
@@ -143,19 +146,19 @@ export function RoleSelector({ tenantName, tenantSlug, logoUrl, branding }: Prop
               className="mb-5 inline-flex rounded-full px-4 py-2 text-sm font-black uppercase tracking-[0.16em]"
               style={{ backgroundColor: `${primary}24`, color: primary }}
             >
-              Equipo operativo
+              {tr('access.badge')}
             </p>
             <h2 className="max-w-lg text-4xl font-black leading-[0.98] tracking-tight sm:text-5xl lg:text-6xl">
-              Elige tu puesto para entrar
+              {tr('access.title')}
             </h2>
             <p className="mt-4 max-w-md text-base font-semibold leading-relaxed text-white/58 sm:text-lg lg:mt-6">
-              Cada perfil abre solo las herramientas que necesita durante el servicio.
+              {tr('access.subtitle')}
             </p>
           </div>
 
           <div className="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.06] px-4 py-3">
             <ShieldCheck className="h-5 w-5" style={{ color: primary }} />
-            <p className="text-sm font-semibold text-white/62">Entrada segura con PIN del empleado</p>
+            <p className="text-sm font-semibold text-white/62">{tr('access.securePin')}</p>
           </div>
         </section>
 
@@ -178,7 +181,7 @@ export function RoleSelector({ tenantName, tenantSlug, logoUrl, branding }: Prop
                     </div>
                     <div className="min-w-0 flex-1">
                       <p className="text-xs font-black uppercase tracking-[0.16em]" style={{ color: item.color }}>
-                        Acceso rapido
+                        {tr('access.quick')}
                       </p>
                       <h3 className="mt-1 text-xl font-black text-white">{item.label}</h3>
                       <p className="text-sm font-semibold text-white/52">{item.desc}</p>

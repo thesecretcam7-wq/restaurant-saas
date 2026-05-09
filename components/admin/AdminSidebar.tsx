@@ -32,6 +32,7 @@ import {
 } from 'lucide-react'
 import { detectAdminSection, getSectionColorVar } from '@/lib/colors'
 import { StoreStatusToggle } from './StoreStatusToggle'
+import LanguageSwitcher, { useI18n } from '@/components/LanguageSwitcher'
 
 interface NavLink {
   href: string
@@ -78,6 +79,28 @@ const icons: Record<string, ComponentType<{ className?: string }>> = {
   health: Activity,
 }
 
+const navTranslationByIcon: Record<string, string> = {
+  dashboard: 'admin.nav.dashboard',
+  orders: 'admin.nav.orders',
+  kds: 'admin.nav.kds',
+  screen: 'admin.nav.screen',
+  staffAccess: 'admin.nav.staffAccess',
+  kiosk: 'admin.nav.kiosk',
+  products: 'admin.nav.products',
+  banners: 'admin.nav.banners',
+  reservations: 'admin.nav.reservations',
+  customers: 'admin.nav.customers',
+  sales: 'admin.nav.sales',
+  cash: 'admin.nav.cash',
+  settings: 'admin.nav.settings',
+  pos: 'admin.nav.pos',
+  inventory: 'admin.nav.inventory',
+  tables: 'admin.nav.tables',
+  qr: 'admin.nav.qr',
+  ai: 'admin.nav.ai',
+  audit: 'admin.nav.audit',
+}
+
 function getRestaurantStoreUrl(tenantSlug: string) {
   const baseDomain = process.env.NEXT_PUBLIC_BASE_DOMAIN || 'eccofoodapp.com'
   return `https://${tenantSlug}.${baseDomain}/`
@@ -97,6 +120,7 @@ export function AdminSidebar({
   const [open, setOpen] = useState(false)
   const pathname = usePathname()
   const storeUrl = getRestaurantStoreUrl(tenantSlug)
+  const { tr } = useI18n()
 
   const sidebarContent = (
     <>
@@ -114,13 +138,13 @@ export function AdminSidebar({
               <p className="truncate text-sm font-black text-white" style={{ color: primaryColor ?? undefined }}>
                 {restaurantName}
               </p>
-              <p className="text-xs font-semibold text-white/45">Panel operativo</p>
+              <p className="text-xs font-semibold text-white/45">{tr('admin.subtitle')}</p>
             </div>
           </div>
           <button
             className="rounded-lg p-2 text-white/55 transition hover:bg-white/10 hover:text-white md:hidden"
             onClick={() => setOpen(false)}
-            aria-label="Cerrar menu"
+            aria-label={tr('admin.closeMenu')}
           >
             <X className="size-5" />
           </button>
@@ -130,7 +154,7 @@ export function AdminSidebar({
       <nav className="flex-1 space-y-1 overflow-y-auto p-3">
         {isOwner && userTenants.length > 1 && (
           <div className="mb-4 border-b border-white/10 pb-4">
-            <p className="px-3 pb-2 text-[11px] font-black uppercase text-white/35">Mis restaurantes</p>
+            <p className="px-3 pb-2 text-[11px] font-black uppercase text-white/35">{tr('admin.myRestaurants')}</p>
             <div className="space-y-1">
               {userTenants.map(t => (
                 <Link
@@ -156,6 +180,7 @@ export function AdminSidebar({
           const linkSection = detectAdminSection(link.href)
           const linkColor = `var(${getSectionColorVar(linkSection)})`
           const Icon = icons[link.icon] || LayoutDashboard
+          const translatedLabel = navTranslationByIcon[link.icon] ? tr(navTranslationByIcon[link.icon]) : link.label
 
           return (
             <div key={link.href}>
@@ -171,7 +196,7 @@ export function AdminSidebar({
                 style={isActive ? { boxShadow: `inset 3px 0 0 ${linkColor}` } : undefined}
               >
                 <Icon className="size-4 flex-shrink-0" />
-                <span className="truncate">{link.label}</span>
+                <span className="truncate">{translatedLabel}</span>
               </Link>
             </div>
           )
@@ -179,6 +204,7 @@ export function AdminSidebar({
       </nav>
 
       <div className="space-y-1 border-t border-white/10 p-3">
+        <LanguageSwitcher className="mb-2 w-full justify-between border-white/10 bg-white/10 text-white [&_select]:text-white" compact={false} />
         {tenantId && <StoreStatusToggle tenantId={tenantId} initialEnabled={storeEnabled} />}
         <a
           href={storeUrl}
@@ -188,7 +214,7 @@ export function AdminSidebar({
           className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-bold text-white/64 transition hover:bg-white/8 hover:text-white"
         >
           <Eye className="size-4" />
-          <span>Ver tienda</span>
+          <span>{tr('admin.viewStore')}</span>
         </a>
         <form action="/api/auth/logout" method="POST">
           <button
@@ -196,7 +222,7 @@ export function AdminSidebar({
             className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm font-bold text-white/64 transition hover:bg-white/8 hover:text-white"
           >
             <DoorOpen className="size-4" />
-            <span>Cerrar sesion</span>
+            <span>{tr('admin.logout')}</span>
           </button>
         </form>
       </div>
@@ -212,7 +238,7 @@ export function AdminSidebar({
       <button
         className="fixed left-3 top-3 z-40 rounded-lg border border-black/10 bg-white p-2 text-[#15130f] shadow-sm md:hidden"
         onClick={() => setOpen(true)}
-        aria-label="Abrir menu"
+        aria-label={tr('admin.openMenu')}
       >
         <Menu className="size-5" />
       </button>
