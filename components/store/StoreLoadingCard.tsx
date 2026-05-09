@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { useI18n } from '@/components/LanguageSwitcher'
 
 interface StoreLoadingCardProps {
   color?: string
@@ -15,6 +16,7 @@ interface StoredBranding {
 
 export default function StoreLoadingCard({ color, logoUrl }: StoreLoadingCardProps) {
   const [storedBranding, setStoredBranding] = useState<StoredBranding | null>(null)
+  const { tr } = useI18n()
 
   useEffect(() => {
     try {
@@ -57,7 +59,7 @@ export default function StoreLoadingCard({ color, logoUrl }: StoreLoadingCardPro
         </div>
 
         <div className="mt-7 flex items-center justify-center gap-0.5 text-3xl font-black tracking-wide">
-          {'Cargando'.split('').map((letter, index) => (
+          {tr('common.loading').split('').map((letter, index) => (
             <span
               key={`${letter}-${index}`}
               className="inline-block"
@@ -97,7 +99,7 @@ export default function StoreLoadingCard({ color, logoUrl }: StoreLoadingCardPro
         ))}
       </div>
 
-      <span className="sr-only" role="status" aria-live="polite">Cargando tienda</span>
+      <span className="sr-only" role="status" aria-live="polite">{tr('common.storeLoading')}</span>
     </div>
   )
 }

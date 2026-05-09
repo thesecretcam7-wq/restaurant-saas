@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { useState, useEffect } from 'react'
 import EccofoodLogo from '@/components/EccofoodLogo'
+import LanguageSwitcher, { useI18n } from '@/components/LanguageSwitcher'
 
 const PLANS = [
   {
@@ -90,6 +91,7 @@ function formatPrice(amount: number | null, currency: CurrencyInfo | null, yearl
 export default function PlanesPage() {
   const [yearly, setYearly] = useState(false)
   const [currency, setCurrency] = useState<CurrencyInfo | null>(null)
+  const { tr } = useI18n()
 
   useEffect(() => {
     fetch('/api/currency-rates')
@@ -112,14 +114,15 @@ export default function PlanesPage() {
             <EccofoodLogo size="sm" textClassName="font-bold text-foreground text-lg tracking-tight" />
           </Link>
           <div className="hidden md:flex items-center gap-8 text-sm text-muted-foreground">
-            <Link href="/#features" className="hover:text-foreground transition-colors">Funciones</Link>
+            <Link href="/#features" className="hover:text-foreground transition-colors">{tr('landing.nav.features')}</Link>
             <Link href="/#how" className="hover:text-foreground transition-colors">Cómo funciona</Link>
-            <Link href="/planes" className="text-primary font-semibold">Precios</Link>
+            <Link href="/planes" className="text-primary font-semibold">{tr('pricing.eyebrow')}</Link>
           </div>
           <div className="flex items-center gap-3">
+            <LanguageSwitcher compact className="hidden border-border bg-card/80 md:inline-flex" />
             <Link href="/login" className="text-sm text-muted-foreground hover:text-foreground transition-colors hidden md:block">Iniciar sesión</Link>
             <Link href="/register" className="px-5 py-2 rounded-lg bg-gradient-to-r from-primary to-secondary hover:from-primary/90 hover:to-secondary/90 text-white text-sm font-bold transition-all shadow-lg shadow-primary/30 active:scale-95">
-              Empezar gratis
+              {tr('common.startFree')}
             </Link>
           </div>
         </div>
@@ -130,12 +133,12 @@ export default function PlanesPage() {
 
           {/* HEADER */}
           <div className="text-center mb-16 animate-fade-in">
-            <p className="text-primary text-sm font-semibold uppercase tracking-widest mb-4">Precios</p>
+            <p className="text-primary text-sm font-semibold uppercase tracking-widest mb-4">{tr('pricing.eyebrow')}</p>
             <h1 className="text-5xl md:text-6xl font-black tracking-tight mb-4 text-foreground">
-              Transparente y justo
+              {tr('pricing.title')}
             </h1>
             <p className="text-muted-foreground text-lg max-w-xl mx-auto mb-2">
-              Sin comisiones por venta. Pagas solo el plan. Cancela cuando quieras.
+              {tr('pricing.subtitle')}
             </p>
             {currency && (
               <p className="text-sm text-muted-foreground">
@@ -151,13 +154,13 @@ export default function PlanesPage() {
                 onClick={() => setYearly(false)}
                 className={`px-5 py-2 rounded-lg text-sm font-semibold transition-all ${!yearly ? 'bg-foreground text-background' : 'text-muted-foreground hover:text-foreground'}`}
               >
-                Mensual
+                {tr('pricing.monthly')}
               </button>
               <button
                 onClick={() => setYearly(true)}
                 className={`px-5 py-2 rounded-lg text-sm font-semibold transition-all flex items-center gap-2 ${yearly ? 'bg-foreground text-background' : 'text-muted-foreground hover:text-foreground'}`}
               >
-                Anual
+                {tr('pricing.yearly')}
                 <span className="px-2 py-0.5 rounded-full bg-secondary text-white text-xs font-bold">−10%</span>
               </button>
             </div>
@@ -195,10 +198,10 @@ export default function PlanesPage() {
                         <span className="text-muted-foreground text-sm mb-2">{yearly ? '/año' : '/mes'}</span>
                       </>
                     ) : (
-                      <span className="text-3xl font-black text-foreground">Personalizado</span>
+                      <span className="text-3xl font-black text-foreground">{tr('common.customPrice')}</span>
                     )}
                   </div>
-                  {yearly && plan.price !== null && <p className="text-muted-foreground text-sm">facturado anual</p>}
+                  {yearly && plan.price !== null && <p className="text-muted-foreground text-sm">{tr('common.yearlyBilled')}</p>}
                   <p className="text-sm text-muted-foreground mt-2">{plan.desc}</p>
                 </div>
 
@@ -276,7 +279,7 @@ export default function PlanesPage() {
 
           {/* FAQ */}
           <div className="mt-24 max-w-2xl mx-auto">
-            <h2 className="text-3xl font-black text-center mb-10 text-foreground">Preguntas frecuentes</h2>
+            <h2 className="text-3xl font-black text-center mb-10 text-foreground">{tr('pricing.faqTitle')}</h2>
             <div className="space-y-5">
               {[
                 ['¿Hay período de prueba?', '30 días gratis en cualquier plan. Sin tarjeta de crédito. Sin compromisos.'],

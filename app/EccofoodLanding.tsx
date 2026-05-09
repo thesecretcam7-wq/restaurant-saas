@@ -4,6 +4,7 @@ import Image from 'next/image'
 import Link from 'next/link'
 import { motion } from 'framer-motion'
 import EccofoodLogo from '@/components/EccofoodLogo'
+import LanguageSwitcher, { useI18n } from '@/components/LanguageSwitcher'
 import {
   ArrowRight,
   BarChart3,
@@ -28,8 +29,6 @@ import {
   UsersRound,
   Zap,
 } from 'lucide-react'
-
-const navItems = ['Funciones', 'Precios', 'Demo', 'Casos de exito']
 
 const restaurantLogos = [
   { name: 'Parrilla Norte', initials: 'PN', color: '#101010' },
@@ -257,6 +256,14 @@ function FeatureVisual({ type }: { type: string }) {
 }
 
 export function EccofoodLanding() {
+  const { tr } = useI18n()
+  const navItems = [
+    { label: tr('landing.nav.features'), href: '#funciones' },
+    { label: tr('landing.nav.pricing'), href: '#precios' },
+    { label: tr('landing.nav.demo'), href: '#demo' },
+    { label: tr('landing.nav.cases'), href: '#casos-de-exito' },
+  ]
+
   return (
     <main className="min-h-screen overflow-x-hidden bg-[#f8f7f3] text-[#101010]">
       <nav className="sticky top-0 z-50 border-b border-black/[0.06] bg-white/78 backdrop-blur-2xl">
@@ -271,20 +278,21 @@ export function EccofoodLanding() {
 
           <div className="hidden items-center gap-8 text-sm font-black text-black/54 lg:flex">
             {navItems.map(item => (
-              <a key={item} href={`#${item.toLowerCase().replaceAll(' ', '-')}`} className="transition hover:text-black">
-                {item}
+              <a key={item.href} href={item.href} className="transition hover:text-black">
+                {item.label}
               </a>
             ))}
           </div>
 
           <div className="flex items-center gap-1.5 sm:gap-2">
+            <LanguageSwitcher compact className="hidden border-black/8 bg-white/70 sm:inline-flex" />
             <Link href="/login" className="rounded-xl px-3 py-2.5 text-xs font-black text-black/64 transition hover:bg-black/[0.04] hover:text-black sm:px-4 sm:text-sm">
-              <span className="sm:hidden">Entrar</span>
-              <span className="hidden sm:inline">Iniciar sesion</span>
+              <span className="sm:hidden">{tr('common.enter')}</span>
+              <span className="hidden sm:inline">{tr('common.login')}</span>
             </Link>
             <Link href="/register" className="inline-flex h-10 items-center gap-1.5 rounded-xl bg-[#ff6b1a] px-3 text-xs font-black text-white shadow-lg shadow-orange-900/14 transition hover:-translate-y-0.5 hover:bg-[#ed5f12] sm:h-11 sm:gap-2 sm:px-4 sm:text-sm">
-              <span className="sm:hidden">Gratis</span>
-              <span className="hidden sm:inline">Empieza Gratis</span>
+              <span className="sm:hidden">Free</span>
+              <span className="hidden sm:inline">{tr('common.startFree')}</span>
               <ArrowRight className="size-3.5 sm:size-4" />
             </Link>
           </div>
@@ -301,19 +309,19 @@ export function EccofoodLanding() {
             </div>
 
             <h1 className="max-w-4xl text-5xl font-black leading-[0.96] tracking-tight sm:text-6xl lg:text-7xl">
-              Haz crecer tu restaurante con tecnologia que vende por ti
+              {tr('landing.hero.title')}
             </h1>
             <p className="mt-7 max-w-2xl text-lg font-semibold leading-8 text-black/58">
-              Gestiona pedidos, cocina, reservas, delivery y pagos desde una sola plataforma moderna.
+              {tr('landing.hero.subtitle')}
             </p>
 
             <div className="mt-9 flex flex-col gap-3 sm:flex-row">
               <Link href="/register" className="group inline-flex h-14 items-center justify-center gap-2 rounded-2xl bg-[#101010] px-7 text-sm font-black text-white shadow-2xl shadow-black/18 transition hover:-translate-y-0.5">
-                Crear mi restaurante
+                {tr('common.createRestaurant')}
                 <ArrowRight className="size-4 transition group-hover:translate-x-1" />
               </Link>
               <Link href="/elbuenpaladar" className="inline-flex h-14 items-center justify-center gap-2 rounded-2xl border border-black/10 bg-white px-7 text-sm font-black text-black shadow-sm transition hover:-translate-y-0.5 hover:shadow-xl">
-                Ver demo en vivo
+                {tr('common.liveDemo')}
               </Link>
             </div>
 
@@ -329,7 +337,7 @@ export function EccofoodLanding() {
                 <div className="flex gap-1 text-[#ff9f43]">
                   {[0, 1, 2, 3, 4].map(i => <Star key={i} className="size-4 fill-current" />)}
                 </div>
-                <p className="mt-1 text-sm font-bold text-black/50">Para restaurantes independientes, cadenas y cocinas dark.</p>
+                <p className="mt-1 text-sm font-bold text-black/50">{tr('landing.hero.for')}</p>
               </div>
             </div>
           </motion.div>
@@ -340,7 +348,7 @@ export function EccofoodLanding() {
 
       <section className="border-y border-black/[0.06] bg-white px-4 py-8 sm:px-6">
         <div className="mx-auto flex max-w-7xl flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
-          <p className="text-sm font-black uppercase text-black/38">Ejemplos de restaurantes que pueden operar con Eccofood</p>
+          <p className="text-sm font-black uppercase text-black/38">{tr('landing.logos.title')}</p>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
             {restaurantLogos.map(restaurant => (
               <div key={restaurant.name} className="flex items-center justify-center gap-2 rounded-2xl border border-black/8 bg-[#faf9f6] px-4 py-3 text-center text-sm font-black text-black/58">
@@ -369,12 +377,12 @@ export function EccofoodLanding() {
       <section id="funciones" className="bg-white px-4 py-18 sm:px-6 lg:py-24">
         <div className="mx-auto max-w-7xl">
           <motion.div {...fadeUp()} className="mx-auto max-w-3xl text-center">
-            <p className="text-sm font-black uppercase text-[#ff6b1a]">Funciones premium</p>
+            <p className="text-sm font-black uppercase text-[#ff6b1a]">{tr('landing.features.eyebrow')}</p>
             <h2 className="mt-4 text-4xl font-black leading-tight tracking-tight sm:text-5xl">
-              Una plataforma completa para vender, controlar y escalar.
+              {tr('landing.features.title')}
             </h2>
             <p className="mt-5 text-base font-semibold leading-7 text-black/55">
-              Todo conectado: cliente, caja, cocina, inventario, pagos y dueno del restaurante.
+              {tr('landing.features.subtitle')}
             </p>
           </motion.div>
 
@@ -408,9 +416,9 @@ export function EccofoodLanding() {
         <div className="mx-auto max-w-7xl">
           <motion.div {...fadeUp()} className="flex flex-col justify-between gap-6 md:flex-row md:items-end">
             <div>
-              <p className="text-sm font-black uppercase text-[#ff6b1a]">Escenarios de uso</p>
+              <p className="text-sm font-black uppercase text-[#ff6b1a]">{tr('landing.scenarios.eyebrow')}</p>
               <h2 className="mt-4 max-w-3xl text-4xl font-black leading-tight tracking-tight sm:text-5xl">
-                Historias tipo para mostrar como se ve Eccofood en operacion real.
+                {tr('landing.scenarios.title')}
               </h2>
             </div>
             <div className="rounded-2xl border border-black/8 bg-white px-5 py-4 shadow-sm">
@@ -442,15 +450,15 @@ export function EccofoodLanding() {
       <section className="bg-[#101010] px-4 py-18 text-white sm:px-6 lg:py-24">
         <div className="mx-auto max-w-7xl">
           <motion.div {...fadeUp()} className="mx-auto max-w-3xl text-center">
-            <p className="text-sm font-black uppercase text-[#ffb366]">Comparativa</p>
+            <p className="text-sm font-black uppercase text-[#ffb366]">{tr('landing.compare.eyebrow')}</p>
             <h2 className="mt-4 text-4xl font-black leading-tight tracking-tight sm:text-5xl">
-              Antes de Eccofood vs con Eccofood
+              {tr('landing.compare.title')}
             </h2>
           </motion.div>
 
           <div className="mt-12 grid gap-4 lg:grid-cols-2">
             <div className="rounded-[2rem] border border-white/10 bg-white/[0.06] p-6">
-              <h3 className="text-2xl font-black text-white/78">Antes</h3>
+              <h3 className="text-2xl font-black text-white/78">{tr('landing.compare.before')}</h3>
               <div className="mt-6 space-y-3">
                 {before.map(item => (
                   <div key={item} className="flex items-center gap-3 rounded-2xl bg-black/24 px-4 py-3 text-sm font-bold text-white/58">
@@ -461,7 +469,7 @@ export function EccofoodLanding() {
               </div>
             </div>
             <div className="rounded-[2rem] border border-[#ff9f43]/28 bg-[#ff6b1a] p-6 text-white shadow-[0_30px_90px_rgba(255,107,26,0.25)]">
-              <h3 className="text-2xl font-black">Con Eccofood</h3>
+              <h3 className="text-2xl font-black">{tr('landing.compare.after')}</h3>
               <div className="mt-6 space-y-3">
                 {after.map(item => (
                   <div key={item} className="flex items-center gap-3 rounded-2xl bg-white/16 px-4 py-3 text-sm font-black">
@@ -478,15 +486,15 @@ export function EccofoodLanding() {
       <section id="precios" className="bg-white px-4 py-18 sm:px-6 lg:py-24">
         <div className="mx-auto grid max-w-7xl gap-8 lg:grid-cols-[0.72fr_1.28fr] lg:items-center">
           <motion.div {...fadeUp()}>
-            <p className="text-sm font-black uppercase text-[#ff6b1a]">Precios</p>
+            <p className="text-sm font-black uppercase text-[#ff6b1a]">{tr('landing.pricing.eyebrow')}</p>
             <h2 className="mt-4 text-4xl font-black leading-tight tracking-tight sm:text-5xl">
-              Paga mensual o ahorra con planes anuales.
+              {tr('landing.pricing.title')}
             </h2>
             <p className="mt-5 text-base font-semibold leading-7 text-black/55">
-              El pago anual incluye descuento y mantiene el restaurante activo durante 12 meses sin interrupciones.
+              {tr('landing.pricing.subtitle')}
             </p>
             <Link href="/planes" className="mt-8 inline-flex h-14 items-center justify-center gap-2 rounded-2xl bg-[#101010] px-7 text-sm font-black text-white shadow-xl shadow-black/14 transition hover:-translate-y-0.5">
-              Ver planes
+              {tr('common.viewPlans')}
               <ArrowRight className="size-4" />
             </Link>
           </motion.div>
@@ -496,7 +504,7 @@ export function EccofoodLanding() {
               <div key={plan.name} className={`rounded-[1.6rem] border p-5 shadow-sm ${plan.popular ? 'border-[#ff6b1a] bg-[#fff7ed]' : 'border-black/8 bg-[#faf9f6]'}`}>
                 {plan.popular && (
                   <p className="mb-3 w-fit rounded-full bg-[#ff6b1a] px-3 py-1 text-[11px] font-black uppercase text-white">
-                    Mas elegido
+                    {tr('landing.pricing.popular')}
                   </p>
                 )}
                 <div className="flex items-center justify-between">
@@ -506,9 +514,9 @@ export function EccofoodLanding() {
                   </div>
                 </div>
                 <p className="mt-5 text-4xl font-black">{plan.monthly} EUR</p>
-                <p className="text-sm font-bold text-black/45">por mes</p>
+                <p className="text-sm font-bold text-black/45">/{tr('common.month')}</p>
                 <div className="mt-4 rounded-2xl border border-[#ff6b1a]/20 bg-white px-4 py-3">
-                  <p className="text-xs font-black uppercase text-[#c54a0c]">Pago anual</p>
+                  <p className="text-xs font-black uppercase text-[#c54a0c]">{tr('landing.pricing.annual')}</p>
                   <p className="mt-1 text-2xl font-black">{plan.annual.toLocaleString('es-ES')} EUR/año</p>
                   <p className="text-xs font-black text-emerald-700">{plan.discount}</p>
                 </div>
@@ -530,16 +538,16 @@ export function EccofoodLanding() {
         <div className="mx-auto max-w-7xl overflow-hidden rounded-[2.4rem] bg-[#101010] p-6 text-white shadow-[0_35px_120px_rgba(17,17,17,0.24)] sm:p-10 lg:p-14">
           <div className="grid gap-8 lg:grid-cols-[1fr_0.5fr] lg:items-end">
             <div>
-              <p className="text-sm font-black uppercase text-[#ffb366]">Final CTA</p>
+              <p className="text-sm font-black uppercase text-[#ffb366]">Eccofood</p>
               <h2 className="mt-4 max-w-4xl text-4xl font-black leading-tight tracking-tight sm:text-6xl">
-                Tu restaurante merece operar como una gran cadena.
+                {tr('landing.cta.title')}
               </h2>
               <p className="mt-5 max-w-2xl text-base font-semibold leading-7 text-white/58">
-                Orden, ventas, pagos, cocina y control en una plataforma que se ve cara porque trabaja como una herramienta seria.
+                {tr('landing.cta.subtitle')}
               </p>
             </div>
             <Link href="/register" className="inline-flex h-16 items-center justify-center gap-2 rounded-2xl bg-[#ff6b1a] px-8 text-base font-black text-white shadow-2xl shadow-orange-950/25 transition hover:-translate-y-0.5 hover:bg-[#ed5f12]">
-              Empieza gratis hoy
+              {tr('common.startFreeToday')}
               <ArrowRight className="size-5" />
             </Link>
           </div>
@@ -554,7 +562,7 @@ export function EccofoodLanding() {
               <p className="text-lg font-black">Eccofood</p>
             </div>
             <p className="mt-4 max-w-sm text-sm font-semibold leading-6 text-black/48">
-              Software premium para restaurantes que quieren vender mas, operar mejor y verse como una gran marca.
+              {tr('landing.footer.text')}
             </p>
           </div>
           {[
