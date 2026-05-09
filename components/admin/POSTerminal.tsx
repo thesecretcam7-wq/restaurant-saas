@@ -1362,87 +1362,111 @@ export function POSTerminal({
         await abandonCart(tenantId, supabase);
       }
 
-      // Attempt to print receipt if printer is configured
-      let settings: any = null;
-      try {
-        const result = await supabase
-          .from('restaurant_settings')
-          .select('default_receipt_printer_id, printer_auto_print, display_name, phone')
-          .eq('tenant_id', tenantId)
-          .maybeSingle();
+      const receiptSnapshot = {
+        orderId: receiptOrderId,
+        orderNumber: receiptOrderNumber || 'POS',
+        items: cart.map(item => ({ ...item })),
+        subtotal,
+        discount,
+        tax: taxAmount,
+        taxRate,
+        total,
+        amountPaid: paymentMethod === 'cash' ? amountPaid : undefined,
+        change: paymentMethod === 'cash' ? (amountPaid || 0) - total : 0,
+        currencyInfo,
+        waiterName: selectedStaffName || undefined,
+        tableNumber: selectedTableNumber || undefined,
+        paymentMethod,
+      };
 
-        if (result.error) throw new Error(result.error.message);
-        settings = result.data;
-        if (settings?.default_receipt_printer_id && typeof window !== 'undefined') {
-          localStorage.setItem(`eccofood-pos-printer-settings-${tenantId}`, JSON.stringify(settings));
-        }
-      } catch (settingsError) {
-        if (typeof window !== 'undefined') {
-          const cachedSettings = localStorage.getItem(`eccofood-pos-printer-settings-${tenantId}`);
-          settings = cachedSettings ? JSON.parse(cachedSettings) : null;
-        }
-        if (!settings) {
-          printerWarnings.push(`No se pudo leer configuracion de impresora: ${settingsError instanceof Error ? settingsError.message : String(settingsError)}`);
-        }
-      }
-
-      let receiptPrintedWithDrawer = false;
-      try {
-        if (!settings?.default_receipt_printer_id) {
-          printerWarnings.push('No hay impresora predeterminada');
-        } else if (!settings?.printer_auto_print) {
-          printerWarnings.push('Auto impresion desactivada');
-        } else if (receiptOrderId) {
-          const { data: order } = savedOfflineSale
-            ? { data: null }
-            : await supabase
-                .from('orders')
-                .select('id, order_number')
-                .eq('id', receiptOrderId)
-                .eq('tenant_id', tenantId)
-                .maybeSingle();
-
-          try {
-            await printReceipt(tenantId, settings.default_receipt_printer_id, {
-              orderId: receiptOrderId,
-              orderNumber: order?.order_number || receiptOrderNumber || 'POS',
-              restaurantName: settings?.display_name || restaurantName,
-              restaurantPhone: settings?.phone || restaurantPhone,
-              items: cart,
-              subtotal,
-              discount,
-              tax: taxAmount,
-              taxRate,
-              total,
-              amountPaid: paymentMethod === 'cash' ? amountPaid : undefined,
-              change: paymentMethod === 'cash'
-                ? (amountPaid || 0) - total
-                : 0,
-              currencyInfo,
-              waiterName: selectedStaffName || undefined,
-              tableNumber: selectedTableNumber || undefined,
-              openCashDrawer: paymentMethod === 'cash',
-            });
-            receiptPrintedWithDrawer = paymentMethod === 'cash';
-          } catch (printError) {
-            printerWarnings.push(`Recibo no impreso: ${printError instanceof Error ? printError.message : String(printError)}`);
-          }
-        } else {
-          printerWarnings.push('No se pudo identificar el pedido para imprimir');
-        }
-      } catch (printFlowError) {
-        printerWarnings.push(`No se pudo preparar el recibo: ${printFlowError instanceof Error ? printFlowError.message : String(printFlowError)}`);
-      }
-
-      if (paymentMethod === 'cash') {
+      const printInBackground = async () => {
+        const backgroundWarnings: string[] = [];
+        let settings: any = null;
         try {
-          if (!receiptPrintedWithDrawer) {
-            await openCashDrawer(tenantId);
+          const result = await supabase
+            .from('restaurant_settings')
+            .select('default_receipt_printer_id, printer_auto_print, display_name, phone')
+            .eq('tenant_id', tenantId)
+            .maybeSingle();
+
+          if (result.error) throw new Error(result.error.message);
+          settings = result.data;
+          if (settings?.default_receipt_printer_id && typeof window !== 'undefined') {
+            localStorage.setItem(`eccofood-pos-printer-settings-${tenantId}`, JSON.stringify(settings));
           }
-        } catch (drawerError) {
-          printerWarnings.push(`Cajon no abierto: ${drawerError instanceof Error ? drawerError.message : String(drawerError)}`);
+        } catch (settingsError) {
+          if (typeof window !== 'undefined') {
+            const cachedSettings = localStorage.getItem(`eccofood-pos-printer-settings-${tenantId}`);
+            settings = cachedSettings ? JSON.parse(cachedSettings) : null;
+          }
+          if (!settings) {
+            backgroundWarnings.push(`No se pudo leer configuracion de impresora: ${settingsError instanceof Error ? settingsError.message : String(settingsError)}`);
+          }
         }
-      }
+
+        let receiptPrintedWithDrawer = false;
+        try {
+          if (!settings?.default_receipt_printer_id) {
+            backgroundWarnings.push('No hay impresora predeterminada');
+          } else if (!settings?.printer_auto_print) {
+            backgroundWarnings.push('Auto impresion desactivada');
+          } else if (receiptSnapshot.orderId) {
+            try {
+              await printReceipt(tenantId, settings.default_receipt_printer_id, {
+                orderId: receiptSnapshot.orderId,
+                orderNumber: receiptSnapshot.orderNumber,
+                restaurantName: settings?.display_name || restaurantName,
+                restaurantPhone: settings?.phone || restaurantPhone,
+                items: receiptSnapshot.items,
+                subtotal: receiptSnapshot.subtotal,
+                discount: receiptSnapshot.discount,
+                tax: receiptSnapshot.tax,
+                taxRate: receiptSnapshot.taxRate,
+                total: receiptSnapshot.total,
+                amountPaid: receiptSnapshot.amountPaid,
+                change: receiptSnapshot.change,
+                currencyInfo: receiptSnapshot.currencyInfo,
+                waiterName: receiptSnapshot.waiterName,
+                tableNumber: receiptSnapshot.tableNumber,
+                openCashDrawer: receiptSnapshot.paymentMethod === 'cash',
+              });
+              receiptPrintedWithDrawer = receiptSnapshot.paymentMethod === 'cash';
+            } catch (printError) {
+              backgroundWarnings.push(`Recibo no impreso: ${printError instanceof Error ? printError.message : String(printError)}`);
+            }
+          } else {
+            backgroundWarnings.push('No se pudo identificar el pedido para imprimir');
+          }
+        } catch (printFlowError) {
+          backgroundWarnings.push(`No se pudo preparar el recibo: ${printFlowError instanceof Error ? printFlowError.message : String(printFlowError)}`);
+        }
+
+        if (receiptSnapshot.paymentMethod === 'cash') {
+          try {
+            if (!receiptPrintedWithDrawer) {
+              await openCashDrawer(tenantId);
+            }
+          } catch (drawerError) {
+            backgroundWarnings.push(`Cajon no abierto: ${drawerError instanceof Error ? drawerError.message : String(drawerError)}`);
+          }
+        }
+
+        if (backgroundWarnings.length > 0) {
+          setToast({
+            message: `Venta guardada. ${backgroundWarnings.slice(0, 2).join(' | ')}`,
+            type: 'error',
+          });
+        } else if (!savedOfflineSale) {
+          setToast({
+            message: receiptSnapshot.paymentMethod === 'cash'
+              ? 'Recibo impreso y cajon abierto'
+              : 'Recibo impreso',
+            type: 'success',
+          });
+        }
+      };
+
+      void printInBackground();
 
       // Clear cart and reset all states
       setCart([]);
@@ -1474,10 +1498,8 @@ export function POSTerminal({
       setToast({
         message: savedOfflineSale
           ? 'Venta cobrada en modo offline. Se subira sola cuando vuelva internet.'
-          : printerWarnings.length > 0
-          ? `Venta guardada. ${printerWarnings.slice(0, 2).join(' | ')}`
-          : 'Orden completada, recibo impreso y cajon abierto',
-        type: savedOfflineSale ? 'success' : printerWarnings.length > 0 ? 'error' : 'success',
+          : 'Venta guardada. Imprimiendo recibo...',
+        type: 'success',
       });
     } catch (error) {
       console.error('Error processing payment:', error);

@@ -201,27 +201,26 @@ export async function printReceipt(
       printViaBrowserAPI(data);
     }
 
-    // 4. Log successful print
-    await savePrinterLog(tenantId, printerId, 'print', 'success', {
+    // 4. Log successful print without delaying the POS payment flow.
+    void savePrinterLog(tenantId, printerId, 'print', 'success', {
       orderNumber: data.orderNumber,
       amount: data.total,
-    });
+    }).catch(() => {});
 
     // Update device last_used_at. This is best-effort so offline printing can still succeed.
-    try {
-      await getSupabase()
+    void getSupabase()
         .from('printer_devices')
         .update({ last_used_at: new Date().toISOString() })
         .eq('id', printerId)
-        .eq('tenant_id', tenantId);
-    } catch {}
+        .eq('tenant_id', tenantId)
+        .then(() => undefined, () => undefined);
   } catch (error) {
     const errorMsg = error instanceof Error ? error.message : String(error);
     console.error('Print error:', errorMsg);
 
-    await savePrinterLog(tenantId, printerId, 'print', 'failed', {
+    void savePrinterLog(tenantId, printerId, 'print', 'failed', {
       error: errorMsg,
-    });
+    }).catch(() => {});
     throw new Error(errorMsg);
   }
 }
