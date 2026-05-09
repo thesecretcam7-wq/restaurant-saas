@@ -3,7 +3,7 @@
 import { use, useState, useEffect, useCallback } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { useTenantResolver } from '@/lib/hooks/useTenantResolver';
-import { Plus, AlertCircle, CheckCircle, Download } from 'lucide-react';
+import { Plus, AlertCircle, CheckCircle, Download, Activity } from 'lucide-react';
 import { PrinterDeviceCard } from '@/components/admin/PrinterDeviceCard';
 import { useWebUSB } from '@/lib/hooks/useWebUSB';
 import { testPrinterConnection } from '@/lib/pos-printer';
@@ -32,6 +32,7 @@ export default function PrintersConfigPage({ params }: Props) {
   const [loading, setLoading] = useState(false);
   const [autoPrint, setAutoPrint] = useState(true);
   const [copies, setCopies] = useState(1);
+  const [bridgeStatus, setBridgeStatus] = useState<'unknown' | 'checking' | 'online' | 'offline'>('unknown');
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
 
   const webusb = useWebUSB();
@@ -74,6 +75,29 @@ export default function PrintersConfigPage({ params }: Props) {
   const handleAutoPrintChange = async (checked: boolean) => {
     setAutoPrint(checked);
     await saveAutoPrint(checked);
+  };
+
+  const checkBridgeStatus = async () => {
+    setBridgeStatus('checking');
+    const controller = new AbortController();
+    const timeout = window.setTimeout(() => controller.abort(), 2500);
+
+    try {
+      const response = await fetch('http://127.0.0.1:17777/health', {
+        signal: controller.signal,
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok || payload?.ok === false) {
+        throw new Error(payload?.error || 'Puente local sin respuesta');
+      }
+      setBridgeStatus('online');
+      showToast(`Puente activo${payload.defaultPrinter ? `: ${payload.defaultPrinter}` : ''}`, 'success');
+    } catch {
+      setBridgeStatus('offline');
+      showToast('Puente local no detectado. Abre Eccofood Print Agent y deja la ventana abierta.', 'error');
+    } finally {
+      window.clearTimeout(timeout);
+    }
   };
 
   // Copies are stored in the default device's config
@@ -324,6 +348,70 @@ export default function PrintersConfigPage({ params }: Props) {
         </div>
       )}
 
+      <div className="grid gap-3 lg:grid-cols-3">
+        <div className="rounded-xl border border-orange-500/30 bg-orange-500/10 p-4">
+          <div className="mb-3 flex items-center justify-between gap-3">
+            <p className="text-sm font-bold text-orange-100">1. Instalar en el PC de caja</p>
+            <span className="rounded-full bg-orange-500 px-2 py-1 text-xs font-black text-black">Paso 1</span>
+          </div>
+          <p className="mb-4 text-xs leading-relaxed text-orange-100/75">
+            Descarga el archivo, instalalo y despues abre Eccofood Print Agent. La ventana debe quedar abierta mientras cobras.
+          </p>
+          <a
+            href="/downloads/eccofood-print-agent.zip"
+            download
+            className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-orange-500 px-4 py-2 font-bold text-black shadow-lg shadow-orange-500/20 transition hover:bg-orange-400"
+          >
+            <Download className="w-5 h-5" />
+            Descargar instalador
+          </a>
+        </div>
+
+        <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-4">
+          <div className="mb-3 flex items-center justify-between gap-3">
+            <p className="text-sm font-bold text-emerald-100">2. Registrar impresora Windows</p>
+            <span className="rounded-full bg-emerald-500 px-2 py-1 text-xs font-black text-black">Paso 2</span>
+          </div>
+          <p className="mb-4 text-xs leading-relaxed text-emerald-100/75">
+            Esto crea una sola impresora en Eccofood y usa la impresora predeterminada de Windows.
+          </p>
+          <button
+            onClick={handleAddWindowsPrinter}
+            disabled={loading || !tenantId}
+            className="inline-flex w-full items-center justify-center gap-2 rounded-lg border border-emerald-500/40 bg-emerald-500/20 px-4 py-2 font-bold text-emerald-50 transition hover:bg-emerald-500/30 disabled:cursor-not-allowed disabled:border-gray-700 disabled:bg-gray-800 disabled:text-gray-400"
+          >
+            <Plus className="w-5 h-5" />
+            Usar impresora de Windows
+          </button>
+        </div>
+
+        <div className="rounded-xl border border-cyan-500/30 bg-cyan-500/10 p-4">
+          <div className="mb-3 flex items-center justify-between gap-3">
+            <p className="text-sm font-bold text-cyan-100">3. Comprobar que esta abierto</p>
+            <span className={`rounded-full px-2 py-1 text-xs font-black ${
+              bridgeStatus === 'online'
+                ? 'bg-emerald-500 text-black'
+                : bridgeStatus === 'offline'
+                  ? 'bg-red-500 text-white'
+                  : 'bg-cyan-500 text-black'
+            }`}>
+              {bridgeStatus === 'checking' ? 'Revisando' : bridgeStatus === 'online' ? 'Activo' : bridgeStatus === 'offline' ? 'No activo' : 'Estado'}
+            </span>
+          </div>
+          <p className="mb-4 text-xs leading-relaxed text-cyan-100/75">
+            Si aqui aparece activo, el TPV puede imprimir directo y abrir el cajon sin Chrome.
+          </p>
+          <button
+            onClick={checkBridgeStatus}
+            disabled={bridgeStatus === 'checking'}
+            className="inline-flex w-full items-center justify-center gap-2 rounded-lg border border-cyan-500/40 bg-cyan-500/20 px-4 py-2 font-bold text-cyan-50 transition hover:bg-cyan-500/30 disabled:cursor-wait disabled:opacity-60"
+          >
+            <Activity className="w-5 h-5" />
+            Comprobar puente activo
+          </button>
+        </div>
+      </div>
+
       <div className="flex flex-wrap gap-3">
         <button
           onClick={handleAddPrinter}
@@ -333,24 +421,6 @@ export default function PrintersConfigPage({ params }: Props) {
           <Plus className="w-5 h-5" />
           Agregar Impresora USB
         </button>
-
-        <button
-          onClick={handleAddWindowsPrinter}
-          disabled={loading || !tenantId}
-          className="flex items-center gap-2 rounded-lg border border-emerald-500/40 bg-emerald-500/15 px-4 py-2 font-medium text-emerald-100 transition hover:bg-emerald-500/25 disabled:cursor-not-allowed disabled:border-gray-700 disabled:bg-gray-800 disabled:text-gray-400"
-        >
-          <Plus className="w-5 h-5" />
-          Usar impresora de Windows
-        </button>
-
-        <a
-          href="/downloads/eccofood-print-agent.zip"
-          download
-          className="flex items-center gap-2 rounded-lg border border-orange-400/50 bg-orange-500 px-4 py-2 font-bold text-black shadow-lg shadow-orange-500/20 transition hover:bg-orange-400"
-        >
-          <Download className="w-5 h-5" />
-          Descargar Eccofood Print Agent
-        </a>
       </div>
 
       <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-4 text-sm text-amber-100">
