@@ -17,6 +17,7 @@ export interface PrinterConfig {
   local_bridge_enabled?: boolean;
   local_bridge_url?: string;
   cash_drawer_enabled?: boolean;
+  allow_browser_print_fallback?: boolean;
 }
 
 export interface PrinterDevice {

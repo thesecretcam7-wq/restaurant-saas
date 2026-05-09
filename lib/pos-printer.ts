@@ -107,6 +107,14 @@ function shouldUseLocalBridge(printer: PrinterDevice) {
   return isBrowserDriverPrinter(printer) && printer.config?.local_bridge_enabled !== false;
 }
 
+function canUseBrowserPrintFallback(printer: PrinterDevice) {
+  return printer.config?.allow_browser_print_fallback === true;
+}
+
+function getLocalBridgeError(printer: PrinterDevice) {
+  return `No se encontro el puente local de Eccofood en este computador (${getBridgeUrl(printer)}). Abre Eccofood Printer Bridge para imprimir directo y abrir el cajon.`;
+}
+
 async function printViaLocalBridge(printer: PrinterDevice, data: Uint8Array): Promise<void> {
   const response = await fetch(`${getBridgeUrl(printer)}/print`, {
     method: 'POST',
@@ -172,11 +180,19 @@ export async function printReceipt(
       try {
         await printViaLocalBridge(printer, escPosData);
       } catch (bridgeError) {
-        console.warn('Local print bridge unavailable, using browser print dialog:', bridgeError);
-        printViaBrowserAPI(data);
+        console.warn('Local print bridge unavailable:', bridgeError);
+        if (canUseBrowserPrintFallback(printer)) {
+          printViaBrowserAPI(data);
+        } else {
+          throw new Error(getLocalBridgeError(printer));
+        }
       }
     } else if (isBrowserDriverPrinter(printer)) {
-      printViaBrowserAPI(data);
+      if (canUseBrowserPrintFallback(printer)) {
+        printViaBrowserAPI(data);
+      } else {
+        throw new Error('Esta impresora de Windows necesita el puente local de Eccofood para imprimir directo sin vista previa.');
+      }
     } else if (typeof navigator !== 'undefined' && 'usb' in navigator) {
       await printViaWebUSB(printer, escPosData);
     } else {
@@ -298,6 +314,7 @@ function printViaBrowserAPI(data: ReceiptData): void {
     frameDocument.open();
     frameDocument.write(html);
     frameDocument.close();
+    frameDocument.title = `Recibo ${data.orderNumber}`;
 
     setTimeout(() => {
       frameWindow.focus();
@@ -334,7 +351,7 @@ function generateReceiptHTML(data: ReceiptData): string {
     )
     .join('');
   const extraRows = (data.discount > 0 ? 1 : 0) + ((data.tax || 0) > 0 ? 1 : 0);
-  const pageHeightMm = Math.min(190, Math.max(92, 78 + (data.items.length + extraRows) * 9));
+  const minHeightMm = Math.max(76, 54 + (data.items.length + extraRows) * 8);
 
   return `
     <!DOCTYPE html>
@@ -344,7 +361,7 @@ function generateReceiptHTML(data: ReceiptData): string {
       <title>Recibo ${safe(data.orderNumber)}</title>
       <style>
         @page {
-          size: 80mm ${pageHeightMm}mm;
+          size: 80mm auto;
           margin: 0;
         }
         * {
@@ -352,8 +369,7 @@ function generateReceiptHTML(data: ReceiptData): string {
         }
         html, body {
           width: 80mm;
-          height: ${pageHeightMm}mm;
-          min-height: 0;
+          min-height: ${minHeightMm}mm;
           margin: 0;
           padding: 0;
           background: #fff;
@@ -365,12 +381,15 @@ function generateReceiptHTML(data: ReceiptData): string {
           font-size: 18px;
           font-weight: 700;
           line-height: 1.18;
-          padding: 3mm 3mm 1mm;
+          padding: 2mm 3mm 0;
         }
         .receipt {
           width: 74mm;
+          display: block;
           break-after: avoid;
+          break-inside: avoid;
           page-break-after: avoid;
+          page-break-inside: avoid;
         }
         .header {
           text-align: center;
@@ -421,14 +440,18 @@ function generateReceiptHTML(data: ReceiptData): string {
         }
         @media print {
           html, body {
-            height: ${pageHeightMm}mm;
-            min-height: 0;
-            margin: 0;
-            overflow: visible;
+            width: 80mm !important;
+            min-height: ${minHeightMm}mm;
+            margin: 0 !important;
+            padding: 0 !important;
+            overflow: hidden;
           }
+          body { padding: 2mm 3mm 0 !important; }
           .receipt {
             break-after: avoid;
+            break-inside: avoid;
             page-break-after: avoid;
+            page-break-inside: avoid;
           }
           button { display: none !important; }
         }
@@ -535,7 +558,26 @@ export async function testPrinterConnection(
       try {
         await printViaLocalBridge(printer, testData);
       } catch (bridgeError) {
-        console.warn('Local print bridge unavailable, using browser print dialog:', bridgeError);
+        console.warn('Local print bridge unavailable:', bridgeError);
+        if (canUseBrowserPrintFallback(printer)) {
+          printViaBrowserAPI({
+            orderId: 'test',
+            orderNumber: 'TEST',
+            restaurantName: 'Eccofood',
+            items: [{ menu_item_id: 'test', name: 'Prueba impresora', price: 0, quantity: 1 }],
+            subtotal: 0,
+            discount: 0,
+            total: 0,
+            change: 0,
+            currencyInfo: { code: 'EUR', symbol: 'EUR', locale: 'es-ES' },
+            timestamp: new Date().toISOString(),
+          });
+        } else {
+          throw new Error(getLocalBridgeError(printer));
+        }
+      }
+    } else if (isBrowserDriverPrinter(printer)) {
+      if (canUseBrowserPrintFallback(printer)) {
         printViaBrowserAPI({
           orderId: 'test',
           orderNumber: 'TEST',
@@ -548,20 +590,9 @@ export async function testPrinterConnection(
           currencyInfo: { code: 'EUR', symbol: 'EUR', locale: 'es-ES' },
           timestamp: new Date().toISOString(),
         });
+      } else {
+        throw new Error('Esta impresora de Windows necesita el puente local de Eccofood para imprimir directo sin vista previa.');
       }
-    } else if (isBrowserDriverPrinter(printer)) {
-      printViaBrowserAPI({
-        orderId: 'test',
-        orderNumber: 'TEST',
-        restaurantName: 'Eccofood',
-        items: [{ menu_item_id: 'test', name: 'Prueba impresora', price: 0, quantity: 1 }],
-        subtotal: 0,
-        discount: 0,
-        total: 0,
-        change: 0,
-        currencyInfo: { code: 'EUR', symbol: '€', locale: 'es-ES' },
-        timestamp: new Date().toISOString(),
-      });
     } else if (typeof navigator !== 'undefined' && 'usb' in navigator) {
       await printViaWebUSB(printer, testData);
     } else {
