@@ -2,6 +2,7 @@
 
 import Link from 'next/link'
 import { useState, useEffect } from 'react'
+import EccofoodLogo from '@/components/EccofoodLogo'
 
 const PLANS = [
   {
@@ -108,8 +109,7 @@ export default function PlanesPage() {
       <nav className="fixed top-0 left-0 right-0 z-50 border-b border-border bg-background/80 backdrop-blur-xl">
         <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
           <Link href="/" className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-md bg-gradient-to-br from-primary to-secondary flex items-center justify-center text-xs font-black text-white">E</div>
-            <span className="font-bold text-foreground text-lg tracking-tight">Eccofood</span>
+            <EccofoodLogo size="sm" textClassName="font-bold text-foreground text-lg tracking-tight" />
           </Link>
           <div className="hidden md:flex items-center gap-8 text-sm text-muted-foreground">
             <Link href="/#features" className="hover:text-foreground transition-colors">Funciones</Link>
@@ -316,7 +316,7 @@ export default function PlanesPage() {
       <footer className="border-t border-border py-8 px-6 bg-card/30 backdrop-blur-sm">
         <div className="max-w-6xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-2">
-            <div className="w-6 h-6 rounded bg-gradient-to-br from-primary to-secondary flex items-center justify-center text-xs font-black text-white">E</div>
+            <EccofoodLogo size="xs" showText={false} />
             <span className="text-sm text-muted-foreground">Eccofood © 2026</span>
           </div>
           <div className="flex items-center gap-6 text-sm text-muted-foreground">

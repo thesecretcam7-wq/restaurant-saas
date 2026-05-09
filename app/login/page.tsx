@@ -4,6 +4,7 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { ArrowRight, Eye, EyeOff, LockKeyhole, Mail, ShieldCheck } from 'lucide-react'
+import EccofoodLogo from '@/components/EccofoodLogo'
 
 export default function LoginPage() {
   const router = useRouter()
@@ -43,8 +44,7 @@ export default function LoginPage() {
       <nav className="border-b border-black/10 bg-white/55 backdrop-blur-xl">
         <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4 sm:px-6">
           <Link href="/" className="flex items-center gap-3">
-            <span className="flex size-9 items-center justify-center rounded-lg bg-[#e43d30] text-sm font-black text-white">E</span>
-            <span className="text-lg font-black tracking-tight">Eccofood</span>
+            <EccofoodLogo size="sm" textClassName="text-lg font-black tracking-tight" />
           </Link>
           <Link href="/register" className="text-sm font-bold text-black/60 transition hover:text-black">
             Crear cuenta

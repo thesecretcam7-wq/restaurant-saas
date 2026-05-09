@@ -3,6 +3,7 @@
 import Image from 'next/image'
 import Link from 'next/link'
 import { motion } from 'framer-motion'
+import EccofoodLogo from '@/components/EccofoodLogo'
 import {
   ArrowRight,
   BarChart3,
@@ -261,9 +262,7 @@ export function EccofoodLanding() {
       <nav className="sticky top-0 z-50 border-b border-black/[0.06] bg-white/78 backdrop-blur-2xl">
         <div className="mx-auto flex h-18 max-w-7xl items-center justify-between px-4 py-3 sm:px-6">
           <Link href="/" className="flex items-center gap-3">
-            <div className="grid size-11 place-items-center rounded-2xl bg-[#101010] text-sm font-black text-white shadow-xl shadow-black/10">
-              Ec
-            </div>
+            <EccofoodLogo size="md" showText={false} />
             <div>
               <p className="text-lg font-black tracking-tight">Eccofood</p>
               <p className="-mt-1 text-[11px] font-black uppercase text-black/38">Restaurant OS</p>
@@ -551,7 +550,7 @@ export function EccofoodLanding() {
         <div className="mx-auto grid max-w-7xl gap-8 md:grid-cols-[1.2fr_0.8fr_0.8fr_0.8fr]">
           <div>
             <div className="flex items-center gap-3">
-              <div className="grid size-10 place-items-center rounded-2xl bg-[#101010] text-xs font-black text-white">Ec</div>
+              <EccofoodLogo size="md" showText={false} />
               <p className="text-lg font-black">Eccofood</p>
             </div>
             <p className="mt-4 max-w-sm text-sm font-semibold leading-6 text-black/48">

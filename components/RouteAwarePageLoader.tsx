@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
+import EccofoodLogo from '@/components/EccofoodLogo'
 
 const APP_SECTIONS = new Set([
   'acceso',
@@ -138,7 +139,7 @@ export default function RouteAwarePageLoader() {
     <main className="grid min-h-screen place-items-center bg-[#f7f5f0] px-5 text-[#17120d]">
       <section className="w-full max-w-md rounded-[2rem] border border-black/5 bg-white/90 p-8 text-center shadow-[0_30px_90px_rgba(17,17,17,0.12)] backdrop-blur">
         <div className="mx-auto mb-6 grid h-20 w-20 place-items-center rounded-[1.75rem] bg-[#111111] shadow-[0_20px_50px_rgba(249,115,22,0.24)]">
-          <div className="grid h-14 w-14 place-items-center rounded-2xl bg-[#f97316] text-3xl font-black text-white">E</div>
+          <EccofoodLogo size="lg" showText={false} />
         </div>
         <p className="text-xs font-black uppercase tracking-[0.28em] text-[#f97316]">Eccofood</p>
         <h1 className="mt-3 text-3xl font-black tracking-tight">Cargando Eccofood</h1>

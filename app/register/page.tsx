@@ -5,6 +5,7 @@ import type { ReactNode } from 'react'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { ArrowRight, BadgeCheck, Building2, Eye, EyeOff, Mail, UserRound } from 'lucide-react'
+import EccofoodLogo from '@/components/EccofoodLogo'
 
 const REGISTER_COUNTRIES = [
   { code: 'ES', label: 'Espana', timezone: 'Europe/Madrid' },
@@ -100,8 +101,7 @@ function RegisterForm() {
       <nav className="border-b border-black/10 bg-white/55 backdrop-blur-xl">
         <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4 sm:px-6">
           <Link href="/" className="flex items-center gap-3">
-            <span className="flex size-9 items-center justify-center rounded-lg bg-[#e43d30] text-sm font-black text-white">E</span>
-            <span className="text-lg font-black tracking-tight">Eccofood</span>
+            <EccofoodLogo size="sm" textClassName="text-lg font-black tracking-tight" />
           </Link>
           <Link href="/login" className="text-sm font-bold text-black/60 transition hover:text-black">
             Ya tengo cuenta

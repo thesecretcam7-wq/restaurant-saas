@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
+import EccofoodLogo from '@/components/EccofoodLogo'
 
 export default async function OwnerDashboard() {
   const supabase = await createClient()
@@ -27,8 +28,7 @@ export default async function OwnerDashboard() {
       <nav className="border-b border-border bg-background/80 backdrop-blur-xl sticky top-0 z-50">
         <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
           <Link href="/" className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-md bg-gradient-to-br from-primary to-secondary flex items-center justify-center text-xs font-black text-white">E</div>
-            <span className="font-bold text-foreground text-lg tracking-tight">Eccofood</span>
+            <EccofoodLogo size="sm" textClassName="font-bold text-foreground text-lg tracking-tight" />
           </Link>
           <div className="text-right">
             <p className="text-xs text-muted-foreground">Bienvenido</p>

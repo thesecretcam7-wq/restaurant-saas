@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { usePathname } from 'next/navigation';
+import EccofoodLogo from '@/components/EccofoodLogo';
 
 const APP_SECTIONS = new Set([
   'acceso',
@@ -142,7 +143,7 @@ export default function GlobalNavigationLoader() {
 
       <div className="w-full max-w-sm rounded-[2rem] border border-white/70 bg-white/92 p-7 text-center shadow-[0_30px_90px_rgba(0,0,0,0.22)]">
         <div className="mx-auto mb-5 grid h-16 w-16 place-items-center rounded-3xl bg-[#111111] shadow-[0_18px_45px_rgba(249,115,22,0.32)]">
-          <div className="grid h-11 w-11 place-items-center rounded-2xl bg-[#f97316] text-2xl font-black text-white">E</div>
+          <EccofoodLogo size="md" showText={false} />
         </div>
         <p className="text-xs font-black uppercase tracking-[0.26em] text-[#f97316]">Eccofood</p>
         <h2 className="mt-2 text-2xl font-black tracking-tight">{label}</h2>
