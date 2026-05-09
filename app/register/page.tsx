@@ -122,7 +122,7 @@ function RegisterForm() {
 
             <div className="mt-8 grid max-w-2xl gap-3 sm:grid-cols-2">
               {[
-                '14 dias de acceso completo',
+                '30 dias de acceso completo',
                 'Sin tarjeta para empezar',
                 'Tu marca y colores',
                 'POS, cocina y QR incluidos',
