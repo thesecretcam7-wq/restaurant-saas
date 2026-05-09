@@ -8,6 +8,7 @@ $installDir = Join-Path $env:ProgramData "EccofoodPrint"
 $taskName = "Eccofood Print Agent"
 $sourceDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $currentUser = "$env:USERDOMAIN\$env:USERNAME"
+$commonStartup = [Environment]::GetFolderPath("CommonStartup")
 
 if (-not (Test-Path $installDir)) {
   New-Item -ItemType Directory -Force -Path $installDir | Out-Null
@@ -35,6 +36,17 @@ $settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoi
 Unregister-ScheduledTask -TaskName $taskName -Confirm:$false -ErrorAction SilentlyContinue | Out-Null
 Register-ScheduledTask -TaskName $taskName -Action $action -Trigger $trigger -Settings $settings -Description "Eccofood local printing and cash drawer agent" -Force | Out-Null
 Start-ScheduledTask -TaskName $taskName
+
+try {
+  $startupCmd = Join-Path $commonStartup "Eccofood Print Agent.cmd"
+  $startupContent = @"
+@echo off
+powershell -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File "$agentPath" -Port $Port
+"@
+  Set-Content -Path $startupCmd -Value $startupContent -Encoding ASCII -Force
+} catch {
+  Write-Host "Aviso: no pude agregar el arranque automatico para todos los usuarios." -ForegroundColor Yellow
+}
 
 Write-Host ""
 Write-Host "Eccofood Print Agent instalado correctamente."
