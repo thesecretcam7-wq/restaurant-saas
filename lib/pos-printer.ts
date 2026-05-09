@@ -624,8 +624,12 @@ export async function testPrinterConnection(
  */
 export async function openCashDrawer(tenantId: string): Promise<void> {
   try {
-    // ESC p m t1 t2 — open drawer on pin 2
-    const drawerCmd = new Uint8Array([0x1b, 0x70, 0x00, 0x19, 0xfa]);
+    // ESC p m t1 t2. Send both common DK pins because many Windows POS
+    // drivers hide whether the drawer is wired to pin 2 (m=0) or pin 5 (m=1).
+    const drawerCmd = new Uint8Array([
+      0x1b, 0x70, 0x00, 0x32, 0xfa,
+      0x1b, 0x70, 0x01, 0x32, 0xfa,
+    ]);
 
     const { data: settings } = await getSupabase()
       .from('restaurant_settings')

@@ -25,6 +25,13 @@ const ALIGN_CENTER = `${ESC}a\x01`;
 const ALIGN_LEFT   = `${ESC}a\x00`;
 const INIT         = `${ESC}@`;
 
+function cashDrawerPulseCommands(): string {
+  // ESC p m t1 t2 opens cash drawers connected through the printer DK port.
+  // Some printers wire the drawer on pin 2 (m=0), others on pin 5 (m=1), so
+  // we send both standard pulses. t1/t2 are in 2ms units.
+  return `${ESC}p\x00\x32\xfa${ESC}p\x01\x32\xfa`;
+}
+
 export function generateReceiptESCPOS(data: ReceiptData, options: ReceiptOptions): Uint8Array {
   // Normal column widths
   const cols = options.paperWidth === 80 ? 48 : 32;
@@ -140,7 +147,7 @@ export function generateReceiptESCPOS(data: ReceiptData, options: ReceiptOptions
 
   // ── Cut ───────────────────────────────────────────────────────────────────
   if (options.openCashDrawer) {
-    push(`${ESC}p\x00\x19\xfa`);
+    push(cashDrawerPulseCommands());
   }
   push(`${GS}V\x42\x00`); // Full cut
   push(ALIGN_LEFT, SIZE_NORMAL);
