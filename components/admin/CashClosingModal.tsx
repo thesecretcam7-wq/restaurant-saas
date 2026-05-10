@@ -159,7 +159,7 @@ export function CashClosingModal({
                 onChange={(e) => setActualCash(e.target.value)}
                 placeholder="0.00"
                 disabled={isSubmitting}
-                className="w-full pl-8 pr-4 py-3 text-lg text-gray-900 bg-white border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none placeholder-gray-400 disabled:bg-gray-100"
+                className="cash-closing-field w-full pl-8 pr-4 py-3 text-lg rounded-lg focus:outline-none disabled:bg-gray-100"
               />
             </div>
           </div>
@@ -198,7 +198,7 @@ export function CashClosingModal({
               placeholder="Explica cualquier diferencia o observación importante..."
               disabled={isSubmitting}
               rows={3}
-              className="w-full px-4 py-3 text-gray-900 bg-white border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none placeholder-gray-400 resize-none disabled:bg-gray-100"
+              className="cash-closing-field w-full px-4 py-3 rounded-lg focus:outline-none resize-none disabled:bg-gray-100"
             />
           </div>
         </div>

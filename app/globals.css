@@ -946,6 +946,22 @@ body {
   box-shadow: 0 0 0 4px rgba(0, 217, 255, 0.11);
 }
 
+.pos-premium :where(.cash-closing-field) {
+  border: 2px solid #d1d5db;
+  background: #ffffff;
+  color: #111827;
+}
+
+.pos-premium :where(.cash-closing-field)::placeholder {
+  color: #6b7280;
+  opacity: 1;
+}
+
+.pos-premium :where(.cash-closing-field):focus {
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.14);
+}
+
 .pos-panel {
   border: 1px solid rgba(255, 255, 255, 0.11);
   background:
