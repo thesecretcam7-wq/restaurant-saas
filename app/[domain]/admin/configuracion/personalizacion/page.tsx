@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { useTenantResolver } from '@/lib/hooks/useTenantResolver'
 import toast from 'react-hot-toast'
+import { Clock, MonitorSmartphone, Plus, QrCode, ShoppingBag, ShoppingCart, Star, Utensils } from 'lucide-react'
 
 const GOOGLE_FONTS = ['Inter', 'Roboto', 'Open Sans', 'Lato', 'Montserrat', 'Playfair Display', 'Nunito', 'Raleway', 'Poppins', 'Oswald']
 const BUTTON_HOVER_EFFECTS = ['none', 'scale', 'glow', 'shadow']
@@ -19,6 +20,7 @@ export default function PersonalizacionPage({ params }: PersonalizacionProps) {
   const [saving, setSaving] = useState(false)
   const [uploading, setUploading] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState('identidad')
+  const [previewMode, setPreviewMode] = useState<'tienda' | 'kiosko' | 'qr'>('tienda')
   const [form, setForm] = useState({
     // Identity
     app_name: '',
@@ -269,6 +271,39 @@ export default function PersonalizacionPage({ params }: PersonalizacionProps) {
     { id: 'pagina', label: 'Diseño de Página' },
     { id: 'contacto', label: 'Contacto' },
     { id: 'avanzado', label: 'Personalización Avanzada' },
+  ]
+
+  const previewName = form.app_name || 'Tu Restaurante'
+  const previewTagline = form.tagline || 'Sabor fresco todos los dias'
+  const previewDescription = form.description || form.welcome_message || 'Explora el menu y pide tus favoritos.'
+  const previewSurface = form.use_gradient
+    ? `linear-gradient(${form.gradient_direction}, ${form.gradient_start_color}, ${form.gradient_end_color})`
+    : form.background_color
+  const previewRadius = `${form.border_radius}px`
+  const previewButtonRadius = `${form.button_border_radius}px`
+  const previewHeadingStyle = {
+    color: form.text_primary_color,
+    fontFamily: form.heading_font,
+    fontSize: Math.min(Math.max(Number(form.heading_font_size) || 28, 20), 34),
+    fontWeight: form.heading_font_weight,
+    lineHeight: 1.08,
+    textTransform: form.text_transform as 'none' | 'uppercase' | 'capitalize',
+  }
+  const previewBodyStyle = {
+    color: form.text_secondary_color,
+    fontSize: Math.min(Math.max(Number(form.body_font_size) || 16, 13), 18),
+    fontWeight: form.body_font_weight,
+    lineHeight: form.line_height,
+  }
+  const previewProducts = [
+    { name: 'Hamburguesa clasica', price: '12,50 EUR', image: 'B' },
+    { name: 'Papas especiales', price: '6,00 EUR', image: 'P' },
+    { name: 'Limonada natural', price: '3,50 EUR', image: 'L' },
+  ]
+  const previewModes = [
+    { id: 'tienda' as const, label: 'Tienda', Icon: ShoppingBag },
+    { id: 'kiosko' as const, label: 'Kiosko', Icon: MonitorSmartphone },
+    { id: 'qr' as const, label: 'Carta QR', Icon: QrCode },
   ]
 
   return (
@@ -974,7 +1009,7 @@ export default function PersonalizacionPage({ params }: PersonalizacionProps) {
 
       {/* Preview */}
       <div
-        className="brand-preview-frame bg-white rounded-xl border p-8 mt-6 overflow-hidden"
+        className="brand-preview-frame bg-white rounded-xl border p-8 mt-6 overflow-hidden hidden"
         style={{
           backgroundColor: form.background_color,
           fontFamily: form.font_family,
@@ -996,6 +1031,194 @@ export default function PersonalizacionPage({ params }: PersonalizacionProps) {
         >
           Explorar Menú
         </button>
+      </div>
+
+      <div className="brand-preview-frame mt-6 overflow-hidden rounded-xl border border-slate-200 bg-white">
+        <div className="flex flex-col gap-4 border-b border-slate-200 px-5 py-4 lg:flex-row lg:items-center lg:justify-between">
+          <div>
+            <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-400">Vista previa en vivo</p>
+            <h3 className="mt-1 text-lg font-black text-slate-950">Asi se vera el branding publico</h3>
+            <p className="mt-1 text-sm font-medium text-slate-500">Cambia colores, logo o textos y mira una simulacion mas cercana a la tienda real.</p>
+          </div>
+          <div className="grid grid-cols-3 gap-2 rounded-xl bg-slate-100 p-1">
+            {previewModes.map(({ id, label, Icon }) => (
+              <button
+                key={id}
+                type="button"
+                onClick={() => setPreviewMode(id)}
+                className={`inline-flex items-center justify-center gap-2 rounded-lg px-3 py-2 text-xs font-black transition ${
+                  previewMode === id ? 'bg-white text-slate-950 shadow-sm' : 'text-slate-500 hover:text-slate-950'
+                }`}
+              >
+                <Icon className="h-4 w-4" />
+                <span>{label}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="grid gap-0 lg:grid-cols-[minmax(0,1fr)_340px]">
+          <div className="p-5" style={{ background: previewSurface, fontFamily: form.font_family }}>
+            <div className="mx-auto max-w-md overflow-hidden border shadow-2xl" style={{ borderColor: form.border_color, borderRadius: 28 }}>
+              <div className="flex items-center justify-between px-5 py-4" style={{ backgroundColor: form.secondary_color }}>
+                <div className="flex min-w-0 items-center gap-3">
+                  {form.logo_url ? (
+                    <img src={form.logo_url} alt={previewName} className="h-12 w-12 shrink-0 rounded-xl object-cover bg-white" />
+                  ) : (
+                    <div className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-white text-sm font-black" style={{ color: form.primary_color }}>
+                      {previewName.slice(0, 2).toUpperCase()}
+                    </div>
+                  )}
+                  <div className="min-w-0">
+                    <p className="truncate text-base font-black text-white">{previewName}</p>
+                    <p className="truncate text-xs font-semibold text-white/70">{previewTagline}</p>
+                  </div>
+                </div>
+                <div className="grid h-10 w-10 place-items-center rounded-full" style={{ backgroundColor: form.button_primary_color, color: '#fff' }}>
+                  {previewMode === 'qr' ? <QrCode className="h-5 w-5" /> : <ShoppingCart className="h-5 w-5" />}
+                </div>
+              </div>
+
+              <div className="space-y-4 p-4" style={{ background: previewSurface }}>
+                {previewMode === 'tienda' && (
+                  <>
+                    <section className="overflow-hidden border bg-white/90 shadow-sm" style={{ borderColor: form.border_color, borderRadius: previewRadius }}>
+                      <div className="p-4">
+                        <div className="mb-3 inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-black" style={{ backgroundColor: `${form.accent_color}22`, color: form.primary_color }}>
+                          <Star className="h-3.5 w-3.5" />
+                          {form.featured_text || 'Especial de la casa'}
+                        </div>
+                        <h4 className="font-black" style={previewHeadingStyle}>{form.welcome_title || 'Bienvenido'}</h4>
+                        <p className="mt-2" style={previewBodyStyle}>{previewDescription}</p>
+                        <button className="mt-4 inline-flex items-center gap-2 px-4 py-2 text-sm font-black text-white" style={{ backgroundColor: form.button_primary_color, borderRadius: previewButtonRadius }}>
+                          <Utensils className="h-4 w-4" />
+                          {form.button_add_to_cart_text || 'Agregar al carrito'}
+                        </button>
+                      </div>
+                    </section>
+
+                    <div className="grid grid-cols-2 gap-3">
+                      {previewProducts.slice(0, 2).map((product) => (
+                        <article key={product.name} className="overflow-hidden border bg-white shadow-sm" style={{ borderColor: form.border_color, borderRadius: previewRadius }}>
+                          <div className="grid h-24 place-items-center text-2xl font-black" style={{ backgroundColor: `${form.primary_color}18`, color: form.primary_color }}>
+                            {product.image}
+                          </div>
+                          <div className="p-3">
+                            <p className="truncate text-sm font-black" style={{ color: form.text_primary_color }}>{product.name}</p>
+                            <p className="mt-1 text-sm font-black" style={{ color: form.accent_color }}>{product.price}</p>
+                            <button className="mt-3 grid h-9 w-full place-items-center text-sm font-black text-white" style={{ backgroundColor: form.button_primary_color, borderRadius: previewButtonRadius }}>
+                              <Plus className="h-4 w-4" />
+                            </button>
+                          </div>
+                        </article>
+                      ))}
+                    </div>
+                  </>
+                )}
+
+                {previewMode === 'kiosko' && (
+                  <section className="min-h-[440px] border bg-white/95 p-5 shadow-sm" style={{ borderColor: form.border_color, borderRadius: previewRadius }}>
+                    <div className="mb-5 flex items-center justify-between">
+                      <div>
+                        <p className="text-xs font-black uppercase tracking-[0.18em]" style={{ color: form.primary_color }}>Autoservicio</p>
+                        <h4 className="mt-1 font-black" style={previewHeadingStyle}>Haz tu pedido</h4>
+                      </div>
+                      <ShoppingBag className="h-8 w-8" style={{ color: form.primary_color }} />
+                    </div>
+                    <div className="space-y-3">
+                      {previewProducts.map((product) => (
+                        <div key={product.name} className="flex items-center gap-3 border bg-white p-3" style={{ borderColor: form.border_color, borderRadius: previewRadius }}>
+                          <div className="grid h-14 w-14 shrink-0 place-items-center rounded-xl text-lg font-black" style={{ backgroundColor: `${form.primary_color}18`, color: form.primary_color }}>
+                            {product.image}
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <p className="truncate text-sm font-black" style={{ color: form.text_primary_color }}>{product.name}</p>
+                            <p className="text-xs" style={previewBodyStyle}>{product.price}</p>
+                          </div>
+                          <button className="grid h-10 w-10 place-items-center text-white" style={{ backgroundColor: form.button_primary_color, borderRadius: previewButtonRadius }}>
+                            <Plus className="h-4 w-4" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                    <button className="mt-5 w-full py-3 text-sm font-black text-white" style={{ backgroundColor: form.button_primary_color, borderRadius: previewButtonRadius }}>
+                      {form.button_checkout_text || 'Ir al pago'}
+                    </button>
+                  </section>
+                )}
+
+                {previewMode === 'qr' && (
+                  <section className="border bg-white/95 p-5 shadow-sm" style={{ borderColor: form.border_color, borderRadius: previewRadius }}>
+                    <div className="flex items-start justify-between gap-4">
+                      <div>
+                        <p className="text-xs font-black uppercase tracking-[0.18em]" style={{ color: form.primary_color }}>Carta digital</p>
+                        <h4 className="mt-1 font-black" style={previewHeadingStyle}>{previewName}</h4>
+                        <p className="mt-2" style={previewBodyStyle}>{previewTagline}</p>
+                      </div>
+                      <div className="grid h-16 w-16 shrink-0 place-items-center rounded-2xl border" style={{ borderColor: form.border_color, color: form.primary_color }}>
+                        <QrCode className="h-8 w-8" />
+                      </div>
+                    </div>
+                    <div className="mt-5 flex gap-2 overflow-hidden">
+                      {['Todo', 'Entradas', 'Bebidas'].map((item, index) => (
+                        <span
+                          key={item}
+                          className="rounded-full px-3 py-2 text-xs font-black"
+                          style={{
+                            backgroundColor: index === 0 ? form.button_primary_color : form.button_secondary_color,
+                            color: index === 0 ? '#fff' : form.text_primary_color,
+                          }}
+                        >
+                          {item}
+                        </span>
+                      ))}
+                    </div>
+                    <div className="mt-5 space-y-3">
+                      {previewProducts.map((product) => (
+                        <div key={product.name} className="flex items-center justify-between border-b pb-3" style={{ borderColor: form.border_color }}>
+                          <div>
+                            <p className="text-sm font-black" style={{ color: form.text_primary_color }}>{product.name}</p>
+                            <p className="mt-1 text-xs" style={{ color: form.text_secondary_color }}>{product.price}</p>
+                          </div>
+                          <span className="text-lg font-black" style={{ color: form.accent_color }}>{product.image}</span>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="mt-5 flex items-center gap-2 text-xs font-semibold" style={{ color: form.text_secondary_color }}>
+                      <Clock className="h-4 w-4" />
+                      {form.hours_content || 'Abierto hoy'}
+                    </div>
+                  </section>
+                )}
+              </div>
+            </div>
+          </div>
+
+          <aside className="space-y-4 border-t border-slate-200 bg-slate-50 p-5 lg:border-l lg:border-t-0">
+            <div>
+              <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-400">Resumen visual</p>
+              <p className="mt-2 text-sm font-semibold text-slate-600">Esta previsualizacion mezcla identidad, colores, bordes, botones, textos y logo para detectar problemas antes de guardar.</p>
+            </div>
+            <div className="grid grid-cols-5 gap-2">
+              {[form.primary_color, form.secondary_color, form.accent_color, form.background_color, form.button_primary_color].map((color, index) => (
+                <div key={`${color}-${index}`} className="h-12 rounded-lg border border-slate-200" style={{ backgroundColor: color }} title={color} />
+              ))}
+            </div>
+            <div className="rounded-xl border border-slate-200 bg-white p-4">
+              <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-400">Tipografia</p>
+              <p className="mt-2 text-lg font-black text-slate-950" style={{ fontFamily: form.heading_font }}>{form.heading_font}</p>
+              <p className="text-sm font-semibold text-slate-500" style={{ fontFamily: form.font_family }}>Cuerpo: {form.font_family}</p>
+            </div>
+            <a
+              href={`/${tenantSlug}/menu`}
+              target="_blank"
+              rel="noreferrer"
+              className="block rounded-xl border border-slate-200 bg-white px-4 py-3 text-center text-sm font-black text-slate-950 transition hover:border-slate-300"
+            >
+              Abrir tienda real
+            </a>
+          </aside>
+        </div>
       </div>
 
       <button
