@@ -22,6 +22,7 @@ import StoreClosed from '@/components/store/StoreClosed'
 import LanguageSwitcher from '@/components/LanguageSwitcher'
 import { formatPriceWithCurrency, getCurrencyByCountry } from '@/lib/currency'
 import { normalizeLocale, translate } from '@/lib/i18n'
+import { Camera, Globe, MessageCircle, Users } from 'lucide-react'
 
 interface HomePageProps {
   params: Promise<{ domain: string }>
@@ -112,7 +113,14 @@ export default async function HomePage({ params }: HomePageProps) {
   const heroTitle = hero.title_text || appName
   const heroSubtitle = hero.subtitle_text || tagline
   const featuredText = (branding as any)?.featured_text?.trim()
-  const whatsappLink = social.whatsapp || branding?.whatsapp_number || null
+  const mergedSocial = {
+    ...social,
+    instagram: social.instagram || branding?.instagram_url || '',
+    facebook: social.facebook || branding?.facebook_url || '',
+    whatsapp: social.whatsapp || branding?.whatsapp_number || '',
+    website: social.website || (branding as any)?.website_url || '',
+  }
+  const whatsappLink = mergedSocial.whatsapp || null
   const heroMinHeight = hero.height === 'small' ? '560px' : hero.height === 'medium' ? '640px' : '720px'
   const heroOverlay = Math.min(Math.max(hero.overlay_opacity || 45, 26), 78) / 100
   const countryCurrency = getCurrencyByCountry(settings?.country_code || settings?.country || (tenant as any)?.country || 'ES')
@@ -235,7 +243,7 @@ export default async function HomePage({ params }: HomePageProps) {
             case 'actions':
               return settings ? <ActionsSection key={section.id} tenantId={tenant.slug} settings={settings} primary={primary} borderRadius={br} /> : null
             case 'social':
-              return <PremiumBand key={section.id}><SocialSection social={social} primary={primary} title={sTitle || 'Siguenos'} borderRadius={br} /></PremiumBand>
+              return <PremiumBand key={section.id}><SocialSection social={mergedSocial} primary={primary} title={sTitle || 'Siguenos'} borderRadius={br} /></PremiumBand>
             default:
               return null
           }
@@ -245,6 +253,7 @@ export default async function HomePage({ params }: HomePageProps) {
       <footer className="mt-10 border-t border-black/8 bg-white/70 px-4 py-8">
         <div className="mx-auto max-w-7xl text-center">
           {footer.custom_text && <p className="text-sm font-bold text-black/65">{footer.custom_text}</p>}
+          <StoreSocialLinks social={mergedSocial} primary={primary} />
           <p className="mt-2 text-xs font-bold text-black/42">{new Date().getFullYear()} {appName}</p>
           {footer.show_powered_by && <p className="mt-2 text-xs font-bold text-black/35">Por Eccofood</p>}
         </div>
@@ -261,6 +270,35 @@ function PremiumBand({ children }: { children: React.ReactNode }) {
     <section className="overflow-hidden rounded-[28px] border border-black/8 bg-white/88 shadow-xl shadow-black/[0.04]">
       {children}
     </section>
+  )
+}
+
+function StoreSocialLinks({ social, primary }: { social: Record<string, string | undefined>; primary: string }) {
+  const links = [
+    { key: 'instagram', label: 'Instagram', href: social.instagram, Icon: Camera, color: '#E4405F' },
+    { key: 'facebook', label: 'Facebook', href: social.facebook, Icon: Users, color: '#1877F2' },
+    { key: 'whatsapp', label: 'WhatsApp', href: social.whatsapp, Icon: MessageCircle, color: '#25D366' },
+    { key: 'website', label: 'Web', href: social.website, Icon: Globe, color: primary },
+  ].filter(item => Boolean(item.href))
+
+  if (links.length === 0) return null
+
+  return (
+    <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
+      {links.map(({ key, label, href, Icon, color }) => (
+        <a
+          key={key}
+          href={key === 'whatsapp' && href && !href.startsWith('http') ? `https://wa.me/${String(href).replace(/\D/g, '')}` : href}
+          target="_blank"
+          rel="noopener noreferrer"
+          aria-label={label}
+          className="grid size-10 place-items-center rounded-full border border-black/10 bg-white text-black/70 transition hover:-translate-y-0.5 hover:border-black/20"
+          style={{ color }}
+        >
+          <Icon className="h-5 w-5" />
+        </a>
+      ))}
+    </div>
   )
 }
 
