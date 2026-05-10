@@ -96,6 +96,10 @@ export default async function MenuPage({ params }: MenuProps) {
     border: branding?.border_color,
   })
   const primary = palette.primary
+  const buttonColor = palette.buttonPrimary
+  const priceColor = palette.accent
+  const menuTextColor = palette.text
+  const menuMutedTextColor = palette.mutedText
   const categoryInactiveColor = palette.buttonSecondary
 
   // Typography settings from branding
@@ -179,7 +183,7 @@ export default async function MenuPage({ params }: MenuProps) {
             </div>
           </div>
           <Link href={`/${slug}/carrito`} className="relative p-2 sm:p-2.5 hover:bg-gray-100 active:bg-gray-200 rounded-xl transition-all flex-shrink-0" title="Carrito">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={primary} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="sm:w-5 sm:h-5">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={buttonColor} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="sm:w-5 sm:h-5">
               <path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/>
               <line x1="3" y1="6" x2="21" y2="6"/>
               <path d="M16 10a4 4 0 0 1-8 0"/>
@@ -187,7 +191,15 @@ export default async function MenuPage({ params }: MenuProps) {
           </Link>
         </div>
 
-        <CategoryFilterBar categories={categories} primary={primary} inactiveColor={categoryInactiveColor} btnCls={btnCls} />
+        <CategoryFilterBar
+          categories={categories}
+          primary={buttonColor}
+          activeTextColor={palette.buttonPrimaryText}
+          inactiveTextColor={menuTextColor}
+          borderColor={palette.border}
+          inactiveColor={categoryInactiveColor}
+          btnCls={btnCls}
+        />
       </header>
 
       <main id="top" className="mx-auto max-w-7xl space-y-5 px-3 pb-32 pt-[122px] sm:space-y-8 sm:px-6 sm:pb-36 sm:pt-[132px] lg:px-8">
@@ -198,12 +210,12 @@ export default async function MenuPage({ params }: MenuProps) {
               <h1 className="text-2xl font-black leading-tight text-[#15130f] sm:text-4xl">Elige tu pedido</h1>
               <p className="mt-2 max-w-2xl break-words text-sm font-bold leading-6 text-black/58">Explora los productos del restaurante y agrega tus favoritos al carrito.</p>
               {featuredText && (
-                <div className="mt-4 max-w-2xl rounded-2xl border px-4 py-3 text-sm font-black leading-6" style={{ borderColor: `${primary}33`, backgroundColor: `${primary}12`, color: primary }}>
+                <div className="mt-4 max-w-2xl rounded-2xl border px-4 py-3 text-sm font-black leading-6" style={{ borderColor: `${priceColor}33`, backgroundColor: `${priceColor}12`, color: priceColor }}>
                   {featuredText}
                 </div>
               )}
             </div>
-            <Link href={`/${slug}`} className="inline-flex h-11 w-full items-center justify-center rounded-full border border-black/10 px-5 text-sm font-black transition hover:bg-black/[0.04] sm:w-auto" style={{ color: primary }}>
+            <Link href={`/${slug}`} className="inline-flex h-11 w-full items-center justify-center rounded-full border border-black/10 px-5 text-sm font-black transition hover:bg-black/[0.04] sm:w-auto" style={{ color: buttonColor }}>
               Volver al inicio
             </Link>
           </div>
@@ -212,7 +224,7 @@ export default async function MenuPage({ params }: MenuProps) {
         {featured.length > 0 && (
           <section className="menu-rise scroll-mt-28 rounded-[22px] border border-black/8 bg-white p-4 shadow-xl shadow-black/[0.04] sm:rounded-[28px] sm:p-7" data-featured style={{ animationDelay: '80ms' }}>
             <div className="flex items-center gap-2 mb-3 sm:mb-4">
-              <div className="w-1 h-5 sm:h-6 rounded-full" style={{ backgroundColor: primary }} />
+              <div className="w-1 h-5 sm:h-6 rounded-full" style={{ backgroundColor: buttonColor }} />
               <h2
                 className="text-base sm:text-lg text-gray-900"
                 style={{
@@ -239,8 +251,8 @@ export default async function MenuPage({ params }: MenuProps) {
                     <p className="line-clamp-2 min-h-10 text-sm font-black leading-5 text-[#15130f]">{item.name}</p>
                     {item.description && <p className="mt-1 line-clamp-2 flex-1 text-xs font-semibold text-black/48">{item.description}</p>}
                     <div className="mt-2 flex items-center justify-between gap-2">
-                      <p className="text-base font-black" style={{ color: primary }}>{formatPriceWithCurrency(item.price, currencyInfo.code, currencyInfo.locale)}</p>
-                      <AddToCartButton item={item} tenantId={tenantId} color={primary} small toppings={toppingsByItem[item.id] || []} currencyInfo={currencyInfo} />
+                      <p className="text-base font-black" style={{ color: priceColor }}>{formatPriceWithCurrency(item.price, currencyInfo.code, currencyInfo.locale)}</p>
+                      <AddToCartButton item={item} tenantId={tenantId} color={buttonColor} small toppings={toppingsByItem[item.id] || []} currencyInfo={currencyInfo} />
                     </div>
                   </div>
                 </div>
@@ -270,19 +282,19 @@ export default async function MenuPage({ params }: MenuProps) {
               {layout === 'grid' ? (
                 <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
                   {catItems.map((item, index) => (
-                    <MenuGridItem key={item.id} item={item} tenantId={tenantId} primary={primary} br={br} cardCls={cardCls} currencyInfo={currencyInfo} toppings={toppingsByItem[item.id] || []} index={index} />
+                    <MenuGridItem key={item.id} item={item} tenantId={tenantId} primary={primary} priceColor={priceColor} buttonColor={buttonColor} textColor={menuTextColor} mutedTextColor={menuMutedTextColor} br={br} cardCls={cardCls} currencyInfo={currencyInfo} toppings={toppingsByItem[item.id] || []} index={index} />
                   ))}
                 </div>
               ) : layout === 'compact' ? (
                 <div className={`overflow-hidden divide-y divide-gray-50 ${cardCls}`} style={{ borderRadius: br }}>
                   {catItems.map((item, index) => (
-                    <MenuCompactItem key={item.id} item={item} tenantId={tenantId} primary={primary} currencyInfo={currencyInfo} toppings={toppingsByItem[item.id] || []} index={index} />
+                    <MenuCompactItem key={item.id} item={item} tenantId={tenantId} primary={primary} priceColor={priceColor} buttonColor={buttonColor} textColor={menuTextColor} mutedTextColor={menuMutedTextColor} currencyInfo={currencyInfo} toppings={toppingsByItem[item.id] || []} index={index} />
                   ))}
                 </div>
               ) : (
                 <div className="grid gap-3 lg:grid-cols-2">
                   {catItems.map((item, index) => (
-                    <MenuListItem key={item.id} item={item} tenantId={tenantId} primary={primary} br={br} cardCls={cardCls} currencyInfo={currencyInfo} toppings={toppingsByItem[item.id] || []} index={index} />
+                    <MenuListItem key={item.id} item={item} tenantId={tenantId} primary={primary} priceColor={priceColor} buttonColor={buttonColor} textColor={menuTextColor} mutedTextColor={menuMutedTextColor} br={br} cardCls={cardCls} currencyInfo={currencyInfo} toppings={toppingsByItem[item.id] || []} index={index} />
                   ))}
                 </div>
               )}
@@ -306,7 +318,7 @@ export default async function MenuPage({ params }: MenuProps) {
             </h2>
             <div className="grid gap-3 lg:grid-cols-2">
               {uncategorized.map((item, index) => (
-                <MenuListItem key={item.id} item={item} tenantId={tenantId} primary={primary} br={br} cardCls={cardCls} currencyInfo={currencyInfo} toppings={toppingsByItem[item.id] || []} index={index} />
+                <MenuListItem key={item.id} item={item} tenantId={tenantId} primary={primary} priceColor={priceColor} buttonColor={buttonColor} textColor={menuTextColor} mutedTextColor={menuMutedTextColor} br={br} cardCls={cardCls} currencyInfo={currencyInfo} toppings={toppingsByItem[item.id] || []} index={index} />
               ))}
             </div>
           </section>

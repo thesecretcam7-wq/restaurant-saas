@@ -22,6 +22,10 @@ interface MenuItemProps {
   item: MenuItem
   tenantId: string
   primary: string
+  priceColor?: string
+  buttonColor?: string
+  textColor?: string
+  mutedTextColor?: string
   br: string
   cardCls: string
   currencyInfo: CurrencyInfo
@@ -33,12 +37,29 @@ interface MenuCompactItemProps {
   item: MenuItem
   tenantId: string
   primary: string
+  priceColor?: string
+  buttonColor?: string
+  textColor?: string
+  mutedTextColor?: string
   currencyInfo: CurrencyInfo
   toppings?: Topping[]
   index?: number
 }
 
-export function MenuListItem({ item, tenantId, primary, br, cardCls, currencyInfo, toppings = [], index = 0 }: MenuItemProps) {
+export function MenuListItem({
+  item,
+  tenantId,
+  primary,
+  priceColor = primary,
+  buttonColor = primary,
+  textColor = '#15130f',
+  mutedTextColor = 'rgba(0,0,0,0.48)',
+  br,
+  cardCls,
+  currencyInfo,
+  toppings = [],
+  index = 0,
+}: MenuItemProps) {
   const [imageLoaded, setImageLoaded] = useState(!item.image_url)
   const hasToppings = toppings.length > 0
 
@@ -64,21 +85,34 @@ export function MenuListItem({ item, tenantId, primary, br, cardCls, currencyInf
         <div className="h-20 w-20 flex-shrink-0 sm:h-24 sm:w-24" style={{ backgroundColor: `${primary}10`, borderRadius: `calc(${br} * 0.6)` }} />
       )}
       <div className="min-w-0 flex-1 py-0.5">
-        <p className="line-clamp-2 text-sm font-black leading-5 text-[#15130f]">{item.name}</p>
-        {item.description && <p className="mt-0.5 line-clamp-2 text-xs font-semibold text-black/48">{item.description}</p>}
-        {hasToppings && <p className="mt-1 text-[11px] font-black uppercase tracking-wide" style={{ color: primary }}>Personalizar adicionales</p>}
-        <p className="mt-1.5 text-sm font-black" style={{ color: primary }}>
+        <p className="line-clamp-2 text-sm font-black leading-5" style={{ color: textColor }}>{item.name}</p>
+        {item.description && <p className="mt-0.5 line-clamp-2 text-xs font-semibold" style={{ color: mutedTextColor }}>{item.description}</p>}
+        {hasToppings && <p className="mt-1 text-[11px] font-black uppercase tracking-wide" style={{ color: priceColor }}>Personalizar adicionales</p>}
+        <p className="mt-1.5 text-sm font-black" style={{ color: priceColor }}>
           {formatPriceWithCurrency(item.price, currencyInfo.code, currencyInfo.locale)}
         </p>
       </div>
       <div className="flex-shrink-0">
-        <AddToCartButton item={item} tenantId={tenantId} color={primary} small toppings={toppings} currencyInfo={currencyInfo} />
+        <AddToCartButton item={item} tenantId={tenantId} color={buttonColor} small toppings={toppings} currencyInfo={currencyInfo} />
       </div>
     </div>
   )
 }
 
-export function MenuGridItem({ item, tenantId, primary, br, cardCls, currencyInfo, toppings = [], index = 0 }: MenuItemProps) {
+export function MenuGridItem({
+  item,
+  tenantId,
+  primary,
+  priceColor = primary,
+  buttonColor = primary,
+  textColor = '#15130f',
+  mutedTextColor = 'rgba(0,0,0,0.48)',
+  br,
+  cardCls,
+  currencyInfo,
+  toppings = [],
+  index = 0,
+}: MenuItemProps) {
   const [imageLoaded, setImageLoaded] = useState(!item.image_url)
   const hasToppings = toppings.length > 0
 
@@ -99,7 +133,7 @@ export function MenuGridItem({ item, tenantId, primary, br, cardCls, currencyInf
             onLoad={() => setImageLoaded(true)}
           />
           {hasToppings && (
-            <span className="absolute left-2 top-2 rounded-full px-2.5 py-1 text-[10px] font-black text-white shadow-lg" style={{ backgroundColor: primary }}>
+            <span className="absolute left-2 top-2 rounded-full px-2.5 py-1 text-[10px] font-black text-white shadow-lg" style={{ backgroundColor: buttonColor }}>
               Adicionales
             </span>
           )}
@@ -108,35 +142,46 @@ export function MenuGridItem({ item, tenantId, primary, br, cardCls, currencyInf
         <div className="aspect-[4/3] w-full" style={{ backgroundColor: `${primary}10` }} />
       )}
       <div className="flex flex-1 flex-col p-2.5">
-        <p className="line-clamp-2 min-h-10 text-sm font-black leading-5 text-[#15130f]">{item.name}</p>
-        {item.description && <p className="mt-1 line-clamp-2 flex-1 text-xs font-semibold text-black/48">{item.description}</p>}
-        {hasToppings && <p className="mt-1 text-[11px] font-black uppercase tracking-wide" style={{ color: primary }}>Toca + para elegir</p>}
+        <p className="line-clamp-2 min-h-10 text-sm font-black leading-5" style={{ color: textColor }}>{item.name}</p>
+        {item.description && <p className="mt-1 line-clamp-2 flex-1 text-xs font-semibold" style={{ color: mutedTextColor }}>{item.description}</p>}
+        {hasToppings && <p className="mt-1 text-[11px] font-black uppercase tracking-wide" style={{ color: priceColor }}>Toca + para elegir</p>}
         <div className="mt-2 flex items-center justify-between gap-1">
-          <p className="text-base font-black" style={{ color: primary }}>
+          <p className="text-base font-black" style={{ color: priceColor }}>
             {formatPriceWithCurrency(item.price, currencyInfo.code, currencyInfo.locale)}
           </p>
-          <AddToCartButton item={item} tenantId={tenantId} color={primary} small toppings={toppings} currencyInfo={currencyInfo} />
+          <AddToCartButton item={item} tenantId={tenantId} color={buttonColor} small toppings={toppings} currencyInfo={currencyInfo} />
         </div>
       </div>
     </div>
   )
 }
 
-export function MenuCompactItem({ item, tenantId, primary, currencyInfo, toppings = [], index = 0 }: MenuCompactItemProps) {
+export function MenuCompactItem({
+  item,
+  tenantId,
+  primary,
+  priceColor = primary,
+  buttonColor = primary,
+  textColor = '#15130f',
+  mutedTextColor = 'rgba(0,0,0,0.48)',
+  currencyInfo,
+  toppings = [],
+  index = 0,
+}: MenuCompactItemProps) {
   const hasToppings = toppings.length > 0
 
   return (
     <div className="menu-rise flex items-center justify-between gap-3 px-4 py-3" style={{ animationDelay: `${index * 35}ms` }}>
       <div className="min-w-0 flex-1">
-        <p className="text-sm font-black text-[#15130f]">{item.name}</p>
-        {item.description && <p className="mt-0.5 line-clamp-1 text-xs font-semibold text-black/48">{item.description}</p>}
-        {hasToppings && <p className="mt-1 text-[10px] font-black uppercase tracking-wide" style={{ color: primary }}>Adicionales</p>}
+        <p className="text-sm font-black" style={{ color: textColor }}>{item.name}</p>
+        {item.description && <p className="mt-0.5 line-clamp-1 text-xs font-semibold" style={{ color: mutedTextColor }}>{item.description}</p>}
+        {hasToppings && <p className="mt-1 text-[10px] font-black uppercase tracking-wide" style={{ color: priceColor }}>Adicionales</p>}
       </div>
-      <p className="flex-shrink-0 text-sm font-extrabold" style={{ color: primary }}>
+      <p className="flex-shrink-0 text-sm font-extrabold" style={{ color: priceColor }}>
         {formatPriceWithCurrency(item.price, currencyInfo.code, currencyInfo.locale)}
       </p>
       <div className="flex-shrink-0">
-        <AddToCartButton item={item} tenantId={tenantId} color={primary} small toppings={toppings} currencyInfo={currencyInfo} />
+        <AddToCartButton item={item} tenantId={tenantId} color={buttonColor} small toppings={toppings} currencyInfo={currencyInfo} />
       </div>
     </div>
   )
