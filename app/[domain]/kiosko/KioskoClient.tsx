@@ -878,18 +878,18 @@ export default function KioskoClient({
                       </span>
                     )}
                   </span>
-                  <span className="font-semibold" style={{ color: surfaceTextColor }}>{fmt(item.price * item.qty, currencyCode, currencyLocale)}</span>
+                  <span className="font-semibold" style={{ color: accentColor }}>{fmt(item.price * item.qty, currencyCode, currencyLocale)}</span>
                 </div>
               ))}
               <div className="mt-3 space-y-2 rounded-2xl p-4" style={{ backgroundColor }}>
                 <div className="flex justify-between text-sm font-bold" style={{ color: surfaceMutedTextColor }}>
                   <span>{tr('kitchen.subtotal')}</span>
-                  <span>{fmt(cartTotal, currencyCode, currencyLocale)}</span>
+                  <span style={{ color: accentColor }}>{fmt(cartTotal, currencyCode, currencyLocale)}</span>
                 </div>
                 {taxRate > 0 && (
                   <div className="flex justify-between text-base font-black" style={{ color: surfaceTextColor }}>
                     <span>{tr('kitchen.tax')} {taxRate}%</span>
-                    <span>{fmt(tax, currencyCode, currencyLocale)}</span>
+                    <span style={{ color: accentColor }}>{fmt(tax, currencyCode, currencyLocale)}</span>
                   </div>
                 )}
               </div>
@@ -996,7 +996,7 @@ export default function KioskoClient({
                           {item.toppings.map(t => t.name).join(', ')}
                         </p>
                       )}
-                      <p className="text-sm mt-0.5" style={{ color: surfaceMutedTextColor }}>{fmt(item.price, currencyCode, currencyLocale)} c/u</p>
+                      <p className="text-sm mt-0.5" style={{ color: accentColor }}>{fmt(item.price, currencyCode, currencyLocale)} c/u</p>
                     </div>
                     <div className="flex items-center gap-2">
                       <button
@@ -1012,7 +1012,7 @@ export default function KioskoClient({
                       >+</button>
                     </div>
                     <div className="text-right min-w-[80px]">
-                      <p className="font-black" style={{ color: surfaceTextColor }}>{fmt(item.price * item.qty, currencyCode, currencyLocale)}</p>
+                      <p className="font-black" style={{ color: accentColor }}>{fmt(item.price * item.qty, currencyCode, currencyLocale)}</p>
                       <button onClick={() => removeFromCart(item.lineId)} className="text-xs text-red-400 mt-0.5">
                         Eliminar
                       </button>
@@ -1065,10 +1065,10 @@ export default function KioskoClient({
                 {taxRate > 0 && (
                   <div className="rounded-2xl shadow-sm border p-4 space-y-2" style={{ backgroundColor: surfaceColor, borderColor }}>
                     <div className="flex justify-between text-sm" style={{ color: surfaceMutedTextColor }}>
-                      <span>{tr('kitchen.subtotal')}</span><span>{fmt(cartTotal, currencyCode, currencyLocale)}</span>
+                      <span>{tr('kitchen.subtotal')}</span><span style={{ color: accentColor }}>{fmt(cartTotal, currencyCode, currencyLocale)}</span>
                     </div>
                     <div className="flex justify-between text-sm" style={{ color: surfaceMutedTextColor }}>
-                      <span>{tr('kitchen.tax')} {taxRate}%</span><span>{fmt(tax, currencyCode, currencyLocale)}</span>
+                      <span>{tr('kitchen.tax')} {taxRate}%</span><span style={{ color: accentColor }}>{fmt(tax, currencyCode, currencyLocale)}</span>
                     </div>
                   </div>
                 )}
@@ -1274,7 +1274,7 @@ export default function KioskoClient({
               <p className="text-3xl font-black leading-none" style={{ color: accentColor }}>{fmt(grandTotal, currencyCode, currencyLocale)}</p>
               {taxRate > 0 && (
                 <p className="mt-1 text-xs font-semibold" style={{ color: surfaceMutedTextColor }}>
-                  Incluye IVA {taxRate}%: {fmt(tax, currencyCode, currencyLocale)}
+                  Incluye IVA {taxRate}%: <span style={{ color: accentColor }}>{fmt(tax, currencyCode, currencyLocale)}</span>
                 </p>
               )}
             </div>
@@ -1376,7 +1376,7 @@ export default function KioskoClient({
                           <span className="flex-1 min-w-0">
                             <span className="block font-black leading-tight" style={{ color: surfaceTextColor }}>{topping.name}</span>
                             {topping.price > 0 && (
-                              <span className="block text-xs mt-0.5" style={{ color: surfaceMutedTextColor }}>+ {fmt(topping.price, currencyCode, currencyLocale)}</span>
+                              <span className="block text-xs mt-0.5" style={{ color: accentColor }}>+ {fmt(topping.price, currencyCode, currencyLocale)}</span>
                             )}
                           </span>
                         </button>

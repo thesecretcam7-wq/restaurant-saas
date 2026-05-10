@@ -71,7 +71,7 @@ export default async function KioskoPage({ params, searchParams }: Props) {
     appName: brandingRes.data?.app_name || tenant.organization_name,
     primaryColor: brandingRes.data?.primary_color || '#E4002B',
     secondaryColor: brandingRes.data?.secondary_color || '#111827',
-    accentColor: brandingRes.data?.accent_color || '#F97316',
+    accentColor: brandingRes.data?.accent_color || brandingRes.data?.text_primary_color || '#111827',
     backgroundColor: brandingRes.data?.background_color || '#F3F4F6',
     buttonPrimaryColor: brandingRes.data?.button_primary_color || '#E4002B',
     buttonSecondaryColor: brandingRes.data?.button_secondary_color || brandingRes.data?.secondary_color || '#111827',
