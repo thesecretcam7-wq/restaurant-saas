@@ -104,6 +104,8 @@ export default async function HomePage({ params }: HomePageProps) {
   const secondary = branding?.secondary_color || '#15130f'
   const accent = branding?.accent_color || '#F97316'
   const buttonPrimary = branding?.button_primary_color || '#E4002B'
+  const background = branding?.background_color || '#faf8f3'
+  const sectionSurface = (branding as any)?.section_background_color || '#ffffff'
   const appName = branding?.app_name || tenant.organization_name
   const tagline = branding?.tagline || settings?.description || ''
   const heroImage = hero.image_url || (branding as any)?.hero_image_url || (branding as any)?.hero?.image_url
@@ -118,12 +120,13 @@ export default async function HomePage({ params }: HomePageProps) {
   const sectionBackgroundImage = (branding as any)?.section_background_image_url || ''
   const sectionBackgroundStyle = sectionBackgroundImage
     ? {
-        backgroundImage: `linear-gradient(rgba(250,248,243,.86), rgba(250,248,243,.86)), url(${sectionBackgroundImage})`,
+        backgroundColor: background,
+        backgroundImage: `linear-gradient(${background}db, ${background}db), url(${sectionBackgroundImage})`,
         backgroundSize: 'cover',
         backgroundPosition: 'center',
         backgroundAttachment: 'fixed',
       }
-    : undefined
+    : { backgroundColor: background }
   const mergedSocial = {
     ...social,
     instagram: social.instagram || branding?.instagram_url || '',
@@ -141,7 +144,7 @@ export default async function HomePage({ params }: HomePageProps) {
   const formatMoney = (value: number) => formatPriceWithCurrency(Number(value || 0), currencyInfo.code, currencyInfo.locale)
 
   return (
-    <div className="store-surface min-h-screen overflow-hidden bg-[#faf8f3] pb-[88px] text-[#15130f]">
+    <div className="store-surface min-h-screen overflow-hidden pb-[88px] text-[#15130f]" style={{ backgroundColor: background }}>
       <section className="relative overflow-hidden" style={{ minHeight: heroMinHeight }}>
         <div className="absolute inset-0">
           {heroImage ? (
@@ -150,7 +153,7 @@ export default async function HomePage({ params }: HomePageProps) {
             <div className="h-full w-full" style={{ background: `linear-gradient(135deg, ${primary}, ${secondary}, #111111)` }} />
           )}
           <div className="absolute inset-0" style={{ background: `linear-gradient(90deg, rgba(0,0,0,${Math.min(heroOverlay + 0.25, 0.86)}) 0%, rgba(0,0,0,${heroOverlay}) 48%, rgba(0,0,0,0.22) 100%)` }} />
-          <div className="absolute inset-x-0 bottom-0 h-36 bg-gradient-to-t from-[#faf8f3] to-transparent" />
+          <div className="absolute inset-x-0 bottom-0 h-36" style={{ background: `linear-gradient(to top, ${background}, transparent)` }} />
         </div>
 
         <header className="relative z-10 mx-auto flex max-w-7xl items-center justify-between px-4 py-5 sm:px-6 lg:px-8">
@@ -197,7 +200,7 @@ export default async function HomePage({ params }: HomePageProps) {
             )}
             {hero.show_info_pills && <InfoPills settings={settings} primary={primary} />}
             <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-              <Link href={`/${tenant.slug}/menu`} className={`inline-flex h-14 items-center justify-center px-7 text-sm font-black text-white shadow-2xl transition hover:scale-[1.02] ${btnCls}`} style={{ backgroundColor: primary }}>
+              <Link href={`/${tenant.slug}/menu`} className={`inline-flex h-14 items-center justify-center px-7 text-sm font-black text-white shadow-2xl transition hover:scale-[1.02] ${btnCls}`} style={{ backgroundColor: buttonPrimary }}>
                 {hero.cta_primary_text || tr('store.viewMenu')}
               </Link>
               {settings?.reservations_enabled && (
@@ -238,30 +241,30 @@ export default async function HomePage({ params }: HomePageProps) {
           const sTitle = section.title || ''
           switch (section.type) {
             case 'banner':
-              return <PremiumBand key={section.id}><BannerSection banner={banner} borderRadius={br} /></PremiumBand>
+              return <PremiumBand key={section.id} surfaceColor={sectionSurface}><BannerSection banner={banner} borderRadius={br} /></PremiumBand>
             case 'featured':
               return <FeaturedSection key={section.id} tenantId={tenant.slug} items={featured || []} primary={primary} buttonColor={buttonPrimary} priceColor={accent} title={sTitle || tr('store.mostOrdered')} borderRadius={br} cardClasses={cardCls} animations={anim} currencyInfo={currencyInfo} />
             case 'about':
-              return <PremiumBand key={section.id}><AboutSection about={about} borderRadius={br} cardClasses={cardCls} /></PremiumBand>
+              return <PremiumBand key={section.id} surfaceColor={sectionSurface}><AboutSection about={about} borderRadius={br} cardClasses={cardCls} /></PremiumBand>
             case 'info':
-              return settings ? <PremiumBand key={section.id}><InfoSection settings={settings} primary={primary} borderRadius={br} cardClasses={cardCls} /></PremiumBand> : null
+              return settings ? <PremiumBand key={section.id} surfaceColor={sectionSurface}><InfoSection settings={settings} primary={primary} borderRadius={br} cardClasses={cardCls} /></PremiumBand> : null
             case 'gallery':
-              return <PremiumBand key={section.id}><GallerySection gallery={gallery} title={sTitle || tr('store.gallery')} borderRadius={br} /></PremiumBand>
+              return <PremiumBand key={section.id} surfaceColor={sectionSurface}><GallerySection gallery={gallery} title={sTitle || tr('store.gallery')} borderRadius={br} /></PremiumBand>
             case 'hours':
-              return settings ? <PremiumBand key={section.id}><HoursSection settings={settings} primary={primary} title={sTitle || tr('store.hours')} borderRadius={br} cardClasses={cardCls} /></PremiumBand> : null
+              return settings ? <PremiumBand key={section.id} surfaceColor={sectionSurface}><HoursSection settings={settings} primary={primary} title={sTitle || tr('store.hours')} borderRadius={br} cardClasses={cardCls} /></PremiumBand> : null
             case 'testimonials':
-              return <PremiumBand key={section.id}><TestimonialsSection testimonials={testimonials} primary={primary} title={sTitle || tr('store.reviews')} borderRadius={br} cardClasses={cardCls} /></PremiumBand>
+              return <PremiumBand key={section.id} surfaceColor={sectionSurface}><TestimonialsSection testimonials={testimonials} primary={primary} title={sTitle || tr('store.reviews')} borderRadius={br} cardClasses={cardCls} /></PremiumBand>
             case 'actions':
               return settings ? <ActionsSection key={section.id} tenantId={tenant.slug} settings={settings} primary={primary} borderRadius={br} /> : null
             case 'social':
-              return <PremiumBand key={section.id}><SocialSection social={mergedSocial} primary={primary} title={sTitle || 'Siguenos'} borderRadius={br} /></PremiumBand>
+              return <PremiumBand key={section.id} surfaceColor={sectionSurface}><SocialSection social={mergedSocial} primary={primary} title={sTitle || 'Siguenos'} borderRadius={br} /></PremiumBand>
             default:
               return null
           }
         })}
       </main>
 
-      <footer className="mt-10 border-t border-black/8 bg-white/70 px-4 py-8">
+      <footer className="mt-10 border-t border-black/8 px-4 py-8" style={{ backgroundColor: `${sectionSurface}cc` }}>
         <div className="mx-auto max-w-7xl text-center">
           {footer.custom_text && <p className="text-sm font-bold text-black/65">{footer.custom_text}</p>}
           <StoreSocialLinks social={mergedSocial} primary={primary} />
@@ -276,9 +279,9 @@ export default async function HomePage({ params }: HomePageProps) {
   )
 }
 
-function PremiumBand({ children }: { children: React.ReactNode }) {
+function PremiumBand({ children, surfaceColor = '#ffffff' }: { children: React.ReactNode; surfaceColor?: string }) {
   return (
-    <section className="overflow-hidden rounded-[28px] border border-black/8 bg-white/88 shadow-xl shadow-black/[0.04]">
+    <section className="overflow-hidden rounded-[28px] border border-black/8 shadow-xl shadow-black/[0.04]" style={{ backgroundColor: `${surfaceColor}e0` }}>
       {children}
     </section>
   )
