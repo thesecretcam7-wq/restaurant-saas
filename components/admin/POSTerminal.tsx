@@ -12,7 +12,7 @@ import { CashClosingModal } from './CashClosingModal';
 import { Toast } from './Toast';
 import { POSOrderLookup } from './POSOrderLookup';
 import { saveCartToSupabase, loadCartFromSupabase, abandonCart, loadOrderToCart } from '@/lib/pos-cart-sync';
-import { calculateCashClosingStats, saveCashClosing, CashClosingStats } from '@/lib/cash-closing';
+import { calculateCashClosingStats, calculatePendingPreviousCashClosingStats, saveCashClosing, CashClosingStats } from '@/lib/cash-closing';
 import { getCurrencyByCountry, formatPriceWithCurrency } from '@/lib/currency';
 import { printReceipt, savePrinterLog, openCashDrawer } from '@/lib/pos-printer';
 import { countPendingPOSOrders, isNetworkPaymentError, saveOfflinePOSOrder, syncOfflinePOSOrders } from '@/lib/offline/pos-sync';
@@ -430,6 +430,7 @@ export function POSTerminal({
   const [showAdminMenu, setShowAdminMenu] = useState(false);
   const [showCashClosing, setShowCashClosing] = useState(false);
   const [cashClosingStats, setCashClosingStats] = useState<CashClosingStats | null>(null);
+  const [pendingCashClosingStats, setPendingCashClosingStats] = useState<CashClosingStats | null>(null);
   const [closingLoading, setClosingLoading] = useState(false);
 
   // Incoming Orders for delivery/pickup
@@ -467,6 +468,14 @@ export function POSTerminal({
     if (loggedStaff.staffName && !selectedStaffName) setSelectedStaffName(loggedStaff.staffName);
   }, [tenantId, selectedStaffId, selectedStaffName]);
 
+  const refreshPendingCashClosing = useCallback(async () => {
+    try {
+      setPendingCashClosingStats(await calculatePendingPreviousCashClosingStats(tenantId));
+    } catch (error) {
+      console.error('Error checking pending cash closing:', error);
+    }
+  }, [tenantId]);
+
   const refreshOfflinePendingCount = useCallback(async () => {
     try {
       setOfflinePendingCount(await countPendingPOSOrders(tenantId));
@@ -474,6 +483,10 @@ export function POSTerminal({
       console.error('Error counting offline POS orders:', error);
     }
   }, [tenantId]);
+
+  useEffect(() => {
+    refreshPendingCashClosing();
+  }, [refreshPendingCashClosing]);
 
   const syncOfflineSales = useCallback(async (showToast = false) => {
     if (typeof navigator !== 'undefined' && !navigator.onLine) return;
@@ -636,6 +649,30 @@ export function POSTerminal({
     }
   }
 
+  async function handleOpenPendingCashClosing() {
+    setClosingLoading(true);
+    try {
+      const loggedStaff = getLoggedStaffFromBrowser(tenantId);
+      if (loggedStaff.staffId && !selectedStaffId) setSelectedStaffId(loggedStaff.staffId);
+      if (loggedStaff.staffName && !selectedStaffName) setSelectedStaffName(loggedStaff.staffName);
+      const stats = pendingCashClosingStats || await calculatePendingPreviousCashClosingStats(tenantId);
+
+      if (!stats) {
+        setToast({ message: 'No hay cierres pendientes anteriores', type: 'success' });
+        setPendingCashClosingStats(null);
+        return;
+      }
+
+      setCashClosingStats(stats);
+      setShowCashClosing(true);
+    } catch (error) {
+      console.error('Error opening pending closing stats:', error);
+      setToast({ message: 'Error al cargar el cierre pendiente', type: 'error' });
+    } finally {
+      setClosingLoading(false);
+    }
+  }
+
   async function handleSaveCashClosing(actualCash: number, notes: string) {
     if (!cashClosingStats) return;
 
@@ -653,6 +690,7 @@ export function POSTerminal({
       setToast({ message: '✓ Caja cerrada exitosamente', type: 'success' });
       setShowCashClosing(false);
       setCashClosingStats(null);
+      await refreshPendingCashClosing();
 
       // Optionally clear cart after successful closing
       setTimeout(() => {
@@ -1775,6 +1813,26 @@ export function POSTerminal({
                 <strong>{formatPriceWithCurrency(total, currencyInfo.code, currencyInfo.locale)}</strong>
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {pendingCashClosingStats && (
+        <div className="shrink-0 border-y border-amber-300/25 bg-amber-400/12 px-4 py-3 text-amber-50">
+          <div className="mx-auto flex max-w-7xl flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="min-w-0">
+              <p className="text-sm font-black">Caja pendiente por cerrar</p>
+              <p className="mt-0.5 text-xs font-semibold text-amber-100/75">
+                Hay {pendingCashClosingStats.transactionCount} venta{pendingCashClosingStats.transactionCount === 1 ? '' : 's'} pagada{pendingCashClosingStats.transactionCount === 1 ? '' : 's'} sin cierre desde un periodo anterior. Total: {formatPriceWithCurrency(pendingCashClosingStats.totalSales, currencyInfo.code, currencyInfo.locale)}.
+              </p>
+            </div>
+            <button
+              onClick={handleOpenPendingCashClosing}
+              disabled={closingLoading}
+              className="rounded-xl border border-amber-200/35 bg-amber-200 px-4 py-2 text-sm font-black text-slate-950 shadow-lg shadow-black/15 transition hover:bg-amber-100 disabled:opacity-60"
+            >
+              Cerrar pendiente
+            </button>
           </div>
         </div>
       )}

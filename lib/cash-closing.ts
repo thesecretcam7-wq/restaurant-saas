@@ -97,6 +97,73 @@ function calculateBusinessPeriod(closeMinutes: number, now = new Date()): CashCl
   };
 }
 
+function statsFromOrders(period: CashClosingPeriod, orders: any[] = []): CashClosingStats {
+  const countableOrders = orders.filter((order: any) =>
+    order.status !== 'cancelled' && order.payment_status === 'paid'
+  );
+
+  const stats = {
+    cashSales: 0,
+    cardSales: 0,
+    otherSales: 0,
+    totalSales: 0,
+    totalTax: 0,
+    totalDiscount: 0,
+    transactionCount: countableOrders.length,
+    ordersCompleted: 0,
+    ordersCancelled: 0,
+    closingOrders: countableOrders.map((order: any) => ({
+      id: order.id,
+      order_number: order.order_number,
+      total: Number(order.total) || 0,
+      payment_method: order.payment_method,
+      created_at: order.created_at,
+    })),
+    ...period,
+  };
+
+  orders.forEach((order: any) => {
+    if (order.status === 'cancelled') {
+      stats.ordersCancelled++;
+      return;
+    }
+    if (order.payment_status !== 'paid') return;
+
+    const total = Number(order.total) || 0;
+    const tax = Number(order.tax ?? order.tax_amount) || 0;
+    const discount = Number(order.discount_amount) || 0;
+
+    if (order.payment_method === 'cash') {
+      stats.cashSales += total;
+    } else if (order.payment_method === 'stripe' || order.payment_method === 'card') {
+      stats.cardSales += total;
+    } else {
+      stats.otherSales += total;
+    }
+
+    stats.totalSales += total;
+    stats.totalTax += tax;
+    stats.totalDiscount += discount;
+
+    if (order.status === 'delivered' || order.status === 'completed') {
+      stats.ordersCompleted++;
+    }
+  });
+
+  return stats;
+}
+
+async function getCurrentOperationalPeriod(tenantId: string) {
+  const supabase = createClient();
+  const { data: settings } = await supabase
+    .from('restaurant_settings')
+    .select('operating_hours')
+    .eq('tenant_id', tenantId)
+    .maybeSingle();
+
+  return calculateBusinessPeriod(findOperationalCloseMinutes(settings?.operating_hours));
+}
+
 /**
  * Calculate cash closing statistics for a tenant
  * Gets all orders from today that are completed or paid
@@ -197,6 +264,60 @@ export async function calculateCashClosingStats(
   } catch (error) {
     console.error('Error calculating cash closing stats:', error);
     return emptyStats(calculateBusinessPeriod(DEFAULT_OPERATIONAL_CLOSE_MINUTES));
+  }
+}
+
+export async function calculatePendingPreviousCashClosingStats(tenantId: string): Promise<CashClosingStats | null> {
+  const supabase = createClient();
+
+  try {
+    const currentPeriod = await getCurrentOperationalPeriod(tenantId);
+    const currentPeriodStart = new Date(currentPeriod.periodStart);
+
+    const { data: orders, error } = await supabase
+      .from('orders')
+      .select('*')
+      .eq('tenant_id', tenantId)
+      .lt('created_at', currentPeriodStart.toISOString())
+      .neq('payment_method', null)
+      .eq('payment_status', 'paid')
+      .neq('status', 'cancelled')
+      .order('created_at', { ascending: true })
+      .limit(1000);
+
+    if (error || !orders?.length) {
+      if (error) console.error('Error fetching pending cash closing orders:', error);
+      return null;
+    }
+
+    const { data: closedItems, error: closedItemsError } = await supabase
+      .from('cash_closing_items')
+      .select('order_id')
+      .eq('tenant_id', tenantId)
+      .not('order_id', 'is', null)
+      .limit(2000);
+
+    if (closedItemsError) {
+      console.error('Error fetching cash closing items:', closedItemsError);
+    }
+
+    const closedOrderIds = new Set((closedItems || []).map((item: any) => item.order_id));
+    const pendingOrders = orders.filter((order: any) => !closedOrderIds.has(order.id));
+
+    if (pendingOrders.length === 0) return null;
+
+    const firstOrderDate = new Date(pendingOrders[0].created_at);
+    const period: CashClosingPeriod = {
+      periodStart: firstOrderDate.toISOString(),
+      periodEnd: currentPeriodStart.toISOString(),
+      businessDateLabel: `pendiente hasta ${currentPeriodStart.toLocaleDateString('es-ES', { weekday: 'long', day: '2-digit', month: 'long' })}`,
+      operationalCloseTime: currentPeriod.operationalCloseTime,
+    };
+
+    return statsFromOrders(period, pendingOrders);
+  } catch (error) {
+    console.error('Error calculating pending previous cash closing stats:', error);
+    return null;
   }
 }
 
