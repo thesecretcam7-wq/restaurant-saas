@@ -19,9 +19,9 @@ import {
 } from 'lucide-react'
 
 const sections = [
-  { href: 'branding', label: 'Branding', desc: 'Logo, colores, tipografia e imagenes', Icon: Palette },
-  { href: 'pagina', label: 'Diseno de tienda', desc: 'Banner, secciones y pagina publica', Icon: LayoutTemplate },
-  { href: 'personalizacion', label: 'Contenido y contacto', desc: 'Textos, redes, WhatsApp y datos visibles', Icon: Paintbrush },
+  { href: 'personalizacion', label: 'Marca y tienda', desc: 'Logo, colores, diseno, textos y redes', Icon: Paintbrush },
+  { href: 'pagina', label: 'Editor de secciones', desc: 'Orden y portada de la tienda', Icon: LayoutTemplate, hidden: true },
+  { href: 'branding', label: 'Branding', desc: 'Ruta anterior de compatibilidad', Icon: Palette, hidden: true },
   { href: 'restaurante', label: 'Restaurante', desc: 'Nombre, ubicacion y datos publicos', Icon: Store },
   { href: 'personal', label: 'Personal', desc: 'Empleados, roles y PINs', Icon: UsersRound },
   { href: 'horarios', label: 'Horarios', desc: 'Dias y horas de atencion', Icon: Clock3 },
@@ -44,7 +44,7 @@ export default function ConfiguracionLayout({ children }: { children: React.Reac
 
   const navList = (
     <nav className="admin-panel overflow-hidden p-2">
-      {sections.map(({ href, label, desc, Icon }) => {
+      {sections.filter(section => !section.hidden).map(({ href, label, desc, Icon }) => {
         const fullHref = `/${tenantId}/admin/configuracion/${href}`
         const active = activeSection?.href === href
         return (

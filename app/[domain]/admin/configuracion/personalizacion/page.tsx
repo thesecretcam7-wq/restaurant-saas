@@ -267,10 +267,10 @@ export default function PersonalizacionPage({ params }: PersonalizacionProps) {
 
   const tabs = [
     { id: 'identidad', label: 'Identidad' },
-    { id: 'marca', label: 'Marca Global' },
-    { id: 'pagina', label: 'Diseño de Página' },
+    { id: 'marca', label: 'Colores y estilo' },
+    { id: 'pagina', label: 'Diseño de tienda' },
     { id: 'contacto', label: 'Contacto' },
-    { id: 'avanzado', label: 'Personalización Avanzada' },
+    { id: 'avanzado', label: 'Avanzado' },
   ]
 
   const previewName = form.app_name || 'Tu Restaurante'
@@ -318,9 +318,9 @@ export default function PersonalizacionPage({ params }: PersonalizacionProps) {
     <div className="brand-studio max-w-6xl">
       <div className="admin-page-header">
         <div>
-          <p className="admin-eyebrow">Marca</p>
-          <h1 className="admin-title">Personalizacion</h1>
-          <p className="admin-subtitle">Define identidad, colores, textos, contacto y apariencia publica del restaurante desde una sola cabina visual.</p>
+          <p className="admin-eyebrow">Marca y tienda</p>
+          <h1 className="admin-title">Centro visual de la tienda</h1>
+          <p className="admin-subtitle">Un solo lugar para logo, colores, diseño público, textos, contacto, redes e imágenes visibles para tus clientes.</p>
         </div>
         <button
           onClick={handleSave}
@@ -565,79 +565,16 @@ export default function PersonalizacionPage({ params }: PersonalizacionProps) {
       {activeTab === 'pagina' && (
         <div className="space-y-6">
           <div className="bg-white rounded-xl border p-6">
-            <h3 className="font-semibold text-lg mb-4">📄 Diseño de tu Página</h3>
-            <p className="text-gray-600 text-sm mb-6">Configura qué secciones mostrar en tu página web de restaurante</p>
-
-            <div className="space-y-3">
-              <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
-                <p className="text-sm font-medium text-blue-900 mb-3">✨ Haz clic en cualquier botón para configurar esa sección de tu página</p>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <button
-                  onClick={() => router.push(`/${tenantSlug}/admin/configuracion/pagina`)}
-                  className="p-4 border-2 border-gray-200 rounded-xl hover:border-blue-500 hover:bg-blue-50 transition-all text-left cursor-pointer"
-                >
-                  <div className="font-medium text-gray-900 mb-1">🎨 Hero & Banner</div>
-                  <div className="text-xs text-gray-500">Imagen principal, títulos</div>
-                </button>
-
-                <button
-                  onClick={() => router.push(`/${tenantSlug}/admin/configuracion/pagina`)}
-                  className="p-4 border-2 border-gray-200 rounded-xl hover:border-blue-500 hover:bg-blue-50 transition-all text-left cursor-pointer"
-                >
-                  <div className="font-medium text-gray-900 mb-1">⭐ Destacados</div>
-                  <div className="text-xs text-gray-500">Productos más populares</div>
-                </button>
-
-                <button
-                  onClick={() => router.push(`/${tenantSlug}/admin/configuracion/pagina`)}
-                  className="p-4 border-2 border-gray-200 rounded-xl hover:border-blue-500 hover:bg-blue-50 transition-all text-left cursor-pointer"
-                >
-                  <div className="font-medium text-gray-900 mb-1">📍 Información</div>
-                  <div className="text-xs text-gray-500">Ubicación, horarios, contacto</div>
-                </button>
-
-                <button
-                  onClick={() => router.push(`/${tenantSlug}/admin/configuracion/pagina`)}
-                  className="p-4 border-2 border-gray-200 rounded-xl hover:border-blue-500 hover:bg-blue-50 transition-all text-left cursor-pointer"
-                >
-                  <div className="font-medium text-gray-900 mb-1">🎯 Acciones</div>
-                  <div className="text-xs text-gray-500">Botones menú, reservar, delivery</div>
-                </button>
-              </div>
-            </div>
+            <h3 className="font-semibold text-lg mb-2">Diseño público de la tienda</h3>
+            <p className="text-gray-600 text-sm leading-6">Desde aqui abres el editor de portada y secciones: banner, productos destacados, galeria, horarios, redes y botones rapidos. Las URLs, textos, colores e imagenes se editan en las demas pestañas de esta misma cabina para no duplicar datos.</p>
+            <button
+              onClick={() => router.push(`/${tenantSlug}/admin/configuracion/pagina`)}
+              className="mt-5 inline-flex h-11 items-center justify-center rounded-lg bg-gray-900 px-5 text-sm font-bold text-white transition hover:bg-black"
+            >
+              Abrir editor de portada y secciones
+            </button>
           </div>
 
-          <div className="bg-white rounded-xl border p-6">
-            <h3 className="font-semibold text-lg mb-4">🔗 Links de Redirección</h3>
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">URL de Menú Completo</label>
-                <input
-                  type="url"
-                  placeholder="https://tudominio.com/menu"
-                  className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">URL para Reservar</label>
-                <input
-                  type="url"
-                  placeholder="https://reservas.tudominio.com"
-                  className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">URL para Delivery</label>
-                <input
-                  type="url"
-                  placeholder="https://delivery.tudominio.com"
-                  className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-                />
-              </div>
-            </div>
-          </div>
         </div>
       )}
 
@@ -1231,13 +1168,6 @@ export default function PersonalizacionPage({ params }: PersonalizacionProps) {
         </div>
       </div>
 
-      <button
-        onClick={handleSave}
-        disabled={saving}
-        className="admin-button-primary mt-6 w-full disabled:opacity-50"
-      >
-        {saving ? 'Guardando...' : 'Guardar Cambios'}
-      </button>
     </div>
   )
 }
