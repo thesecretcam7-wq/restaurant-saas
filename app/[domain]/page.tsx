@@ -118,7 +118,7 @@ export default async function HomePage({ params }: HomePageProps) {
   const heroSubtitle = hero.subtitle_text || tagline
   const featuredText = (branding as any)?.featured_text?.trim()
   const sectionBackgroundImage = (branding as any)?.section_background_image_url || ''
-  const sectionBackgroundStyle = sectionBackgroundImage
+  const pageBackgroundStyle = sectionBackgroundImage
     ? {
         backgroundColor: background,
         backgroundImage: `linear-gradient(${background}db, ${background}db), url(${sectionBackgroundImage})`,
@@ -144,7 +144,7 @@ export default async function HomePage({ params }: HomePageProps) {
   const formatMoney = (value: number) => formatPriceWithCurrency(Number(value || 0), currencyInfo.code, currencyInfo.locale)
 
   return (
-    <div className="store-surface min-h-screen overflow-hidden pb-[88px] text-[#15130f]" style={{ backgroundColor: background }}>
+    <div className="store-surface min-h-screen overflow-hidden pb-[88px] text-[#15130f]" style={pageBackgroundStyle}>
       <section className="relative overflow-hidden" style={{ minHeight: heroMinHeight }}>
         <div className="absolute inset-0">
           {heroImage ? (
@@ -236,7 +236,7 @@ export default async function HomePage({ params }: HomePageProps) {
         </div>
       </section>
 
-      <main className="relative z-10 mx-auto -mt-10 max-w-7xl space-y-6 px-4 sm:px-6 lg:px-8" style={sectionBackgroundStyle}>
+      <main className="relative z-10 mx-auto -mt-10 max-w-7xl space-y-6 px-4 sm:px-6 lg:px-8">
         {enabledSections.map(section => {
           const sTitle = section.title || ''
           switch (section.type) {

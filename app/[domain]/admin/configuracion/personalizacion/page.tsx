@@ -1034,7 +1034,7 @@ export default function PersonalizacionPage({ params }: PersonalizacionProps) {
                 </div>
               </div>
 
-              <div className="space-y-4 p-4" style={previewBackgroundStyle}>
+              <div className="space-y-4 p-4">
                 {previewMode === 'tienda' && (
                   <>
                     <section className="overflow-hidden border bg-white/90 shadow-sm" style={{ borderColor: form.border_color, borderRadius: previewRadius }}>
