@@ -91,7 +91,7 @@ export default async function CartaPage({ params }: CartaProps) {
     textSecondary: branding?.text_secondary_color,
     border: branding?.border_color,
   })
-  const { primary, secondary, accent, background, cardSurface, neutralSoft, buttonSecondary, text: surfaceText, mutedText, border } = palette
+  const { primary, secondary, accent, background, cardSurface, neutralSoft, buttonPrimary, buttonPrimaryText, buttonSecondary, text: surfaceText, mutedText, border } = palette
   const headerText = readableTextColor(cardSurface)
   const heroText = readableTextColor(secondary)
   const fontFamily = branding?.font_family || 'Inter, system-ui, sans-serif'
@@ -144,7 +144,7 @@ export default async function CartaPage({ params }: CartaProps) {
         {categories.length > 0 && (
           <nav className="mx-auto flex max-w-3xl gap-2 overflow-x-auto px-4 pb-3 scrollbar-hide">
             {featured.length > 0 && (
-              <a href="#destacados" className="h-9 flex-shrink-0 rounded-full px-4 py-2 text-xs font-black text-white" style={{ backgroundColor: primary }}>
+              <a href="#destacados" className="h-9 flex-shrink-0 rounded-full px-4 py-2 text-xs font-black" style={{ backgroundColor: buttonPrimary, color: buttonPrimaryText }}>
                 {tr('qr.mostOrdered')}
               </a>
             )}
@@ -153,7 +153,7 @@ export default async function CartaPage({ params }: CartaProps) {
                 key={category.id}
                 href={`#cat-${category.id}`}
                 className="h-9 flex-shrink-0 rounded-full border px-4 py-2 text-xs font-black"
-                style={{ backgroundColor: buttonSecondary, borderColor: primary, color: primary }}
+                style={{ backgroundColor: buttonSecondary, borderColor: border, color: surfaceText }}
               >
                 {category.name}
               </a>
@@ -222,7 +222,7 @@ export default async function CartaPage({ params }: CartaProps) {
                   key={item.id}
                   item={item}
                   toppings={toppingsByItem.get(item.id) || []}
-                  colors={{ primary, surface: neutralSoft, cardSurface, surfaceText, mutedText, border }}
+                  colors={{ accent, surface: neutralSoft, cardSurface, surfaceText, mutedText, border }}
                   currencyInfo={currencyInfo}
                 />
               ))}
@@ -246,7 +246,7 @@ export default async function CartaPage({ params }: CartaProps) {
                     key={item.id}
                     item={item}
                     toppings={toppingsByItem.get(item.id) || []}
-                    colors={{ primary, surface: neutralSoft, cardSurface, surfaceText, mutedText, border }}
+                    colors={{ accent, surface: neutralSoft, cardSurface, surfaceText, mutedText, border }}
                     currencyInfo={currencyInfo}
                   />
                 ))}
@@ -264,7 +264,7 @@ export default async function CartaPage({ params }: CartaProps) {
                   key={item.id}
                   item={item}
                   toppings={toppingsByItem.get(item.id) || []}
-                  colors={{ primary, surface: neutralSoft, cardSurface, surfaceText, mutedText, border }}
+                  colors={{ accent, surface: neutralSoft, cardSurface, surfaceText, mutedText, border }}
                   currencyInfo={currencyInfo}
                 />
               ))}
@@ -292,7 +292,7 @@ function CartaItem({
   item: MenuItem
   toppings: Topping[]
   colors: {
-    primary: string
+    accent: string
     surface: string
     cardSurface: string
     surfaceText: string
@@ -315,7 +315,7 @@ function CartaItem({
       <div className="min-w-0 py-1">
         <div className="flex min-w-0 flex-col gap-1 sm:flex-row sm:items-start sm:justify-between sm:gap-3">
           <h3 className="line-clamp-2 break-words text-lg font-black leading-6 sm:text-xl sm:leading-7" style={{ color: colors.surfaceText }}>{item.name}</h3>
-          <p className="text-xl font-black leading-7 sm:flex-shrink-0" style={{ color: colors.primary }}>
+          <p className="text-xl font-black leading-7 sm:flex-shrink-0" style={{ color: colors.accent }}>
             {formatPriceWithCurrency(item.price, currencyInfo.code, currencyInfo.locale)}
           </p>
         </div>

@@ -91,19 +91,7 @@ export default function PersonalizacionPage({ params }: PersonalizacionProps) {
   })
 
   const handleColorChange = (key: keyof typeof form, value: string) => {
-    setForm(prev => {
-      const next: typeof prev = { ...prev, [key]: value }
-
-      if (key === 'primary_color') {
-        const oldPrimary = prev.primary_color
-        const shouldSyncAccent = !prev.accent_color || prev.accent_color === oldPrimary || prev.accent_color === '#F59E0B'
-        const shouldSyncButton = !prev.button_primary_color || prev.button_primary_color === oldPrimary || prev.button_primary_color === '#3B82F6'
-        if (shouldSyncAccent) next.accent_color = value
-        if (shouldSyncButton) next.button_primary_color = value
-      }
-
-      return next
-    })
+    setForm(prev => ({ ...prev, [key]: value }))
   }
 
   useEffect(() => {
@@ -410,7 +398,7 @@ export default function PersonalizacionPage({ params }: PersonalizacionProps) {
             <h3 className="font-semibold text-lg mb-4">Colores Principales</h3>
             <div className="grid grid-cols-2 gap-4">
               {[
-                { key: 'primary_color', label: 'Color Primario' },
+                { key: 'primary_color', label: 'Encabezado y marca' },
                 { key: 'secondary_color', label: 'Color Secundario' },
                 { key: 'background_color', label: 'Fondo Principal' },
               ].map(({ key, label }) => (

@@ -6,6 +6,8 @@ interface Props {
   tenantId: string
   items: any[]
   primary: string
+  buttonColor?: string
+  priceColor?: string
   title: string
   borderRadius: string
   cardClasses: string
@@ -13,7 +15,7 @@ interface Props {
   currencyInfo?: { code: string; locale: string }
 }
 
-export default function FeaturedSection({ tenantId, items, primary, title, borderRadius, cardClasses, animations, currencyInfo }: Props) {
+export default function FeaturedSection({ tenantId, items, primary, buttonColor = primary, priceColor = primary, title, borderRadius, cardClasses, animations, currencyInfo }: Props) {
   const money = (value: number) => formatPriceWithCurrency(Number(value || 0), currencyInfo?.code || 'EUR', currencyInfo?.locale || 'es-ES')
 
   if (!items?.length) {
@@ -32,7 +34,7 @@ export default function FeaturedSection({ tenantId, items, primary, title, borde
           <p className="text-xs font-black uppercase text-black/42">Recomendados</p>
           <h2 className="mt-1 text-2xl font-black text-[#15130f] sm:text-3xl">{title}</h2>
         </div>
-        <Link href={`/${tenantId}/menu`} className="shrink-0 rounded-full border border-black/10 px-4 py-2 text-sm font-black transition hover:bg-black/[0.04]" style={{ color: primary }}>
+        <Link href={`/${tenantId}/menu`} className="shrink-0 rounded-full border border-black/10 px-4 py-2 text-sm font-black transition hover:bg-black/[0.04]" style={{ color: buttonColor }}>
           Ver todo
         </Link>
       </div>
@@ -57,8 +59,8 @@ export default function FeaturedSection({ tenantId, items, primary, title, borde
             <div className="p-3.5">
               <p className="line-clamp-2 min-h-10 text-sm font-black leading-5 text-[#15130f]">{item.name}</p>
               <div className="mt-3 flex items-center justify-between gap-2">
-                <p className="text-base font-black" style={{ color: primary }}>{money(item.price)}</p>
-                <AddToCartButton item={item} tenantId={tenantId} color={primary} small />
+                <p className="text-base font-black" style={{ color: priceColor }}>{money(item.price)}</p>
+                <AddToCartButton item={item} tenantId={tenantId} color={buttonColor} small />
               </div>
             </div>
           </Link>

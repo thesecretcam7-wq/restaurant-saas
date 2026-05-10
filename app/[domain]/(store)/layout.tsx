@@ -39,7 +39,7 @@ export default async function StoreLayout({ children, params }: Props) {
         tenantSlug={tenantSlug}
         restaurantName={restaurantName}
         logoUrl={tenant.logo_url}
-        primaryColor={branding?.primary_color}
+        primaryColor={palette.buttonPrimary}
       />
     )
   }
@@ -64,7 +64,7 @@ export default async function StoreLayout({ children, params }: Props) {
         primaryColor={branding?.primary_color}
       />
       {children}
-      <BottomNav tenantId={tenantSlug} primaryColor={branding?.primary_color} />
+      <BottomNav tenantId={tenantSlug} primaryColor={palette.buttonPrimary} />
       <WhatsAppFloat whatsapp={whatsappLink} restaurantName={restaurantName} primaryColor="#25D366" />
     </div>
   )

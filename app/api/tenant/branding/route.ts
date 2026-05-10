@@ -46,23 +46,6 @@ function pickTenantBrandingColumns(branding: Record<string, any>) {
   )
 }
 
-function normalizeBrandingColors(branding: Record<string, any>) {
-  const primary = branding.primary_color
-  if (!primary) return branding
-
-  return {
-    ...branding,
-    accent_color:
-      !branding.accent_color || branding.accent_color === '#F59E0B' || branding.accent_color === '#f59e0b'
-        ? primary
-        : branding.accent_color,
-    button_primary_color:
-      !branding.button_primary_color || branding.button_primary_color === '#3B82F6' || branding.button_primary_color === '#3b82f6'
-        ? primary
-        : branding.button_primary_color,
-  }
-}
-
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url)
@@ -113,7 +96,7 @@ export async function PUT(request: NextRequest) {
 
     // tenant_branding has a stable schema, while advanced visual controls live in tenant metadata.
     // This lets us add UI options without breaking saves when a database migration has not run yet.
-    const normalizedBranding = normalizeBrandingColors(branding)
+    const normalizedBranding = branding
     const { logo_url, ...brandingDataWithoutLogo } = normalizedBranding
     const brandingData = {
       ...pickTenantBrandingColumns(brandingDataWithoutLogo),

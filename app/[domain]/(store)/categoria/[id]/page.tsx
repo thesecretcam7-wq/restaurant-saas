@@ -34,8 +34,10 @@ export default async function CategoryPage({ params }: CategoryPageProps) {
   const branding = context.branding
   const palette = deriveBrandPalette({
     primary: branding?.primary_color,
+    accent: branding?.accent_color,
     background: branding?.background_color,
     surface: branding?.section_background_color,
+    buttonPrimary: branding?.button_primary_color,
     textPrimary: branding?.text_primary_color,
     textSecondary: branding?.text_secondary_color,
     border: branding?.border_color,
@@ -97,7 +99,7 @@ export default async function CategoryPage({ params }: CategoryPageProps) {
         ) : (
           <div className="space-y-3">
             {items.map(item => (
-              <MenuItemCard key={item.id} item={item} tenantSlug={context.tenant?.slug || domain} branding={branding} currencyInfo={currencyInfo} />
+              <MenuItemCard key={item.id} item={item} tenantSlug={context.tenant?.slug || domain} palette={palette} currencyInfo={currencyInfo} />
             ))}
           </div>
         )}
@@ -106,7 +108,7 @@ export default async function CategoryPage({ params }: CategoryPageProps) {
   )
 }
 
-function MenuItemCard({ item, tenantSlug, branding, currencyInfo }: { item: any; tenantSlug: string; branding: any; currencyInfo: { code: string; locale: string } }) {
+function MenuItemCard({ item, tenantSlug, palette, currencyInfo }: { item: any; tenantSlug: string; palette: ReturnType<typeof deriveBrandPalette>; currencyInfo: { code: string; locale: string } }) {
   return (
     <div className="bg-white rounded-xl border overflow-hidden flex items-center gap-4 p-3 hover:shadow-md transition-shadow">
       {item.image_url ? (
@@ -115,13 +117,13 @@ function MenuItemCard({ item, tenantSlug, branding, currencyInfo }: { item: any;
         <div className="w-20 h-20 rounded-lg bg-gray-100 flex items-center justify-center text-2xl flex-shrink-0">🍽️</div>
       )}
       <div className="flex-1 min-w-0">
-        <p className="font-semibold text-gray-900">{item.name}</p>
-        {item.description && <p className="text-sm text-gray-500 mt-0.5 line-clamp-2">{item.description}</p>}
-        <p className="font-bold mt-2" style={{ color: branding?.primary_color || '#E4002B' }}>
+        <p className="font-semibold" style={{ color: palette.text }}>{item.name}</p>
+        {item.description && <p className="text-sm mt-0.5 line-clamp-2" style={{ color: palette.mutedText }}>{item.description}</p>}
+        <p className="font-bold mt-2" style={{ color: palette.accent }}>
           {formatPriceWithCurrency(item.price, currencyInfo.code, currencyInfo.locale)}
         </p>
       </div>
-      <AddToCartButton item={item} tenantId={tenantSlug} color={branding?.button_primary_color || branding?.primary_color} />
+      <AddToCartButton item={item} tenantId={tenantSlug} color={palette.buttonPrimary} />
     </div>
   )
 }

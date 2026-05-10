@@ -102,6 +102,8 @@ export default async function HomePage({ params }: HomePageProps) {
 
   const primary = branding?.primary_color || '#E4002B'
   const secondary = branding?.secondary_color || '#15130f'
+  const accent = branding?.accent_color || '#F97316'
+  const buttonPrimary = branding?.button_primary_color || '#E4002B'
   const appName = branding?.app_name || tenant.organization_name
   const tagline = branding?.tagline || settings?.description || ''
   const heroImage = hero.image_url || (branding as any)?.hero_image_url || (branding as any)?.hero?.image_url
@@ -169,7 +171,7 @@ export default async function HomePage({ params }: HomePageProps) {
           </Link>
           <div className="flex items-center gap-2">
             <LanguageSwitcher compact className="border-white/20 bg-white/16 text-white [&_select]:text-white" reloadOnChange />
-            <Link href={`/${tenant.slug}/menu`} className={`hidden px-5 py-3 text-sm font-black text-white shadow-xl transition hover:scale-[1.02] sm:inline-flex ${btnCls}`} style={{ backgroundColor: primary }}>
+            <Link href={`/${tenant.slug}/menu`} className={`hidden px-5 py-3 text-sm font-black text-white shadow-xl transition hover:scale-[1.02] sm:inline-flex ${btnCls}`} style={{ backgroundColor: buttonPrimary }}>
               {tr('store.viewMenu')}
             </Link>
           </div>
@@ -220,7 +222,7 @@ export default async function HomePage({ params }: HomePageProps) {
                       )}
                       <span className="min-w-0 flex-1">
                         <span className="block truncate text-sm font-black text-[#15130f]">{item.name}</span>
-                        <span className="mt-1 block text-sm font-black" style={{ color: primary }}>{formatMoney(item.price)}</span>
+                        <span className="mt-1 block text-sm font-black" style={{ color: accent }}>{formatMoney(item.price)}</span>
                       </span>
                     </Link>
                   ))}
@@ -238,7 +240,7 @@ export default async function HomePage({ params }: HomePageProps) {
             case 'banner':
               return <PremiumBand key={section.id}><BannerSection banner={banner} borderRadius={br} /></PremiumBand>
             case 'featured':
-              return <FeaturedSection key={section.id} tenantId={tenant.slug} items={featured || []} primary={primary} title={sTitle || tr('store.mostOrdered')} borderRadius={br} cardClasses={cardCls} animations={anim} currencyInfo={currencyInfo} />
+              return <FeaturedSection key={section.id} tenantId={tenant.slug} items={featured || []} primary={primary} buttonColor={buttonPrimary} priceColor={accent} title={sTitle || tr('store.mostOrdered')} borderRadius={br} cardClasses={cardCls} animations={anim} currencyInfo={currencyInfo} />
             case 'about':
               return <PremiumBand key={section.id}><AboutSection about={about} borderRadius={br} cardClasses={cardCls} /></PremiumBand>
             case 'info':
@@ -268,7 +270,7 @@ export default async function HomePage({ params }: HomePageProps) {
         </div>
       </footer>
 
-      <BottomNav tenantId={tenant.slug} primaryColor={primary} />
+      <BottomNav tenantId={tenant.slug} primaryColor={buttonPrimary} />
       <WhatsAppFloat whatsapp={whatsappLink} restaurantName={appName} primaryColor="#25D366" />
     </div>
   )

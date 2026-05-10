@@ -282,6 +282,7 @@ function CategoryProductModal({
   currencyCode,
   currencyLocale,
   primaryColor,
+  accentColor,
   buttonColor,
   surfaceColor,
   textColor,
@@ -298,6 +299,7 @@ function CategoryProductModal({
   currencyCode: string
   currencyLocale: string
   primaryColor: string
+  accentColor: string
   buttonColor: string
   surfaceColor: string
   textColor: string
@@ -377,10 +379,10 @@ function CategoryProductModal({
                     <div className="p-4 flex flex-col flex-1">
                       <p className="font-bold text-sm leading-snug line-clamp-2 flex-1 mb-2" style={{ color: textColor }}>{item.name}</p>
                       {hasToppings && (
-                        <p className="mb-2 text-xs font-black uppercase tracking-wide" style={{ color: primaryColor }}>Toca para personalizar</p>
+                        <p className="mb-2 text-xs font-black uppercase tracking-wide" style={{ color: accentColor }}>Toca para personalizar</p>
                       )}
                       <div className="flex items-center justify-between">
-                        <p className="font-black text-lg" style={{ color: primaryColor }}>
+                        <p className="font-black text-lg" style={{ color: accentColor }}>
                           {fmt(item.price, currencyCode, currencyLocale)}
                         </p>
                         <div
@@ -893,7 +895,7 @@ export default function KioskoClient({
               </div>
               <div className="flex justify-between pt-4 border-t mt-4 font-black text-2xl" style={{ borderColor }}>
                 <span style={{ color: surfaceTextColor }}>{tr('kitchen.total')}</span>
-                <span style={{ color: primaryColor }}>{fmt(grandTotal, currencyCode, currencyLocale)}</span>
+                <span style={{ color: accentColor }}>{fmt(grandTotal, currencyCode, currencyLocale)}</span>
               </div>
             </div>
 
@@ -1048,7 +1050,7 @@ export default function KioskoClient({
                           <div className="p-3">
                             <p className="font-black text-sm leading-tight line-clamp-2 min-h-[2.25rem]" style={{ color: surfaceTextColor }}>{item.name}</p>
                             <div className="flex items-center justify-between mt-2">
-                              <span className="font-black" style={{ color: primaryColor }}>{fmt(item.price, currencyCode, currencyLocale)}</span>
+                              <span className="font-black" style={{ color: accentColor }}>{fmt(item.price, currencyCode, currencyLocale)}</span>
                               <span className="rounded-full px-3 py-1 text-xs font-black" style={{ backgroundColor: buttonPrimaryColor, color: buttonTextColor }}>
                                 {tr('cart.add')}
                               </span>
@@ -1080,7 +1082,7 @@ export default function KioskoClient({
             <div className="max-w-lg mx-auto">
               <div className="flex items-center justify-between mb-3 px-1">
                 <span className="font-medium" style={{ color: surfaceMutedTextColor }}>{tr('checkout.totalToPay')}</span>
-                <span className="text-2xl font-black" style={{ color: primaryColor }}>{fmt(grandTotal, currencyCode, currencyLocale)}</span>
+                <span className="text-2xl font-black" style={{ color: accentColor }}>{fmt(grandTotal, currencyCode, currencyLocale)}</span>
               </div>
               <button
                 onClick={() => setStep('checkout')}
@@ -1269,7 +1271,7 @@ export default function KioskoClient({
             </div>
             <div className="hidden text-right sm:block">
               <p className="text-xs font-bold uppercase tracking-widest" style={{ color: surfaceMutedTextColor }}>{tr('kitchen.total')}</p>
-              <p className="text-3xl font-black leading-none" style={{ color: primaryColor }}>{fmt(grandTotal, currencyCode, currencyLocale)}</p>
+              <p className="text-3xl font-black leading-none" style={{ color: accentColor }}>{fmt(grandTotal, currencyCode, currencyLocale)}</p>
               {taxRate > 0 && (
                 <p className="mt-1 text-xs font-semibold" style={{ color: surfaceMutedTextColor }}>
                   Incluye IVA {taxRate}%: {fmt(tax, currencyCode, currencyLocale)}
@@ -1299,6 +1301,7 @@ export default function KioskoClient({
           currencyCode={currencyCode}
           currencyLocale={currencyLocale}
           primaryColor={primaryColor}
+          accentColor={accentColor}
           buttonColor={buttonPrimaryColor}
           surfaceColor={surfaceColor}
           textColor={surfaceTextColor}
@@ -1332,7 +1335,7 @@ export default function KioskoClient({
             <div className="p-6">
               <div className="flex items-start justify-between mb-1 gap-4">
                 <h3 className="text-2xl font-black leading-tight" style={{ color: surfaceTextColor }}>{selectedItem.name}</h3>
-                <p className="text-2xl font-black flex-shrink-0" style={{ color: primaryColor }}>
+                <p className="text-2xl font-black flex-shrink-0" style={{ color: accentColor }}>
                   {fmt(selectedItem.price, currencyCode, currencyLocale)}
                 </p>
               </div>
