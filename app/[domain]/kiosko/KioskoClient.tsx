@@ -451,9 +451,9 @@ export default function KioskoClient({
   const primaryTextColor = readableText(primaryColor)
   const buttonTextColor = readableText(buttonPrimaryColor)
   const secondaryButtonTextColor = readableText(buttonSecondaryColor)
-  const surfaceColor = isDark(backgroundColor) ? secondaryColor : '#ffffff'
-  const surfaceTextColor = readableText(surfaceColor, textPrimaryColor)
-  const surfaceMutedTextColor = readableText(surfaceColor, textSecondaryColor, 'rgba(21,19,15,0.62)', 'rgba(255,255,255,0.66)')
+  const surfaceColor = '#ffffff'
+  const surfaceTextColor = '#15130f'
+  const surfaceMutedTextColor = textSecondaryColor || 'rgba(21,19,15,0.62)'
 
   useEffect(() => {
     if (step !== 'menu' || banners.length <= 1) return

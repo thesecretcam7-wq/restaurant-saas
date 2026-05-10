@@ -92,7 +92,7 @@ export default async function CartaPage({ params }: CartaProps) {
     border: branding?.border_color,
   })
   const { primary, secondary, accent, background, surface, cardSurface, buttonSecondary, text: surfaceText, mutedText, border } = palette
-  const headerText = readableTextColor(surface)
+  const headerText = readableTextColor(cardSurface)
   const heroText = readableTextColor(secondary)
   const fontFamily = branding?.font_family || 'Inter, system-ui, sans-serif'
   const currencyInfo = settings?.currency
@@ -117,7 +117,7 @@ export default async function CartaPage({ params }: CartaProps) {
         backgroundImage: `radial-gradient(circle at top left, ${primary}18, transparent 32rem), radial-gradient(circle at top right, ${secondary}14, transparent 28rem)`,
       }}
     >
-      <header className="fixed inset-x-0 top-0 z-40 border-b shadow-lg shadow-black/[0.04] backdrop-blur-xl" style={{ backgroundColor: `${surface}f7`, borderColor: border }}>
+      <header className="fixed inset-x-0 top-0 z-40 border-b shadow-lg shadow-black/[0.04] backdrop-blur-xl" style={{ backgroundColor: `${cardSurface}f7`, borderColor: border }}>
         <div className="mx-auto flex h-16 max-w-3xl items-center gap-3 px-4">
           {logoUrl ? (
             <div className="relative h-12 w-16 flex-shrink-0 overflow-hidden rounded-2xl bg-white/80 p-1.5 shadow-sm ring-1" style={{ '--tw-ring-color': border } as React.CSSProperties}>
@@ -202,7 +202,7 @@ export default async function CartaPage({ params }: CartaProps) {
 
       <div className="mx-auto max-w-3xl space-y-5 px-4 pb-12">
         {featured.length > 0 && (
-          <section id="destacados" className="scroll-mt-36 rounded-[1.75rem] border p-4 shadow-xl shadow-black/[0.05] sm:p-5" style={{ backgroundColor: surface, borderColor: border }}>
+          <section id="destacados" className="scroll-mt-36 rounded-[1.75rem] border p-4 shadow-xl shadow-black/[0.05] sm:p-5" style={{ backgroundColor: cardSurface, borderColor: border }}>
             <div className="mb-4 flex items-center justify-between gap-3">
               <div>
                 <p className="text-xs font-black uppercase tracking-[0.16em]" style={{ color: mutedText }}>{tr('qr.recommended')}</p>
@@ -216,7 +216,7 @@ export default async function CartaPage({ params }: CartaProps) {
                   key={item.id}
                   item={item}
                   toppings={toppingsByItem.get(item.id) || []}
-                  colors={{ primary, surface, cardSurface, surfaceText, mutedText, border }}
+                  colors={{ primary, surface: cardSurface, cardSurface, surfaceText, mutedText, border }}
                   currencyInfo={currencyInfo}
                 />
               ))}
@@ -228,7 +228,7 @@ export default async function CartaPage({ params }: CartaProps) {
           const categoryItems = itemsByCategory.get(category.id) || []
           if (categoryItems.length === 0) return null
           return (
-            <section key={category.id} id={`cat-${category.id}`} className="scroll-mt-36 rounded-[1.75rem] border p-4 shadow-xl shadow-black/[0.05] sm:p-5" style={{ backgroundColor: surface, borderColor: border }}>
+            <section key={category.id} id={`cat-${category.id}`} className="scroll-mt-36 rounded-[1.75rem] border p-4 shadow-xl shadow-black/[0.05] sm:p-5" style={{ backgroundColor: cardSurface, borderColor: border }}>
               <div className="mb-4">
                 <p className="text-xs font-black uppercase tracking-[0.16em]" style={{ color: mutedText }}>{tr('qr.category')}</p>
                 <h2 className="text-3xl font-black tracking-tight" style={{ color: surfaceText }}>{category.name}</h2>
@@ -240,7 +240,7 @@ export default async function CartaPage({ params }: CartaProps) {
                     key={item.id}
                     item={item}
                     toppings={toppingsByItem.get(item.id) || []}
-                    colors={{ primary, surface, cardSurface, surfaceText, mutedText, border }}
+                    colors={{ primary, surface: cardSurface, cardSurface, surfaceText, mutedText, border }}
                     currencyInfo={currencyInfo}
                   />
                 ))}
@@ -250,7 +250,7 @@ export default async function CartaPage({ params }: CartaProps) {
         })}
 
         {uncategorized.length > 0 && (
-          <section className="rounded-[1.75rem] border p-4 shadow-xl shadow-black/[0.05] sm:p-5" style={{ backgroundColor: surface, borderColor: border }}>
+          <section className="rounded-[1.75rem] border p-4 shadow-xl shadow-black/[0.05] sm:p-5" style={{ backgroundColor: cardSurface, borderColor: border }}>
             <h2 className="mb-4 text-2xl font-black" style={{ color: surfaceText }}>{tr('qr.otherProducts')}</h2>
             <div className="grid gap-3">
               {uncategorized.map(item => (
@@ -258,7 +258,7 @@ export default async function CartaPage({ params }: CartaProps) {
                   key={item.id}
                   item={item}
                   toppings={toppingsByItem.get(item.id) || []}
-                  colors={{ primary, surface, cardSurface, surfaceText, mutedText, border }}
+                  colors={{ primary, surface: cardSurface, cardSurface, surfaceText, mutedText, border }}
                   currencyInfo={currencyInfo}
                 />
               ))}
@@ -267,7 +267,7 @@ export default async function CartaPage({ params }: CartaProps) {
         )}
 
         {items.length === 0 && (
-          <div className="rounded-[1.5rem] p-8 text-center shadow-xl shadow-black/[0.04]" style={{ backgroundColor: surface }}>
+          <div className="rounded-[1.5rem] p-8 text-center shadow-xl shadow-black/[0.04]" style={{ backgroundColor: cardSurface }}>
             <p className="text-lg font-black" style={{ color: surfaceText }}>Carta sin productos visibles</p>
             <p className="mt-2 text-sm font-semibold" style={{ color: mutedText }}>Activa productos desde el panel para mostrarlos aqui.</p>
           </div>

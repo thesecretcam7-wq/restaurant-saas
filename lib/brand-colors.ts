@@ -32,6 +32,24 @@ export function readableTextColor(background?: string | null, dark = '#15130f', 
   return isDarkColor(background) ? light : dark
 }
 
+export function isVividBrandColor(color?: string | null) {
+  const rgb = hexToRgb(color)
+  if (!rgb) return false
+  const max = Math.max(rgb.r, rgb.g, rgb.b) / 255
+  const min = Math.min(rgb.r, rgb.g, rgb.b) / 255
+  const lightness = (max + min) / 2
+  const delta = max - min
+  const saturation = delta === 0 ? 0 : delta / (1 - Math.abs(2 * lightness - 1))
+
+  return saturation > 0.32 && lightness > 0.18 && lightness < 0.82
+}
+
+export function getStoreCardSurface(surface?: string | null) {
+  if (!surface) return '#ffffff'
+  if (isDarkColor(surface) || isVividBrandColor(surface)) return '#ffffff'
+  return surface
+}
+
 export function mixHexColors(from?: string | null, to?: string | null, amount = 0.5) {
   const a = hexToRgb(from)
   const b = hexToRgb(to)
@@ -66,7 +84,7 @@ export function deriveBrandPalette(input: BrandColorInput = {}) {
     accent,
     background,
     surface,
-    cardSurface: isDarkColor(surface) ? '#111827' : '#ffffff',
+    cardSurface: getStoreCardSurface(surface),
     neutralSoft,
     primarySoft,
     buttonPrimary,

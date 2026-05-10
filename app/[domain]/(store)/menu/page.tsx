@@ -107,7 +107,6 @@ export default async function MenuPage({ params }: MenuProps) {
   const fontFamily = branding?.font_family || 'Inter'
   const buttonHoverEffect = (branding?.button_hover_effect as string) || 'scale'
   const transitionSpeed = (branding?.transition_speed as string) || 'normal'
-  const sectionBgColor = branding?.section_background_color || '#FFFFFF'
   const useGradient = branding?.use_gradient || false
   const gradientStart = branding?.gradient_start_color || '#FFFFFF'
   const gradientEnd = branding?.gradient_end_color || '#F3F4F6'
@@ -116,7 +115,7 @@ export default async function MenuPage({ params }: MenuProps) {
   const transitionDuration = transitionSpeed === 'slow' ? '500ms' : transitionSpeed === 'fast' ? '100ms' : '300ms'
   const backgroundStyle = useGradient
     ? { backgroundImage: `linear-gradient(${gradientDir}, ${gradientStart}, ${gradientEnd})` }
-    : { backgroundColor: sectionBgColor }
+    : { backgroundColor: palette.background }
 
   // Get currency from settings or detect from country
   const currencyInfo = settings?.currency
