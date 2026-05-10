@@ -111,6 +111,7 @@ export default async function HomePage({ params }: HomePageProps) {
   const enabledSections = [...sections].filter(s => s.enabled).sort((a, b) => a.order - b.order)
   const heroTitle = hero.title_text || appName
   const heroSubtitle = hero.subtitle_text || tagline
+  const featuredText = (branding as any)?.featured_text?.trim()
   const whatsappLink = social.whatsapp || branding?.whatsapp_number || null
   const heroMinHeight = hero.height === 'small' ? '560px' : hero.height === 'medium' ? '640px' : '720px'
   const heroOverlay = Math.min(Math.max(hero.overlay_opacity || 45, 26), 78) / 100
@@ -169,6 +170,11 @@ export default async function HomePage({ params }: HomePageProps) {
               <p className="mt-6 max-w-2xl text-lg font-semibold leading-8 text-white/84 sm:text-xl">
                 {heroSubtitle}
               </p>
+            )}
+            {featuredText && (
+              <div className="mt-5 max-w-2xl rounded-2xl border border-white/18 bg-white/14 px-4 py-3 text-sm font-black leading-6 text-white shadow-xl backdrop-blur-md" style={{ boxShadow: `inset 4px 0 0 ${primary}` }}>
+                {featuredText}
+              </div>
             )}
             {hero.show_info_pills && <InfoPills settings={settings} primary={primary} />}
             <div className="mt-8 flex flex-col gap-3 sm:flex-row">

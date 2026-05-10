@@ -705,6 +705,7 @@ export default function PersonalizacionPage({ params }: PersonalizacionProps) {
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Texto Destacado</label>
+              <p className="mb-2 text-xs font-semibold text-gray-500">Aparece como aviso promocional en la portada de la tienda y arriba del menu.</p>
               <textarea
                 value={form.featured_text}
                 onChange={e => setForm(f => ({ ...f, featured_text: e.target.value }))}

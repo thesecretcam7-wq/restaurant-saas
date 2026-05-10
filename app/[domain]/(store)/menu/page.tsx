@@ -111,6 +111,7 @@ export default async function MenuPage({ params }: MenuProps) {
   const gradientStart = branding?.gradient_start_color || '#FFFFFF'
   const gradientEnd = branding?.gradient_end_color || '#F3F4F6'
   const gradientDir = branding?.gradient_direction || 'to right'
+  const featuredText = (branding as any)?.featured_text?.trim()
 
   const transitionDuration = transitionSpeed === 'slow' ? '500ms' : transitionSpeed === 'fast' ? '100ms' : '300ms'
   const backgroundStyle = useGradient
@@ -190,6 +191,11 @@ export default async function MenuPage({ params }: MenuProps) {
             <div className="min-w-0">
               <h1 className="text-2xl font-black leading-tight text-[#15130f] sm:text-4xl">Elige tu pedido</h1>
               <p className="mt-2 max-w-2xl break-words text-sm font-bold leading-6 text-black/58">Explora los productos del restaurante y agrega tus favoritos al carrito.</p>
+              {featuredText && (
+                <div className="mt-4 max-w-2xl rounded-2xl border px-4 py-3 text-sm font-black leading-6" style={{ borderColor: `${primary}33`, backgroundColor: `${primary}12`, color: primary }}>
+                  {featuredText}
+                </div>
+              )}
             </div>
             <Link href={`/${slug}`} className="inline-flex h-11 w-full items-center justify-center rounded-full border border-black/10 px-5 text-sm font-black transition hover:bg-black/[0.04] sm:w-auto" style={{ color: primary }}>
               Volver al inicio
