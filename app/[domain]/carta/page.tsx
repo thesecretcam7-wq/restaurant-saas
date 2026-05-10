@@ -91,7 +91,7 @@ export default async function CartaPage({ params }: CartaProps) {
     textSecondary: branding?.text_secondary_color,
     border: branding?.border_color,
   })
-  const { primary, secondary, accent, background, surface, cardSurface, buttonSecondary, text: surfaceText, mutedText, border } = palette
+  const { primary, secondary, accent, background, cardSurface, neutralSoft, buttonSecondary, text: surfaceText, mutedText, border } = palette
   const headerText = readableTextColor(cardSurface)
   const heroText = readableTextColor(secondary)
   const fontFamily = branding?.font_family || 'Inter, system-ui, sans-serif'
@@ -216,7 +216,7 @@ export default async function CartaPage({ params }: CartaProps) {
                   key={item.id}
                   item={item}
                   toppings={toppingsByItem.get(item.id) || []}
-                  colors={{ primary, surface: cardSurface, cardSurface, surfaceText, mutedText, border }}
+                  colors={{ primary, surface: neutralSoft, cardSurface, surfaceText, mutedText, border }}
                   currencyInfo={currencyInfo}
                 />
               ))}
@@ -240,7 +240,7 @@ export default async function CartaPage({ params }: CartaProps) {
                     key={item.id}
                     item={item}
                     toppings={toppingsByItem.get(item.id) || []}
-                    colors={{ primary, surface: cardSurface, cardSurface, surfaceText, mutedText, border }}
+                    colors={{ primary, surface: neutralSoft, cardSurface, surfaceText, mutedText, border }}
                     currencyInfo={currencyInfo}
                   />
                 ))}
@@ -258,7 +258,7 @@ export default async function CartaPage({ params }: CartaProps) {
                   key={item.id}
                   item={item}
                   toppings={toppingsByItem.get(item.id) || []}
-                  colors={{ primary, surface: cardSurface, cardSurface, surfaceText, mutedText, border }}
+                  colors={{ primary, surface: neutralSoft, cardSurface, surfaceText, mutedText, border }}
                   currencyInfo={currencyInfo}
                 />
               ))}
