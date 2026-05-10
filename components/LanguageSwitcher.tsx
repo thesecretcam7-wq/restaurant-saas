@@ -95,7 +95,7 @@ export default function LanguageSwitcher({ className = '', reloadOnChange = fals
         className="bg-transparent text-xs font-black outline-none"
       >
         {SUPPORTED_LOCALES.map(item => (
-          <option key={item} value={item}>
+          <option key={item} value={item} className="bg-white text-slate-950">
             {compact ? item.toUpperCase() : localeLabels[item]}
           </option>
         ))}
