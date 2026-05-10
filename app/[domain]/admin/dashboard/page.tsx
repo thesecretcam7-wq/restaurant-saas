@@ -328,9 +328,11 @@ export default async function DashboardPage({ params }: DashboardProps) {
                 <span className="mb-2 inline-flex max-w-full rounded-xl bg-white px-3 py-1 text-[#15130f] shadow-lg shadow-black/20">
                   <span className="truncate">{organizationName}</span>
                 </span>
-                <span className="block">Lo importante para decidir hoy</span>
+                <span className="block w-fit max-w-full rounded-xl bg-white px-3 py-1 text-[#15130f] shadow-lg shadow-black/20">
+                  Lo importante para decidir hoy
+                </span>
               </h2>
-              <p className="mt-4 max-w-3xl text-base font-semibold leading-7 text-white/68">
+              <p className="mt-4 max-w-3xl rounded-2xl border border-white/12 bg-black/24 px-4 py-3 text-base font-bold leading-7 text-white shadow-lg shadow-black/10">
                 {ceoBrief}
               </p>
 
