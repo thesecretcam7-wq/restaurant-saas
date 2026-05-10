@@ -490,8 +490,17 @@ export default function BrandingPage({ params }: BrandingProps) {
 
         {/* Contacto & Social */}
         <div className="bg-white rounded-xl border p-6 space-y-4">
-          <h2 className="font-semibold text-lg mb-4">Contacto & Redes Sociales</h2>
-          <div className="grid grid-cols-2 gap-4">
+          <h2 className="font-semibold text-lg mb-2">Contacto & Redes Sociales</h2>
+          <p className="text-sm font-semibold leading-6 text-gray-600">
+            Para evitar datos duplicados, el email, telefono, WhatsApp, Instagram y Facebook se editan desde Contenido y contacto.
+          </p>
+          <a
+            href="./personalizacion"
+            className="inline-flex rounded-lg bg-gray-900 px-4 py-2 text-sm font-bold text-white transition hover:bg-black"
+          >
+            Editar en Contenido y contacto
+          </a>
+          <div className="hidden grid-cols-2 gap-4">
             <input
               type="email"
               placeholder="Email"

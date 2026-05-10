@@ -43,7 +43,7 @@ const tabs: Array<{ id: TabId; label: string; helper: string; Icon: typeof Layou
   { id: 'hero', label: 'Portada', helper: 'Primera pantalla', Icon: ImagePlus },
   { id: 'sections', label: 'Secciones', helper: 'Orden y contenido', Icon: Megaphone },
   { id: 'style', label: 'Estilo', helper: 'Tarjetas y menu', Icon: Palette },
-  { id: 'social', label: 'Redes', helper: 'Links publicos', Icon: Share2 },
+  { id: 'social', label: 'Redes', helper: 'Iconos publicos', Icon: Share2 },
   { id: 'advanced', label: 'Avanzado', helper: 'Footer y reset', Icon: Sparkles },
 ]
 
@@ -56,7 +56,7 @@ const sectionCopy: Record<string, { label: string; description: string }> = {
   hours: { label: 'Horarios', description: 'Dias y horas de atencion.' },
   testimonials: { label: 'Opiniones', description: 'Comentarios de clientes para generar confianza.' },
   actions: { label: 'Botones rapidos', description: 'Accesos como ver menu, reservar o contactar.' },
-  social: { label: 'Redes sociales', description: 'Links a Instagram, WhatsApp, Facebook y mas.' },
+  social: { label: 'Redes sociales', description: 'Iconos publicos que usan los links de Contenido y contacto.' },
 }
 
 function sectionInfo(type: string) {
@@ -130,13 +130,6 @@ export default function PageBuilderPage() {
           about: {
             ...current.about,
             text: current.about.text || fallbacks.description,
-          },
-          social: {
-            ...current.social,
-            instagram: current.social.instagram || fallbacks.instagram,
-            facebook: current.social.facebook || fallbacks.facebook,
-            whatsapp: current.social.whatsapp || fallbacks.whatsapp,
-            website: current.social.website || fallbacks.website,
           },
         }))
       })
@@ -212,11 +205,6 @@ export default function PageBuilderPage() {
 
   const updateAppearance = (key: string, value: any) => {
     setConfig(c => ({ ...c, appearance: { ...c.appearance, [key]: value } }))
-    markDirty()
-  }
-
-  const updateSocial = (key: string, value: string) => {
-    setConfig(c => ({ ...c, social: { ...c.social, [key]: value } }))
     markDirty()
   }
 
@@ -516,17 +504,34 @@ export default function PageBuilderPage() {
           )}
 
           {tab === 'social' && (
-            <Panel title="Redes y enlaces" desc="Agrega los links que quieres mostrar en la tienda.">
-              <div className="grid gap-3">
-                {socialFields.map(field => (
-                  <Field
-                    key={field.key}
-                    label={field.label}
-                    placeholder={field.placeholder}
-                    value={(config.social as any)[field.key] || ''}
-                    onChange={v => updateSocial(field.key, v)}
-                  />
-                ))}
+            <Panel title="Redes y enlaces" desc="Aqui decides como se muestran. Los links se editan en Contenido y contacto para no duplicar datos.">
+              <div className="space-y-4">
+                <div className="rounded-xl border border-blue-100 bg-blue-50 px-4 py-3 text-sm font-bold leading-6 text-blue-950">
+                  Las URLs de Instagram, Facebook, WhatsApp y web se gestionan en una sola parte: Contenido y contacto. En esta pantalla puedes activar, ocultar u ordenar la seccion "Redes sociales" desde la pestaña Secciones.
+                </div>
+
+                <div className="grid gap-3 sm:grid-cols-2">
+                  {[
+                    { label: 'Instagram', value: brandFallbacks.instagram },
+                    { label: 'Facebook', value: brandFallbacks.facebook },
+                    { label: 'WhatsApp', value: brandFallbacks.whatsapp },
+                    { label: 'Sitio web', value: brandFallbacks.website },
+                  ].map(item => (
+                    <div key={item.label} className="rounded-xl border border-black/10 bg-white px-4 py-3">
+                      <p className="text-xs font-black uppercase tracking-[0.12em] text-black/45">{item.label}</p>
+                      <p className="mt-1 truncate text-sm font-black text-[#15130f]">{item.value || 'Sin configurar'}</p>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="flex flex-col gap-2 sm:flex-row">
+                  <Link href={`/${tenantSlug}/admin/configuracion/personalizacion`} className="inline-flex h-11 items-center justify-center rounded-lg bg-[#15130f] px-4 text-sm font-black text-white transition hover:bg-black">
+                    Editar links en Contenido y contacto
+                  </Link>
+                  <button onClick={() => setTab('sections')} className="inline-flex h-11 items-center justify-center rounded-lg border border-black/10 bg-white px-4 text-sm font-black text-[#15130f] transition hover:bg-black/[0.04]">
+                    Mostrar u ordenar la seccion
+                  </button>
+                </div>
               </div>
             </Panel>
           )}
@@ -697,7 +702,7 @@ function SectionEditor(props: {
       {['info', 'hours', 'actions', 'social'].includes(section.type) && (
         <div className="rounded-xl border border-dashed border-black/15 bg-black/[0.025] p-4">
           <p className="text-sm font-black text-[#15130f]">Esta seccion usa datos ya configurados.</p>
-          <p className="mt-1 text-sm font-bold leading-6 text-black/62">Puedes mostrarla, ocultarla u ordenarla. Sus datos salen de Restaurante, Horarios, Branding y Redes.</p>
+          <p className="mt-1 text-sm font-bold leading-6 text-black/62">Puedes mostrarla, ocultarla u ordenarla. Sus datos salen de Restaurante, Horarios, Branding y Contenido y contacto.</p>
         </div>
       )}
     </Panel>
@@ -728,15 +733,6 @@ const menuLayoutOptions = [
   { id: 'list', label: 'Lista' },
   { id: 'grid', label: 'Cuadricula' },
   { id: 'compact', label: 'Compacto' },
-]
-
-const socialFields = [
-  { key: 'instagram', label: 'Instagram', placeholder: 'https://instagram.com/turestaurante' },
-  { key: 'facebook', label: 'Facebook', placeholder: 'https://facebook.com/turestaurante' },
-  { key: 'whatsapp', label: 'WhatsApp', placeholder: 'https://wa.me/573001234567' },
-  { key: 'tiktok', label: 'TikTok', placeholder: 'https://tiktok.com/@turestaurante' },
-  { key: 'google_maps', label: 'Google Maps', placeholder: 'https://maps.google.com/...' },
-  { key: 'website', label: 'Sitio web', placeholder: 'https://turestaurante.com' },
 ]
 
 function labelFor(value: string, options: Array<{ id: string; label: string }>) {
