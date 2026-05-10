@@ -48,6 +48,43 @@ const statusLabel: Record<string, string> = {
   cancelled: 'Cancelado',
 }
 
+const DEFAULT_OPERATIONAL_CLOSE_MINUTES = 5 * 60
+
+function parseTimeToMinutes(value?: string | null) {
+  if (!value || !/^\d{1,2}:\d{2}$/.test(value)) return null
+  const [hours, minutes] = value.split(':').map(Number)
+  if (hours < 0 || hours > 23 || minutes < 0 || minutes > 59) return null
+  return hours * 60 + minutes
+}
+
+function findOperationalCloseMinutes(operatingHours: any) {
+  const overnightCloseMinutes: number[] = []
+
+  Object.values(operatingHours || {}).forEach((day: any) => {
+    Object.values(day || {}).forEach((shift: any) => {
+      const open = parseTimeToMinutes(shift?.open)
+      const close = parseTimeToMinutes(shift?.close)
+      if (open === null || close === null) return
+      if (close <= open) overnightCloseMinutes.push(close)
+    })
+  })
+
+  if (overnightCloseMinutes.length === 0) return DEFAULT_OPERATIONAL_CLOSE_MINUTES
+  return Math.max(...overnightCloseMinutes)
+}
+
+function getOperationalPeriodStart(now: Date, closeMinutes: number) {
+  const currentMinutes = now.getHours() * 60 + now.getMinutes()
+  const start = new Date(now)
+  start.setHours(Math.floor(closeMinutes / 60), closeMinutes % 60, 0, 0)
+
+  if (currentMinutes < closeMinutes) {
+    start.setDate(start.getDate() - 1)
+  }
+
+  return start
+}
+
 export default async function DashboardPage({ params }: DashboardProps) {
   const { domain: slugOrId } = await params
   const tenant = await getTenantBySlugOrId(slugOrId)
@@ -66,12 +103,6 @@ export default async function DashboardPage({ params }: DashboardProps) {
   const supabase = createServiceClient()
   const today = new Date()
   const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1).toISOString()
-  const startOfTodayDate = new Date(today)
-  startOfTodayDate.setHours(0, 0, 0, 0)
-  const startOfToday = startOfTodayDate.toISOString()
-  const startOfYesterdayDate = new Date(startOfTodayDate)
-  startOfYesterdayDate.setDate(startOfYesterdayDate.getDate() - 1)
-  const startOfYesterday = startOfYesterdayDate.toISOString()
   const sevenDaysAgoDate = new Date(today)
   sevenDaysAgoDate.setDate(sevenDaysAgoDate.getDate() - 7)
   const sevenDaysAgo = sevenDaysAgoDate.toISOString()
@@ -102,7 +133,7 @@ export default async function DashboardPage({ params }: DashboardProps) {
     getMonthlyOrderCount(tenantId),
     supabase.from('menu_items').select('id', { count: 'exact', head: true }).eq('tenant_id', tenantId),
     supabase.from('tenant_branding').select('primary_color, secondary_color, accent_color, logo_url, app_name, hero_image_url, page_config').eq('tenant_id', tenantId).maybeSingle(),
-    supabase.from('restaurant_settings').select('display_name, address, phone').eq('tenant_id', tenantId).maybeSingle(),
+    supabase.from('restaurant_settings').select('display_name, address, phone, operating_hours').eq('tenant_id', tenantId).maybeSingle(),
     supabase.from('tenants').select('organization_name, stripe_account_id, metadata').eq('id', tenantId).maybeSingle(),
     supabase.from('orders').select('id, total, created_at, status, payment_status, payment_method, delivery_type, customer_name, customer_phone').eq('tenant_id', tenantId).gte('created_at', sevenDaysAgo).order('created_at', { ascending: false }).limit(500),
     supabase.from('order_items').select('name, quantity, price, created_at, status, started_at, completed_at').eq('tenant_id', tenantId).gte('created_at', sevenDaysAgo).limit(1000),
@@ -182,6 +213,11 @@ export default async function DashboardPage({ params }: DashboardProps) {
     { label: 'Clientes', value: totalCustomers.toLocaleString('es-CO'), icon: UsersRound, tone: 'text-[#c47a16]' },
   ]
 
+  const operationalCloseMinutes = findOperationalCloseMinutes(settingsRes.data?.operating_hours)
+  const startOfTodayDate = getOperationalPeriodStart(today, operationalCloseMinutes)
+  const startOfYesterdayDate = new Date(startOfTodayDate)
+  startOfYesterdayDate.setDate(startOfYesterdayDate.getDate() - 1)
+
   const todayOrders = intelligenceOrders.filter(order => new Date(order.created_at) >= startOfTodayDate)
   const yesterdayOrders = intelligenceOrders.filter(order => {
     const date = new Date(order.created_at)
@@ -246,8 +282,8 @@ export default async function DashboardPage({ params }: DashboardProps) {
       tone: 'amber',
     },
     revenueDelta < -10 && {
-      title: 'Ventas por debajo de ayer',
-      text: `Hoy vas ${Math.abs(revenueDelta)}% abajo. Activa una promo corta en hora valle.`,
+      title: 'Ventas por debajo del turno anterior',
+      text: `Este turno va ${Math.abs(revenueDelta)}% abajo. Activa una promo corta en hora valle.`,
       tone: 'red',
     },
     avgPrepTime > 18 && {
@@ -263,8 +299,8 @@ export default async function DashboardPage({ params }: DashboardProps) {
   ].filter(Boolean) as { title: string; text: string; tone: string }[]
 
   const ceoBrief = todayOrders.length > 0
-    ? `Hoy llevas ${todayOrders.length} pedidos y $${todayRevenue.toLocaleString('es-CO')} en ventas pagadas. ${revenueDelta >= 0 ? `Vas ${revenueDelta}% arriba de ayer.` : `Vas ${Math.abs(revenueDelta)}% abajo de ayer.`} El pico probable es ${peakHourLabel}.`
-    : `Aun no hay pedidos hoy. Prepara una accion rapida: destaca ${starProduct?.name || 'tu producto estrella'} y revisa inventario antes de la noche.`
+    ? `En este turno llevas ${todayOrders.length} pedidos y $${todayRevenue.toLocaleString('es-CO')} en ventas pagadas. ${revenueDelta >= 0 ? `Vas ${revenueDelta}% arriba del turno anterior.` : `Vas ${Math.abs(revenueDelta)}% abajo del turno anterior.`} El pico probable es ${peakHourLabel}.`
+    : `Aun no hay pedidos en este turno. Prepara una accion rapida: destaca ${starProduct?.name || 'tu producto estrella'} y revisa inventario antes de la noche.`
 
   const aiActions = [
     {
@@ -338,7 +374,7 @@ export default async function DashboardPage({ params }: DashboardProps) {
 
               <div className="mt-6 grid gap-3 sm:grid-cols-3">
                 <div className="rounded-2xl border border-white/10 bg-white/[0.07] p-4">
-                  <p className="text-xs font-black uppercase text-white/38">Ticket medio hoy</p>
+                  <p className="text-xs font-black uppercase text-white/38">Ticket medio turno</p>
                   <p className="mt-2 text-2xl font-black">${Math.round(avgTicket).toLocaleString('es-CO')}</p>
                 </div>
                 <div className="rounded-2xl border border-white/10 bg-white/[0.07] p-4">
