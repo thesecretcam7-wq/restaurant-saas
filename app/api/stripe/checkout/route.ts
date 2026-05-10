@@ -2,10 +2,12 @@ import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 import { NextRequest, NextResponse } from 'next/server'
 import Stripe from 'stripe'
+import { createServiceClient } from '@/lib/supabase/server'
 import { checkRateLimit, getClientIp } from '@/lib/ratelimit'
 import { getCurrencyByCountry } from '@/lib/currency'
 import { calculateOrderTotals } from '@/lib/order-totals'
 import { canCreateOrder } from '@/lib/checkPlan'
+import { syncCustomerFromOrder } from '@/lib/customer-sync'
 
 const getStripe = () => new Stripe(process.env.STRIPE_SECRET_KEY!)
 
@@ -197,6 +199,15 @@ export async function POST(request: NextRequest) {
     if (orderError) {
       return NextResponse.json({ error: 'Error al crear el pedido' }, { status: 500 })
     }
+
+    await syncCustomerFromOrder(createServiceClient(), {
+      tenantId,
+      name: customerInfo.name,
+      email: customerInfo.email,
+      phone: customerInfo.phone,
+      address: deliveryAddress,
+      total,
+    })
 
     const domain = tenant.primary_domain
       ? `https://${tenant.primary_domain}`

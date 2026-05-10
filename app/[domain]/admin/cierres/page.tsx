@@ -9,6 +9,7 @@ import { formatPriceWithCurrency, getCurrencyByCountry } from '@/lib/currency'
 
 interface CashClosing {
   id: string
+  staff_id?: string | null
   staff_name: string
   closed_at: string
   cash_sales: number
@@ -43,7 +44,29 @@ export default function CashClosingsPage() {
           .order('closed_at', { ascending: false })
           .limit(50)
 
-        if (!error && data) setClosings(data)
+        if (!error && data) {
+          const missingStaffIds = Array.from(new Set(
+            data
+              .filter(closing => !closing.staff_name && closing.staff_id)
+              .map(closing => closing.staff_id)
+              .filter(Boolean)
+          ))
+
+          let staffById = new Map<string, string>()
+          if (missingStaffIds.length > 0) {
+            const { data: staffRows } = await supabase
+              .from('staff_members')
+              .select('id, name')
+              .in('id', missingStaffIds)
+
+            staffById = new Map((staffRows || []).map(staff => [staff.id, staff.name]))
+          }
+
+          setClosings(data.map(closing => ({
+            ...closing,
+            staff_name: closing.staff_name || (closing.staff_id ? staffById.get(closing.staff_id) : '') || 'Sin asignar',
+          })))
+        }
       } finally {
         setLoading(false)
       }

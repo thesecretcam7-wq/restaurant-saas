@@ -622,6 +622,9 @@ export function POSTerminal({
   async function handleOpenCashClosing() {
     setClosingLoading(true);
     try {
+      const loggedStaff = getLoggedStaffFromBrowser(tenantId);
+      if (loggedStaff.staffId && !selectedStaffId) setSelectedStaffId(loggedStaff.staffId);
+      if (loggedStaff.staffName && !selectedStaffName) setSelectedStaffName(loggedStaff.staffName);
       const stats = await calculateCashClosingStats(tenantId);
       setCashClosingStats(stats);
       setShowCashClosing(true);
@@ -637,7 +640,11 @@ export function POSTerminal({
     if (!cashClosingStats) return;
 
     try {
-      await saveCashClosing(tenantId, selectedStaffId, selectedStaffName || 'Sin asignar', {
+      const loggedStaff = getLoggedStaffFromBrowser(tenantId);
+      const closingStaffId = selectedStaffId || loggedStaff.staffId;
+      const closingStaffName = selectedStaffName || loggedStaff.staffName || 'Sin asignar';
+
+      await saveCashClosing(tenantId, closingStaffId, closingStaffName, {
         ...cashClosingStats,
         actualCashCount: actualCash,
         notes,
@@ -2468,7 +2475,7 @@ export function POSTerminal({
           onConfirm={handleSaveCashClosing}
           data={{
             ...cashClosingStats,
-            staffName: selectedStaffName || 'Sin asignar',
+            staffName: selectedStaffName || getLoggedStaffFromBrowser(tenantId).staffName || 'Sin asignar',
           }}
           country={country}
           isLoading={closingLoading}

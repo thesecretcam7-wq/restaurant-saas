@@ -159,22 +159,26 @@ export function RoleLoginClient({
       });
 
       if (res.ok) {
+        const data = await res.json();
+        const authenticatedStaffId = data.staff_id || staffId;
+        const authenticatedStaffName = data.staff_name || staffName;
+
         setLoadingMessage('Registrando sesion');
         await fetch('/api/staff/session/log', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ tenantId, employee_name: staffName, role, pin: value }),
+          body: JSON.stringify({ tenantId, employee_name: authenticatedStaffName, role, pin: value }),
         });
 
         sessionStorage.setItem('staff_role', role);
         sessionStorage.setItem('staff_tenant', tenantId);
-        sessionStorage.setItem('staff_name', staffName);
-        sessionStorage.setItem('staff_id', staffId);
+        sessionStorage.setItem('staff_name', authenticatedStaffName);
+        sessionStorage.setItem('staff_id', authenticatedStaffId);
 
         await fetch('/api/staff/session', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ tenantId, role, staffId, staffName }),
+          body: JSON.stringify({ tenantId, role, staffId: authenticatedStaffId, staffName: authenticatedStaffName }),
         });
 
         setLoadingMessage(`Abriendo ${config.tool}`);

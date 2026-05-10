@@ -7,6 +7,7 @@ import { sendWhatsAppOrderConfirmation } from '@/lib/whatsapp'
 import { orderLimiter, checkRateLimit, getClientIp } from '@/lib/ratelimit'
 import { requireTenantAccess, tenantAuthErrorResponse } from '@/lib/tenant-api-auth'
 import { calculateOrderTotals } from '@/lib/order-totals'
+import { syncCustomerFromOrder } from '@/lib/customer-sync'
 
 export async function GET(request: NextRequest) {
   try {
@@ -267,6 +268,17 @@ export async function POST(request: NextRequest) {
     if (error) {
       console.error('[orders POST] insert error:', error.message, error.details, error.hint)
       return NextResponse.json({ error: error.message }, { status: 500 })
+    }
+
+    if (source === 'store') {
+      await syncCustomerFromOrder(supabase, {
+        tenantId,
+        name: orderData.customer_name,
+        email: orderData.customer_email,
+        phone: orderData.customer_phone,
+        address: deliveryAddress,
+        total,
+      })
     }
 
     // Auto-create order_items so KDS can display the order in real-time.
