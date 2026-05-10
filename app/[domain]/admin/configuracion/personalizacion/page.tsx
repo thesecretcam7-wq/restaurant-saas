@@ -279,6 +279,14 @@ export default function PersonalizacionPage({ params }: PersonalizacionProps) {
   const previewSurface = form.use_gradient
     ? `linear-gradient(${form.gradient_direction}, ${form.gradient_start_color}, ${form.gradient_end_color})`
     : form.background_color
+  const previewBackgroundStyle = form.section_background_image_url
+    ? {
+        backgroundColor: form.background_color,
+        backgroundImage: `${form.use_gradient ? `linear-gradient(${form.gradient_direction}, ${form.gradient_start_color}, ${form.gradient_end_color}), ` : 'linear-gradient(rgba(255,255,255,.76), rgba(255,255,255,.76)), '}url(${form.section_background_image_url})`,
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+      }
+    : { background: previewSurface }
   const previewRadius = `${form.border_radius}px`
   const previewButtonRadius = `${form.button_border_radius}px`
   const previewHeadingStyle = {
@@ -898,7 +906,8 @@ export default function PersonalizacionPage({ params }: PersonalizacionProps) {
               </div>
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Imagen de Fondo (opcional)</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Imagen de fondo de tienda, menu y carta QR (opcional)</label>
+              <p className="mb-2 text-xs font-semibold text-gray-500">Se muestra detras de las secciones publicas. Si usas una foto fuerte, la tienda le agrega una capa clara para que el texto se pueda leer.</p>
               <div className="flex items-center gap-4">
                 {form.section_background_image_url ? (
                   <img src={form.section_background_image_url} alt="Background" className="w-24 h-24 rounded-lg object-cover border" />
@@ -1059,7 +1068,7 @@ export default function PersonalizacionPage({ params }: PersonalizacionProps) {
         </div>
 
         <div className="grid gap-0 lg:grid-cols-[minmax(0,1fr)_340px]">
-          <div className="p-5" style={{ background: previewSurface, fontFamily: form.font_family }}>
+          <div className="p-5" style={{ ...previewBackgroundStyle, fontFamily: form.font_family }}>
             <div className="mx-auto max-w-md overflow-hidden border shadow-2xl" style={{ borderColor: form.border_color, borderRadius: 28 }}>
               <div className="flex items-center justify-between px-5 py-4" style={{ backgroundColor: form.secondary_color }}>
                 <div className="flex min-w-0 items-center gap-3">
@@ -1080,7 +1089,7 @@ export default function PersonalizacionPage({ params }: PersonalizacionProps) {
                 </div>
               </div>
 
-              <div className="space-y-4 p-4" style={{ background: previewSurface }}>
+              <div className="space-y-4 p-4" style={previewBackgroundStyle}>
                 {previewMode === 'tienda' && (
                   <>
                     <section className="overflow-hidden border bg-white/90 shadow-sm" style={{ borderColor: form.border_color, borderRadius: previewRadius }}>

@@ -41,6 +41,16 @@ export default async function CategoryPage({ params }: CategoryPageProps) {
     border: branding?.border_color,
   })
   const primary = palette.primary
+  const sectionBackgroundImage = (branding as any)?.section_background_image_url || ''
+  const pageBackgroundStyle = sectionBackgroundImage
+    ? {
+        backgroundColor: palette.background,
+        backgroundImage: `linear-gradient(rgba(255,255,255,.78), rgba(255,255,255,.78)), url(${sectionBackgroundImage})`,
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+        backgroundAttachment: 'fixed',
+      }
+    : { backgroundColor: palette.background }
   const countryCurrency = getCurrencyByCountry(context.settings?.country_code || context.settings?.country || (context.tenant as any)?.country || 'ES')
   const currencyInfo = context.settings?.currency
     ? { ...countryCurrency, code: context.settings.currency, symbol: context.settings.currency_symbol || countryCurrency.symbol }
@@ -58,7 +68,7 @@ export default async function CategoryPage({ params }: CategoryPageProps) {
   }
 
   return (
-    <div className="min-h-screen" style={{ backgroundColor: palette.background }}>
+    <div className="min-h-screen" style={pageBackgroundStyle}>
       {/* Header */}
       <header className="sticky top-0 z-10 bg-white/90 backdrop-blur border-b">
         <div className="max-w-4xl mx-auto px-4 py-4">

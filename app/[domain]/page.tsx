@@ -113,6 +113,15 @@ export default async function HomePage({ params }: HomePageProps) {
   const heroTitle = hero.title_text || appName
   const heroSubtitle = hero.subtitle_text || tagline
   const featuredText = (branding as any)?.featured_text?.trim()
+  const sectionBackgroundImage = (branding as any)?.section_background_image_url || ''
+  const sectionBackgroundStyle = sectionBackgroundImage
+    ? {
+        backgroundImage: `linear-gradient(rgba(250,248,243,.86), rgba(250,248,243,.86)), url(${sectionBackgroundImage})`,
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+        backgroundAttachment: 'fixed',
+      }
+    : undefined
   const mergedSocial = {
     ...social,
     instagram: social.instagram || branding?.instagram_url || '',
@@ -222,7 +231,7 @@ export default async function HomePage({ params }: HomePageProps) {
         </div>
       </section>
 
-      <main className="relative z-10 mx-auto -mt-10 max-w-7xl space-y-6 px-4 sm:px-6 lg:px-8">
+      <main className="relative z-10 mx-auto -mt-10 max-w-7xl space-y-6 px-4 sm:px-6 lg:px-8" style={sectionBackgroundStyle}>
         {enabledSections.map(section => {
           const sTitle = section.title || ''
           switch (section.type) {

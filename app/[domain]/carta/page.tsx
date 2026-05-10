@@ -107,6 +107,10 @@ export default async function CartaPage({ params }: CartaProps) {
   const logoUrl = branding?.logo_url || tenant?.logo_url
   const visibleProducts = items.length
   const visibleCategories = categories.length + (featured.length > 0 ? 1 : 0) + (uncategorized.length > 0 ? 1 : 0)
+  const sectionBackgroundImage = (branding as any)?.section_background_image_url || ''
+  const pageBackgroundImage = sectionBackgroundImage
+    ? `linear-gradient(rgba(255,255,255,.78), rgba(255,255,255,.78)), url(${sectionBackgroundImage}), radial-gradient(circle at top left, ${primary}18, transparent 32rem), radial-gradient(circle at top right, ${secondary}14, transparent 28rem)`
+    : `radial-gradient(circle at top left, ${primary}18, transparent 32rem), radial-gradient(circle at top right, ${secondary}14, transparent 28rem)`
 
   return (
     <main
@@ -114,7 +118,9 @@ export default async function CartaPage({ params }: CartaProps) {
       style={{
         backgroundColor: background,
         fontFamily,
-        backgroundImage: `radial-gradient(circle at top left, ${primary}18, transparent 32rem), radial-gradient(circle at top right, ${secondary}14, transparent 28rem)`,
+        backgroundImage: pageBackgroundImage,
+        backgroundSize: sectionBackgroundImage ? 'cover, cover, auto, auto' : undefined,
+        backgroundPosition: sectionBackgroundImage ? 'center, center, top left, top right' : undefined,
       }}
     >
       <header className="fixed inset-x-0 top-0 z-40 border-b shadow-lg shadow-black/[0.04] backdrop-blur-xl" style={{ backgroundColor: `${cardSurface}f7`, borderColor: border }}>

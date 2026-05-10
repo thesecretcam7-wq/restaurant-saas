@@ -112,11 +112,17 @@ export default async function MenuPage({ params }: MenuProps) {
   const gradientEnd = branding?.gradient_end_color || '#F3F4F6'
   const gradientDir = branding?.gradient_direction || 'to right'
   const featuredText = (branding as any)?.featured_text?.trim()
+  const sectionBackgroundImage = (branding as any)?.section_background_image_url || ''
 
   const transitionDuration = transitionSpeed === 'slow' ? '500ms' : transitionSpeed === 'fast' ? '100ms' : '300ms'
+  const baseBackgroundImage = useGradient
+    ? `linear-gradient(${gradientDir}, ${gradientStart}, ${gradientEnd})`
+    : undefined
   const backgroundStyle = useGradient
-    ? { backgroundImage: `linear-gradient(${gradientDir}, ${gradientStart}, ${gradientEnd})` }
-    : { backgroundColor: palette.background }
+    ? { backgroundImage: sectionBackgroundImage ? `${baseBackgroundImage}, url(${sectionBackgroundImage})` : baseBackgroundImage, backgroundBlendMode: sectionBackgroundImage ? 'normal, soft-light' : undefined, backgroundSize: sectionBackgroundImage ? 'auto, cover' : undefined, backgroundPosition: sectionBackgroundImage ? 'center, center' : undefined }
+    : sectionBackgroundImage
+      ? { backgroundColor: palette.background, backgroundImage: `linear-gradient(rgba(255,255,255,.78), rgba(255,255,255,.78)), url(${sectionBackgroundImage})`, backgroundSize: 'cover', backgroundPosition: 'center', backgroundAttachment: 'fixed' }
+      : { backgroundColor: palette.background }
 
   // Get currency from settings or detect from country
   const currencyInfo = settings?.currency
