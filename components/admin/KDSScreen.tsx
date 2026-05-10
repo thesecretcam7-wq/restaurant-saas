@@ -169,10 +169,10 @@ function useSound() {
     if (ctx && ctx.state === 'suspended') {
       ctx.resume().then(() => {
         console.log('Audio context resumed successfully');
-        setAudioStatus('Audio listo');
+        setAudioStatus('kds.audioReady');
       }).catch(err => {
         console.error('Resume audio context failed:', err);
-        setAudioStatus(`Error de audio: ${err}`);
+        setAudioStatus('kds.audioError');
       });
     }
     setSoundPermissionGranted(true);
@@ -243,11 +243,11 @@ function useSound() {
 
   const playBeeps = useCallback((frequencies: number[], duration: number = 0.15, gap: number = 0.2) => {
     if (!soundEnabled) {
-      setAudioStatus('Sonido deshabilitado');
+      setAudioStatus('kds.audioDisabled');
       return;
     }
 
-    setAudioStatus('Reproduciendo alerta...');
+    setAudioStatus('kds.alertPlaying');
     console.log('Playing beeps:', frequencies);
 
     const fileAlert = alertAudioRef.current;
@@ -306,7 +306,7 @@ function useSound() {
           time += duration + gap;
         });
 
-        setAudioStatus('Alerta reproducida');
+        setAudioStatus('kds.alertPlayed');
         console.log('Beeps scheduled with Web Audio API');
         return;
       } catch (err) {
@@ -316,7 +316,7 @@ function useSound() {
 
     // Fallback: Usar HTMLAudioElement para Android
     try {
-      setAudioStatus('Reproduciendo alerta de respaldo...');
+      setAudioStatus('kds.fallbackAlert');
       frequencies.forEach((freq, idx) => {
         setTimeout(() => {
           const dataUrl = generateToneDataUrl(freq, duration * 1000);
@@ -324,15 +324,15 @@ function useSound() {
           audio.volume = 1.0;
           audio.play().catch(err => {
             console.error('HTML Audio play error:', err);
-            setAudioStatus(`Error de audio: ${err}`);
+            setAudioStatus('kds.audioError');
           });
         }, (duration + gap) * 1000 * idx);
       });
 
-      setAudioStatus('Alerta reproducida');
+      setAudioStatus('kds.alertPlayed');
     } catch (err) {
       console.error('Fallback error:', err);
-        setAudioStatus(`Error de audio: ${err}`);
+        setAudioStatus('kds.audioError');
     }
   }, [soundEnabled, initAudio, generateToneDataUrl]);
 
@@ -346,11 +346,11 @@ function useSound() {
 
   const playDelayedAlert = useCallback(() => {
     if (!soundEnabled) {
-      setAudioStatus('Sonido deshabilitado');
+      setAudioStatus('kds.audioDisabled');
       return;
     }
 
-    setAudioStatus('Alarma de pedido atrasado...');
+    setAudioStatus('kds.delayedAlert');
     initAudio();
     const ctx = audioCtxRef.current;
 
@@ -388,7 +388,7 @@ function useSound() {
           time += 0.34;
         });
 
-        setAudioStatus('Alarma de atraso reproducida');
+        setAudioStatus('kds.delayedAlertPlayed');
       } catch (err) {
         console.error('Delayed alarm Web Audio error:', err);
         playBeeps([420, 1120, 420, 1120, 760], 0.28, 0.06);
@@ -432,13 +432,14 @@ function OrderCard({
   loading: boolean;
   onPlayTestSound?: () => void;
 }) {
+  const { tr } = useI18n();
   const minutes = useElapsedMinutes(order.createdAt);
 
   // Determine urgency badge
   const getUrgencyBadge = (mins: number) => {
-    if (mins < 5) return { label: 'A tiempo', color: 'bg-emerald-400/10 text-emerald-200 border-emerald-400/30' };
-    if (mins < 10) return { label: 'Moderado', color: 'bg-amber-400/15 text-amber-100 border-amber-400/40' };
-    return { label: 'Urgente', color: 'bg-red-500/20 text-red-100 border-red-400/50' };
+    if (mins < 5) return { label: tr('kds.onTime'), color: 'bg-emerald-400/10 text-emerald-200 border-emerald-400/30' };
+    if (mins < 10) return { label: tr('kds.moderate'), color: 'bg-amber-400/15 text-amber-100 border-amber-400/40' };
+    return { label: tr('kds.urgent'), color: 'bg-red-500/20 text-red-100 border-red-400/50' };
   };
 
   const urgency = getUrgencyBadge(minutes);
@@ -459,7 +460,7 @@ function OrderCard({
             {/* Order Number - Large and Bold */}
             <div className="flex min-w-0 items-center gap-2">
               <span className="rounded-md border border-white/10 bg-white/10 px-2 py-1 text-[10px] font-black uppercase tracking-[0.16em] text-slate-300">
-                Orden
+                {tr('kds.order')}
               </span>
               <p className="truncate text-2xl font-black leading-none tracking-wide text-white sm:text-[1.7rem]">
                 {order.orderNumber}
@@ -470,17 +471,17 @@ function OrderCard({
             <div className="flex items-center gap-1.5 mt-2 flex-wrap">
               {order.deliveryType === 'delivery' && (
                 <span className="text-[11px] font-bold bg-violet-400/15 text-violet-100 px-2 py-0.5 rounded-md border border-violet-300/20">
-                  A domicilio
+                  {tr('kds.delivery')}
                 </span>
               )}
               {order.deliveryType === 'pickup' && (
                 <span className="text-[11px] font-bold bg-emerald-400/15 text-emerald-100 px-2 py-0.5 rounded-md border border-emerald-300/20">
-                  Para recoger
+                  {tr('kds.pickup')}
                 </span>
               )}
               {order.tableNumber && (
                 <span className="text-[11px] font-semibold bg-cyan-400/15 text-cyan-100 px-2 py-0.5 rounded-md border border-cyan-300/20">
-                  Mesa {order.tableNumber}
+                  {tr('kds.table')} {order.tableNumber}
                 </span>
               )}
               {order.waiterName && (
@@ -509,7 +510,7 @@ function OrderCard({
                   onPlayTestSound();
                 }}
                 className="grid h-7 w-7 place-items-center rounded-md bg-white/10 hover:bg-white/20 border border-white/10 text-xs font-semibold text-white transition active:scale-95"
-                title="Test sound"
+                title={tr('kds.testSound')}
               >
                 <BellRing className="h-3.5 w-3.5" />
               </button>
@@ -535,7 +536,7 @@ function OrderCard({
                   <p className="text-white font-semibold text-[15px] leading-snug">{item.name}</p>
                   {item.notes && (
                     <p className="text-amber-200 text-xs mt-1 leading-snug">
-                      Nota: {item.notes}
+                      {tr('kds.note')}: {item.notes}
                     </p>
                   )}
                 </div>
@@ -578,6 +579,8 @@ function KDSColumn({
   loading: boolean;
   onPlayTestSound?: () => void;
 }) {
+  const { tr } = useI18n();
+
   return (
     <div className="flex min-h-[72dvh] flex-col rounded-2xl overflow-hidden border border-white/10 bg-slate-950/92 shadow-2xl shadow-black/30 backdrop-blur-xl md:min-h-0 md:h-full">
       {/* Column Header */}
@@ -586,7 +589,9 @@ function KDSColumn({
           <span className="grid h-9 w-9 place-items-center rounded-xl bg-white/10 border border-white/10">{icon}</span>
           <div>
             <span className="font-black text-white text-sm tracking-[0.14em] block">{title}</span>
-            <span className="text-xs text-slate-400 mt-0.5">{orders.length} {orders.length === 1 ? 'orden' : 'ordenes'}</span>
+            <span className="text-xs text-slate-400 mt-0.5">
+              {orders.length} {tr(orders.length === 1 ? 'kds.orderSingular' : 'kds.orderPlural')}
+            </span>
           </div>
         </div>
         <span className="bg-white text-slate-950 font-black text-base rounded-lg px-2.5 py-1.5 border border-white/20 shadow-sm">
@@ -599,8 +604,8 @@ function KDSColumn({
         {orders.length === 0 ? (
           <div className="text-center py-16 flex flex-col items-center justify-center h-full">
             <Utensils className="h-12 w-12 text-slate-500" />
-            <p className="text-sm font-medium text-slate-300">Sin ordenes</p>
-            <p className="text-xs text-slate-500 mt-1">Esperando nuevas ordenes...</p>
+            <p className="text-sm font-medium text-slate-300">{tr('kds.noOrders')}</p>
+            <p className="text-xs text-slate-500 mt-1">{tr('kds.waitingOrders')}</p>
           </div>
         ) : (
           orders.map((order, index) => (
@@ -860,9 +865,9 @@ export function KDSScreen({ tenantId }: { tenantId: string }) {
               <ChefHat className="w-5 h-5 text-cyan-200" />
             </div>
             <div>
-              <span className="block text-sm font-black tracking-[0.08em] text-white sm:text-lg sm:tracking-[0.18em]">KITCHEN DISPLAY</span>
+              <span className="block text-sm font-black tracking-[0.08em] text-white sm:text-lg sm:tracking-[0.18em]">{tr('kds.title').toUpperCase()}</span>
               <span className="text-slate-400 text-xs font-medium">
-                {allOrders.length} orden{allOrders.length !== 1 ? 'es' : ''} activa{allOrders.length !== 1 ? 's' : ''}
+                {allOrders.length} {tr('kds.activeOrders')}
               </span>
             </div>
           </div>
@@ -874,7 +879,7 @@ export function KDSScreen({ tenantId }: { tenantId: string }) {
             <button
               onClick={(e) => { e.stopPropagation(); setSoundEnabled((v) => !v); }}
               className="flex items-center gap-2 px-3 py-2 rounded-lg bg-white/10 hover:bg-white/20 backdrop-blur-sm border border-white/15 text-xs font-semibold text-white transition-all duration-200"
-              title={soundEnabled ? 'Silenciar alertas' : 'Activar alertas'}
+              title={tr('kds.sound')}
             >
               {soundEnabled ? (
                 <>
@@ -893,12 +898,12 @@ export function KDSScreen({ tenantId }: { tenantId: string }) {
             <button
               onClick={(e) => { e.stopPropagation(); toggleFullscreen(); }}
               className="flex items-center gap-2 px-3 py-2 rounded-lg bg-white/10 hover:bg-white/20 backdrop-blur-sm border border-white/15 text-xs font-semibold text-white transition-all duration-200"
-              title={isFullscreen ? 'Salir de pantalla completa' : 'Pantalla completa'}
+              title={isFullscreen ? tr('kds.exitFullscreen') : tr('kds.fullscreen')}
             >
               {isFullscreen ? (
                 <>
                   <Minimize2 className="w-4 h-4" />
-                  <span className="hidden sm:inline">Salir</span>
+                  <span className="hidden sm:inline">{tr('kds.exitFullscreen')}</span>
                 </>
               ) : (
                 <>
@@ -917,9 +922,9 @@ export function KDSScreen({ tenantId }: { tenantId: string }) {
           <div className="flex items-center gap-4 flex-1">
             <BellRing className="h-8 w-8 text-red-200 animate-pulse" />
             <div>
-              <p className="text-sm font-bold text-red-100">Se requieren permisos de sonido</p>
-              <p className="text-xs text-red-200/80 mt-1">Las alertas de ordenes no funcionaran sin audio habilitado</p>
-              {audioStatus && <p className="text-xs text-red-100 mt-2 font-medium">{audioStatus}</p>}
+              <p className="text-sm font-bold text-red-100">{tr('kds.soundPermissionTitle')}</p>
+              <p className="text-xs text-red-200/80 mt-1">{tr('kds.soundPermissionText')}</p>
+              {audioStatus && <p className="text-xs text-red-100 mt-2 font-medium">{tr(audioStatus)}</p>}
             </div>
           </div>
           <button
@@ -942,8 +947,8 @@ export function KDSScreen({ tenantId }: { tenantId: string }) {
           <div className="flex items-center gap-4">
             <LockKeyhole className="h-8 w-8 text-amber-200" />
             <div>
-              <p className="text-sm font-bold text-amber-100">Activar proteccion de pantalla</p>
-              <p className="text-xs text-amber-200/80 mt-1">Manten la pantalla activa durante el servicio</p>
+              <p className="text-sm font-bold text-amber-100">{tr('kds.enableScreenProtection')}</p>
+              <p className="text-xs text-amber-200/80 mt-1">{tr('kds.keepScreenActive')}</p>
             </div>
           </div>
           <button
@@ -953,7 +958,7 @@ export function KDSScreen({ tenantId }: { tenantId: string }) {
             }}
             className="px-6 py-2.5 bg-amber-500 hover:bg-amber-400 text-slate-950 rounded-xl font-bold text-sm transition-all duration-200 whitespace-nowrap sm:ml-4"
           >
-            Bloquear Pantalla
+            {tr('kds.lockScreen')}
           </button>
         </div>
       )}
@@ -964,15 +969,15 @@ export function KDSScreen({ tenantId }: { tenantId: string }) {
           <div className="flex gap-4 overflow-x-auto text-xs font-medium scrollbar-hide lg:gap-8">
             <div className="flex items-center gap-2">
               <div className="w-3 h-3 rounded-full bg-green-500 ring-2 ring-green-400/30" />
-              <span className="text-slate-300">Menos de 5 min <span className="text-slate-500">(A tiempo)</span></span>
+              <span className="text-slate-300">{tr('kds.lessThan5')} <span className="text-slate-500">({tr('kds.onTime')})</span></span>
             </div>
             <div className="flex items-center gap-2">
               <div className="w-3 h-3 rounded-full bg-amber-500 ring-2 ring-amber-400/30" />
-              <span className="text-slate-300">5 a 10 minutos <span className="text-slate-500">(Moderado)</span></span>
+              <span className="text-slate-300">{tr('kds.between5And10')} <span className="text-slate-500">({tr('kds.moderate')})</span></span>
             </div>
             <div className="flex items-center gap-2">
               <div className="w-3 h-3 rounded-full bg-red-500 ring-2 ring-red-400/30 animate-pulse" />
-              <span className="text-slate-300">Mas de 10 min <span className="text-slate-500 font-bold">(Urgente)</span></span>
+              <span className="text-slate-300">{tr('kds.moreThan10')} <span className="text-slate-500 font-bold">({tr('kds.urgent')})</span></span>
             </div>
           </div>
 
@@ -981,13 +986,13 @@ export function KDSScreen({ tenantId }: { tenantId: string }) {
             <div className="flex items-center gap-2 text-center">
               <ShieldCheck className="h-4 w-4 text-emerald-300" />
               <div className="text-2xl font-black text-emerald-300">{totalDeliveredItems}</div>
-              <span className="text-xs text-slate-400 font-medium">Completadas</span>
+              <span className="text-xs text-slate-400 font-medium">{tr('kds.completed')}</span>
             </div>
             <div className="w-px h-4 bg-white/10" />
             <div className="flex items-center gap-2 text-center">
               <Zap className="h-4 w-4 text-cyan-300" />
               <div className="text-2xl font-black text-cyan-300">{avgPrepTime}m</div>
-              <span className="text-xs text-slate-400 font-medium">Tiempo prom.</span>
+              <span className="text-xs text-slate-400 font-medium">{tr('kds.avgTime')}</span>
             </div>
           </div>
         </div>
@@ -998,7 +1003,7 @@ export function KDSScreen({ tenantId }: { tenantId: string }) {
         <KDSColumn
           title={tr('kds.pending').toUpperCase()}
           orders={pendingOrders}
-          actionLabel="INICIAR"
+          actionLabel={tr('kds.start').toUpperCase()}
           actionColor="bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-400 hover:to-cyan-400 shadow-blue-500/30"
           headerColor="bg-gradient-to-r from-blue-500/20 to-cyan-400/10 border-l-4 border-blue-400"
           icon={<Flame className="h-5 w-5 text-blue-200" />}
@@ -1010,7 +1015,7 @@ export function KDSScreen({ tenantId }: { tenantId: string }) {
         <KDSColumn
           title={tr('kds.preparing').toUpperCase()}
           orders={preparingOrders}
-          actionLabel="LISTO"
+          actionLabel={tr('kds.markReady').toUpperCase()}
           actionColor="bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 shadow-amber-500/30"
           headerColor="bg-gradient-to-r from-amber-500/20 to-orange-400/10 border-l-4 border-amber-400"
           icon={<Timer className="h-5 w-5 text-amber-100" />}
@@ -1022,7 +1027,7 @@ export function KDSScreen({ tenantId }: { tenantId: string }) {
         <KDSColumn
           title={tr('kds.ready').toUpperCase()}
           orders={readyOrders}
-          actionLabel="ENTREGADO"
+          actionLabel={tr('kds.delivered').toUpperCase()}
           actionColor="bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 shadow-emerald-500/30"
           headerColor="bg-gradient-to-r from-emerald-500/20 to-teal-400/10 border-l-4 border-emerald-400"
           icon={<CheckCircle2 className="w-5 h-5 text-emerald-100" />}
