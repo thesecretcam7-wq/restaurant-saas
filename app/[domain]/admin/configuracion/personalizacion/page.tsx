@@ -867,6 +867,15 @@ export default function PersonalizacionPage({ params }: PersonalizacionProps) {
                   <label htmlFor="section_bg" className="px-4 py-2 border rounded-lg text-sm cursor-pointer hover:bg-gray-50 block">
                     {uploading === 'section_background_image_url' ? 'Subiendo...' : 'Cambiar imagen'}
                   </label>
+                  {form.section_background_image_url && (
+                    <button
+                      type="button"
+                      onClick={() => setForm(f => ({ ...f, section_background_image_url: '' }))}
+                      className="mt-2 rounded-lg border border-red-200 px-4 py-2 text-sm font-bold text-red-600 transition hover:bg-red-50"
+                    >
+                      Eliminar imagen
+                    </button>
+                  )}
                   <p className="text-xs text-gray-400 mt-1">PNG, JPG — máx 2MB</p>
                 </div>
               </div>

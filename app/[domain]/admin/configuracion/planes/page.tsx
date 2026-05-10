@@ -181,24 +181,25 @@ export default function PlanesPage({ params }: Props) {
     dedicated_support: (value) => value === true ? 'Sí' : 'No'
   }
 
-  if (loading) return <div className="flex items-center justify-center h-48"><div className="w-7 h-7 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin" /></div>
+  if (loading) return <div className="admin-panel flex h-48 items-center justify-center"><div className="h-7 w-7 animate-spin rounded-full border-4 border-black/10 border-t-[#e43d30]" /></div>
 
   return (
-    <div>
-      <div className="mb-8">
-        <h2 className="text-2xl font-bold text-gray-900 mb-2">Planes de Suscripción</h2>
-        <p className="text-gray-600">Elige el plan que mejor se adapta a tu restaurante</p>
+    <div className="max-w-6xl space-y-6">
+      <div className="admin-panel p-6">
+        <p className="admin-eyebrow">Suscripcion</p>
+        <h2 className="admin-title">Planes de Suscripción</h2>
+        <p className="admin-subtitle">Elige el plan que mejor se adapta a tu restaurante</p>
         {currency && (
-          <p className="mt-2 text-sm text-gray-500">
+          <p className="mt-3 text-sm font-bold text-black/50">
             Precios mostrados en {currency.name} ({currency.currency}) segun tu pais: {currency.countryCode}.
           </p>
         )}
-        <div className="mt-5 inline-flex rounded-xl border border-gray-200 bg-white p-1 shadow-sm">
+        <div className="mt-5 inline-flex rounded-xl border border-black/10 bg-white p-1 shadow-sm">
           <button
             type="button"
             onClick={() => setBillingInterval('month')}
             className={`rounded-lg px-4 py-2 text-sm font-black transition ${
-              billingInterval === 'month' ? 'bg-gray-900 text-white' : 'text-gray-600 hover:bg-gray-50'
+              billingInterval === 'month' ? 'bg-[#15130f] text-white' : 'text-black/58 hover:bg-black/[0.04]'
             }`}
           >
             Mensual
@@ -207,7 +208,7 @@ export default function PlanesPage({ params }: Props) {
             type="button"
             onClick={() => setBillingInterval('year')}
             className={`rounded-lg px-4 py-2 text-sm font-black transition ${
-              billingInterval === 'year' ? 'bg-gray-900 text-white' : 'text-gray-600 hover:bg-gray-50'
+              billingInterval === 'year' ? 'bg-[#15130f] text-white' : 'text-black/58 hover:bg-black/[0.04]'
             }`}
           >
             Anual <span className="ml-1 text-xs">-10%</span>
@@ -216,12 +217,12 @@ export default function PlanesPage({ params }: Props) {
       </div>
 
       {currentPlan && (
-        <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-6 text-sm text-green-800">
+        <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-800">
           <span className="font-medium">Plan actual:</span> <strong className="capitalize">{currentPlan}</strong>
         </div>
       )}
 
-      <div className="grid sm:grid-cols-3 gap-6">
+      <div className="grid gap-5 xl:grid-cols-3">
         {plans.map(plan => {
           const systems = systemsIncluded[plan.name] || []
           const highlights = planHighlights[plan.name] || []
@@ -231,13 +232,13 @@ export default function PlanesPage({ params }: Props) {
           const processingKey = `${plan.name}-${billingInterval}`
 
           return (
-            <div key={plan.id} className={`bg-white rounded-xl border-2 overflow-hidden transition-all shadow-md hover:shadow-lg ${
+            <div key={plan.id} className={`admin-card overflow-hidden p-0 transition-all hover:shadow-lg ${
               currentPlan === plan.name
-                ? 'ring-2 ring-blue-600 border-blue-600'
-                : 'border-gray-200 hover:border-gray-300'
+                ? 'ring-2 ring-[#e43d30] border-[#e43d30]'
+                : 'hover:border-black/18'
             }`}>
               {currentPlan === plan.name && (
-                <div className="bg-blue-600 px-6 py-2 text-white text-xs font-semibold text-center">
+                <div className="bg-[#15130f] px-6 py-2 text-center text-xs font-semibold text-white">
                   PLAN ACTUAL
                 </div>
               )}
@@ -279,13 +280,13 @@ export default function PlanesPage({ params }: Props) {
                           key={feature.name}
                           className={`p-3 rounded-lg text-center transition-all ${
                             isIncluded
-                              ? 'bg-blue-50 border-2 border-blue-200'
+                              ? 'bg-red-50/70 border-2 border-red-200'
                               : 'bg-gray-50 border-2 border-gray-100 opacity-40'
                           }`}
                         >
                           <div className="text-2xl mb-1">{feature.icon}</div>
                           <p className="text-xs font-bold text-gray-900">{feature.name}</p>
-                          <p className={`text-xs mt-1 ${isIncluded ? 'text-blue-700' : 'text-gray-500'}`}>
+                          <p className={`text-xs mt-1 ${isIncluded ? 'text-red-700' : 'text-gray-500'}`}>
                             {isIncluded ? '✓ Incluido' : 'No incluido'}
                           </p>
                         </div>
@@ -335,8 +336,8 @@ export default function PlanesPage({ params }: Props) {
                       : !canSelectInterval
                         ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
                       : processingPlan === processingKey
-                        ? 'bg-blue-400 text-white cursor-wait'
-                        : 'bg-blue-600 hover:bg-blue-700 text-white shadow-md hover:shadow-lg'
+                        ? 'bg-red-300 text-white cursor-wait'
+                        : 'bg-[#e43d30] hover:bg-[#c9271d] text-white shadow-md hover:shadow-lg'
                   }`}
                 >
                   {processingPlan === processingKey
@@ -355,10 +356,11 @@ export default function PlanesPage({ params }: Props) {
         })}
       </div>
 
-      <div className="mt-8 bg-blue-50 border border-blue-200 rounded-lg p-6">
+      <div className="admin-panel p-6">
         <h3 className="font-bold text-gray-900 mb-2">¿Necesitas más información?</h3>
         <p className="text-sm text-gray-700">Todos nuestros planes incluyen soporte para gestión de pedidos, integración con Stripe, y acceso completo al panel administrativo. Puedes cambiar de plan en cualquier momento.</p>
       </div>
     </div>
   )
 }
+
