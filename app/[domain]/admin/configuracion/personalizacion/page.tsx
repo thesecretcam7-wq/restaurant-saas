@@ -313,6 +313,17 @@ export default function PersonalizacionPage({ params }: PersonalizacionProps) {
     { id: 'kiosko' as const, label: 'Kiosko', Icon: MonitorSmartphone },
     { id: 'qr' as const, label: 'Carta QR', Icon: QrCode },
   ]
+  const previewSwatches = [
+    { label: 'Primario', color: form.primary_color },
+    { label: 'Secundario', color: form.secondary_color },
+    { label: 'Acento', color: form.accent_color },
+    { label: 'Fondo', color: form.background_color },
+    { label: 'Boton', color: form.button_primary_color },
+  ]
+  const previewMediaStyle = {
+    backgroundColor: form.section_background_color || form.background_color,
+    color: form.primary_color,
+  }
 
   return (
     <div className="brand-studio max-w-6xl">
@@ -1047,7 +1058,7 @@ export default function PersonalizacionPage({ params }: PersonalizacionProps) {
                     <div className="grid grid-cols-2 gap-3">
                       {previewProducts.slice(0, 2).map((product) => (
                         <article key={product.name} className="overflow-hidden border bg-white shadow-sm" style={{ borderColor: form.border_color, borderRadius: previewRadius }}>
-                          <div className="grid h-24 place-items-center text-2xl font-black" style={{ backgroundColor: `${form.primary_color}18`, color: form.primary_color }}>
+                          <div className="grid h-24 place-items-center text-2xl font-black" style={previewMediaStyle}>
                             {product.image}
                           </div>
                           <div className="p-3">
@@ -1075,7 +1086,7 @@ export default function PersonalizacionPage({ params }: PersonalizacionProps) {
                     <div className="space-y-3">
                       {previewProducts.map((product) => (
                         <div key={product.name} className="flex items-center gap-3 border bg-white p-3" style={{ borderColor: form.border_color, borderRadius: previewRadius }}>
-                          <div className="grid h-14 w-14 shrink-0 place-items-center rounded-xl text-lg font-black" style={{ backgroundColor: `${form.primary_color}18`, color: form.primary_color }}>
+                          <div className="grid h-14 w-14 shrink-0 place-items-center rounded-xl text-lg font-black" style={previewMediaStyle}>
                             {product.image}
                           </div>
                           <div className="min-w-0 flex-1">
@@ -1147,9 +1158,16 @@ export default function PersonalizacionPage({ params }: PersonalizacionProps) {
               <p className="mt-2 text-sm font-semibold text-slate-600">Esta previsualizacion mezcla identidad, colores, bordes, botones, textos y logo para detectar problemas antes de guardar.</p>
             </div>
             <div className="grid grid-cols-5 gap-2">
-              {[form.primary_color, form.secondary_color, form.accent_color, form.background_color, form.button_primary_color].map((color, index) => (
-                <div key={`${color}-${index}`} className="h-12 rounded-lg border border-slate-200" style={{ backgroundColor: color }} title={color} />
+              {previewSwatches.map((item) => (
+                <div key={item.label} className="space-y-1">
+                  <div className="h-12 rounded-lg border border-slate-200" style={{ backgroundColor: item.color }} title={`${item.label}: ${item.color}`} />
+                  <p className="truncate text-[10px] font-black uppercase tracking-[0.08em] text-slate-400">{item.label}</p>
+                </div>
               ))}
+            </div>
+            <div className="rounded-xl border border-slate-200 bg-white p-4">
+              <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-400">Tarjetas de producto</p>
+              <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">El recuadro de muestra usa el color "Fondo de secciones", no un rosado automatico del branding.</p>
             </div>
             <div className="rounded-xl border border-slate-200 bg-white p-4">
               <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-400">Tipografia</p>
