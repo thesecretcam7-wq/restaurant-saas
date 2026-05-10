@@ -316,7 +316,7 @@ export default function PersonalizacionPage({ params }: PersonalizacionProps) {
   const previewSwatches = [
     { label: 'Primario', color: form.primary_color },
     { label: 'Secundario', color: form.secondary_color },
-    { label: 'Acento', color: form.accent_color },
+    { label: 'Precios', color: form.accent_color },
     { label: 'Fondo', color: form.background_color },
     { label: 'Boton', color: form.button_primary_color },
   ]
@@ -412,7 +412,6 @@ export default function PersonalizacionPage({ params }: PersonalizacionProps) {
               {[
                 { key: 'primary_color', label: 'Color Primario' },
                 { key: 'secondary_color', label: 'Color Secundario' },
-                { key: 'accent_color', label: 'Color Acento' },
                 { key: 'background_color', label: 'Fondo Principal' },
               ].map(({ key, label }) => (
                 <div key={key} className="flex items-center gap-3">
@@ -437,6 +436,7 @@ export default function PersonalizacionPage({ params }: PersonalizacionProps) {
               {[
                 { key: 'button_primary_color', label: 'Botones Primarios' },
                 { key: 'button_secondary_color', label: 'Botones Secundarios' },
+                { key: 'accent_color', label: 'Precios y textos destacados' },
                 { key: 'text_primary_color', label: 'Texto Principal' },
                 { key: 'text_secondary_color', label: 'Texto Secundario' },
                 { key: 'border_color', label: 'Bordes' },
@@ -1051,7 +1051,7 @@ export default function PersonalizacionPage({ params }: PersonalizacionProps) {
                   <>
                     <section className="overflow-hidden border bg-white/90 shadow-sm" style={{ borderColor: form.border_color, borderRadius: previewRadius }}>
                       <div className="p-4">
-                        <div className="mb-3 inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-black" style={{ backgroundColor: `${form.accent_color}22`, color: form.primary_color }}>
+                        <div className="mb-3 inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-black" style={{ backgroundColor: `${form.accent_color}22`, color: form.accent_color }}>
                           <Star className="h-3.5 w-3.5" />
                           {form.featured_text || 'Especial de la casa'}
                         </div>
