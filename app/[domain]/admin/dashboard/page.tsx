@@ -324,8 +324,11 @@ export default async function DashboardPage({ params }: DashboardProps) {
                 <Brain className="size-4" />
                 CEO Brief inteligente
               </div>
-              <h2 className="max-w-3xl text-3xl font-black leading-tight sm:text-4xl">
-                {organizationName}: lo importante para decidir hoy
+              <h2 className="max-w-3xl text-3xl font-black leading-tight text-white drop-shadow-[0_2px_16px_rgba(0,0,0,0.45)] sm:text-4xl">
+                <span className="mb-2 inline-flex max-w-full rounded-xl bg-white px-3 py-1 text-[#15130f] shadow-lg shadow-black/20">
+                  <span className="truncate">{organizationName}</span>
+                </span>
+                <span className="block">Lo importante para decidir hoy</span>
               </h2>
               <p className="mt-4 max-w-3xl text-base font-semibold leading-7 text-white/68">
                 {ceoBrief}
