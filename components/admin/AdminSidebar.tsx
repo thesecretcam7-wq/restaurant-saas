@@ -69,6 +69,7 @@ const icons: Record<string, ComponentType<{ className?: string }>> = {
   pos: CreditCard,
   inventory: Package,
   tables: Table2,
+  storePage: Store,
   password: KeyRound,
   kds: ChefHat,
   comandero: ClipboardList,
