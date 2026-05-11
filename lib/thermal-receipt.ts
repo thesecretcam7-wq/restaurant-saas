@@ -3,7 +3,7 @@
  * Supports 58mm and 80mm paper widths.
  */
 
-import type { CashClosingReceiptData, ReceiptData } from '@/types/printer';
+import type { CashClosingReceiptData, KitchenTicketData, ReceiptData } from '@/types/printer';
 import { formatPriceWithCurrency } from '@/lib/currency';
 
 interface ReceiptOptions {
@@ -263,5 +263,79 @@ export function generateCashClosingReceiptESCPOS(
 
   const receipt = bytes.join('');
   const copies = Array(Math.max(1, options.copies)).fill(receipt).join('');
+  return new TextEncoder().encode(copies);
+}
+
+export function generateKitchenTicketESCPOS(
+  data: KitchenTicketData,
+  options: ReceiptOptions
+): Uint8Array {
+  const cols = options.paperWidth === 80 ? 48 : 32;
+  const bytes: string[] = [];
+  const push = (...s: string[]) => bytes.push(...s);
+  const line = (s = '') => bytes.push(s + '\n');
+  const sep = () => {
+    push(SIZE_NORMAL);
+    line('-'.repeat(cols));
+  };
+  const ts = data.timestamp ? new Date(data.timestamp) : new Date();
+  const typeLabel =
+    data.deliveryType === 'dine-in'
+      ? data.tableNumber
+        ? `MESA ${data.tableNumber}`
+        : 'SALON'
+      : data.deliveryType === 'delivery'
+        ? 'DELIVERY'
+        : data.deliveryType === 'pickup'
+          ? 'RECOGER'
+          : 'PARA LLEVAR';
+
+  push(INIT);
+  push(ALIGN_CENTER, SIZE_2X, BOLD_ON);
+  line('COMANDA');
+  push(SIZE_WIDE);
+  line('COCINA');
+  push(BOLD_OFF, SIZE_NORMAL);
+  if (data.restaurantName) line(data.restaurantName);
+  line('');
+  push(BOLD_ON);
+  line(data.orderNumber || 'POS');
+  line(typeLabel);
+  push(BOLD_OFF);
+  line(`Hora: ${ts.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}`);
+  if (data.waiterName) line(`Empleado: ${data.waiterName}`);
+  if (data.customerName) line(`Cliente: ${data.customerName}`);
+
+  push(ALIGN_LEFT);
+  sep();
+  data.items.forEach((item) => {
+    push(BOLD_ON, SIZE_WIDE);
+    line(`${item.quantity}x ${item.name}`.substring(0, cols));
+    push(BOLD_OFF, SIZE_NORMAL);
+    if (item.notes) {
+      line(`Nota: ${item.notes}`.substring(0, cols));
+    }
+    line('');
+  });
+
+  if (data.notes) {
+    sep();
+    push(BOLD_ON);
+    line('NOTAS');
+    push(BOLD_OFF);
+    line(data.notes.substring(0, cols * 3));
+  }
+
+  sep();
+  push(ALIGN_CENTER);
+  line('');
+  line('Pasar a cocina');
+  line('');
+  line('');
+  push(cutCommands());
+  push(ALIGN_LEFT, SIZE_NORMAL);
+
+  const ticket = bytes.join('');
+  const copies = Array(Math.max(1, options.copies)).fill(ticket).join('');
   return new TextEncoder().encode(copies);
 }

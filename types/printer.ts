@@ -105,6 +105,25 @@ export interface CashClosingReceiptData {
   };
 }
 
+export interface KitchenTicketData {
+  orderId?: string | null;
+  orderNumber: string;
+  restaurantName?: string;
+  ticketType?: string;
+  items: Array<{
+    menu_item_id: string;
+    name: string;
+    quantity: number;
+    notes?: string | null;
+  }>;
+  customerName?: string | null;
+  deliveryType?: string | null;
+  tableNumber?: number | null;
+  waiterName?: string | null;
+  notes?: string | null;
+  timestamp?: string;
+}
+
 export interface WebUSBDevice {
   vendorId: number;
   productId: number;

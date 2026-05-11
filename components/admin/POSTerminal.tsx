@@ -14,7 +14,7 @@ import { POSOrderLookup } from './POSOrderLookup';
 import { saveCartToSupabase, loadCartFromSupabase, abandonCart, loadOrderToCart } from '@/lib/pos-cart-sync';
 import { calculateCashClosingStats, calculatePendingPreviousCashClosingStats, saveCashClosing, CashClosingStats } from '@/lib/cash-closing';
 import { getCurrencyByCountry, formatPriceWithCurrency } from '@/lib/currency';
-import { printCashClosingReceipt, printReceipt, savePrinterLog, openCashDrawer } from '@/lib/pos-printer';
+import { printCashClosingReceipt, printKitchenTicket, printReceipt, savePrinterLog, openCashDrawer } from '@/lib/pos-printer';
 import { countPendingPOSOrders, isNetworkPaymentError, saveOfflinePOSOrder, syncOfflinePOSOrders } from '@/lib/offline/pos-sync';
 import { useWakeLock } from '@/lib/hooks/useWakeLock';
 
@@ -1480,6 +1480,8 @@ export function POSTerminal({
         waiterName: selectedStaffName || undefined,
         tableNumber: selectedTableNumber || undefined,
         paymentMethod,
+        deliveryType: selectedTableId ? 'dine-in' : posOrderType,
+        notes: discount > 0 ? `Descuento: $${discount.toFixed(2)}` : null,
       };
 
       const printInBackground = async () => {
@@ -1488,7 +1490,7 @@ export function POSTerminal({
         try {
           const result = await supabase
             .from('restaurant_settings')
-            .select('default_receipt_printer_id, printer_auto_print, display_name, phone')
+            .select('default_receipt_printer_id, kitchen_printer_id, printer_auto_print, display_name, phone')
             .eq('tenant_id', tenantId)
             .maybeSingle();
 
@@ -1509,6 +1511,32 @@ export function POSTerminal({
 
         let receiptPrintedWithDrawer = false;
         try {
+          const kitchenPrinterId = settings?.kitchen_printer_id || settings?.default_receipt_printer_id;
+          if (kitchenPrinterId && !loadedOrderId && billingOrderIds.length === 0 && receiptSnapshot.items.length > 0) {
+            try {
+              await printKitchenTicket(tenantId, kitchenPrinterId, {
+                orderId: receiptSnapshot.orderId,
+                orderNumber: receiptSnapshot.orderNumber,
+                restaurantName: settings?.display_name || restaurantName,
+                ticketType: 'kitchen',
+                items: cart.map((item) => ({
+                  menu_item_id: item.menu_item_id,
+                  name: item.name,
+                  quantity: item.quantity,
+                  notes: item.notes || null,
+                })),
+                customerName: 'POS Counter',
+                deliveryType: receiptSnapshot.deliveryType,
+                tableNumber: receiptSnapshot.tableNumber,
+                waiterName: receiptSnapshot.waiterName,
+                notes: receiptSnapshot.notes,
+                timestamp: new Date().toISOString(),
+              });
+            } catch (kitchenPrintError) {
+              backgroundWarnings.push(`Comanda cocina no impresa: ${kitchenPrintError instanceof Error ? kitchenPrintError.message : String(kitchenPrintError)}`);
+            }
+          }
+
           if (!settings?.default_receipt_printer_id) {
             backgroundWarnings.push('No hay impresora predeterminada');
           } else if (!settings?.printer_auto_print) {

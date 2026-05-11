@@ -4,8 +4,8 @@
  */
 
 import { createClient } from '@/lib/supabase/client';
-import { generateCashClosingReceiptESCPOS, generateReceiptESCPOS, generateTestReceiptESCPOS } from './thermal-receipt';
-import type { CashClosingReceiptData, ReceiptData, PrinterDevice } from '@/types/printer';
+import { generateCashClosingReceiptESCPOS, generateKitchenTicketESCPOS, generateReceiptESCPOS, generateTestReceiptESCPOS } from './thermal-receipt';
+import type { CashClosingReceiptData, KitchenTicketData, ReceiptData, PrinterDevice } from '@/types/printer';
 import { formatPriceWithCurrency } from '@/lib/currency';
 
 // WebUSB API type declarations
@@ -310,6 +310,78 @@ export async function printCashClosingReceipt(
   }
 }
 
+export async function printKitchenTicket(
+  tenantId: string,
+  printerId: string,
+  data: KitchenTicketData
+): Promise<void> {
+  try {
+    let { data: printer, error: printerError } = await getSupabase()
+      .from('printer_devices')
+      .select('*')
+      .eq('id', printerId)
+      .eq('tenant_id', tenantId)
+      .maybeSingle();
+
+    if (printer) {
+      cachePrinterConfig(tenantId, printerId, printer);
+    } else {
+      printer = getCachedPrinterConfig(tenantId, printerId);
+    }
+
+    if (printerError && !printer) {
+      throw new Error('Printer not found or not configured');
+    }
+
+    if (!printer) {
+      throw new Error('Printer not found or not configured');
+    }
+
+    const escPosData = generateKitchenTicketESCPOS(data, {
+      paperWidth: printer.config.paper_width || 80,
+      copies: printer.config.copies || 1,
+      locale: 'es-ES',
+    });
+
+    if (shouldUseLocalBridge(printer)) {
+      try {
+        await printViaLocalBridge(printer, escPosData);
+      } catch (bridgeError) {
+        console.warn('Local print bridge unavailable:', bridgeError);
+        if (canUseBrowserPrintFallback(printer)) {
+          printKitchenTicketViaBrowserAPI(data);
+        } else {
+          throw new Error(getLocalBridgeError(printer));
+        }
+      }
+    } else if (isBrowserDriverPrinter(printer)) {
+      if (canUseBrowserPrintFallback(printer)) {
+        printKitchenTicketViaBrowserAPI(data);
+      } else {
+        throw new Error('Esta impresora de Windows necesita el puente local de Eccofood para imprimir directo sin vista previa.');
+      }
+    } else if (typeof navigator !== 'undefined' && 'usb' in navigator) {
+      await printViaWebUSB(printer, escPosData);
+    } else {
+      printKitchenTicketViaBrowserAPI(data);
+    }
+
+    void savePrinterLog(tenantId, printerId, 'print', 'success', {
+      orderNumber: data.orderNumber,
+      type: 'kitchen_ticket',
+    }).catch(() => {});
+  } catch (error) {
+    const errorMsg = error instanceof Error ? error.message : String(error);
+    console.error('Kitchen ticket print error:', errorMsg);
+    void savePrinterLog(tenantId, printerId, 'print', 'failed', {
+      orderNumber: data.orderNumber,
+      type: 'kitchen_ticket',
+      error: errorMsg,
+    }).catch(() => {});
+    throw new Error(errorMsg);
+  }
+}
+
 /**
  * Print via WebUSB (native printer connection)
  */
@@ -466,6 +538,61 @@ function printCashClosingViaBrowserAPI(data: CashClosingReceiptData): void {
     popup.document.close();
   } catch (error) {
     console.error('Browser cash closing print failed:', error);
+  }
+}
+
+function printKitchenTicketViaBrowserAPI(data: KitchenTicketData): void {
+  try {
+    const safe = (value: string | number | null | undefined) =>
+      String(value ?? '')
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;')
+        .replaceAll('"', '&quot;')
+        .replaceAll("'", '&#39;');
+    const rows = data.items.map((item) => `
+      <div class="item">
+        <strong>${safe(item.quantity)}x ${safe(item.name)}</strong>
+        ${item.notes ? `<small>Nota: ${safe(item.notes)}</small>` : ''}
+      </div>
+    `).join('');
+    const html = `
+      <html>
+        <head>
+          <title>Comanda ${safe(data.orderNumber)}</title>
+          <style>
+            body{font-family:Arial,sans-serif;margin:0;padding:16px;background:#fff;color:#111}
+            .ticket{max-width:300px;margin:0 auto}
+            h1{font-size:26px;text-align:center;margin:0;font-weight:900}
+            .meta{text-align:center;font-size:13px;margin:8px 0 12px;color:#333}
+            .item{border-top:1px dashed #999;padding:10px 0;font-size:20px}
+            .item small{display:block;font-size:13px;margin-top:4px}
+            @media print{body{padding:0}.ticket{max-width:none;width:72mm}}
+          </style>
+        </head>
+        <body>
+          <div class="ticket">
+            <h1>COMANDA COCINA</h1>
+            <div class="meta">
+              ${safe(data.restaurantName || '')}<br/>
+              ${safe(data.orderNumber)}<br/>
+              ${new Date(data.timestamp || Date.now()).toLocaleString('es-ES')}
+            </div>
+            ${rows}
+            ${data.notes ? `<p><strong>Notas:</strong> ${safe(data.notes)}</p>` : ''}
+          </div>
+          <script>window.onload=()=>{window.print();setTimeout(()=>window.close(),500)}</script>
+        </body>
+      </html>
+    `;
+
+    const popup = window.open('', '_blank', 'width=420,height=720');
+    if (!popup) throw new Error('El navegador bloqueo la ventana de impresion');
+    popup.document.open();
+    popup.document.write(html);
+    popup.document.close();
+  } catch (error) {
+    console.error('Browser kitchen ticket print failed:', error);
   }
 }
 
