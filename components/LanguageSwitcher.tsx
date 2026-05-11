@@ -73,16 +73,17 @@ interface LanguageSwitcherProps {
   className?: string
   reloadOnChange?: boolean
   compact?: boolean
+  iconColor?: string
 }
 
-export default function LanguageSwitcher({ className = '', reloadOnChange = false, compact = false }: LanguageSwitcherProps) {
+export default function LanguageSwitcher({ className = '', reloadOnChange = false, compact = false, iconColor = 'currentColor' }: LanguageSwitcherProps) {
   const { locale, setLocale, tr } = useI18n()
 
   return (
     <label
       className={`inline-flex items-center gap-2 rounded-full border border-black/10 bg-white/80 px-3 py-2 text-xs font-black text-[#171717] shadow-sm backdrop-blur-xl transition hover:border-black/20 ${className}`}
     >
-      <Globe2 className="size-4 text-[#ff6b1a]" aria-hidden="true" />
+      <Globe2 className="size-4" style={{ color: iconColor }} aria-hidden="true" />
       <span className={compact ? 'sr-only' : 'hidden sm:inline'}>{tr('language.select')}</span>
       <select
         value={locale}

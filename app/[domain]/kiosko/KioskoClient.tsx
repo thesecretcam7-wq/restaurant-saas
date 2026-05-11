@@ -93,32 +93,33 @@ function AppHeader({
   cartCount?: number
 }) {
   const initial = appName.trim().charAt(0).toUpperCase() || 'E'
+  const mutedHeaderText = `${textColor}b3`
 
   return (
     <header
-      className="flex flex-shrink-0 items-center justify-between px-4 py-3 shadow-2xl shadow-black/10 sm:px-6 md:px-8 md:py-4"
-      style={{ backgroundColor: primaryColor }}
+      className="flex flex-shrink-0 items-center justify-between border-b px-4 py-3 shadow-lg shadow-black/[0.08] sm:px-5 md:px-6"
+      style={{ backgroundColor: primaryColor, borderColor: `${textColor}24` }}
     >
-      <div className="flex min-w-0 items-center gap-3 md:gap-4">
+      <div className="flex min-w-0 items-center gap-3">
         {onBack && (
           <button onClick={onBack} className="mr-2 rounded-full p-2 transition-colors" style={{ backgroundColor: `${textColor}22`, color: textColor }}>
             <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M19 12H5"/><path d="M12 19l-7-7 7-7"/></svg>
           </button>
         )}
-        <div className="flex h-14 w-20 flex-shrink-0 items-center justify-center overflow-visible md:h-16 md:w-28 xl:w-32">
+        <div className="flex h-12 w-16 flex-shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-white/85 p-1.5 shadow-sm ring-1 md:h-12 md:w-16" style={{ '--tw-ring-color': `${textColor}24` } as React.CSSProperties}>
           {logoUrl ? (
-            <img src={logoUrl} alt={appName} className="max-h-full max-w-full scale-125 object-contain drop-shadow-xl md:scale-150" />
+            <img src={logoUrl} alt={appName} className="max-h-full max-w-full object-contain" />
           ) : (
-            <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-white text-2xl font-black shadow-xl md:h-16 md:w-16" style={{ color: primaryColor }}>{initial}</span>
+            <span className="flex h-full w-full items-center justify-center rounded-xl bg-white text-lg font-black shadow-sm" style={{ color: primaryColor }}>{initial}</span>
           )}
         </div>
         <div className="min-w-0">
-          <p className="truncate text-xl font-black leading-tight md:text-3xl" style={{ color: textColor }}>{appName}</p>
-          {backLabel && <p className="text-xs opacity-75" style={{ color: textColor }}>{backLabel}</p>}
+          <p className="truncate text-base font-black leading-tight md:text-lg" style={{ color: textColor }}>{appName}</p>
+          {backLabel && <p className="text-xs font-semibold" style={{ color: mutedHeaderText }}>{backLabel}</p>}
         </div>
       </div>
-      <div className="flex flex-shrink-0 items-center gap-3 md:gap-6">
-        <LanguageSwitcher compact className="border-black/10 bg-white/80" />
+      <div className="flex flex-shrink-0 items-center gap-3 md:gap-4">
+        <LanguageSwitcher compact iconColor={primaryColor} className="border-white/20 bg-white/90 text-[#171717]" />
         {cartCount !== undefined && cartCount > 0 && (
           <div className="flex items-center gap-2 rounded-full px-3 py-2 md:px-4" style={{ backgroundColor: `${textColor}22`, color: textColor }}>
             <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>
@@ -126,10 +127,10 @@ function AppHeader({
           </div>
         )}
         <div className="hidden text-right sm:block">
-          <p className="font-mono text-2xl font-bold tabular-nums" style={{ color: textColor }}>
+          <p className="font-mono text-lg font-bold tabular-nums md:text-xl" style={{ color: textColor }}>
             {time?.toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' }) ?? ''}
           </p>
-          <p className="text-xs opacity-70" style={{ color: textColor }}>
+          <p className="text-[11px] font-semibold" style={{ color: mutedHeaderText }}>
             {time?.toLocaleDateString('es-CO', { weekday: 'long', day: 'numeric', month: 'short' }) ?? ''}
           </p>
         </div>
