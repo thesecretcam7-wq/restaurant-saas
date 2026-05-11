@@ -6,6 +6,7 @@ import { getTenantContext } from '@/lib/tenant'
 import { deriveBrandPalette, readableTextColor } from '@/lib/brand-colors'
 import type { MenuCategory, MenuItem } from '@/lib/types'
 import LanguageSwitcher from '@/components/LanguageSwitcher'
+import QrCategoryNav from '@/components/store/QrCategoryNav'
 import { normalizeLocale, translate } from '@/lib/i18n'
 
 export const dynamic = 'force-dynamic'
@@ -144,23 +145,16 @@ export default async function CartaPage({ params }: CartaProps) {
         </div>
 
         {categories.length > 0 && (
-          <nav className="mx-auto flex max-w-3xl snap-x gap-2 overflow-x-auto px-3 pb-3 scrollbar-hide sm:px-4">
-            {featured.length > 0 && (
-              <a href="#destacados" className="h-10 flex-shrink-0 snap-start rounded-full border px-4 py-2.5 text-xs font-black shadow-sm transition active:scale-[0.98] sm:px-5" style={{ backgroundColor: buttonPrimary, borderColor: buttonPrimary, color: buttonPrimaryText }}>
-                {tr('qr.mostOrdered')}
-              </a>
-            )}
-            {categories.map(category => (
-              <a
-                key={category.id}
-                href={`#cat-${category.id}`}
-                className="h-10 flex-shrink-0 snap-start rounded-full border px-4 py-2.5 text-xs font-black shadow-sm transition active:scale-[0.98] sm:px-5"
-                style={{ backgroundColor: buttonSecondary, borderColor: border, color: chipInactiveText }}
-              >
-                {category.name}
-              </a>
-            ))}
-          </nav>
+          <QrCategoryNav
+            categories={categories}
+            showFeatured={featured.length > 0}
+            featuredLabel={tr('qr.mostOrdered')}
+            activeColor={buttonPrimary}
+            activeTextColor={buttonPrimaryText}
+            inactiveColor={buttonSecondary}
+            inactiveTextColor={chipInactiveText}
+            borderColor={border}
+          />
         )}
       </header>
 
