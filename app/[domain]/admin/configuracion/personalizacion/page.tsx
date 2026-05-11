@@ -4,11 +4,47 @@ import { use, useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { useTenantResolver } from '@/lib/hooks/useTenantResolver'
+import { deriveBrandPalette } from '@/lib/brand-colors'
 import toast from 'react-hot-toast'
 import { Clock, MonitorSmartphone, Plus, QrCode, ShoppingBag, ShoppingCart, Star, Utensils } from 'lucide-react'
 
 const GOOGLE_FONTS = ['Inter', 'Roboto', 'Open Sans', 'Lato', 'Montserrat', 'Playfair Display', 'Nunito', 'Raleway', 'Poppins', 'Oswald']
 const BUTTON_HOVER_EFFECTS = ['none', 'scale', 'glow', 'shadow']
+const FONT_PRESETS = [
+  { font: 'Inter', label: 'Moderno limpio', note: 'Claro y profesional' },
+  { font: 'Poppins', label: 'Amigable', note: 'Redondo y comercial' },
+  { font: 'Nunito', label: 'Cercano', note: 'Suave para comida rapida' },
+  { font: 'Playfair Display', label: 'Elegante', note: 'Restaurante premium' },
+]
+
+function buildProfessionalBrandValues(base: { primary_color?: string; button_primary_color?: string }) {
+  const palette = deriveBrandPalette({
+    primary: base.primary_color,
+    buttonPrimary: base.button_primary_color || base.primary_color,
+  })
+
+  return {
+    secondary_color: palette.secondary,
+    accent_color: palette.accent,
+    background_color: palette.background,
+    button_secondary_color: palette.buttonSecondary,
+    text_primary_color: palette.text,
+    text_secondary_color: palette.mutedText,
+    border_color: palette.border,
+    section_background_color: palette.surface,
+    use_gradient: false,
+    gradient_start_color: palette.background,
+    gradient_end_color: palette.surface,
+    gradient_direction: 'to bottom',
+    border_radius: 18,
+    button_border_radius: 14,
+    shadow_intensity: 'medium',
+    button_style: 'solid',
+    button_hover_effect: 'shadow',
+    button_hover_color: '',
+    link_hover_color: '',
+  }
+}
 
 interface PersonalizacionProps { params: Promise<{ domain: string }> }
 
@@ -90,8 +126,28 @@ export default function PersonalizacionPage({ params }: PersonalizacionProps) {
     page_config: {} as any,
   })
 
-  const handleColorChange = (key: keyof typeof form, value: string) => {
-    setForm(prev => ({ ...prev, [key]: value }))
+  const applyBrandDecision = (key: keyof typeof form, value: string) => {
+    setForm(prev => {
+      const next = { ...prev, [key]: value }
+      return { ...next, ...buildProfessionalBrandValues(next), [key]: value }
+    })
+  }
+
+  const handleColorChange = applyBrandDecision
+
+  const applyFontPreset = (font: string) => {
+    setForm(prev => ({
+      ...prev,
+      heading_font: font,
+      font_family: font,
+      heading_font_size: font === 'Playfair Display' ? 30 : 28,
+      body_font_size: 16,
+      heading_font_weight: font === 'Playfair Display' ? '700' : '800',
+      body_font_weight: '500',
+      letter_spacing: 0,
+      line_height: 1.5,
+      text_transform: 'none',
+    }))
   }
 
   useEffect(() => {
@@ -110,7 +166,10 @@ export default function PersonalizacionPage({ params }: PersonalizacionProps) {
                 cleanBranding[key] = value
               }
             })
-            setForm(f => ({ ...f, ...cleanBranding }))
+            setForm(f => {
+              const merged = { ...f, ...cleanBranding }
+              return { ...merged, ...buildProfessionalBrandValues(merged) }
+            })
           }
           if (json.tenant?.logo_url) {
             setForm(f => ({ ...f, logo_url: json.tenant.logo_url }))
@@ -149,6 +208,7 @@ export default function PersonalizacionPage({ params }: PersonalizacionProps) {
   const handleSave = async () => {
     setSaving(true)
     try {
+      const professional = buildProfessionalBrandValues(form)
       const res = await fetch('/api/tenant/branding', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
@@ -161,14 +221,14 @@ export default function PersonalizacionPage({ params }: PersonalizacionProps) {
             logo_url: form.logo_url,
             favicon_url: form.favicon_url,
             primary_color: form.primary_color,
-            secondary_color: form.secondary_color,
-            accent_color: form.accent_color,
-            background_color: form.background_color,
+            secondary_color: professional.secondary_color,
+            accent_color: professional.accent_color,
+            background_color: professional.background_color,
             button_primary_color: form.button_primary_color,
-            button_secondary_color: form.button_secondary_color,
-            text_primary_color: form.text_primary_color,
-            text_secondary_color: form.text_secondary_color,
-            border_color: form.border_color,
+            button_secondary_color: professional.button_secondary_color,
+            text_primary_color: professional.text_primary_color,
+            text_secondary_color: professional.text_secondary_color,
+            border_color: professional.border_color,
             font_family: form.font_family,
             heading_font: form.heading_font,
             heading_font_size: form.heading_font_size,
@@ -178,10 +238,10 @@ export default function PersonalizacionPage({ params }: PersonalizacionProps) {
             letter_spacing: form.letter_spacing,
             line_height: form.line_height,
             text_transform: form.text_transform,
-            border_radius: form.border_radius,
-            button_border_radius: form.button_border_radius,
-            shadow_intensity: form.shadow_intensity,
-            button_style: form.button_style,
+            border_radius: professional.border_radius,
+            button_border_radius: professional.button_border_radius,
+            shadow_intensity: professional.shadow_intensity,
+            button_style: professional.button_style,
             instagram_url: form.instagram_url,
             facebook_url: form.facebook_url,
             whatsapp_number: form.whatsapp_number,
@@ -199,13 +259,13 @@ export default function PersonalizacionPage({ params }: PersonalizacionProps) {
             button_checkout_text: form.button_checkout_text,
             button_reserve_text: form.button_reserve_text,
             empty_cart_message: form.empty_cart_message,
-            section_background_color: form.section_background_color,
+            section_background_color: professional.section_background_color,
             section_background_image_url: form.section_background_image_url,
-            use_gradient: form.use_gradient,
-            gradient_start_color: form.gradient_start_color,
-            gradient_end_color: form.gradient_end_color,
-            gradient_direction: form.gradient_direction,
-            button_hover_effect: BUTTON_HOVER_EFFECTS.includes(form.button_hover_effect) ? form.button_hover_effect : 'scale',
+            use_gradient: professional.use_gradient,
+            gradient_start_color: professional.gradient_start_color,
+            gradient_end_color: professional.gradient_end_color,
+            gradient_direction: professional.gradient_direction,
+            button_hover_effect: professional.button_hover_effect,
             button_hover_color: '',
             link_hover_color: '',
             link_hover_underline: form.link_hover_underline,
@@ -391,8 +451,90 @@ export default function PersonalizacionPage({ params }: PersonalizacionProps) {
         </div>
       )}
 
-      {/* Marca Global */}
+      {/* Branding inteligente */}
       {activeTab === 'marca' && (
+        <div className="space-y-6">
+          <div className="rounded-xl border bg-white p-6 shadow-sm">
+            <div className="mb-6">
+              <p className="text-xs font-black uppercase tracking-[0.18em] text-gray-400">Branding inteligente</p>
+              <h3 className="mt-1 text-xl font-black text-gray-950">Elige solo 3 cosas</h3>
+              <p className="mt-2 max-w-2xl text-sm font-semibold leading-6 text-gray-500">
+                Eccofood genera fondos, tarjetas, textos, precios, bordes y sombras automaticamente para que la tienda se vea profesional.
+              </p>
+            </div>
+
+            <div className="grid gap-4 lg:grid-cols-3">
+              <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4">
+                <label className="block text-sm font-black text-gray-900">Color principal</label>
+                <p className="mt-1 min-h-10 text-xs font-semibold leading-5 text-gray-500">Encabezados, marca y presencia visual.</p>
+                <div className="mt-4 flex items-center gap-3">
+                  <input
+                    type="color"
+                    value={form.primary_color}
+                    onChange={e => applyBrandDecision('primary_color', e.target.value)}
+                    className="h-14 w-14 cursor-pointer rounded-xl border border-gray-200 bg-white p-1"
+                  />
+                  <div>
+                    <p className="text-sm font-black text-gray-900">{form.primary_color}</p>
+                    <p className="text-xs font-semibold text-gray-500">El sistema crea fondos y bordes.</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4">
+                <label className="block text-sm font-black text-gray-900">Color de botones</label>
+                <p className="mt-1 min-h-10 text-xs font-semibold leading-5 text-gray-500">Botones, precios y llamados a la accion.</p>
+                <div className="mt-4 flex items-center gap-3">
+                  <input
+                    type="color"
+                    value={form.button_primary_color}
+                    onChange={e => applyBrandDecision('button_primary_color', e.target.value)}
+                    className="h-14 w-14 cursor-pointer rounded-xl border border-gray-200 bg-white p-1"
+                  />
+                  <div>
+                    <p className="text-sm font-black text-gray-900">{form.button_primary_color}</p>
+                    <p className="text-xs font-semibold text-gray-500">El sistema crea secundarios y precios.</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4">
+                <label className="block text-sm font-black text-gray-900">Tipo de texto</label>
+                <p className="mt-1 min-h-10 text-xs font-semibold leading-5 text-gray-500">Una fuente para toda la experiencia publica.</p>
+                <div className="mt-4 grid gap-2">
+                  {FONT_PRESETS.map(({ font, label, note }) => (
+                    <button
+                      key={font}
+                      type="button"
+                      onClick={() => applyFontPreset(font)}
+                      className={`rounded-xl border px-3 py-2 text-left transition ${form.font_family === font && form.heading_font === font ? 'border-gray-950 bg-white shadow-sm' : 'border-gray-200 bg-white/70 hover:bg-white'}`}
+                      style={{ fontFamily: font }}
+                    >
+                      <span className="block text-sm font-black text-gray-950">{label}</span>
+                      <span className="block text-xs font-semibold text-gray-500">{note}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-6 rounded-2xl border border-gray-200 bg-white p-4">
+              <p className="text-xs font-black uppercase tracking-[0.16em] text-gray-400">Paleta generada por Eccofood</p>
+              <div className="mt-4 grid grid-cols-5 gap-2">
+                {previewSwatches.map(item => (
+                  <div key={item.label}>
+                    <div className="h-12 rounded-xl border border-black/10 shadow-sm" style={{ backgroundColor: item.color }} />
+                    <p className="mt-1 truncate text-[10px] font-black uppercase tracking-[0.08em] text-gray-400">{item.label}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Marca Global */}
+      {false && activeTab === 'marca' && (
         <div className="space-y-6">
           <div className="bg-white rounded-xl border p-6">
             <h3 className="font-semibold text-lg mb-4">Colores Principales</h3>

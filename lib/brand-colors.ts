@@ -11,6 +11,9 @@ export type BrandColorInput = {
   border?: string | null
 }
 
+const WHITE = '#ffffff'
+const INK = '#15130f'
+
 export function hexToRgb(hex?: string | null) {
   if (!hex) return null
   const normalized = hex.replace('#', '').trim()
@@ -61,6 +64,10 @@ export function mixHexColors(from?: string | null, to?: string | null, amount = 
     .join('')}`
 }
 
+export function normalizeHexColor(color?: string | null, fallback = INK) {
+  return hexToRgb(color) ? color! : fallback
+}
+
 export function colorWithAlpha(color: string, alphaHex: string) {
   return hexToRgb(color) ? `${color}${alphaHex}` : color
 }
@@ -79,17 +86,21 @@ export const DEFAULT_BRAND_COLORS = {
 }
 
 export function deriveBrandPalette(input: BrandColorInput = {}) {
-  const primary = input.primary || DEFAULT_BRAND_COLORS.primary
-  const secondary = input.secondary || DEFAULT_BRAND_COLORS.secondary
-  const accent = input.accent || primary
-  const background = input.background || DEFAULT_BRAND_COLORS.background
-  const surface = input.surface || (isDarkColor(background) ? '#111827' : DEFAULT_BRAND_COLORS.surface)
-  const neutralSoft = isDarkColor(surface) ? 'rgba(255,255,255,0.08)' : '#f3f4f6'
-  const primarySoft = mixHexColors(primary, surface, isDarkColor(surface) ? 0.82 : 0.9)
-  const buttonPrimary = input.buttonPrimary || primary
-  const buttonSecondary = input.buttonSecondary && input.buttonSecondary.toLowerCase() !== '#ffffff'
-    ? input.buttonSecondary
-    : neutralSoft
+  const primary = normalizeHexColor(input.primary, DEFAULT_BRAND_COLORS.primary)
+  const buttonPrimary = normalizeHexColor(input.buttonPrimary, primary)
+  const secondary = mixHexColors(primary, '#000000', isDarkColor(primary) ? 0.24 : 0.34)
+  const accent = buttonPrimary
+  const background = isDarkColor(primary)
+    ? mixHexColors(primary, WHITE, 0.93)
+    : mixHexColors(primary, WHITE, 0.9)
+  const surface = WHITE
+  const cardSurface = WHITE
+  const neutralSoft = mixHexColors(primary, WHITE, 0.93)
+  const primarySoft = mixHexColors(primary, WHITE, 0.9)
+  const buttonSecondary = mixHexColors(buttonPrimary, WHITE, 0.88)
+  const text = INK
+  const mutedText = 'rgba(21,19,15,0.62)'
+  const border = mixHexColors(primary, WHITE, 0.78)
 
   return {
     primary,
@@ -97,16 +108,16 @@ export function deriveBrandPalette(input: BrandColorInput = {}) {
     accent,
     background,
     surface,
-    cardSurface: getStoreCardSurface(surface),
+    cardSurface,
     neutralSoft,
     primarySoft,
     buttonPrimary,
     buttonPrimaryText: readableTextColor(buttonPrimary),
     buttonSecondary,
     buttonSecondaryText: readableTextColor(buttonSecondary, primary, '#ffffff'),
-    text: input.textPrimary || readableTextColor(surface),
-    mutedText: input.textSecondary || (isDarkColor(surface) ? 'rgba(255,255,255,0.66)' : DEFAULT_BRAND_COLORS.textSecondary),
-    pageText: input.textPrimary || readableTextColor(background),
-    border: input.border || (isDarkColor(surface) ? 'rgba(255,255,255,0.16)' : 'rgba(0,0,0,0.08)'),
+    text,
+    mutedText,
+    pageText: text,
+    border,
   }
 }
