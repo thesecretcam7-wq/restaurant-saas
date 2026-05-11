@@ -13,6 +13,7 @@ export type BrandColorInput = {
 
 const WHITE = '#ffffff'
 const INK = '#15130f'
+const MUTED_INK = '#6b6258'
 
 export function hexToRgb(hex?: string | null) {
   if (!hex) return null
@@ -81,8 +82,8 @@ export const DEFAULT_BRAND_COLORS = {
   buttonPrimary: '#15130f',
   buttonSecondary: '#f3f4f6',
   textPrimary: '#15130f',
-  textSecondary: 'rgba(21,19,15,0.62)',
-  border: 'rgba(0,0,0,0.08)',
+  textSecondary: MUTED_INK,
+  border: '#e7dfd6',
 }
 
 export function deriveBrandPalette(input: BrandColorInput = {}) {
@@ -99,7 +100,7 @@ export function deriveBrandPalette(input: BrandColorInput = {}) {
   const primarySoft = mixHexColors(primary, WHITE, 0.9)
   const buttonSecondary = mixHexColors(buttonPrimary, WHITE, 0.88)
   const text = INK
-  const mutedText = 'rgba(21,19,15,0.62)'
+  const mutedText = MUTED_INK
   const border = mixHexColors(primary, WHITE, 0.78)
 
   return {
