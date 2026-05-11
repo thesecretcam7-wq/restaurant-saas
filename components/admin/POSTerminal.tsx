@@ -2108,7 +2108,7 @@ export function POSTerminal({
         </div>
 
         {/* Cart/Payment Section */}
-        <div className={`${isFullscreen ? 'h-[44dvh] overflow-hidden lg:h-auto lg:w-72 xl:w-80' : 'min-h-[520px] flex-none overflow-y-auto pb-6 lg:min-h-0 lg:h-auto lg:w-80 lg:overflow-hidden lg:pb-0'} pos-panel border-x-0 border-b-0 lg:border-y-0 lg:border-r-0 flex flex-col`}>
+        <div className={`${isFullscreen ? 'h-[44dvh] overflow-hidden lg:h-auto lg:w-72 xl:w-80' : 'min-h-[520px] flex-none overflow-y-auto pb-6 lg:min-h-0 lg:h-auto lg:w-80 lg:overflow-y-auto lg:pb-0'} pos-panel border-x-0 border-b-0 lg:border-y-0 lg:border-r-0 flex flex-col`}>
           {/* Tabs: Cart / Entregas / Salón */}
           <div className="border-b border-white/10 flex bg-black/20 backdrop-blur-xl">
             <button
@@ -2294,7 +2294,7 @@ export function POSTerminal({
           )}
 
           {/* Cart Items List */}
-          <div className={`${isFullscreen ? 'flex-1 min-h-0 overflow-hidden' : 'max-h-48 overflow-y-auto lg:flex-1 lg:max-h-none lg:min-h-0'}`}>
+          <div className={`${isFullscreen ? 'flex-1 min-h-0 overflow-hidden' : 'min-h-28 max-h-48 overflow-y-auto'}`}>
             {cart.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-full text-slate-500 py-8">
                 <ShoppingCart className="w-8 h-8 mb-2 opacity-30" />
