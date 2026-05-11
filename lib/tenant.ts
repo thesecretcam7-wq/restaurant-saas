@@ -20,13 +20,18 @@ async function cached<T>(key: string, fetcher: () => Promise<T>): Promise<T> {
 }
 
 export async function getTenantByDomain(domain: string) {
-  return cached(`tenant:domain:${domain}`, async () => {
+  const cleanDomain = domain.split(':')[0]?.toLowerCase() || domain.toLowerCase()
+  return cached(`tenant:domain:${cleanDomain}`, async () => {
   const supabase = createServiceClient()
+  const candidates = cleanDomain.startsWith('www.')
+    ? [cleanDomain, cleanDomain.slice(4)]
+    : [cleanDomain, `www.${cleanDomain}`]
 
   const { data, error } = await supabase
     .from('tenants')
     .select('*')
-    .eq('primary_domain', domain)
+    .in('primary_domain', candidates)
+    .limit(1)
     .maybeSingle()
 
   if (error) {

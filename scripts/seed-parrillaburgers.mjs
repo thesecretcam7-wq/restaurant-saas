@@ -15,7 +15,7 @@ if (fs.existsSync(envPath)) {
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
 const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
-const customDomain = process.env.PARRILLABURGERS_DOMAIN || null
+const customDomain = process.env.PARRILLABURGERS_DOMAIN || 'parrillaburgers.com'
 
 if (!supabaseUrl || !serviceRoleKey) {
   console.error('Missing NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY')

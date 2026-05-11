@@ -395,10 +395,14 @@ export async function middleware(request: NextRequest) {
 }
 
 async function getTenantByDomain(domain: string) {
-  return getCachedTenant(`domain:${domain}`, async () => {
+  const cleanDomain = domain.split(':')[0]?.toLowerCase() || domain.toLowerCase()
+  return getCachedTenant(`domain:${cleanDomain}`, async () => {
   try {
     const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!, { auth: { autoRefreshToken: false, persistSession: false } })
-    const { data } = await supabase.from('tenants').select('id, slug').eq('primary_domain', domain).single()
+    const candidates = cleanDomain.startsWith('www.')
+      ? [cleanDomain, cleanDomain.slice(4)]
+      : [cleanDomain, `www.${cleanDomain}`]
+    const { data } = await supabase.from('tenants').select('id, slug').in('primary_domain', candidates).limit(1).maybeSingle()
     return data
   } catch { return null }
   })
