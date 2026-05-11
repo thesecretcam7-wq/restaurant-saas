@@ -60,6 +60,13 @@ const featuredProducts = new Set([
   'Churrasco',
 ])
 
+const demoStaffMembers = [
+  { name: 'Admin ParrillaBurgers', role: 'admin', pin: '000000' },
+  { name: 'Cocinero Demo', role: 'cocinero', pin: '567890' },
+  { name: 'Camarero Demo', role: 'camarero', pin: '123456' },
+  { name: 'Cajero Demo', role: 'cajero', pin: '999999' },
+]
+
 function slugify(value) {
   return value
     .normalize('NFD')
@@ -340,6 +347,49 @@ async function main() {
     )
   }
 
+  console.log('Ensuring ParrillaBurgers demo staff...')
+  for (const staff of demoStaffMembers) {
+    const existingStaff = await maybeSingle(
+      supabase
+        .from('staff_members')
+        .select('id')
+        .eq('tenant_id', tenantId)
+        .eq('role', staff.role)
+        .eq('name', staff.name)
+        .maybeSingle(),
+      `fetch ${staff.role} staff`
+    )
+
+    if (existingStaff) {
+      await maybeSingle(
+        supabase
+          .from('staff_members')
+          .update({
+            ...staff,
+            is_active: true,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', existingStaff.id)
+          .select('id')
+          .single(),
+        `update ${staff.role} staff`
+      )
+    } else {
+      await maybeSingle(
+        supabase
+          .from('staff_members')
+          .insert({
+            tenant_id: tenantId,
+            ...staff,
+            is_active: true,
+          })
+          .select('id')
+          .single(),
+        `insert ${staff.role} staff`
+      )
+    }
+  }
+
   console.log(JSON.stringify({
     ok: true,
     tenant_id: tenantId,
@@ -347,6 +397,7 @@ async function main() {
     domain: tenant.primary_domain,
     categories: categories.length,
     products: products.length,
+    demo_staff: demoStaffMembers.length,
     url: customDomain ? `https://${customDomain}` : `/${tenant.slug}`,
   }, null, 2))
 }
