@@ -368,7 +368,10 @@ export async function middleware(request: NextRequest) {
     if (tenant) {
       const slugPrefix = `/${tenant.slug}`
       if (pathname === slugPrefix || pathname.startsWith(`${slugPrefix}/`)) {
-        return NextResponse.next()
+        const cleanPath = pathname.slice(slugPrefix.length) || '/'
+        const redirectUrl = request.nextUrl.clone()
+        redirectUrl.pathname = cleanPath
+        return NextResponse.redirect(redirectUrl)
       }
 
       url.pathname = `/${tenant.slug}${pathname}`
