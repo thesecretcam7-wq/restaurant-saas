@@ -75,6 +75,7 @@ function readableText(background: string, preferred?: string, fallbackDark = '#1
 // ─── App Header Component ─────────────────────────────────────────────────
 function AppHeader({
   primaryColor,
+  accentColor,
   textColor,
   appName,
   logoUrl,
@@ -84,6 +85,7 @@ function AppHeader({
   cartCount,
 }: {
   primaryColor: string
+  accentColor?: string
   textColor: string
   appName: string
   logoUrl: string | null
@@ -94,6 +96,7 @@ function AppHeader({
 }) {
   const initial = appName.trim().charAt(0).toUpperCase() || 'E'
   const mutedHeaderText = `${textColor}b3`
+  const headerAccentColor = accentColor || primaryColor
 
   return (
     <header
@@ -110,7 +113,7 @@ function AppHeader({
           {logoUrl ? (
             <img src={logoUrl} alt={appName} className="max-h-full max-w-full object-contain" />
           ) : (
-            <span className="flex h-full w-full items-center justify-center rounded-xl bg-white text-lg font-black shadow-sm" style={{ color: primaryColor }}>{initial}</span>
+            <span className="flex h-full w-full items-center justify-center rounded-xl bg-white text-lg font-black shadow-sm" style={{ color: headerAccentColor }}>{initial}</span>
           )}
         </div>
         <div className="min-w-0">
@@ -119,7 +122,7 @@ function AppHeader({
         </div>
       </div>
       <div className="flex flex-shrink-0 items-center gap-3 md:gap-4">
-        <LanguageSwitcher compact iconColor={primaryColor} className="border-white/20 bg-white/90 text-[#171717]" />
+        <LanguageSwitcher compact iconColor={headerAccentColor} className="border-white/20 bg-white/90 text-[#171717]" />
         {cartCount !== undefined && cartCount > 0 && (
           <div className="flex items-center gap-2 rounded-full px-3 py-2 md:px-4" style={{ backgroundColor: `${textColor}22`, color: textColor }}>
             <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>
@@ -452,6 +455,8 @@ export default function KioskoClient({
   const pageTextColor = readableText(backgroundColor, textPrimaryColor)
   const mutedTextColor = textSecondaryColor || readableText(backgroundColor, undefined, 'rgba(21,19,15,0.62)', 'rgba(255,255,255,0.66)')
   const primaryTextColor = readableText(primaryColor)
+  const appHeaderColor = secondaryColor || backgroundColor || buttonSecondaryColor || '#0B0B0B'
+  const appHeaderTextColor = readableText(appHeaderColor, textPrimaryColor)
   const buttonTextColor = readableText(buttonPrimaryColor)
   const secondaryButtonTextColor = readableText(buttonSecondaryColor)
   const surfaceColor = '#ffffff'
@@ -808,7 +813,7 @@ export default function KioskoClient({
   if (step === 'confirmed' && confirmed) {
     return (
       <div className="h-screen flex flex-col" style={{ fontFamily: 'Inter, system-ui, sans-serif', backgroundColor, color: pageTextColor }}>
-        <AppHeader primaryColor={primaryColor} textColor={primaryTextColor} appName={appName} logoUrl={logoUrl} time={time} />
+        <AppHeader primaryColor={appHeaderColor} accentColor={primaryColor} textColor={appHeaderTextColor} appName={appName} logoUrl={logoUrl} time={time} />
         <div className="flex-1 flex flex-col items-center justify-center px-8">
           <div className="text-center w-full max-w-2xl">
             <div className="mb-6 inline-flex items-center gap-3 rounded-full px-5 py-3 font-black shadow-lg" style={{ backgroundColor: `${primaryColor}18`, color: pageTextColor }}>
@@ -861,7 +866,7 @@ export default function KioskoClient({
   if (step === 'checkout') {
     return (
       <div className="h-screen flex flex-col" style={{ fontFamily: 'Inter, system-ui, sans-serif', backgroundColor, color: pageTextColor }}>
-        <AppHeader primaryColor={primaryColor} textColor={primaryTextColor} appName={appName} logoUrl={logoUrl} time={time} backLabel={tr('kitchen.viewOrder')} onBack={() => setStep('cart')} />
+        <AppHeader primaryColor={appHeaderColor} accentColor={primaryColor} textColor={appHeaderTextColor} appName={appName} logoUrl={logoUrl} time={time} backLabel={tr('kitchen.viewOrder')} onBack={() => setStep('cart')} />
         <div className="flex-1 overflow-y-auto">
           <div className="max-w-lg mx-auto p-6">
             <h2 className="text-2xl font-black mb-6" style={{ color: pageTextColor }}>{tr('checkout.finishOrder')}</h2>
@@ -976,7 +981,7 @@ export default function KioskoClient({
   if (step === 'cart') {
     return (
       <div className="h-screen flex flex-col" style={{ fontFamily: 'Inter, system-ui, sans-serif', backgroundColor, color: pageTextColor }}>
-        <AppHeader primaryColor={primaryColor} textColor={primaryTextColor} appName={appName} logoUrl={logoUrl} time={time} backLabel="Seguir pidiendo" onBack={() => setStep('menu')} />
+        <AppHeader primaryColor={appHeaderColor} accentColor={primaryColor} textColor={appHeaderTextColor} appName={appName} logoUrl={logoUrl} time={time} backLabel="Seguir pidiendo" onBack={() => setStep('menu')} />
         <div className="flex-1 overflow-y-auto">
           <div className="max-w-lg mx-auto p-6 pb-40">
             <h2 className="text-2xl font-black mb-5" style={{ color: pageTextColor }}>{tr('kitchen.viewOrder')}</h2>
@@ -1123,7 +1128,7 @@ export default function KioskoClient({
         </div>
       )}
 
-      <AppHeader primaryColor={primaryColor} textColor={primaryTextColor} appName={appName} logoUrl={logoUrl} time={time} cartCount={cartCount} />
+      <AppHeader primaryColor={appHeaderColor} accentColor={primaryColor} textColor={appHeaderTextColor} appName={appName} logoUrl={logoUrl} time={time} cartCount={cartCount} />
 
       {/* Body: sidebar only (products in modal) */}
       <div className="flex flex-1 flex-col overflow-hidden md:flex-row">
