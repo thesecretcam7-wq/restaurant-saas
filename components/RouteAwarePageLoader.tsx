@@ -37,11 +37,19 @@ function isTenantSubdomainHost(host: string) {
   return host.endsWith('.eccofoodapp.com') || host.endsWith('.vercel.app')
 }
 
+function isCustomDomainHost(host: string) {
+  if (host === 'localhost' || host === '127.0.0.1') return false
+  if (host === 'eccofoodapp.com' || host === 'www.eccofoodapp.com') return false
+  if (host === 'eccofood.vercel.app') return false
+  if (host.endsWith('.eccofoodapp.com') || host.endsWith('.vercel.app')) return false
+  return host.includes('.')
+}
+
 function isStoreRoute(host: string, pathname: string) {
   const parts = pathname.split('/').filter(Boolean)
   if (parts[0] === 'api' || parts[0] === '_next') return false
 
-  if (isTenantSubdomainHost(host)) {
+  if (isTenantSubdomainHost(host) || isCustomDomainHost(host)) {
     return !APP_SECTIONS.has(parts[0] || '')
   }
 
@@ -60,6 +68,9 @@ function titleFromSlug(value: string) {
 
 function getFallbackStoreName(host: string, pathname: string) {
   if (isTenantSubdomainHost(host)) {
+    return titleFromSlug(host.split('.')[0] || '')
+  }
+  if (isCustomDomainHost(host)) {
     return titleFromSlug(host.split('.')[0] || '')
   }
   return titleFromSlug(pathname.split('/').filter(Boolean)[0] || '')

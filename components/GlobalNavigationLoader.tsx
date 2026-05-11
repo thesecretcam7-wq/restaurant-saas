@@ -34,11 +34,21 @@ function isTenantSubdomainHost() {
   return host.endsWith('.eccofoodapp.com') || host.endsWith('.vercel.app');
 }
 
+function isCustomDomainHost() {
+  if (typeof window === 'undefined') return false;
+  const host = window.location.hostname;
+  if (host === 'localhost' || host === '127.0.0.1') return false;
+  if (host === 'eccofoodapp.com' || host === 'www.eccofoodapp.com') return false;
+  if (host === 'eccofood.vercel.app') return false;
+  if (host.endsWith('.eccofoodapp.com') || host.endsWith('.vercel.app')) return false;
+  return host.includes('.');
+}
+
 function isStoreRoute(pathname: string) {
   const parts = pathname.split('/').filter(Boolean);
   if (parts[0] === 'api' || parts[0] === '_next') return false;
 
-  if (isTenantSubdomainHost()) {
+  if (isTenantSubdomainHost() || isCustomDomainHost()) {
     return !APP_SECTIONS.has(parts[0] || '');
   }
 

@@ -1,6 +1,7 @@
 import { getTenantContext } from '@/lib/tenant'
 import { Toaster } from 'react-hot-toast'
 import StoreNavigationLoader from '@/components/store/StoreNavigationLoader'
+import StoreBrandingMemory from '@/components/store/StoreBrandingMemory'
 import TenantAccessGuard from '@/components/TenantAccessGuard'
 import { getTenantAccessInfo } from '@/lib/tenant-access'
 import { deriveBrandPalette } from '@/lib/brand-colors'
@@ -148,6 +149,7 @@ export default async function TenantLayout({
   const backgroundColor = palette.background
   const fontFamily = branding?.font_family || 'system-ui, -apple-system, sans-serif'
   const logoUrl = branding?.logo_url || context.tenant?.logo_url || null
+  const restaurantName = getRestaurantDisplayName(context)
 
   return (
     <>
@@ -183,10 +185,11 @@ export default async function TenantLayout({
         <TenantAccessGuard
           access={access}
           slug={context.tenant.slug}
-          restaurantName={getRestaurantDisplayName(context)}
+          restaurantName={restaurantName}
         >
           {children}
         </TenantAccessGuard>
+        <StoreBrandingMemory appName={restaurantName} logoUrl={logoUrl} primaryColor={primaryColor} />
         <StoreNavigationLoader color={primaryColor} logoUrl={logoUrl} />
         <Toaster position="bottom-right" />
       </div>
