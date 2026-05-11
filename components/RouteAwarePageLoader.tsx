@@ -76,17 +76,23 @@ function getFallbackStoreName(host: string, pathname: string) {
   return titleFromSlug(pathname.split('/').filter(Boolean)[0] || '')
 }
 
-export default function RouteAwarePageLoader() {
+export default function RouteAwarePageLoader({
+  initialIsStore = false,
+  initialFallbackName = 'Restaurante',
+}: {
+  initialIsStore?: boolean
+  initialFallbackName?: string
+}) {
   const [storeBrand, setStoreBrand] = useState<StoreBrand | null>(null)
   const routeInfo = useMemo(() => {
-    if (typeof window === 'undefined') return { isStore: false, fallbackName: 'Restaurante' }
+    if (typeof window === 'undefined') return { isStore: initialIsStore, fallbackName: initialFallbackName }
     const host = window.location.hostname
     const pathname = window.location.pathname
     return {
       isStore: isStoreRoute(host, pathname),
       fallbackName: getFallbackStoreName(host, pathname),
     }
-  }, [])
+  }, [initialFallbackName, initialIsStore])
 
   useEffect(() => {
     if (!routeInfo.isStore) return
