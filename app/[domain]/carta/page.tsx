@@ -111,7 +111,7 @@ export default async function CartaPage({ params }: CartaProps) {
   const visibleCategories = categories.length + (featured.length > 0 ? 1 : 0) + (uncategorized.length > 0 ? 1 : 0)
   const sectionBackgroundImage = (branding as any)?.section_background_image_url || ''
   const pageBackgroundImage = sectionBackgroundImage
-    ? `linear-gradient(rgba(255,255,255,.78), rgba(255,255,255,.78)), url(${sectionBackgroundImage}), radial-gradient(circle at top left, ${primary}18, transparent 32rem), radial-gradient(circle at top right, ${secondary}14, transparent 28rem)`
+    ? `linear-gradient(${background}e8, ${background}e8), url(${sectionBackgroundImage})`
     : `radial-gradient(circle at top left, ${primary}18, transparent 32rem), radial-gradient(circle at top right, ${secondary}14, transparent 28rem)`
 
   return (
@@ -144,7 +144,7 @@ export default async function CartaPage({ params }: CartaProps) {
         </div>
 
         {categories.length > 0 && (
-          <nav className="mx-auto flex max-w-3xl snap-x gap-2 overflow-x-auto border-t px-3 py-2.5 scrollbar-hide sm:px-4" style={{ backgroundColor: `${cardSurface}f7`, borderColor: `${primary}1f` }}>
+          <nav className="mx-auto flex max-w-3xl snap-x gap-2 overflow-x-auto px-3 pb-3 scrollbar-hide sm:px-4">
             {featured.length > 0 && (
               <a href="#destacados" className="h-10 flex-shrink-0 snap-start rounded-full border px-4 py-2.5 text-xs font-black shadow-sm transition active:scale-[0.98] sm:px-5" style={{ backgroundColor: buttonPrimary, borderColor: buttonPrimary, color: buttonPrimaryText }}>
                 {tr('qr.mostOrdered')}
