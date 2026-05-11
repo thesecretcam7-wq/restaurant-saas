@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import { createClient } from '@/lib/supabase/client';
-import { ShoppingCart, Plus, Minus, Trash2, Search, DollarSign, CreditCard, Maximize2, Minimize2, Lock, Clock, Truck, Store, UtensilsCrossed, Archive, Monitor } from 'lucide-react';
+import { ShoppingCart, Plus, Minus, Trash2, Search, DollarSign, CreditCard, Maximize2, Minimize2, Lock, Clock, Truck, Store, UtensilsCrossed, Archive, Monitor, Printer } from 'lucide-react';
 import { POSStaffSelector } from './POSStaffSelector';
 import { TableMap } from './TableMap';
 import { POSPayment } from './POSPayment';
@@ -136,6 +136,7 @@ function getTimerColor(minutes: number) {
 function TableGroupCard({
   group,
   onBillTable,
+  onPrintKitchen,
   onVoidItem,
   expanded,
   onToggleExpand,
@@ -143,6 +144,7 @@ function TableGroupCard({
 }: {
   group: TableGroup;
   onBillTable: (orders: DineInOrder[]) => void;
+  onPrintKitchen: (orders: DineInOrder[]) => void;
   onVoidItem: (orderId: string, itemIndex: number) => void;
   expanded: boolean;
   onToggleExpand: () => void;
@@ -208,10 +210,17 @@ function TableGroupCard({
         </div>
       )}
 
-      <div className="p-2 pt-0">
+      <div className="grid grid-cols-2 gap-2 p-2 pt-0">
+        <button
+          onClick={() => onPrintKitchen(group.orders)}
+          className="py-2.5 bg-amber-500/18 hover:bg-amber-500/28 active:scale-95 text-amber-100 border border-amber-400/30 text-xs font-bold rounded-lg transition-all flex items-center justify-center gap-1.5"
+        >
+          <Printer className="w-3.5 h-3.5" />
+          Cocina
+        </button>
         <button
           onClick={() => onBillTable(group.orders)}
-          className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white text-xs font-bold rounded-lg transition-all flex items-center justify-center gap-1.5 shadow-lg shadow-emerald-900/30"
+          className="py-2.5 bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white text-xs font-bold rounded-lg transition-all flex items-center justify-center gap-1.5 shadow-lg shadow-emerald-900/30"
         >
           <DollarSign className="w-3.5 h-3.5" />
           Cobrar Mesa {group.tableNumber}
@@ -1107,6 +1116,55 @@ export function POSTerminal({
       }
     } catch (error) {
       console.error('Error fetching dine-in orders:', error);
+    }
+  }
+
+  async function printDineInKitchenTicket(tableOrders: DineInOrder[]) {
+    if (!tableOrders.length) return;
+
+    try {
+      const { data: settings, error } = await supabase
+        .from('restaurant_settings')
+        .select('default_receipt_printer_id, kitchen_printer_id, display_name')
+        .eq('tenant_id', tenantId)
+        .maybeSingle();
+
+      if (error) throw new Error(error.message);
+
+      const printerId = settings?.kitchen_printer_id || settings?.default_receipt_printer_id;
+      if (!printerId) {
+        setToast({ message: 'No hay impresora de cocina o recibos configurada', type: 'error' });
+        return;
+      }
+
+      const firstOrder = tableOrders[0];
+      const items = tableOrders.flatMap((order) =>
+        (order.items || []).map((item, index) => ({
+          menu_item_id: item.item_id || `${order.id}-${index}`,
+          name: item.name,
+          quantity: getOrderItemQty(item),
+          notes: (item as any).notes || null,
+        }))
+      );
+
+      await printKitchenTicket(tenantId, printerId, {
+        orderId: firstOrder.id,
+        orderNumber: firstOrder.table_number ? `Mesa ${firstOrder.table_number}` : firstOrder.order_number || 'Comanda salon',
+        restaurantName: settings?.display_name || restaurantName,
+        ticketType: 'kitchen',
+        items,
+        deliveryType: 'dine-in',
+        tableNumber: firstOrder.table_number || undefined,
+        waiterName: firstOrder.waiter_name || undefined,
+        timestamp: new Date().toISOString(),
+      });
+
+      setToast({ message: 'Comanda enviada a cocina', type: 'success' });
+    } catch (error) {
+      setToast({
+        message: `No se pudo imprimir cocina: ${error instanceof Error ? error.message : String(error)}`,
+        type: 'error',
+      });
     }
   }
 
@@ -2247,6 +2305,7 @@ export function POSTerminal({
                           key={group.tableNumber}
                           group={group}
                           onBillTable={loadTableToCart}
+                          onPrintKitchen={printDineInKitchenTicket}
                           onVoidItem={voidOrderItem}
                           expanded={expandedTable === group.tableNumber}
                           onToggleExpand={() =>
