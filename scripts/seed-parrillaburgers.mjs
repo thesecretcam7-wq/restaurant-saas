@@ -35,6 +35,7 @@ const categories = [
   { key: 'hotdogs', name: 'Hot Dogs', description: 'Perros, perras y choripan premium', image_url: asset('hotdog.png'), sort_order: 3 },
   { key: 'salchipapas', name: 'Salchipapas', description: 'Papas, queso, tocineta y salsas', image_url: asset('fries.png'), sort_order: 4 },
   { key: 'combos', name: 'Combos', description: 'Combos con papas y bebida', image_url: asset('combos.png'), sort_order: 5 },
+  { key: 'bebidas', name: 'Bebidas', description: 'Gaseosas, aguas y bebidas frias', image_url: asset('soda.png'), sort_order: 6 },
 ]
 
 const categoryByName = new Map([
@@ -65,6 +66,54 @@ const demoStaffMembers = [
   { name: 'Cocinero Demo', role: 'cocinero', pin: '567890' },
   { name: 'Camarero Demo', role: 'camarero', pin: '123456' },
   { name: 'Cajero Demo', role: 'cajero', pin: '999999' },
+]
+
+const beverageProducts = [
+  {
+    category: 'bebidas',
+    name: 'Gaseosa personal',
+    description: 'Bebida gaseosa fria para acompanar tu pedido.',
+    price: 4000,
+    image_url: asset('soda.png'),
+    featured: false,
+    sort_order: 101,
+  },
+  {
+    category: 'bebidas',
+    name: 'Agua sin gas',
+    description: 'Agua fria en botella.',
+    price: 3500,
+    image_url: asset('soda.png'),
+    featured: false,
+    sort_order: 102,
+  },
+  {
+    category: 'bebidas',
+    name: 'Agua con gas',
+    description: 'Agua con gas fria en botella.',
+    price: 4000,
+    image_url: asset('soda.png'),
+    featured: false,
+    sort_order: 103,
+  },
+  {
+    category: 'bebidas',
+    name: 'Cerveza nacional',
+    description: 'Cerveza fria para consumo en restaurante.',
+    price: 6000,
+    image_url: asset('soda.png'),
+    featured: false,
+    sort_order: 104,
+  },
+  {
+    category: 'bebidas',
+    name: 'Soda italiana',
+    description: 'Soda saborizada premium.',
+    price: 8500,
+    image_url: asset('soda.png'),
+    featured: false,
+    sort_order: 105,
+  },
 ]
 
 function slugify(value) {
@@ -131,7 +180,7 @@ async function getProducts() {
     })
   }
 
-  return products
+  return [...products, ...beverageProducts]
 }
 
 const tenantPayload = {
