@@ -1,7 +1,7 @@
 'use client'
 
 import { use, useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import { useCartStore } from '@/lib/store/cart'
 import { checkoutSchema, type CheckoutInput } from '@/lib/validations/forms'
 import { getFieldError, parseValidationError } from '@/lib/validations/utils'
@@ -17,6 +17,8 @@ const profileStorageKey = (tenantSlug: string, phone: string) => `eccofood:custo
 export default function CheckoutPage({ params }: Props) {
   const { domain: tenantSlug } = use(params)
   const router = useRouter()
+  const pathname = usePathname()
+  const storeBasePath = pathname?.startsWith(`/${tenantSlug}`) ? `/${tenantSlug}` : ''
   const { items, tenantId: cartTenantId, total, clearCart } = useCartStore()
   const [settings, setSettings] = useState<any>(null)
   const [storeBranding, setStoreBranding] = useState<{ appName?: string; logoUrl?: string | null; primaryColor?: string } | null>(null)
@@ -238,7 +240,7 @@ export default function CheckoutPage({ params }: Props) {
       )}
       <header className="bg-white border-b">
         <div className="max-w-lg mx-auto px-4 h-14 flex items-center gap-3">
-          <Link href={`/${tenantSlug}/carrito`} className="w-9 h-9 rounded-full bg-gray-100 flex items-center justify-center">
+          <Link href={`${storeBasePath}/carrito`} className="w-9 h-9 rounded-full bg-gray-100 flex items-center justify-center">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#374151" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
               <path d="M19 12H5M12 19l-7-7 7-7"/>
             </svg>
@@ -373,14 +375,14 @@ export default function CheckoutPage({ params }: Props) {
 function getStorePath(tenantSlug: string, path: string) {
   if (typeof window === 'undefined') return `/${tenantSlug}${path}`
   const host = window.location.hostname
-  const isTenantSubdomain =
-    host !== 'localhost' &&
-    host !== '127.0.0.1' &&
-    host !== 'eccofoodapp.com' &&
-    host !== 'www.eccofoodapp.com' &&
-    (host.endsWith('.eccofoodapp.com') || host.endsWith('.vercel.app'))
+  const isPlatformHost =
+    host === 'localhost' ||
+    host === '127.0.0.1' ||
+    host === 'eccofoodapp.com' ||
+    host === 'www.eccofoodapp.com' ||
+    host.endsWith('.vercel.app')
 
-  return isTenantSubdomain ? path : `/${tenantSlug}${path}`
+  return isPlatformHost ? `/${tenantSlug}${path}` : path
 }
 
 function CheckoutStoreLoader({

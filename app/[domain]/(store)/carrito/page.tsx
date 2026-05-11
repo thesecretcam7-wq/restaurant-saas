@@ -4,12 +4,15 @@ import { use, useEffect, useState } from 'react'
 import { formatPriceWithCurrency, getCurrencyByCountry } from '@/lib/currency'
 import { useCartStore } from '@/lib/store/cart'
 import Link from 'next/link'
+import { usePathname } from 'next/navigation'
 
 interface Props { params: Promise<{ domain: string }> }
 
 export default function CarritoPage({ params }: Props) {
   const { domain: tenantSlug } = use(params)
+  const pathname = usePathname()
   const { items, removeItem, updateQty, total } = useCartStore()
+  const storeBasePath = pathname?.startsWith(`/${tenantSlug}`) ? `/${tenantSlug}` : ''
   const primary = 'var(--button-primary-color, var(--primary-color, #15130f))'
   const price = 'var(--price-color, var(--accent-color, #15130f))'
   const pageBg = 'var(--brand-background-color, #f8f5ef)'
@@ -45,7 +48,7 @@ export default function CarritoPage({ params }: Props) {
           <p className="text-sm font-medium" style={{ color: muted }}>Agrega deliciosos productos del menú para comenzar tu pedido</p>
         </div>
         <Link
-          href={`/${tenantSlug}/menu`}
+          href={`${storeBasePath}/menu`}
           className="px-8 py-3.5 rounded-xl text-white font-bold text-sm shadow-lg hover:shadow-xl active:scale-95 transition-all"
           style={{ backgroundColor: primary }}
         >
@@ -60,7 +63,7 @@ export default function CarritoPage({ params }: Props) {
       {/* Header - Professional */}
       <header className="backdrop-blur-lg border-b border-gray-100 shadow-sm sticky top-0 z-10" style={{ backgroundColor: surface }}>
         <div className="max-w-lg mx-auto px-4 h-16 flex items-center gap-3">
-          <Link href={`/${tenantSlug}/menu`} className="w-10 h-10 rounded-lg bg-gray-100 hover:bg-gray-200 active:bg-gray-300 flex items-center justify-center transition-colors" title="Volver">
+          <Link href={`${storeBasePath}/menu`} className="w-10 h-10 rounded-lg bg-gray-100 hover:bg-gray-200 active:bg-gray-300 flex items-center justify-center transition-colors" title="Volver">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#374151" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
               <path d="M19 12H5M12 19l-7-7 7-7"/>
             </svg>
@@ -140,7 +143,7 @@ export default function CarritoPage({ params }: Props) {
         </div>
 
         <Link
-          href={`/${tenantSlug}/checkout`}
+          href={`${storeBasePath}/checkout`}
           className="flex items-center justify-between w-full px-5 py-4 rounded-2xl text-white font-bold shadow-xl active:scale-95 transition-transform"
           style={{ backgroundColor: primary }}
         >
