@@ -61,24 +61,37 @@ export default function QrCategoryNav({
 
     if (!sections.length) return
 
-    const observer = new IntersectionObserver(
-      entries => {
-        const visible = entries
-          .filter(entry => entry.isIntersecting)
-          .sort((a, b) => b.intersectionRatio - a.intersectionRatio)[0]
+    let frame = 0
+    const headerOffset = 132
 
-        if (!visible?.target?.id) return
-        setActiveId(visible.target.id === 'destacados' ? 'destacados' : visible.target.id.replace('cat-', ''))
-      },
-      {
-        root: null,
-        rootMargin: '-112px 0px -58% 0px',
-        threshold: [0.16, 0.28, 0.42, 0.6],
+    const updateFromScroll = () => {
+      frame = 0
+      let current = sections[0]
+
+      for (const section of sections) {
+        const rect = section.getBoundingClientRect()
+        if (rect.top <= headerOffset) current = section
+        if (rect.top > headerOffset) break
       }
-    )
 
-    sections.forEach(section => observer.observe(section))
-    return () => observer.disconnect()
+      if (!current?.id) return
+      setActiveId(current.id === 'destacados' ? 'destacados' : current.id.replace('cat-', ''))
+    }
+
+    const onScroll = () => {
+      if (frame) return
+      frame = window.requestAnimationFrame(updateFromScroll)
+    }
+
+    updateFromScroll()
+    window.addEventListener('scroll', onScroll, { passive: true })
+    window.addEventListener('resize', onScroll)
+
+    return () => {
+      if (frame) window.cancelAnimationFrame(frame)
+      window.removeEventListener('scroll', onScroll)
+      window.removeEventListener('resize', onScroll)
+    }
   }, [categories, showFeatured])
 
   useEffect(() => {
