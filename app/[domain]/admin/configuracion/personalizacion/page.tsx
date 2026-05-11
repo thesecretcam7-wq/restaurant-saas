@@ -167,8 +167,7 @@ export default function PersonalizacionPage({ params }: PersonalizacionProps) {
               }
             })
             setForm(f => {
-              const merged = { ...f, ...cleanBranding }
-              return { ...merged, ...buildProfessionalBrandValues(merged) }
+              return { ...f, ...cleanBranding }
             })
           }
           if (json.tenant?.logo_url) {
@@ -208,7 +207,6 @@ export default function PersonalizacionPage({ params }: PersonalizacionProps) {
   const handleSave = async () => {
     setSaving(true)
     try {
-      const professional = buildProfessionalBrandValues(form)
       const res = await fetch('/api/tenant/branding', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
@@ -221,14 +219,14 @@ export default function PersonalizacionPage({ params }: PersonalizacionProps) {
             logo_url: form.logo_url,
             favicon_url: form.favicon_url,
             primary_color: form.primary_color,
-            secondary_color: professional.secondary_color,
-            accent_color: professional.accent_color,
-            background_color: professional.background_color,
+            secondary_color: form.secondary_color,
+            accent_color: form.accent_color,
+            background_color: form.background_color,
             button_primary_color: form.button_primary_color,
-            button_secondary_color: professional.button_secondary_color,
-            text_primary_color: professional.text_primary_color,
-            text_secondary_color: professional.text_secondary_color,
-            border_color: professional.border_color,
+            button_secondary_color: form.button_secondary_color,
+            text_primary_color: form.text_primary_color,
+            text_secondary_color: form.text_secondary_color,
+            border_color: form.border_color,
             font_family: form.font_family,
             heading_font: form.heading_font,
             heading_font_size: form.heading_font_size,
@@ -238,10 +236,10 @@ export default function PersonalizacionPage({ params }: PersonalizacionProps) {
             letter_spacing: form.letter_spacing,
             line_height: form.line_height,
             text_transform: form.text_transform,
-            border_radius: professional.border_radius,
-            button_border_radius: professional.button_border_radius,
-            shadow_intensity: professional.shadow_intensity,
-            button_style: professional.button_style,
+            border_radius: form.border_radius,
+            button_border_radius: form.button_border_radius,
+            shadow_intensity: form.shadow_intensity,
+            button_style: form.button_style,
             instagram_url: form.instagram_url,
             facebook_url: form.facebook_url,
             whatsapp_number: form.whatsapp_number,
@@ -259,15 +257,15 @@ export default function PersonalizacionPage({ params }: PersonalizacionProps) {
             button_checkout_text: form.button_checkout_text,
             button_reserve_text: form.button_reserve_text,
             empty_cart_message: form.empty_cart_message,
-            section_background_color: professional.section_background_color,
+            section_background_color: form.section_background_color,
             section_background_image_url: form.section_background_image_url,
-            use_gradient: professional.use_gradient,
-            gradient_start_color: professional.gradient_start_color,
-            gradient_end_color: professional.gradient_end_color,
-            gradient_direction: professional.gradient_direction,
-            button_hover_effect: professional.button_hover_effect,
-            button_hover_color: '',
-            link_hover_color: '',
+            use_gradient: form.use_gradient,
+            gradient_start_color: form.gradient_start_color,
+            gradient_end_color: form.gradient_end_color,
+            gradient_direction: form.gradient_direction,
+            button_hover_effect: form.button_hover_effect,
+            button_hover_color: form.button_hover_color,
+            link_hover_color: form.link_hover_color,
             link_hover_underline: form.link_hover_underline,
             transition_speed: form.transition_speed,
           }
@@ -324,7 +322,16 @@ export default function PersonalizacionPage({ params }: PersonalizacionProps) {
   const previewName = form.app_name || 'Tu Restaurante'
   const previewTagline = form.tagline || 'Sabor fresco todos los dias'
   const previewDescription = form.description || form.welcome_message || 'Explora el menu y pide tus favoritos.'
-  const generatedBrand = buildProfessionalBrandValues(form)
+  const generatedBrand = {
+    secondary_color: form.secondary_color,
+    accent_color: form.accent_color,
+    background_color: form.background_color,
+    button_secondary_color: form.button_secondary_color,
+    text_primary_color: form.text_primary_color,
+    text_secondary_color: form.text_secondary_color,
+    border_color: form.border_color,
+    section_background_color: form.section_background_color,
+  }
   const previewSurface = generatedBrand.background_color
   const previewBackgroundStyle = form.section_background_image_url
     ? {
