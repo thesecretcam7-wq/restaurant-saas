@@ -14,7 +14,7 @@ import { POSOrderLookup } from './POSOrderLookup';
 import { saveCartToSupabase, loadCartFromSupabase, abandonCart, loadOrderToCart } from '@/lib/pos-cart-sync';
 import { calculateCashClosingStats, calculatePendingPreviousCashClosingStats, saveCashClosing, CashClosingStats } from '@/lib/cash-closing';
 import { getCurrencyByCountry, formatPriceWithCurrency } from '@/lib/currency';
-import { printReceipt, savePrinterLog, openCashDrawer } from '@/lib/pos-printer';
+import { printCashClosingReceipt, printReceipt, savePrinterLog, openCashDrawer } from '@/lib/pos-printer';
 import { countPendingPOSOrders, isNetworkPaymentError, saveOfflinePOSOrder, syncOfflinePOSOrders } from '@/lib/offline/pos-sync';
 import { useWakeLock } from '@/lib/hooks/useWakeLock';
 
@@ -401,13 +401,15 @@ export function POSTerminal({
   const [discountCode, setDiscountCode] = useState('');
   const [discount, setDiscount] = useState(0);
   const [taxRate, setTaxRate] = useState(0);
+  const [deliveryEnabled, setDeliveryEnabled] = useState(false);
+  const [deliveryFee, setDeliveryFee] = useState(0);
   const [restaurantName, setRestaurantName] = useState('Restaurante');
   const [restaurantPhone, setRestaurantPhone] = useState<string | null>(null);
   const [restaurantLogo, setRestaurantLogo] = useState<string | undefined>();
 
   // Nuevas características - Modo y selecciones
   const [posMode, setPosMode] = useState<POSMode>('simple');
-  const [posOrderType, setPosOrderType] = useState<'takeaway' | 'pickup'>('takeaway');
+  const [posOrderType, setPosOrderType] = useState<'takeaway' | 'pickup' | 'delivery'>('takeaway');
   const [selectedStaffId, setSelectedStaffId] = useState<string | null>(null);
   const [selectedStaffName, setSelectedStaffName] = useState<string>('');
   const [selectedTableId, setSelectedTableId] = useState<string | null>(null);
@@ -487,6 +489,12 @@ export function POSTerminal({
   useEffect(() => {
     refreshPendingCashClosing();
   }, [refreshPendingCashClosing]);
+
+  useEffect(() => {
+    if (!deliveryEnabled && posOrderType === 'delivery') {
+      setPosOrderType('takeaway');
+    }
+  }, [deliveryEnabled, posOrderType]);
 
   const syncOfflineSales = useCallback(async (showToast = false) => {
     if (typeof navigator !== 'undefined' && !navigator.onLine) return;
@@ -681,7 +689,7 @@ export function POSTerminal({
       const closingStaffId = selectedStaffId || loggedStaff.staffId;
       const closingStaffName = selectedStaffName || loggedStaff.staffName || 'Sin asignar';
 
-      await saveCashClosing(tenantId, closingStaffId, closingStaffName, {
+      const closing = await saveCashClosing(tenantId, closingStaffId, closingStaffName, {
         ...cashClosingStats,
         actualCashCount: actualCash,
         notes,
@@ -691,6 +699,52 @@ export function POSTerminal({
       setShowCashClosing(false);
       setCashClosingStats(null);
       await refreshPendingCashClosing();
+
+      void (async () => {
+        try {
+          const { data: settings, error } = await supabase
+            .from('restaurant_settings')
+            .select('default_receipt_printer_id, display_name, phone')
+            .eq('tenant_id', tenantId)
+            .maybeSingle();
+
+          if (error) throw new Error(error.message);
+          if (!settings?.default_receipt_printer_id) {
+            setToast({ message: 'Cierre guardado. No hay impresora de recibos configurada.', type: 'error' });
+            return;
+          }
+
+          await printCashClosingReceipt(tenantId, settings.default_receipt_printer_id, {
+            closingId: closing?.id,
+            restaurantName: settings.display_name || restaurantName,
+            restaurantPhone: settings.phone || restaurantPhone,
+            staffName: closingStaffName,
+            closedAt: closing?.closed_at || new Date().toISOString(),
+            periodStart: cashClosingStats.periodStart,
+            periodEnd: cashClosingStats.periodEnd,
+            cashSales: cashClosingStats.cashSales,
+            cardSales: cashClosingStats.cardSales,
+            otherSales: cashClosingStats.otherSales,
+            totalSales: cashClosingStats.totalSales,
+            totalTax: cashClosingStats.totalTax,
+            totalDiscount: cashClosingStats.totalDiscount,
+            expectedCash: cashClosingStats.cashSales,
+            actualCash,
+            difference: cashClosingStats.cashSales - actualCash,
+            transactionCount: cashClosingStats.transactionCount,
+            ordersCompleted: cashClosingStats.ordersCompleted,
+            ordersCancelled: cashClosingStats.ordersCancelled,
+            notes,
+            currencyInfo,
+          });
+          setToast({ message: 'Cierre guardado e impreso', type: 'success' });
+        } catch (printError) {
+          setToast({
+            message: `Cierre guardado. No se pudo imprimir: ${printError instanceof Error ? printError.message : String(printError)}`,
+            type: 'error',
+          });
+        }
+      })();
 
       // Optionally clear cart after successful closing
       setTimeout(() => {
@@ -1124,7 +1178,7 @@ export function POSTerminal({
           .maybeSingle(),
         supabase
           .from('restaurant_settings')
-          .select('tax_rate, display_name, phone')
+          .select('tax_rate, display_name, phone, delivery_enabled, delivery_fee')
           .eq('tenant_id', tenantId)
           .maybeSingle(),
       ]);
@@ -1137,6 +1191,8 @@ export function POSTerminal({
       }
       if (settingsRes.data) {
         setTaxRate(Number(settingsRes.data.tax_rate || 0));
+        setDeliveryEnabled(settingsRes.data.delivery_enabled === true);
+        setDeliveryFee(Number(settingsRes.data.delivery_fee || 0));
         if (settingsRes.data.display_name) setRestaurantName(settingsRes.data.display_name);
         if (settingsRes.data.phone) setRestaurantPhone(settingsRes.data.phone);
       }
@@ -1322,6 +1378,7 @@ export function POSTerminal({
           items: formattedItems,
           paymentMethod,
           deliveryType: selectedTableId ? 'dine-in' : posOrderType,
+          deliveryAddress: posOrderType === 'delivery' ? 'Pedido telefonico desde TPV' : null,
           waiterName: selectedStaffName || null,
           tableNumber: selectedTableNumber || null,
           tip: tip > 0 ? tip : null,
@@ -1415,6 +1472,7 @@ export function POSTerminal({
         discount,
         tax: taxAmount,
         taxRate,
+        deliveryFee: activeDeliveryFee,
         total,
         amountPaid: paymentMethod === 'cash' ? amountPaid : undefined,
         change: paymentMethod === 'cash' ? (amountPaid || 0) - total : 0,
@@ -1467,6 +1525,7 @@ export function POSTerminal({
                 discount: receiptSnapshot.discount,
                 tax: receiptSnapshot.tax,
                 taxRate: receiptSnapshot.taxRate,
+                deliveryFee: receiptSnapshot.deliveryFee,
                 total: receiptSnapshot.total,
                 amountPaid: receiptSnapshot.amountPaid,
                 change: receiptSnapshot.change,
@@ -1566,7 +1625,9 @@ export function POSTerminal({
   const subtotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
   const taxableSubtotal = Math.max(0, subtotal - discount);
   const taxAmount = taxRate > 0 ? taxableSubtotal * (taxRate / 100) : 0;
-  const total = taxableSubtotal + taxAmount + tip;
+  const activeDeliveryFee = !selectedTableId && posOrderType === 'delivery' && deliveryEnabled ? deliveryFee : 0;
+  const paymentBaseTotal = taxableSubtotal + taxAmount + activeDeliveryFee;
+  const total = paymentBaseTotal + tip;
 
   const tableGroups = useMemo((): TableGroup[] => {
     const groups = new Map<number, DineInOrder[]>();
@@ -2315,6 +2376,12 @@ export function POSTerminal({
                   <span className="font-semibold text-slate-200">{formatPriceWithCurrency(taxAmount, currencyInfo.code, currencyInfo.locale)}</span>
                 </div>
               )}
+              {activeDeliveryFee > 0 && (
+                <div className="flex justify-between rounded-lg border border-amber-300/25 bg-amber-300/10 px-2 py-1">
+                  <span className="text-amber-200 font-bold">Domicilio:</span>
+                  <span className="font-black text-amber-100">{formatPriceWithCurrency(activeDeliveryFee, currencyInfo.code, currencyInfo.locale)}</span>
+                </div>
+              )}
             </div>
             <div className={`pos-total-band flex justify-between font-black px-2 rounded-xl ${isFullscreen ? 'py-1.5 text-sm' : 'pt-2 py-2 text-base'}`}>
               <span className="text-white">Total:</span>
@@ -2357,10 +2424,10 @@ export function POSTerminal({
           ) : (
             <div className="border-b border-white/10 px-2 py-2 space-y-1.5">
               <p className="text-cyan-100/42 text-xs font-black uppercase">Tipo de pedido</p>
-              <div className="flex gap-1">
+              <div className="grid grid-cols-2 gap-1">
                 <button
                   onClick={() => setPosOrderType('takeaway')}
-                  className={`flex-1 py-1.5 rounded-lg text-xs font-bold transition ${
+                  className={`py-1.5 rounded-lg text-xs font-bold transition ${
                     posOrderType === 'takeaway'
                       ? 'bg-cyan-300/18 text-cyan-50 border border-cyan-300/35'
                       : 'bg-white/10 text-slate-400 hover:text-slate-100 border border-white/10'
@@ -2370,7 +2437,7 @@ export function POSTerminal({
                 </button>
                 <button
                   onClick={() => setPosOrderType('pickup')}
-                  className={`flex-1 py-1.5 rounded-lg text-xs font-bold transition ${
+                  className={`py-1.5 rounded-lg text-xs font-bold transition ${
                     posOrderType === 'pickup'
                       ? 'bg-cyan-300/18 text-cyan-50 border border-cyan-300/35'
                       : 'bg-white/10 text-slate-400 hover:text-slate-100 border border-white/10'
@@ -2378,6 +2445,20 @@ export function POSTerminal({
                 >
                   🏠 Para recoger
                 </button>
+                {deliveryEnabled && (
+                  <button
+                    onClick={() => setPosOrderType('delivery')}
+                    className={`col-span-2 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-xs font-bold transition ${
+                      posOrderType === 'delivery'
+                        ? 'bg-amber-300/20 text-amber-50 border border-amber-300/45 shadow-lg shadow-amber-900/20'
+                        : 'bg-white/10 text-slate-400 hover:text-slate-100 border border-white/10'
+                    }`}
+                    title="Pedido por llamada con cobro de domicilio"
+                  >
+                    <Truck className="h-3.5 w-3.5" />
+                    Delivery + {formatPriceWithCurrency(deliveryFee, currencyInfo.code, currencyInfo.locale)}
+                  </button>
+                )}
               </div>
             </div>
           )}
@@ -2386,7 +2467,7 @@ export function POSTerminal({
               <div className={`${isFullscreen ? 'px-2 py-1' : 'px-2 pb-[calc(env(safe-area-inset-bottom)+1.25rem)] pt-1 lg:pb-1'}`}>
                 <POSPayment
                   key={paymentResetKey}
-                  total={taxableSubtotal + taxAmount}
+                  total={paymentBaseTotal}
                   tip={tip}
                   onTipChange={setTip}
                   paymentMethod={paymentMethod}

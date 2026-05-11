@@ -62,6 +62,7 @@ export interface ReceiptData {
   discount: number;
   tax?: number;
   taxRate?: number;
+  deliveryFee?: number;
   total: number;
   amountPaid?: number;
   change: number;
@@ -74,6 +75,34 @@ export interface ReceiptData {
   waiterName?: string;
   tableNumber?: number;
   openCashDrawer?: boolean;
+}
+
+export interface CashClosingReceiptData {
+  closingId?: string;
+  restaurantName?: string;
+  restaurantPhone?: string | null;
+  staffName: string;
+  closedAt?: string;
+  periodStart: string;
+  periodEnd: string;
+  cashSales: number;
+  cardSales: number;
+  otherSales: number;
+  totalSales: number;
+  totalTax: number;
+  totalDiscount: number;
+  expectedCash: number;
+  actualCash: number;
+  difference: number;
+  transactionCount: number;
+  ordersCompleted: number;
+  ordersCancelled: number;
+  notes?: string | null;
+  currencyInfo: {
+    code: string;
+    symbol: string;
+    locale: string;
+  };
 }
 
 export interface WebUSBDevice {

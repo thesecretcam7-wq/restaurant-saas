@@ -59,6 +59,7 @@ function printReceiptInBrowser(receipt: ReceiptData) {
             <div class="line"><span>Subtotal</span><strong>${format(receipt.subtotal)}</strong></div>
             ${receipt.discount > 0 ? `<div class="line"><span>Descuento</span><strong>-${format(receipt.discount)}</strong></div>` : ''}
             ${receipt.tax ? `<div class="line"><span>Impuesto</span><strong>${format(receipt.tax)}</strong></div>` : ''}
+            ${receipt.deliveryFee ? `<div class="line"><span>Domicilio</span><strong>${format(receipt.deliveryFee)}</strong></div>` : ''}
             <div class="line total"><span>Total</span><strong>${format(receipt.total)}</strong></div>
           </div>
         </div>

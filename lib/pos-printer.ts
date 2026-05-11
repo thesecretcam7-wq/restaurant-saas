@@ -4,8 +4,8 @@
  */
 
 import { createClient } from '@/lib/supabase/client';
-import { generateReceiptESCPOS, generateTestReceiptESCPOS } from './thermal-receipt';
-import type { ReceiptData, PrinterDevice } from '@/types/printer';
+import { generateCashClosingReceiptESCPOS, generateReceiptESCPOS, generateTestReceiptESCPOS } from './thermal-receipt';
+import type { CashClosingReceiptData, ReceiptData, PrinterDevice } from '@/types/printer';
 import { formatPriceWithCurrency } from '@/lib/currency';
 
 // WebUSB API type declarations
@@ -226,6 +226,91 @@ export async function printReceipt(
 }
 
 /**
+ * Print a cash closing summary to the configured receipt printer.
+ */
+export async function printCashClosingReceipt(
+  tenantId: string,
+  printerId: string,
+  data: CashClosingReceiptData
+): Promise<void> {
+  try {
+    let { data: printer, error: printerError } = await getSupabase()
+      .from('printer_devices')
+      .select('*')
+      .eq('id', printerId)
+      .eq('tenant_id', tenantId)
+      .maybeSingle();
+
+    if (printer) {
+      cachePrinterConfig(tenantId, printerId, printer);
+      cacheDefaultReceiptPrinter(tenantId, printerId);
+    } else {
+      printer = getCachedPrinterConfig(tenantId, printerId);
+    }
+
+    if (printerError && !printer) {
+      throw new Error('Printer not found or not configured');
+    }
+
+    if (!printer) {
+      throw new Error('Printer not found or not configured');
+    }
+
+    const escPosData = generateCashClosingReceiptESCPOS(data, {
+      paperWidth: printer.config.paper_width || 80,
+      copies: printer.config.copies || 1,
+      locale: data.currencyInfo.locale,
+    });
+
+    if (shouldUseLocalBridge(printer)) {
+      try {
+        await printViaLocalBridge(printer, escPosData);
+      } catch (bridgeError) {
+        console.warn('Local print bridge unavailable:', bridgeError);
+        if (canUseBrowserPrintFallback(printer)) {
+          printCashClosingViaBrowserAPI(data);
+        } else {
+          throw new Error(getLocalBridgeError(printer));
+        }
+      }
+    } else if (isBrowserDriverPrinter(printer)) {
+      if (canUseBrowserPrintFallback(printer)) {
+        printCashClosingViaBrowserAPI(data);
+      } else {
+        throw new Error('Esta impresora de Windows necesita el puente local de Eccofood para imprimir directo sin vista previa.');
+      }
+    } else if (typeof navigator !== 'undefined' && 'usb' in navigator) {
+      await printViaWebUSB(printer, escPosData);
+    } else {
+      printCashClosingViaBrowserAPI(data);
+    }
+
+    void savePrinterLog(tenantId, printerId, 'print', 'success', {
+      closingId: data.closingId,
+      type: 'cash_closing',
+      amount: data.totalSales,
+    }).catch(() => {});
+
+    void getSupabase()
+      .from('printer_devices')
+      .update({ last_used_at: new Date().toISOString() })
+      .eq('id', printerId)
+      .eq('tenant_id', tenantId)
+      .then(() => undefined, () => undefined);
+  } catch (error) {
+    const errorMsg = error instanceof Error ? error.message : String(error);
+    console.error('Cash closing print error:', errorMsg);
+
+    void savePrinterLog(tenantId, printerId, 'print', 'failed', {
+      closingId: data.closingId,
+      type: 'cash_closing',
+      error: errorMsg,
+    }).catch(() => {});
+    throw new Error(errorMsg);
+  }
+}
+
+/**
  * Print via WebUSB (native printer connection)
  */
 async function printViaWebUSB(printer: PrinterDevice, data: Uint8Array): Promise<void> {
@@ -322,6 +407,65 @@ function printViaBrowserAPI(data: ReceiptData): void {
     }, 250);
   } catch (error) {
     console.error('Browser print failed:', error);
+  }
+}
+
+function printCashClosingViaBrowserAPI(data: CashClosingReceiptData): void {
+  try {
+    const money = (amount: number) =>
+      formatPriceWithCurrency(amount, data.currencyInfo.code, data.currencyInfo.locale);
+    const safe = (value: string | number | null | undefined) =>
+      String(value ?? '')
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;')
+        .replaceAll('"', '&quot;')
+        .replaceAll("'", '&#39;');
+    const html = `
+      <html>
+        <head>
+          <title>Cierre de caja</title>
+          <style>
+            body{font-family:Arial,sans-serif;margin:0;padding:16px;background:#fff;color:#111}
+            .receipt{max-width:300px;margin:0 auto}
+            h1{font-size:18px;text-align:center;margin:0 0 4px}
+            h2{font-size:16px;text-align:center;margin:8px 0 12px}
+            .meta{text-align:center;font-size:12px;color:#555;margin-bottom:12px}
+            .line{display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px dashed #ddd;font-size:13px}
+            .total{font-size:16px;font-weight:800;border-top:2px solid #111;margin-top:8px;padding-top:8px}
+            @media print{body{padding:0}.receipt{max-width:none;width:72mm}}
+          </style>
+        </head>
+        <body>
+          <div class="receipt">
+            <h1>${safe(data.restaurantName || 'Restaurante')}</h1>
+            <div class="meta">
+              ${data.restaurantPhone ? `Tel: ${safe(data.restaurantPhone)}<br/>` : ''}
+              ${new Date(data.closedAt || Date.now()).toLocaleString(data.currencyInfo.locale)}<br/>
+              Empleado: ${safe(data.staffName)}
+            </div>
+            <h2>CIERRE DE CAJA</h2>
+            <div class="line"><span>Efectivo</span><strong>${money(data.cashSales)}</strong></div>
+            <div class="line"><span>Tarjeta</span><strong>${money(data.cardSales)}</strong></div>
+            <div class="line"><span>Otros</span><strong>${money(data.otherSales)}</strong></div>
+            <div class="line"><span>Esperado caja</span><strong>${money(data.expectedCash)}</strong></div>
+            <div class="line"><span>Contado</span><strong>${money(data.actualCash)}</strong></div>
+            <div class="line"><span>Diferencia</span><strong>${money(data.difference)}</strong></div>
+            <div class="line"><span>Transacciones</span><strong>${data.transactionCount}</strong></div>
+            <div class="line total"><span>Total ventas</span><strong>${money(data.totalSales)}</strong></div>
+          </div>
+          <script>window.onload=()=>{window.print();setTimeout(()=>window.close(),500)}</script>
+        </body>
+      </html>
+    `;
+
+    const popup = window.open('', '_blank', 'width=420,height=720');
+    if (!popup) throw new Error('El navegador bloqueo la ventana de impresion');
+    popup.document.open();
+    popup.document.write(html);
+    popup.document.close();
+  } catch (error) {
+    console.error('Browser cash closing print failed:', error);
   }
 }
 
@@ -491,6 +635,14 @@ function generateReceiptHTML(data: ReceiptData): string {
             ? `<tr>
           <td>IVA${data.taxRate ? ` ${data.taxRate}%` : ''}:</td>
           <td class="number">${money(data.tax || 0)}</td>
+        </tr>`
+            : ''
+        }
+        ${
+          (data.deliveryFee || 0) > 0
+            ? `<tr>
+          <td>Domicilio:</td>
+          <td class="number">${money(data.deliveryFee || 0)}</td>
         </tr>`
             : ''
         }

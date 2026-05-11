@@ -17,7 +17,7 @@ export type POSOfflineOrderInput = {
   discount: number
   total: number
   paymentMethod: 'cash' | 'stripe'
-  deliveryType: 'takeaway' | 'pickup' | 'dine-in'
+  deliveryType: 'takeaway' | 'pickup' | 'delivery' | 'dine-in'
   waiter_id?: string | null
   waiterName?: string | null
   table_id?: string | null

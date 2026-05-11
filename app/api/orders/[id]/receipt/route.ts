@@ -20,7 +20,7 @@ export async function GET(
 
     const { data: order, error: orderError } = await supabase
       .from('orders')
-      .select('id, order_number, tenant_id, items, subtotal, tax, total, created_at, waiter_name, table_number')
+      .select('id, order_number, tenant_id, items, subtotal, tax, delivery_fee, total, created_at, waiter_name, table_number')
       .eq('id', id)
       .eq('tenant_id', tenantId)
       .single()
@@ -64,6 +64,7 @@ export async function GET(
         discount: 0,
         tax: Number(order.tax || 0),
         taxRate: Number(settings?.tax_rate || 0),
+        deliveryFee: Number(order.delivery_fee || 0),
         total,
         amountPaid,
         change: Math.max(0, amountPaid - total),
