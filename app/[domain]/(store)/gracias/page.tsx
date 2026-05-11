@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { getTenantContext } from '@/lib/tenant'
+import { deriveBrandPalette } from '@/lib/brand-colors'
 import { formatPriceWithCurrency, getCurrencyByCountry } from '@/lib/currency'
 import Link from 'next/link'
 
@@ -14,7 +15,21 @@ export default async function GraciasPage({ params, searchParams }: Props) {
   const context = await getTenantContext(tenantId)
   const { branding } = context
   const tenantSlug = context.tenant?.slug || tenantId
-  const primary = branding?.primary_color || '#E4002B'
+  const brandingValues = branding as any
+  const palette = deriveBrandPalette({
+    primary: brandingValues?.primary_color,
+    secondary: brandingValues?.secondary_color,
+    accent: brandingValues?.accent_color,
+    background: brandingValues?.background_color,
+    surface: brandingValues?.surface_color,
+    buttonPrimary: brandingValues?.button_primary_color,
+    buttonSecondary: brandingValues?.button_secondary_color,
+    textPrimary: brandingValues?.text_primary_color,
+    textSecondary: brandingValues?.text_secondary_color,
+    border: brandingValues?.border_color,
+  })
+  const primary = palette.buttonPrimary
+  const price = palette.accent
   const currencyInfo = getCurrencyByCountry(context.settings?.country_code || context.settings?.country || (context.tenant as any)?.country || 'ES')
   const money = (amount: number) => formatPriceWithCurrency(Number(amount || 0), currencyInfo.code, currencyInfo.locale)
 
@@ -59,7 +74,7 @@ export default async function GraciasPage({ params, searchParams }: Props) {
             </div>
             <div className="flex justify-between items-center">
               <span className="text-sm text-muted-foreground">Total</span>
-              <span className="font-extrabold text-lg" style={{ color: primary }}>{money(Number(order.total))}</span>
+              <span className="font-extrabold text-lg" style={{ color: price }}>{money(Number(order.total))}</span>
             </div>
             <div className="flex justify-between items-center">
               <span className="text-sm text-muted-foreground">Pago</span>

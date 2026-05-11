@@ -225,7 +225,7 @@ export default function CheckoutPage({ params }: Props) {
   }
 
   const inputCls = "w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:bg-white transition-all placeholder:text-muted-foreground"
-  const primary = 'var(--primary-color, #E4002B)'
+  const primary = 'var(--button-primary-color, var(--primary-color, #15130f))'
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -392,7 +392,7 @@ function CheckoutStoreLoader({
   appName?: string
   primaryColor?: string
 }) {
-  const primary = primaryColor || 'var(--primary-color, #E4002B)'
+  const primary = primaryColor || 'var(--button-primary-color, var(--primary-color, #15130f))'
 
   return (
     <div className="fixed inset-0 z-[10020] flex items-center justify-center bg-white/75 px-5 backdrop-blur-[10px]">

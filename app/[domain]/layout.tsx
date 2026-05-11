@@ -3,6 +3,7 @@ import { Toaster } from 'react-hot-toast'
 import StoreNavigationLoader from '@/components/store/StoreNavigationLoader'
 import TenantAccessGuard from '@/components/TenantAccessGuard'
 import { getTenantAccessInfo } from '@/lib/tenant-access'
+import { deriveBrandPalette } from '@/lib/brand-colors'
 import type { Metadata } from 'next'
 
 export const dynamic = 'force-dynamic'
@@ -129,21 +130,23 @@ export default async function TenantLayout({
   const branding = context.branding
   const access = getTenantAccessInfo(context.tenant)
 
-  // Eccofood Default Brand Colors - Professional Foundation
-  const eccofoodDefaults = {
-    primary: '#0066FF',
-    secondary: '#10B981',
-    accent: '#F97316',
-    background: '#FFFFFF',
-    fontFamily: 'system-ui, -apple-system, sans-serif',
-  }
-
-  // Tenant custom colors with Eccofood fallbacks
-  const primaryColor = branding?.primary_color || eccofoodDefaults.primary
-  const secondaryColor = branding?.secondary_color || eccofoodDefaults.secondary
-  const accentColor = branding?.accent_color || eccofoodDefaults.accent
-  const backgroundColor = branding?.background_color || eccofoodDefaults.background
-  const fontFamily = branding?.font_family || eccofoodDefaults.fontFamily
+  const palette = deriveBrandPalette({
+    primary: branding?.primary_color,
+    secondary: branding?.secondary_color,
+    accent: branding?.accent_color,
+    background: branding?.background_color,
+    surface: branding?.section_background_color,
+    buttonPrimary: branding?.button_primary_color,
+    buttonSecondary: branding?.button_secondary_color,
+    textPrimary: branding?.text_primary_color,
+    textSecondary: branding?.text_secondary_color,
+    border: branding?.border_color,
+  })
+  const primaryColor = palette.primary
+  const secondaryColor = palette.secondary
+  const accentColor = palette.accent
+  const backgroundColor = palette.background
+  const fontFamily = branding?.font_family || 'system-ui, -apple-system, sans-serif'
   const logoUrl = branding?.logo_url || context.tenant?.logo_url || null
 
   return (
@@ -156,6 +159,12 @@ export default async function TenantLayout({
           --secondary-color: ${secondaryColor};
           --accent-color: ${accentColor};
           --background-color: ${backgroundColor};
+          --button-primary-color: ${palette.buttonPrimary};
+          --button-secondary-color: ${palette.buttonSecondary};
+          --price-color: ${palette.accent};
+          --brand-surface-color: ${palette.surface};
+          --brand-text-color: ${palette.text};
+          --brand-muted-color: ${palette.mutedText};
           --font-family: ${fontFamily};
 
           /* Admin pages always use Eccofood brand (no tenant override) */

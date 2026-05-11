@@ -1,4 +1,5 @@
 import { createServiceClient } from '@/lib/supabase/server'
+import { deriveBrandPalette } from '@/lib/brand-colors'
 import { RoleSelector } from './RoleSelector'
 
 interface Props {
@@ -32,6 +33,15 @@ export default async function AccesoPage({ params }: Props) {
     )
   }
 
+  const palette = deriveBrandPalette({
+    primary: branding?.primary_color,
+    secondary: branding?.secondary_color,
+    accent: branding?.accent_color,
+    background: branding?.background_color,
+    textPrimary: branding?.text_primary_color,
+    textSecondary: branding?.text_secondary_color,
+  })
+
   return (
     <RoleSelector
       tenantId={tenant.id}
@@ -40,12 +50,12 @@ export default async function AccesoPage({ params }: Props) {
       logoUrl={branding?.logo_url || tenant.logo_url}
       branding={{
         appName: branding?.app_name || tenant.organization_name,
-        primaryColor: branding?.primary_color || '#E4002B',
-        secondaryColor: branding?.secondary_color || '#111827',
-        accentColor: branding?.accent_color || branding?.primary_color || '#E4002B',
-        backgroundColor: branding?.background_color || '#0b0b0b',
-        textPrimaryColor: branding?.text_primary_color || '#ffffff',
-        textSecondaryColor: branding?.text_secondary_color || '#d1d5db',
+        primaryColor: palette.primary,
+        secondaryColor: palette.secondary,
+        accentColor: palette.accent,
+        backgroundColor: palette.background,
+        textPrimaryColor: palette.pageText,
+        textSecondaryColor: palette.mutedText,
       }}
     />
   )

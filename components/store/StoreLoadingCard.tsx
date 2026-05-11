@@ -25,7 +25,7 @@ export default function StoreLoadingCard({ color, logoUrl }: StoreLoadingCardPro
     } catch {}
   }, [])
 
-  const primary = color || storedBranding?.primaryColor || 'var(--primary-color, #E4002B)'
+  const primary = color || storedBranding?.primaryColor || 'var(--button-primary-color, var(--primary-color, #15130f))'
   const resolvedLogo = logoUrl || storedBranding?.logoUrl || null
   const fallbackLetter = (storedBranding?.appName || 'Restaurante').trim().slice(0, 1).toUpperCase() || 'R'
 

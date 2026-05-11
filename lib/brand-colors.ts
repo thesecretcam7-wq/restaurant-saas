@@ -65,12 +65,25 @@ export function colorWithAlpha(color: string, alphaHex: string) {
   return hexToRgb(color) ? `${color}${alphaHex}` : color
 }
 
+export const DEFAULT_BRAND_COLORS = {
+  primary: '#15130f',
+  secondary: '#111827',
+  accent: '#15130f',
+  background: '#f8f5ef',
+  surface: '#ffffff',
+  buttonPrimary: '#15130f',
+  buttonSecondary: '#f3f4f6',
+  textPrimary: '#15130f',
+  textSecondary: 'rgba(21,19,15,0.62)',
+  border: 'rgba(0,0,0,0.08)',
+}
+
 export function deriveBrandPalette(input: BrandColorInput = {}) {
-  const primary = input.primary || '#E4002B'
-  const secondary = input.secondary || '#15130f'
+  const primary = input.primary || DEFAULT_BRAND_COLORS.primary
+  const secondary = input.secondary || DEFAULT_BRAND_COLORS.secondary
   const accent = input.accent || primary
-  const background = input.background || '#f8f5ef'
-  const surface = input.surface || (isDarkColor(background) ? '#111827' : '#ffffff')
+  const background = input.background || DEFAULT_BRAND_COLORS.background
+  const surface = input.surface || (isDarkColor(background) ? '#111827' : DEFAULT_BRAND_COLORS.surface)
   const neutralSoft = isDarkColor(surface) ? 'rgba(255,255,255,0.08)' : '#f3f4f6'
   const primarySoft = mixHexColors(primary, surface, isDarkColor(surface) ? 0.82 : 0.9)
   const buttonPrimary = input.buttonPrimary || primary
@@ -92,7 +105,7 @@ export function deriveBrandPalette(input: BrandColorInput = {}) {
     buttonSecondary,
     buttonSecondaryText: readableTextColor(buttonSecondary, primary, '#ffffff'),
     text: input.textPrimary || readableTextColor(surface),
-    mutedText: input.textSecondary || (isDarkColor(surface) ? 'rgba(255,255,255,0.66)' : 'rgba(21,19,15,0.55)'),
+    mutedText: input.textSecondary || (isDarkColor(surface) ? 'rgba(255,255,255,0.66)' : DEFAULT_BRAND_COLORS.textSecondary),
     pageText: input.textPrimary || readableTextColor(background),
     border: input.border || (isDarkColor(surface) ? 'rgba(255,255,255,0.16)' : 'rgba(0,0,0,0.08)'),
   }

@@ -22,6 +22,7 @@ import StoreClosed from '@/components/store/StoreClosed'
 import LanguageSwitcher from '@/components/LanguageSwitcher'
 import { formatPriceWithCurrency, getCurrencyByCountry } from '@/lib/currency'
 import { normalizeLocale, translate } from '@/lib/i18n'
+import { deriveBrandPalette } from '@/lib/brand-colors'
 import { Camera, Globe, MessageCircle, Users } from 'lucide-react'
 
 interface HomePageProps {
@@ -100,12 +101,24 @@ export default async function HomePage({ params }: HomePageProps) {
     featured = data || []
   }
 
-  const primary = branding?.primary_color || '#E4002B'
-  const secondary = branding?.secondary_color || '#15130f'
-  const accent = branding?.accent_color || '#F97316'
-  const buttonPrimary = branding?.button_primary_color || '#E4002B'
-  const background = branding?.background_color || '#faf8f3'
-  const sectionSurface = (branding as any)?.section_background_color || '#ffffff'
+  const palette = deriveBrandPalette({
+    primary: branding?.primary_color,
+    secondary: branding?.secondary_color,
+    accent: branding?.accent_color,
+    background: branding?.background_color,
+    surface: (branding as any)?.section_background_color,
+    buttonPrimary: branding?.button_primary_color,
+    buttonSecondary: branding?.button_secondary_color,
+    textPrimary: branding?.text_primary_color,
+    textSecondary: branding?.text_secondary_color,
+    border: branding?.border_color,
+  })
+  const primary = palette.primary
+  const secondary = palette.secondary
+  const accent = palette.accent
+  const buttonPrimary = palette.buttonPrimary
+  const background = palette.background
+  const sectionSurface = palette.surface
   const appName = branding?.app_name || tenant.organization_name
   const tagline = branding?.tagline || settings?.description || ''
   const heroImage = hero.image_url || (branding as any)?.hero_image_url || (branding as any)?.hero?.image_url

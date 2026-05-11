@@ -1,6 +1,7 @@
 import { createServiceClient } from '@/lib/supabase/server'
 import { KitchenClient } from './KitchenClient'
 import { getTenantContext } from '@/lib/tenant'
+import { deriveBrandPalette } from '@/lib/brand-colors'
 
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
@@ -24,6 +25,18 @@ export default async function KitchenPage({ params }: Props) {
   const context = tenant ? await getTenantContext(tenant.slug || slug) : null
   const settings = context?.settings
   const branding = context?.branding
+  const palette = deriveBrandPalette({
+    primary: branding?.primary_color,
+    secondary: branding?.secondary_color,
+    accent: branding?.accent_color,
+    background: branding?.background_color,
+    surface: branding?.section_background_color,
+    buttonPrimary: branding?.button_primary_color,
+    buttonSecondary: branding?.button_secondary_color,
+    textPrimary: branding?.text_primary_color,
+    textSecondary: branding?.text_secondary_color,
+    border: branding?.border_color,
+  })
 
   if (!tenant) {
     return (
@@ -41,15 +54,15 @@ export default async function KitchenPage({ params }: Props) {
       country={settings?.country || tenant.country || 'ES'}
       branding={{
         appName: branding?.app_name || tenant.organization_name,
-        primaryColor: branding?.primary_color || '#15130f',
-        secondaryColor: branding?.secondary_color || '#111827',
-        accentColor: branding?.accent_color || branding?.primary_color || '#e43d30',
-        backgroundColor: branding?.background_color || '#f6f3ed',
-        surfaceColor: branding?.section_background_color || branding?.background_color || '#ffffff',
-        buttonPrimaryColor: branding?.button_primary_color || branding?.primary_color || '#15130f',
-        buttonSecondaryColor: branding?.button_secondary_color || branding?.secondary_color || '#111827',
-        textPrimaryColor: branding?.text_primary_color || '#15130f',
-        textSecondaryColor: branding?.text_secondary_color || '#6b7280',
+        primaryColor: palette.primary,
+        secondaryColor: palette.secondary,
+        accentColor: palette.accent,
+        backgroundColor: palette.background,
+        surfaceColor: palette.surface,
+        buttonPrimaryColor: palette.buttonPrimary,
+        buttonSecondaryColor: palette.buttonSecondary,
+        textPrimaryColor: palette.pageText,
+        textSecondaryColor: palette.mutedText,
         logoUrl: branding?.logo_url || null,
       }}
     />

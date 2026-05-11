@@ -1,5 +1,6 @@
 import { createServiceClient } from '@/lib/supabase/server'
 import { getCurrencyByCountry } from '@/lib/currency'
+import { deriveBrandPalette } from '@/lib/brand-colors'
 import KioskoClient from './KioskoClient'
 
 export const dynamic = 'force-dynamic'
@@ -66,18 +67,29 @@ export default async function KioskoPage({ params, searchParams }: Props) {
 
   const tenantMetadata = (tenant.metadata || {}) as Record<string, any>
   const metadataBranding = (tenantMetadata.branding || {}) as Record<string, any>
+  const palette = deriveBrandPalette({
+    primary: brandingRes.data?.primary_color,
+    secondary: brandingRes.data?.secondary_color,
+    accent: brandingRes.data?.accent_color,
+    background: brandingRes.data?.background_color,
+    buttonPrimary: brandingRes.data?.button_primary_color,
+    buttonSecondary: brandingRes.data?.button_secondary_color,
+    textPrimary: brandingRes.data?.text_primary_color,
+    textSecondary: brandingRes.data?.text_secondary_color,
+    border: brandingRes.data?.border_color,
+  })
 
   const branding = {
     appName: brandingRes.data?.app_name || tenant.organization_name,
-    primaryColor: brandingRes.data?.primary_color || '#E4002B',
-    secondaryColor: brandingRes.data?.secondary_color || '#111827',
-    accentColor: brandingRes.data?.accent_color || brandingRes.data?.text_primary_color || '#111827',
-    backgroundColor: brandingRes.data?.background_color || '#F3F4F6',
-    buttonPrimaryColor: brandingRes.data?.button_primary_color || '#E4002B',
-    buttonSecondaryColor: brandingRes.data?.button_secondary_color || brandingRes.data?.secondary_color || '#111827',
-    textPrimaryColor: brandingRes.data?.text_primary_color || '#111827',
-    textSecondaryColor: brandingRes.data?.text_secondary_color || '#6B7280',
-    borderColor: brandingRes.data?.border_color || '#E5E7EB',
+    primaryColor: palette.primary,
+    secondaryColor: palette.secondary,
+    accentColor: palette.accent,
+    backgroundColor: palette.background,
+    buttonPrimaryColor: palette.buttonPrimary,
+    buttonSecondaryColor: palette.buttonSecondary,
+    textPrimaryColor: palette.pageText,
+    textSecondaryColor: palette.mutedText,
+    borderColor: palette.border,
     logoUrl:
       tenant.logo_url ||
       metadataBranding.logo_url ||

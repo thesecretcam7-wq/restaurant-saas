@@ -52,6 +52,8 @@ export default async function StoreLayout({ children, params }: Props) {
         '--secondary-color': palette.secondary,
         '--button-primary-color': palette.buttonPrimary,
         '--button-secondary-color': palette.buttonSecondary,
+        '--price-color': palette.accent,
+        '--brand-background-color': palette.background,
         '--brand-surface-color': palette.surface,
         '--brand-soft-color': palette.neutralSoft,
         '--brand-text-color': palette.text,

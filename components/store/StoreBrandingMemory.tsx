@@ -18,7 +18,7 @@ export default function StoreBrandingMemory({
         JSON.stringify({
           appName: appName || 'Restaurante',
           logoUrl: logoUrl || null,
-          primaryColor: primaryColor || '#E4002B',
+          primaryColor: primaryColor || '#15130f',
         })
       )
     } catch {}

@@ -10,7 +10,12 @@ interface Props { params: Promise<{ domain: string }> }
 export default function CarritoPage({ params }: Props) {
   const { domain: tenantSlug } = use(params)
   const { items, removeItem, updateQty, total } = useCartStore()
-  const primary = 'var(--button-primary-color, var(--primary-color, #E4002B))'
+  const primary = 'var(--button-primary-color, var(--primary-color, #15130f))'
+  const price = 'var(--price-color, var(--accent-color, #15130f))'
+  const pageBg = 'var(--brand-background-color, #f8f5ef)'
+  const surface = 'var(--brand-surface-color, #ffffff)'
+  const text = 'var(--brand-text-color, #15130f)'
+  const muted = 'var(--brand-muted-color, rgba(21, 19, 15, 0.62))'
   const [currencyInfo, setCurrencyInfo] = useState(() => getCurrencyByCountry('ES'))
   const money = (amount: number) => formatPriceWithCurrency(Number(amount || 0), currencyInfo.code, currencyInfo.locale)
 
@@ -27,17 +32,17 @@ export default function CarritoPage({ params }: Props) {
 
   if (items.length === 0) {
     return (
-      <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white flex flex-col items-center justify-center gap-6 p-6">
-        <div className="w-28 h-28 rounded-2xl flex items-center justify-center shadow-sm" style={{ backgroundColor: 'color-mix(in srgb, var(--primary-color, #E4002B) 10%, white)' }}>
-          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="var(--primary-color, #E4002B)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+      <div className="min-h-screen flex flex-col items-center justify-center gap-6 p-6" style={{ backgroundColor: pageBg }}>
+        <div className="w-28 h-28 rounded-2xl flex items-center justify-center shadow-sm" style={{ backgroundColor: surface }}>
+          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke={primary} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
             <path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/>
             <line x1="3" y1="6" x2="21" y2="6"/>
             <path d="M16 10a4 4 0 0 1-8 0"/>
           </svg>
         </div>
         <div className="text-center max-w-xs">
-          <h2 className="text-2xl font-black text-gray-900 mb-2 tracking-tight">Tu carrito está vacío</h2>
-          <p className="text-gray-600 text-sm font-medium">Agrega deliciosos productos del menú para comenzar tu pedido</p>
+          <h2 className="text-2xl font-black mb-2 tracking-tight" style={{ color: text }}>Tu carrito está vacío</h2>
+          <p className="text-sm font-medium" style={{ color: muted }}>Agrega deliciosos productos del menú para comenzar tu pedido</p>
         </div>
         <Link
           href={`/${tenantSlug}/menu`}
@@ -51,9 +56,9 @@ export default function CarritoPage({ params }: Props) {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white">
+    <div className="min-h-screen" style={{ backgroundColor: pageBg, color: text }}>
       {/* Header - Professional */}
-      <header className="bg-white/98 backdrop-blur-lg border-b border-gray-100 shadow-sm sticky top-0 z-10">
+      <header className="backdrop-blur-lg border-b border-gray-100 shadow-sm sticky top-0 z-10" style={{ backgroundColor: surface }}>
         <div className="max-w-lg mx-auto px-4 h-16 flex items-center gap-3">
           <Link href={`/${tenantSlug}/menu`} className="w-10 h-10 rounded-lg bg-gray-100 hover:bg-gray-200 active:bg-gray-300 flex items-center justify-center transition-colors" title="Volver">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#374151" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
@@ -61,15 +66,15 @@ export default function CarritoPage({ params }: Props) {
             </svg>
           </Link>
           <div className="flex-1">
-            <h1 className="font-black text-gray-900 tracking-tight">Tu pedido</h1>
-            <p className="text-xs text-gray-500 font-medium">{items.reduce((s, i) => s + i.qty, 0)} {items.reduce((s, i) => s + i.qty, 0) === 1 ? 'producto' : 'productos'}</p>
+            <h1 className="font-black tracking-tight" style={{ color: text }}>Tu pedido</h1>
+            <p className="text-xs font-medium" style={{ color: muted }}>{items.reduce((s, i) => s + i.qty, 0)} {items.reduce((s, i) => s + i.qty, 0) === 1 ? 'producto' : 'productos'}</p>
           </div>
         </div>
       </header>
 
       <main className="max-w-lg mx-auto px-4 py-5 space-y-3">
         {/* Items */}
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+        <div className="rounded-2xl border border-gray-100 shadow-sm overflow-hidden" style={{ backgroundColor: surface }}>
           {items.map((item, idx) => (
             <div key={item.item_id} className={`flex items-center gap-3 p-4 ${idx < items.length - 1 ? 'border-b border-gray-50' : ''}`}>
               {item.image_url ? (
@@ -78,14 +83,14 @@ export default function CarritoPage({ params }: Props) {
                 <div className="w-16 h-16 rounded-xl bg-gray-100 flex items-center justify-center text-2xl flex-shrink-0">🍽️</div>
               )}
               <div className="flex-1 min-w-0">
-                <p className="font-bold text-gray-900 text-sm line-clamp-1">{item.name}</p>
+                <p className="font-bold text-sm line-clamp-1" style={{ color: text }}>{item.name}</p>
                 {item.toppings && item.toppings.length > 0 && (
-                  <p className="text-xs text-gray-600 mt-1">
+                  <p className="text-xs mt-1" style={{ color: muted }}>
                     Adicionales: {item.toppings.map(t => t.name).join(', ')}
                   </p>
                 )}
-                <p className="text-xs text-muted-foreground mt-0.5">{money(item.price)} c/u</p>
-                <p className="font-extrabold text-sm mt-1 text-gray-900">{money(item.price * item.qty)}</p>
+                <p className="text-xs mt-0.5" style={{ color: muted }}>{money(item.price)} c/u</p>
+                <p className="font-extrabold text-sm mt-1" style={{ color: price }}>{money(item.price * item.qty)}</p>
               </div>
               <div className="flex flex-col items-end gap-2">
                 <button
@@ -104,7 +109,7 @@ export default function CarritoPage({ params }: Props) {
                   >
                     −
                   </button>
-                  <span className="w-5 text-center font-extrabold text-sm text-gray-900">{item.qty}</span>
+                  <span className="w-5 text-center font-extrabold text-sm" style={{ color: text }}>{item.qty}</span>
                   <button
                     onClick={() => updateQty(item.item_id, item.qty + 1)}
                     className="w-6 h-6 rounded-full bg-white shadow-sm flex items-center justify-center text-gray-600 font-bold text-sm"
@@ -118,19 +123,19 @@ export default function CarritoPage({ params }: Props) {
         </div>
 
         {/* Summary */}
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 space-y-2">
-          <h3 className="font-bold text-gray-900 text-sm mb-3">Resumen</h3>
-          <div className="flex justify-between text-sm text-gray-500">
+        <div className="rounded-2xl border border-gray-100 shadow-sm p-4 space-y-2" style={{ backgroundColor: surface }}>
+          <h3 className="font-bold text-sm mb-3" style={{ color: text }}>Resumen</h3>
+          <div className="flex justify-between text-sm" style={{ color: muted }}>
             <span>Subtotal</span>
-            <span className="font-semibold text-gray-700">{money(total())}</span>
+            <span className="font-semibold" style={{ color: text }}>{money(total())}</span>
           </div>
-          <div className="flex justify-between text-sm text-gray-500">
+          <div className="flex justify-between text-sm" style={{ color: muted }}>
             <span>Envío</span>
             <span className="font-semibold text-muted-foreground">Se calcula al confirmar</span>
           </div>
           <div className="border-t border-gray-100 pt-2 flex justify-between">
-            <span className="font-extrabold text-gray-900">Total estimado</span>
-            <span className="font-extrabold text-gray-900 text-lg">{money(total())}</span>
+            <span className="font-extrabold" style={{ color: text }}>Total estimado</span>
+            <span className="font-extrabold text-lg" style={{ color: price }}>{money(total())}</span>
           </div>
         </div>
 
