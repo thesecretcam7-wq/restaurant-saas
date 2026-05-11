@@ -110,11 +110,21 @@ export default async function CategoryPage({ params }: CategoryPageProps) {
 
 function MenuItemCard({ item, tenantSlug, palette, currencyInfo }: { item: any; tenantSlug: string; palette: ReturnType<typeof deriveBrandPalette>; currencyInfo: { code: string; locale: string } }) {
   return (
-    <div className="bg-white rounded-xl border overflow-hidden flex items-center gap-4 p-3 hover:shadow-md transition-shadow">
+    <div
+      className="rounded-2xl border overflow-hidden flex items-center gap-4 p-3 shadow-sm hover:shadow-xl transition-shadow"
+      style={{
+        backgroundColor: palette.cardSurface,
+        borderColor: palette.border,
+        backgroundImage: `linear-gradient(135deg, ${palette.primary}12, transparent 58%)`,
+      }}
+    >
       {item.image_url ? (
-        <img src={item.image_url} alt={item.name} className="w-20 h-20 rounded-lg object-cover flex-shrink-0" />
+        <div className="relative h-24 w-24 flex-shrink-0 overflow-hidden rounded-xl">
+          <img src={item.image_url} alt={item.name} className="h-full w-full object-cover" />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/38 via-transparent to-transparent" />
+        </div>
       ) : (
-        <div className="w-20 h-20 rounded-lg bg-gray-100 flex items-center justify-center text-2xl flex-shrink-0">🍽️</div>
+        <div className="w-24 h-24 rounded-xl flex items-center justify-center text-2xl flex-shrink-0" style={{ background: `linear-gradient(135deg, ${palette.primary}22, ${palette.accent}18)` }}>🍽️</div>
       )}
       <div className="flex-1 min-w-0">
         <p className="font-semibold" style={{ color: palette.text }}>{item.name}</p>

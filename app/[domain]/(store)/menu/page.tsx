@@ -239,19 +239,31 @@ export default async function MenuPage({ params }: MenuProps) {
             </div>
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
               {featured.map((item, index) => (
-                <div key={item.id} className={`menu-rise group flex flex-col overflow-hidden border border-black/8 bg-white shadow-sm transition hover:-translate-y-0.5 hover:shadow-xl ${cardCls}`} style={{ borderRadius: br, animationDelay: `${120 + index * 45}ms` }}>
+                <div
+                  key={item.id}
+                  className={`menu-rise group flex flex-col overflow-hidden border border-black/8 bg-white shadow-sm transition hover:-translate-y-0.5 hover:shadow-xl ${cardCls}`}
+                  style={{
+                    borderRadius: br,
+                    animationDelay: `${120 + index * 45}ms`,
+                    backgroundImage: `linear-gradient(135deg, ${primary}12, transparent 60%)`,
+                  }}
+                >
                   {item.image_url ? (
                     <div className="relative aspect-[4/3] overflow-hidden bg-black/[0.03]">
                       <Image src={item.image_url} alt={item.name} fill sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw" className="object-cover transition duration-500 group-hover:scale-105" />
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/62 via-black/10 to-transparent" />
+                      <span className="absolute bottom-2 left-2 rounded-full bg-white/92 px-3 py-1.5 text-sm font-black shadow-lg backdrop-blur" style={{ color: priceColor }}>
+                        {formatPriceWithCurrency(item.price, currencyInfo.code, currencyInfo.locale)}
+                      </span>
                     </div>
                   ) : (
-                    <div className="h-32 flex items-center justify-center text-4xl" style={{ backgroundColor: `${primary}10` }}>🍽️</div>
+                    <div className="h-32 flex items-center justify-center text-4xl" style={{ background: `linear-gradient(135deg, ${primary}22, ${priceColor}18)` }}>🍽️</div>
                   )}
                   <div className="flex flex-1 flex-col p-3">
                     <p className="line-clamp-2 min-h-10 text-sm font-black leading-5 text-[#15130f]">{item.name}</p>
                     {item.description && <p className="mt-1 line-clamp-2 flex-1 text-xs font-semibold text-black/48">{item.description}</p>}
                     <div className="mt-2 flex items-center justify-between gap-2">
-                      <p className="text-base font-black" style={{ color: priceColor }}>{formatPriceWithCurrency(item.price, currencyInfo.code, currencyInfo.locale)}</p>
+                      <p className={`text-base font-black ${item.image_url ? 'sr-only' : ''}`} style={{ color: priceColor }}>{formatPriceWithCurrency(item.price, currencyInfo.code, currencyInfo.locale)}</p>
                       <AddToCartButton item={item} tenantId={tenantId} color={buttonColor} small toppings={toppingsByItem[item.id] || []} currencyInfo={currencyInfo} />
                     </div>
                   </div>

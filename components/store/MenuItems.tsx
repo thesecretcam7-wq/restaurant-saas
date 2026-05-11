@@ -66,7 +66,11 @@ export function MenuListItem({
   return (
     <div
       className={`menu-rise flex items-center gap-3 overflow-hidden border border-black/8 bg-white p-2.5 shadow-sm transition active:scale-[0.99] sm:p-3 sm:hover:-translate-y-0.5 sm:hover:shadow-xl ${cardCls}`}
-      style={{ borderRadius: br, animationDelay: `${index * 45}ms` }}
+      style={{
+        borderRadius: br,
+        animationDelay: `${index * 45}ms`,
+        backgroundImage: `linear-gradient(135deg, ${primary}12, transparent 58%)`,
+      }}
     >
       {item.image_url ? (
         <div className="relative h-20 w-20 flex-shrink-0 overflow-hidden sm:h-24 sm:w-24" style={{ borderRadius: `calc(${br} * 0.6)` }}>
@@ -80,9 +84,10 @@ export function MenuListItem({
             onLoad={() => setImageLoaded(true)}
             style={{ borderRadius: `calc(${br} * 0.6)` }}
           />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/35 via-transparent to-transparent" style={{ borderRadius: `calc(${br} * 0.6)` }} />
         </div>
       ) : (
-        <div className="h-20 w-20 flex-shrink-0 sm:h-24 sm:w-24" style={{ backgroundColor: `${primary}10`, borderRadius: `calc(${br} * 0.6)` }} />
+        <div className="h-20 w-20 flex-shrink-0 sm:h-24 sm:w-24" style={{ background: `linear-gradient(135deg, ${primary}22, ${priceColor}18)`, borderRadius: `calc(${br} * 0.6)` }} />
       )}
       <div className="min-w-0 flex-1 py-0.5">
         <p className="line-clamp-2 text-sm font-black leading-5" style={{ color: textColor }}>{item.name}</p>
@@ -119,7 +124,11 @@ export function MenuGridItem({
   return (
     <div
       className={`menu-rise group flex flex-col overflow-hidden border border-black/8 bg-white shadow-sm transition active:scale-[0.99] sm:hover:-translate-y-0.5 sm:hover:shadow-xl ${cardCls}`}
-      style={{ borderRadius: br, animationDelay: `${index * 45}ms` }}
+      style={{
+        borderRadius: br,
+        animationDelay: `${index * 45}ms`,
+        backgroundImage: `linear-gradient(135deg, ${primary}12, transparent 60%)`,
+      }}
     >
       {item.image_url ? (
         <div className="relative aspect-[4/3] w-full overflow-hidden bg-black/[0.03]">
@@ -132,21 +141,25 @@ export function MenuGridItem({
             className={`object-cover transition duration-500 sm:group-hover:scale-105 ${imageLoaded ? 'opacity-100' : 'opacity-0'}`}
             onLoad={() => setImageLoaded(true)}
           />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/62 via-black/10 to-transparent" />
           {hasToppings && (
             <span className="absolute left-2 top-2 rounded-full px-2.5 py-1 text-[10px] font-black text-white shadow-lg" style={{ backgroundColor: buttonColor }}>
               Adicionales
             </span>
           )}
+          <span className="absolute bottom-2 left-2 rounded-full bg-white/92 px-3 py-1.5 text-sm font-black shadow-lg backdrop-blur" style={{ color: priceColor }}>
+            {formatPriceWithCurrency(item.price, currencyInfo.code, currencyInfo.locale)}
+          </span>
         </div>
       ) : (
-        <div className="aspect-[4/3] w-full" style={{ backgroundColor: `${primary}10` }} />
+        <div className="aspect-[4/3] w-full" style={{ background: `linear-gradient(135deg, ${primary}22, ${priceColor}18)` }} />
       )}
       <div className="flex flex-1 flex-col p-2.5">
         <p className="line-clamp-2 min-h-10 text-sm font-black leading-5" style={{ color: textColor }}>{item.name}</p>
         {item.description && <p className="mt-1 line-clamp-2 flex-1 text-xs font-semibold" style={{ color: mutedTextColor }}>{item.description}</p>}
         {hasToppings && <p className="mt-1 text-[11px] font-black uppercase tracking-wide" style={{ color: priceColor }}>Toca + para elegir</p>}
         <div className="mt-2 flex items-center justify-between gap-1">
-          <p className="text-base font-black" style={{ color: priceColor }}>
+          <p className={`text-base font-black ${item.image_url ? 'sr-only' : ''}`} style={{ color: priceColor }}>
             {formatPriceWithCurrency(item.price, currencyInfo.code, currencyInfo.locale)}
           </p>
           <AddToCartButton item={item} tenantId={tenantId} color={buttonColor} small toppings={toppings} currencyInfo={currencyInfo} />

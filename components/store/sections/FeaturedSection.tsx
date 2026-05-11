@@ -47,19 +47,24 @@ export default function FeaturedSection({ tenantId, items, primary, buttonColor 
             style={{
               borderRadius,
               animationDelay: animations ? `${i * 60}ms` : undefined,
+              backgroundImage: `linear-gradient(135deg, ${primary}12, transparent 58%)`,
             }}
           >
             {item.image_url ? (
-              <div className="aspect-[4/3] overflow-hidden bg-black/[0.03]">
+              <div className="relative aspect-[4/3] overflow-hidden bg-black/[0.03]">
                 <img src={item.image_url} alt={item.name} className="h-full w-full object-cover transition duration-500 group-hover:scale-105" />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/62 via-black/10 to-transparent" />
+                <span className="absolute bottom-2 left-2 rounded-full bg-white/92 px-3 py-1.5 text-sm font-black shadow-lg backdrop-blur" style={{ color: priceColor }}>
+                  {money(item.price)}
+                </span>
               </div>
             ) : (
-              <div className="aspect-[4/3]" style={{ backgroundColor: `${primary}14` }} />
+              <div className="aspect-[4/3]" style={{ background: `linear-gradient(135deg, ${primary}22, ${priceColor}18)` }} />
             )}
             <div className="p-3.5">
               <p className="line-clamp-2 min-h-10 text-sm font-black leading-5 text-[#15130f]">{item.name}</p>
               <div className="mt-3 flex items-center justify-between gap-2">
-                <p className="text-base font-black" style={{ color: priceColor }}>{money(item.price)}</p>
+                <p className={`text-base font-black ${item.image_url ? 'sr-only' : ''}`} style={{ color: priceColor }}>{money(item.price)}</p>
                 <AddToCartButton item={item} tenantId={tenantId} color={buttonColor} small />
               </div>
             </div>

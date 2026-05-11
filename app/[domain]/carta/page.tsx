@@ -223,7 +223,7 @@ export default async function CartaPage({ params }: CartaProps) {
                   key={item.id}
                   item={item}
                   toppings={toppingsByItem.get(item.id) || []}
-                  colors={{ accent, surface: neutralSoft, cardSurface, surfaceText, mutedText, border }}
+                  colors={{ primary, accent, surface: neutralSoft, cardSurface, surfaceText, mutedText, border, buttonPrimary, buttonPrimaryText }}
                   currencyInfo={currencyInfo}
                 />
               ))}
@@ -247,7 +247,7 @@ export default async function CartaPage({ params }: CartaProps) {
                     key={item.id}
                     item={item}
                     toppings={toppingsByItem.get(item.id) || []}
-                    colors={{ accent, surface: neutralSoft, cardSurface, surfaceText, mutedText, border }}
+                    colors={{ primary, accent, surface: neutralSoft, cardSurface, surfaceText, mutedText, border, buttonPrimary, buttonPrimaryText }}
                     currencyInfo={currencyInfo}
                   />
                 ))}
@@ -265,7 +265,7 @@ export default async function CartaPage({ params }: CartaProps) {
                   key={item.id}
                   item={item}
                   toppings={toppingsByItem.get(item.id) || []}
-                  colors={{ accent, surface: neutralSoft, cardSurface, surfaceText, mutedText, border }}
+                  colors={{ primary, accent, surface: neutralSoft, cardSurface, surfaceText, mutedText, border, buttonPrimary, buttonPrimaryText }}
                   currencyInfo={currencyInfo}
                 />
               ))}
@@ -293,45 +293,73 @@ function CartaItem({
   item: MenuItem
   toppings: Topping[]
   colors: {
+    primary: string
     accent: string
     surface: string
     cardSurface: string
     surfaceText: string
     mutedText: string
     border: string
+    buttonPrimary: string
+    buttonPrimaryText: string
   }
   currencyInfo: { code: string; locale: string }
 }) {
+  const priceText = readableTextColor(colors.accent)
+
   return (
-    <article className="grid grid-cols-[112px_minmax(0,1fr)] gap-4 rounded-[1.35rem] border p-3.5 shadow-sm transition-transform duration-200 sm:grid-cols-[132px_minmax(0,1fr)] sm:p-4" style={{ backgroundColor: colors.cardSurface, borderColor: colors.border }}>
-      <div className="relative h-32 overflow-hidden rounded-[1.1rem] bg-white p-2 ring-1 sm:h-36" style={{ '--tw-ring-color': colors.border } as React.CSSProperties}>
+    <article
+      className="group relative min-h-[220px] overflow-hidden rounded-[1.7rem] border shadow-xl shadow-black/[0.08] transition duration-300 hover:-translate-y-0.5 hover:shadow-2xl"
+      style={{
+        backgroundColor: colors.cardSurface,
+        borderColor: `${colors.border}cc`,
+        backgroundImage: `linear-gradient(135deg, ${colors.primary}18, transparent 62%)`,
+      }}
+    >
+      <div className="absolute inset-0">
         {item.image_url ? (
-          <Image src={item.image_url} alt={item.name} fill sizes="132px" className="object-contain p-1" />
+          <Image src={item.image_url} alt={item.name} fill sizes="(max-width: 768px) 100vw, 720px" className="object-cover transition duration-700 group-hover:scale-105" />
         ) : (
-          <div className="grid h-full place-items-center text-2xl font-black" style={{ color: colors.mutedText }}>
+          <div className="grid h-full place-items-center text-7xl font-black" style={{ background: `linear-gradient(135deg, ${colors.primary}, ${colors.accent})`, color: readableTextColor(colors.primary) }}>
             {item.name.charAt(0)}
           </div>
         )}
       </div>
-      <div className="min-w-0 py-1">
-        <div className="flex min-w-0 flex-col gap-1 sm:flex-row sm:items-start sm:justify-between sm:gap-3">
-          <h3 className="line-clamp-2 break-words text-lg font-black leading-6 sm:text-xl sm:leading-7" style={{ color: colors.surfaceText }}>{item.name}</h3>
-          <p className="text-xl font-black leading-7 sm:flex-shrink-0" style={{ color: colors.accent }}>
+      <div className="absolute inset-0 bg-gradient-to-t from-black/88 via-black/34 to-black/8" />
+      <div className="absolute inset-0" style={{ background: `linear-gradient(135deg, ${colors.primary}aa, transparent 52%)` }} />
+      <div className="relative z-10 flex min-h-[220px] flex-col justify-end p-4 sm:p-5">
+        <div className="mb-3 flex flex-wrap items-center gap-2">
+          {toppings.length > 0 && (
+            <span className="rounded-full px-3 py-1.5 text-[11px] font-black uppercase tracking-[0.14em] shadow-lg" style={{ backgroundColor: `${colors.buttonPrimary}e8`, color: colors.buttonPrimaryText }}>
+              Adicionales
+            </span>
+          )}
+          {item.featured && (
+            <span className="rounded-full bg-white/18 px-3 py-1.5 text-[11px] font-black uppercase tracking-[0.14em] text-white ring-1 ring-white/20 backdrop-blur">
+              Recomendado
+            </span>
+          )}
+        </div>
+        <div className="flex min-w-0 items-end justify-between gap-4">
+          <div className="min-w-0">
+            <h3 className="line-clamp-2 break-words text-2xl font-black leading-[1.05] text-white sm:text-3xl">{item.name}</h3>
+            {item.description && (
+              <p className="mt-2 line-clamp-2 break-words text-sm font-semibold leading-5 text-white/78 sm:text-[15px]">{item.description}</p>
+            )}
+          </div>
+          <p className="shrink-0 rounded-2xl px-3.5 py-2 text-lg font-black leading-none shadow-xl" style={{ backgroundColor: colors.accent, color: priceText }}>
             {formatPriceWithCurrency(item.price, currencyInfo.code, currencyInfo.locale)}
           </p>
         </div>
-        {item.description && (
-          <p className="mt-2 line-clamp-3 break-words text-[15px] font-semibold leading-6" style={{ color: colors.mutedText }}>{item.description}</p>
-        )}
         {toppings.length > 0 && (
-          <div className="mt-3 flex flex-wrap gap-1.5">
+          <div className="mt-4 flex flex-wrap gap-1.5">
             {toppings.slice(0, 4).map(topping => (
-              <span key={topping.id} className="rounded-full px-2.5 py-1.5 text-[11px] font-black ring-1" style={{ backgroundColor: colors.surface, color: colors.mutedText, borderColor: colors.border }}>
+              <span key={topping.id} className="rounded-full bg-white/16 px-2.5 py-1.5 text-[11px] font-black text-white/82 ring-1 ring-white/18 backdrop-blur">
                 {topping.name}{Number(topping.price || 0) > 0 ? ` +${formatPriceWithCurrency(Number(topping.price), currencyInfo.code, currencyInfo.locale)}` : ''}
               </span>
             ))}
             {toppings.length > 4 && (
-              <span className="rounded-full px-2.5 py-1.5 text-[11px] font-black ring-1" style={{ backgroundColor: colors.surface, color: colors.mutedText, borderColor: colors.border }}>
+              <span className="rounded-full bg-white/16 px-2.5 py-1.5 text-[11px] font-black text-white/82 ring-1 ring-white/18 backdrop-blur">
                 +{toppings.length - 4} mas
               </span>
             )}
