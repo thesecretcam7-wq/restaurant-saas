@@ -94,6 +94,7 @@ export default async function CartaPage({ params }: CartaProps) {
   const { primary, secondary, accent, background, cardSurface, neutralSoft, buttonPrimary, buttonPrimaryText, buttonSecondary, text: surfaceText, mutedText, border } = palette
   const headerText = readableTextColor(primary)
   const headerMutedText = `${headerText}b3`
+  const chipInactiveText = readableTextColor(buttonSecondary, surfaceText)
   const heroText = readableTextColor(secondary)
   const fontFamily = branding?.font_family || 'Inter, system-ui, sans-serif'
   const currencyInfo = settings?.currency
@@ -143,9 +144,9 @@ export default async function CartaPage({ params }: CartaProps) {
         </div>
 
         {categories.length > 0 && (
-          <nav className="mx-auto flex max-w-3xl gap-2 overflow-x-auto px-4 pb-3 scrollbar-hide">
+          <nav className="mx-auto flex max-w-3xl snap-x gap-2 overflow-x-auto border-t px-3 py-2.5 scrollbar-hide sm:px-4" style={{ backgroundColor: `${cardSurface}f7`, borderColor: `${primary}1f` }}>
             {featured.length > 0 && (
-              <a href="#destacados" className="h-9 flex-shrink-0 rounded-full px-4 py-2 text-xs font-black" style={{ backgroundColor: buttonPrimary, color: buttonPrimaryText }}>
+              <a href="#destacados" className="h-10 flex-shrink-0 snap-start rounded-full border px-4 py-2.5 text-xs font-black shadow-sm transition active:scale-[0.98] sm:px-5" style={{ backgroundColor: buttonPrimary, borderColor: buttonPrimary, color: buttonPrimaryText }}>
                 {tr('qr.mostOrdered')}
               </a>
             )}
@@ -153,8 +154,8 @@ export default async function CartaPage({ params }: CartaProps) {
               <a
                 key={category.id}
                 href={`#cat-${category.id}`}
-                className="h-9 flex-shrink-0 rounded-full border px-4 py-2 text-xs font-black"
-                style={{ backgroundColor: `${headerText}18`, borderColor: `${headerText}24`, color: headerText }}
+                className="h-10 flex-shrink-0 snap-start rounded-full border px-4 py-2.5 text-xs font-black shadow-sm transition active:scale-[0.98] sm:px-5"
+                style={{ backgroundColor: buttonSecondary, borderColor: border, color: chipInactiveText }}
               >
                 {category.name}
               </a>
