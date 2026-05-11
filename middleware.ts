@@ -125,6 +125,16 @@ export async function middleware(request: NextRequest) {
     }
   }
 
+  // En dominios personalizados, la raiz debe abrir la tienda del tenant antes
+  // de tratar "/" como pagina publica de la plataforma.
+  if (!isAssetPath && !hostname.includes(BASE_DOMAIN) && pathname === '/') {
+    const tenant = await getTenantByDomain(hostname)
+    if (tenant) {
+      url.pathname = `/${tenant.slug}`
+      return NextResponse.rewrite(url)
+    }
+  }
+
   if (
     PUBLIC_PATHS.has(pathname) ||
     isAssetPath
