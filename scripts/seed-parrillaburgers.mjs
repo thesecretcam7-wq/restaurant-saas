@@ -27,33 +27,105 @@ const supabase = createClient(supabaseUrl, serviceRoleKey, {
 })
 
 const asset = (name) => `/restaurants/parrillaburgers/${name}`
+const productAsset = (name) => `/restaurants/parrillaburgers/products/${name}`
 
 const categories = [
   { key: 'burgers', name: 'Hamburguesas', description: 'Hamburguesas artesanales a la parrilla', image_url: asset('burger.png'), sort_order: 1 },
-  { key: 'otros', name: 'Otros', description: 'Street food premium y parrilla urbana', image_url: asset('hotdog.png'), sort_order: 2 },
-  { key: 'sides', name: 'Acompañamientos', description: 'Acompañantes dorados para completar tu pedido', image_url: asset('fries.png'), sort_order: 3 },
-  { key: 'combos', name: 'Combos', description: 'Combos con papas y bebida', image_url: asset('combos.png'), sort_order: 4 },
+  { key: 'asados', name: 'Asados', description: 'Carnes a la parrilla con papas, ensalada y arepa', image_url: asset('grill.png'), sort_order: 2 },
+  { key: 'hotdogs', name: 'Hot Dogs', description: 'Perros, perras y choripan premium', image_url: asset('hotdog.png'), sort_order: 3 },
+  { key: 'salchipapas', name: 'Salchipapas', description: 'Papas, queso, tocineta y salsas', image_url: asset('fries.png'), sort_order: 4 },
+  { key: 'combos', name: 'Combos', description: 'Combos con papas y bebida', image_url: asset('combos.png'), sort_order: 5 },
 ]
 
-const products = [
-  { category: 'burgers', name: 'Clásica', description: 'Carne artesanal, lechuga, tomate, tocineta, queso y salsa de la casa.', price: 9200, image_url: asset('burger.png'), featured: true },
-  { category: 'burgers', name: 'Argentina', description: 'Hamburguesa clásica con chimichurri artesanal.', price: 10200, image_url: asset('grill.png'), featured: true },
-  { category: 'burgers', name: 'Mexicana', description: 'Hamburguesa clásica con jalapeños.', price: 10200, image_url: asset('flame.png'), featured: true },
-  { category: 'burgers', name: 'Maicitos', description: 'Hamburguesa clásica con maicitos y salsa especial.', price: 10500, image_url: asset('cheese.png'), featured: true },
-  { category: 'burgers', name: 'Mixta', description: 'Hamburguesa clásica con pollo y res.', price: 12900, image_url: asset('burger.png'), featured: true },
-  { category: 'burgers', name: 'Champiñones', description: 'Hamburguesa clásica con champiñones.', price: 11900, image_url: asset('cheese.png'), featured: false },
-  { category: 'burgers', name: 'Doble', description: 'Doble carne clásica de pollo o res.', price: 13500, image_url: asset('burger.png'), featured: true },
-  { category: 'burgers', name: 'Pollo', description: 'Hamburguesa clásica de pollo.', price: 9200, image_url: asset('burger.png'), featured: false },
-  { category: 'burgers', name: 'Pollo Champiñones', description: 'Hamburguesa clásica de pollo con champiñones.', price: 11900, image_url: asset('cheese.png'), featured: false },
-  { category: 'otros', name: 'Choripan', description: 'Chorizo argentino, pan, chimichurri artesanal y queso.', price: 12000, image_url: asset('hotdog.png'), featured: true },
-  { category: 'otros', name: 'Perro', description: 'Salchicha de la casa con queso.', price: 7900, image_url: asset('hotdog.png'), featured: false },
-  { category: 'otros', name: 'Chuzo', description: 'Chuzo de pollo con tocineta.', price: 10900, image_url: asset('grill.png'), featured: false },
-  { category: 'sides', name: 'Papas', description: 'Papas francesas o cascos.', price: 4000, image_url: asset('fries.png'), featured: true },
-  { category: 'sides', name: 'Mazorca', description: 'Mazorca con crema agria de la casa, queso costeño y sal de chile.', price: 4500, image_url: asset('fries.png'), featured: false },
-  { category: 'combos', name: 'Combo 1', description: 'Tu hamburguesa con gaseosa o agua y papas.', price: 5000, image_url: asset('combos.png'), featured: true },
-  { category: 'combos', name: 'Combo 2', description: 'Tu hamburguesa con cerveza y papas.', price: 6500, image_url: asset('combos.png'), featured: false },
-  { category: 'combos', name: 'Combo 3', description: 'Tu hamburguesa con soda italiana y papas.', price: 8500, image_url: asset('soda.png'), featured: false },
-]
+const categoryByName = new Map([
+  ['Clasica', 'burgers'], ['Argentina', 'burgers'], ['Mexicana', 'burgers'], ['Maicitos', 'burgers'],
+  ['Mixta', 'burgers'], ['Champiñones', 'burgers'], ['Doble Carne', 'burgers'], ['Pollo', 'burgers'],
+  ['Pollo con Champiñones', 'burgers'], ['Paisa Burger', 'burgers'], ['Americana', 'burgers'],
+  ['Pierna de Cerdo', 'asados'], ['Chuleta de Cerdo', 'asados'], ['Solomo', 'asados'],
+  ['Chuzo de Pollo', 'asados'], ['Costichip', 'asados'], ['Punta de Anca', 'asados'],
+  ['Churrasco', 'asados'], ['Pechuga a la Plancha', 'asados'],
+  ['Perro', 'hotdogs'], ['Perra', 'hotdogs'], ['Choripan', 'hotdogs'],
+  ['Sencillas', 'salchipapas'], ['Especiales', 'salchipapas'],
+  ['Combo gaseosa', 'combos'], ['Combo cerveza', 'combos'],
+])
+
+const featuredProducts = new Set([
+  'Clasica',
+  'Argentina',
+  'Mexicana',
+  'Maicitos',
+  'Doble Carne',
+  'Paisa Burger',
+  'Americana',
+  'Churrasco',
+])
+
+function slugify(value) {
+  return value
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '')
+}
+
+async function fetchLiveProducts() {
+  const html = await fetch('https://parrillaburgers.vercel.app/menu').then((res) => {
+    if (!res.ok) throw new Error(`Could not fetch live ParrillaBurgers menu: ${res.status}`)
+    return res.text()
+  })
+
+  const matches = [...html.matchAll(/\{\\"id\\":\\"[^}]+?\\"barra_libre_items\\":\[[^\]]*\]\}/g)].map((match) => match[0])
+  const parsed = []
+
+  for (const raw of matches) {
+    const json = raw.replaceAll('\\"', '"').replaceAll('\\/', '/')
+    try {
+      const product = JSON.parse(json)
+      if (product.name && product.price && product.image_url) parsed.push(product)
+    } catch {
+      // Ignore unrelated chunks in the streamed payload.
+    }
+  }
+
+  return [...new Map(parsed.map((product) => [product.name, product])).values()]
+    .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0))
+}
+
+async function ensureProductImage(product) {
+  const file = `${String(product.sort_order).padStart(2, '0')}-${slugify(product.name)}.png`
+  const outputDir = path.join(root, 'public', 'restaurants', 'parrillaburgers', 'products')
+  const outputPath = path.join(outputDir, file)
+
+  fs.mkdirSync(outputDir, { recursive: true })
+
+  if (!fs.existsSync(outputPath)) {
+    const response = await fetch(product.image_url)
+    if (!response.ok) throw new Error(`Could not download image for ${product.name}: ${response.status}`)
+    fs.writeFileSync(outputPath, Buffer.from(await response.arrayBuffer()))
+  }
+
+  return productAsset(file)
+}
+
+async function getProducts() {
+  const liveProducts = await fetchLiveProducts()
+  const products = []
+
+  for (const product of liveProducts) {
+    products.push({
+      category: categoryByName.get(product.name) || 'burgers',
+      name: product.name,
+      description: product.description,
+      price: product.price,
+      image_url: await ensureProductImage(product),
+      featured: featuredProducts.has(product.name),
+      sort_order: product.sort_order ?? 0,
+    })
+  }
+
+  return products
+}
 
 const tenantPayload = {
   organization_name: 'ParrillaBurgers',
@@ -66,7 +138,7 @@ const tenantPayload = {
   owner_name: 'ParrillaBurgers',
   country: 'CO',
   metadata: {
-    seeded_from: 'parrillaburgers',
+    seeded_from: 'parrillaburgers-live-menu',
     brand_style: 'premium_urban_grill',
     pos_enabled: true,
     kds_enabled: true,
@@ -110,6 +182,7 @@ async function main() {
   }
 
   const tenantId = tenant.id
+  const products = await getProducts()
 
   await maybeSingle(
     supabase.from('tenant_branding').upsert({
@@ -127,7 +200,7 @@ async function main() {
       heading_font: 'Bebas Neue',
       app_name: 'ParrillaBurgers',
       tagline: 'A la parrilla sabe mejor',
-      hero_image_url: asset('burger.png'),
+      hero_image_url: products[0]?.image_url || asset('burger.png'),
       description: 'Hamburguesas artesanales, street food premium y sabor real de parrilla.',
       favicon_url: asset('logo.svg'),
       whatsapp_number: '',
@@ -170,7 +243,7 @@ async function main() {
       seats_per_table: 4,
       cash_payment_enabled: true,
       tax_rate: 0,
-      featured_image_url: asset('burger.png'),
+      featured_image_url: products[0]?.image_url || asset('burger.png'),
       operating_hours: {
         monday: { open: '18:00', close: '23:59' },
         tuesday: { open: '18:00', close: '23:59' },
@@ -185,7 +258,7 @@ async function main() {
     'upsert restaurant settings'
   )
 
-  console.log('Replacing ParrillaBurgers menu catalog...')
+  console.log('Replacing ParrillaBurgers live menu catalog...')
   const existingCategories = await maybeSingle(
     supabase.from('menu_categories').select('id').eq('tenant_id', tenantId),
     'fetch categories'
@@ -204,8 +277,10 @@ async function main() {
       .select('*'),
     'insert categories'
   )
-  const categoryByName = new Map(insertedCategories.map((category) => [category.name, category.id]))
-  const categoryByKey = new Map(categories.map((category) => [category.key, categoryByName.get(category.name)]))
+  const categoryByKey = new Map(categories.map((category) => [
+    category.key,
+    insertedCategories.find((inserted) => inserted.name === category.name)?.id,
+  ]))
 
   await maybeSingle(
     supabase.from('menu_items').insert(products.map((product) => ({
@@ -217,7 +292,7 @@ async function main() {
       image_url: product.image_url,
       available: true,
       featured: product.featured,
-      variants: {},
+      variants: { source_sort_order: product.sort_order },
     }))).select('id'),
     'insert products'
   )
@@ -231,7 +306,7 @@ async function main() {
       {
         tenant_id: tenantId,
         title: 'El sabor de la parrilla en otro nivel',
-        image_url: asset('burger.png'),
+        image_url: products[0]?.image_url || asset('burger.png'),
         link_url: '/menu',
         sort_order: 1,
         active: true,
@@ -239,7 +314,7 @@ async function main() {
       {
         tenant_id: tenantId,
         title: 'Combos urbanos premium',
-        image_url: asset('combos.png'),
+        image_url: products.find((product) => product.category === 'combos')?.image_url || asset('combos.png'),
         link_url: '/menu',
         sort_order: 2,
         active: true,
