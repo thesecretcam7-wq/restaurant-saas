@@ -36,10 +36,15 @@ export function getSuggestedBillAmounts(total: number): number[] {
 /**
  * Formatea un número como moneda
  */
-export function formatCurrency(amount: number, currency: string = 'USD'): string {
+export function formatCurrency(amount: number, currency: string = 'COP'): string {
+  const zeroDecimalCurrencies = new Set(['COP', 'CLP', 'JPY', 'KRW', 'VND', 'PYG'])
+  const fractionDigits = zeroDecimalCurrencies.has(currency.toUpperCase()) ? 0 : 2
+
   return new Intl.NumberFormat('es-CO', {
     style: 'currency',
     currency: currency,
+    maximumFractionDigits: fractionDigits,
+    minimumFractionDigits: fractionDigits,
   }).format(amount);
 }
 

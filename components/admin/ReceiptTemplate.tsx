@@ -1,5 +1,7 @@
 'use client';
 
+import { formatPriceWithCurrency } from '@/lib/currency';
+
 interface ReceiptItem {
   name: string;
   price: number;
@@ -46,7 +48,7 @@ export function ReceiptTemplate({
   notes,
   footerText,
 }: ReceiptTemplateProps) {
-  const formatCurrency = (value: number) => `$${value.toFixed(2)}`;
+  const formatCurrency = (value: number) => formatPriceWithCurrency(value, 'COP', 'es-CO');
   const dateStr = date.toLocaleString('es-ES', {
     year: 'numeric',
     month: '2-digit',

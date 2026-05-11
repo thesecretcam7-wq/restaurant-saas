@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { Printer } from 'lucide-react'
 import { printReceipt } from '@/lib/pos-printer'
+import { formatPriceWithCurrency } from '@/lib/currency'
 import type { ReceiptData } from '@/types/printer'
 
 type ReprintReceiptButtonProps = {
@@ -13,10 +14,7 @@ type ReprintReceiptButtonProps = {
 
 function printReceiptInBrowser(receipt: ReceiptData) {
   const format = (value: number) =>
-    new Intl.NumberFormat(receipt.currencyInfo.locale, {
-      style: 'currency',
-      currency: receipt.currencyInfo.code,
-    }).format(value)
+    formatPriceWithCurrency(value, receipt.currencyInfo.code, receipt.currencyInfo.locale)
   const safe = (value: unknown) => String(value ?? '').replace(/[<>&"]/g, (char) => ({
     '<': '&lt;',
     '>': '&gt;',
