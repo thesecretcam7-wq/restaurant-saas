@@ -2048,7 +2048,7 @@ export function POSTerminal({
                     key={item.id}
                     onClick={() => addToCart(item)}
                     title={index < 9 ? `Tecla ${index + 1}: agregar ${item.name}` : `Agregar ${item.name}`}
-                    className={`pos-card relative min-h-[154px] rounded-xl p-3 text-left transition-all duration-200 transform hover:scale-[1.025] active:scale-95 flex flex-col justify-between group ${
+                    className={`pos-card relative min-h-[164px] rounded-xl p-3 text-left transition-all duration-200 transform hover:scale-[1.025] active:scale-95 flex flex-col justify-between group ${
                       qty
                         ? 'border-2 border-cyan-300/70 bg-cyan-300/14 shadow-lg shadow-cyan-900/30'
                         : ''
@@ -2068,11 +2068,11 @@ export function POSTerminal({
                       <img
                         src={item.image_url}
                         alt={item.name}
-                        className={`w-full object-contain rounded-lg mb-2 group-hover:scale-110 transition-transform duration-200 ${isFullscreen ? 'h-20' : 'h-24'}`}
+                        className={`w-full object-contain rounded-lg mb-1 group-hover:scale-110 transition-transform duration-200 ${isFullscreen ? 'h-20' : 'h-24'}`}
                       />
                     )}
-                    <p className="font-black text-sm leading-tight line-clamp-2 flex-1 text-white group-hover:text-cyan-200 transition-colors">{item.name}</p>
-                    <p className={`font-black text-sm mt-1 ${qty ? 'text-cyan-200' : 'text-emerald-300'}`}>
+                    <p className="font-black text-base leading-tight line-clamp-2 flex-1 text-white group-hover:text-cyan-200 transition-colors">{item.name}</p>
+                    <p className={`font-black text-base mt-1 ${qty ? 'text-cyan-200' : 'text-emerald-300'}`}>
                       {formatPriceWithCurrency(item.price, currencyInfo.code, currencyInfo.locale)}
                     </p>
                   </button>
