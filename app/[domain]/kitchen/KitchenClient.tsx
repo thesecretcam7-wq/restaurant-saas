@@ -211,7 +211,7 @@ export function KitchenClient({ tenantId, tenantSlug, tenantName, country, brand
   }, [toppings]);
 
   const buildToppingNote = (tops: Topping[]) => (
-    tops.length ? `Adicionales: ${tops.map(t => `${t.name}${Number(t.price || 0) > 0 ? ` (+${money(Number(t.price || 0))})` : ''}`).join(', ')}` : ''
+    tops.length ? `Ingredientes: ${tops.map(t => `${t.name}${Number(t.price || 0) > 0 ? ` (+${money(Number(t.price || 0))})` : ''}`).join(', ')}` : ''
   );
 
   const addToCart = useCallback((item: MenuItem, tops: Topping[] = [], qty = 1) => {
@@ -651,7 +651,9 @@ export function KitchenClient({ tenantId, tenantSlug, tenantName, country, brand
               <div className="grid grid-cols-2 gap-2 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
                 {filteredItems.map(item => {
                   const qty = getQty(item.id);
-                  const hasToppings = (toppingsByItem.get(item.id) || []).length > 0;
+                  const itemToppings = toppingsByItem.get(item.id) || [];
+                  const hasToppings = itemToppings.length > 0;
+                  const hasOnlyFreeToppings = hasToppings && itemToppings.every(topping => Number(topping.price || 0) === 0);
                   return (
                     <article key={item.id} className="overflow-hidden rounded-[1rem] border shadow-sm" style={{ borderColor: brand.border, backgroundColor: brand.surface }}>
                       <button onClick={() => openProduct(item)} className="block w-full text-left active:scale-[0.99]">
@@ -666,7 +668,7 @@ export function KitchenClient({ tenantId, tenantSlug, tenantName, country, brand
                         <div className="p-2">
                           <p className="line-clamp-2 min-h-8 text-xs font-black leading-4" style={{ color: brand.surfaceText }}>{item.name}</p>
                           {item.description && <p className="mt-0.5 line-clamp-1 text-[11px] font-semibold" style={{ color: brand.mutedText }}>{item.description}</p>}
-                          {hasToppings && <p className="mt-1 text-[10px] font-black uppercase tracking-wide" style={{ color: brand.primary }}>Adicionales</p>}
+                          {hasToppings && <p className="mt-1 text-[10px] font-black uppercase tracking-wide" style={{ color: brand.primary }}>{hasOnlyFreeToppings ? 'Barra libre' : 'Adicionales'}</p>}
                           <p className="mt-1 text-sm font-black" style={{ color: brand.accent }}>{money(item.price)}</p>
                         </div>
                       </button>
@@ -862,7 +864,11 @@ export function KitchenClient({ tenantId, tenantSlug, tenantName, country, brand
           <div className="w-full max-w-lg overflow-hidden rounded-t-[2rem] shadow-2xl sm:rounded-[2rem]" style={{ backgroundColor: brand.surface, color: brand.surfaceText }}>
             <div className="flex items-center justify-between border-b border-black/10 p-4">
               <div className="min-w-0">
-                <p className="text-xs font-black uppercase" style={{ color: brand.mutedText }}>Personalizar plato</p>
+                <p className="text-xs font-black uppercase" style={{ color: brand.mutedText }}>
+                  {(toppingsByItem.get(customizingItem.id) || []).length > 0 && (toppingsByItem.get(customizingItem.id) || []).every(topping => Number(topping.price || 0) === 0)
+                    ? 'Barra libre'
+                    : 'Personalizar plato'}
+                </p>
                 <h3 className="truncate text-xl font-black">{customizingItem.name}</h3>
               </div>
               <button onClick={() => setCustomizingItem(null)} className="grid h-10 w-10 place-items-center rounded-2xl bg-black/[0.06]">
@@ -886,6 +892,7 @@ export function KitchenClient({ tenantId, tenantSlug, tenantName, country, brand
                     <span className="min-w-0 flex-1">
                       <span className="block text-sm font-black">{topping.name}</span>
                       {Number(topping.price || 0) > 0 && <span className="text-xs font-bold" style={{ color: brand.mutedText }}>+ {money(Number(topping.price || 0))}</span>}
+                      {Number(topping.price || 0) <= 0 && <span className="text-xs font-bold" style={{ color: brand.mutedText }}>Gratis</span>}
                     </span>
                   </button>
                 );

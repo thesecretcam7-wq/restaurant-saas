@@ -45,17 +45,19 @@ export default function ToppingsManager({ menuItemId, tenantId }: Props) {
       toast.error('Ingresa el nombre del topping')
       return
     }
-    if (!newTopping.price || parseFloat(newTopping.price) < 0) {
+    if (newTopping.price && parseFloat(newTopping.price) < 0) {
       toast.error('Ingresa un precio válido')
       return
     }
+
+    const price = newTopping.price ? parseFloat(newTopping.price) : 0
 
     setAdding(true)
     const { error } = await supabase.from('product_toppings').insert({
       menu_item_id: menuItemId,
       tenant_id: tenantId,
       name: newTopping.name.trim(),
-      price: parseFloat(newTopping.price),
+      price,
       sort_order: toppings.length,
     })
     setAdding(false)
@@ -81,14 +83,14 @@ export default function ToppingsManager({ menuItemId, tenantId }: Props) {
   }
 
   const handleUpdateTopping = async (id: string, name: string, price: string) => {
-    if (!name.trim() || !price || parseFloat(price) < 0) {
+    if (!name.trim() || (price && parseFloat(price) < 0)) {
       toast.error('Datos inválidos')
       return
     }
 
     const { error } = await supabase
       .from('product_toppings')
-      .update({ name: name.trim(), price: parseFloat(price) })
+      .update({ name: name.trim(), price: price ? parseFloat(price) : 0 })
       .eq('id', id)
 
     if (error) {
@@ -113,8 +115,8 @@ export default function ToppingsManager({ menuItemId, tenantId }: Props) {
   return (
     <div className="bg-white sm:rounded-xl sm:border">
       <div className="px-4 py-4 border-b">
-        <h3 className="font-semibold text-gray-900">Adicionales (Toppings)</h3>
-        <p className="text-xs text-gray-500 mt-1">Agrega opciones que los clientes pueden seleccionar y pagar extra</p>
+        <h3 className="font-semibold text-gray-900">Ingredientes y adicionales</h3>
+        <p className="text-xs text-gray-500 mt-1">Usa precio 0 para barra libre gratis, o agrega precio cuando sea un extra pago.</p>
       </div>
 
       {/* List of existing toppings */}
@@ -160,7 +162,7 @@ export default function ToppingsManager({ menuItemId, tenantId }: Props) {
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="font-medium text-gray-900">{topping.name}</p>
-                    <p className="text-sm text-gray-500">+${topping.price.toFixed(2)}</p>
+                    <p className="text-sm text-gray-500">{topping.price > 0 ? `+$${topping.price.toFixed(2)}` : 'Gratis'}</p>
                   </div>
                   <div className="flex gap-2">
                     <button
@@ -185,13 +187,13 @@ export default function ToppingsManager({ menuItemId, tenantId }: Props) {
 
       {/* Add new topping */}
       <div className="px-4 py-4 border-t bg-gray-50">
-        <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">Agregar nuevo topping</p>
+        <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">Agregar ingrediente o adicional</p>
         <div className="flex gap-2">
           <input
             type="text"
             value={newTopping.name}
             onChange={e => setNewTopping(prev => ({ ...prev, name: e.target.value }))}
-            placeholder="Nombre (ej: Tocino, Queso, etc.)"
+            placeholder="Nombre (ej: cebolla, chipotle, queso, etc.)"
             onKeyPress={e => e.key === 'Enter' && handleAddTopping()}
             className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
@@ -201,7 +203,7 @@ export default function ToppingsManager({ menuItemId, tenantId }: Props) {
             min="0"
             value={newTopping.price}
             onChange={e => setNewTopping(prev => ({ ...prev, price: e.target.value }))}
-            placeholder="Precio"
+            placeholder="0 gratis"
             onKeyPress={e => e.key === 'Enter' && handleAddTopping()}
             className="w-24 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
           />

@@ -146,6 +146,7 @@ async function getProducts() {
       image_url: await ensureProductImage(product),
       featured: featuredProducts.has(productName),
       sort_order: product.sort_order ?? 0,
+      barra_libre_items: Array.isArray(product.barra_libre_items) ? product.barra_libre_items : [],
     })
   }
 
@@ -307,7 +308,7 @@ async function main() {
     insertedCategories.find((inserted) => inserted.name === category.name)?.id,
   ]))
 
-  await maybeSingle(
+  const insertedProducts = await maybeSingle(
     supabase.from('menu_items').insert(products.map((product) => ({
       tenant_id: tenantId,
       category_id: categoryByKey.get(product.category) || null,
@@ -318,9 +319,28 @@ async function main() {
       available: true,
       featured: product.featured,
       variants: { source_sort_order: product.sort_order },
-    }))).select('id'),
+    }))).select('id, name'),
     'insert products'
   )
+
+  const insertedProductByName = new Map(insertedProducts.map((product) => [product.name, product.id]))
+  const barraLibreToppings = products.flatMap((product) => {
+    const menuItemId = insertedProductByName.get(product.name)
+    if (!menuItemId) return []
+    return product.barra_libre_items.map((name, index) => ({
+      tenant_id: tenantId,
+      menu_item_id: menuItemId,
+      name,
+      price: 0,
+      sort_order: index,
+    }))
+  })
+  if (barraLibreToppings.length) {
+    await maybeSingle(
+      supabase.from('product_toppings').insert(barraLibreToppings).select('id'),
+      'insert barra libre ingredients'
+    )
+  }
 
   await maybeSingle(
     supabase.from('kiosko_banners').delete().eq('tenant_id', tenantId),

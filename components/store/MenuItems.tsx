@@ -62,6 +62,7 @@ export function MenuListItem({
 }: MenuItemProps) {
   const [imageLoaded, setImageLoaded] = useState(!item.image_url)
   const hasToppings = toppings.length > 0
+  const hasOnlyFreeToppings = hasToppings && toppings.every(topping => Number(topping.price || 0) === 0)
 
   return (
     <div
@@ -92,7 +93,7 @@ export function MenuListItem({
       <div className="min-w-0 flex-1 py-0.5">
         <p className="line-clamp-2 text-sm font-black leading-5" style={{ color: textColor }}>{item.name}</p>
         {item.description && <p className="mt-0.5 line-clamp-2 text-xs font-semibold" style={{ color: mutedTextColor }}>{item.description}</p>}
-        {hasToppings && <p className="mt-1 text-[11px] font-black uppercase tracking-wide" style={{ color: priceColor }}>Personalizar adicionales</p>}
+        {hasToppings && <p className="mt-1 text-[11px] font-black uppercase tracking-wide" style={{ color: priceColor }}>{hasOnlyFreeToppings ? 'Barra libre gratis' : 'Personalizar adicionales'}</p>}
         <p className="mt-1.5 text-sm font-black" style={{ color: priceColor }}>
           {formatPriceWithCurrency(item.price, currencyInfo.code, currencyInfo.locale)}
         </p>
@@ -120,6 +121,7 @@ export function MenuGridItem({
 }: MenuItemProps) {
   const [imageLoaded, setImageLoaded] = useState(!item.image_url)
   const hasToppings = toppings.length > 0
+  const hasOnlyFreeToppings = hasToppings && toppings.every(topping => Number(topping.price || 0) === 0)
 
   return (
     <div
@@ -144,7 +146,7 @@ export function MenuGridItem({
           <div className="absolute inset-0 bg-gradient-to-t from-black/62 via-black/10 to-transparent" />
           {hasToppings && (
             <span className="absolute left-2 top-2 rounded-full px-2.5 py-1 text-[10px] font-black text-white shadow-lg" style={{ backgroundColor: buttonColor }}>
-              Adicionales
+              {hasOnlyFreeToppings ? 'Barra libre' : 'Adicionales'}
             </span>
           )}
           <span className="absolute bottom-2 left-2 rounded-full bg-white/92 px-3 py-1.5 text-sm font-black shadow-lg backdrop-blur" style={{ color: priceColor }}>
@@ -157,7 +159,7 @@ export function MenuGridItem({
       <div className="flex flex-1 flex-col p-2.5">
         <p className="line-clamp-2 min-h-10 text-sm font-black leading-5" style={{ color: textColor }}>{item.name}</p>
         {item.description && <p className="mt-1 line-clamp-2 flex-1 text-xs font-semibold" style={{ color: mutedTextColor }}>{item.description}</p>}
-        {hasToppings && <p className="mt-1 text-[11px] font-black uppercase tracking-wide" style={{ color: priceColor }}>Toca + para elegir</p>}
+        {hasToppings && <p className="mt-1 text-[11px] font-black uppercase tracking-wide" style={{ color: priceColor }}>{hasOnlyFreeToppings ? 'Elige ingredientes gratis' : 'Toca + para elegir'}</p>}
         <div className="mt-2 flex items-center justify-between gap-1">
           <p className={`text-base font-black ${item.image_url ? 'sr-only' : ''}`} style={{ color: priceColor }}>
             {formatPriceWithCurrency(item.price, currencyInfo.code, currencyInfo.locale)}
@@ -182,13 +184,14 @@ export function MenuCompactItem({
   index = 0,
 }: MenuCompactItemProps) {
   const hasToppings = toppings.length > 0
+  const hasOnlyFreeToppings = hasToppings && toppings.every(topping => Number(topping.price || 0) === 0)
 
   return (
     <div className="menu-rise flex items-center justify-between gap-3 px-4 py-3" style={{ animationDelay: `${index * 35}ms` }}>
       <div className="min-w-0 flex-1">
         <p className="text-sm font-black" style={{ color: textColor }}>{item.name}</p>
         {item.description && <p className="mt-0.5 line-clamp-1 text-xs font-semibold" style={{ color: mutedTextColor }}>{item.description}</p>}
-        {hasToppings && <p className="mt-1 text-[10px] font-black uppercase tracking-wide" style={{ color: priceColor }}>Adicionales</p>}
+        {hasToppings && <p className="mt-1 text-[10px] font-black uppercase tracking-wide" style={{ color: priceColor }}>{hasOnlyFreeToppings ? 'Barra libre' : 'Adicionales'}</p>}
       </div>
       <p className="flex-shrink-0 text-sm font-extrabold" style={{ color: priceColor }}>
         {formatPriceWithCurrency(item.price, currencyInfo.code, currencyInfo.locale)}

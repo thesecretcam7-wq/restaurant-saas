@@ -358,7 +358,9 @@ function CategoryProductModal({
             <div className="p-6">
               <div className="grid grid-cols-3 gap-4">
                 {products.map(item => {
-                  const hasToppings = toppings.some(topping => topping.menu_item_id === item.id)
+                  const itemToppings = toppings.filter(topping => topping.menu_item_id === item.id)
+                  const hasToppings = itemToppings.length > 0
+                  const hasOnlyFreeToppings = hasToppings && itemToppings.every(topping => Number(topping.price || 0) === 0)
                   return (
                   <button
                     key={item.id}
@@ -376,14 +378,16 @@ function CategoryProductModal({
                       )}
                       {hasToppings && (
                         <span className="absolute left-3 top-3 rounded-full px-3 py-1 text-[11px] font-black shadow-lg" style={{ backgroundColor: buttonColor, color: readableText(buttonColor) }}>
-                          Adicionales
+                          {hasOnlyFreeToppings ? 'Barra libre' : 'Adicionales'}
                         </span>
                       )}
                     </div>
                     <div className="p-4 flex flex-col flex-1">
                       <p className="font-bold text-sm leading-snug line-clamp-2 flex-1 mb-2" style={{ color: textColor }}>{item.name}</p>
                       {hasToppings && (
-                        <p className="mb-2 text-xs font-black uppercase tracking-wide" style={{ color: accentColor }}>Toca para personalizar</p>
+                        <p className="mb-2 text-xs font-black uppercase tracking-wide" style={{ color: accentColor }}>
+                          {hasOnlyFreeToppings ? 'Elige ingredientes gratis' : 'Toca para personalizar'}
+                        </p>
                       )}
                       <div className="flex items-center justify-between">
                         <p className="font-black text-lg" style={{ color: accentColor }}>
@@ -676,9 +680,10 @@ export default function KioskoClient({
 
   const getQtyInCart = (id: string) => cart.filter(c => c.menu_item_id === id).reduce((sum, c) => sum + c.qty, 0)
   const toppingsForSelectedItem = selectedItem ? toppings.filter(t => t.menu_item_id === selectedItem.id) : []
+  const selectedItemHasOnlyFreeToppings = toppingsForSelectedItem.length > 0 && toppingsForSelectedItem.every(topping => Number(topping.price || 0) === 0)
   const selectedToppingsCost = selectedToppings.reduce((sum, t) => sum + Number(t.price || 0), 0)
   const selectedUnitPrice = selectedItem ? selectedItem.price + selectedToppingsCost : 0
-  const toppingsNote = (tops: Topping[]) => tops.length ? `Adicionales: ${tops.map(t => `${t.name}${t.price > 0 ? ` (+${fmt(t.price, currencyCode, currencyLocale)})` : ''}`).join(', ')}` : undefined
+  const toppingsNote = (tops: Topping[]) => tops.length ? `Ingredientes: ${tops.map(t => `${t.name}${t.price > 0 ? ` (+${fmt(t.price, currencyCode, currencyLocale)})` : ''}`).join(', ')}` : undefined
   const toggleTopping = (topping: Topping) => {
     setSelectedToppings(prev =>
       prev.some(t => t.id === topping.id)
@@ -1352,9 +1357,16 @@ export default function KioskoClient({
               {toppingsForSelectedItem.length > 0 && (
                 <div className="mb-6">
                   <div className="flex items-center justify-between mb-3">
-                    <p className="text-sm font-black uppercase tracking-widest" style={{ color: surfaceMutedTextColor }}>Adicionales</p>
+                    <p className="text-sm font-black uppercase tracking-widest" style={{ color: surfaceMutedTextColor }}>
+                      {selectedItemHasOnlyFreeToppings ? 'Barra libre' : 'Adicionales'}
+                    </p>
                     <p className="text-xs font-bold" style={{ color: surfaceMutedTextColor }}>Opcional</p>
                   </div>
+                  {selectedItemHasOnlyFreeToppings && (
+                    <p className="mb-3 text-sm font-semibold" style={{ color: surfaceMutedTextColor }}>
+                      Elige los ingredientes que quieres. No tienen costo adicional.
+                    </p>
+                  )}
                   <div className="grid grid-cols-2 gap-2 max-h-56 overflow-y-auto pr-1">
                     {toppingsForSelectedItem.map(topping => {
                       const checked = selectedToppings.some(t => t.id === topping.id)
@@ -1383,6 +1395,9 @@ export default function KioskoClient({
                             <span className="block font-black leading-tight" style={{ color: surfaceTextColor }}>{topping.name}</span>
                             {topping.price > 0 && (
                               <span className="block text-xs mt-0.5" style={{ color: accentColor }}>+ {fmt(topping.price, currencyCode, currencyLocale)}</span>
+                            )}
+                            {topping.price <= 0 && selectedItemHasOnlyFreeToppings && (
+                              <span className="block text-xs mt-0.5" style={{ color: accentColor }}>Gratis</span>
                             )}
                           </span>
                         </button>

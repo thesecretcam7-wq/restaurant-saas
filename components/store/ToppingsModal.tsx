@@ -29,6 +29,7 @@ export default function ToppingsModal({ item, toppings, tenantId, primaryColor, 
   const toppingsCost = selectedToppings.reduce((sum, t) => sum + t.price, 0)
   const itemTotal = (item.price + toppingsCost) * qty
   const money = (value: number) => formatPriceWithCurrency(Number(value || 0), currencyInfo?.code || 'EUR', currencyInfo?.locale || 'es-ES')
+  const hasOnlyFreeToppings = toppings.length > 0 && toppings.every(topping => Number(topping.price || 0) === 0)
 
   useEffect(() => {
     setMounted(true)
@@ -97,7 +98,14 @@ export default function ToppingsModal({ item, toppings, tenantId, primaryColor, 
           {/* Toppings List */}
           {toppings.length > 0 && (
             <div className="space-y-3">
-              <h3 className="font-semibold text-gray-900 text-sm uppercase tracking-wide">Agregar adicionales</h3>
+              <div>
+                <h3 className="font-semibold text-gray-900 text-sm uppercase tracking-wide">
+                  {hasOnlyFreeToppings ? 'Barra libre de ingredientes' : 'Agregar adicionales'}
+                </h3>
+                {hasOnlyFreeToppings && (
+                  <p className="mt-1 text-sm text-gray-500">Elige lo que quieres que lleve. No tiene costo adicional.</p>
+                )}
+              </div>
               {toppings.map(topping => (
                 <label
                   key={topping.id}
@@ -114,6 +122,9 @@ export default function ToppingsModal({ item, toppings, tenantId, primaryColor, 
                     <p className="font-medium text-gray-900">{topping.name}</p>
                     {topping.price > 0 && (
                       <p className="text-xs text-gray-500">+{money(topping.price)}</p>
+                    )}
+                    {topping.price <= 0 && hasOnlyFreeToppings && (
+                      <p className="text-xs text-gray-500">Gratis</p>
                     )}
                   </div>
                 </label>
