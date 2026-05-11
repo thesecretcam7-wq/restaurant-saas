@@ -1,5 +1,6 @@
 import { createServiceClient } from '@/lib/supabase/server'
 import { getCurrencyByCountry } from '@/lib/currency'
+import { getTenantContext } from '@/lib/tenant'
 import { deriveBrandPalette } from '@/lib/brand-colors'
 import KioskoClient from './KioskoClient'
 
@@ -30,12 +31,8 @@ export default async function KioskoPage({ params, searchParams }: Props) {
     )
   }
 
-  const [brandingRes, categoriesRes, itemsRes, toppingsRes, settingsRes, bannersRes] = await Promise.all([
-    supabase
-      .from('tenant_branding')
-      .select('app_name, primary_color, secondary_color, accent_color, background_color, button_primary_color, button_secondary_color, text_primary_color, text_secondary_color, border_color, logo_url, favicon_url')
-      .eq('tenant_id', tenant.id)
-      .maybeSingle(),
+  const [context, categoriesRes, itemsRes, toppingsRes, settingsRes, bannersRes] = await Promise.all([
+    getTenantContext(domain),
     supabase
       .from('menu_categories')
       .select('id, name, sort_order, image_url')
@@ -65,22 +62,22 @@ export default async function KioskoPage({ params, searchParams }: Props) {
       .order('sort_order'),
   ])
 
-  const tenantMetadata = (tenant.metadata || {}) as Record<string, any>
-  const metadataBranding = (tenantMetadata.branding || {}) as Record<string, any>
+  const contextBranding = (context.branding || {}) as Record<string, any>
   const palette = deriveBrandPalette({
-    primary: brandingRes.data?.primary_color,
-    secondary: brandingRes.data?.secondary_color,
-    accent: brandingRes.data?.accent_color,
-    background: brandingRes.data?.background_color,
-    buttonPrimary: brandingRes.data?.button_primary_color,
-    buttonSecondary: brandingRes.data?.button_secondary_color,
-    textPrimary: brandingRes.data?.text_primary_color,
-    textSecondary: brandingRes.data?.text_secondary_color,
-    border: brandingRes.data?.border_color,
+    primary: contextBranding.primary_color,
+    secondary: contextBranding.secondary_color,
+    accent: contextBranding.accent_color,
+    background: contextBranding.background_color,
+    surface: contextBranding.section_background_color,
+    buttonPrimary: contextBranding.button_primary_color,
+    buttonSecondary: contextBranding.button_secondary_color,
+    textPrimary: contextBranding.text_primary_color,
+    textSecondary: contextBranding.text_secondary_color,
+    border: contextBranding.border_color,
   })
 
   const branding = {
-    appName: brandingRes.data?.app_name || tenant.organization_name,
+    appName: contextBranding.app_name || tenant.organization_name,
     primaryColor: palette.primary,
     secondaryColor: palette.secondary,
     accentColor: palette.accent,
@@ -92,9 +89,8 @@ export default async function KioskoPage({ params, searchParams }: Props) {
     borderColor: palette.border,
     logoUrl:
       tenant.logo_url ||
-      metadataBranding.logo_url ||
-      (brandingRes.data as any)?.logo_url ||
-      (brandingRes.data as any)?.favicon_url ||
+      contextBranding.logo_url ||
+      contextBranding.favicon_url ||
       null,
   }
 
