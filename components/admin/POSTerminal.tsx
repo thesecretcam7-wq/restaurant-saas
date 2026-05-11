@@ -2012,7 +2012,7 @@ export function POSTerminal({
 
           {/* Menu Grid */}
           <div className={`flex-1 overflow-y-auto ${isFullscreen ? 'px-4 py-3' : 'p-3 sm:p-4'}`}>
-            <div className={`grid gap-3 h-fit ${isFullscreen ? 'grid-cols-2 sm:grid-cols-4 lg:grid-cols-8' : 'grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-6 2xl:grid-cols-7'}`}>
+            <div className={`grid gap-3 h-fit ${isFullscreen ? 'grid-cols-2 sm:grid-cols-3 lg:grid-cols-6' : 'grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6'}`}>
               {filteredMenu.map((item, index) => {
                 const qty = cartQuantityMap.get(item.id);
                 return (
@@ -2020,7 +2020,7 @@ export function POSTerminal({
                     key={item.id}
                     onClick={() => addToCart(item)}
                     title={index < 9 ? `Tecla ${index + 1}: agregar ${item.name}` : `Agregar ${item.name}`}
-                    className={`pos-card relative rounded-xl p-2.5 text-left transition-all duration-200 transform hover:scale-[1.025] active:scale-95 h-fit flex flex-col justify-between group ${
+                    className={`pos-card relative min-h-[154px] rounded-xl p-3 text-left transition-all duration-200 transform hover:scale-[1.025] active:scale-95 flex flex-col justify-between group ${
                       qty
                         ? 'border-2 border-cyan-300/70 bg-cyan-300/14 shadow-lg shadow-cyan-900/30'
                         : ''
@@ -2040,11 +2040,11 @@ export function POSTerminal({
                       <img
                         src={item.image_url}
                         alt={item.name}
-                        className={`w-full object-contain rounded-lg mb-2 group-hover:scale-110 transition-transform duration-200 ${isFullscreen ? 'h-16' : 'max-h-20'}`}
+                        className={`w-full object-contain rounded-lg mb-2 group-hover:scale-110 transition-transform duration-200 ${isFullscreen ? 'h-20' : 'h-24'}`}
                       />
                     )}
-                    <p className="font-bold text-xs truncate flex-1 text-white group-hover:text-cyan-200 transition-colors">{item.name}</p>
-                    <p className={`font-black text-xs mt-1 ${qty ? 'text-cyan-200' : 'text-emerald-300'}`}>
+                    <p className="font-black text-sm leading-tight line-clamp-2 flex-1 text-white group-hover:text-cyan-200 transition-colors">{item.name}</p>
+                    <p className={`font-black text-sm mt-1 ${qty ? 'text-cyan-200' : 'text-emerald-300'}`}>
                       {formatPriceWithCurrency(item.price, currencyInfo.code, currencyInfo.locale)}
                     </p>
                   </button>
