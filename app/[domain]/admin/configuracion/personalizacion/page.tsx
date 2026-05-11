@@ -324,13 +324,12 @@ export default function PersonalizacionPage({ params }: PersonalizacionProps) {
   const previewName = form.app_name || 'Tu Restaurante'
   const previewTagline = form.tagline || 'Sabor fresco todos los dias'
   const previewDescription = form.description || form.welcome_message || 'Explora el menu y pide tus favoritos.'
-  const previewSurface = form.use_gradient
-    ? `linear-gradient(${form.gradient_direction}, ${form.gradient_start_color}, ${form.gradient_end_color})`
-    : form.background_color
+  const generatedBrand = buildProfessionalBrandValues(form)
+  const previewSurface = generatedBrand.background_color
   const previewBackgroundStyle = form.section_background_image_url
     ? {
-        backgroundColor: form.background_color,
-        backgroundImage: `${form.use_gradient ? `linear-gradient(${form.gradient_direction}, ${form.gradient_start_color}, ${form.gradient_end_color}), ` : 'linear-gradient(rgba(255,255,255,.76), rgba(255,255,255,.76)), '}url(${form.section_background_image_url})`,
+        backgroundColor: generatedBrand.background_color,
+        backgroundImage: `linear-gradient(${generatedBrand.background_color}e8, ${generatedBrand.background_color}e8), url(${form.section_background_image_url})`,
         backgroundSize: 'cover',
         backgroundPosition: 'center',
       }
@@ -338,7 +337,7 @@ export default function PersonalizacionPage({ params }: PersonalizacionProps) {
   const previewRadius = `${form.border_radius}px`
   const previewButtonRadius = `${form.button_border_radius}px`
   const previewHeadingStyle = {
-    color: form.text_primary_color,
+    color: generatedBrand.text_primary_color,
     fontFamily: form.heading_font,
     fontSize: Math.min(Math.max(Number(form.heading_font_size) || 28, 20), 34),
     fontWeight: form.heading_font_weight,
@@ -346,7 +345,7 @@ export default function PersonalizacionPage({ params }: PersonalizacionProps) {
     textTransform: form.text_transform as 'none' | 'uppercase' | 'capitalize',
   }
   const previewBodyStyle = {
-    color: form.text_secondary_color,
+    color: generatedBrand.text_secondary_color,
     fontSize: Math.min(Math.max(Number(form.body_font_size) || 16, 13), 18),
     fontWeight: form.body_font_weight,
     lineHeight: form.line_height,
@@ -363,13 +362,13 @@ export default function PersonalizacionPage({ params }: PersonalizacionProps) {
   ]
   const previewSwatches = [
     { label: 'Primario', color: form.primary_color },
-    { label: 'Secundario', color: form.secondary_color },
-    { label: 'Precios', color: form.accent_color },
-    { label: 'Fondo', color: form.background_color },
+    { label: 'Secundario', color: generatedBrand.secondary_color },
+    { label: 'Precios', color: generatedBrand.accent_color },
+    { label: 'Fondo', color: generatedBrand.background_color },
     { label: 'Boton', color: form.button_primary_color },
   ]
   const previewMediaStyle = {
-    backgroundColor: form.section_background_color || form.background_color,
+    backgroundColor: generatedBrand.section_background_color || generatedBrand.background_color,
     color: form.primary_color,
   }
 
