@@ -73,6 +73,7 @@ const icons: Record<string, ComponentType<{ className?: string }>> = {
   kds: ChefHat,
   comandero: ClipboardList,
   staffAccess: UsersRound,
+  personal: UsersRound,
   qr: QrCode,
   audit: ShieldCheck,
   ai: Brain,

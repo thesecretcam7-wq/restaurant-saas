@@ -69,6 +69,7 @@ export default async function AdminLayout({ children, params }: AdminLayoutProps
     { href: `/${tenantSlug}/admin/dashboard`, label: 'Dashboard', icon: 'dashboard' },
     { href: `/${tenantSlug}/admin/pedidos`, label: 'Pedidos', icon: 'orders' },
     { href: `/${tenantSlug}/acceso`, label: 'Acceso personal', icon: 'staffAccess' },
+    { href: `/${tenantSlug}/admin/configuracion/personal`, label: 'Empleados', icon: 'personal' },
     { href: `/${tenantSlug}/admin/qr-carta`, label: 'QR Carta', icon: 'qr' },
     { href: `/${tenantSlug}/admin/productos`, label: 'Productos', icon: 'products' },
     { href: `/${tenantSlug}/admin/banners`, label: 'Banners', icon: 'banners' },
