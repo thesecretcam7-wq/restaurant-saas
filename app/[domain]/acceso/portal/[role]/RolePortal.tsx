@@ -70,7 +70,7 @@ export function RolePortal({ tenantId, tenantName, tenantSlug, logoUrl, role }: 
       <header className="flex items-center justify-between px-5 py-4 bg-white border-b border-gray-200">
         <div className="flex items-center gap-3">
           {logoUrl ? (
-            <img src={logoUrl} alt={tenantName} className="w-9 h-9 rounded-xl object-cover" />
+            <img src={logoUrl} alt={tenantName} className="h-14 w-20 object-contain drop-shadow-md" />
           ) : (
             <div className="w-9 h-9 bg-emerald-600 rounded-xl flex items-center justify-center">
               <ChefHat className="w-5 h-5 text-white" />

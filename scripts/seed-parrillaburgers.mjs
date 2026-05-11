@@ -156,7 +156,7 @@ const tenantPayload = {
   organization_name: 'ParrillaBurgers',
   slug: 'parrillaburgers',
   primary_domain: customDomain,
-  logo_url: asset('logo-real.png'),
+  logo_url: asset('logo-cropped.png'),
   status: 'active',
   subscription_plan: 'premium',
   owner_email: 'admin@parrillaburgers.com',

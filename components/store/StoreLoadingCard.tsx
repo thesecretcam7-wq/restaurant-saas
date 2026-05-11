@@ -33,22 +33,24 @@ export default function StoreLoadingCard({ color, logoUrl }: StoreLoadingCardPro
     <div className="w-full max-w-[430px] overflow-hidden rounded-[32px] border border-white/80 bg-white/98 p-8 text-[#15130f] shadow-[0_30px_100px_rgba(0,0,0,0.18)]">
       <div className="flex flex-col items-center text-center">
         <div
-          className="relative grid size-28 place-items-center rounded-[30px] text-4xl font-black text-white shadow-[0_22px_60px_rgba(0,0,0,0.16)]"
-          style={{ backgroundColor: primary }}
+          className={`relative grid place-items-center text-4xl font-black text-white ${resolvedLogo ? 'h-32 w-40' : 'size-28 rounded-[30px] shadow-[0_22px_60px_rgba(0,0,0,0.16)]'}`}
+          style={resolvedLogo ? undefined : { backgroundColor: primary }}
           aria-hidden="true"
         >
-          <span
-            className="absolute inset-0 rounded-2xl"
-            style={{
-              backgroundColor: primary,
-              animation: 'storeLoaderGlow 1.35s ease-in-out infinite',
-            }}
-          />
+          {!resolvedLogo && (
+            <span
+              className="absolute inset-0 rounded-2xl"
+              style={{
+                backgroundColor: primary,
+                animation: 'storeLoaderGlow 1.35s ease-in-out infinite',
+              }}
+            />
+          )}
           {resolvedLogo ? (
             <img
               src={resolvedLogo}
               alt=""
-              className="relative h-24 w-24 object-contain drop-shadow-lg"
+              className="relative h-full w-full object-contain drop-shadow-2xl"
               onError={(event) => {
                 event.currentTarget.style.display = 'none'
               }}

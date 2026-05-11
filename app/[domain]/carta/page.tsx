@@ -129,8 +129,8 @@ export default async function CartaPage({ params }: CartaProps) {
       <header className="fixed inset-x-0 top-0 z-40 border-b shadow-lg shadow-black/[0.08] backdrop-blur-xl" style={{ backgroundColor: primary, borderColor: `${headerText}24` }}>
         <div className="mx-auto flex h-16 max-w-3xl items-center gap-3 px-4">
           {logoUrl ? (
-            <div className="relative h-12 w-16 flex-shrink-0 overflow-hidden rounded-2xl bg-white/80 p-1.5 shadow-sm ring-1" style={{ '--tw-ring-color': border } as React.CSSProperties}>
-              <Image src={logoUrl} alt={restaurantName} fill sizes="64px" className="object-contain" priority />
+            <div className="relative h-16 w-24 flex-shrink-0">
+              <Image src={logoUrl} alt={restaurantName} fill sizes="96px" className="object-contain drop-shadow-xl" priority />
             </div>
           ) : (
             <div className="grid h-12 w-12 flex-shrink-0 place-items-center rounded-2xl text-lg font-black" style={{ backgroundColor: primary, color: readableTextColor(primary) }}>

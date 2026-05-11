@@ -128,7 +128,7 @@ export function AdminSidebar({
         <div className="flex items-center justify-between gap-3">
           <div className="flex min-w-0 items-center gap-3">
             {logoUrl ? (
-              <span className="flex h-12 w-16 flex-shrink-0 items-center justify-center rounded-xl bg-white p-1 shadow-sm">
+              <span className="flex h-14 w-20 flex-shrink-0 items-center justify-center">
                 <img src={logoUrl} alt="" className="max-h-full max-w-full object-contain" />
               </span>
             ) : (

@@ -127,9 +127,9 @@ export function RoleSelector({ tenantName, tenantSlug, logoUrl, branding }: Prop
       <div className="flex min-h-screen flex-col lg:flex-row">
         <section className="flex flex-col justify-between border-b border-white/10 px-5 py-6 sm:px-8 lg:w-[42%] lg:min-w-[380px] lg:border-b-0 lg:border-r lg:px-10 lg:py-9">
           <div className="flex items-center gap-4">
-            <div className="grid h-16 w-24 place-items-center overflow-hidden rounded-2xl border border-white/15 bg-white/10 p-1 shadow-2xl sm:w-28">
+            <div className="grid h-20 w-28 place-items-center sm:h-24 sm:w-32">
               {logoUrl ? (
-                <img src={logoUrl} alt={appName} className="h-full w-full rounded-xl bg-white object-contain p-0.5" />
+                <img src={logoUrl} alt={appName} className="h-full w-full object-contain drop-shadow-2xl" />
               ) : (
                 <ChefHat className="h-8 w-8" style={{ color: primary }} />
               )}

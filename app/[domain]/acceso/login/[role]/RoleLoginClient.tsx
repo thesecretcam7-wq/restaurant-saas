@@ -74,13 +74,12 @@ function RoleAccessLoader({
   return (
     <div className="fixed inset-0 z-50 grid place-items-center bg-black/55 px-5 backdrop-blur-lg">
       <div className="w-full max-w-sm rounded-[2rem] border border-white/15 bg-white/[0.92] p-7 text-center text-[#17120d] shadow-[0_30px_100px_rgba(0,0,0,0.34)]">
-        <div className="relative mx-auto mb-5 grid h-24 w-32 place-items-center">
-          <div className="absolute inset-0 animate-[storeLoaderGlow_1.6s_ease-in-out_infinite] rounded-[1.75rem]" style={{ backgroundColor: primary }} />
-          <div className="relative grid h-24 w-32 place-items-center overflow-hidden rounded-[1.75rem] bg-[#111111] shadow-2xl">
+        <div className="relative mx-auto mb-5 grid h-28 w-36 place-items-center">
+          <div className="relative grid h-28 w-36 place-items-center">
             {logoUrl ? (
-              <img src={logoUrl} alt={appName} className="h-full w-full object-contain bg-white p-1" />
+              <img src={logoUrl} alt={appName} className="h-full w-full object-contain drop-shadow-2xl" />
             ) : (
-              <span className="text-3xl font-black text-white">E</span>
+              <span className="grid h-20 w-20 place-items-center rounded-[1.75rem] bg-[#111111] text-3xl font-black text-white shadow-2xl">E</span>
             )}
           </div>
         </div>
@@ -276,9 +275,9 @@ export function RoleLoginClient({
       <div className="grid min-h-screen grid-cols-1 lg:grid-cols-[0.92fr_1.08fr]">
         <section className="flex flex-col justify-between border-white/10 px-4 pb-3 pt-14 sm:px-10 sm:py-9 sm:pl-24 lg:border-r">
           <div className="flex items-center gap-3 sm:gap-4">
-            <div className="grid h-14 w-20 place-items-center overflow-hidden rounded-2xl border border-white/15 bg-white/10 p-1 shadow-2xl sm:h-16 sm:w-28">
+            <div className="grid h-20 w-28 place-items-center sm:h-24 sm:w-32">
               {logoUrl ? (
-                <img src={logoUrl} alt={appName} className="h-full w-full rounded-xl bg-white object-contain p-0.5" />
+                <img src={logoUrl} alt={appName} className="h-full w-full object-contain drop-shadow-2xl" />
               ) : (
                 <ChefHat className="h-6 w-6 sm:h-8 sm:w-8" style={{ color: primary }} />
               )}

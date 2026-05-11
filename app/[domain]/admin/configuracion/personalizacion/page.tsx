@@ -1159,7 +1159,7 @@ export default function PersonalizacionPage({ params }: PersonalizacionProps) {
               <div className="flex items-center justify-between px-5 py-4" style={{ backgroundColor: form.secondary_color }}>
                 <div className="flex min-w-0 items-center gap-3">
                   {form.logo_url ? (
-                    <img src={form.logo_url} alt={previewName} className="h-12 w-12 shrink-0 rounded-xl object-cover bg-white" />
+                    <img src={form.logo_url} alt={previewName} className="h-16 w-24 shrink-0 object-contain drop-shadow-xl" />
                   ) : (
                     <div className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-white text-sm font-black" style={{ color: form.primary_color }}>
                       {previewName.slice(0, 2).toUpperCase()}

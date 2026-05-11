@@ -61,7 +61,7 @@ export default async function CartaQrPage({ params }: Props) {
         <section className="admin-panel p-5">
           <div className="rounded-2xl border border-black/10 bg-white p-5 text-center shadow-sm">
             {tenant.logo_url ? (
-              <img src={tenant.logo_url} alt="" className="mx-auto mb-4 size-16 rounded-2xl object-cover" />
+              <img src={tenant.logo_url} alt="" className="mx-auto mb-4 h-24 w-32 object-contain drop-shadow-xl" />
             ) : (
               <div className="mx-auto mb-4 grid size-16 place-items-center rounded-2xl bg-[#15130f] text-xl font-black text-white">
                 {tenant.organization_name?.charAt(0) || 'E'}

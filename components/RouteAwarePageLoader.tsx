@@ -93,15 +93,17 @@ export default function RouteAwarePageLoader() {
       <main className="grid min-h-screen place-items-center bg-white/70 px-5 text-[#15130f] backdrop-blur-[8px]">
         <section className="w-full max-w-[460px] overflow-hidden rounded-[34px] border border-white/80 bg-white/98 p-8 text-center shadow-[0_30px_100px_rgba(0,0,0,0.18)]">
           <div
-            className="relative mx-auto grid size-28 place-items-center rounded-[30px] text-4xl font-black text-white shadow-[0_22px_60px_rgba(0,0,0,0.16)]"
-            style={{ backgroundColor: primary }}
+            className={`relative mx-auto grid place-items-center text-4xl font-black text-white ${storeBrand?.logoUrl ? 'h-32 w-40' : 'size-28 rounded-[30px] shadow-[0_22px_60px_rgba(0,0,0,0.16)]'}`}
+            style={storeBrand?.logoUrl ? undefined : { backgroundColor: primary }}
           >
-            <span
-              className="absolute inset-0 rounded-2xl"
-              style={{ backgroundColor: primary, animation: 'storeLoaderGlow 1.35s ease-in-out infinite' }}
-            />
+            {!storeBrand?.logoUrl && (
+              <span
+                className="absolute inset-0 rounded-2xl"
+                style={{ backgroundColor: primary, animation: 'storeLoaderGlow 1.35s ease-in-out infinite' }}
+              />
+            )}
             {storeBrand?.logoUrl ? (
-              <img src={storeBrand.logoUrl} alt={appName} className="relative h-24 w-24 object-contain drop-shadow-lg" />
+              <img src={storeBrand.logoUrl} alt={appName} className="relative h-full w-full object-contain drop-shadow-2xl" />
             ) : (
               <span className="relative">{appName.charAt(0)}</span>
             )}

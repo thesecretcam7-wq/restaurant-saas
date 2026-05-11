@@ -106,7 +106,7 @@ function AppHeader({
             <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M19 12H5"/><path d="M12 19l-7-7 7-7"/></svg>
           </button>
         )}
-        <div className="flex h-14 w-24 flex-shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-white/92 p-1 shadow-sm ring-1 md:h-16 md:w-28" style={{ '--tw-ring-color': `${textColor}24` } as React.CSSProperties}>
+        <div className="flex h-16 w-24 flex-shrink-0 items-center justify-center md:h-20 md:w-32">
           {logoUrl ? (
             <img src={logoUrl} alt={appName} className="max-h-full max-w-full object-contain" />
           ) : (

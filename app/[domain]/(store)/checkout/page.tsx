@@ -409,7 +409,7 @@ function CheckoutStoreLoader({
             }}
           />
           {logoUrl ? (
-            <img src={logoUrl} alt={appName || ''} className="relative h-24 w-24 object-contain drop-shadow-lg" />
+            <img src={logoUrl} alt={appName || ''} className="relative h-32 w-40 object-contain drop-shadow-2xl" />
           ) : (
             <span className="relative">{appName?.charAt(0) || 'R'}</span>
           )}
