@@ -58,6 +58,16 @@ function readableText(background: string, fallbackDark = '#15130f', fallbackLigh
   return isDark(background) ? fallbackLight : fallbackDark;
 }
 
+function isVisibleAccent(color: string) {
+  const rgb = hexToRgb(color);
+  if (!rgb) return false;
+  const max = Math.max(rgb.r, rgb.g, rgb.b) / 255;
+  const min = Math.min(rgb.r, rgb.g, rgb.b) / 255;
+  const lightness = (max + min) / 2;
+  const saturation = max === min ? 0 : (max - min) / (1 - Math.abs(2 * lightness - 1));
+  return saturation > 0.28 && lightness > 0.2;
+}
+
 function RoleAccessLoader({
   appName,
   tool,
@@ -120,9 +130,11 @@ export function RoleLoginClient({
   const primary = branding.primaryColor;
   const secondary = branding.secondaryColor;
   const accent = branding.accentColor;
-  const pageBg = isDark(branding.backgroundColor) ? branding.backgroundColor : '#0b0f19';
-  const primaryText = readableText(primary);
-  const secondaryText = readableText(secondary);
+  const pageBg = isDark(primary) ? primary : isDark(branding.backgroundColor) ? branding.backgroundColor : '#0b0f19';
+  const highlight = isVisibleAccent(primary) && !isDark(primary) ? primary : accent;
+  const secondaryHighlight = isVisibleAccent(secondary) && !isDark(secondary) ? secondary : accent;
+  const primaryText = readableText(highlight);
+  const secondaryText = readableText(secondaryHighlight);
   const appName = branding.appName || tenantName;
 
   async function handleStaffSelect(selectedId: string) {
@@ -259,7 +271,7 @@ export function RoleLoginClient({
           appName={appName}
           tool={config.tool}
           logoUrl={logoUrl}
-          primary={primary}
+          primary={highlight}
           message={loadingMessage}
         />
       )}
@@ -279,7 +291,7 @@ export function RoleLoginClient({
               {logoUrl ? (
                 <img src={logoUrl} alt={appName} className="h-full w-full object-contain drop-shadow-2xl" />
               ) : (
-                <ChefHat className="h-6 w-6 sm:h-8 sm:w-8" style={{ color: primary }} />
+                <ChefHat className="h-6 w-6 sm:h-8 sm:w-8" style={{ color: highlight }} />
               )}
             </div>
             <div>
@@ -291,7 +303,7 @@ export function RoleLoginClient({
           <div className="hidden lg:block">
             <p
               className="mb-5 inline-flex rounded-full px-4 py-2 text-sm font-black uppercase tracking-[0.16em]"
-              style={{ backgroundColor: `${primary}24`, color: primary }}
+              style={{ backgroundColor: `${highlight}24`, color: highlight }}
             >
               {config.tool}
             </p>
@@ -304,7 +316,7 @@ export function RoleLoginClient({
           </div>
 
           <div className="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.06] px-4 py-3">
-            <ShieldCheck className="h-5 w-5" style={{ color: primary }} />
+            <ShieldCheck className="h-5 w-5" style={{ color: highlight }} />
             <p className="text-sm font-semibold text-white/62">Sesion protegida por perfil y PIN</p>
           </div>
         </section>
@@ -315,15 +327,15 @@ export function RoleLoginClient({
               <div
                 className="grid h-12 w-12 place-items-center rounded-2xl border sm:h-16 sm:w-16"
                 style={{
-                  backgroundColor: `${primary}24`,
-                  borderColor: `${primary}55`,
+                  backgroundColor: `${highlight}24`,
+                  borderColor: `${highlight}55`,
                   color: primaryText,
                 }}
               >
                 <RoleIcon className="h-6 w-6 sm:h-8 sm:w-8" />
               </div>
               <div>
-                <p className="text-xs font-black uppercase tracking-[0.16em] sm:text-sm" style={{ color: primary }}>
+                <p className="text-xs font-black uppercase tracking-[0.16em] sm:text-sm" style={{ color: highlight }}>
                   {config.label}
                 </p>
                 <p className="text-base font-black text-white sm:text-lg">{phase === 'select' ? 'Selecciona tu nombre' : staffName}</p>
@@ -366,8 +378,8 @@ export function RoleLoginClient({
                       key={index}
                       className="grid h-8 w-8 place-items-center rounded-full border-2 transition-colors sm:h-11 sm:w-11"
                       style={{
-                        backgroundColor: index < pin.length ? primary : 'rgba(255,255,255,0.08)',
-                        borderColor: index < pin.length ? primary : 'rgba(255,255,255,0.14)',
+                        backgroundColor: index < pin.length ? highlight : 'rgba(255,255,255,0.08)',
+                        borderColor: index < pin.length ? highlight : 'rgba(255,255,255,0.14)',
                       }}
                     >
                       {index < pin.length && <div className="h-2.5 w-2.5 rounded-full sm:h-3 sm:w-3" style={{ backgroundColor: primaryText }} />}
@@ -411,8 +423,8 @@ export function RoleLoginClient({
                         disabled={loading}
                         className="grid h-[52px] place-items-center rounded-2xl border text-xl font-black transition active:scale-95 disabled:opacity-50 sm:h-16 sm:text-2xl"
                         style={{
-                          backgroundColor: isDelete ? `${secondary}66` : 'rgba(255,255,255,0.09)',
-                          borderColor: isDelete ? `${secondary}aa` : 'rgba(255,255,255,0.12)',
+                          backgroundColor: isDelete ? `${secondaryHighlight}66` : 'rgba(255,255,255,0.09)',
+                          borderColor: isDelete ? `${secondaryHighlight}aa` : 'rgba(255,255,255,0.12)',
                           color: isDelete ? secondaryText : '#ffffff',
                         }}
                       >

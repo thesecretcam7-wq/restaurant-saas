@@ -20,12 +20,16 @@ function isCustomDomainHost(host: string) {
 export default async function Loading() {
   const headersList = await headers();
   const host = (headersList.get('host') || '').split(':')[0]?.toLowerCase() || '';
+  const routeKind = headersList.get('x-eccofood-route-kind') || '';
+  const tenantSlug = headersList.get('x-eccofood-tenant-slug') || '';
   const isCustomStore = isCustomDomainHost(host);
+  const isStore = isCustomStore || routeKind === 'store';
+  const fallbackName = isCustomStore ? titleFromHost(host) : tenantSlug || 'Restaurante';
 
   return (
     <RouteAwarePageLoader
-      initialIsStore={isCustomStore}
-      initialFallbackName={isCustomStore ? titleFromHost(host) : 'Restaurante'}
+      initialIsStore={isStore}
+      initialFallbackName={fallbackName}
     />
   );
 }

@@ -1,10 +1,9 @@
-import EccofoodPageLoader from '@/components/EccofoodPageLoader';
+import StoreLoadingCard from '@/components/store/StoreLoadingCard';
 
 export default function AccessLoading() {
   return (
-    <EccofoodPageLoader
-      label="Cargando acceso"
-      detail="Preparando los roles y la seguridad del equipo."
-    />
+    <div className="grid min-h-screen place-items-center bg-white/70 px-5 backdrop-blur-[8px]">
+      <StoreLoadingCard />
+    </div>
   );
 }

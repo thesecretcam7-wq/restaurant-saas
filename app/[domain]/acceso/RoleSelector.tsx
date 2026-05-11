@@ -44,6 +44,16 @@ function readableText(background: string, fallbackDark = '#15130f', fallbackLigh
   return isDark(background) ? fallbackLight : fallbackDark;
 }
 
+function isVisibleAccent(color: string) {
+  const rgb = hexToRgb(color);
+  if (!rgb) return false;
+  const max = Math.max(rgb.r, rgb.g, rgb.b) / 255;
+  const min = Math.min(rgb.r, rgb.g, rgb.b) / 255;
+  const lightness = (max + min) / 2;
+  const saturation = max === min ? 0 : (max - min) / (1 - Math.abs(2 * lightness - 1));
+  return saturation > 0.28 && lightness > 0.2;
+}
+
 export function RoleSelector({ tenantName, tenantSlug, logoUrl, branding }: Props) {
   const router = useRouter();
   const [selectedRole, setSelectedRole] = useState<string | null>(null);
@@ -52,9 +62,11 @@ export function RoleSelector({ tenantName, tenantSlug, logoUrl, branding }: Prop
   const primary = branding.primaryColor;
   const secondary = branding.secondaryColor;
   const accent = branding.accentColor;
-  const pageBg = isDark(branding.backgroundColor) ? branding.backgroundColor : '#0b0f19';
-  const primaryText = readableText(primary);
-  const secondaryText = readableText(secondary);
+  const pageBg = isDark(primary) ? primary : isDark(branding.backgroundColor) ? branding.backgroundColor : '#0b0f19';
+  const highlight = isVisibleAccent(primary) && !isDark(primary) ? primary : accent;
+  const secondaryHighlight = isVisibleAccent(secondary) && !isDark(secondary) ? secondary : accent;
+  const primaryText = readableText(highlight);
+  const secondaryText = readableText(secondaryHighlight);
   const appName = branding.appName || tenantName;
 
   const roles = [
@@ -64,7 +76,7 @@ export function RoleSelector({ tenantName, tenantSlug, logoUrl, branding }: Prop
       icon: ChefHat,
       desc: 'Kitchen Display',
       hint: tr('access.cookDesc'),
-      color: primary,
+      color: highlight,
     },
     {
       id: 'camarero' as const,
@@ -88,7 +100,7 @@ export function RoleSelector({ tenantName, tenantSlug, logoUrl, branding }: Prop
       icon: Lock,
       desc: tr('admin.subtitle'),
       hint: tr('access.adminDesc'),
-      color: secondary,
+      color: secondaryHighlight,
     },
   ];
 
@@ -105,7 +117,7 @@ export function RoleSelector({ tenantName, tenantSlug, logoUrl, branding }: Prop
       desc: tr('access.screenDesc'),
       href: `/${tenantSlug}/pantalla`,
       icon: Monitor,
-      color: primary,
+      color: highlight,
     },
   ];
 
@@ -131,7 +143,7 @@ export function RoleSelector({ tenantName, tenantSlug, logoUrl, branding }: Prop
               {logoUrl ? (
                 <img src={logoUrl} alt={appName} className="h-full w-full object-contain drop-shadow-2xl" />
               ) : (
-                <ChefHat className="h-8 w-8" style={{ color: primary }} />
+                <ChefHat className="h-8 w-8" style={{ color: highlight }} />
               )}
             </div>
             <div>
@@ -144,7 +156,7 @@ export function RoleSelector({ tenantName, tenantSlug, logoUrl, branding }: Prop
           <div>
             <p
               className="mb-5 inline-flex rounded-full px-4 py-2 text-sm font-black uppercase tracking-[0.16em]"
-              style={{ backgroundColor: `${primary}24`, color: primary }}
+              style={{ backgroundColor: `${highlight}24`, color: highlight }}
             >
               {tr('access.badge')}
             </p>
@@ -157,7 +169,7 @@ export function RoleSelector({ tenantName, tenantSlug, logoUrl, branding }: Prop
           </div>
 
           <div className="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.06] px-4 py-3">
-            <ShieldCheck className="h-5 w-5" style={{ color: primary }} />
+            <ShieldCheck className="h-5 w-5" style={{ color: highlight }} />
             <p className="text-sm font-semibold text-white/62">{tr('access.securePin')}</p>
           </div>
         </section>

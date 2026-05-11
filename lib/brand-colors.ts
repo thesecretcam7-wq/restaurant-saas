@@ -88,20 +88,25 @@ export const DEFAULT_BRAND_COLORS = {
 
 export function deriveBrandPalette(input: BrandColorInput = {}) {
   const primary = normalizeHexColor(input.primary, DEFAULT_BRAND_COLORS.primary)
-  const buttonPrimary = normalizeHexColor(input.buttonPrimary, primary)
-  const secondary = mixHexColors(primary, '#000000', isDarkColor(primary) ? 0.24 : 0.34)
-  const accent = buttonPrimary
-  const background = isDarkColor(primary)
+  const secondary = normalizeHexColor(
+    input.secondary,
+    mixHexColors(primary, '#000000', isDarkColor(primary) ? 0.24 : 0.34)
+  )
+  const accent = normalizeHexColor(input.accent, input.buttonPrimary || primary)
+  const buttonPrimary = normalizeHexColor(input.buttonPrimary, accent || primary)
+  const background = input.background && hexToRgb(input.background)
+    ? input.background
+    : isDarkColor(primary)
     ? mixHexColors(primary, WHITE, 0.93)
     : mixHexColors(primary, WHITE, 0.9)
-  const surface = WHITE
-  const cardSurface = WHITE
+  const surface = normalizeHexColor(input.surface, WHITE)
+  const cardSurface = getStoreCardSurface(surface)
   const neutralSoft = mixHexColors(primary, WHITE, 0.93)
   const primarySoft = mixHexColors(primary, WHITE, 0.9)
-  const buttonSecondary = mixHexColors(buttonPrimary, WHITE, 0.88)
-  const text = INK
-  const mutedText = MUTED_INK
-  const border = mixHexColors(primary, WHITE, 0.78)
+  const buttonSecondary = normalizeHexColor(input.buttonSecondary, mixHexColors(buttonPrimary, WHITE, 0.88))
+  const text = normalizeHexColor(input.textPrimary, INK)
+  const mutedText = normalizeHexColor(input.textSecondary, MUTED_INK)
+  const border = normalizeHexColor(input.border, mixHexColors(primary, WHITE, 0.78))
 
   return {
     primary,

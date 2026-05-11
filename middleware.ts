@@ -75,6 +75,13 @@ function staffHasAnyRole(staffSession: StaffSession | null, roles: string[]) {
   return roles.includes(staffSession.role) || permissions.some((p) => p.startsWith('admin_'))
 }
 
+function withStoreHeaders(request: NextRequest, slug: string) {
+  const requestHeaders = new Headers(request.headers)
+  requestHeaders.set('x-eccofood-route-kind', 'store')
+  requestHeaders.set('x-eccofood-tenant-slug', slug)
+  return requestHeaders
+}
+
 function getOperationalAccess(pathname: string) {
   const slugMatch = pathname.match(SLUG_PATH_REGEX)
   const slug = slugMatch?.[1] || ''
@@ -121,7 +128,7 @@ export async function middleware(request: NextRequest) {
     const tenant = await getTenantBySlug(earlySubdomain)
     if (tenant) {
       url.pathname = `/${tenant.slug}`
-      return NextResponse.rewrite(url)
+      return NextResponse.rewrite(url, { request: { headers: withStoreHeaders(request, tenant.slug) } })
     }
   }
 
@@ -131,7 +138,7 @@ export async function middleware(request: NextRequest) {
     const tenant = await getTenantByDomain(hostname)
     if (tenant) {
       url.pathname = `/${tenant.slug}`
-      return NextResponse.rewrite(url)
+      return NextResponse.rewrite(url, { request: { headers: withStoreHeaders(request, tenant.slug) } })
     }
   }
 
@@ -375,7 +382,7 @@ export async function middleware(request: NextRequest) {
       }
 
       url.pathname = `/${tenant.slug}${pathname}`
-      return NextResponse.rewrite(url)
+      return NextResponse.rewrite(url, { request: { headers: withStoreHeaders(request, tenant.slug) } })
     }
   }
 
@@ -393,7 +400,7 @@ export async function middleware(request: NextRequest) {
       }
 
       url.pathname = `/${tenant.slug}${pathname}`
-      return NextResponse.rewrite(url)
+      return NextResponse.rewrite(url, { request: { headers: withStoreHeaders(request, tenant.slug) } })
     }
   }
 
@@ -405,7 +412,7 @@ export async function middleware(request: NextRequest) {
     if (tenant) {
       const restPath = pathname.slice(slug.length + 1) || '/'
       url.pathname = `/${tenant.slug}${restPath}`
-      return NextResponse.rewrite(url)
+      return NextResponse.rewrite(url, { request: { headers: withStoreHeaders(request, tenant.slug) } })
     }
   }
 
