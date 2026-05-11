@@ -3,7 +3,7 @@ export const revalidate = 0
 export const dynamicParams = true
 
 import Link from 'next/link'
-import { cookies } from 'next/headers'
+import { cookies, headers } from 'next/headers'
 import { createClient } from '@/lib/supabase/server'
 import { getTenantContext } from '@/lib/tenant'
 import { getPageConfig, getBorderRadius, getCardClasses, getButtonClasses } from '@/lib/pageConfig'
@@ -32,6 +32,10 @@ interface HomePageProps {
 export default async function HomePage({ params }: HomePageProps) {
   const { domain } = await params
   const cookieStore = await cookies()
+  const headersList = await headers()
+  const hostname = (headersList.get('host') || '').split(':')[0]?.toLowerCase() || ''
+  const baseDomain = process.env.NEXT_PUBLIC_BASE_DOMAIN || 'eccofoodapp.com'
+  const isCustomDomain = Boolean(hostname && !hostname.includes(baseDomain) && !hostname.includes('localhost') && !hostname.endsWith('.vercel.app'))
   const locale = normalizeLocale(cookieStore.get('eccofood_locale')?.value)
   const tr = (key: string) => translate(locale, key)
   const context = await getTenantContext(domain)
@@ -61,6 +65,8 @@ export default async function HomePage({ params }: HomePageProps) {
   }
 
   const pageConfig = getPageConfig((tenant as any).metadata?.page_config || branding?.page_config)
+  const tenantBasePath = isCustomDomain ? '' : `/${tenant.slug}`
+  const tenantHomePath = tenantBasePath || '/'
   const { hero, sections, appearance, social, banner, about, gallery, testimonials, footer } = pageConfig
 
   const supabase = await createClient()
@@ -170,7 +176,7 @@ export default async function HomePage({ params }: HomePageProps) {
         </div>
 
         <header className="relative z-10 mx-auto flex max-w-7xl items-center justify-between px-4 py-5 sm:px-6 lg:px-8">
-          <Link href={`/${tenant.slug}`} className="flex min-w-0 items-center gap-3">
+          <Link href={tenantHomePath} className="flex min-w-0 items-center gap-3">
             {hero.show_logo && tenant.logo_url ? (
               <span className="flex h-12 w-28 flex-shrink-0 items-center justify-center overflow-visible sm:w-36 lg:w-44">
                 <img src={tenant.logo_url} alt={appName} className="max-h-full max-w-full scale-150 object-contain drop-shadow-xl sm:scale-[1.85] lg:scale-[2.15]" />
@@ -187,7 +193,7 @@ export default async function HomePage({ params }: HomePageProps) {
           </Link>
           <div className="flex items-center gap-2">
             <LanguageSwitcher compact className="border-white/20 bg-white/16 text-white [&_select]:text-white" reloadOnChange />
-            <Link href={`/${tenant.slug}/menu`} className={`hidden px-5 py-3 text-sm font-black text-white shadow-xl transition hover:scale-[1.02] sm:inline-flex ${btnCls}`} style={{ backgroundColor: buttonPrimary }}>
+            <Link href={`${tenantBasePath}/menu`} className={`hidden px-5 py-3 text-sm font-black text-white shadow-xl transition hover:scale-[1.02] sm:inline-flex ${btnCls}`} style={{ backgroundColor: buttonPrimary }}>
               {tr('store.viewMenu')}
             </Link>
           </div>
@@ -213,11 +219,11 @@ export default async function HomePage({ params }: HomePageProps) {
             )}
             {hero.show_info_pills && <InfoPills settings={settings} primary={primary} />}
             <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-              <Link href={`/${tenant.slug}/menu`} className={`inline-flex h-14 items-center justify-center px-7 text-sm font-black text-white shadow-2xl transition hover:scale-[1.02] ${btnCls}`} style={{ backgroundColor: buttonPrimary }}>
+              <Link href={`${tenantBasePath}/menu`} className={`inline-flex h-14 items-center justify-center px-7 text-sm font-black text-white shadow-2xl transition hover:scale-[1.02] ${btnCls}`} style={{ backgroundColor: buttonPrimary }}>
                 {hero.cta_primary_text || tr('store.viewMenu')}
               </Link>
               {settings?.reservations_enabled && (
-                <Link href={`/${tenant.slug}/reservas`} className={`inline-flex h-14 items-center justify-center border border-white/35 bg-white/14 px-7 text-sm font-black text-white backdrop-blur-md transition hover:bg-white/22 ${btnCls}`}>
+                <Link href={`${tenantBasePath}/reservas`} className={`inline-flex h-14 items-center justify-center border border-white/35 bg-white/14 px-7 text-sm font-black text-white backdrop-blur-md transition hover:bg-white/22 ${btnCls}`}>
                   {hero.cta_secondary_text || tr('store.reserve')}
                 </Link>
               )}
@@ -230,7 +236,7 @@ export default async function HomePage({ params }: HomePageProps) {
                 <p className="text-xs font-black uppercase text-black/45">{tr('store.favorites')}</p>
                 <div className="mt-4 space-y-3">
                   {featured.slice(0, 3).map((item: any) => (
-                    <Link key={item.id} href={`/${tenant.slug}/menu`} className="flex items-center gap-3 rounded-2xl border border-black/8 p-2 transition hover:border-black/18 hover:bg-black/[0.025]">
+                    <Link key={item.id} href={`${tenantBasePath}/menu`} className="flex items-center gap-3 rounded-2xl border border-black/8 p-2 transition hover:border-black/18 hover:bg-black/[0.025]">
                       {item.image_url ? (
                         <img src={item.image_url} alt={item.name} className="size-16 rounded-xl object-cover" />
                       ) : (
@@ -256,7 +262,7 @@ export default async function HomePage({ params }: HomePageProps) {
             case 'banner':
               return <PremiumBand key={section.id} surfaceColor={sectionSurface}><BannerSection banner={banner} borderRadius={br} /></PremiumBand>
             case 'featured':
-              return <FeaturedSection key={section.id} tenantId={tenant.slug} items={featured || []} primary={primary} buttonColor={buttonPrimary} priceColor={accent} title={sTitle || tr('store.mostOrdered')} borderRadius={br} cardClasses={cardCls} animations={anim} currencyInfo={currencyInfo} />
+              return <FeaturedSection key={section.id} tenantId={tenant.slug} items={featured || []} primary={primary} buttonColor={buttonPrimary} priceColor={accent} title={sTitle || tr('store.mostOrdered')} borderRadius={br} cardClasses={cardCls} animations={anim} currencyInfo={currencyInfo} basePath={tenantBasePath} />
             case 'about':
               return <PremiumBand key={section.id} surfaceColor={sectionSurface}><AboutSection about={about} borderRadius={br} cardClasses={cardCls} /></PremiumBand>
             case 'info':
@@ -268,7 +274,7 @@ export default async function HomePage({ params }: HomePageProps) {
             case 'testimonials':
               return <PremiumBand key={section.id} surfaceColor={sectionSurface}><TestimonialsSection testimonials={testimonials} primary={primary} title={sTitle || tr('store.reviews')} borderRadius={br} cardClasses={cardCls} /></PremiumBand>
             case 'actions':
-              return settings ? <ActionsSection key={section.id} tenantId={tenant.slug} settings={settings} primary={primary} borderRadius={br} /> : null
+              return settings ? <ActionsSection key={section.id} tenantId={tenant.slug} settings={settings} primary={primary} borderRadius={br} basePath={tenantBasePath} /> : null
             case 'social':
               return <PremiumBand key={section.id} surfaceColor={sectionSurface}><SocialSection social={mergedSocial} primary={primary} title={sTitle || 'Siguenos'} borderRadius={br} /></PremiumBand>
             default:
@@ -286,7 +292,7 @@ export default async function HomePage({ params }: HomePageProps) {
         </div>
       </footer>
 
-      <BottomNav tenantId={tenant.slug} primaryColor={buttonPrimary} />
+      <BottomNav tenantId={tenant.slug} primaryColor={buttonPrimary} basePath={tenantBasePath} />
       <WhatsAppFloat whatsapp={whatsappLink} restaurantName={appName} primaryColor="#25D366" />
     </div>
   )

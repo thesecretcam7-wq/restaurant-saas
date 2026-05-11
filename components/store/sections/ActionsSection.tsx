@@ -6,13 +6,16 @@ interface Props {
   settings: RestaurantSettings
   primary: string
   borderRadius: string
+  basePath?: string
 }
 
-export default function ActionsSection({ tenantId, settings, primary, borderRadius }: Props) {
+export default function ActionsSection({ tenantId, settings, primary, borderRadius, basePath }: Props) {
+  const pathBase = basePath ?? `/${tenantId}`
+
   return (
     <section className="px-4 pt-4 grid grid-cols-2 gap-3">
       <Link
-        href={`/${tenantId}/menu`}
+        href={`${pathBase}/menu`}
         className="flex flex-col items-center justify-center gap-2 p-5 text-white shadow-md active:scale-[0.97] transition-transform"
         style={{ background: `linear-gradient(135deg, ${primary}, ${primary}bb)`, borderRadius }}
       >
@@ -21,7 +24,7 @@ export default function ActionsSection({ tenantId, settings, primary, borderRadi
       </Link>
       {settings?.reservations_enabled ? (
         <Link
-          href={`/${tenantId}/reservas`}
+          href={`${pathBase}/reservas`}
           className="flex flex-col items-center justify-center gap-2 p-5 bg-white border border-gray-100 shadow-sm active:scale-[0.97] transition-transform"
           style={{ borderRadius }}
         >
@@ -30,7 +33,7 @@ export default function ActionsSection({ tenantId, settings, primary, borderRadi
         </Link>
       ) : (
         <Link
-          href={`/${tenantId}/mis-pedidos`}
+          href={`${pathBase}/mis-pedidos`}
           className="flex flex-col items-center justify-center gap-2 p-5 bg-white border border-gray-100 shadow-sm active:scale-[0.97] transition-transform"
           style={{ borderRadius }}
         >

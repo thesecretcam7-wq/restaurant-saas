@@ -13,10 +13,12 @@ interface Props {
   cardClasses: string
   animations: boolean
   currencyInfo?: { code: string; locale: string }
+  basePath?: string
 }
 
-export default function FeaturedSection({ tenantId, items, primary, buttonColor = primary, priceColor = primary, title, borderRadius, cardClasses, animations, currencyInfo }: Props) {
+export default function FeaturedSection({ tenantId, items, primary, buttonColor = primary, priceColor = primary, title, borderRadius, cardClasses, animations, currencyInfo, basePath }: Props) {
   const money = (value: number) => formatPriceWithCurrency(Number(value || 0), currencyInfo?.code || 'EUR', currencyInfo?.locale || 'es-ES')
+  const pathBase = basePath ?? `/${tenantId}`
 
   if (!items?.length) {
     return (
@@ -34,7 +36,7 @@ export default function FeaturedSection({ tenantId, items, primary, buttonColor 
           <p className="text-xs font-black uppercase text-black/42">Recomendados</p>
           <h2 className="mt-1 text-2xl font-black text-[#15130f] sm:text-3xl">{title}</h2>
         </div>
-        <Link href={`/${tenantId}/menu`} className="shrink-0 rounded-full border border-black/10 px-4 py-2 text-sm font-black transition hover:bg-black/[0.04]" style={{ color: buttonColor }}>
+        <Link href={`${pathBase}/menu`} className="shrink-0 rounded-full border border-black/10 px-4 py-2 text-sm font-black transition hover:bg-black/[0.04]" style={{ color: buttonColor }}>
           Ver todo
         </Link>
       </div>
@@ -42,7 +44,7 @@ export default function FeaturedSection({ tenantId, items, primary, buttonColor 
         {items.map((item, i) => (
           <Link
             key={item.id}
-            href={`/${tenantId}/menu`}
+            href={`${pathBase}/menu`}
             className={`group overflow-hidden border border-black/8 bg-white shadow-sm transition hover:-translate-y-0.5 hover:shadow-xl ${cardClasses}`}
             style={{
               borderRadius,

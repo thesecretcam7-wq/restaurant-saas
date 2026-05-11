@@ -10,6 +10,7 @@ import CategoryFilterBar from '@/components/store/CategoryFilterBar'
 import type { MenuItem, MenuCategory } from '@/lib/types'
 import Link from 'next/link'
 import Image from 'next/image'
+import { headers } from 'next/headers'
 
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
@@ -21,6 +22,10 @@ interface MenuProps {
 export default async function MenuPage({ params }: MenuProps) {
   try {
     const { domain: tenantSlug } = await params
+    const headersList = await headers()
+    const hostname = (headersList.get('host') || '').split(':')[0]?.toLowerCase() || ''
+    const baseDomain = process.env.NEXT_PUBLIC_BASE_DOMAIN || 'eccofoodapp.com'
+    const isCustomDomain = Boolean(hostname && !hostname.includes(baseDomain) && !hostname.includes('localhost') && !hostname.endsWith('.vercel.app'))
     const supabase = await createClient()
     const context = await getTenantContext(tenantSlug)
     const tenantId = context.tenant?.id
@@ -82,6 +87,8 @@ export default async function MenuPage({ params }: MenuProps) {
   })
 
   const slug = context.tenant?.slug || tenantSlug
+  const storeBasePath = isCustomDomain ? '' : `/${slug}`
+  const storeHomePath = storeBasePath || '/'
   const freeToppingsLabel = slug === 'parrillaburgers' ? 'Barra libre' : 'Ingredientes gratis'
   const branding = context.branding
   const settings = context.settings
@@ -183,7 +190,7 @@ export default async function MenuPage({ params }: MenuProps) {
               <p className="text-xs text-gray-500 font-medium">Menú</p>
             </div>
           </div>
-          <Link href={`/${slug}/carrito`} className="relative p-2 sm:p-2.5 hover:bg-gray-100 active:bg-gray-200 rounded-xl transition-all flex-shrink-0" title="Carrito">
+          <Link href={`${storeBasePath}/carrito`} className="relative p-2 sm:p-2.5 hover:bg-gray-100 active:bg-gray-200 rounded-xl transition-all flex-shrink-0" title="Carrito">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={buttonColor} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="sm:w-5 sm:h-5">
               <path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/>
               <line x1="3" y1="6" x2="21" y2="6"/>
@@ -216,7 +223,7 @@ export default async function MenuPage({ params }: MenuProps) {
                 </div>
               )}
             </div>
-            <Link href={`/${slug}`} className="inline-flex h-11 w-full items-center justify-center rounded-full border border-black/10 px-5 text-sm font-black transition hover:bg-black/[0.04] sm:w-auto" style={{ color: buttonColor }}>
+            <Link href={storeHomePath} className="inline-flex h-11 w-full items-center justify-center rounded-full border border-black/10 px-5 text-sm font-black transition hover:bg-black/[0.04] sm:w-auto" style={{ color: buttonColor }}>
               Volver al inicio
             </Link>
           </div>
@@ -346,7 +353,7 @@ export default async function MenuPage({ params }: MenuProps) {
         )}
       </main>
 
-      <CartBar tenantId={slug} primaryColor={primary} currencyInfo={currencyInfo} />
+      <CartBar tenantId={slug} primaryColor={primary} currencyInfo={currencyInfo} basePath={storeBasePath} />
     </div>
   )
   } catch (error) {

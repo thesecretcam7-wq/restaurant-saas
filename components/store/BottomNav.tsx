@@ -45,22 +45,32 @@ function OrdersIcon({ active, color }: { active: boolean; color: string }) {
   )
 }
 
-export default function BottomNav({ tenantId, primaryColor }: { tenantId: string; primaryColor?: string }) {
+export default function BottomNav({
+  tenantId,
+  primaryColor,
+  basePath,
+}: {
+  tenantId: string
+  primaryColor?: string
+  basePath?: string
+}) {
   const pathname = usePathname()
   const { items } = useCartStore()
   const cartCount = items.reduce((s, i) => s + i.qty, 0)
   const color = primaryColor || '#4F46E5'
+  const pathBase = basePath ?? `/${tenantId}`
+  const homePath = pathBase || '/'
 
-  const isHome = pathname === `/${tenantId}` || pathname === `/${tenantId}/`
-  const isMenu = pathname.startsWith(`/${tenantId}/menu`) || pathname.startsWith(`/${tenantId}/categoria`)
-  const isCart = pathname.startsWith(`/${tenantId}/carrito`) || pathname.startsWith(`/${tenantId}/checkout`)
-  const isOrders = pathname.startsWith(`/${tenantId}/mis-pedidos`)
+  const isHome = pathname === homePath || pathname === `${homePath}/`
+  const isMenu = pathname.startsWith(`${pathBase}/menu`) || pathname.startsWith(`${pathBase}/categoria`)
+  const isCart = pathname.startsWith(`${pathBase}/carrito`) || pathname.startsWith(`${pathBase}/checkout`)
+  const isOrders = pathname.startsWith(`${pathBase}/mis-pedidos`)
 
   const tabs = [
-    { href: `/${tenantId}`, label: 'Inicio', Icon: HomeIcon, active: isHome },
-    { href: `/${tenantId}/menu`, label: 'Menú', Icon: MenuIcon, active: isMenu },
-    { href: `/${tenantId}/carrito`, label: 'Carrito', Icon: CartIcon, active: isCart, badge: cartCount },
-    { href: `/${tenantId}/mis-pedidos`, label: 'Pedidos', Icon: OrdersIcon, active: isOrders },
+    { href: homePath, label: 'Inicio', Icon: HomeIcon, active: isHome },
+    { href: `${pathBase}/menu`, label: 'Menu', Icon: MenuIcon, active: isMenu },
+    { href: `${pathBase}/carrito`, label: 'Carrito', Icon: CartIcon, active: isCart, badge: cartCount },
+    { href: `${pathBase}/mis-pedidos`, label: 'Pedidos', Icon: OrdersIcon, active: isOrders },
   ]
 
   return (
