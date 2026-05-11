@@ -68,54 +68,6 @@ const demoStaffMembers = [
   { name: 'Cajero Demo', role: 'cajero', pin: '999999' },
 ]
 
-const beverageProducts = [
-  {
-    category: 'bebidas',
-    name: 'Gaseosa personal',
-    description: 'Bebida gaseosa fria para acompanar tu pedido.',
-    price: 4000,
-    image_url: asset('soda.png'),
-    featured: false,
-    sort_order: 101,
-  },
-  {
-    category: 'bebidas',
-    name: 'Agua sin gas',
-    description: 'Agua fria en botella.',
-    price: 3500,
-    image_url: asset('soda.png'),
-    featured: false,
-    sort_order: 102,
-  },
-  {
-    category: 'bebidas',
-    name: 'Agua con gas',
-    description: 'Agua con gas fria en botella.',
-    price: 4000,
-    image_url: asset('soda.png'),
-    featured: false,
-    sort_order: 103,
-  },
-  {
-    category: 'bebidas',
-    name: 'Cerveza nacional',
-    description: 'Cerveza fria para consumo en restaurante.',
-    price: 6000,
-    image_url: asset('soda.png'),
-    featured: false,
-    sort_order: 104,
-  },
-  {
-    category: 'bebidas',
-    name: 'Soda italiana',
-    description: 'Soda saborizada premium.',
-    price: 8500,
-    image_url: asset('soda.png'),
-    featured: false,
-    sort_order: 105,
-  },
-]
-
 function slugify(value) {
   return value
     .normalize('NFD')
@@ -125,27 +77,42 @@ function slugify(value) {
     .replace(/^-|-$/g, '')
 }
 
-async function fetchLiveProducts() {
+async function fetchLiveMenu() {
   const html = await fetch('https://parrillaburgers.vercel.app/menu').then((res) => {
     if (!res.ok) throw new Error(`Could not fetch live ParrillaBurgers menu: ${res.status}`)
     return res.text()
   })
 
-  const matches = [...html.matchAll(/\{\\"id\\":\\"[^}]+?\\"barra_libre_items\\":\[[^\]]*\]\}/g)].map((match) => match[0])
-  const parsed = []
+  const categoryMatches = [...html.matchAll(/\{\\"id\\":\\"[^}]+?\\"emoji\\":\\"[^"]+\\"\}/g)].map((match) => match[0])
+  const itemMatches = [...html.matchAll(/\{\\"id\\":\\"[^}]+?\\"barra_libre_items\\":(?:null|\[[^\]]*\])\}/g)].map((match) => match[0])
+  const categories = []
+  const products = []
 
-  for (const raw of matches) {
+  for (const raw of categoryMatches) {
     const json = raw.replaceAll('\\"', '"').replaceAll('\\/', '/')
     try {
-      const product = JSON.parse(json)
-      if (product.name && product.price && product.image_url) parsed.push(product)
+      const category = JSON.parse(json)
+      if (category.id && category.name) categories.push(category)
     } catch {
       // Ignore unrelated chunks in the streamed payload.
     }
   }
 
-  return [...new Map(parsed.map((product) => [product.name, product])).values()]
-    .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0))
+  for (const raw of itemMatches) {
+    const json = raw.replaceAll('\\"', '"').replaceAll('\\/', '/')
+    try {
+      const product = JSON.parse(json)
+      if (product.name && product.price && product.image_url) products.push(product)
+    } catch {
+      // Ignore unrelated chunks in the streamed payload.
+    }
+  }
+
+  return {
+    categories: [...new Map(categories.map((category) => [category.id, category])).values()],
+    products: [...new Map(products.map((product) => [product.id, product])).values()]
+      .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0)),
+  }
 }
 
 async function ensureProductImage(product) {
@@ -165,22 +132,24 @@ async function ensureProductImage(product) {
 }
 
 async function getProducts() {
-  const liveProducts = await fetchLiveProducts()
+  const liveMenu = await fetchLiveMenu()
+  const beverageCategory = liveMenu.categories.find((category) => category.name?.toLowerCase() === 'bebidas')
   const products = []
 
-  for (const product of liveProducts) {
+  for (const product of liveMenu.products) {
+    const productName = product.name.trim()
     products.push({
-      category: categoryByName.get(product.name) || 'burgers',
-      name: product.name,
+      category: product.category_id === beverageCategory?.id ? 'bebidas' : categoryByName.get(productName) || 'burgers',
+      name: productName,
       description: product.description,
       price: product.price,
       image_url: await ensureProductImage(product),
-      featured: featuredProducts.has(product.name),
+      featured: featuredProducts.has(productName),
       sort_order: product.sort_order ?? 0,
     })
   }
 
-  return [...products, ...beverageProducts]
+  return products
 }
 
 const tenantPayload = {
