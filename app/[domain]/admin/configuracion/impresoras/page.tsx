@@ -26,10 +26,11 @@ function dedupeBrowserDriverDevices(devices: PrinterDevice[]) {
 
 export default function PrintersConfigPage({ params }: Props) {
   const { domain: slug } = use(params);
-  const { tenantId } = useTenantResolver(slug);
+  const { tenantId, loading: tenantLoading } = useTenantResolver(slug);
 
   const [devices, setDevices] = useState<PrinterDevice[]>([]);
   const [loading, setLoading] = useState(false);
+  const [windowsLoading, setWindowsLoading] = useState(false);
   const [autoPrint, setAutoPrint] = useState(true);
   const [copies, setCopies] = useState(1);
   const [bridgeStatus, setBridgeStatus] = useState<'unknown' | 'checking' | 'online' | 'offline'>('unknown');
@@ -166,19 +167,55 @@ export default function PrintersConfigPage({ params }: Props) {
   };
 
   const handleAddWindowsPrinter = async () => {
-    if (!tenantId) return;
+    if (!tenantId) {
+      showToast('Todavia estamos cargando el restaurante. Espera unos segundos.', 'error');
+      return;
+    }
+
+    const fetchWithTimeout = async (url: string, options: RequestInit, timeoutMs = 10000) => {
+      const controller = new AbortController();
+      const timeout = window.setTimeout(() => controller.abort(), timeoutMs);
+      try {
+        return await fetch(url, { ...options, signal: controller.signal });
+      } finally {
+        window.clearTimeout(timeout);
+      }
+    };
+
+    const setReceiptPrinterDefault = async (deviceId: string) => {
+      const deviceResponse = await fetchWithTimeout(`/api/devices?id=${deviceId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tenantId, is_default: true }),
+      });
+
+      const deviceData = await deviceResponse.json().catch(() => ({}));
+      if (!deviceResponse.ok) throw new Error(deviceData.error || 'No se pudo marcar como predeterminada');
+
+      const { error: settingsError } = await supabase
+        .from('restaurant_settings')
+        .update({
+          default_receipt_printer_id: deviceId,
+          printer_auto_print: true,
+          printer_updated_at: new Date().toISOString(),
+        })
+        .eq('tenant_id', tenantId);
+
+      if (settingsError) throw settingsError;
+      setDevices((currentDevices) => currentDevices.map((d) => ({ ...d, is_default: d.id === deviceId })));
+    };
 
     try {
-      setLoading(true);
+      setWindowsLoading(true);
 
       const existingWindowsPrinter = devices.find(isBrowserDriverDevice);
       if (existingWindowsPrinter) {
-        await handleSetDefault(existingWindowsPrinter.id);
+        await setReceiptPrinterDefault(existingWindowsPrinter.id);
         showToast('Ya existe una impresora de Windows. La deje como predeterminada.', 'success');
         return;
       }
 
-      const response = await fetch('/api/devices', {
+      const response = await fetchWithTimeout('/api/devices', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -203,17 +240,20 @@ export default function PrintersConfigPage({ params }: Props) {
         }),
       });
 
-      if (!response.ok) throw new Error('Error al crear impresora de Windows');
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.error || 'Error al crear impresora de Windows');
 
-      const newDevice = await response.json();
+      const newDevice = data;
       setDevices(dedupeBrowserDriverDevices([newDevice.device, ...devices]));
-      await handleSetDefault(newDevice.device.id);
+      await setReceiptPrinterDefault(newDevice.device.id);
       showToast('Impresora de Windows agregada como predeterminada', 'success');
     } catch (error) {
-      const msg = error instanceof Error ? error.message : 'Error desconocido';
+      const msg = error instanceof DOMException && error.name === 'AbortError'
+        ? 'La conexion tardo demasiado. Revisa internet e intenta otra vez.'
+        : error instanceof Error ? error.message : 'Error desconocido';
       showToast(msg, 'error');
     } finally {
-      setLoading(false);
+      setWindowsLoading(false);
     }
   };
 
@@ -377,11 +417,11 @@ export default function PrintersConfigPage({ params }: Props) {
           </p>
           <button
             onClick={handleAddWindowsPrinter}
-            disabled={loading || !tenantId}
+            disabled={windowsLoading || tenantLoading}
             className="inline-flex w-full items-center justify-center gap-2 rounded-lg border border-emerald-500/40 bg-emerald-500/20 px-4 py-2 font-bold text-emerald-50 transition hover:bg-emerald-500/30 disabled:cursor-not-allowed disabled:border-gray-700 disabled:bg-gray-800 disabled:text-gray-400"
           >
             <Plus className="w-5 h-5" />
-            Usar impresora de Windows
+            {windowsLoading ? 'Conectando...' : tenantLoading ? 'Cargando restaurante...' : 'Usar impresora de Windows'}
           </button>
         </div>
 
