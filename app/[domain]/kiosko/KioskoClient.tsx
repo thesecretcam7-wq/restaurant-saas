@@ -293,6 +293,7 @@ function CategoryProductModal({
   mutedTextColor,
   borderColor,
   headerTextColor,
+  freeToppingsLabel,
   toppings,
   onClose,
   onSelectItem,
@@ -310,6 +311,7 @@ function CategoryProductModal({
   mutedTextColor: string
   borderColor: string
   headerTextColor: string
+  freeToppingsLabel: string
   toppings: Topping[]
   onClose: () => void
   onSelectItem: (item: MenuItem) => void
@@ -378,7 +380,7 @@ function CategoryProductModal({
                       )}
                       {hasToppings && (
                         <span className="absolute left-3 top-3 rounded-full px-3 py-1 text-[11px] font-black shadow-lg" style={{ backgroundColor: buttonColor, color: readableText(buttonColor) }}>
-                          {hasOnlyFreeToppings ? 'Barra libre' : 'Adicionales'}
+                          {hasOnlyFreeToppings ? freeToppingsLabel : 'Adicionales'}
                         </span>
                       )}
                     </div>
@@ -461,6 +463,7 @@ export default function KioskoClient({
   const primaryTextColor = readableText(primaryColor)
   const appHeaderColor = secondaryColor || backgroundColor || buttonSecondaryColor || '#0B0B0B'
   const appHeaderTextColor = readableText(appHeaderColor, textPrimaryColor)
+  const freeToppingsLabel = domain === 'parrillaburgers' ? 'Barra libre' : 'Ingredientes gratis'
   const buttonTextColor = readableText(buttonPrimaryColor)
   const secondaryButtonTextColor = readableText(buttonSecondaryColor)
   const surfaceColor = '#ffffff'
@@ -1332,6 +1335,7 @@ export default function KioskoClient({
           mutedTextColor={surfaceMutedTextColor}
           borderColor={borderColor}
           headerTextColor={primaryTextColor}
+          freeToppingsLabel={freeToppingsLabel}
           toppings={toppings}
           onClose={() => setIsCategoryModalOpen(false)}
           onSelectItem={item => { setSelectedItem(item); setItemQty(1) }}
@@ -1371,7 +1375,7 @@ export default function KioskoClient({
                 <div className="mb-6">
                   <div className="flex items-center justify-between mb-3">
                     <p className="text-sm font-black uppercase tracking-widest" style={{ color: surfaceMutedTextColor }}>
-                      {selectedItemHasOnlyFreeToppings ? 'Barra libre' : 'Adicionales'}
+                      {selectedItemHasOnlyFreeToppings ? freeToppingsLabel : 'Adicionales'}
                     </p>
                     <p className="text-xs font-bold" style={{ color: surfaceMutedTextColor }}>Opcional</p>
                   </div>

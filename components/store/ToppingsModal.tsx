@@ -17,10 +17,11 @@ interface Props {
   tenantId: string
   primaryColor: string
   currencyInfo?: { code: string; locale: string }
+  freeToppingsLabel?: string
   onClose: () => void
 }
 
-export default function ToppingsModal({ item, toppings, tenantId, primaryColor, currencyInfo, onClose }: Props) {
+export default function ToppingsModal({ item, toppings, tenantId, primaryColor, currencyInfo, freeToppingsLabel = 'Ingredientes gratis', onClose }: Props) {
   const [selectedToppings, setSelectedToppings] = useState<Topping[]>([])
   const [qty, setQty] = useState(1)
   const [mounted, setMounted] = useState(false)
@@ -100,7 +101,7 @@ export default function ToppingsModal({ item, toppings, tenantId, primaryColor, 
             <div className="space-y-3">
               <div>
                 <h3 className="font-semibold text-gray-900 text-sm uppercase tracking-wide">
-                  {hasOnlyFreeToppings ? 'Barra libre de ingredientes' : 'Agregar adicionales'}
+                  {hasOnlyFreeToppings ? freeToppingsLabel : 'Agregar adicionales'}
                 </h3>
                 {hasOnlyFreeToppings && (
                   <p className="mt-1 text-sm text-gray-500">Elige lo que quieres que lleve. No tiene costo adicional.</p>

@@ -17,9 +17,10 @@ interface Props {
   small?: boolean
   toppings?: Topping[]
   currencyInfo?: { code: string; locale: string }
+  freeToppingsLabel?: string
 }
 
-export default function AddToCartButton({ item, tenantId, color = '#4F46E5', small, toppings = [], currencyInfo }: Props) {
+export default function AddToCartButton({ item, tenantId, color = '#4F46E5', small, toppings = [], currencyInfo, freeToppingsLabel }: Props) {
   const [showToppingsModal, setShowToppingsModal] = useState(false)
   const { addItem, removeItem, items } = useCartStore()
   const qty = items.filter(i => i.item_id === item.id).length
@@ -60,6 +61,7 @@ export default function AddToCartButton({ item, tenantId, color = '#4F46E5', sma
             tenantId={tenantId}
             primaryColor={color}
             currencyInfo={currencyInfo}
+            freeToppingsLabel={freeToppingsLabel}
             onClose={() => setShowToppingsModal(false)}
           />
         )}
@@ -91,6 +93,7 @@ export default function AddToCartButton({ item, tenantId, color = '#4F46E5', sma
           tenantId={tenantId}
           primaryColor={color}
           currencyInfo={currencyInfo}
+          freeToppingsLabel={freeToppingsLabel}
           onClose={() => setShowToppingsModal(false)}
         />
       )}

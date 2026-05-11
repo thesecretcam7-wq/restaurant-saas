@@ -30,6 +30,7 @@ interface MenuItemProps {
   cardCls: string
   currencyInfo: CurrencyInfo
   toppings?: Topping[]
+  freeToppingsLabel?: string
   index?: number
 }
 
@@ -43,6 +44,7 @@ interface MenuCompactItemProps {
   mutedTextColor?: string
   currencyInfo: CurrencyInfo
   toppings?: Topping[]
+  freeToppingsLabel?: string
   index?: number
 }
 
@@ -58,6 +60,7 @@ export function MenuListItem({
   cardCls,
   currencyInfo,
   toppings = [],
+  freeToppingsLabel = 'Ingredientes gratis',
   index = 0,
 }: MenuItemProps) {
   const [imageLoaded, setImageLoaded] = useState(!item.image_url)
@@ -93,13 +96,13 @@ export function MenuListItem({
       <div className="min-w-0 flex-1 py-0.5">
         <p className="line-clamp-2 text-sm font-black leading-5" style={{ color: textColor }}>{item.name}</p>
         {item.description && <p className="mt-0.5 line-clamp-2 text-xs font-semibold" style={{ color: mutedTextColor }}>{item.description}</p>}
-        {hasToppings && <p className="mt-1 text-[11px] font-black uppercase tracking-wide" style={{ color: priceColor }}>{hasOnlyFreeToppings ? 'Barra libre gratis' : 'Personalizar adicionales'}</p>}
+        {hasToppings && <p className="mt-1 text-[11px] font-black uppercase tracking-wide" style={{ color: priceColor }}>{hasOnlyFreeToppings ? freeToppingsLabel : 'Personalizar adicionales'}</p>}
         <p className="mt-1.5 text-sm font-black" style={{ color: priceColor }}>
           {formatPriceWithCurrency(item.price, currencyInfo.code, currencyInfo.locale)}
         </p>
       </div>
       <div className="flex-shrink-0">
-        <AddToCartButton item={item} tenantId={tenantId} color={buttonColor} small toppings={toppings} currencyInfo={currencyInfo} />
+        <AddToCartButton item={item} tenantId={tenantId} color={buttonColor} small toppings={toppings} currencyInfo={currencyInfo} freeToppingsLabel={freeToppingsLabel} />
       </div>
     </div>
   )
@@ -117,6 +120,7 @@ export function MenuGridItem({
   cardCls,
   currencyInfo,
   toppings = [],
+  freeToppingsLabel = 'Ingredientes gratis',
   index = 0,
 }: MenuItemProps) {
   const [imageLoaded, setImageLoaded] = useState(!item.image_url)
@@ -146,7 +150,7 @@ export function MenuGridItem({
           <div className="absolute inset-0 bg-gradient-to-t from-black/62 via-black/10 to-transparent" />
           {hasToppings && (
             <span className="absolute left-2 top-2 rounded-full px-2.5 py-1 text-[10px] font-black text-white shadow-lg" style={{ backgroundColor: buttonColor }}>
-              {hasOnlyFreeToppings ? 'Barra libre' : 'Adicionales'}
+              {hasOnlyFreeToppings ? freeToppingsLabel : 'Adicionales'}
             </span>
           )}
           <span className="absolute bottom-2 left-2 rounded-full bg-white/92 px-3 py-1.5 text-sm font-black shadow-lg backdrop-blur" style={{ color: priceColor }}>
@@ -164,7 +168,7 @@ export function MenuGridItem({
           <p className={`text-base font-black ${item.image_url ? 'sr-only' : ''}`} style={{ color: priceColor }}>
             {formatPriceWithCurrency(item.price, currencyInfo.code, currencyInfo.locale)}
           </p>
-          <AddToCartButton item={item} tenantId={tenantId} color={buttonColor} small toppings={toppings} currencyInfo={currencyInfo} />
+          <AddToCartButton item={item} tenantId={tenantId} color={buttonColor} small toppings={toppings} currencyInfo={currencyInfo} freeToppingsLabel={freeToppingsLabel} />
         </div>
       </div>
     </div>
@@ -181,6 +185,7 @@ export function MenuCompactItem({
   mutedTextColor = 'rgba(0,0,0,0.48)',
   currencyInfo,
   toppings = [],
+  freeToppingsLabel = 'Ingredientes gratis',
   index = 0,
 }: MenuCompactItemProps) {
   const hasToppings = toppings.length > 0
@@ -191,13 +196,13 @@ export function MenuCompactItem({
       <div className="min-w-0 flex-1">
         <p className="text-sm font-black" style={{ color: textColor }}>{item.name}</p>
         {item.description && <p className="mt-0.5 line-clamp-1 text-xs font-semibold" style={{ color: mutedTextColor }}>{item.description}</p>}
-        {hasToppings && <p className="mt-1 text-[10px] font-black uppercase tracking-wide" style={{ color: priceColor }}>{hasOnlyFreeToppings ? 'Barra libre' : 'Adicionales'}</p>}
+        {hasToppings && <p className="mt-1 text-[10px] font-black uppercase tracking-wide" style={{ color: priceColor }}>{hasOnlyFreeToppings ? freeToppingsLabel : 'Adicionales'}</p>}
       </div>
       <p className="flex-shrink-0 text-sm font-extrabold" style={{ color: priceColor }}>
         {formatPriceWithCurrency(item.price, currencyInfo.code, currencyInfo.locale)}
       </p>
       <div className="flex-shrink-0">
-        <AddToCartButton item={item} tenantId={tenantId} color={buttonColor} small toppings={toppings} currencyInfo={currencyInfo} />
+        <AddToCartButton item={item} tenantId={tenantId} color={buttonColor} small toppings={toppings} currencyInfo={currencyInfo} freeToppingsLabel={freeToppingsLabel} />
       </div>
     </div>
   )

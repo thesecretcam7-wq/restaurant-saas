@@ -116,7 +116,7 @@ export default function ToppingsManager({ menuItemId, tenantId }: Props) {
     <div className="bg-white sm:rounded-xl sm:border">
       <div className="px-4 py-4 border-b">
         <h3 className="font-semibold text-gray-900">Ingredientes y adicionales</h3>
-        <p className="text-xs text-gray-500 mt-1">Usa precio 0 para barra libre gratis, o agrega precio cuando sea un extra pago.</p>
+        <p className="text-xs text-gray-500 mt-1">Usa precio 0 para ingredientes gratis, o agrega precio cuando sea un extra pago.</p>
       </div>
 
       {/* List of existing toppings */}

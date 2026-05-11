@@ -82,6 +82,7 @@ function readableText(background: string, dark = '#15130f', light = '#ffffff') {
 
 export function KitchenClient({ tenantId, tenantSlug, tenantName, country, branding }: Props) {
   const { tr } = useI18n();
+  const freeToppingsLabel = tenantSlug === 'parrillaburgers' ? 'Barra libre' : 'Ingredientes gratis';
   const [categories, setCategories] = useState<Category[]>([]);
   const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
   const [toppings, setToppings] = useState<Topping[]>([]);
@@ -668,7 +669,7 @@ export function KitchenClient({ tenantId, tenantSlug, tenantName, country, brand
                         <div className="p-2">
                           <p className="line-clamp-2 min-h-8 text-xs font-black leading-4" style={{ color: brand.surfaceText }}>{item.name}</p>
                           {item.description && <p className="mt-0.5 line-clamp-1 text-[11px] font-semibold" style={{ color: brand.mutedText }}>{item.description}</p>}
-                          {hasToppings && <p className="mt-1 text-[10px] font-black uppercase tracking-wide" style={{ color: brand.primary }}>{hasOnlyFreeToppings ? 'Barra libre' : 'Adicionales'}</p>}
+                          {hasToppings && <p className="mt-1 text-[10px] font-black uppercase tracking-wide" style={{ color: brand.primary }}>{hasOnlyFreeToppings ? freeToppingsLabel : 'Adicionales'}</p>}
                           <p className="mt-1 text-sm font-black" style={{ color: brand.accent }}>{money(item.price)}</p>
                         </div>
                       </button>
@@ -866,7 +867,7 @@ export function KitchenClient({ tenantId, tenantSlug, tenantName, country, brand
               <div className="min-w-0">
                 <p className="text-xs font-black uppercase" style={{ color: brand.mutedText }}>
                   {(toppingsByItem.get(customizingItem.id) || []).length > 0 && (toppingsByItem.get(customizingItem.id) || []).every(topping => Number(topping.price || 0) === 0)
-                    ? 'Barra libre'
+                    ? freeToppingsLabel
                     : 'Personalizar plato'}
                 </p>
                 <h3 className="truncate text-xl font-black">{customizingItem.name}</h3>

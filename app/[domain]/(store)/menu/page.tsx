@@ -82,6 +82,7 @@ export default async function MenuPage({ params }: MenuProps) {
   })
 
   const slug = context.tenant?.slug || tenantSlug
+  const freeToppingsLabel = slug === 'parrillaburgers' ? 'Barra libre' : 'Ingredientes gratis'
   const branding = context.branding
   const settings = context.settings
   const palette = deriveBrandPalette({
@@ -264,7 +265,7 @@ export default async function MenuPage({ params }: MenuProps) {
                     {item.description && <p className="mt-1 line-clamp-2 flex-1 text-xs font-semibold text-black/48">{item.description}</p>}
                     <div className="mt-2 flex items-center justify-between gap-2">
                       <p className={`text-base font-black ${item.image_url ? 'sr-only' : ''}`} style={{ color: priceColor }}>{formatPriceWithCurrency(item.price, currencyInfo.code, currencyInfo.locale)}</p>
-                      <AddToCartButton item={item} tenantId={tenantId} color={buttonColor} small toppings={toppingsByItem[item.id] || []} currencyInfo={currencyInfo} />
+                      <AddToCartButton item={item} tenantId={tenantId} color={buttonColor} small toppings={toppingsByItem[item.id] || []} currencyInfo={currencyInfo} freeToppingsLabel={freeToppingsLabel} />
                     </div>
                   </div>
                 </div>
@@ -294,19 +295,19 @@ export default async function MenuPage({ params }: MenuProps) {
               {layout === 'grid' ? (
                 <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
                   {catItems.map((item, index) => (
-                    <MenuGridItem key={item.id} item={item} tenantId={tenantId} primary={primary} priceColor={priceColor} buttonColor={buttonColor} textColor={menuTextColor} mutedTextColor={menuMutedTextColor} br={br} cardCls={cardCls} currencyInfo={currencyInfo} toppings={toppingsByItem[item.id] || []} index={index} />
+                    <MenuGridItem key={item.id} item={item} tenantId={tenantId} primary={primary} priceColor={priceColor} buttonColor={buttonColor} textColor={menuTextColor} mutedTextColor={menuMutedTextColor} br={br} cardCls={cardCls} currencyInfo={currencyInfo} toppings={toppingsByItem[item.id] || []} freeToppingsLabel={freeToppingsLabel} index={index} />
                   ))}
                 </div>
               ) : layout === 'compact' ? (
                 <div className={`overflow-hidden divide-y divide-gray-50 ${cardCls}`} style={{ borderRadius: br }}>
                   {catItems.map((item, index) => (
-                    <MenuCompactItem key={item.id} item={item} tenantId={tenantId} primary={primary} priceColor={priceColor} buttonColor={buttonColor} textColor={menuTextColor} mutedTextColor={menuMutedTextColor} currencyInfo={currencyInfo} toppings={toppingsByItem[item.id] || []} index={index} />
+                    <MenuCompactItem key={item.id} item={item} tenantId={tenantId} primary={primary} priceColor={priceColor} buttonColor={buttonColor} textColor={menuTextColor} mutedTextColor={menuMutedTextColor} currencyInfo={currencyInfo} toppings={toppingsByItem[item.id] || []} freeToppingsLabel={freeToppingsLabel} index={index} />
                   ))}
                 </div>
               ) : (
                 <div className="grid gap-3 lg:grid-cols-2">
                   {catItems.map((item, index) => (
-                    <MenuListItem key={item.id} item={item} tenantId={tenantId} primary={primary} priceColor={priceColor} buttonColor={buttonColor} textColor={menuTextColor} mutedTextColor={menuMutedTextColor} br={br} cardCls={cardCls} currencyInfo={currencyInfo} toppings={toppingsByItem[item.id] || []} index={index} />
+                    <MenuListItem key={item.id} item={item} tenantId={tenantId} primary={primary} priceColor={priceColor} buttonColor={buttonColor} textColor={menuTextColor} mutedTextColor={menuMutedTextColor} br={br} cardCls={cardCls} currencyInfo={currencyInfo} toppings={toppingsByItem[item.id] || []} freeToppingsLabel={freeToppingsLabel} index={index} />
                   ))}
                 </div>
               )}
@@ -330,7 +331,7 @@ export default async function MenuPage({ params }: MenuProps) {
             </h2>
             <div className="grid gap-3 lg:grid-cols-2">
               {uncategorized.map((item, index) => (
-                <MenuListItem key={item.id} item={item} tenantId={tenantId} primary={primary} priceColor={priceColor} buttonColor={buttonColor} textColor={menuTextColor} mutedTextColor={menuMutedTextColor} br={br} cardCls={cardCls} currencyInfo={currencyInfo} toppings={toppingsByItem[item.id] || []} index={index} />
+                <MenuListItem key={item.id} item={item} tenantId={tenantId} primary={primary} priceColor={priceColor} buttonColor={buttonColor} textColor={menuTextColor} mutedTextColor={menuMutedTextColor} br={br} cardCls={cardCls} currencyInfo={currencyInfo} toppings={toppingsByItem[item.id] || []} freeToppingsLabel={freeToppingsLabel} index={index} />
               ))}
             </div>
           </section>
