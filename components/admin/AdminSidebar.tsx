@@ -128,9 +128,11 @@ export function AdminSidebar({
         <div className="flex items-center justify-between gap-3">
           <div className="flex min-w-0 items-center gap-3">
             {logoUrl ? (
-              <img src={logoUrl} alt="" className="size-10 flex-shrink-0 rounded-lg object-cover shadow-sm" />
+              <span className="flex h-12 w-16 flex-shrink-0 items-center justify-center rounded-xl bg-white p-1 shadow-sm">
+                <img src={logoUrl} alt="" className="max-h-full max-w-full object-contain" />
+              </span>
             ) : (
-              <div className="flex size-10 flex-shrink-0 items-center justify-center rounded-lg bg-white text-sm font-black text-[#15130f]">
+              <div className="flex h-12 w-16 flex-shrink-0 items-center justify-center rounded-xl bg-white text-sm font-black text-[#15130f]">
                 {restaurantName.charAt(0)}
               </div>
             )}

@@ -19,7 +19,7 @@ export default function StoreClosed({
     <main className="flex min-h-screen items-center justify-center bg-[#f8f6f1] px-5 py-10 text-[#15130f]">
       <section className="w-full max-w-md text-center">
         {logoUrl ? (
-          <img src={logoUrl} alt={name} className="mx-auto mb-6 max-h-24 max-w-44 object-contain drop-shadow-xl" />
+          <img src={logoUrl} alt={name} className="mx-auto mb-6 max-h-32 max-w-64 object-contain drop-shadow-xl" />
         ) : (
           <div
             className="mx-auto mb-6 flex size-20 items-center justify-center rounded-2xl text-3xl font-black text-white shadow-xl"
