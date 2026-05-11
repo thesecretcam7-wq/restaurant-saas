@@ -366,6 +366,11 @@ export async function middleware(request: NextRequest) {
   if (!hostname.includes(BASE_DOMAIN)) {
     const tenant = await getTenantByDomain(hostname)
     if (tenant) {
+      const slugPrefix = `/${tenant.slug}`
+      if (pathname === slugPrefix || pathname.startsWith(`${slugPrefix}/`)) {
+        return NextResponse.next()
+      }
+
       url.pathname = `/${tenant.slug}${pathname}`
       return NextResponse.rewrite(url)
     }
