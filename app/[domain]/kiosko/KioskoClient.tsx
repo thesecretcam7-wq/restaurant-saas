@@ -756,6 +756,13 @@ export default function KioskoClient({
   }
 
   const removeFromCart = (lineId: string) => setCart(prev => prev.filter(c => c.lineId !== lineId))
+  const clearStaleCart = () => {
+    setCart([])
+    setSelectedToppings([])
+    setSelectedItem(null)
+    setItemQty(1)
+    setStep('menu')
+  }
 
   const getCSRF = async (): Promise<string> => {
     const res = await fetch('/api/csrf-token')
@@ -781,7 +788,10 @@ export default function KioskoClient({
         }),
       })
       const data = await res.json()
-      if (!res.ok) throw new Error(data.error || 'Error al crear el pedido')
+      if (!res.ok) {
+        if (data.clearCart) clearStaleCart()
+        throw new Error(data.error || 'Error al crear el pedido')
+      }
       setConfirmed({ number: data.displayNumber ?? 0, name: customerName.trim() })
       setStep('confirmed')
     } catch (e) {
@@ -805,7 +815,10 @@ export default function KioskoClient({
         }),
       })
       const data = await res.json()
-      if (!res.ok) throw new Error(data.error || 'Error al procesar pago')
+      if (!res.ok) {
+        if (data.clearCart) clearStaleCart()
+        throw new Error(data.error || 'Error al procesar pago')
+      }
       window.location.href = data.url
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Error al procesar')
