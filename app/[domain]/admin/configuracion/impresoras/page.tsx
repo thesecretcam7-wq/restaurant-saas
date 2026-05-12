@@ -417,12 +417,17 @@ export default function PrintersConfigPage({ params }: Props) {
           </p>
           <button
             onClick={handleAddWindowsPrinter}
-            disabled={windowsLoading || tenantLoading}
+            disabled={windowsLoading}
             className="inline-flex w-full items-center justify-center gap-2 rounded-lg border border-emerald-500/40 bg-emerald-500/20 px-4 py-2 font-bold text-emerald-50 transition hover:bg-emerald-500/30 disabled:cursor-not-allowed disabled:border-gray-700 disabled:bg-gray-800 disabled:text-gray-400"
           >
             <Plus className="w-5 h-5" />
-            {windowsLoading ? 'Conectando...' : tenantLoading ? 'Cargando restaurante...' : 'Usar impresora de Windows'}
+            {windowsLoading ? 'Conectando...' : 'Usar impresora de Windows'}
           </button>
+          {tenantLoading && (
+            <p className="mt-2 text-xs font-bold text-emerald-100/65">
+              Si acabas de abrir la pagina, espera unos segundos antes de tocarlo.
+            </p>
+          )}
         </div>
 
         <div className="rounded-xl border border-cyan-500/30 bg-cyan-500/10 p-4">
@@ -459,7 +464,7 @@ export default function PrintersConfigPage({ params }: Props) {
           className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-700 disabled:cursor-not-allowed text-white rounded-lg font-medium transition"
         >
           <Plus className="w-5 h-5" />
-          Agregar Impresora USB
+          {webusb.isSupported ? 'Agregar Impresora USB' : 'USB directo requiere Chrome o Edge'}
         </button>
       </div>
 
