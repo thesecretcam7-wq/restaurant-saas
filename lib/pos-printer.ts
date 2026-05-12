@@ -603,6 +603,7 @@ function generateReceiptHTML(data: ReceiptData): string {
   const printedAt = data.timestamp ? new Date(data.timestamp) : new Date();
   const locale = data.currencyInfo?.locale || 'es-ES';
   const money = (amount: number) => formatPriceWithCurrency(amount, data.currencyInfo.code, locale);
+  const paymentLabel = getPaymentMethodLabel(data.paymentMethod);
   const safe = (value: string | number | null | undefined) =>
     String(value ?? '')
       .replaceAll('&', '&amp;')
@@ -648,7 +649,7 @@ function generateReceiptHTML(data: ReceiptData): string {
         }
         body {
           font-family: 'Courier New', Courier, monospace;
-          font-size: 18px;
+          font-size: 16px;
           font-weight: 700;
           line-height: 1.18;
           padding: 2mm 3mm 0;
@@ -665,11 +666,11 @@ function generateReceiptHTML(data: ReceiptData): string {
           text-align: center;
           font-weight: bold;
           margin-bottom: 4px;
-          font-size: 21px;
+          font-size: 19px;
         }
         .meta {
           text-align: center;
-          font-size: 15px;
+          font-size: 13px;
           font-weight: 800;
           margin: 2px 0;
         }
@@ -683,7 +684,7 @@ function generateReceiptHTML(data: ReceiptData): string {
           margin: 8px 0;
         }
         th {
-          font-size: 16px;
+          font-size: 14px;
           text-align: left;
           border-bottom: 2px solid #000;
           padding: 4px 1px;
@@ -695,12 +696,12 @@ function generateReceiptHTML(data: ReceiptData): string {
         }
         .total-row {
           font-weight: bold;
-          font-size: 23px;
+          font-size: 20px;
         }
         .footer {
           text-align: center;
           margin-top: 6px;
-          font-size: 16px;
+          font-size: 14px;
           font-weight: 800;
         }
         hr {
@@ -777,6 +778,14 @@ function generateReceiptHTML(data: ReceiptData): string {
           <td>TOTAL:</td>
           <td class="number">${money(data.total)}</td>
         </tr>
+        ${
+          paymentLabel
+            ? `<tr>
+          <td>Metodo de pago:</td>
+          <td class="number">${safe(paymentLabel)}</td>
+        </tr>`
+            : ''
+        }
       </table>
       <div class="footer">
         <p>Gracias por su compra</p>
@@ -785,6 +794,12 @@ function generateReceiptHTML(data: ReceiptData): string {
     </body>
     </html>
   `;
+}
+
+function getPaymentMethodLabel(method?: string | null): string {
+  if (method === 'cash') return 'Efectivo';
+  if (method === 'stripe' || method === 'card') return 'Tarjeta';
+  return method ? method : '';
 }
 
 /**

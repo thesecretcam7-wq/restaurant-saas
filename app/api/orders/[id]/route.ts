@@ -44,14 +44,14 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     const { id } = await params
     const orderId = id
     const body = await request.json()
-    const { status, payment_status, cancel_reason } = body
+    const { status, payment_status, payment_method, cancel_reason } = body
 
     if (!orderId) {
       return NextResponse.json({ error: 'Order ID is required' }, { status: 400 })
     }
 
-    if (!status && !payment_status) {
-      return NextResponse.json({ error: 'Status or payment_status is required' }, { status: 400 })
+    if (!status && !payment_status && !payment_method) {
+      return NextResponse.json({ error: 'Status, payment_status or payment_method is required' }, { status: 400 })
     }
 
     const supabase = createServiceClient()
@@ -82,6 +82,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     const updateData: Record<string, any> = { updated_at: new Date().toISOString() }
     if (status) updateData.status = status
     if (payment_status) updateData.payment_status = payment_status
+    if (payment_method) updateData.payment_method = payment_method
     if (status === 'cancelled') {
       const timestamp = new Date().toISOString()
       const reason = typeof cancel_reason === 'string' && cancel_reason.trim()

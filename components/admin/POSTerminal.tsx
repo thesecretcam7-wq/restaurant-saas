@@ -1372,6 +1372,7 @@ export function POSTerminal({
             tenantId,
             payment_status: 'paid',
             status: 'confirmed',
+            payment_method: paymentMethod,
           }),
         });
 
@@ -1403,6 +1404,7 @@ export function POSTerminal({
             body: JSON.stringify({
               tenantId,
               payment_status: 'paid',
+              payment_method: paymentMethod,
             }),
           });
 
@@ -1502,6 +1504,7 @@ export function POSTerminal({
                   tenantId,
                   payment_status: 'paid',
                   status: 'confirmed',
+                  payment_method: paymentMethod,
                 }),
               });
 
@@ -1589,6 +1592,7 @@ export function POSTerminal({
                 total: receiptSnapshot.total,
                 amountPaid: receiptSnapshot.amountPaid,
                 change: receiptSnapshot.change,
+                paymentMethod: receiptSnapshot.paymentMethod,
                 currencyInfo: receiptSnapshot.currencyInfo,
                 waiterName: receiptSnapshot.waiterName,
                 tableNumber: receiptSnapshot.tableNumber,

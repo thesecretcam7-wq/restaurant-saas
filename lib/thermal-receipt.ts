@@ -21,6 +21,8 @@ const SIZE_WIDE = `${GS}!\x10`;
 const SIZE_2X = `${GS}!\x11`;
 const BOLD_ON = `${ESC}E\x01`;
 const BOLD_OFF = `${ESC}E\x00`;
+const FONT_A = `${ESC}M\x00`;
+const FONT_B = `${ESC}M\x01`;
 const ALIGN_CENTER = `${ESC}a\x01`;
 const ALIGN_LEFT = `${ESC}a\x00`;
 const INIT = `${ESC}@`;
@@ -44,11 +46,11 @@ export function generateReceiptESCPOS(data: ReceiptData, options: ReceiptOptions
     line('-'.repeat(cols));
   };
 
-  push(INIT);
+  push(INIT, FONT_B);
 
-  push(ALIGN_CENTER, SIZE_2X, BOLD_ON);
+  push(ALIGN_CENTER, FONT_A, SIZE_WIDE, BOLD_ON);
   line(data.restaurantName ?? 'Restaurante');
-  push(BOLD_OFF, SIZE_NORMAL);
+  push(BOLD_OFF, SIZE_NORMAL, FONT_B);
   if (data.restaurantPhone) line(`Tel: ${data.restaurantPhone}`);
 
   push(BOLD_ON);
@@ -112,13 +114,17 @@ export function generateReceiptESCPOS(data: ReceiptData, options: ReceiptOptions
   }
 
   sep();
-  push(ALIGN_CENTER, SIZE_WIDE, BOLD_ON);
+  push(ALIGN_CENTER, FONT_A, SIZE_WIDE, BOLD_ON);
   line('TOTAL');
   line(formatPrice(data.total, data));
-  push(BOLD_OFF, SIZE_NORMAL);
+  push(BOLD_OFF, SIZE_NORMAL, FONT_B);
 
   sep();
   push(ALIGN_LEFT);
+  const paymentLabel = getPaymentMethodLabel(data.paymentMethod);
+  if (paymentLabel) {
+    line(padR('Metodo:', cols - paymentLabel.length) + paymentLabel);
+  }
   if (data.amountPaid !== undefined) {
     const paidStr = formatPrice(data.amountPaid, data);
     const changeStr = formatPrice(data.change, data);
@@ -139,7 +145,7 @@ export function generateReceiptESCPOS(data: ReceiptData, options: ReceiptOptions
     push(cashDrawerPulseCommands());
   }
   push(cutCommands());
-  push(ALIGN_LEFT, SIZE_NORMAL);
+  push(ALIGN_LEFT, SIZE_NORMAL, FONT_A);
 
   const receipt = bytes.join('');
   const copies = Array(Math.max(1, options.copies)).fill(receipt).join('');
@@ -148,6 +154,12 @@ export function generateReceiptESCPOS(data: ReceiptData, options: ReceiptOptions
 
 function formatPrice(amount: number, data: ReceiptData): string {
   return formatPriceWithCurrency(amount, data.currencyInfo.code, data.currencyInfo.locale);
+}
+
+function getPaymentMethodLabel(method?: string | null): string {
+  if (method === 'cash') return 'Efectivo';
+  if (method === 'stripe' || method === 'card') return 'Tarjeta';
+  return method ? method : '';
 }
 
 function padR(text: string, width: number): string {

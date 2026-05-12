@@ -66,6 +66,7 @@ export interface ReceiptData {
   total: number;
   amountPaid?: number;
   change: number;
+  paymentMethod?: 'cash' | 'stripe' | 'card' | string | null;
   currencyInfo: {
     code: string;
     symbol: string;
