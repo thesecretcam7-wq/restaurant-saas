@@ -1,0 +1,315 @@
+/* ─── Kiosko Premium Design System ─────────────────────────────────────────── */
+
+/* ─── Gradients ──────────────────────────────────────────────────────────────── */
+
+.kiosko-gradient-primary {
+  background: linear-gradient(135deg, var(--kiosko-primary), var(--kiosko-accent));
+}
+
+.kiosko-gradient-primary-subtle {
+  background: linear-gradient(
+    to bottom,
+    color-mix(in srgb, var(--kiosko-primary) 8%, var(--kiosko-surface)),
+    var(--kiosko-surface)
+  );
+}
+
+.kiosko-gradient-hover {
+  background: linear-gradient(
+    to right,
+    color-mix(in srgb, var(--kiosko-primary) 10%, transparent),
+    color-mix(in srgb, var(--kiosko-accent) 10%, transparent)
+  );
+}
+
+/* ─── Header ─────────────────────────────────────────────────────────────────── */
+
+.kiosko-header {
+  background: linear-gradient(135deg, var(--kiosko-primary), var(--kiosko-primary-dark));
+  color: var(--kiosko-text-on-primary);
+  box-shadow: 0 8px 24px color-mix(in srgb, var(--kiosko-primary) 20%, transparent);
+}
+
+/* ─── Buttons ────────────────────────────────────────────────────────────────── */
+
+.kiosko-button-primary {
+  background: linear-gradient(135deg, var(--kiosko-primary), var(--kiosko-primary-dark));
+  color: var(--kiosko-text-on-primary);
+  font-weight: 600;
+  border: none;
+  border-radius: 12px;
+  padding: 12px 24px;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+  box-shadow: 0 4px 12px color-mix(in srgb, var(--kiosko-primary) 20%, transparent);
+}
+
+.kiosko-button-primary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px color-mix(in srgb, var(--kiosko-primary) 30%, transparent);
+}
+
+.kiosko-button-primary:active {
+  transform: scale(0.98);
+}
+
+.kiosko-button-primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.kiosko-button-secondary {
+  background: var(--kiosko-surface);
+  color: var(--kiosko-text-primary);
+  border: 2px solid var(--kiosko-border);
+  font-weight: 600;
+  border-radius: 12px;
+  padding: 12px 24px;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.kiosko-button-secondary:hover {
+  border-color: var(--kiosko-primary);
+  color: var(--kiosko-primary);
+  transform: translateY(-2px);
+}
+
+.kiosko-button-secondary:active {
+  transform: scale(0.98);
+}
+
+/* ─── Cards & Surfaces ───────────────────────────────────────────────────────── */
+
+.kiosko-card {
+  background: var(--kiosko-surface);
+  border: 1px solid var(--kiosko-border);
+  border-radius: 16px;
+  box-shadow: 0 4px 16px color-mix(in srgb, var(--kiosko-primary) 8%, transparent);
+  transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.kiosko-card:hover {
+  border-color: color-mix(in srgb, var(--kiosko-primary) 50%, var(--kiosko-border));
+  box-shadow: 0 12px 32px color-mix(in srgb, var(--kiosko-primary) 15%, transparent);
+  transform: translateY(-4px);
+}
+
+.kiosko-surface {
+  background: var(--kiosko-surface);
+  color: var(--kiosko-surface-text);
+  border: 1px solid var(--kiosko-border);
+  border-radius: 12px;
+  padding: 16px;
+}
+
+/* ─── Inputs & Forms ────────────────────────────────────────────────────────── */
+
+.kiosko-input {
+  background: var(--kiosko-surface);
+  color: var(--kiosko-text-primary);
+  border: 2px solid var(--kiosko-border);
+  border-radius: 8px;
+  padding: 10px 14px;
+  font-size: 1rem;
+  transition: all 0.2s ease-out;
+}
+
+.kiosko-input:focus {
+  outline: none;
+  border-color: var(--kiosko-primary);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--kiosko-primary) 10%, transparent);
+}
+
+.kiosko-input::placeholder {
+  color: var(--kiosko-text-secondary);
+}
+
+/* ─── Category Chips ────────────────────────────────────────────────────────── */
+
+.kiosko-category-chip {
+  background: var(--kiosko-surface);
+  color: var(--kiosko-text-primary);
+  border: 2px solid var(--kiosko-border);
+  padding: 8px 16px;
+  border-radius: 20px;
+  cursor: pointer;
+  font-weight: 500;
+  font-size: 0.875rem;
+  transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+  white-space: nowrap;
+}
+
+.kiosko-category-chip:hover {
+  border-color: var(--kiosko-primary);
+  color: var(--kiosko-primary);
+  transform: translateY(-2px);
+}
+
+.kiosko-category-chip.active {
+  background: linear-gradient(135deg, var(--kiosko-primary), var(--kiosko-accent));
+  color: var(--kiosko-text-on-primary);
+  border-color: var(--kiosko-primary);
+  box-shadow: 0 4px 12px color-mix(in srgb, var(--kiosko-primary) 20%, transparent);
+}
+
+/* ─── Category Indicator ────────────────────────────────────────────────────── */
+
+.kiosko-category-indicator {
+  height: 2px;
+  background: linear-gradient(to right, var(--kiosko-primary), var(--kiosko-accent));
+  border-radius: 1px;
+  transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* ─── Product Card ────────────────────────────────────────────────────────────── */
+
+.kiosko-product-card {
+  background: var(--kiosko-surface);
+  border: 1px solid var(--kiosko-border);
+  border-radius: 16px;
+  overflow: hidden;
+  transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+  cursor: pointer;
+  box-shadow: 0 4px 12px color-mix(in srgb, var(--kiosko-primary) 8%, transparent);
+}
+
+.kiosko-product-card:hover {
+  border-color: color-mix(in srgb, var(--kiosko-primary) 70%, var(--kiosko-border));
+  box-shadow: 0 12px 32px color-mix(in srgb, var(--kiosko-primary) 18%, transparent);
+  transform: translateY(-6px);
+}
+
+.kiosko-product-card:active {
+  transform: scale(0.98);
+}
+
+.kiosko-product-image {
+  width: 100%;
+  aspect-ratio: 1;
+  object-fit: cover;
+  transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--kiosko-primary) 10%, var(--kiosko-surface)),
+    color-mix(in srgb, var(--kiosko-accent) 8%, var(--kiosko-surface))
+  );
+}
+
+.kiosko-product-card:hover .kiosko-product-image {
+  transform: scale(1.08);
+}
+
+/* ─── Badges ────────────────────────────────────────────────────────────────── */
+
+.kiosko-badge {
+  display: inline-block;
+  padding: 4px 10px;
+  border-radius: 8px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.kiosko-badge-featured {
+  background: linear-gradient(135deg, var(--kiosko-primary), var(--kiosko-accent));
+  color: var(--kiosko-text-on-primary);
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--kiosko-primary) 20%, transparent);
+}
+
+.kiosko-badge-unavailable {
+  background: color-mix(in srgb, var(--kiosko-text-secondary) 15%, var(--kiosko-surface));
+  color: var(--kiosko-text-secondary);
+}
+
+/* ─── Modal Overlay ────────────────────────────────────────────────────────── */
+
+.kiosko-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(4px);
+  animation: fadeIn 0.2s ease-out;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.kiosko-modal-content {
+  animation: slideUp 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes slideUp {
+  from {
+    transform: translateY(20px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+/* ─── Transitions & Animations ────────────────────────────────────────────── */
+
+.kiosko-transition-smooth {
+  transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.kiosko-transition-fast {
+  transition: all 0.15s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.kiosko-shadow-lg {
+  box-shadow: 0 12px 32px color-mix(in srgb, var(--kiosko-primary) 15%, transparent);
+}
+
+.kiosko-shadow-md {
+  box-shadow: 0 4px 16px color-mix(in srgb, var(--kiosko-primary) 10%, transparent);
+}
+
+.kiosko-shadow-sm {
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--kiosko-primary) 8%, transparent);
+}
+
+/* ─── Utilities ──────────────────────────────────────────────────────────────── */
+
+.kiosko-text-primary {
+  color: var(--kiosko-text-primary);
+}
+
+.kiosko-text-secondary {
+  color: var(--kiosko-text-secondary);
+}
+
+.kiosko-text-on-primary {
+  color: var(--kiosko-text-on-primary);
+}
+
+.kiosko-bg-primary {
+  background-color: var(--kiosko-primary);
+}
+
+.kiosko-border-primary {
+  border-color: var(--kiosko-primary);
+}
+
+.kiosko-divide-primary {
+  border-top-color: var(--kiosko-border);
+}
+
+.kiosko-opacity-primary-10 {
+  background-color: color-mix(in srgb, var(--kiosko-primary) 10%, transparent);
+}
+
+.kiosko-opacity-primary-20 {
+  background-color: color-mix(in srgb, var(--kiosko-primary) 20%, transparent);
+}

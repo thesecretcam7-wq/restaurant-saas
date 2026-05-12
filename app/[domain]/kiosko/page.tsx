@@ -1,5 +1,6 @@
 import { createServiceClient } from '@/lib/supabase/server'
 import KioskoClient from './KioskoClient'
+import KioskoBrandingProvider from './KioskoBrandingProvider'
 
 interface Props {
   params: Promise<{ domain: string }>
@@ -67,17 +68,19 @@ export default async function KioskoPage({ params, searchParams }: Props) {
       : undefined
 
   return (
-    <KioskoClient
-      tenantId={tenant.id}
-      domain={domain}
-      branding={branding}
-      categories={categoriesRes.data || []}
-      menuItems={itemsRes.data || []}
-      banners={bannersRes.data || []}
-      taxRate={settingsRes.data?.tax_rate || 0}
-      currencySymbol={settingsRes.data?.currency_symbol || '$'}
-      stripeEnabled={!!tenant.stripe_account_id}
-      initialConfirmed={initialConfirmed}
-    />
+    <KioskoBrandingProvider branding={branding}>
+      <KioskoClient
+        tenantId={tenant.id}
+        domain={domain}
+        branding={branding}
+        categories={categoriesRes.data || []}
+        menuItems={itemsRes.data || []}
+        banners={bannersRes.data || []}
+        taxRate={settingsRes.data?.tax_rate || 0}
+        currencySymbol={settingsRes.data?.currency_symbol || '$'}
+        stripeEnabled={!!tenant.stripe_account_id}
+        initialConfirmed={initialConfirmed}
+      />
+    </KioskoBrandingProvider>
   )
 }

@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback, useRef } from 'react'
+import './kiosko.css'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -33,15 +34,6 @@ function fmt(amount: number, symbol: string) {
 
 function pad(n: number) { return String(n).padStart(3, '0') }
 
-// Darken a hex color by a percentage for hover states
-function darken(hex: string, amount = 20): string {
-  const num = parseInt(hex.replace('#', ''), 16)
-  const r = Math.max(0, (num >> 16) - amount)
-  const g = Math.max(0, ((num >> 8) & 0xff) - amount)
-  const b = Math.max(0, (num & 0xff) - amount)
-  return `#${((r << 16) | (g << 8) | b).toString(16).padStart(6, '0')}`
-}
-
 // ─── App Header Component ─────────────────────────────────────────────────
 function AppHeader({
   primaryColor,
@@ -62,8 +54,7 @@ function AppHeader({
 }) {
   return (
     <header
-      className="flex items-center justify-between px-8 py-4 flex-shrink-0 text-white"
-      style={{ backgroundColor: primaryColor }}
+      className="flex items-center justify-between px-8 py-4 flex-shrink-0 kiosko-header"
     >
       <div className="flex items-center gap-4">
         {onBack && (
@@ -259,8 +250,7 @@ function CategoryProductModal({
       >
         {/* Header */}
         <div
-          className="flex items-center gap-4 px-6 py-4 text-white flex-shrink-0"
-          style={{ backgroundColor: primaryColor }}
+          className="flex items-center gap-4 px-6 py-4 kiosko-header flex-shrink-0"
         >
           <button
             onClick={onClose}
@@ -291,26 +281,26 @@ function CategoryProductModal({
                   <button
                     key={item.id}
                     onClick={() => onSelectItem(item)}
-                    className="bg-white rounded-2xl shadow-sm overflow-hidden text-left transition-all active:scale-95 hover:shadow-md flex flex-col group border border-gray-100"
+                    className="kiosko-product-card flex flex-col group"
                   >
                     <div className="relative overflow-hidden">
                       {item.image_url ? (
-                        <img src={item.image_url} alt={item.name} className="w-full h-44 object-cover group-hover:scale-105 transition-transform duration-300" />
+                        <img src={item.image_url} alt={item.name} className="kiosko-product-image" />
                       ) : (
-                        <div className="w-full h-44 flex items-center justify-center text-6xl" style={{ backgroundColor: `${primaryColor}15` }}>
+                        <div className="w-full h-44 flex items-center justify-center text-6xl kiosko-opacity-primary-10">
                           🍽️
                         </div>
                       )}
                     </div>
                     <div className="p-4 flex flex-col flex-1">
-                      <p className="font-bold text-gray-900 text-sm leading-snug line-clamp-2 flex-1 mb-3">{item.name}</p>
+                      <p className="font-bold kiosko-text-primary text-sm leading-snug line-clamp-2 flex-1 mb-3">{item.name}</p>
                       <div className="flex items-center justify-between">
-                        <p className="font-black text-lg" style={{ color: primaryColor }}>
+                        <p className="font-black text-lg" style={{ color: 'var(--kiosko-primary)' }}>
                           {fmt(item.price, currencySymbol)}
                         </p>
                         <div
-                          className="w-9 h-9 rounded-full flex items-center justify-center text-white font-black text-xl shadow-md transition-transform active:scale-90"
-                          style={{ backgroundColor: primaryColor }}
+                          className="w-9 h-9 rounded-full flex items-center justify-center kiosko-text-on-primary font-black text-xl shadow-md transition-transform active:scale-90"
+                          style={{ backgroundColor: 'var(--kiosko-primary)' }}
                         >
                           +
                         </div>
@@ -354,7 +344,6 @@ export default function KioskoClient({
   const categoryScrollRef = useRef<HTMLDivElement | null>(null)
 
   const { primaryColor, appName, logoUrl } = branding
-  const hoverColor = darken(primaryColor)
 
   const toggleFullscreen = useCallback(() => {
     if (!document.fullscreenElement) {
@@ -557,7 +546,7 @@ export default function KioskoClient({
           <div className="text-center w-full max-w-md">
             <div
               className="rounded-3xl p-10 mb-8 shadow-2xl"
-              style={{ backgroundColor: primaryColor }}
+              style={{ backgroundColor: 'var(--kiosko-primary)' }}
             >
               <p className="text-white/80 text-sm tracking-widest uppercase mb-2 font-semibold">Tu número de turno</p>
               <p className="text-[9rem] font-black tabular-nums leading-none text-white">
@@ -571,14 +560,13 @@ export default function KioskoClient({
             <div className="w-full h-3 bg-gray-200 rounded-full mb-3 overflow-hidden">
               <div
                 className="h-full rounded-full transition-all duration-1000"
-                style={{ width: `${(countdown / 12) * 100}%`, backgroundColor: primaryColor }}
+                style={{ width: `${(countdown / 12) * 100}%`, backgroundColor: 'var(--kiosko-primary)' }}
               />
             </div>
             <p className="text-gray-400 text-sm mb-6">Nuevo pedido en {countdown}s</p>
             <button
               onClick={reset}
-              className="px-10 py-4 rounded-2xl text-white font-bold text-lg transition-opacity hover:opacity-90"
-              style={{ backgroundColor: primaryColor }}
+              className="px-10 py-4 rounded-2xl kiosko-button-primary"
             >
               Hacer otro pedido
             </button>
@@ -614,7 +602,7 @@ export default function KioskoClient({
               )}
               <div className="flex justify-between pt-3 border-t border-gray-100 mt-2 font-black text-xl">
                 <span className="text-gray-900">Total</span>
-                <span style={{ color: primaryColor }}>{fmt(grandTotal, currencySymbol)}</span>
+                <span style={{ color: 'var(--kiosko-primary)' }}>{fmt(grandTotal, currencySymbol)}</span>
               </div>
             </div>
 
@@ -629,8 +617,8 @@ export default function KioskoClient({
                   value={customerName}
                   onChange={e => setCustomerName(e.target.value)}
                   placeholder="¿Cómo te llamamos?"
-                  className="w-full border-2 border-gray-200 rounded-xl px-4 py-4 text-gray-900 text-xl placeholder-gray-300 focus:outline-none transition-colors"
-                  style={{ borderColor: customerName ? primaryColor : undefined }}
+                  className="kiosko-input text-xl"
+                  style={{ borderColor: customerName ? 'var(--kiosko-primary)' : undefined }}
                   autoComplete="off"
                 />
               </label>
@@ -661,8 +649,7 @@ export default function KioskoClient({
               <button
                 onClick={placeOrderCash}
                 disabled={loading}
-                className="w-full py-5 rounded-2xl text-white font-black text-xl flex items-center justify-center gap-3 shadow-lg transition-all active:scale-98 disabled:opacity-50"
-                style={{ backgroundColor: primaryColor }}
+                className="kiosko-button-primary w-full py-5 text-xl flex items-center justify-center gap-3"
               >
                 🏧 Pagar en Caja
               </button>
@@ -677,7 +664,7 @@ export default function KioskoClient({
               )}
               {loading && (
                 <div className="flex items-center justify-center gap-2 pt-2 text-gray-400 text-sm">
-                  <div className="w-4 h-4 border-2 border-gray-300 rounded-full animate-spin" style={{ borderTopColor: primaryColor }} />
+                  <div className="w-4 h-4 border-2 border-gray-300 rounded-full animate-spin" style={{ borderTopColor: 'var(--kiosko-primary)' }} />
                   Procesando...
                 </div>
               )}
@@ -718,8 +705,8 @@ export default function KioskoClient({
                       <span className="text-gray-900 font-black w-6 text-center tabular-nums text-lg">{item.qty}</span>
                       <button
                         onClick={() => updateQty(item.menu_item_id, 1)}
-                        className="w-10 h-10 rounded-full text-white font-bold text-xl flex items-center justify-center transition-colors"
-                        style={{ backgroundColor: primaryColor }}
+                        className="w-10 h-10 rounded-full kiosko-text-on-primary font-bold text-xl flex items-center justify-center transition-colors"
+                        style={{ backgroundColor: 'var(--kiosko-primary)' }}
                       >+</button>
                     </div>
                     <div className="text-right min-w-[80px]">
@@ -751,12 +738,11 @@ export default function KioskoClient({
             <div className="max-w-lg mx-auto">
               <div className="flex items-center justify-between mb-3 px-1">
                 <span className="text-gray-500 font-medium">Total a pagar</span>
-                <span className="text-2xl font-black" style={{ color: primaryColor }}>{fmt(grandTotal, currencySymbol)}</span>
+                <span className="text-2xl font-black" style={{ color: 'var(--kiosko-primary)' }}>{fmt(grandTotal, currencySymbol)}</span>
               </div>
               <button
                 onClick={() => setStep('checkout')}
-                className="w-full py-4 rounded-2xl text-white font-black text-xl shadow-lg transition-all active:scale-98"
-                style={{ backgroundColor: primaryColor }}
+                className="kiosko-button-primary w-full py-4 text-xl"
               >
                 Continuar con el pago →
               </button>
@@ -779,7 +765,7 @@ export default function KioskoClient({
       {showFsPrompt && !isFullscreen && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center cursor-pointer"
-          style={{ backgroundColor: primaryColor }}
+          style={{ backgroundColor: 'var(--kiosko-primary)' }}
           onClick={() => { toggleFullscreen(); setShowFsPrompt(false) }}
         >
           <div className="text-center text-white">
@@ -851,8 +837,7 @@ export default function KioskoClient({
         <div className="flex-shrink-0 bg-white border-t border-gray-200 p-4 shadow-2xl">
           <button
             onClick={() => setStep('cart')}
-            className="w-full flex items-center justify-between px-6 py-4 rounded-2xl text-white font-black text-lg shadow-xl transition-all active:scale-98"
-            style={{ backgroundColor: primaryColor }}
+            className="kiosko-button-primary w-full flex items-center justify-between px-6 py-4 text-lg"
           >
             <span className="bg-white/25 rounded-full px-3 py-1 text-sm font-bold">
               {cartCount} {cartCount === 1 ? 'ítem' : 'ítems'}
@@ -889,14 +874,14 @@ export default function KioskoClient({
             {selectedItem.image_url ? (
               <img src={selectedItem.image_url} alt={selectedItem.name} className="w-full h-56 object-cover" />
             ) : (
-              <div className="w-full h-44 flex items-center justify-center text-7xl" style={{ backgroundColor: `${primaryColor}15` }}>
+              <div className="w-full h-44 flex items-center justify-center text-7xl kiosko-opacity-primary-10">
                 🍽️
               </div>
             )}
             <div className="p-6">
               <div className="flex items-start justify-between mb-1 gap-4">
                 <h3 className="text-2xl font-black text-gray-900 leading-tight">{selectedItem.name}</h3>
-                <p className="text-2xl font-black flex-shrink-0" style={{ color: primaryColor }}>
+                <p className="text-2xl font-black flex-shrink-0" style={{ color: 'var(--kiosko-primary)' }}>
                   {fmt(selectedItem.price, currencySymbol)}
                 </p>
               </div>
@@ -912,15 +897,14 @@ export default function KioskoClient({
                 <span className="text-4xl font-black text-gray-900 w-12 text-center tabular-nums">{itemQty}</span>
                 <button
                   onClick={() => setItemQty(q => q + 1)}
-                  className="w-14 h-14 rounded-full text-white text-3xl font-bold flex items-center justify-center transition-colors shadow-md"
-                  style={{ backgroundColor: primaryColor }}
+                  className="w-14 h-14 rounded-full kiosko-text-on-primary text-3xl font-bold flex items-center justify-center transition-colors shadow-md"
+                  style={{ backgroundColor: 'var(--kiosko-primary)' }}
                 >+</button>
               </div>
 
               <button
                 onClick={() => { addToCart(selectedItem, itemQty); setSelectedItem(null) }}
-                className="w-full py-5 rounded-2xl text-white font-black text-xl transition-all active:scale-98 shadow-lg"
-                style={{ backgroundColor: primaryColor }}
+                className="kiosko-button-primary w-full py-5 text-xl"
               >
                 Agregar — {fmt(selectedItem.price * itemQty, currencySymbol)}
               </button>
