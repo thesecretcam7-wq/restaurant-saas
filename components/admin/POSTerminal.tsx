@@ -1569,32 +1569,6 @@ export function POSTerminal({
 
         let receiptPrintedWithDrawer = false;
         try {
-          const kitchenPrinterId = settings?.kitchen_printer_id || settings?.default_receipt_printer_id;
-          if (kitchenPrinterId && !loadedOrderId && billingOrderIds.length === 0 && receiptSnapshot.items.length > 0) {
-            try {
-              await printKitchenTicket(tenantId, kitchenPrinterId, {
-                orderId: receiptSnapshot.orderId,
-                orderNumber: receiptSnapshot.orderNumber,
-                restaurantName: settings?.display_name || restaurantName,
-                ticketType: 'kitchen',
-                items: cart.map((item) => ({
-                  menu_item_id: item.menu_item_id,
-                  name: item.name,
-                  quantity: item.quantity,
-                  notes: item.notes || null,
-                })),
-                customerName: 'POS Counter',
-                deliveryType: receiptSnapshot.deliveryType,
-                tableNumber: receiptSnapshot.tableNumber,
-                waiterName: receiptSnapshot.waiterName,
-                notes: receiptSnapshot.notes,
-                timestamp: new Date().toISOString(),
-              });
-            } catch (kitchenPrintError) {
-              backgroundWarnings.push(`Comanda cocina no impresa: ${kitchenPrintError instanceof Error ? kitchenPrintError.message : String(kitchenPrintError)}`);
-            }
-          }
-
           if (!settings?.default_receipt_printer_id) {
             backgroundWarnings.push('No hay impresora predeterminada');
           } else if (!settings?.printer_auto_print) {
