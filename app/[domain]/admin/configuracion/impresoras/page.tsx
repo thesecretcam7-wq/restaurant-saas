@@ -420,9 +420,10 @@ export default function PrintersConfigPage({ params }: Props) {
             Esto crea una sola impresora en Eccofood y usa la impresora predeterminada de Windows.
           </p>
           <button
+            type="button"
             onClick={handleAddWindowsPrinter}
-            disabled={windowsLoading}
-            className="inline-flex w-full items-center justify-center gap-2 rounded-lg border border-emerald-500/40 bg-emerald-500/20 px-4 py-2 font-bold text-emerald-50 transition hover:bg-emerald-500/30 disabled:cursor-not-allowed disabled:border-gray-700 disabled:bg-gray-800 disabled:text-gray-400"
+            aria-busy={windowsLoading}
+            className="relative z-20 inline-flex w-full cursor-pointer items-center justify-center gap-2 rounded-lg border border-emerald-600 bg-emerald-500 px-4 py-3 font-black text-black shadow-lg shadow-emerald-500/20 transition hover:bg-emerald-400 active:scale-[0.98]"
           >
             <Plus className="w-5 h-5" />
             {windowsLoading ? 'Conectando...' : 'Usar impresora de Windows'}
@@ -451,9 +452,10 @@ export default function PrintersConfigPage({ params }: Props) {
             Si aqui aparece activo, el TPV puede imprimir directo y abrir el cajon sin Chrome.
           </p>
           <button
+            type="button"
             onClick={checkBridgeStatus}
-            disabled={bridgeStatus === 'checking'}
-            className="inline-flex w-full items-center justify-center gap-2 rounded-lg border border-cyan-500/40 bg-cyan-500/20 px-4 py-2 font-bold text-cyan-50 transition hover:bg-cyan-500/30 disabled:cursor-wait disabled:opacity-60"
+            aria-busy={bridgeStatus === 'checking'}
+            className="relative z-20 inline-flex w-full cursor-pointer items-center justify-center gap-2 rounded-lg border border-cyan-600 bg-cyan-400 px-4 py-3 font-black text-black shadow-lg shadow-cyan-500/20 transition hover:bg-cyan-300 active:scale-[0.98]"
           >
             <Activity className="w-5 h-5" />
             Comprobar puente activo

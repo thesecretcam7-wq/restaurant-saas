@@ -1,4 +1,4 @@
-const CACHE_NAME = 'eccofood-v8';
+const CACHE_NAME = 'eccofood-v9';
 const STATIC_ASSETS = [
   '/',
   '/planes',
