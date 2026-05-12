@@ -265,7 +265,7 @@ export function EccofoodLanding() {
   ]
 
   return (
-    <main className="min-h-screen overflow-x-hidden bg-[#f8f7f3] text-[#101010]">
+    <main className="ecco-landing-premium min-h-screen overflow-x-hidden text-white">
       <nav className="sticky top-0 z-50 border-b border-black/[0.06] bg-white/78 backdrop-blur-2xl">
         <div className="mx-auto flex h-18 max-w-7xl items-center justify-between px-4 py-3 sm:px-6">
           <Link href="/" className="flex items-center gap-3">

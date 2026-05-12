@@ -1132,7 +1132,7 @@ export default function KioskoClient({
   const activeAdBanner = banners.length > 0 ? banners[adBannerIndex % banners.length] : null
 
   return (
-    <div className="h-screen flex flex-col overflow-hidden" style={{ fontFamily: 'Inter, system-ui, sans-serif', backgroundColor, color: pageTextColor }}>
+    <div className="ecco-premium-app h-screen flex flex-col overflow-hidden" style={{ fontFamily: 'Inter, system-ui, sans-serif', backgroundColor, color: pageTextColor }}>
 
       {/* Fullscreen prompt overlay */}
       {showFsPrompt && !isFullscreen && (

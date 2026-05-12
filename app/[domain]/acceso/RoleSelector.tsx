@@ -128,12 +128,12 @@ export function RoleSelector({ tenantName, tenantSlug, logoUrl, branding }: Prop
 
   return (
     <main
-      className="min-h-screen overflow-x-hidden text-white"
+      className="ecco-premium-app min-h-screen overflow-x-hidden text-white"
       style={{
         background:
-          `radial-gradient(circle at 16% 12%, ${primary}33, transparent 34%), ` +
-          `radial-gradient(circle at 88% 18%, ${accent}24, transparent 30%), ` +
-          `linear-gradient(135deg, ${pageBg}, #020617 78%)`,
+          `linear-gradient(120deg, ${highlight}22 0%, transparent 28%), ` +
+          `linear-gradient(300deg, ${accent}18 0%, transparent 32%), ` +
+          `linear-gradient(135deg, ${pageBg}, #050505 78%)`,
       }}
     >
       <div className="flex min-h-screen flex-col lg:flex-row">

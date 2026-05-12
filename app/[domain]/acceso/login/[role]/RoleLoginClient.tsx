@@ -258,12 +258,12 @@ export function RoleLoginClient({
 
   return (
     <main
-      className="min-h-screen overflow-hidden text-white"
+      className="ecco-premium-app min-h-screen overflow-hidden text-white"
       style={{
         background:
-          `radial-gradient(circle at 18% 18%, ${primary}33, transparent 34%), ` +
-          `radial-gradient(circle at 86% 12%, ${accent}24, transparent 30%), ` +
-          `linear-gradient(135deg, ${pageBg}, #020617 78%)`,
+          `linear-gradient(120deg, ${highlight}22 0%, transparent 28%), ` +
+          `linear-gradient(300deg, ${accent}18 0%, transparent 32%), ` +
+          `linear-gradient(135deg, ${pageBg}, #050505 78%)`,
         }}
     >
       {loading && (
