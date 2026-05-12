@@ -31,6 +31,7 @@ export default function PrintersConfigPage({ params }: Props) {
   const [devices, setDevices] = useState<PrinterDevice[]>([]);
   const [loading, setLoading] = useState(false);
   const [windowsLoading, setWindowsLoading] = useState(false);
+  const [busyDeviceId, setBusyDeviceId] = useState<string | null>(null);
   const [autoPrint, setAutoPrint] = useState(true);
   const [copies, setCopies] = useState(1);
   const [bridgeStatus, setBridgeStatus] = useState<'unknown' | 'checking' | 'online' | 'offline'>('unknown');
@@ -120,10 +121,13 @@ export default function PrintersConfigPage({ params }: Props) {
 
   const handleAddPrinter = async () => {
     if (!webusb.isSupported) {
-      showToast('WebUSB no soportado en este navegador', 'error');
+      showToast('Mozilla/Firefox no permite conectar USB directo. Usa "Usar impresora de Windows" o abre Chrome/Edge para USB.', 'error');
       return;
     }
-    if (!tenantId) return;
+    if (!tenantId) {
+      showToast('Todavia estamos cargando el restaurante. Espera unos segundos.', 'error');
+      return;
+    }
 
     try {
       const device = await webusb.requestDevice();
@@ -260,7 +264,7 @@ export default function PrintersConfigPage({ params }: Props) {
   const handleSetDefault = async (deviceId: string) => {
     if (!tenantId) return;
     try {
-      setLoading(true);
+      setBusyDeviceId(deviceId);
 
       await fetch(`/api/devices?id=${deviceId}`, {
         method: 'PUT',
@@ -282,16 +286,16 @@ export default function PrintersConfigPage({ params }: Props) {
       setDevices(devices.map((d) => ({ ...d, is_default: d.id === deviceId })));
       showToast('Impresora predeterminada actualizada', 'success');
     } catch {
-      showToast('Error al actualizar configuración', 'error');
+      showToast('Error al actualizar configuracion', 'error');
     } finally {
-      setLoading(false);
+      setBusyDeviceId(null);
     }
   };
 
   const handleDelete = async (deviceId: string) => {
     if (!tenantId) return;
     try {
-      setLoading(true);
+      setBusyDeviceId(deviceId);
       const response = await fetch(`/api/devices?id=${deviceId}&tenantId=${tenantId}`, {
         method: 'DELETE',
       });
@@ -301,20 +305,20 @@ export default function PrintersConfigPage({ params }: Props) {
     } catch {
       showToast('Error al eliminar dispositivo', 'error');
     } finally {
-      setLoading(false);
+      setBusyDeviceId(null);
     }
   };
 
   const handleTest = async (deviceId: string) => {
     if (!tenantId) return;
     try {
-      setLoading(true);
+      setBusyDeviceId(deviceId);
       const result = await testPrinterConnection(tenantId, deviceId);
       showToast(result.message, result.success ? 'success' : 'error');
     } catch {
       showToast('Error al probar impresora', 'error');
     } finally {
-      setLoading(false);
+      setBusyDeviceId(null);
     }
   };
 
@@ -359,9 +363,9 @@ export default function PrintersConfigPage({ params }: Props) {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-white">Configuración de Impresoras</h1>
+        <h1 className="text-2xl font-bold text-white">Configuracion de Impresoras</h1>
         <p className="text-sm text-gray-400 mt-1">
-          Configura impresoras USB térmicas para imprimir recibos automáticamente
+          Configura impresoras USB termicas para imprimir recibos automaticamente
         </p>
       </div>
 
@@ -460,7 +464,7 @@ export default function PrintersConfigPage({ params }: Props) {
       <div className="flex flex-wrap gap-3">
         <button
           onClick={handleAddPrinter}
-          disabled={loading || !webusb.isSupported || !tenantId}
+          disabled={loading}
           className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-700 disabled:cursor-not-allowed text-white rounded-lg font-medium transition"
         >
           <Plus className="w-5 h-5" />
@@ -486,7 +490,7 @@ export default function PrintersConfigPage({ params }: Props) {
 
       {!webusb.isSupported && (
         <div className="bg-yellow-50 border border-yellow-200 text-yellow-700 p-4 rounded-lg text-sm">
-          ⚠️ WebUSB no es soportado en este navegador. Usa Chrome, Edge o Brave.
+          USB directo no esta disponible en Mozilla/Firefox. Como la impresora USB se detecta automaticamente, usa "Usar impresora de Windows"; si quieres conectar por USB directo, abre Chrome o Edge.
         </div>
       )}
 
@@ -508,7 +512,7 @@ export default function PrintersConfigPage({ params }: Props) {
               onDelete={() => handleDelete(device.id)}
               onTest={() => handleTest(device.id)}
               onConfigure={(config) => handleConfigureDevice(device.id, config)}
-              loading={loading}
+              loading={busyDeviceId === device.id}
             />
           ))
         )}
@@ -516,7 +520,7 @@ export default function PrintersConfigPage({ params }: Props) {
 
       {devices.length > 0 && (
         <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 space-y-4">
-          <h3 className="font-bold text-gray-900">Configuración General</h3>
+          <h3 className="font-bold text-gray-900">Configuracion General</h3>
 
           <label className="flex items-center gap-3 cursor-pointer">
             <input
