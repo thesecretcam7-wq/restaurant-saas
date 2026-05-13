@@ -58,6 +58,16 @@ function readableText(background: string, fallbackDark = '#15130f', fallbackLigh
   return isDark(background) ? fallbackLight : fallbackDark;
 }
 
+async function fetchWithTimeout(input: RequestInfo | URL, init: RequestInit = {}, timeoutMs = 9000) {
+  const controller = new AbortController();
+  const timeout = window.setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(input, { ...init, signal: controller.signal });
+  } finally {
+    window.clearTimeout(timeout);
+  }
+}
+
 function RoleAccessLoader({
   appName,
   tool,
@@ -162,17 +172,13 @@ export function RoleLoginClient({
     setLoadingMessage('Verificando acceso');
     setError('');
     let keepLoader = false;
-    const authController = new AbortController();
-    const authTimeout = window.setTimeout(() => authController.abort(), 9000);
 
     try {
-      const res = await fetch('/api/staff/auth', {
+      const res = await fetchWithTimeout('/api/staff/auth', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ domain: tenantSlug, pin: value, role: config.apiRole }),
-        signal: authController.signal,
       });
-      window.clearTimeout(authTimeout);
 
       if (res.ok) {
         const data = await res.json();
@@ -180,22 +186,27 @@ export function RoleLoginClient({
         const authenticatedStaffName = data.staff_name || staffName;
 
         setLoadingMessage('Registrando sesion');
-        await fetch('/api/staff/session/log', {
+        fetch('/api/staff/session/log', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ tenantId, employee_name: authenticatedStaffName, role, pin: value }),
-        });
+          body: JSON.stringify({ tenantId, employee_name: authenticatedStaffName, role }),
+        }).catch(() => {});
 
         sessionStorage.setItem('staff_role', role);
         sessionStorage.setItem('staff_tenant', tenantId);
         sessionStorage.setItem('staff_name', authenticatedStaffName);
         sessionStorage.setItem('staff_id', authenticatedStaffId);
 
-        await fetch('/api/staff/session', {
+        const sessionRes = await fetchWithTimeout('/api/staff/session', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ tenantId, role, staffId: authenticatedStaffId, staffName: authenticatedStaffName }),
         });
+
+        if (!sessionRes.ok) {
+          const sessionError = await sessionRes.json().catch(() => null);
+          throw new Error(sessionError?.error || 'No se pudo registrar la sesion.');
+        }
 
         setLoadingMessage(`Abriendo ${config.tool}`);
         const roleDestinations: Record<string, string> = {
@@ -205,7 +216,7 @@ export function RoleLoginClient({
           cajero: `/${tenantSlug}/staff/pos`,
         };
         keepLoader = true;
-        router.push(roleDestinations[role] || `/${tenantSlug}/acceso/portal/${role}`);
+        router.replace(roleDestinations[role] || `/${tenantSlug}/acceso/portal/${role}`);
         return;
       }
 
@@ -217,9 +228,8 @@ export function RoleLoginClient({
       resetPinWithError('PIN incorrecto. Intenta de nuevo.');
     } catch (err) {
       const wasAborted = err instanceof Error && err.name === 'AbortError';
-      resetPinWithError(wasAborted ? 'La verificacion tardo mucho. Intenta de nuevo.' : 'Error de conexion. Intenta de nuevo.');
+      resetPinWithError(wasAborted ? 'La verificacion tardo mucho. Intenta de nuevo.' : (err instanceof Error ? err.message : 'Error de conexion. Intenta de nuevo.'));
     } finally {
-      window.clearTimeout(authTimeout);
       if (!keepLoader) {
         setLoading(false);
         setLoadingMessage('Verificando acceso');
