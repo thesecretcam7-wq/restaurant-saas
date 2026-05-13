@@ -182,7 +182,7 @@ export function POSPayment({
       <button
         onClick={() => onProceedPayment(paymentMethod === 'cash' ? paidAmount : undefined)}
         disabled={disabled || loading || !isValidPayment}
-        className={`w-full ${compact ? 'py-2.5 text-sm' : 'py-4 text-lg'} rounded-xl font-black transition border ${
+        className={`w-full ${compact ? 'min-h-[54px] py-3 text-base' : 'py-4 text-lg'} rounded-xl font-black transition border ${
           isValidPayment && !disabled && !loading
             ? 'bg-gradient-to-r from-emerald-500 to-cyan-500 hover:from-emerald-400 hover:to-cyan-400 text-slate-950 border-white/20 shadow-lg shadow-cyan-900/20'
             : 'bg-white/10 text-slate-500 border-white/10 cursor-not-allowed'
