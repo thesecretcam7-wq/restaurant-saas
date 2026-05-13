@@ -20,7 +20,7 @@ export async function GET(_: NextRequest, { params }: { params: Promise<{ tenant
   const tenantId = await resolveTenantId(supabase, slugOrId)
   let { data, error } = await supabase
     .from('restaurant_settings')
-    .select('delivery_enabled, delivery_fee, delivery_min_order, delivery_time_minutes, cash_payment_enabled, tax_rate, reservations_enabled, country')
+    .select('delivery_enabled, delivery_fee, delivery_min_order, delivery_time_minutes, cash_payment_enabled, tax_rate, reservations_enabled, country, online_payment_provider, wompi_enabled, wompi_environment, wompi_public_key')
     .eq('tenant_id', tenantId)
     .maybeSingle()
 
@@ -31,13 +31,17 @@ export async function GET(_: NextRequest, { params }: { params: Promise<{ tenant
       .select('delivery_enabled, delivery_fee, cash_payment_enabled, tax_rate')
       .eq('tenant_id', tenantId)
       .maybeSingle()
-    data = fallback.data ? {
-      ...fallback.data,
-      delivery_min_order: 0,
-      delivery_time_minutes: null,
-      reservations_enabled: false,
-      country: null,
-    } : null
+      data = fallback.data ? {
+        ...fallback.data,
+        delivery_min_order: 0,
+        delivery_time_minutes: null,
+        reservations_enabled: false,
+        country: null,
+        online_payment_provider: 'stripe',
+        wompi_enabled: false,
+        wompi_environment: 'sandbox',
+        wompi_public_key: null,
+      } : null
   }
 
   const { data: tenant } = await supabase
@@ -50,5 +54,7 @@ export async function GET(_: NextRequest, { params }: { params: Promise<{ tenant
     ...(data || {}),
     tenant_id: tenantId,
     country: data?.country || tenant?.country || 'ES',
+    online_payment_provider: data?.online_payment_provider || 'stripe',
+    wompi_enabled: Boolean(data?.wompi_enabled && data?.wompi_public_key),
   })
 }

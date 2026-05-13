@@ -10,6 +10,15 @@ function toDecimal(value: unknown, fallback = 0) {
   return Number.isFinite(parsed) ? parsed : NaN
 }
 
+function normalizeProvider(value: unknown) {
+  const provider = String(value || 'stripe').toLowerCase()
+  return ['stripe', 'wompi', 'none'].includes(provider) ? provider : 'stripe'
+}
+
+function normalizeWompiEnvironment(value: unknown) {
+  return String(value || 'sandbox').toLowerCase() === 'production' ? 'production' : 'sandbox'
+}
+
 async function resolveTenantId(supabase: SupabaseClient, slugOrId: string): Promise<string | null> {
   const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
   if (uuidRegex.test(slugOrId)) return slugOrId
@@ -51,27 +60,53 @@ export async function PUT(request: NextRequest) {
 
     const { data: existingSettings } = await supabase
       .from('restaurant_settings')
-      .select('display_name')
+      .select('display_name, country, wompi_private_key, wompi_integrity_key')
       .eq('tenant_id', tenantId)
       .maybeSingle()
 
     const { data: tenant } = await supabase
       .from('tenants')
-      .select('organization_name')
+      .select('organization_name, country')
       .eq('id', tenantId)
       .maybeSingle()
+
+    const country = String(existingSettings?.country || tenant?.country || 'ES').toUpperCase()
+    const onlinePaymentProvider = normalizeProvider(data.online_payment_provider)
+    const wompiEnabled = Boolean(data.wompi_enabled)
+
+    if ((onlinePaymentProvider === 'wompi' || wompiEnabled) && country !== 'CO') {
+      return NextResponse.json({ error: 'Wompi solo esta disponible para restaurantes de Colombia' }, { status: 400 })
+    }
+
+    const wompiPublicKey = String(data.wompi_public_key || '').trim()
+    const wompiPrivateKey = String(data.wompi_private_key || '').trim() || existingSettings?.wompi_private_key || ''
+    const wompiIntegrityKey = String(data.wompi_integrity_key || '').trim() || existingSettings?.wompi_integrity_key || ''
+
+    if (country === 'CO' && onlinePaymentProvider === 'wompi' && wompiEnabled) {
+      if (!wompiPublicKey || !wompiPrivateKey || !wompiIntegrityKey) {
+        return NextResponse.json({ error: 'Para activar Wompi necesitas llave publica, privada e integridad.' }, { status: 400 })
+      }
+    }
 
     const { data: updated, error } = await supabase
       .from('restaurant_settings')
       .upsert({
         tenant_id: tenantId,
         display_name: existingSettings?.display_name || tenant?.organization_name || 'Restaurante',
+        country,
         delivery_enabled: data.delivery_enabled,
         delivery_fee: deliveryFee || 0,
         delivery_min_order: deliveryMinOrder || 0,
         delivery_time_minutes: deliveryTimeMinutes || 30,
         cash_payment_enabled: data.cash_payment_enabled,
         tax_rate: taxRate || 0,
+        online_payment_provider: onlinePaymentProvider,
+        wompi_enabled: country === 'CO' ? wompiEnabled : false,
+        wompi_environment: normalizeWompiEnvironment(data.wompi_environment),
+        wompi_public_key: wompiPublicKey || null,
+        wompi_private_key: wompiPrivateKey || null,
+        wompi_integrity_key: wompiIntegrityKey || null,
+        wompi_updated_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       }, { onConflict: 'tenant_id' })
       .select()
@@ -82,7 +117,17 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: 'Error al guardar los cambios' }, { status: 500 })
     }
 
-    return NextResponse.json({ success: true, data: updated, message: 'Configuracion de delivery actualizada' })
+    return NextResponse.json({
+      success: true,
+      data: updated ? {
+        ...updated,
+        wompi_private_key: undefined,
+        wompi_integrity_key: undefined,
+        wompi_has_private_key: Boolean(updated.wompi_private_key),
+        wompi_has_integrity_key: Boolean(updated.wompi_integrity_key),
+      } : null,
+      message: 'Configuracion de delivery actualizada',
+    })
   } catch (error) {
     if (error instanceof Error && ['Unauthorized', 'Forbidden'].includes(error.message)) {
       return tenantAuthErrorResponse(error)
@@ -103,12 +148,21 @@ export async function GET(request: NextRequest) {
 
     const { data, error } = await supabase
       .from('restaurant_settings')
-      .select('delivery_enabled, delivery_fee, delivery_min_order, delivery_time_minutes, cash_payment_enabled, tax_rate')
+      .select('delivery_enabled, delivery_fee, delivery_min_order, delivery_time_minutes, cash_payment_enabled, tax_rate, country, online_payment_provider, wompi_enabled, wompi_environment, wompi_public_key, wompi_private_key, wompi_integrity_key')
       .eq('tenant_id', tenantId)
       .single()
 
     if (error) return NextResponse.json({ error: 'Error al obtener la configuracion' }, { status: 500 })
-    return NextResponse.json({ success: true, data })
+    return NextResponse.json({
+      success: true,
+      data: {
+        ...data,
+        wompi_private_key: undefined,
+        wompi_integrity_key: undefined,
+        wompi_has_private_key: Boolean(data?.wompi_private_key),
+        wompi_has_integrity_key: Boolean(data?.wompi_integrity_key),
+      },
+    })
   } catch {
     return NextResponse.json({ error: 'Error interno del servidor' }, { status: 500 })
   }

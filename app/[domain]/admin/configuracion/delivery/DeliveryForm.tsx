@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Bike, CreditCard, ReceiptText, Save } from 'lucide-react'
+import { Bike, CreditCard, ReceiptText, Save, ShieldCheck } from 'lucide-react'
 
 interface Props { tenantId: string }
 
@@ -13,6 +13,15 @@ export default function DeliveryForm({ tenantId }: Props) {
     delivery_time_minutes: '30',
     cash_payment_enabled: true,
     tax_rate: '0',
+    country: 'ES',
+    online_payment_provider: 'stripe',
+    wompi_enabled: false,
+    wompi_environment: 'sandbox',
+    wompi_public_key: '',
+    wompi_private_key: '',
+    wompi_integrity_key: '',
+    wompi_has_private_key: false,
+    wompi_has_integrity_key: false,
   })
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -30,6 +39,15 @@ export default function DeliveryForm({ tenantId }: Props) {
             delivery_time_minutes: String(data.data.delivery_time_minutes ?? 30),
             cash_payment_enabled: data.data.cash_payment_enabled ?? true,
             tax_rate: String(data.data.tax_rate ?? 0),
+            country: data.data.country ?? 'ES',
+            online_payment_provider: data.data.online_payment_provider ?? 'stripe',
+            wompi_enabled: data.data.wompi_enabled ?? false,
+            wompi_environment: data.data.wompi_environment ?? 'sandbox',
+            wompi_public_key: data.data.wompi_public_key ?? '',
+            wompi_private_key: '',
+            wompi_integrity_key: '',
+            wompi_has_private_key: data.data.wompi_has_private_key ?? false,
+            wompi_has_integrity_key: data.data.wompi_has_integrity_key ?? false,
           })
         }
       })
@@ -60,6 +78,8 @@ export default function DeliveryForm({ tenantId }: Props) {
       setSaving(false)
     }
   }
+
+  const isColombia = String(form.country || '').toUpperCase() === 'CO'
 
   if (loading) {
     return <div className="admin-empty min-h-48">Cargando configuracion de delivery...</div>
@@ -133,10 +153,25 @@ export default function DeliveryForm({ tenantId }: Props) {
               <div className="flex-1">
                 <h2 className="font-black text-[#15130f]">Metodos de pago</h2>
                 <div className="mt-4 space-y-3">
-                  <div className="rounded-xl border border-black/10 bg-black/[0.03] p-4">
-                    <p className="text-sm font-black text-[#15130f]">Tarjeta / Stripe</p>
-                    <p className="mt-1 text-xs font-semibold text-black/45">Activo cuando Stripe Connect este configurado.</p>
-                  </div>
+                  <label className="block rounded-xl border border-black/10 bg-black/[0.03] p-4">
+                    <span className="block text-sm font-black text-[#15130f]">Proveedor de pago online</span>
+                    <select
+                      value={form.online_payment_provider}
+                      onChange={e => setForm(f => ({
+                        ...f,
+                        online_payment_provider: e.target.value,
+                        wompi_enabled: e.target.value === 'wompi' ? f.wompi_enabled : false,
+                      }))}
+                      className="mt-3 w-full rounded-xl border border-black/10 bg-white px-4 py-3 text-sm font-black text-[#15130f] outline-none transition focus:border-[#15130f]"
+                    >
+                      <option value="stripe">Stripe</option>
+                      <option value="wompi" disabled={!isColombia}>Wompi Colombia</option>
+                      <option value="none">Sin pago online</option>
+                    </select>
+                    <span className="mt-2 block text-xs font-semibold text-black/45">
+                      {isColombia ? 'Puedes elegir Wompi para cobrar en pesos colombianos.' : 'Wompi aparece activo solo para restaurantes registrados en Colombia.'}
+                    </span>
+                  </label>
                   <label className="flex cursor-pointer items-center justify-between rounded-xl border border-black/10 bg-white p-4">
                     <span>
                       <span className="block text-sm font-black text-[#15130f]">Pago en efectivo</span>
@@ -152,6 +187,78 @@ export default function DeliveryForm({ tenantId }: Props) {
                 </div>
               </div>
             </div>
+
+            {isColombia && form.online_payment_provider === 'wompi' && (
+              <div className="rounded-2xl border border-amber-200 bg-amber-50/80 p-4">
+                <div className="flex gap-3">
+                  <span className="flex size-10 items-center justify-center rounded-xl bg-[#15130f] text-amber-300">
+                    <ShieldCheck className="size-5" />
+                  </span>
+                  <div className="flex-1">
+                    <h3 className="font-black text-[#15130f]">Sincronizacion Wompi</h3>
+                    <p className="mt-1 text-xs font-semibold leading-5 text-black/50">
+                      Pega las credenciales del comercio Wompi. Las llaves privadas se guardan en el servidor y no se muestran en la tienda.
+                    </p>
+                  </div>
+                </div>
+
+                <label className="mt-4 flex cursor-pointer items-center justify-between rounded-xl border border-black/10 bg-white p-4">
+                  <span>
+                    <span className="block text-sm font-black text-[#15130f]">Activar Wompi</span>
+                    <span className="text-xs font-semibold text-black/45">Los clientes pagaran online por Wompi.</span>
+                  </span>
+                  <input
+                    type="checkbox"
+                    checked={form.wompi_enabled}
+                    onChange={e => setForm(f => ({ ...f, wompi_enabled: e.target.checked }))}
+                    className="size-5"
+                  />
+                </label>
+
+                <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                  <label className="block">
+                    <span className="text-xs font-black uppercase text-black/42">Ambiente</span>
+                    <select
+                      value={form.wompi_environment}
+                      onChange={e => setForm(f => ({ ...f, wompi_environment: e.target.value }))}
+                      className="mt-2 w-full rounded-xl border border-black/10 bg-white px-4 py-3 text-sm font-black text-[#15130f] outline-none transition focus:border-[#15130f]"
+                    >
+                      <option value="sandbox">Pruebas</option>
+                      <option value="production">Produccion</option>
+                    </select>
+                  </label>
+                  <label className="block">
+                    <span className="text-xs font-black uppercase text-black/42">Llave publica</span>
+                    <input
+                      value={form.wompi_public_key}
+                      onChange={e => setForm(f => ({ ...f, wompi_public_key: e.target.value }))}
+                      className="mt-2 w-full rounded-xl border border-black/10 bg-white px-4 py-3 text-sm font-black text-[#15130f] outline-none transition focus:border-[#15130f]"
+                      placeholder="pub_prod_..."
+                    />
+                  </label>
+                  <label className="block">
+                    <span className="text-xs font-black uppercase text-black/42">Llave privada</span>
+                    <input
+                      value={form.wompi_private_key}
+                      onChange={e => setForm(f => ({ ...f, wompi_private_key: e.target.value }))}
+                      className="mt-2 w-full rounded-xl border border-black/10 bg-white px-4 py-3 text-sm font-black text-[#15130f] outline-none transition focus:border-[#15130f]"
+                      placeholder={form.wompi_has_private_key ? 'Guardada. Escribe solo para cambiarla.' : 'prv_prod_...'}
+                      type="password"
+                    />
+                  </label>
+                  <label className="block">
+                    <span className="text-xs font-black uppercase text-black/42">Llave de integridad</span>
+                    <input
+                      value={form.wompi_integrity_key}
+                      onChange={e => setForm(f => ({ ...f, wompi_integrity_key: e.target.value }))}
+                      className="mt-2 w-full rounded-xl border border-black/10 bg-white px-4 py-3 text-sm font-black text-[#15130f] outline-none transition focus:border-[#15130f]"
+                      placeholder={form.wompi_has_integrity_key ? 'Guardada. Escribe solo para cambiarla.' : 'Llave de integridad'}
+                      type="password"
+                    />
+                  </label>
+                </div>
+              </div>
+            )}
 
             <div className="flex gap-3">
               <span className="flex size-10 items-center justify-center rounded-xl bg-black text-white">

@@ -165,6 +165,7 @@ export async function POST(request: NextRequest) {
         display_name: restaurantName,
         country: restaurantCountry,
         timezone: restaurantTimezone,
+        online_payment_provider: restaurantCountry === 'CO' ? 'wompi' : 'stripe',
       })
 
     if (settingsError) {
@@ -248,6 +249,7 @@ export async function POST(request: NextRequest) {
           display_name: 'Restaurante Demo',
           country: restaurantCountry,
           timezone: restaurantTimezone,
+          online_payment_provider: restaurantCountry === 'CO' ? 'wompi' : 'stripe',
           waiter_pin: '1234',
           kitchen_pin: '5678',
         })

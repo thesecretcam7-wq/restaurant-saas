@@ -4,10 +4,11 @@ import { deriveBrandPalette } from '@/lib/brand-colors'
 import { formatPriceWithCurrency, getCurrencyByCountry } from '@/lib/currency'
 import Link from 'next/link'
 import { headers } from 'next/headers'
+import { WompiReturnVerifier } from './WompiReturnVerifier'
 
 interface Props {
   params: Promise<{ domain: string }>
-  searchParams: Promise<{ order?: string }>
+  searchParams: Promise<{ order?: string; provider?: string; reference?: string; id?: string; 'transaction.id'?: string }>
 }
 
 export default async function GraciasPage({ params, searchParams }: Props) {
@@ -16,7 +17,9 @@ export default async function GraciasPage({ params, searchParams }: Props) {
   const hostname = (headersList.get('host') || '').split(':')[0]?.toLowerCase() || ''
   const baseDomain = process.env.NEXT_PUBLIC_BASE_DOMAIN || 'eccofoodapp.com'
   const isCustomDomain = Boolean(hostname && !hostname.includes(baseDomain) && !hostname.includes('localhost') && !hostname.endsWith('.vercel.app'))
-  const { order: orderId } = await searchParams
+  const search = await searchParams
+  const { order: orderId } = search
+  const wompiTransactionId = search.id || search['transaction.id']
   const context = await getTenantContext(tenantId)
   const { branding } = context
   const tenantSlug = context.tenant?.slug || tenantId
@@ -69,6 +72,14 @@ export default async function GraciasPage({ params, searchParams }: Props) {
       <p className="text-muted-foreground text-sm text-center mb-6 max-w-xs">
         Tu pedido está confirmado y pronto lo estaremos preparando con todo el amor 🍽️
       </p>
+
+      {search.provider === 'wompi' && (
+        <WompiReturnVerifier
+          orderId={orderId}
+          reference={search.reference}
+          transactionId={wompiTransactionId}
+        />
+      )}
 
       {order && (
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 w-full max-w-sm mb-6 space-y-3">

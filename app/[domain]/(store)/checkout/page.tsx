@@ -72,6 +72,15 @@ export default function CheckoutPage({ params }: Props) {
   }, [settings?.tenant_id, cartTenantId, items.length, clearCart, router, tenantSlug])
 
   useEffect(() => {
+    if (!settings) return
+    if (settings.online_payment_provider === 'wompi' && settings.wompi_enabled) {
+      setForm(current => ({ ...current, payment_method: 'wompi' }))
+    } else if (settings.online_payment_provider === 'none' && settings.cash_payment_enabled) {
+      setForm(current => ({ ...current, payment_method: 'cash' }))
+    }
+  }, [settings])
+
+  useEffect(() => {
     const phoneDigits = onlyDigits(form.phone)
     if (phoneDigits.length < 7) {
       setProfileLookup('idle')
@@ -191,6 +200,20 @@ export default function CheckoutPage({ params }: Props) {
           window.location.href = data.url
         }
         else { toast.error(data.error || 'Error al procesar') }
+      } else if (form.payment_method === 'wompi') {
+        const res = await fetch('/api/wompi/checkout', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ tenantId, tenantSlug, items: orderItems, customerInfo: { name: validated.name, phone: validated.phone, email: validated.email }, deliveryType: validated.delivery_type, deliveryAddress: validated.delivery_address, notes: validated.notes }),
+        })
+        const data = await res.json()
+        if (data.url) {
+          clearCart()
+          window.dispatchEvent(new Event('store:navigation-start'))
+          window.location.href = data.url
+        } else {
+          toast.error(data.error || 'Error al abrir Wompi')
+        }
       } else {
         const res = await fetch('/api/orders', {
           method: 'POST',
@@ -320,7 +343,11 @@ export default function CheckoutPage({ params }: Props) {
             </h2>
             <div className="grid grid-cols-2 gap-2">
               {[
-                { value: 'stripe', label: 'Tarjeta', icon: '💳', sub: 'Visa, Mastercard' },
+                ...(settings?.online_payment_provider === 'wompi' && settings?.wompi_enabled
+                  ? [{ value: 'wompi', label: 'Wompi', icon: '💳', sub: 'Tarjeta, PSE y Nequi' }]
+                  : settings?.online_payment_provider !== 'none'
+                    ? [{ value: 'stripe', label: 'Tarjeta', icon: '💳', sub: 'Visa, Mastercard' }]
+                    : []),
                 ...(settings?.cash_payment_enabled ? [{ value: 'cash', label: 'Efectivo', icon: '💵', sub: 'Al entregar' }] : []),
               ].map(opt => (
                 <button key={opt.value} type="button" onClick={() => setForm(f => ({...f, payment_method: opt.value}))}
@@ -362,7 +389,7 @@ export default function CheckoutPage({ params }: Props) {
           <button type="submit" disabled={loading}
             className="w-full py-4 rounded-2xl text-white font-extrabold text-sm shadow-lg active:scale-95 transition-all disabled:opacity-50"
             style={{ backgroundColor: primary }}>
-            {loading ? 'Procesando...' : form.payment_method === 'stripe' ? '💳 Pagar con tarjeta' : '✅ Confirmar pedido'}
+            {loading ? 'Procesando...' : form.payment_method === 'stripe' ? '💳 Pagar con tarjeta' : form.payment_method === 'wompi' ? '💳 Pagar con Wompi' : '✅ Confirmar pedido'}
           </button>
 
           <p className="text-center text-xs text-muted-foreground pb-2">Tu información está protegida y segura</p>

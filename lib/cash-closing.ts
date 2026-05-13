@@ -135,7 +135,7 @@ function statsFromOrders(period: CashClosingPeriod, orders: any[] = []): CashClo
 
     if (order.payment_method === 'cash') {
       stats.cashSales += total;
-    } else if (order.payment_method === 'stripe' || order.payment_method === 'card') {
+    } else if (order.payment_method === 'stripe' || order.payment_method === 'card' || order.payment_method === 'wompi') {
       stats.cardSales += total;
     } else {
       stats.otherSales += total;
@@ -245,7 +245,7 @@ export async function calculateCashClosingStats(
       // Desglose por método de pago
       if (order.payment_method === 'cash') {
         stats.cashSales += total;
-      } else if (order.payment_method === 'stripe' || order.payment_method === 'card') {
+      } else if (order.payment_method === 'stripe' || order.payment_method === 'card' || order.payment_method === 'wompi') {
         stats.cardSales += total;
       } else {
         stats.otherSales += total;

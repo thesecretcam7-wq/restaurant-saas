@@ -177,7 +177,7 @@ export interface Order {
   delivery_fee: number;
   total: number;
   status: 'pending' | 'confirmed' | 'preparing' | 'ready' | 'on_the_way' | 'delivered' | 'cancelled';
-  payment_method: 'stripe' | 'cash' | null;
+  payment_method: 'stripe' | 'wompi' | 'cash' | null;
   payment_status: 'pending' | 'paid' | 'failed';
   stripe_payment_intent_id: string | null;
   delivery_type: 'pickup' | 'delivery' | 'dine-in';

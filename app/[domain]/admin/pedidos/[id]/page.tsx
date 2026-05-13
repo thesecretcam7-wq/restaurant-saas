@@ -118,7 +118,7 @@ export default async function PedidoDetailPage({ params }: PedidoDetailProps) {
             {order.payment_status === 'paid' ? '✅ Pagado' : '⏳ Pago pendiente'}
           </span>
           <span className="text-xs text-gray-500">
-            {order.payment_method === 'stripe' ? 'Tarjeta' : order.payment_method === 'cash' ? 'Efectivo' : '-'}
+            {order.payment_method === 'stripe' ? 'Tarjeta' : order.payment_method === 'wompi' ? 'Wompi' : order.payment_method === 'cash' ? 'Efectivo' : '-'}
           </span>
           {order.payment_status === 'paid' && (
             <div className="ml-auto">
