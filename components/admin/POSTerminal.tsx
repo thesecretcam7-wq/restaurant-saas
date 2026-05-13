@@ -2,11 +2,10 @@
 
 import { useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import { createClient } from '@/lib/supabase/client';
-import { ShoppingCart, Plus, Minus, Trash2, Search, DollarSign, CreditCard, Maximize2, Minimize2, Lock, Clock, Truck, Store, UtensilsCrossed, Archive, Monitor, Printer } from 'lucide-react';
+import { ShoppingCart, Plus, Minus, Trash2, Search, DollarSign, CreditCard, Maximize2, Minimize2, Lock, Clock, Truck, Store, UtensilsCrossed, Archive, Monitor, Printer, CalendarDays } from 'lucide-react';
 import { POSStaffSelector } from './POSStaffSelector';
 import { TableMap } from './TableMap';
 import { POSPayment } from './POSPayment';
-import { AdminMenuDrawer } from './AdminMenuDrawer';
 import { CashClosingModal } from './CashClosingModal';
 import { Toast } from './Toast';
 import { POSOrderLookup } from './POSOrderLookup';
@@ -92,6 +91,14 @@ interface RestaurantTable {
   table_number: number;
   seats: number;
   location?: string;
+}
+
+interface ReservationSummary {
+  id: string;
+  customer_name: string;
+  party_size: number;
+  reservation_time: string;
+  status: string;
 }
 
 function getOrderItemQty(item: { qty?: number; quantity?: number }) {
@@ -450,11 +457,11 @@ export function POSTerminal({
   const [isFullscreen, setIsFullscreen] = useState(false);
   const posRootRef = useRef<HTMLDivElement>(null);
   const { wakeLockActive, wakeLockSupported, activateWakeLock } = useWakeLock();
-  const [showAdminMenu, setShowAdminMenu] = useState(false);
   const [showCashClosing, setShowCashClosing] = useState(false);
   const [cashClosingStats, setCashClosingStats] = useState<CashClosingStats | null>(null);
   const [pendingCashClosingStats, setPendingCashClosingStats] = useState<CashClosingStats | null>(null);
   const [closingLoading, setClosingLoading] = useState(false);
+  const [todayReservations, setTodayReservations] = useState<ReservationSummary[]>([]);
 
   // Incoming Orders for delivery/pickup
   const [incomingOrders, setIncomingOrders] = useState<IncomingOrder[]>([]);
@@ -508,6 +515,25 @@ export function POSTerminal({
       console.error('Error counting offline POS orders:', error);
     }
   }, [tenantId]);
+
+  const refreshTodayReservations = useCallback(async () => {
+    try {
+      const today = new Date().toISOString().slice(0, 10);
+      const { data, error } = await supabase
+        .from('reservations')
+        .select('id, customer_name, party_size, reservation_time, status')
+        .eq('tenant_id', tenantId)
+        .eq('reservation_date', today)
+        .in('status', ['pending', 'confirmed'])
+        .order('reservation_time', { ascending: true });
+
+      if (error) throw error;
+      setTodayReservations((data || []) as ReservationSummary[]);
+    } catch (error) {
+      console.error('Error checking POS reservations:', error);
+      setTodayReservations([]);
+    }
+  }, [supabase, tenantId]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -600,7 +626,13 @@ export function POSTerminal({
     fetchMenuData();
     restoreCart();
     refreshOfflinePendingCount();
-  }, [tenantId]);
+    refreshTodayReservations();
+  }, [tenantId, refreshOfflinePendingCount, refreshTodayReservations]);
+
+  useEffect(() => {
+    const interval = window.setInterval(refreshTodayReservations, 60000);
+    return () => window.clearInterval(interval);
+  }, [refreshTodayReservations]);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -1906,14 +1938,23 @@ export function POSTerminal({
                 </span>
               )}
             </button>
-            <button
-              onClick={() => setShowAdminMenu(true)}
-              className="pos-action-ghost"
-              title="Panel de administración"
-            >
-              <span>⚙️</span>
-              <span className="hidden sm:inline">Admin</span>
-            </button>
+            {todayReservations.length > 0 && (
+              <button
+                onClick={() => {
+                  window.location.href = `/${tenantSlug || tenantId}/admin/reservas`;
+                }}
+                className="pos-action-ghost border-amber-300/55 bg-amber-300/14 text-amber-100 shadow-[0_0_18px_rgba(251,191,36,0.22)]"
+                title="Reservas de hoy"
+              >
+                <CalendarDays className="w-5 h-5" />
+                <span className="hidden sm:inline">
+                  {todayReservations.length} reserva{todayReservations.length > 1 ? 's' : ''}
+                </span>
+                <span className="rounded-full bg-amber-300 px-1.5 py-0.5 text-[10px] font-black text-slate-950 sm:hidden">
+                  {todayReservations.length}
+                </span>
+              </button>
+            )}
             <button
               onClick={toggleFullscreen}
               className="pos-action-ghost"
@@ -2669,23 +2710,6 @@ export function POSTerminal({
           onClose={() => setToast(null)}
         />
       )}
-
-
-      {/* Admin Menu Drawer Modal */}
-      <AdminMenuDrawer
-        isOpen={showAdminMenu}
-        tenantId={tenantId}
-        navLinks={[
-          { href: `/${tenantId}/admin/dashboard`, label: 'Dashboard', icon: '📊' },
-          { href: `/${tenantId}/admin/pedidos`, label: 'Pedidos', icon: '🛍️' },
-          { href: `/${tenantId}/admin/productos`, label: 'Productos', icon: '🍽️' },
-          { href: `/${tenantId}/admin/reservas`, label: 'Reservas', icon: '📅' },
-          { href: `/${tenantId}/admin/clientes`, label: 'Clientes', icon: '👥' },
-          { href: `/${tenantId}/admin/ventas`, label: 'Ventas', icon: '📈' },
-          { href: `/${tenantId}/admin/configuracion/restaurante`, label: 'Configuración', icon: '⚙️' },
-        ]}
-        onClose={() => setShowAdminMenu(false)}
-      />
 
       {/* Cash Closing Modal */}
       {cashClosingStats && (
