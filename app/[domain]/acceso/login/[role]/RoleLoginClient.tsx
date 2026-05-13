@@ -129,6 +129,7 @@ export function RoleLoginClient({
   const primaryText = readableText(highlight);
   const secondaryText = readableText(secondaryHighlight);
   const appName = branding.appName || tenantName;
+  const accessPath = `/${tenantSlug}/acceso`;
 
   async function handleStaffSelect(selectedId: string) {
     const selected = staffMembers.find((staff) => staff.id === selectedId);
@@ -257,7 +258,12 @@ export function RoleLoginClient({
       setStaffName('');
       return;
     }
-    router.push(`/${tenantSlug}/acceso`);
+    router.push(accessPath);
+    window.setTimeout(() => {
+      if (window.location.pathname !== accessPath) {
+        window.location.href = accessPath;
+      }
+    }, 250);
   }
 
   useEffect(() => {
@@ -308,14 +314,26 @@ export function RoleLoginClient({
         />
       )}
 
-      <button
-        type="button"
-        onClick={goBack}
-        className="fixed left-3 top-3 z-30 grid h-10 w-10 place-items-center rounded-2xl border border-[#ffc247]/18 bg-white/[0.07] text-[#f8f5ec]/70 transition hover:border-[#ffc247]/34 hover:bg-white/[0.12] hover:text-[#ffd66b] sm:left-6 sm:top-6 sm:h-12 sm:w-12"
-        title="Volver"
-      >
-        <ArrowLeft className="h-5 w-5" />
-      </button>
+      {phase === 'select' ? (
+        <a
+          href={accessPath}
+          className="pointer-events-auto fixed left-3 top-3 z-[10010] grid h-10 w-10 place-items-center rounded-2xl border border-[#ffc247]/18 bg-white/[0.07] text-[#f8f5ec]/70 transition hover:border-[#ffc247]/34 hover:bg-white/[0.12] hover:text-[#ffd66b] sm:left-6 sm:top-6 sm:h-12 sm:w-12"
+          title="Volver"
+          aria-label="Volver"
+        >
+          <ArrowLeft className="h-5 w-5" />
+        </a>
+      ) : (
+        <button
+          type="button"
+          onClick={goBack}
+          className="pointer-events-auto fixed left-3 top-3 z-[10010] grid h-10 w-10 place-items-center rounded-2xl border border-[#ffc247]/18 bg-white/[0.07] text-[#f8f5ec]/70 transition hover:border-[#ffc247]/34 hover:bg-white/[0.12] hover:text-[#ffd66b] sm:left-6 sm:top-6 sm:h-12 sm:w-12"
+          title="Volver"
+          aria-label="Volver"
+        >
+          <ArrowLeft className="h-5 w-5" />
+        </button>
+      )}
 
       <div className="grid min-h-screen grid-cols-1 lg:grid-cols-[0.92fr_1.08fr]">
         <section className="flex flex-col justify-between border-[#ffc247]/14 px-4 pb-3 pt-14 sm:px-10 sm:py-9 sm:pl-24 lg:border-r">
