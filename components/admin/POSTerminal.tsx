@@ -494,7 +494,10 @@ export function POSTerminal({
   }, [tenantId]);
 
   useEffect(() => {
-    refreshPendingCashClosing();
+    const timer = window.setTimeout(() => {
+      refreshPendingCashClosing();
+    }, 5000);
+    return () => window.clearTimeout(timer);
   }, [refreshPendingCashClosing]);
 
   useEffect(() => {
@@ -580,7 +583,6 @@ export function POSTerminal({
     fetch('/api/csrf-token').then(r => r.json()).then(d => { if (d.token) csrfTokenRef.current = d.token; }).catch(() => {});
     fetchMenuData();
     restoreCart();
-    fetchAllTables();
     refreshOfflinePendingCount();
   }, [tenantId]);
 
@@ -888,26 +890,7 @@ export function POSTerminal({
   }
 
   async function restoreCart() {
-    // Try to restore from Supabase first (more reliable)
-    const supabaseCart = await loadCartFromSupabase(tenantId, supabase);
-
-    if (supabaseCart) {
-      // Restore from Supabase
-      setCart(supabaseCart.items);
-      setDiscount(supabaseCart.discount);
-      setDiscountCode(supabaseCart.discountCode);
-      setPaymentMethod(supabaseCart.paymentMethod);
-      setPosMode(supabaseCart.posMode);
-      const loggedStaff = getLoggedStaffFromBrowser(tenantId);
-      setSelectedStaffId(loggedStaff.staffId || supabaseCart.selectedStaffId);
-      setSelectedStaffName(loggedStaff.staffName || supabaseCart.selectedStaffName);
-      setSelectedTableId(supabaseCart.selectedTableId);
-      setSelectedTableNumber(supabaseCart.selectedTableNumber);
-      if (supabaseCart.loadedOrderId) {
-        setLoadedOrderId(supabaseCart.loadedOrderId);
-      }
-    } else if (typeof window !== 'undefined') {
-      // Fallback to localStorage if Supabase fails
+    if (typeof window !== 'undefined') {
       const savedCart = localStorage.getItem(`pos-cart-${tenantId}`);
       const savedDiscount = localStorage.getItem(`pos-discount-${tenantId}`);
       const savedDiscountCode = localStorage.getItem(`pos-discount-code-${tenantId}`);
@@ -929,6 +912,23 @@ export function POSTerminal({
       if (savedDiscountCode) {
         setDiscountCode(savedDiscountCode);
       }
+    }
+
+    const supabaseCart = await loadCartFromSupabase(tenantId, supabase);
+    if (!supabaseCart) return;
+
+    setCart(supabaseCart.items);
+    setDiscount(supabaseCart.discount);
+    setDiscountCode(supabaseCart.discountCode);
+    setPaymentMethod(supabaseCart.paymentMethod);
+    setPosMode(supabaseCart.posMode);
+    const loggedStaff = getLoggedStaffFromBrowser(tenantId);
+    setSelectedStaffId(loggedStaff.staffId || supabaseCart.selectedStaffId);
+    setSelectedStaffName(loggedStaff.staffName || supabaseCart.selectedStaffName);
+    setSelectedTableId(supabaseCart.selectedTableId);
+    setSelectedTableNumber(supabaseCart.selectedTableNumber);
+    if (supabaseCart.loadedOrderId) {
+      setLoadedOrderId(supabaseCart.loadedOrderId);
     }
   }
 
@@ -1215,41 +1215,28 @@ export function POSTerminal({
 
   async function fetchMenuData() {
     try {
-      const [categoriesRes, menuRes, tenantRes, settingsRes] = await Promise.all([
-        supabase
-          .from('menu_categories')
-          .select('*')
-          .eq('tenant_id', tenantId)
-          .eq('active', true),
-        supabase
-          .from('menu_items')
-          .select('*')
-          .eq('tenant_id', tenantId)
-          .eq('available', true),
-        supabase
-          .from('tenants')
-          .select('organization_name, logo_url')
-          .eq('id', tenantId)
-          .maybeSingle(),
-        supabase
-          .from('restaurant_settings')
-          .select('tax_rate, display_name, phone, delivery_enabled, delivery_fee')
-          .eq('tenant_id', tenantId)
-          .maybeSingle(),
-      ]);
+      const response = await fetch(`/api/pos/bootstrap?tenantId=${encodeURIComponent(tenantId)}`, {
+        credentials: 'include',
+        cache: 'no-store',
+      });
 
-      if (categoriesRes.data) setCategories(categoriesRes.data);
-      if (menuRes.data) setMenu(menuRes.data);
-      if (tenantRes.data) {
-        if (tenantRes.data.organization_name) setRestaurantName(tenantRes.data.organization_name);
-        if (tenantRes.data.logo_url) setRestaurantLogo(tenantRes.data.logo_url);
+      if (!response.ok) throw new Error(`POS bootstrap failed: ${response.status}`);
+
+      const data = await response.json();
+      setCategories(data.categories || []);
+      setMenu(data.menu || []);
+      setAllTables(data.tables || []);
+
+      if (data.tenant) {
+        if (data.tenant.organization_name) setRestaurantName(data.tenant.organization_name);
+        if (data.tenant.logo_url) setRestaurantLogo(data.tenant.logo_url);
       }
-      if (settingsRes.data) {
-        setTaxRate(Number(settingsRes.data.tax_rate || 0));
-        setDeliveryEnabled(settingsRes.data.delivery_enabled === true);
-        setDeliveryFee(Number(settingsRes.data.delivery_fee || 0));
-        if (settingsRes.data.display_name) setRestaurantName(settingsRes.data.display_name);
-        if (settingsRes.data.phone) setRestaurantPhone(settingsRes.data.phone);
+      if (data.settings) {
+        setTaxRate(Number(data.settings.tax_rate || 0));
+        setDeliveryEnabled(data.settings.delivery_enabled === true);
+        setDeliveryFee(Number(data.settings.delivery_fee || 0));
+        if (data.settings.display_name) setRestaurantName(data.settings.display_name);
+        if (data.settings.phone) setRestaurantPhone(data.settings.phone);
       }
     } catch (error) {
       console.error('Error fetching menu:', error);
