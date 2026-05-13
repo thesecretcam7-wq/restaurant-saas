@@ -1,7 +1,8 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
-import EccofoodLogo from '@/components/EccofoodLogo'
+import EccofoodPageLoader from '@/components/EccofoodPageLoader'
+import StoreLoadingCard from '@/components/store/StoreLoadingCard'
 
 const APP_SECTIONS = new Set([
   'acceso',
@@ -107,66 +108,11 @@ export default function RouteAwarePageLoader({
     const appName = storeBrand?.appName || routeInfo.fallbackName
 
     return (
-      <main className="grid min-h-screen place-items-center bg-white/70 px-5 text-[#15130f] backdrop-blur-[8px]">
-        <section className="w-full max-w-[460px] overflow-hidden rounded-[34px] border border-white/80 bg-white/98 p-8 text-center shadow-[0_30px_100px_rgba(0,0,0,0.18)]">
-          <div
-            className={`relative mx-auto grid place-items-center text-4xl font-black text-white ${storeBrand?.logoUrl ? 'h-32 w-40' : 'size-28 rounded-[30px] shadow-[0_22px_60px_rgba(0,0,0,0.16)]'}`}
-            style={storeBrand?.logoUrl ? undefined : { backgroundColor: primary }}
-          >
-            {!storeBrand?.logoUrl && (
-              <span
-                className="absolute inset-0 rounded-2xl"
-                style={{ backgroundColor: primary, animation: 'storeLoaderGlow 1.35s ease-in-out infinite' }}
-              />
-            )}
-            {storeBrand?.logoUrl ? (
-              <img src={storeBrand.logoUrl} alt={appName} className="relative h-full w-full object-contain drop-shadow-2xl" />
-            ) : (
-              <span className="relative">{appName.charAt(0)}</span>
-            )}
-          </div>
-
-          <p className="mt-6 text-lg font-black" style={{ color: primary }}>{appName}</p>
-          <div className="mt-3 flex items-center justify-center gap-0.5 text-3xl font-black tracking-wide">
-            {'Cargando'.split('').map((letter, index) => (
-              <span
-                key={`${letter}-${index}`}
-                className="inline-block"
-                style={{
-                  color: primary,
-                  animation: 'storeLoadingText 1.15s ease-in-out infinite',
-                  animationDelay: `${index * 65}ms`,
-                }}
-              >
-                {letter}
-              </span>
-            ))}
-          </div>
-
-          <div className="mt-8 h-2.5 overflow-hidden rounded-full bg-black/8">
-            <div
-              className="h-full rounded-full"
-              style={{ backgroundColor: primary, animation: 'storeLoaderBar 1.15s ease-in-out infinite' }}
-            />
-          </div>
-        </section>
+      <main className="grid min-h-screen place-items-center bg-[radial-gradient(circle_at_50%_18%,rgba(217,164,65,0.14),transparent_34%),linear-gradient(180deg,#100d08,#040404_56%,#020202)] px-5">
+        <StoreLoadingCard color={primary} logoUrl={storeBrand?.logoUrl || null} appName={appName} />
       </main>
     )
   }
 
-  return (
-    <main className="grid min-h-screen place-items-center bg-[#f7f5f0] px-5 text-[#17120d]">
-      <section className="w-full max-w-md rounded-[2rem] border border-black/5 bg-white/90 p-8 text-center shadow-[0_30px_90px_rgba(17,17,17,0.12)] backdrop-blur">
-        <div className="mx-auto mb-6 grid h-20 w-20 place-items-center rounded-[1.75rem] bg-[#111111] shadow-[0_20px_50px_rgba(249,115,22,0.24)]">
-          <EccofoodLogo size="lg" showText={false} />
-        </div>
-        <p className="text-xs font-black uppercase tracking-[0.28em] text-[#f97316]">Eccofood</p>
-        <h1 className="mt-3 text-3xl font-black tracking-tight">Cargando Eccofood</h1>
-        <p className="mt-3 text-sm font-semibold leading-relaxed text-black/48">Preparando una experiencia rapida y segura.</p>
-        <div className="mt-7 h-2 overflow-hidden rounded-full bg-black/7">
-          <div className="h-full w-1/2 animate-[eccoGlobalLoaderBar_1.05s_ease-in-out_infinite] rounded-full bg-[#f97316]" />
-        </div>
-      </section>
-    </main>
-  )
+  return <EccofoodPageLoader />
 }

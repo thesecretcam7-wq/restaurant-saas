@@ -81,7 +81,7 @@ export default function StoreNavigationLoader({
   if (!loading || !isStorePath(currentPathRef.current)) return null
 
   return (
-    <div className="pointer-events-none fixed inset-0 z-[9990] flex items-center justify-center bg-white/70 px-5 backdrop-blur-[8px]">
+    <div className="pointer-events-none fixed inset-0 z-[9990] flex items-center justify-center bg-[radial-gradient(circle_at_50%_18%,rgba(217,164,65,0.14),transparent_34%),rgba(4,4,4,0.82)] px-5 backdrop-blur-xl">
       <StoreLoadingCard color={color} logoUrl={logoUrl} />
     </div>
   )
