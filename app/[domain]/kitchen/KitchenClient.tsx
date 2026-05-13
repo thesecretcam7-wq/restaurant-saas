@@ -725,14 +725,14 @@ export function KitchenClient({ tenantId, tenantSlug, tenantName, country, brand
       )}
 
       {accountOpen && (
-        <div className="fixed inset-0 z-50 bg-black/45 p-3 backdrop-blur-sm">
-          <div className="mx-auto flex h-full max-w-lg flex-col overflow-hidden rounded-[1.5rem] shadow-2xl" style={{ backgroundColor: brand.surface, color: brand.surfaceText }}>
-            <div className="flex items-center justify-between border-b border-black/10 p-4">
+        <div className="fixed inset-0 z-50 bg-black/62 p-3 backdrop-blur-md">
+          <div className="mx-auto flex h-full max-w-lg flex-col overflow-hidden rounded-[1.5rem] border border-[#f6b92f]/22 bg-[linear-gradient(180deg,rgba(255,255,255,0.09),rgba(255,255,255,0.035)),#101010] text-[#fff7df] shadow-[0_28px_90px_rgba(0,0,0,0.58),0_0_60px_rgba(246,185,47,0.12)]">
+            <div className="flex items-center justify-between border-b border-[#f6b92f]/14 p-4">
               <div>
-                <p className="text-xs font-black uppercase text-black/40">{tr('kitchen.fullAccount')}</p>
-                <h3 className="text-xl font-black text-[#15130f]">{accountTableNumber ? `${tr('kitchen.table')} ${accountTableNumber}` : tr('kitchen.selectTable')}</h3>
+                <p className="text-xs font-black uppercase tracking-[0.18em] text-[#f6b92f]">{tr('kitchen.fullAccount')}</p>
+                <h3 className="text-xl font-black text-[#fff7df]">{accountTableNumber ? `${tr('kitchen.table')} ${accountTableNumber}` : tr('kitchen.selectTable')}</h3>
               </div>
-              <button onClick={() => setAccountOpen(false)} className="grid h-10 w-10 place-items-center rounded-2xl bg-black/[0.06]">
+              <button onClick={() => setAccountOpen(false)} className="grid h-10 w-10 place-items-center rounded-2xl border border-white/10 bg-white/[0.08] text-[#fff7df] transition active:scale-95">
                 <X className="h-5 w-5" />
               </button>
             </div>
@@ -741,11 +741,11 @@ export function KitchenClient({ tenantId, tenantSlug, tenantName, country, brand
               {!accountTableNumber ? (
                 <div className="space-y-4">
                   <div>
-                    <p className="text-sm font-black text-[#15130f]">Elige la mesa para ver toda la cuenta del servicio</p>
-                    <p className="mt-1 text-xs font-bold text-black/45">Aqui no se envia pedido. Solo consulta el total acumulado de la mesa.</p>
+                    <p className="text-sm font-black text-[#fff7df]">Elige la mesa para ver toda la cuenta del servicio</p>
+                    <p className="mt-1 text-xs font-bold leading-relaxed text-[#f8f5ec]/62">Aqui no se envia pedido. Solo consulta el total acumulado de la mesa.</p>
                   </div>
                   {tables.length === 0 ? (
-                    <div className="rounded-2xl border border-dashed border-black/15 bg-[#f8f6f1] p-6 text-center text-sm font-black text-black/45">
+                    <div className="rounded-2xl border border-dashed border-[#f6b92f]/20 bg-white/[0.06] p-6 text-center text-sm font-black text-[#f8f5ec]/64">
                       No hay mesas configuradas
                     </div>
                   ) : (
@@ -754,8 +754,7 @@ export function KitchenClient({ tenantId, tenantSlug, tenantName, country, brand
                         <button
                           key={table.id}
                           onClick={() => loadTableAccount(String(table.table_number))}
-                          className="h-14 rounded-2xl border text-base font-black transition active:scale-95"
-                          style={{ borderColor: brand.border, backgroundColor: brand.soft, color: brand.primary }}
+                          className="h-14 rounded-2xl border border-[#f6b92f]/18 bg-white/[0.08] text-base font-black text-[#ffd66b] transition hover:border-[#f6b92f]/40 hover:bg-[#f6b92f]/12 active:scale-95"
                         >
                           Mesa {table.table_number}
                         </button>
@@ -764,19 +763,19 @@ export function KitchenClient({ tenantId, tenantSlug, tenantName, country, brand
                   )}
                 </div>
               ) : loadingAccount ? (
-                <div className="grid h-48 place-items-center text-sm font-black text-black/45">Cargando cuenta...</div>
+                <div className="grid h-48 place-items-center text-sm font-black text-[#f8f5ec]/62">Cargando cuenta...</div>
               ) : openTableOrders.length === 0 ? (
-                <div className="grid h-48 place-items-center rounded-2xl border border-dashed border-black/15 bg-[#f8f6f1] p-5 text-center">
+                <div className="grid h-48 place-items-center rounded-2xl border border-dashed border-[#f6b92f]/20 bg-white/[0.06] p-5 text-center">
                   <div>
-                    <ReceiptText className="mx-auto mb-3 h-8 w-8 text-black/25" />
-                    <p className="text-sm font-black text-[#15130f]">No hay pedidos abiertos en esta mesa</p>
-                    {draftBelongsToAccountTable && <p className="mt-1 text-xs font-bold text-black/45">El pedido actual aun no se ha enviado a cocina.</p>}
+                    <ReceiptText className="mx-auto mb-3 h-8 w-8 text-[#f6b92f]/72" />
+                    <p className="text-sm font-black text-[#fff7df]">No hay pedidos abiertos en esta mesa</p>
+                    {draftBelongsToAccountTable && <p className="mt-1 text-xs font-bold text-[#f8f5ec]/58">El pedido actual aun no se ha enviado a cocina.</p>}
                     <button
                       onClick={() => {
                         setAccountTableNumber('');
                         setOpenTableOrders([]);
                       }}
-                      className="mt-4 rounded-xl border border-black/10 px-4 py-2 text-xs font-black text-[#15130f]"
+                      className="mt-4 rounded-xl border border-[#f6b92f]/22 bg-[#f6b92f]/10 px-4 py-2 text-xs font-black text-[#ffd66b]"
                     >
                       Ver otra mesa
                     </button>
@@ -789,24 +788,24 @@ export function KitchenClient({ tenantId, tenantSlug, tenantName, country, brand
                       setAccountTableNumber('');
                       setOpenTableOrders([]);
                     }}
-                    className="rounded-xl border border-black/10 px-4 py-2 text-xs font-black text-[#15130f]"
+                    className="rounded-xl border border-[#f6b92f]/22 bg-[#f6b92f]/10 px-4 py-2 text-xs font-black text-[#ffd66b]"
                   >
                     Cambiar mesa
                   </button>
                   {openTableOrders.map((order) => (
-                    <div key={order.id} className="rounded-2xl border border-black/10 bg-[#fbfaf7] p-3">
+                    <div key={order.id} className="rounded-2xl border border-[#f6b92f]/16 bg-white/[0.07] p-3">
                       <div className="mb-2 flex items-center justify-between gap-2">
-                        <p className="text-sm font-black text-[#15130f]">#{order.order_number}</p>
-                        <p className="text-sm font-black text-red-600">{money(getServedOrderTotal(order))}</p>
+                        <p className="text-sm font-black text-[#fff7df]">#{order.order_number}</p>
+                        <p className="text-sm font-black text-[#ffd66b]">{money(getServedOrderTotal(order))}</p>
                       </div>
-                      {order.waiter_name && <p className="mb-2 text-xs font-bold text-black/42">Camarero: {order.waiter_name}</p>}
+                      {order.waiter_name && <p className="mb-2 text-xs font-bold text-[#f8f5ec]/55">Camarero: {order.waiter_name}</p>}
                       <div className="space-y-1">
                         {(order.items || []).map((item, index) => {
                           const qty = item.qty ?? item.quantity ?? 1;
                           return (
                             <div key={`${order.id}-${index}`} className="flex justify-between gap-2 text-sm">
-                              <span className="min-w-0 truncate font-bold text-black/68">{qty}x {item.name}</span>
-                              <span className="font-black text-[#15130f]">{money(item.price * qty)}</span>
+                              <span className="min-w-0 truncate font-bold text-[#f8f5ec]/74">{qty}x {item.name}</span>
+                              <span className="font-black text-[#fff7df]">{money(item.price * qty)}</span>
                             </div>
                           );
                         })}
@@ -817,32 +816,32 @@ export function KitchenClient({ tenantId, tenantSlug, tenantName, country, brand
               )}
             </div>
 
-            <div className="border-t border-black/10 bg-white p-4">
+            <div className="border-t border-[#f6b92f]/14 bg-black/24 p-4">
               {accountTableNumber ? (
-                <div className="space-y-1 rounded-2xl bg-[#f6f3ed] p-3">
-                  <div className="flex justify-between text-sm font-bold text-black/50">
+                <div className="space-y-1 rounded-2xl border border-[#f6b92f]/14 bg-[#f6b92f]/8 p-3">
+                  <div className="flex justify-between text-sm font-bold text-[#f8f5ec]/62">
                     <span>Subtotal servido</span>
                     <span>{money(openTableSubtotal)}</span>
                   </div>
                   {taxRate > 0 && (
-                    <div className="flex justify-between text-sm font-bold text-black/50">
+                    <div className="flex justify-between text-sm font-bold text-[#f8f5ec]/62">
                       <span>IVA servido</span>
                       <span>{money(openTableTax)}</span>
                     </div>
                   )}
                   {draftBelongsToAccountTable && (
-                    <div className="flex justify-between text-sm font-bold text-black/50">
+                    <div className="flex justify-between text-sm font-bold text-[#f8f5ec]/62">
                       <span>Pedido sin enviar</span>
                       <span>{money(total)}</span>
                     </div>
                   )}
-                  <div className="flex justify-between pt-2 text-lg font-black text-[#15130f]">
+                  <div className="flex justify-between pt-2 text-lg font-black text-[#ffd66b]">
                     <span>Total cuenta</span>
                     <span>{money(openTableTotal + accountDraftTotal)}</span>
                   </div>
                 </div>
               ) : (
-                <div className="rounded-2xl bg-[#f6f3ed] p-3 text-center text-sm font-black text-black/45">
+                <div className="rounded-2xl border border-[#f6b92f]/14 bg-white/[0.07] p-3 text-center text-sm font-black text-[#f8f5ec]/70">
                   Selecciona una mesa para ver la cuenta completa.
                 </div>
               )}
