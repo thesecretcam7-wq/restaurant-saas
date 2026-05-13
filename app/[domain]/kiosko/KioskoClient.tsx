@@ -320,7 +320,7 @@ function CategoryProductModal({
 
   return (
     <div
-      className="fixed inset-0 bg-black/40 flex items-center justify-center z-40 p-4"
+      className="ecco-fixed-layer fixed inset-0 bg-black/40 flex items-center justify-center z-40 p-4"
       onClick={onClose}
     >
       <div
@@ -1137,8 +1137,12 @@ export default function KioskoClient({
       {/* Fullscreen prompt overlay */}
       {showFsPrompt && !isFullscreen && (
         <div
-          className="fixed inset-0 flex cursor-pointer items-center justify-center"
+          className="ecco-fixed-layer fixed inset-0 flex h-[100dvh] w-screen cursor-pointer items-center justify-center"
           style={{
+            position: 'fixed',
+            inset: 0,
+            width: '100vw',
+            height: '100dvh',
             zIndex: 9999,
             background:
               `radial-gradient(circle at 50% 18%, ${primaryColor}33 0%, transparent 34%), ` +
@@ -1352,7 +1356,7 @@ export default function KioskoClient({
       {/* ── Item modal ── */}
       {selectedItem && (
         <div
-          className="fixed inset-0 bg-black/50 flex items-end sm:items-center justify-center z-50 p-4"
+          className="ecco-fixed-layer fixed inset-0 bg-black/50 flex items-end sm:items-center justify-center z-50 p-4"
           onClick={() => setSelectedItem(null)}
         >
           <div

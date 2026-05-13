@@ -1237,6 +1237,10 @@ body {
   z-index: 1;
 }
 
+.ecco-premium-app > .ecco-fixed-layer {
+  position: fixed !important;
+}
+
 .admin-shell {
   background:
     linear-gradient(120deg, rgba(246, 185, 47, 0.12), transparent 30%),
