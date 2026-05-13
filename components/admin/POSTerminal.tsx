@@ -11,7 +11,7 @@ import { CashClosingModal } from './CashClosingModal';
 import { Toast } from './Toast';
 import { POSOrderLookup } from './POSOrderLookup';
 import { saveCartToSupabase, loadCartFromSupabase, abandonCart, loadOrderToCart } from '@/lib/pos-cart-sync';
-import { calculateCashClosingStats, calculatePendingPreviousCashClosingStats, saveCashClosing, CashClosingStats } from '@/lib/cash-closing';
+import { calculateCashClosingStats, saveCashClosing, CashClosingStats } from '@/lib/cash-closing';
 import { getCurrencyByCountry, formatPriceWithCurrency } from '@/lib/currency';
 import { printCashClosingReceipt, printKitchenTicket, printReceipt, savePrinterLog, openCashDrawer } from '@/lib/pos-printer';
 import { countPendingPOSOrders, isNetworkPaymentError, saveOfflinePOSOrder, syncOfflinePOSOrders } from '@/lib/offline/pos-sync';
@@ -100,6 +100,20 @@ function getOrderItemQty(item: { qty?: number; quantity?: number }) {
 
 function getOrderItemsTotal(items: Array<{ price: number; qty?: number; quantity?: number }> = []) {
   return items.reduce((sum, item) => sum + Number(item.price || 0) * getOrderItemQty(item), 0);
+}
+
+async function fetchPendingCashClosingStats(tenantId: string): Promise<CashClosingStats | null> {
+  const response = await fetch(`/api/pos/cash-closing/pending?tenantId=${encodeURIComponent(tenantId)}`, {
+    cache: 'no-store',
+  });
+
+  if (!response.ok) {
+    const payload = await response.json().catch(() => ({}));
+    throw new Error(payload.error || 'No se pudo consultar el cierre pendiente');
+  }
+
+  const payload = await response.json();
+  return payload.stats || null;
 }
 
 // ─── Timer Hook ───────────────────────────────────────────────────────────────
@@ -479,7 +493,7 @@ export function POSTerminal({
 
   const refreshPendingCashClosing = useCallback(async () => {
     try {
-      setPendingCashClosingStats(await calculatePendingPreviousCashClosingStats(tenantId));
+      setPendingCashClosingStats(await fetchPendingCashClosingStats(tenantId));
     } catch (error) {
       console.error('Error checking pending cash closing:', error);
     }
@@ -672,7 +686,7 @@ export function POSTerminal({
       const loggedStaff = getLoggedStaffFromBrowser(tenantId);
       if (loggedStaff.staffId && !selectedStaffId) setSelectedStaffId(loggedStaff.staffId);
       if (loggedStaff.staffName && !selectedStaffName) setSelectedStaffName(loggedStaff.staffName);
-      const stats = pendingCashClosingStats || await calculatePendingPreviousCashClosingStats(tenantId);
+      const stats = pendingCashClosingStats || await fetchPendingCashClosingStats(tenantId);
 
       if (!stats) {
         setToast({ message: 'No hay cierres pendientes anteriores', type: 'success' });
