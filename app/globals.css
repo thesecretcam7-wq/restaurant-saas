@@ -556,11 +556,11 @@ html[data-pos-fullscreen="true"] body {
   padding: 0 !important;
 }
 
-html[data-pos-fullscreen="true"] aside {
+html[data-pos-fullscreen="true"]:has(.pos-premium.fixed.inset-0) aside {
   display: none !important;
 }
 
-html[data-pos-fullscreen="true"] main {
+html[data-pos-fullscreen="true"]:has(.pos-premium.fixed.inset-0) main {
   margin-left: 0 !important;
   padding: 0 !important;
   width: 100% !important;

@@ -659,7 +659,7 @@ export function POSTerminal({
     const handleFullscreenChange = () => {
       const isNowFullscreen = !!document.fullscreenElement;
       setIsFullscreen(isNowFullscreen);
-      if (isNowFullscreen) {
+      if (isNowFullscreen && document.fullscreenElement === posRootRef.current) {
         document.documentElement.setAttribute('data-pos-fullscreen', 'true');
       } else {
         document.documentElement.removeAttribute('data-pos-fullscreen');
@@ -667,7 +667,10 @@ export function POSTerminal({
     };
 
     document.addEventListener('fullscreenchange', handleFullscreenChange);
-    return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
+    return () => {
+      document.removeEventListener('fullscreenchange', handleFullscreenChange);
+      document.documentElement.removeAttribute('data-pos-fullscreen');
+    };
   }, []);
 
   // Cleanup fullscreen state when component unmounts
