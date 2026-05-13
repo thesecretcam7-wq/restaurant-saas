@@ -10,7 +10,7 @@ import { AdminMenuDrawer } from './AdminMenuDrawer';
 import { CashClosingModal } from './CashClosingModal';
 import { Toast } from './Toast';
 import { POSOrderLookup } from './POSOrderLookup';
-import { saveCartToSupabase, loadCartFromSupabase, abandonCart, loadOrderToCart } from '@/lib/pos-cart-sync';
+import { saveCartToSupabase, loadCartFromSupabase, abandonCart, abandonCurrentCartSession, loadOrderToCart } from '@/lib/pos-cart-sync';
 import { calculateCashClosingStats, saveCashClosing, CashClosingStats } from '@/lib/cash-closing';
 import { getCurrencyByCountry, formatPriceWithCurrency } from '@/lib/currency';
 import { printCashClosingReceipt, printKitchenTicket, printReceipt, savePrinterLog, openCashDrawer } from '@/lib/pos-printer';
@@ -484,6 +484,8 @@ export function POSTerminal({
   const firstDineInFetchDone = useRef(false);
   const notificationTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const csrfTokenRef = useRef<string>('');
+  const cartRestoredRef = useRef(false);
+  const previousCartLengthRef = useRef(0);
 
   useEffect(() => {
     const loggedStaff = getLoggedStaffFromBrowser(tenantId);
@@ -904,55 +906,70 @@ export function POSTerminal({
   }
 
   async function restoreCart() {
-    if (typeof window !== 'undefined') {
-      const savedCart = localStorage.getItem(`pos-cart-${tenantId}`);
-      const savedDiscount = localStorage.getItem(`pos-discount-${tenantId}`);
-      const savedDiscountCode = localStorage.getItem(`pos-discount-code-${tenantId}`);
+    try {
+      if (typeof window !== 'undefined') {
+        const savedCart = localStorage.getItem(`pos-cart-${tenantId}`);
+        const savedDiscount = localStorage.getItem(`pos-discount-${tenantId}`);
+        const savedDiscountCode = localStorage.getItem(`pos-discount-code-${tenantId}`);
 
-      if (savedCart) {
-        try {
-          setCart(JSON.parse(savedCart));
-        } catch (error) {
-          console.error('Error restoring cart from localStorage:', error);
+        if (savedCart) {
+          try {
+            setCart(JSON.parse(savedCart));
+          } catch (error) {
+            console.error('Error restoring cart from localStorage:', error);
+          }
+        }
+        if (savedDiscount) {
+          try {
+            setDiscount(parseFloat(savedDiscount));
+          } catch (error) {
+            console.error('Error restoring discount:', error);
+          }
+        }
+        if (savedDiscountCode) {
+          setDiscountCode(savedDiscountCode);
         }
       }
-      if (savedDiscount) {
-        try {
-          setDiscount(parseFloat(savedDiscount));
-        } catch (error) {
-          console.error('Error restoring discount:', error);
-        }
-      }
-      if (savedDiscountCode) {
-        setDiscountCode(savedDiscountCode);
-      }
-    }
 
-    const supabaseCart = await loadCartFromSupabase(tenantId, supabase);
-    if (!supabaseCart) return;
+      const supabaseCart = await loadCartFromSupabase(tenantId, supabase);
+      if (!supabaseCart) return;
 
-    setCart(supabaseCart.items);
-    setDiscount(supabaseCart.discount);
-    setDiscountCode(supabaseCart.discountCode);
-    setPaymentMethod(supabaseCart.paymentMethod);
-    setPosMode(supabaseCart.posMode);
-    const loggedStaff = getLoggedStaffFromBrowser(tenantId);
-    setSelectedStaffId(loggedStaff.staffId || supabaseCart.selectedStaffId);
-    setSelectedStaffName(loggedStaff.staffName || supabaseCart.selectedStaffName);
-    setSelectedTableId(supabaseCart.selectedTableId);
-    setSelectedTableNumber(supabaseCart.selectedTableNumber);
-    if (supabaseCart.loadedOrderId) {
-      setLoadedOrderId(supabaseCart.loadedOrderId);
+      setCart(supabaseCart.items);
+      setDiscount(supabaseCart.discount);
+      setDiscountCode(supabaseCart.discountCode);
+      setPaymentMethod(supabaseCart.paymentMethod);
+      setPosMode(supabaseCart.posMode);
+      const loggedStaff = getLoggedStaffFromBrowser(tenantId);
+      setSelectedStaffId(loggedStaff.staffId || supabaseCart.selectedStaffId);
+      setSelectedStaffName(loggedStaff.staffName || supabaseCart.selectedStaffName);
+      setSelectedTableId(supabaseCart.selectedTableId);
+      setSelectedTableNumber(supabaseCart.selectedTableNumber);
+      if (supabaseCart.loadedOrderId) {
+        setLoadedOrderId(supabaseCart.loadedOrderId);
+      }
+    } finally {
+      cartRestoredRef.current = true;
     }
   }
 
   // Save cart to localStorage AND Supabase whenever it changes
   useEffect(() => {
+    if (!cartRestoredRef.current) {
+      previousCartLengthRef.current = cart.length;
+      return;
+    }
+
     if (typeof window !== 'undefined') {
       // Save to localStorage (quick)
-      localStorage.setItem(`pos-cart-${tenantId}`, JSON.stringify(cart));
-      localStorage.setItem(`pos-discount-${tenantId}`, discount.toString());
-      localStorage.setItem(`pos-discount-code-${tenantId}`, discountCode);
+      if (cart.length > 0) {
+        localStorage.setItem(`pos-cart-${tenantId}`, JSON.stringify(cart));
+        localStorage.setItem(`pos-discount-${tenantId}`, discount.toString());
+        localStorage.setItem(`pos-discount-code-${tenantId}`, discountCode);
+      } else {
+        localStorage.removeItem(`pos-cart-${tenantId}`);
+        localStorage.removeItem(`pos-discount-${tenantId}`);
+        localStorage.removeItem(`pos-discount-code-${tenantId}`);
+      }
     }
 
     // Sync to Supabase in background (doesn't block UI)
@@ -974,7 +991,12 @@ export function POSTerminal({
       saveCartToSupabase(tenantId, cartData, supabase).catch((err) => {
         console.error('Background cart sync failed (will use localStorage):', err);
       });
+    } else if (tenantId && previousCartLengthRef.current > 0) {
+      abandonCurrentCartSession(tenantId, supabase).catch((err) => {
+        console.error('Background cart cleanup failed:', err);
+      });
     }
+    previousCartLengthRef.current = cart.length;
   }, [cart, discount, discountCode, tip, tenantId, taxRate]);
 
   // Real-time subscription for incoming orders (delivery/pickup)

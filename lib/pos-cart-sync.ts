@@ -168,6 +168,31 @@ export async function abandonCart(
   }
 }
 
+// Clear only the current POS browser session so deleted items do not come back after refresh.
+export async function abandonCurrentCartSession(
+  tenantId: string,
+  supabase: any
+): Promise<boolean> {
+  try {
+    if (!tenantId) return false;
+
+    const sessionId = getCartSessionId();
+    if (!sessionId) return false;
+
+    const { error } = await supabase
+      .from('pos_carts')
+      .update({ abandoned_at: new Date().toISOString() })
+      .eq('tenant_id', tenantId)
+      .eq('cart_session_id', sessionId)
+      .is('abandoned_at', null);
+
+    return !error;
+  } catch (error) {
+    console.error('Error clearing current POS cart session:', error);
+    return false;
+  }
+}
+
 // Get abandoned carts (for reporting/analytics)
 export async function getAbandonedCarts(
   tenantId: string,
