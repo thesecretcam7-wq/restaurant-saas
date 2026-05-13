@@ -143,24 +143,35 @@ export function RoleLoginClient({
   }
 
   useEffect(() => {
-    if (phase === 'pin') {
-      window.setTimeout(() => pinInputRef.current?.focus(), 80);
+    if (phase === 'pin' && !loading) {
+      const focusTimer = window.setTimeout(() => pinInputRef.current?.focus(), 80);
+      return () => window.clearTimeout(focusTimer);
     }
-  }, [phase]);
+  }, [phase, loading, error]);
+
+  function resetPinWithError(message: string) {
+    setError(message);
+    setPin('');
+    window.setTimeout(() => pinInputRef.current?.focus(), 80);
+  }
 
   async function validatePin(value: string) {
-    if (value.length < 4) return;
+    if (value.length < 4 || loading) return;
     setLoading(true);
     setLoadingMessage('Verificando acceso');
     setError('');
     let keepLoader = false;
+    const authController = new AbortController();
+    const authTimeout = window.setTimeout(() => authController.abort(), 9000);
 
     try {
       const res = await fetch('/api/staff/auth', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ domain: tenantSlug, pin: value, role: config.apiRole }),
+        signal: authController.signal,
       });
+      window.clearTimeout(authTimeout);
 
       if (res.ok) {
         const data = await res.json();
@@ -199,16 +210,15 @@ export function RoleLoginClient({
 
       const data = await res.json();
       if (data.requiresUpgrade) {
-        setError('Esta funcion requiere plan Pro o Premium.');
-        setPin('');
+        resetPinWithError('Esta funcion requiere plan Pro o Premium.');
         return;
       }
-      setError('PIN incorrecto.');
-      setPin('');
-    } catch {
-      setError('Error de conexion.');
-      setPin('');
+      resetPinWithError('PIN incorrecto. Intenta de nuevo.');
+    } catch (err) {
+      const wasAborted = err instanceof Error && err.name === 'AbortError';
+      resetPinWithError(wasAborted ? 'La verificacion tardo mucho. Intenta de nuevo.' : 'Error de conexion. Intenta de nuevo.');
     } finally {
+      window.clearTimeout(authTimeout);
       if (!keepLoader) {
         setLoading(false);
         setLoadingMessage('Verificando acceso');
@@ -238,6 +248,7 @@ export function RoleLoginClient({
   }
 
   function goBack() {
+    if (loading) return;
     if (phase === 'pin') {
       setPhase('select');
       setPin('');
@@ -248,6 +259,34 @@ export function RoleLoginClient({
     }
     router.push(`/${tenantSlug}/acceso`);
   }
+
+  useEffect(() => {
+    if (phase !== 'pin') return;
+
+    function handleKeyboard(event: KeyboardEvent) {
+      if (event.defaultPrevented || event.ctrlKey || event.metaKey || event.altKey || loading) return;
+
+      if (/^\d$/.test(event.key)) {
+        event.preventDefault();
+        pressKey(event.key);
+        return;
+      }
+
+      if (event.key === 'Backspace' || event.key === 'Delete') {
+        event.preventDefault();
+        pressKey('del');
+        return;
+      }
+
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        goBack();
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyboard);
+    return () => window.removeEventListener('keydown', handleKeyboard);
+  }, [phase, loading, pin, staffId, staffName]);
 
   return (
     <main
@@ -270,8 +309,9 @@ export function RoleLoginClient({
       )}
 
       <button
+        type="button"
         onClick={goBack}
-        className="fixed left-3 top-3 z-20 grid h-10 w-10 place-items-center rounded-2xl border border-[#ffc247]/18 bg-white/[0.07] text-[#f8f5ec]/70 transition hover:border-[#ffc247]/34 hover:bg-white/[0.12] hover:text-[#ffd66b] sm:left-6 sm:top-6 sm:h-12 sm:w-12"
+        className="fixed left-3 top-3 z-30 grid h-10 w-10 place-items-center rounded-2xl border border-[#ffc247]/18 bg-white/[0.07] text-[#f8f5ec]/70 transition hover:border-[#ffc247]/34 hover:bg-white/[0.12] hover:text-[#ffd66b] sm:left-6 sm:top-6 sm:h-12 sm:w-12"
         title="Volver"
       >
         <ArrowLeft className="h-5 w-5" />
@@ -408,6 +448,7 @@ export function RoleLoginClient({
                     const isDelete = key === 'del';
                     return (
                       <button
+                        type="button"
                         key={key}
                         onClick={() => pressKey(key)}
                         disabled={loading}
