@@ -19,7 +19,7 @@ import {
 } from 'lucide-react'
 
 const sections = [
-  { href: 'personalizacion', label: 'Marca y tienda', desc: 'Logo, colores, diseno, textos y redes', Icon: Paintbrush },
+  { href: 'personalizacion', label: 'Marca y tienda', desc: 'Logo, colores, diseno, textos y redes', Icon: Paintbrush, hidden: true },
   { href: 'pagina', label: 'Editor de secciones', desc: 'Orden y portada de la tienda', Icon: LayoutTemplate, hidden: true },
   { href: 'branding', label: 'Branding', desc: 'Ruta anterior de compatibilidad', Icon: Palette, hidden: true },
   { href: 'restaurante', label: 'Restaurante', desc: 'Nombre, ubicacion y datos publicos', Icon: Store },
@@ -75,7 +75,7 @@ export default function ConfiguracionLayout({ children }: { children: React.Reac
         <div>
           <p className="admin-eyebrow">Sistema</p>
           <h1 className="admin-title">Configuracion</h1>
-          <p className="admin-subtitle">Gestiona la marca, operacion, pagos, personal y presencia digital del restaurante.</p>
+          <p className="admin-subtitle">Gestiona la operacion, pagos, personal y presencia digital del restaurante.</p>
         </div>
       </div>
 

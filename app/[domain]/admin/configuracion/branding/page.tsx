@@ -6,5 +6,5 @@ interface BrandingProps {
 
 export default async function BrandingPage({ params }: BrandingProps) {
   const { domain } = await params
-  redirect(`/${domain}/admin/configuracion/personalizacion`)
+  redirect(`/${domain}/admin/configuracion/restaurante`)
 }
