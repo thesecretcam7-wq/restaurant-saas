@@ -1238,8 +1238,21 @@ body {
   z-index: 1;
 }
 
-.ecco-premium-app > .ecco-fixed-layer {
+.ecco-premium-app > .fixed,
+.ecco-premium-app > .ecco-fixed-layer,
+.admin-shell > .fixed,
+.admin-shell > .ecco-fixed-layer,
+.pos-premium > .fixed,
+.pos-premium > .ecco-fixed-layer,
+.ecco-landing-premium > .fixed,
+.ecco-landing-premium > .ecco-fixed-layer {
   position: fixed !important;
+}
+
+.ecco-premium-app > .ecco-fixed-layer,
+.admin-shell > .ecco-fixed-layer,
+.pos-premium > .ecco-fixed-layer,
+.ecco-landing-premium > .ecco-fixed-layer {
   inset: 0 !important;
   width: 100vw !important;
   height: 100dvh !important;

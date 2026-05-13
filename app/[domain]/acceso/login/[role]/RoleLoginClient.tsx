@@ -72,7 +72,10 @@ function RoleAccessLoader({
   message: string;
 }) {
   return (
-    <div className="fixed inset-0 z-50 grid place-items-center bg-[#050505]/75 px-5 backdrop-blur-xl">
+    <div
+      className="ecco-fixed-layer fixed inset-0 z-50 grid h-[100dvh] w-screen place-items-center bg-[#050505]/75 px-5 backdrop-blur-xl"
+      style={{ position: 'fixed', inset: 0, width: '100vw', height: '100dvh' }}
+    >
       <div className="w-full max-w-sm rounded-[2rem] border border-[#ffc247]/28 bg-[linear-gradient(180deg,rgba(255,255,255,0.10),rgba(255,255,255,0.035)),rgba(15,15,15,0.94)] p-7 text-center text-[#f8f5ec] shadow-[0_30px_100px_rgba(0,0,0,0.46),0_0_70px_rgba(246,185,47,0.18)]">
         <div className="relative mx-auto mb-5 grid h-28 w-36 place-items-center">
           <div className="relative grid h-28 w-36 place-items-center">
