@@ -659,7 +659,6 @@ export function POSTerminal({
     const handleFullscreenChange = () => {
       const isNowFullscreen = !!document.fullscreenElement;
       setIsFullscreen(isNowFullscreen);
-      // Set data attribute to hide admin panel on fullscreen
       if (isNowFullscreen) {
         document.documentElement.setAttribute('data-pos-fullscreen', 'true');
       } else {
@@ -1939,10 +1938,7 @@ export function POSTerminal({
               )}
             </button>
             {todayReservations.length > 0 && (
-              <button
-                onClick={() => {
-                  window.location.href = `/${tenantSlug || tenantId}/admin/reservas`;
-                }}
+              <div
                 className="pos-action-ghost border-amber-300/55 bg-amber-300/14 text-amber-100 shadow-[0_0_18px_rgba(251,191,36,0.22)]"
                 title="Reservas de hoy"
               >
@@ -1953,7 +1949,7 @@ export function POSTerminal({
                 <span className="rounded-full bg-amber-300 px-1.5 py-0.5 text-[10px] font-black text-slate-950 sm:hidden">
                   {todayReservations.length}
                 </span>
-              </button>
+              </div>
             )}
             <button
               onClick={toggleFullscreen}
