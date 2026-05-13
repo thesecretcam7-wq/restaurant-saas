@@ -320,7 +320,7 @@ function CategoryProductModal({
 
   return (
     <div
-      className="ecco-fixed-layer fixed inset-0 bg-black/40 flex items-center justify-center z-40 p-4"
+      className="ecco-fixed-layer fixed inset-0 flex items-center justify-center bg-black/40 p-4"
       onClick={onClose}
     >
       <div
@@ -1356,7 +1356,7 @@ export default function KioskoClient({
       {/* ── Item modal ── */}
       {selectedItem && (
         <div
-          className="ecco-fixed-layer fixed inset-0 bg-black/50 flex items-end sm:items-center justify-center z-50 p-4"
+          className="ecco-fixed-layer fixed inset-0 flex items-end justify-center bg-black/50 p-4 sm:items-center"
           onClick={() => setSelectedItem(null)}
         >
           <div

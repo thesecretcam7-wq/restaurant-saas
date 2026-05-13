@@ -1239,6 +1239,10 @@ body {
 
 .ecco-premium-app > .ecco-fixed-layer {
   position: fixed !important;
+  inset: 0 !important;
+  width: 100vw !important;
+  height: 100dvh !important;
+  z-index: 9990 !important;
 }
 
 .admin-shell {
