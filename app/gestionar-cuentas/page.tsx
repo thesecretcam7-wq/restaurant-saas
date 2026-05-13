@@ -6,6 +6,25 @@ import AccountsContent from './AccountsContent'
 export const revalidate = 60
 
 export default async function GestionarCuentasPage() {
+  const hasSupabaseConfig = Boolean(
+    process.env.NEXT_PUBLIC_SUPABASE_URL &&
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+  )
+
+  if (!hasSupabaseConfig) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 px-6 py-12 text-white">
+        <div className="mx-auto max-w-2xl rounded-3xl border border-orange-400/20 bg-white/10 p-8 shadow-2xl shadow-black/30 backdrop-blur">
+          <p className="text-xs font-black uppercase tracking-[0.22em] text-orange-300">Configuracion pendiente</p>
+          <h1 className="mt-4 text-3xl font-black">Faltan variables de Supabase</h1>
+          <p className="mt-3 text-sm font-semibold leading-6 text-white/70">
+            Configura NEXT_PUBLIC_SUPABASE_URL y NEXT_PUBLIC_SUPABASE_ANON_KEY en Vercel para activar la gestion de cuentas.
+          </p>
+        </div>
+      </div>
+    )
+  }
+
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
