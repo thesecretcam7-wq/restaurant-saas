@@ -74,16 +74,16 @@ export function colorWithAlpha(color: string, alphaHex: string) {
 }
 
 export const DEFAULT_BRAND_COLORS = {
-  primary: '#0B0B0B',
-  secondary: '#151515',
-  accent: '#F6B92F',
-  background: '#060606',
-  surface: '#121212',
-  buttonPrimary: '#F6B92F',
-  buttonSecondary: '#222222',
-  textPrimary: '#FFF7DF',
-  textSecondary: '#C9BFA9',
-  border: '#3A2C14',
+  primary: '#050403',
+  secondary: '#12100C',
+  accent: '#D9A441',
+  background: '#040404',
+  surface: '#11100D',
+  buttonPrimary: '#D9A441',
+  buttonSecondary: '#1B1710',
+  textPrimary: '#FFF4D8',
+  textSecondary: '#B9A989',
+  border: '#4A3515',
 }
 
 export function deriveBrandPalette(_input: BrandColorInput = {}) {
@@ -96,9 +96,9 @@ export function deriveBrandPalette(_input: BrandColorInput = {}) {
   const buttonPrimary = DEFAULT_BRAND_COLORS.buttonPrimary
   const background = DEFAULT_BRAND_COLORS.background
   const surface = DEFAULT_BRAND_COLORS.surface
-  const cardSurface = '#181818'
-  const neutralSoft = '#1E1E1E'
-  const primarySoft = '#2A2110'
+  const cardSurface = '#17130D'
+  const neutralSoft = '#211A10'
+  const primarySoft = '#31230F'
   const buttonSecondary = DEFAULT_BRAND_COLORS.buttonSecondary
   const text = DEFAULT_BRAND_COLORS.textPrimary
   const mutedText = DEFAULT_BRAND_COLORS.textSecondary

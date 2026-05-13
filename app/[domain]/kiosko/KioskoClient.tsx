@@ -374,7 +374,7 @@ function CategoryProductModal({
                       {item.image_url ? (
                         <img src={item.image_url} alt={item.name} className="w-full h-44 object-cover group-hover:scale-105 transition-transform duration-300" />
                       ) : (
-                        <div className="w-full h-44 flex items-center justify-center text-6xl" style={{ backgroundColor: '#181818' }}>
+                        <div className="w-full h-44 flex items-center justify-center text-6xl" style={{ backgroundColor: '#17130D' }}>
                           🍽️
                         </div>
                       )}
@@ -466,9 +466,9 @@ export default function KioskoClient({
   const freeToppingsLabel = domain === 'parrillaburgers' ? 'Barra libre' : 'Ingredientes gratis'
   const buttonTextColor = readableText(buttonPrimaryColor)
   const secondaryButtonTextColor = readableText(buttonSecondaryColor)
-  const surfaceColor = '#121212'
-  const surfaceTextColor = '#FFF7DF'
-  const surfaceMutedTextColor = textSecondaryColor || '#C9BFA9'
+  const surfaceColor = '#11100D'
+  const surfaceTextColor = '#FFF4D8'
+  const surfaceMutedTextColor = textSecondaryColor || '#B9A989'
 
   useEffect(() => {
     if (step !== 'menu' || banners.length <= 1) return
@@ -1367,7 +1367,7 @@ export default function KioskoClient({
             {selectedItem.image_url ? (
               <img src={selectedItem.image_url} alt={selectedItem.name} className="w-full h-56 object-cover" />
             ) : (
-              <div className="w-full h-44 flex items-center justify-center text-7xl" style={{ backgroundColor: '#181818' }}>
+              <div className="w-full h-44 flex items-center justify-center text-7xl" style={{ backgroundColor: '#17130D' }}>
                 🍽️
               </div>
             )}
