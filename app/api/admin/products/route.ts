@@ -1,5 +1,6 @@
 import { createServiceClient } from '@/lib/supabase/server'
 import { NextRequest, NextResponse } from 'next/server'
+import { ensureInventoryItemForMenuItem } from '@/lib/inventory-sync'
 
 export async function POST(req: NextRequest) {
   try {
@@ -39,14 +40,31 @@ export async function POST(req: NextRequest) {
       },
     }
 
-    const { error } = await supabase.from('menu_items').insert(productData)
+    const { data: product, error } = await supabase
+      .from('menu_items')
+      .insert(productData)
+      .select('id, tenant_id, name')
+      .single()
 
     if (error) {
       console.error('Database error:', error)
       return NextResponse.json({ error: error.message || 'Error al guardar el producto' }, { status: 500 })
     }
 
-    return NextResponse.json({ success: true })
+    try {
+      await ensureInventoryItemForMenuItem(supabase, {
+        tenantId,
+        productId: product.id,
+        productName: product.name,
+      })
+    } catch (inventoryError) {
+      console.error('Inventory sync error:', inventoryError)
+      await supabase.from('menu_items').delete().eq('id', product.id).eq('tenant_id', tenantId)
+      const message = inventoryError instanceof Error ? inventoryError.message : 'Error al crear inventario'
+      return NextResponse.json({ error: `Producto no guardado: ${message}` }, { status: 500 })
+    }
+
+    return NextResponse.json({ success: true, product })
   } catch (err) {
     console.error('API error:', err)
     const message = err instanceof Error ? err.message : 'Error desconocido'

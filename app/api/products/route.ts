@@ -1,6 +1,7 @@
 import { createServiceClient } from '@/lib/supabase/server'
 import { NextRequest, NextResponse } from 'next/server'
 import { verifyCSRFToken, sendCSRFErrorResponse } from '@/lib/csrf'
+import { ensureInventoryItemForMenuItem } from '@/lib/inventory-sync'
 
 export async function GET(request: NextRequest) {
   try {
@@ -99,6 +100,19 @@ export async function POST(request: NextRequest) {
 
       if (error) {
         return NextResponse.json({ error: error.message }, { status: 500 })
+      }
+
+      try {
+        await ensureInventoryItemForMenuItem(supabase, {
+          tenantId,
+          productId: item.id,
+          productName: item.name,
+        })
+      } catch (inventoryError) {
+        console.error('Inventory sync error:', inventoryError)
+        await supabase.from('menu_items').delete().eq('id', item.id).eq('tenant_id', tenantId)
+        const message = inventoryError instanceof Error ? inventoryError.message : 'Error al crear inventario'
+        return NextResponse.json({ error: `Producto no guardado: ${message}` }, { status: 500 })
       }
 
       return NextResponse.json({ item }, { status: 201 })
