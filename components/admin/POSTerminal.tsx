@@ -2204,7 +2204,7 @@ export function POSTerminal({
         </div>
 
         {/* Cart/Payment Section */}
-        <div className={`${isFullscreen ? 'h-[44dvh] overflow-hidden lg:h-auto lg:w-72 xl:w-80' : 'min-h-[520px] flex-none overflow-y-auto pb-6 lg:min-h-0 lg:h-auto lg:w-80 lg:overflow-y-auto lg:pb-0'} pos-panel border-x-0 border-b-0 lg:border-y-0 lg:border-r-0 flex flex-col`}>
+        <div className={`${isFullscreen ? 'h-[44dvh] min-h-0 overflow-hidden lg:h-auto lg:min-h-0 lg:w-72 xl:w-80' : 'min-h-[520px] flex-none overflow-y-auto pb-6 lg:min-h-0 lg:h-auto lg:w-80 lg:overflow-y-auto lg:pb-0'} pos-panel border-x-0 border-b-0 lg:border-y-0 lg:border-r-0 flex flex-col`}>
           {/* Tabs: Cart / Entregas / Salón */}
           <div className="border-b border-white/10 flex bg-black/20 backdrop-blur-xl">
             <button
@@ -2391,14 +2391,14 @@ export function POSTerminal({
           )}
 
           {/* Cart Items List */}
-          <div className={`${isFullscreen ? 'flex-1 min-h-0 overflow-hidden' : 'min-h-28 max-h-48 overflow-y-auto'}`}>
+          <div className={`${isFullscreen ? 'flex-1 min-h-0 overflow-y-auto overscroll-contain pr-1 [scrollbar-gutter:stable]' : 'min-h-28 max-h-48 overflow-y-auto'}`}>
             {cart.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-full text-slate-500 py-8">
                 <ShoppingCart className="w-8 h-8 mb-2 opacity-30" />
                 <p className="text-xs">Carrito vacío</p>
               </div>
             ) : (
-              <div className={`${isFullscreen ? 'p-1.5 space-y-1' : 'p-2 space-y-1'}`}>
+              <div className={`${isFullscreen ? 'space-y-1 p-1.5 pb-3' : 'p-2 space-y-1'}`}>
                 {cart.map((item) => (
                   <div key={item.menu_item_id} className={`pos-card flex items-center gap-2 rounded-xl px-2 ${isFullscreen ? 'py-1' : 'py-1.5'}`}>
                     <div className="flex-1 min-w-0">
