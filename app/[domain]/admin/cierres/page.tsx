@@ -4,8 +4,9 @@ import { useParams } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useTenantResolver } from '@/lib/hooks/useTenantResolver'
-import { AlertCircle, Check, Eye, WalletCards } from 'lucide-react'
+import { AlertCircle, Check, Eye, Printer, WalletCards } from 'lucide-react'
 import { formatPriceWithCurrency, getCurrencyByCountry } from '@/lib/currency'
+import { printCashClosingReceipt } from '@/lib/pos-printer'
 
 interface CashClosing {
   id: string
@@ -14,13 +15,17 @@ interface CashClosing {
   closed_at: string
   cash_sales: number
   card_sales: number
+  other_sales?: number | null
   total_sales: number
+  total_tax?: number | null
+  total_discount?: number | null
   expected_total: number
   actual_cash_count: number
   difference: number
   is_balanced: boolean
   transaction_count: number
   orders_completed: number
+  orders_cancelled?: number | null
   notes?: string
 }
 
@@ -31,6 +36,8 @@ export default function CashClosingsPage() {
   const [closings, setClosings] = useState<CashClosing[]>([])
   const [loading, setLoading] = useState(true)
   const [selectedClosing, setSelectedClosing] = useState<CashClosing | null>(null)
+  const [printingClosingId, setPrintingClosingId] = useState<string | null>(null)
+  const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
 
   useEffect(() => {
     if (!tenantId) return
@@ -81,6 +88,70 @@ export default function CashClosingsPage() {
   const balancedCount = closings.filter(closing => closing.is_balanced).length
   const avgDifference = closings.length ? closings.reduce((sum, closing) => sum + Math.abs(closing.difference), 0) / closings.length : 0
 
+  function parsePeriodDate(value: string | undefined, fallback: string) {
+    if (!value) return fallback
+    const parsed = new Date(value.trim())
+    return Number.isNaN(parsed.getTime()) ? fallback : parsed.toISOString()
+  }
+
+  async function handlePrintClosing(closing: CashClosing) {
+    if (!tenantId) return
+
+    setPrintingClosingId(closing.id)
+    setMessage(null)
+
+    try {
+      const supabase = createClient()
+      const { data: settings, error } = await supabase
+        .from('restaurant_settings')
+        .select('default_receipt_printer_id, display_name, phone')
+        .eq('tenant_id', tenantId)
+        .maybeSingle()
+
+      if (error) throw new Error(error.message)
+      if (!settings?.default_receipt_printer_id) {
+        throw new Error('No hay impresora de recibos configurada.')
+      }
+
+      const periodMatch = closing.notes?.match(/Periodo operativo:\s*(.+?)\s*-\s*(.+?)(?:\n|$)/)
+      const periodStart = parsePeriodDate(periodMatch?.[1], closing.closed_at)
+      const periodEnd = parsePeriodDate(periodMatch?.[2], closing.closed_at)
+
+      await printCashClosingReceipt(tenantId, settings.default_receipt_printer_id, {
+        closingId: closing.id,
+        restaurantName: settings.display_name || 'Restaurante',
+        restaurantPhone: settings.phone || null,
+        staffName: closing.staff_name || 'Sin asignar',
+        closedAt: closing.closed_at,
+        periodStart,
+        periodEnd,
+        cashSales: Number(closing.cash_sales) || 0,
+        cardSales: Number(closing.card_sales) || 0,
+        otherSales: Number(closing.other_sales) || 0,
+        totalSales: Number(closing.total_sales) || 0,
+        totalTax: Number(closing.total_tax) || 0,
+        totalDiscount: Number(closing.total_discount) || 0,
+        expectedCash: Number(closing.expected_total) || 0,
+        actualCash: Number(closing.actual_cash_count) || 0,
+        difference: Number(closing.difference) || 0,
+        transactionCount: Number(closing.transaction_count) || 0,
+        ordersCompleted: Number(closing.orders_completed) || 0,
+        ordersCancelled: Number(closing.orders_cancelled) || 0,
+        notes: closing.notes || null,
+        currencyInfo,
+      })
+
+      setMessage({ type: 'success', text: 'Recibo de cierre enviado a imprimir.' })
+    } catch (error) {
+      setMessage({
+        type: 'error',
+        text: `No se pudo imprimir el recibo: ${error instanceof Error ? error.message : String(error)}`,
+      })
+    } finally {
+      setPrintingClosingId(null)
+    }
+  }
+
   return (
     <div className="admin-page">
       <div className="admin-page-header">
@@ -111,6 +182,15 @@ export default function CashClosingsPage() {
       )}
 
       <section className="admin-panel overflow-hidden">
+        {message && (
+          <div className={`m-5 rounded-xl border px-4 py-3 text-sm font-black ${
+            message.type === 'success'
+              ? 'border-green-200 bg-green-50 text-green-700'
+              : 'border-red-200 bg-red-50 text-red-700'
+          }`}>
+            {message.text}
+          </div>
+        )}
         {closings.length === 0 ? (
           <div className="admin-empty m-5">No hay cierres de caja aun</div>
         ) : (
@@ -142,10 +222,20 @@ export default function CashClosingsPage() {
                       </span>
                     </td>
                     <td className="px-5 py-4 text-right">
+                      <div className="inline-flex items-center justify-end gap-3">
+                      <button
+                        onClick={() => handlePrintClosing(closing)}
+                        disabled={printingClosingId === closing.id}
+                        className="inline-flex items-center gap-1.5 text-sm font-black text-[#b87805] disabled:opacity-50"
+                      >
+                        <Printer className="size-4" />
+                        {printingClosingId === closing.id ? 'Imprimiendo' : 'Imprimir'}
+                      </button>
                       <button onClick={() => setSelectedClosing(closing)} className="inline-flex items-center gap-1.5 text-sm font-black text-[#e43d30]">
                         <Eye className="size-4" />
                         Ver
                       </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -175,7 +265,16 @@ export default function CashClosingsPage() {
               ))}
             </div>
             {selectedClosing.notes && <p className="mt-5 rounded-xl bg-black/5 p-4 text-sm font-semibold text-black/60">{selectedClosing.notes}</p>}
-            <button onClick={() => setSelectedClosing(null)} className="admin-button-primary mt-6 w-full">Cerrar</button>
+            <div className="mt-6 grid gap-3 sm:grid-cols-2">
+              <button
+                onClick={() => handlePrintClosing(selectedClosing)}
+                disabled={printingClosingId === selectedClosing.id}
+                className="admin-button-secondary w-full"
+              >
+                {printingClosingId === selectedClosing.id ? 'Imprimiendo...' : 'Imprimir recibo'}
+              </button>
+              <button onClick={() => setSelectedClosing(null)} className="admin-button-primary w-full">Cerrar</button>
+            </div>
           </div>
         </div>
       )}
