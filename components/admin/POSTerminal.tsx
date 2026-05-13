@@ -6,7 +6,6 @@ import { ShoppingCart, Plus, Minus, Trash2, Search, DollarSign, CreditCard, Maxi
 import { POSStaffSelector } from './POSStaffSelector';
 import { TableMap } from './TableMap';
 import { POSPayment } from './POSPayment';
-import { POSCartDrawer } from './POSCartDrawer';
 import { AdminMenuDrawer } from './AdminMenuDrawer';
 import { CashClosingModal } from './CashClosingModal';
 import { Toast } from './Toast';
@@ -437,7 +436,6 @@ export function POSTerminal({
   const [isFullscreen, setIsFullscreen] = useState(false);
   const posRootRef = useRef<HTMLDivElement>(null);
   const { wakeLockActive, wakeLockSupported, activateWakeLock } = useWakeLock();
-  const [showCartDrawer, setShowCartDrawer] = useState(false);
   const [showAdminMenu, setShowAdminMenu] = useState(false);
   const [showCashClosing, setShowCashClosing] = useState(false);
   const [cashClosingStats, setCashClosingStats] = useState<CashClosingStats | null>(null);
@@ -785,10 +783,9 @@ export function POSTerminal({
       setDiscountCode('');
       setTip(0);
 
-      // Hide Find & Pay and Incoming panels, show cart
+      // Hide Find & Pay and Incoming panels; the built-in right cart panel stays visible.
       setShowFindPayPanel(false);
       setShowIncomingPanel(false);
-      setShowCartDrawer(true);
 
       setToast({
         message: `Pedido ${order.order_number} cargado - Procede al pago`,
@@ -2638,19 +2635,6 @@ export function POSTerminal({
         />
       )}
 
-
-      {/* Cart Drawer Modal */}
-      <POSCartDrawer
-        isOpen={showCartDrawer}
-        cartItems={cart}
-        subtotal={subtotal}
-        discount={discount}
-        onUpdateQuantity={updateQuantity}
-        onRemoveItem={removeFromCart}
-        onUpdateNotes={updateNotes}
-        onClose={() => setShowCartDrawer(false)}
-        country={country}
-      />
 
       {/* Admin Menu Drawer Modal */}
       <AdminMenuDrawer

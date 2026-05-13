@@ -374,7 +374,7 @@ function CategoryProductModal({
                       {item.image_url ? (
                         <img src={item.image_url} alt={item.name} className="w-full h-44 object-cover group-hover:scale-105 transition-transform duration-300" />
                       ) : (
-                        <div className="w-full h-44 flex items-center justify-center text-6xl" style={{ backgroundColor: '#ffffff' }}>
+                        <div className="w-full h-44 flex items-center justify-center text-6xl" style={{ backgroundColor: '#181818' }}>
                           🍽️
                         </div>
                       )}
@@ -466,9 +466,9 @@ export default function KioskoClient({
   const freeToppingsLabel = domain === 'parrillaburgers' ? 'Barra libre' : 'Ingredientes gratis'
   const buttonTextColor = readableText(buttonPrimaryColor)
   const secondaryButtonTextColor = readableText(buttonSecondaryColor)
-  const surfaceColor = '#ffffff'
-  const surfaceTextColor = '#15130f'
-  const surfaceMutedTextColor = textSecondaryColor || 'rgba(21,19,15,0.62)'
+  const surfaceColor = '#121212'
+  const surfaceTextColor = '#FFF7DF'
+  const surfaceMutedTextColor = textSecondaryColor || '#C9BFA9'
 
   useEffect(() => {
     if (step !== 'menu' || banners.length <= 1) return
@@ -1137,14 +1137,21 @@ export default function KioskoClient({
       {/* Fullscreen prompt overlay */}
       {showFsPrompt && !isFullscreen && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center cursor-pointer"
-          style={{ backgroundColor: primaryColor }}
+          className="fixed inset-0 flex cursor-pointer items-center justify-center"
+          style={{
+            zIndex: 9999,
+            background:
+              `radial-gradient(circle at 50% 18%, ${primaryColor}33 0%, transparent 34%), ` +
+              `linear-gradient(180deg, ${primaryColor}, #050505 58%, #020202 100%)`,
+          }}
           onClick={() => { toggleFullscreen(); setShowFsPrompt(false) }}
         >
           <div className="text-center" style={{ color: primaryTextColor }}>
-            <p className="text-8xl mb-8">🖥️</p>
-            <p className="text-4xl font-black mb-4">Toca para comenzar</p>
-            <p className="text-xl opacity-80">{appName}</p>
+            <p className="mb-8 text-8xl drop-shadow-2xl">🖥️</p>
+            <p className="mb-4 text-5xl font-black tracking-tight drop-shadow-[0_8px_28px_rgba(0,0,0,0.45)]">
+              Toca para comenzar
+            </p>
+            <p className="text-2xl font-semibold opacity-85">{appName}</p>
           </div>
         </div>
       )}
@@ -1157,10 +1164,10 @@ export default function KioskoClient({
         {/* ── Category carousel ── */}
         <aside
           ref={categoryScrollRef}
-          className="w-full flex-shrink-0 overflow-x-auto border-b p-3 hide-scrollbar md:w-[24rem] md:overflow-y-auto md:border-b-0 md:border-r md:p-5 xl:w-[28rem]"
+          className="w-full flex-shrink-0 overflow-x-auto border-b p-3 pt-0 hide-scrollbar md:w-[24rem] md:overflow-y-auto md:border-b-0 md:border-r md:p-5 md:pt-0 xl:w-[28rem]"
           style={{ WebkitOverflowScrolling: 'touch', backgroundColor: surfaceColor, borderColor }}
         >
-          <div className="hidden sticky top-0 z-10 pb-4 mb-3 md:block" style={{ backgroundColor: surfaceColor }}>
+          <div className="hidden sticky top-0 z-10 -mx-5 mb-3 border-b px-5 pb-4 pt-5 md:block" style={{ backgroundColor: surfaceColor, borderColor }}>
             <p className="text-xs font-black uppercase tracking-[0.25em]" style={{ color: surfaceMutedTextColor }}>Menu</p>
             <p className="text-3xl font-black leading-none mt-1" style={{ color: surfaceTextColor }}>Categorias</p>
           </div>
@@ -1184,7 +1191,7 @@ export default function KioskoClient({
                     boxShadow: isPressed ? `0 22px 55px ${primaryColor}55` : undefined,
                   }}
                 >
-                  <div className="absolute inset-0 flex items-center justify-center bg-white">
+                  <div className="absolute inset-0 flex items-center justify-center bg-neutral-950">
                     {cat.image_url ? (
                       <img
                         src={cat.image_url}
@@ -1356,7 +1363,7 @@ export default function KioskoClient({
             {selectedItem.image_url ? (
               <img src={selectedItem.image_url} alt={selectedItem.name} className="w-full h-56 object-cover" />
             ) : (
-              <div className="w-full h-44 flex items-center justify-center text-7xl" style={{ backgroundColor: '#ffffff' }}>
+              <div className="w-full h-44 flex items-center justify-center text-7xl" style={{ backgroundColor: '#181818' }}>
                 🍽️
               </div>
             )}

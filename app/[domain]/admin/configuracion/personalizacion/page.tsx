@@ -17,16 +17,15 @@ const FONT_PRESETS = [
   { font: 'Playfair Display', label: 'Elegante', note: 'Restaurante premium' },
 ]
 
-function buildProfessionalBrandValues(base: { primary_color?: string; button_primary_color?: string }) {
-  const palette = deriveBrandPalette({
-    primary: base.primary_color,
-    buttonPrimary: base.button_primary_color || base.primary_color,
-  })
+function buildProfessionalBrandValues() {
+  const palette = deriveBrandPalette()
 
   return {
+    primary_color: palette.primary,
     secondary_color: palette.secondary,
     accent_color: palette.accent,
     background_color: palette.background,
+    button_primary_color: palette.buttonPrimary,
     button_secondary_color: palette.buttonSecondary,
     text_primary_color: palette.text,
     text_secondary_color: palette.mutedText,
@@ -45,6 +44,8 @@ function buildProfessionalBrandValues(base: { primary_color?: string; button_pri
     link_hover_color: '',
   }
 }
+
+const LOCKED_PROFESSIONAL_BRAND = buildProfessionalBrandValues()
 
 interface PersonalizacionProps { params: Promise<{ domain: string }> }
 
@@ -65,15 +66,15 @@ export default function PersonalizacionPage({ params }: PersonalizacionProps) {
     logo_url: '',
     favicon_url: '',
     // Colors
-    primary_color: '#15130f',
-    secondary_color: '#111827',
-    accent_color: '#15130f',
-    background_color: '#f8f5ef',
-    button_primary_color: '#15130f',
-    button_secondary_color: '#E5E7EB',
-    text_primary_color: '#1F2937',
-    text_secondary_color: '#6B7280',
-    border_color: '#E5E7EB',
+    primary_color: LOCKED_PROFESSIONAL_BRAND.primary_color,
+    secondary_color: LOCKED_PROFESSIONAL_BRAND.secondary_color,
+    accent_color: LOCKED_PROFESSIONAL_BRAND.accent_color,
+    background_color: LOCKED_PROFESSIONAL_BRAND.background_color,
+    button_primary_color: LOCKED_PROFESSIONAL_BRAND.button_primary_color,
+    button_secondary_color: LOCKED_PROFESSIONAL_BRAND.button_secondary_color,
+    text_primary_color: LOCKED_PROFESSIONAL_BRAND.text_primary_color,
+    text_secondary_color: LOCKED_PROFESSIONAL_BRAND.text_secondary_color,
+    border_color: LOCKED_PROFESSIONAL_BRAND.border_color,
     // Typography
     font_family: 'Inter',
     heading_font: 'Inter',
@@ -110,11 +111,11 @@ export default function PersonalizacionPage({ params }: PersonalizacionProps) {
     button_reserve_text: 'Reservar mesa',
     empty_cart_message: 'Tu carrito está vacío',
     // Backgrounds
-    section_background_color: '#FFFFFF',
+    section_background_color: LOCKED_PROFESSIONAL_BRAND.section_background_color,
     section_background_image_url: '',
     use_gradient: false,
-    gradient_start_color: '#FFFFFF',
-    gradient_end_color: '#F3F4F6',
+    gradient_start_color: LOCKED_PROFESSIONAL_BRAND.gradient_start_color,
+    gradient_end_color: LOCKED_PROFESSIONAL_BRAND.gradient_end_color,
     gradient_direction: 'to right',
     // Hover Effects
     button_hover_effect: 'scale',
@@ -126,11 +127,8 @@ export default function PersonalizacionPage({ params }: PersonalizacionProps) {
     page_config: {} as any,
   })
 
-  const applyBrandDecision = (key: keyof typeof form, value: string) => {
-    setForm(prev => {
-      const next = { ...prev, [key]: value }
-      return { ...next, ...buildProfessionalBrandValues(next), [key]: value }
-    })
+  const applyBrandDecision = (_key?: keyof typeof form, _value?: string) => {
+    setForm(prev => ({ ...prev, ...LOCKED_PROFESSIONAL_BRAND }))
   }
 
   const handleColorChange = applyBrandDecision
@@ -167,7 +165,7 @@ export default function PersonalizacionPage({ params }: PersonalizacionProps) {
               }
             })
             setForm(f => {
-              return { ...f, ...cleanBranding }
+              return { ...f, ...cleanBranding, ...LOCKED_PROFESSIONAL_BRAND }
             })
           }
           if (json.tenant?.logo_url) {
@@ -218,15 +216,15 @@ export default function PersonalizacionPage({ params }: PersonalizacionProps) {
             description: form.description,
             logo_url: form.logo_url,
             favicon_url: form.favicon_url,
-            primary_color: form.primary_color,
-            secondary_color: form.secondary_color,
-            accent_color: form.accent_color,
-            background_color: form.background_color,
-            button_primary_color: form.button_primary_color,
-            button_secondary_color: form.button_secondary_color,
-            text_primary_color: form.text_primary_color,
-            text_secondary_color: form.text_secondary_color,
-            border_color: form.border_color,
+            primary_color: LOCKED_PROFESSIONAL_BRAND.primary_color,
+            secondary_color: LOCKED_PROFESSIONAL_BRAND.secondary_color,
+            accent_color: LOCKED_PROFESSIONAL_BRAND.accent_color,
+            background_color: LOCKED_PROFESSIONAL_BRAND.background_color,
+            button_primary_color: LOCKED_PROFESSIONAL_BRAND.button_primary_color,
+            button_secondary_color: LOCKED_PROFESSIONAL_BRAND.button_secondary_color,
+            text_primary_color: LOCKED_PROFESSIONAL_BRAND.text_primary_color,
+            text_secondary_color: LOCKED_PROFESSIONAL_BRAND.text_secondary_color,
+            border_color: LOCKED_PROFESSIONAL_BRAND.border_color,
             font_family: form.font_family,
             heading_font: form.heading_font,
             heading_font_size: form.heading_font_size,
@@ -257,11 +255,11 @@ export default function PersonalizacionPage({ params }: PersonalizacionProps) {
             button_checkout_text: form.button_checkout_text,
             button_reserve_text: form.button_reserve_text,
             empty_cart_message: form.empty_cart_message,
-            section_background_color: form.section_background_color,
+            section_background_color: LOCKED_PROFESSIONAL_BRAND.section_background_color,
             section_background_image_url: form.section_background_image_url,
             use_gradient: form.use_gradient,
-            gradient_start_color: form.gradient_start_color,
-            gradient_end_color: form.gradient_end_color,
+            gradient_start_color: LOCKED_PROFESSIONAL_BRAND.gradient_start_color,
+            gradient_end_color: LOCKED_PROFESSIONAL_BRAND.gradient_end_color,
             gradient_direction: form.gradient_direction,
             button_hover_effect: form.button_hover_effect,
             button_hover_color: form.button_hover_color,
@@ -313,24 +311,22 @@ export default function PersonalizacionPage({ params }: PersonalizacionProps) {
 
   const tabs = [
     { id: 'identidad', label: 'Identidad' },
-    { id: 'marca', label: 'Colores y estilo' },
     { id: 'pagina', label: 'Diseño de tienda' },
     { id: 'contacto', label: 'Contacto' },
-    { id: 'avanzado', label: 'Avanzado' },
   ]
 
   const previewName = form.app_name || 'Tu Restaurante'
   const previewTagline = form.tagline || 'Sabor fresco todos los dias'
   const previewDescription = form.description || form.welcome_message || 'Explora el menu y pide tus favoritos.'
   const generatedBrand = {
-    secondary_color: form.secondary_color,
-    accent_color: form.accent_color,
-    background_color: form.background_color,
-    button_secondary_color: form.button_secondary_color,
-    text_primary_color: form.text_primary_color,
-    text_secondary_color: form.text_secondary_color,
-    border_color: form.border_color,
-    section_background_color: form.section_background_color,
+    secondary_color: LOCKED_PROFESSIONAL_BRAND.secondary_color,
+    accent_color: LOCKED_PROFESSIONAL_BRAND.accent_color,
+    background_color: LOCKED_PROFESSIONAL_BRAND.background_color,
+    button_secondary_color: LOCKED_PROFESSIONAL_BRAND.button_secondary_color,
+    text_primary_color: LOCKED_PROFESSIONAL_BRAND.text_primary_color,
+    text_secondary_color: LOCKED_PROFESSIONAL_BRAND.text_secondary_color,
+    border_color: LOCKED_PROFESSIONAL_BRAND.border_color,
+    section_background_color: LOCKED_PROFESSIONAL_BRAND.section_background_color,
   }
   const previewSurface = generatedBrand.background_color
   const previewBackgroundStyle = form.section_background_image_url
@@ -368,15 +364,15 @@ export default function PersonalizacionPage({ params }: PersonalizacionProps) {
     { id: 'qr' as const, label: 'Carta QR', Icon: QrCode },
   ]
   const previewSwatches = [
-    { label: 'Primario', color: form.primary_color },
+    { label: 'Base', color: LOCKED_PROFESSIONAL_BRAND.primary_color },
     { label: 'Secundario', color: generatedBrand.secondary_color },
     { label: 'Precios', color: generatedBrand.accent_color },
     { label: 'Fondo', color: generatedBrand.background_color },
-    { label: 'Boton', color: form.button_primary_color },
+    { label: 'Boton', color: LOCKED_PROFESSIONAL_BRAND.button_primary_color },
   ]
   const previewMediaStyle = {
     backgroundColor: generatedBrand.section_background_color || generatedBrand.background_color,
-    color: form.primary_color,
+    color: LOCKED_PROFESSIONAL_BRAND.primary_color,
   }
 
   return (

@@ -1,5 +1,6 @@
 import { Tenant, TenantBranding, RestaurantSettings } from './types'
 import { createServiceClient } from './supabase/server'
+import { getLockedTenantBrandingColors } from './brand-colors'
 
 type CacheEntry<T> = { value: T; expiresAt: number }
 const cache = new Map<string, CacheEntry<unknown>>()
@@ -88,10 +89,12 @@ export async function getTenantBranding(tenantId: string) {
     }
 
     const metadataBranding = (tenantRes.data?.metadata || {}) as Record<string, any>
+    const lockedBrandingColors = getLockedTenantBrandingColors()
     return {
       ...(metadataBranding || {}),
       ...(brandingRes.data || {}),
       logo_url: tenantRes.data?.logo_url || metadataBranding.logo_url || null,
+      ...lockedBrandingColors,
     } as TenantBranding
   } catch (error) {
     console.error('Exception in getTenantBranding:', error)

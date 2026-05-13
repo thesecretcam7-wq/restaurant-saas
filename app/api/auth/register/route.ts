@@ -3,6 +3,7 @@ import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 import { NextRequest, NextResponse } from 'next/server'
 import { getAuthLimiter, getClientIp, applyRateLimit } from '@/lib/rate-limit'
+import { getLockedTenantBrandingColors } from '@/lib/brand-colors'
 
 export async function POST(request: NextRequest) {
   try {
@@ -134,15 +135,14 @@ export async function POST(request: NextRequest) {
     }
 
 
+    const lockedBrandingColors = getLockedTenantBrandingColors()
+
     // Create default branding
     const { error: brandingError } = await supabase
       .from('tenant_branding')
       .insert({
         tenant_id: tenantData.id,
-        primary_color: '#0A0A0A',
-        secondary_color: '#1F2937',
-        accent_color: '#0A0A0A',
-        background_color: '#0A0A0A',
+        ...lockedBrandingColors,
         font_family: 'Inter',
         app_name: restaurantName,
         tagline: 'Bienvenido',
@@ -234,10 +234,7 @@ export async function POST(request: NextRequest) {
         .from('tenant_branding')
         .insert({
           tenant_id: demoTenantData.id,
-          primary_color: '#10b981',
-          secondary_color: '#3b82f6',
-          accent_color: '#10b981',
-          background_color: '#ffffff',
+          ...lockedBrandingColors,
           font_family: 'Inter',
           app_name: 'Demo - ' + restaurantName,
           tagline: 'Restaurante Demo',

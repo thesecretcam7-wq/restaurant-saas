@@ -1,6 +1,7 @@
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { NextRequest, NextResponse } from 'next/server'
 import { revalidatePath } from 'next/cache'
+import { getLockedTenantBrandingColors } from '@/lib/brand-colors'
 
 const TENANT_BRANDING_COLUMNS = new Set([
   'primary_color',
@@ -63,10 +64,13 @@ export async function GET(request: NextRequest) {
 
     const metadataBranding = (tenantRes.data?.metadata || {}) as Record<string, any>
 
+    const lockedBrandingColors = getLockedTenantBrandingColors()
+
     return NextResponse.json({
       branding: {
         ...(metadataBranding || {}),
         ...(brandingRes.data || {}),
+        ...lockedBrandingColors,
       },
       tenant: tenantRes.data || null,
     })
@@ -96,7 +100,11 @@ export async function PUT(request: NextRequest) {
 
     // tenant_branding has a stable schema, while advanced visual controls live in tenant metadata.
     // This lets us add UI options without breaking saves when a database migration has not run yet.
-    const normalizedBranding = branding
+    const lockedBrandingColors = getLockedTenantBrandingColors()
+    const normalizedBranding = {
+      ...branding,
+      ...lockedBrandingColors,
+    }
     const { logo_url, ...brandingDataWithoutLogo } = normalizedBranding
     const brandingData = {
       ...pickTenantBrandingColumns(brandingDataWithoutLogo),

@@ -46,7 +46,7 @@ export default function TrialBanner({ trialEndsAt, slug }: TrialBannerProps) {
 
   if (status.isExpired) {
     return (
-      <div className={`border rounded-lg p-4 mb-6 ${getColor()}`}>
+      <div className={`admin-trial-banner border rounded-lg p-4 mb-6 ${getColor()}`}>
         <div className={`${getTextColor()}`}>
           <h3 className="font-bold text-lg mb-2">¡Período de prueba expirado!</h3>
           <p className="text-sm mb-4">Tu cuenta de prueba ha expirado. Por favor, suscríbete a un plan para continuar usando Eccofood.</p>
@@ -62,7 +62,7 @@ export default function TrialBanner({ trialEndsAt, slug }: TrialBannerProps) {
   }
 
   return (
-    <div className={`border rounded-lg p-4 mb-6 ${getColor()}`}>
+    <div className={`admin-trial-banner border rounded-lg p-4 mb-6 ${getColor()}`}>
       <div className="flex items-start justify-between mb-3">
         <div className={`${getTextColor()}`}>
           <h3 className="font-bold text-lg">Prueba gratuita</h3>

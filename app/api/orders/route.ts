@@ -8,6 +8,7 @@ import { orderLimiter, checkRateLimit, getClientIp } from '@/lib/ratelimit'
 import { requireTenantAccess, tenantAuthErrorResponse } from '@/lib/tenant-api-auth'
 import { calculateOrderTotals } from '@/lib/order-totals'
 import { syncCustomerFromOrder } from '@/lib/customer-sync'
+import { deriveBrandPalette } from '@/lib/brand-colors'
 
 export async function GET(request: NextRequest) {
   try {
@@ -324,8 +325,9 @@ export async function POST(request: NextRequest) {
       .eq('tenant_id', tenantId)
       .maybeSingle()
 
+    const palette = deriveBrandPalette()
     const restaurantName = branding?.app_name || tenantRow?.organization_name || 'Restaurante'
-    const primaryColor = branding?.primary_color || '#3B82F6'
+    const primaryColor = palette.buttonPrimary
     const adminEmail = settings2?.email || tenantRow?.owner_email
 
     if (orderData.customer_email) {

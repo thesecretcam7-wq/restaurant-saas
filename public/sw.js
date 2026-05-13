@@ -1,4 +1,4 @@
-const CACHE_NAME = 'eccofood-v9';
+const CACHE_NAME = 'eccofood-v10';
 const STATIC_ASSETS = [
   '/',
   '/planes',
@@ -98,7 +98,8 @@ self.addEventListener('fetch', (event) => {
     url.pathname.includes('/admin/') ||
     url.pathname.includes('/staff/pos') ||
     url.pathname.includes('/pos-display') ||
-    url.pathname.includes('/kitchen');
+    url.pathname.includes('/kitchen') ||
+    url.pathname.includes('/kiosko');
 
   if (request.method !== 'GET') {
     return;

@@ -146,21 +146,21 @@ export default function GlobalNavigationLoader() {
   if (!visible) return null;
 
   return (
-    <div className="fixed inset-0 z-[10000] grid place-items-center bg-[#070707]/45 px-5 text-[#17120d] backdrop-blur-md">
-      <div className="absolute left-0 top-0 h-1 w-full overflow-hidden bg-white/20">
-        <div className="h-full w-1/2 animate-[eccoGlobalLoaderBar_1.05s_ease-in-out_infinite] rounded-r-full bg-[#f97316]" />
+    <div className="ecco-global-loader">
+      <div className="ecco-global-loader-progress">
+        <div className="ecco-global-loader-progress-bar" />
       </div>
 
-      <div className="w-full max-w-sm rounded-[2rem] border border-white/70 bg-white/92 p-7 text-center shadow-[0_30px_90px_rgba(0,0,0,0.22)]">
-        <div className="mx-auto mb-5 grid h-16 w-16 place-items-center rounded-3xl bg-[#111111] shadow-[0_18px_45px_rgba(249,115,22,0.32)]">
+      <div className="ecco-global-loader-card">
+        <div className="ecco-global-loader-logo">
           <EccofoodLogo size="md" showText={false} />
         </div>
-        <p className="text-xs font-black uppercase tracking-[0.26em] text-[#f97316]">Eccofood</p>
-        <h2 className="mt-2 text-2xl font-black tracking-tight">{label}</h2>
-        <div className="mx-auto mt-5 flex w-fit items-center gap-2">
-          <span className="h-2.5 w-2.5 animate-[eccoGlobalLoaderDot_0.9s_ease-in-out_infinite] rounded-full bg-[#f97316]" />
-          <span className="h-2.5 w-2.5 animate-[eccoGlobalLoaderDot_0.9s_ease-in-out_0.14s_infinite] rounded-full bg-[#f97316]" />
-          <span className="h-2.5 w-2.5 animate-[eccoGlobalLoaderDot_0.9s_ease-in-out_0.28s_infinite] rounded-full bg-[#f97316]" />
+        <p className="ecco-global-loader-brand">Eccofood</p>
+        <h2 className="ecco-global-loader-title">{label}</h2>
+        <div className="ecco-global-loader-dots">
+          <span />
+          <span />
+          <span />
         </div>
       </div>
     </div>

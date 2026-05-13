@@ -63,30 +63,19 @@ export default async function KioskoPage({ params, searchParams }: Props) {
   ])
 
   const contextBranding = (context.branding || {}) as Record<string, any>
-  const palette = deriveBrandPalette({
-    primary: contextBranding.primary_color,
-    secondary: contextBranding.secondary_color,
-    accent: contextBranding.accent_color,
-    background: contextBranding.background_color,
-    surface: contextBranding.section_background_color,
-    buttonPrimary: contextBranding.button_primary_color,
-    buttonSecondary: contextBranding.button_secondary_color,
-    textPrimary: contextBranding.text_primary_color,
-    textSecondary: contextBranding.text_secondary_color,
-    border: contextBranding.border_color,
-  })
+  const palette = deriveBrandPalette()
 
   const branding = {
     appName: contextBranding.app_name || tenant.organization_name,
-    primaryColor: contextBranding.primary_color || palette.primary,
-    secondaryColor: contextBranding.secondary_color || palette.secondary,
-    accentColor: contextBranding.accent_color || palette.accent,
-    backgroundColor: contextBranding.background_color || palette.background,
-    buttonPrimaryColor: contextBranding.button_primary_color || palette.buttonPrimary,
-    buttonSecondaryColor: contextBranding.button_secondary_color || palette.buttonSecondary,
-    textPrimaryColor: contextBranding.text_primary_color || palette.pageText,
-    textSecondaryColor: contextBranding.text_secondary_color || palette.mutedText,
-    borderColor: contextBranding.border_color || palette.border,
+    primaryColor: palette.primary,
+    secondaryColor: palette.secondary,
+    accentColor: palette.accent,
+    backgroundColor: palette.background,
+    buttonPrimaryColor: palette.buttonPrimary,
+    buttonSecondaryColor: palette.buttonSecondary,
+    textPrimaryColor: palette.pageText,
+    textSecondaryColor: palette.mutedText,
+    borderColor: palette.border,
     logoUrl:
       tenant.logo_url ||
       contextBranding.logo_url ||

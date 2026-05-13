@@ -5,6 +5,7 @@ import { sendWhatsAppOrderStatus } from '@/lib/whatsapp'
 import { requireTenantAccess, tenantAuthErrorResponse } from '@/lib/tenant-api-auth'
 import { writeAuditLog } from '@/lib/audit-log'
 import { applyRecipeStockMovement } from '@/lib/inventory-recipes'
+import { deriveBrandPalette } from '@/lib/brand-colors'
 
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -203,9 +204,10 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
         .maybeSingle()
 
       const rName = branding?.app_name || tenantRow?.organization_name || 'Restaurante'
+      const palette = deriveBrandPalette()
       sendOrderStatusUpdate(order.customer_email, {
         restaurantName: rName,
-        primaryColor: branding?.primary_color,
+        primaryColor: palette.buttonPrimary,
         orderNumber: order.order_number,
         customerName: order.customer_name,
         status,

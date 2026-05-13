@@ -87,7 +87,7 @@ export default async function AdminLayout({ children, params }: AdminLayoutProps
   ]
 
   return (
-    <div className="ecco-premium-app min-h-screen flex relative overflow-hidden">
+    <div className="admin-app-shell ecco-premium-app min-h-screen flex relative overflow-hidden">
       <AdminSidebar
         tenantSlug={tenantSlug}
         restaurantName={branding?.app_name || tenant.organization_name}

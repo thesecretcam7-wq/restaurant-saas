@@ -58,16 +58,6 @@ function readableText(background: string, fallbackDark = '#15130f', fallbackLigh
   return isDark(background) ? fallbackLight : fallbackDark;
 }
 
-function isVisibleAccent(color: string) {
-  const rgb = hexToRgb(color);
-  if (!rgb) return false;
-  const max = Math.max(rgb.r, rgb.g, rgb.b) / 255;
-  const min = Math.min(rgb.r, rgb.g, rgb.b) / 255;
-  const lightness = (max + min) / 2;
-  const saturation = max === min ? 0 : (max - min) / (1 - Math.abs(2 * lightness - 1));
-  return saturation > 0.28 && lightness > 0.2;
-}
-
 function RoleAccessLoader({
   appName,
   tool,
@@ -82,8 +72,8 @@ function RoleAccessLoader({
   message: string;
 }) {
   return (
-    <div className="fixed inset-0 z-50 grid place-items-center bg-black/55 px-5 backdrop-blur-lg">
-      <div className="w-full max-w-sm rounded-[2rem] border border-white/15 bg-white/[0.92] p-7 text-center text-[#17120d] shadow-[0_30px_100px_rgba(0,0,0,0.34)]">
+    <div className="fixed inset-0 z-50 grid place-items-center bg-[#050505]/75 px-5 backdrop-blur-xl">
+      <div className="w-full max-w-sm rounded-[2rem] border border-[#ffc247]/28 bg-[linear-gradient(180deg,rgba(255,255,255,0.10),rgba(255,255,255,0.035)),rgba(15,15,15,0.94)] p-7 text-center text-[#f8f5ec] shadow-[0_30px_100px_rgba(0,0,0,0.46),0_0_70px_rgba(246,185,47,0.18)]">
         <div className="relative mx-auto mb-5 grid h-28 w-36 place-items-center">
           <div className="relative grid h-28 w-36 place-items-center">
             {logoUrl ? (
@@ -96,9 +86,9 @@ function RoleAccessLoader({
         <p className="text-xs font-black uppercase tracking-[0.24em]" style={{ color: primary }}>
           {tool}
         </p>
-        <h2 className="mt-2 text-2xl font-black tracking-tight">{message}</h2>
-        <p className="mt-2 text-sm font-semibold text-black/48">Preparando tu sesion operativa.</p>
-        <div className="mt-6 h-2 overflow-hidden rounded-full bg-black/10">
+        <h2 className="mt-2 text-2xl font-black tracking-tight text-[#fff7df]">{message}</h2>
+        <p className="mt-2 text-sm font-semibold text-[#f8f5ec]/64">Preparando tu sesion operativa.</p>
+        <div className="mt-6 h-2 overflow-hidden rounded-full bg-white/10">
           <div className="h-full w-1/2 animate-[eccoGlobalLoaderBar_1.05s_ease-in-out_infinite] rounded-full" style={{ backgroundColor: primary }} />
         </div>
       </div>
@@ -127,12 +117,12 @@ export function RoleLoginClient({
   const config = ROLE_CONFIG[role];
   const RoleIcon = config.icon;
 
-  const primary = branding.primaryColor;
-  const secondary = branding.secondaryColor;
-  const accent = branding.accentColor;
-  const pageBg = isDark(primary) ? primary : isDark(branding.backgroundColor) ? branding.backgroundColor : '#0b0f19';
-  const highlight = isVisibleAccent(primary) && !isDark(primary) ? primary : accent;
-  const secondaryHighlight = isVisibleAccent(secondary) && !isDark(secondary) ? secondary : accent;
+  const premiumGold = '#f6b92f';
+  const premiumGoldSoft = '#ffd66b';
+  const premiumEmber = '#ff6b1a';
+  const pageBg = '#050505';
+  const highlight = premiumGold;
+  const secondaryHighlight = premiumEmber;
   const primaryText = readableText(highlight);
   const secondaryText = readableText(secondaryHighlight);
   const appName = branding.appName || tenantName;
@@ -261,9 +251,9 @@ export function RoleLoginClient({
       className="ecco-premium-app min-h-screen overflow-hidden text-white"
       style={{
         background:
-          `linear-gradient(120deg, ${highlight}22 0%, transparent 28%), ` +
-          `linear-gradient(300deg, ${accent}18 0%, transparent 32%), ` +
-          `linear-gradient(135deg, ${pageBg}, #050505 78%)`,
+          `radial-gradient(circle at 18% 18%, ${highlight}22 0%, transparent 34%), ` +
+          `radial-gradient(circle at 82% 18%, ${premiumEmber}18 0%, transparent 34%), ` +
+          `linear-gradient(135deg, ${pageBg}, #0b0b0b 48%, #020202 100%)`,
         }}
     >
       {loading && (
@@ -278,14 +268,14 @@ export function RoleLoginClient({
 
       <button
         onClick={goBack}
-        className="fixed left-3 top-3 z-20 grid h-10 w-10 place-items-center rounded-2xl border border-white/10 bg-white/[0.07] text-white/70 transition hover:bg-white/[0.12] hover:text-white sm:left-6 sm:top-6 sm:h-12 sm:w-12"
+        className="fixed left-3 top-3 z-20 grid h-10 w-10 place-items-center rounded-2xl border border-[#ffc247]/18 bg-white/[0.07] text-[#f8f5ec]/70 transition hover:border-[#ffc247]/34 hover:bg-white/[0.12] hover:text-[#ffd66b] sm:left-6 sm:top-6 sm:h-12 sm:w-12"
         title="Volver"
       >
         <ArrowLeft className="h-5 w-5" />
       </button>
 
       <div className="grid min-h-screen grid-cols-1 lg:grid-cols-[0.92fr_1.08fr]">
-        <section className="flex flex-col justify-between border-white/10 px-4 pb-3 pt-14 sm:px-10 sm:py-9 sm:pl-24 lg:border-r">
+        <section className="flex flex-col justify-between border-[#ffc247]/14 px-4 pb-3 pt-14 sm:px-10 sm:py-9 sm:pl-24 lg:border-r">
           <div className="flex items-center gap-3 sm:gap-4">
             <div className="grid h-20 w-28 place-items-center sm:h-24 sm:w-32">
               {logoUrl ? (
@@ -301,28 +291,25 @@ export function RoleLoginClient({
           </div>
 
           <div className="hidden lg:block">
-            <p
-              className="mb-5 inline-flex rounded-full px-4 py-2 text-sm font-black uppercase tracking-[0.16em]"
-              style={{ backgroundColor: `${highlight}24`, color: highlight }}
-            >
+            <p className="mb-5 inline-flex rounded-full border border-[#ffc247]/22 bg-[#ffc247]/10 px-4 py-2 text-sm font-black uppercase tracking-[0.16em] text-[#ffd66b]">
               {config.tool}
             </p>
-            <h2 className="max-w-lg text-6xl font-black leading-[0.94] tracking-tight">
+            <h2 className="max-w-lg text-6xl font-black leading-[0.94] tracking-tight text-[#fff7df]">
               Acceso de {config.label}
             </h2>
-            <p className="mt-6 max-w-md text-lg font-semibold leading-relaxed text-white/58">
+            <p className="mt-6 max-w-md text-lg font-semibold leading-relaxed text-[#f8f5ec]/72">
               Selecciona tu usuario y confirma tu PIN para continuar al entorno operativo.
             </p>
           </div>
 
-          <div className="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.06] px-4 py-3">
+          <div className="flex items-center gap-3 rounded-2xl border border-[#ffc247]/16 bg-white/[0.065] px-4 py-3">
             <ShieldCheck className="h-5 w-5" style={{ color: highlight }} />
-            <p className="text-sm font-semibold text-white/62">Sesion protegida por perfil y PIN</p>
+            <p className="text-sm font-semibold text-[#f8f5ec]/68">Sesion protegida por perfil y PIN</p>
           </div>
         </section>
 
-        <section className="flex min-h-0 items-start justify-center px-3 pb-3 pt-1 sm:p-10 sm:pt-6 lg:items-center">
-          <div className="w-full max-w-md rounded-[1.5rem] border border-white/12 bg-white/[0.075] p-4 shadow-2xl shadow-black/30 backdrop-blur-xl sm:rounded-[2rem] sm:p-7">
+        <section className="flex min-h-0 items-start justify-center bg-[radial-gradient(circle_at_50%_20%,rgba(246,185,47,0.08),transparent_38%)] px-3 pb-3 pt-1 sm:p-10 sm:pt-6 lg:items-center">
+          <div className="w-full max-w-md rounded-[1.5rem] border border-[#ffc247]/18 bg-[linear-gradient(180deg,rgba(255,255,255,0.10),rgba(255,255,255,0.035)),rgba(15,15,15,0.88)] p-4 shadow-[0_26px_90px_rgba(0,0,0,0.42)] backdrop-blur-xl sm:rounded-[2rem] sm:p-7">
             <div className="mb-4 flex items-center gap-3 sm:mb-7 sm:gap-4">
               <div
                 className="grid h-12 w-12 place-items-center rounded-2xl border sm:h-16 sm:w-16"
@@ -335,7 +322,7 @@ export function RoleLoginClient({
                 <RoleIcon className="h-6 w-6 sm:h-8 sm:w-8" />
               </div>
               <div>
-                <p className="text-xs font-black uppercase tracking-[0.16em] sm:text-sm" style={{ color: highlight }}>
+                <p className="text-xs font-black uppercase tracking-[0.16em] text-[#ff8a2a] sm:text-sm">
                   {config.label}
                 </p>
                 <p className="text-base font-black text-white sm:text-lg">{phase === 'select' ? 'Selecciona tu nombre' : staffName}</p>
@@ -344,12 +331,12 @@ export function RoleLoginClient({
 
             {phase === 'select' ? (
               <div className="space-y-4">
-                <label className="block text-sm font-bold text-white/62">Empleado</label>
+                <label className="block text-sm font-bold text-[#f8f5ec]/70">Empleado</label>
                 <select
                   value={staffId}
                   onChange={(event) => handleStaffSelect(event.target.value)}
                   autoFocus
-                  className="w-full rounded-2xl border border-white/12 bg-black/30 px-4 py-4 text-lg font-bold text-white outline-none transition focus:border-white/35"
+                  className="w-full rounded-2xl border border-[#ffc247]/18 bg-white/[0.075] px-4 py-4 text-lg font-bold text-[#fff7df] outline-none transition focus:border-[#f6b92f] focus:ring-4 focus:ring-[#f6b92f]/14"
                 >
                   <option value="">Elige tu nombre</option>
                   {staffMembers.map((staff) => (
@@ -400,7 +387,7 @@ export function RoleLoginClient({
                     value={pin}
                     onChange={(event) => handlePinInput(event.target.value)}
                     disabled={loading}
-                    className="w-full rounded-2xl border border-white/12 bg-black/30 px-4 py-3 text-center text-2xl font-black tracking-[0.55em] text-white outline-none transition placeholder:tracking-normal placeholder:text-white/25 focus:border-white/35 disabled:opacity-50"
+                    className="w-full rounded-2xl border border-[#ffc247]/18 bg-white/[0.075] px-4 py-3 text-center text-2xl font-black tracking-[0.55em] text-[#fff7df] outline-none transition placeholder:tracking-normal placeholder:text-white/25 focus:border-[#f6b92f] focus:ring-4 focus:ring-[#f6b92f]/14 disabled:opacity-50"
                     placeholder="PIN"
                   />
                 </label>
@@ -423,8 +410,8 @@ export function RoleLoginClient({
                         disabled={loading}
                         className="grid h-[52px] place-items-center rounded-2xl border text-xl font-black transition active:scale-95 disabled:opacity-50 sm:h-16 sm:text-2xl"
                         style={{
-                          backgroundColor: isDelete ? `${secondaryHighlight}66` : 'rgba(255,255,255,0.09)',
-                          borderColor: isDelete ? `${secondaryHighlight}aa` : 'rgba(255,255,255,0.12)',
+                          backgroundColor: isDelete ? `${secondaryHighlight}38` : 'rgba(255,255,255,0.09)',
+                          borderColor: isDelete ? `${secondaryHighlight}aa` : 'rgba(255,194,71,0.16)',
                           color: isDelete ? secondaryText : '#ffffff',
                         }}
                       >

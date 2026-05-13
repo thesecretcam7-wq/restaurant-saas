@@ -74,39 +74,35 @@ export function colorWithAlpha(color: string, alphaHex: string) {
 }
 
 export const DEFAULT_BRAND_COLORS = {
-  primary: '#15130f',
-  secondary: '#111827',
-  accent: '#15130f',
-  background: '#f8f5ef',
-  surface: '#ffffff',
-  buttonPrimary: '#15130f',
-  buttonSecondary: '#f3f4f6',
-  textPrimary: '#15130f',
-  textSecondary: MUTED_INK,
-  border: '#e7dfd6',
+  primary: '#0B0B0B',
+  secondary: '#151515',
+  accent: '#F6B92F',
+  background: '#060606',
+  surface: '#121212',
+  buttonPrimary: '#F6B92F',
+  buttonSecondary: '#222222',
+  textPrimary: '#FFF7DF',
+  textSecondary: '#C9BFA9',
+  border: '#3A2C14',
 }
 
-export function deriveBrandPalette(input: BrandColorInput = {}) {
-  const primary = normalizeHexColor(input.primary, DEFAULT_BRAND_COLORS.primary)
-  const secondary = normalizeHexColor(
-    input.secondary,
-    mixHexColors(primary, '#000000', isDarkColor(primary) ? 0.24 : 0.34)
-  )
-  const accent = normalizeHexColor(input.accent, input.buttonPrimary || primary)
-  const buttonPrimary = normalizeHexColor(input.buttonPrimary, accent || primary)
-  const background = input.background && hexToRgb(input.background)
-    ? input.background
-    : isDarkColor(primary)
-    ? mixHexColors(primary, WHITE, 0.93)
-    : mixHexColors(primary, WHITE, 0.9)
-  const surface = normalizeHexColor(input.surface, WHITE)
-  const cardSurface = getStoreCardSurface(surface)
-  const neutralSoft = mixHexColors(primary, WHITE, 0.93)
-  const primarySoft = mixHexColors(primary, WHITE, 0.9)
-  const buttonSecondary = normalizeHexColor(input.buttonSecondary, mixHexColors(buttonPrimary, WHITE, 0.88))
-  const text = normalizeHexColor(input.textPrimary, INK)
-  const mutedText = normalizeHexColor(input.textSecondary, MUTED_INK)
-  const border = normalizeHexColor(input.border, mixHexColors(primary, WHITE, 0.78))
+export function deriveBrandPalette(_input: BrandColorInput = {}) {
+  // Eccofood owns the UI palette. Restaurants can customize identity assets
+  // (logo, name, hero images), but arbitrary client colors made shared flows
+  // inconsistent and often broke contrast. Keep this palette stable everywhere.
+  const primary = DEFAULT_BRAND_COLORS.primary
+  const secondary = DEFAULT_BRAND_COLORS.secondary
+  const accent = DEFAULT_BRAND_COLORS.accent
+  const buttonPrimary = DEFAULT_BRAND_COLORS.buttonPrimary
+  const background = DEFAULT_BRAND_COLORS.background
+  const surface = DEFAULT_BRAND_COLORS.surface
+  const cardSurface = '#181818'
+  const neutralSoft = '#1E1E1E'
+  const primarySoft = '#2A2110'
+  const buttonSecondary = DEFAULT_BRAND_COLORS.buttonSecondary
+  const text = DEFAULT_BRAND_COLORS.textPrimary
+  const mutedText = DEFAULT_BRAND_COLORS.textSecondary
+  const border = DEFAULT_BRAND_COLORS.border
 
   return {
     primary,
@@ -125,5 +121,25 @@ export function deriveBrandPalette(input: BrandColorInput = {}) {
     mutedText,
     pageText: text,
     border,
+  }
+}
+
+export function getLockedTenantBrandingColors() {
+  const palette = deriveBrandPalette()
+
+  return {
+    primary_color: palette.primary,
+    secondary_color: palette.secondary,
+    accent_color: palette.accent,
+    background_color: palette.background,
+    button_primary_color: palette.buttonPrimary,
+    button_secondary_color: palette.buttonSecondary,
+    text_primary_color: palette.text,
+    text_secondary_color: palette.mutedText,
+    border_color: palette.border,
+    section_background_color: palette.surface,
+    gradient_start_color: palette.background,
+    gradient_end_color: palette.surface,
+    use_gradient: false,
   }
 }

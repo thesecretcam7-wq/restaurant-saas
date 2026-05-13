@@ -44,27 +44,17 @@ function readableText(background: string, fallbackDark = '#15130f', fallbackLigh
   return isDark(background) ? fallbackLight : fallbackDark;
 }
 
-function isVisibleAccent(color: string) {
-  const rgb = hexToRgb(color);
-  if (!rgb) return false;
-  const max = Math.max(rgb.r, rgb.g, rgb.b) / 255;
-  const min = Math.min(rgb.r, rgb.g, rgb.b) / 255;
-  const lightness = (max + min) / 2;
-  const saturation = max === min ? 0 : (max - min) / (1 - Math.abs(2 * lightness - 1));
-  return saturation > 0.28 && lightness > 0.2;
-}
-
 export function RoleSelector({ tenantName, tenantSlug, logoUrl, branding }: Props) {
   const router = useRouter();
   const [selectedRole, setSelectedRole] = useState<string | null>(null);
   const { tr } = useI18n();
 
-  const primary = branding.primaryColor;
-  const secondary = branding.secondaryColor;
-  const accent = branding.accentColor;
-  const pageBg = isDark(primary) ? primary : isDark(branding.backgroundColor) ? branding.backgroundColor : '#0b0f19';
-  const highlight = isVisibleAccent(primary) && !isDark(primary) ? primary : accent;
-  const secondaryHighlight = isVisibleAccent(secondary) && !isDark(secondary) ? secondary : accent;
+  const premiumGold = '#f6b92f';
+  const premiumGoldSoft = '#ffd66b';
+  const premiumEmber = '#ff6b1a';
+  const pageBg = '#050505';
+  const highlight = premiumGold;
+  const secondaryHighlight = premiumGoldSoft;
   const primaryText = readableText(highlight);
   const secondaryText = readableText(secondaryHighlight);
   const appName = branding.appName || tenantName;
@@ -84,7 +74,7 @@ export function RoleSelector({ tenantName, tenantSlug, logoUrl, branding }: Prop
       icon: UtensilsCrossed,
       desc: 'Comandero',
       hint: tr('access.waiterDesc'),
-      color: accent,
+      color: premiumEmber,
     },
     {
       id: 'cajero' as const,
@@ -110,7 +100,7 @@ export function RoleSelector({ tenantName, tenantSlug, logoUrl, branding }: Prop
       desc: tr('access.kioskDesc'),
       href: `/${tenantSlug}/kiosko`,
       icon: ShoppingBag,
-      color: accent,
+      color: premiumEmber,
     },
     {
       label: tr('access.screen'),
@@ -131,9 +121,9 @@ export function RoleSelector({ tenantName, tenantSlug, logoUrl, branding }: Prop
       className="ecco-premium-app min-h-screen overflow-x-hidden text-white"
       style={{
         background:
-          `linear-gradient(120deg, ${highlight}22 0%, transparent 28%), ` +
-          `linear-gradient(300deg, ${accent}18 0%, transparent 32%), ` +
-          `linear-gradient(135deg, ${pageBg}, #050505 78%)`,
+          `radial-gradient(circle at 18% 18%, ${highlight}22 0%, transparent 34%), ` +
+          `radial-gradient(circle at 82% 18%, ${premiumEmber}18 0%, transparent 34%), ` +
+          `linear-gradient(135deg, ${pageBg}, #0b0b0b 48%, #020202 100%)`,
       }}
     >
       <div className="flex min-h-screen flex-col lg:flex-row">
@@ -150,7 +140,7 @@ export function RoleSelector({ tenantName, tenantSlug, logoUrl, branding }: Prop
               <p className="text-xs font-black uppercase tracking-[0.22em] text-white/45">{tr('admin.nav.staffAccess')}</p>
               <h1 className="text-2xl font-black tracking-tight">{appName}</h1>
             </div>
-            <LanguageSwitcher compact className="ml-auto border-white/15 bg-white/10 text-white [&_select]:text-white" />
+            <LanguageSwitcher compact className="ml-auto border-[#ffc247]/20 bg-white/[0.08] text-[#f8f5ec] [&_select]:text-[#f8f5ec]" />
           </div>
 
           <div>
@@ -174,7 +164,7 @@ export function RoleSelector({ tenantName, tenantSlug, logoUrl, branding }: Prop
           </div>
         </section>
 
-        <section className="flex flex-1 items-center justify-center p-4 sm:p-8 lg:p-10">
+        <section className="flex flex-1 items-center justify-center bg-[radial-gradient(circle_at_50%_20%,rgba(246,185,47,0.08),transparent_38%)] p-4 sm:p-8 lg:p-10">
           <div className="w-full max-w-4xl space-y-4">
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               {deviceLinks.map((item) => {
@@ -183,7 +173,7 @@ export function RoleSelector({ tenantName, tenantSlug, logoUrl, branding }: Prop
                   <a
                     key={item.label}
                     href={item.href}
-                    className="group flex items-center gap-4 rounded-3xl border border-white/12 bg-white/[0.09] p-4 text-left shadow-2xl shadow-black/20 transition-all active:scale-[0.98] hover:-translate-y-0.5 hover:bg-white/[0.13]"
+                    className="group flex items-center gap-4 rounded-3xl border border-[#ffc247]/18 bg-[linear-gradient(180deg,rgba(255,255,255,0.10),rgba(255,255,255,0.035)),rgba(15,15,15,0.86)] p-4 text-left shadow-[0_24px_80px_rgba(0,0,0,0.36)] transition-all active:scale-[0.98] hover:-translate-y-0.5 hover:border-[#ffc247]/38 hover:bg-white/[0.13]"
                   >
                     <div
                       className="grid h-14 w-14 flex-shrink-0 place-items-center rounded-2xl border"
@@ -192,7 +182,7 @@ export function RoleSelector({ tenantName, tenantSlug, logoUrl, branding }: Prop
                       <Icon className="h-6 w-6" />
                     </div>
                     <div className="min-w-0 flex-1">
-                      <p className="text-xs font-black uppercase tracking-[0.16em]" style={{ color: item.color }}>
+                      <p className="text-xs font-black uppercase tracking-[0.16em]" style={{ color: premiumEmber }}>
                         {tr('access.quick')}
                       </p>
                       <h3 className="mt-1 text-xl font-black text-white">{item.label}</h3>
@@ -216,12 +206,14 @@ export function RoleSelector({ tenantName, tenantSlug, logoUrl, branding }: Prop
                     onClick={() => handleSelect(role.id)}
                     disabled={disabled}
                     className={`group min-h-[138px] rounded-3xl border p-4 text-left transition-all duration-200 active:scale-[0.98] sm:min-h-[170px] sm:p-5 lg:min-h-[190px] lg:p-6 ${
-                      disabled ? 'cursor-not-allowed opacity-55' : 'hover:-translate-y-1 hover:bg-white/[0.11]'
+                      disabled ? 'cursor-not-allowed opacity-55' : 'hover:-translate-y-1 hover:border-[#ffc247]/38 hover:bg-white/[0.11]'
                     }`}
                     style={{
-                      backgroundColor: selected ? `${role.color}20` : 'rgba(255,255,255,0.075)',
-                      borderColor: selected ? role.color : 'rgba(255,255,255,0.12)',
-                      boxShadow: selected ? `0 24px 70px ${role.color}30` : '0 20px 60px rgba(0,0,0,0.22)',
+                      background: selected
+                        ? `linear-gradient(180deg, ${highlight}20, rgba(255,255,255,0.05)), rgba(15,15,15,0.92)`
+                        : 'linear-gradient(180deg, rgba(255,255,255,0.10), rgba(255,255,255,0.035)), rgba(15,15,15,0.86)',
+                      borderColor: selected ? highlight : 'rgba(255,194,71,0.18)',
+                      boxShadow: selected ? `0 24px 70px ${highlight}28` : '0 20px 60px rgba(0,0,0,0.30)',
                     }}
                   >
                     <div className="flex h-full flex-col justify-between">
@@ -240,7 +232,7 @@ export function RoleSelector({ tenantName, tenantSlug, logoUrl, branding }: Prop
                       </div>
 
                       <div>
-                        <p className="text-xs font-black uppercase tracking-[0.14em] sm:text-sm sm:tracking-[0.16em]" style={{ color: role.color }}>
+                        <p className="text-xs font-black uppercase tracking-[0.14em] sm:text-sm sm:tracking-[0.16em]" style={{ color: role.id === 'cajero' ? '#42f5a8' : premiumEmber }}>
                           {role.desc}
                         </p>
                         <h3 className="mt-1 text-2xl font-black text-white sm:mt-2 lg:text-3xl">{role.label}</h3>

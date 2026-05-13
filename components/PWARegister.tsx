@@ -12,6 +12,23 @@ export default function PWARegister() {
       return
     }
 
+    const isLocalDev =
+      window.location.hostname === 'localhost' ||
+      window.location.hostname === '127.0.0.1' ||
+      process.env.NODE_ENV === 'development'
+
+    if (isLocalDev) {
+      navigator.serviceWorker.getRegistrations()
+        .then((registrations) => {
+          registrations.forEach((registration) => registration.unregister())
+        })
+        .catch(() => {})
+      caches.keys()
+        .then((keys) => Promise.all(keys.map((key) => caches.delete(key))))
+        .catch(() => {})
+      return
+    }
+
     // Register service worker
     navigator.serviceWorker
       .register('/sw.js', { scope: '/' })

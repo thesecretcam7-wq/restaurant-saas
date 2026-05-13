@@ -1,5 +1,6 @@
 import { createServiceClient } from '@/lib/supabase/server'
 import { NextRequest, NextResponse } from 'next/server'
+import { deriveBrandPalette } from '@/lib/brand-colors'
 
 export async function GET(
   _request: NextRequest,
@@ -35,15 +36,17 @@ export async function GET(
     .gte('created_at', todayStart.toISOString())
     .order('created_at', { ascending: true })
 
+  const palette = deriveBrandPalette()
+
   return NextResponse.json(
     {
       restaurantName: branding?.app_name || tenant.organization_name,
-      primaryColor: branding?.primary_color || '#2563eb',
-      secondaryColor: branding?.secondary_color || '#111827',
-      accentColor: branding?.accent_color || branding?.primary_color || '#2563eb',
-      backgroundColor: branding?.background_color || '#0b0b0b',
-      textPrimaryColor: branding?.text_primary_color || '#ffffff',
-      textSecondaryColor: branding?.text_secondary_color || '#d1d5db',
+      primaryColor: palette.primary,
+      secondaryColor: palette.secondary,
+      accentColor: palette.accent,
+      backgroundColor: palette.background,
+      textPrimaryColor: palette.pageText,
+      textSecondaryColor: palette.mutedText,
       orders: orders || [],
     },
     {

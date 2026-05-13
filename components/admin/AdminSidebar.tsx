@@ -126,7 +126,7 @@ export function AdminSidebar({
 
   const sidebarContent = (
     <>
-      <div className="border-b border-white/10 p-4">
+      <div className="admin-sidebar-brand border-b border-white/10 p-4">
         <div className="flex items-center justify-between gap-3">
           <div className="flex min-w-0 items-center gap-3">
             {logoUrl ? (
@@ -139,7 +139,7 @@ export function AdminSidebar({
               </div>
             )}
             <div className="min-w-0">
-              <p className="truncate text-sm font-black text-white" style={{ color: primaryColor ?? undefined }}>
+              <p className="truncate text-sm font-black text-white">
                 {restaurantName}
               </p>
               <p className="text-xs font-semibold text-white/45">{tr('admin.subtitle')}</p>
@@ -235,7 +235,7 @@ export function AdminSidebar({
 
   return (
     <>
-      <aside className="hidden md:flex fixed inset-y-0 left-0 z-30 w-64 flex-col border-r border-black/10 bg-[#15130f] shadow-2xl shadow-black/10">
+      <aside className="admin-sidebar hidden md:flex fixed inset-y-0 left-0 z-30 w-64 flex-col border-r border-black/10 bg-[#15130f] shadow-2xl shadow-black/10">
         {sidebarContent}
       </aside>
 
@@ -252,7 +252,7 @@ export function AdminSidebar({
       )}
 
       <aside
-        className={`fixed inset-y-0 left-0 z-40 flex w-72 flex-col bg-[#15130f] shadow-2xl transition-transform duration-200 md:hidden ${
+        className={`admin-sidebar fixed inset-y-0 left-0 z-40 flex w-72 flex-col bg-[#15130f] shadow-2xl transition-transform duration-200 md:hidden ${
           open ? 'translate-x-0' : '-translate-x-full'
         }`}
       >

@@ -3,6 +3,7 @@ import { checkFeature } from '@/lib/checkPlan'
 import { NextRequest, NextResponse } from 'next/server'
 import { sendReservationConfirmation } from '@/lib/email'
 import { reservationLimiter, checkRateLimit, getClientIp } from '@/lib/ratelimit'
+import { deriveBrandPalette } from '@/lib/brand-colors'
 
 async function resolveTenantId(supabase: ReturnType<typeof createServiceClient>, slugOrId: string) {
   const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
@@ -198,7 +199,7 @@ export async function POST(request: NextRequest) {
 
       sendReservationConfirmation(customerEmail, {
         restaurantName: branding?.app_name || tenantRow?.organization_name || 'Restaurante',
-        primaryColor: branding?.primary_color || '#3B82F6',
+        primaryColor: deriveBrandPalette().buttonPrimary,
         customerName,
         partySize,
         reservationDate,

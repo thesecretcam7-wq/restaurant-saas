@@ -286,7 +286,9 @@ export async function calculatePendingPreviousCashClosingStats(tenantId: string)
       .limit(1000);
 
     if (error || !orders?.length) {
-      if (error) console.error('Error fetching pending cash closing orders:', error);
+      if (error) {
+        console.warn('No se pudieron consultar ventas pendientes de cierre:', error.message || error);
+      }
       return null;
     }
 
@@ -306,11 +308,11 @@ export async function calculatePendingPreviousCashClosingStats(tenantId: string)
       .maybeSingle();
 
     if (closedItemsError) {
-      console.error('Error fetching cash closing items:', closedItemsError);
+      console.warn('No se pudieron consultar items de cierres anteriores:', closedItemsError.message || closedItemsError);
     }
 
     if (latestClosingError) {
-      console.error('Error fetching latest cash closing:', latestClosingError);
+      console.warn('No se pudo consultar el ultimo cierre de caja:', latestClosingError.message || latestClosingError);
     }
 
     const closedOrderIds = new Set((closedItems || []).map((item: any) => item.order_id));
@@ -333,7 +335,7 @@ export async function calculatePendingPreviousCashClosingStats(tenantId: string)
 
     return statsFromOrders(period, pendingOrders);
   } catch (error) {
-    console.error('Error calculating pending previous cash closing stats:', error);
+    console.warn('No se pudo calcular cierres pendientes anteriores:', error instanceof Error ? error.message : error);
     return null;
   }
 }

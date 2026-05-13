@@ -394,7 +394,7 @@ export function EccofoodLanding() {
                 <motion.article
                   key={feature.title}
                   {...fadeUp()}
-                  className={`grid gap-6 rounded-[2rem] border border-black/8 bg-[#faf9f6] p-4 shadow-sm lg:grid-cols-2 lg:p-6 ${flipped ? 'lg:[&>div:first-child]:order-2' : ''}`}
+                  className={`landing-feature-card grid gap-6 rounded-[2rem] border border-black/8 bg-[#faf9f6] p-4 shadow-sm lg:grid-cols-2 lg:p-6 ${flipped ? 'lg:[&>div:first-child]:order-2' : ''}`}
                 >
                   <div className="flex flex-col justify-center p-2 sm:p-6">
                     <div className="mb-6 grid size-13 place-items-center rounded-2xl bg-[#101010] text-white">
@@ -501,7 +501,7 @@ export function EccofoodLanding() {
 
           <motion.div {...fadeUp(0.1)} className="grid gap-4 md:grid-cols-3">
             {pricingPlans.map(plan => (
-              <div key={plan.name} className={`rounded-[1.6rem] border p-5 shadow-sm ${plan.popular ? 'border-[#ff6b1a] bg-[#fff7ed]' : 'border-black/8 bg-[#faf9f6]'}`}>
+              <div key={plan.name} className={`landing-pricing-card rounded-[1.6rem] border p-5 shadow-sm ${plan.popular ? 'landing-pricing-card-popular border-[#ff6b1a] bg-[#fff7ed]' : 'border-black/8 bg-[#faf9f6]'}`}>
                 {plan.popular && (
                   <p className="mb-3 w-fit rounded-full bg-[#ff6b1a] px-3 py-1 text-[11px] font-black uppercase text-white">
                     {tr('landing.pricing.popular')}
@@ -513,12 +513,18 @@ export function EccofoodLanding() {
                     <Layers3 className="size-4" />
                   </div>
                 </div>
-                <p className="mt-5 text-4xl font-black">{plan.monthly} EUR</p>
-                <p className="text-sm font-bold text-black/45">/{tr('common.month')}</p>
-                <div className="mt-4 rounded-2xl border border-[#ff6b1a]/20 bg-white px-4 py-3">
-                  <p className="text-xs font-black uppercase text-[#c54a0c]">{tr('landing.pricing.annual')}</p>
-                  <p className="mt-1 text-2xl font-black">{plan.annual.toLocaleString('es-ES')} EUR/año</p>
-                  <p className="text-xs font-black text-emerald-700">{plan.discount}</p>
+                <div className="mt-5">
+                  <p className="text-xs font-black uppercase text-[#ffb84d]">Desde</p>
+                  <div className="mt-1 flex items-end gap-1">
+                    <span className="text-5xl font-black leading-none tracking-tight">{plan.monthly}</span>
+                    <span className="pb-1 text-xl font-black">EUR</span>
+                  </div>
+                  <p className="mt-1 text-sm font-black text-black/45">por restaurante / {tr('common.month')}</p>
+                </div>
+                <div className="landing-pricing-saving mt-4 rounded-2xl border border-[#ff6b1a]/20 bg-white px-4 py-3">
+                  <p className="text-xs font-black uppercase text-[#c54a0c]">Pagando anual ahorras</p>
+                  <p className="mt-1 text-lg font-black">{plan.discount.replace('Ahorra ', '')}</p>
+                  <p className="text-xs font-bold text-black/45">{plan.annual.toLocaleString('es-ES')} EUR/año</p>
                 </div>
                 <div className="mt-5 space-y-2">
                   {plan.features.map(item => (
