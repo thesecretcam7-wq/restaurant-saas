@@ -24,7 +24,7 @@ export async function GET(request: NextRequest) {
         .select('id, name, price, category_id, image_url')
         .eq('tenant_id', tenantId)
         .eq('available', true)
-        .order('sort_order', { ascending: true }),
+        .order('name', { ascending: true }),
       supabase
         .from('tenants')
         .select('organization_name, logo_url')
