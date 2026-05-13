@@ -9,8 +9,6 @@ import {
   CreditCard,
   Globe2,
   LayoutTemplate,
-  Paintbrush,
-  Palette,
   Printer,
   Settings,
   Store,
@@ -19,9 +17,7 @@ import {
 } from 'lucide-react'
 
 const sections = [
-  { href: 'personalizacion', label: 'Marca y tienda', desc: 'Logo, colores, diseno, textos y redes', Icon: Paintbrush, hidden: true },
   { href: 'pagina', label: 'Editor de secciones', desc: 'Orden y portada de la tienda', Icon: LayoutTemplate, hidden: true },
-  { href: 'branding', label: 'Branding', desc: 'Ruta anterior de compatibilidad', Icon: Palette, hidden: true },
   { href: 'restaurante', label: 'Restaurante', desc: 'Nombre, ubicacion y datos publicos', Icon: Store },
   { href: 'personal', label: 'Personal', desc: 'Empleados, roles y PINs', Icon: UsersRound },
   { href: 'horarios', label: 'Horarios', desc: 'Dias y horas de atencion', Icon: Clock3 },
