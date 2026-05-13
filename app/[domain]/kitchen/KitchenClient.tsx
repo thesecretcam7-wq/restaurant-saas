@@ -396,15 +396,15 @@ export function KitchenClient({ tenantId, tenantSlug, tenantName, country, brand
   }
 
   const CartPanel = ({ isMobile = false }: { isMobile?: boolean }) => (
-    <div className={`flex h-full flex-col ${isMobile ? '' : 'border-l border-black/10'}`} style={{ backgroundColor: brand.surface }}>
-      <div className="border-b border-black/10 p-4">
+    <div className={`flex h-full flex-col bg-[linear-gradient(180deg,rgba(255,255,255,0.08),rgba(255,255,255,0.025)),#101010] text-[#fff7df] ${isMobile ? '' : 'border-l border-[#f6b92f]/18'}`}>
+      <div className="border-b border-[#f6b92f]/14 p-4">
         <div className="flex items-center justify-between">
           <div>
-            <p className="text-xs font-black uppercase" style={{ color: brand.mutedText }}>Pedido actual</p>
-            <h2 className="text-xl font-black" style={{ color: brand.surfaceText }}>{tableNumber ? `${tr('kitchen.table')} ${tableNumber}` : tr('kitchen.selectTable')}</h2>
+            <p className="text-xs font-black uppercase tracking-[0.16em] text-[#f6b92f]">Pedido actual</p>
+            <h2 className="text-xl font-black text-[#fff7df]">{tableNumber ? `${tr('kitchen.table')} ${tableNumber}` : tr('kitchen.selectTable')}</h2>
           </div>
           {isMobile && (
-            <button onClick={() => setCartOpen(false)} className="grid h-10 w-10 place-items-center rounded-2xl bg-black/[0.06]">
+            <button onClick={() => setCartOpen(false)} className="grid h-10 w-10 place-items-center rounded-2xl border border-white/10 bg-white/[0.08] text-[#fff7df]">
               <X className="h-5 w-5" />
             </button>
           )}
@@ -412,11 +412,11 @@ export function KitchenClient({ tenantId, tenantSlug, tenantName, country, brand
 
         <div className="mt-4">
           <div className="mb-2 flex items-center justify-between">
-            <span className="text-xs font-black uppercase" style={{ color: brand.mutedText }}>Mesas</span>
+            <span className="text-xs font-black uppercase tracking-[0.14em] text-[#f8f5ec]/58">Mesas</span>
             {tableNumber && <button onClick={() => setTableNumber('')} className="text-xs font-black text-red-500">Quitar</button>}
           </div>
           {tables.length === 0 ? (
-            <p className="rounded-2xl px-3 py-3 text-center text-xs font-bold" style={{ backgroundColor: brand.soft, color: brand.mutedText }}>Sin mesas configuradas</p>
+            <p className="rounded-2xl border border-[#f6b92f]/14 bg-white/[0.06] px-3 py-3 text-center text-xs font-bold text-[#f8f5ec]/64">Sin mesas configuradas</p>
           ) : (
             <div className="grid grid-cols-4 gap-2">
               {tables.map(table => {
@@ -426,7 +426,7 @@ export function KitchenClient({ tenantId, tenantSlug, tenantName, country, brand
                     key={table.id}
                     onClick={() => setTableNumber(String(table.table_number))}
                     className="h-11 rounded-2xl border text-sm font-black transition active:scale-95"
-                    style={active ? { borderColor: brand.primary, backgroundColor: brand.primary, color: readableText(brand.primary), boxShadow: `0 12px 30px ${brand.primary}30` } : { borderColor: brand.border, backgroundColor: brand.soft, color: brand.primaryText }}
+                    style={active ? { borderColor: '#f6b92f', backgroundColor: '#f6b92f', color: '#15130f', boxShadow: '0 12px 30px rgba(246,185,47,0.28)' } : { borderColor: 'rgba(246,185,47,0.16)', backgroundColor: 'rgba(255,255,255,0.07)', color: '#f8f5ec' }}
                   >
                     {table.table_number}
                   </button>
@@ -439,11 +439,11 @@ export function KitchenClient({ tenantId, tenantSlug, tenantName, country, brand
 
       <div className="flex-1 space-y-3 overflow-y-auto p-3">
         {cart.length === 0 ? (
-          <div className="grid h-full min-h-56 place-items-center rounded-[1.5rem] border border-dashed p-6 text-center" style={{ borderColor: brand.border, backgroundColor: brand.soft }}>
+          <div className="grid h-full min-h-56 place-items-center rounded-[1.5rem] border border-dashed border-[#f6b92f]/18 bg-white/[0.055] p-6 text-center">
             <div>
-              <ShoppingCart className="mx-auto mb-3 h-8 w-8" style={{ color: brand.mutedText }} />
-              <p className="text-sm font-black" style={{ color: brand.surfaceText }}>Pedido vacio</p>
-              <p className="mt-1 text-xs font-semibold" style={{ color: brand.mutedText }}>Toca productos para agregarlos.</p>
+              <ShoppingCart className="mx-auto mb-3 h-8 w-8 text-[#f6b92f]/68" />
+              <p className="text-sm font-black text-[#fff7df]">Pedido vacio</p>
+              <p className="mt-1 text-xs font-semibold text-[#f8f5ec]/62">Toca productos para agregarlos.</p>
             </div>
           </div>
         ) : (
@@ -456,33 +456,33 @@ export function KitchenClient({ tenantId, tenantSlug, tenantName, country, brand
               Limpiar
             </button>
             {cart.map(item => (
-              <div key={item.line_id} className="rounded-[1.35rem] border p-3" style={{ borderColor: brand.border, backgroundColor: brand.soft }}>
+              <div key={item.line_id} className="rounded-[1.35rem] border border-[#f6b92f]/16 bg-white/[0.065] p-3">
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0">
-                    <p className="line-clamp-2 text-sm font-black leading-5" style={{ color: brand.surfaceText }}>{item.name}</p>
-                    <p className="mt-1 text-xs font-black" style={{ color: brand.mutedText }}>{money(item.price)} unidad</p>
+                    <p className="line-clamp-2 text-sm font-black leading-5 text-[#fff7df]">{item.name}</p>
+                    <p className="mt-1 text-xs font-black text-[#f8f5ec]/58">{money(item.price)} unidad</p>
                     {item.toppings && item.toppings.length > 0 && (
-                      <p className="mt-1 line-clamp-2 text-[11px] font-bold" style={{ color: brand.mutedText }}>
+                      <p className="mt-1 line-clamp-2 text-[11px] font-bold text-[#f8f5ec]/58">
                         {item.toppings.map(t => t.name).join(', ')}
                       </p>
                     )}
                   </div>
-                  <button onClick={() => removeFromCart(item.line_id)} className="grid h-8 w-8 place-items-center rounded-xl text-black/35 transition hover:bg-red-50 hover:text-red-500">
+                  <button onClick={() => removeFromCart(item.line_id)} className="grid h-8 w-8 place-items-center rounded-xl text-[#f8f5ec]/42 transition hover:bg-red-500/12 hover:text-red-300">
                     <Trash2 className="h-4 w-4" />
                   </button>
                 </div>
 
                 <div className="mt-3 flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <button onClick={() => updateQty(item.line_id, -1)} className="grid h-10 w-10 place-items-center rounded-2xl bg-black/[0.07] active:scale-95">
+                    <button onClick={() => updateQty(item.line_id, -1)} className="grid h-10 w-10 place-items-center rounded-2xl border border-white/10 bg-white/[0.08] text-[#fff7df] active:scale-95">
                       <Minus className="h-4 w-4" />
                     </button>
-                    <span className="w-7 text-center text-lg font-black" style={{ color: brand.surfaceText }}>{item.quantity}</span>
+                    <span className="w-7 text-center text-lg font-black text-[#fff7df]">{item.quantity}</span>
                     <button onClick={() => updateQty(item.line_id, 1)} className="grid h-10 w-10 place-items-center rounded-2xl active:scale-95" style={{ backgroundColor: brand.button, color: brand.buttonText }}>
                       <Plus className="h-4 w-4" />
                     </button>
                   </div>
-                  <span className="text-base font-black" style={{ color: brand.surfaceText }}>{money(item.price * item.quantity)}</span>
+                  <span className="text-base font-black text-[#ffd66b]">{money(item.price * item.quantity)}</span>
                 </div>
 
                 {editingNote === item.line_id ? (
@@ -494,15 +494,14 @@ export function KitchenClient({ tenantId, tenantSlug, tenantName, country, brand
                       onKeyDown={e => { if (e.key === 'Enter') saveNote(item.line_id); }}
                       placeholder="Sin cebolla, bien cocido..."
                       className="min-w-0 flex-1 rounded-2xl border px-3 py-2 text-xs font-semibold outline-none"
-                      style={{ backgroundColor: brand.surface, borderColor: brand.border, color: brand.surfaceText }}
+                      style={{ backgroundColor: 'rgba(255,255,255,0.07)', borderColor: 'rgba(246,185,47,0.16)', color: '#fff7df' }}
                     />
                     <button onClick={() => saveNote(item.line_id)} className="rounded-2xl px-4 text-xs font-black" style={{ backgroundColor: brand.button, color: brand.buttonText }}>OK</button>
                   </div>
                 ) : (
                   <button
                     onClick={() => { setEditingNote(item.line_id); setNoteText(item.notes); }}
-                    className="mt-3 rounded-full px-3 py-1.5 text-xs font-black"
-                    style={{ backgroundColor: brand.surface, color: brand.mutedText }}
+                    className="mt-3 rounded-full border border-[#f6b92f]/14 bg-white/[0.07] px-3 py-1.5 text-xs font-black text-[#f8f5ec]/62"
                   >
                     {item.notes ? item.notes : '+ Nota'}
                   </button>
@@ -513,13 +512,13 @@ export function KitchenClient({ tenantId, tenantSlug, tenantName, country, brand
         )}
       </div>
 
-      <div className="border-t border-black/10 p-4" style={{ backgroundColor: brand.surface }}>
-        <div className="mb-3 space-y-2 rounded-2xl p-3" style={{ backgroundColor: brand.soft }}>
-          <div className="flex items-center justify-between text-xs font-bold" style={{ color: brand.mutedText }}>
+      <div className="border-t border-[#f6b92f]/14 bg-black/24 p-4">
+        <div className="mb-3 space-y-2 rounded-2xl border border-[#f6b92f]/14 bg-[#f6b92f]/8 p-3">
+          <div className="flex items-center justify-between text-xs font-bold text-[#f8f5ec]/62">
             <span>{cartCount} productos</span>
             <span>Pedido actual</span>
           </div>
-          <div className="space-y-1.5 text-sm font-black" style={{ color: brand.surfaceText }}>
+          <div className="space-y-1.5 text-sm font-black text-[#fff7df]">
             <div className="flex items-center justify-between">
               <span>{tr('kitchen.subtotal')}:</span>
               <span>{money(subtotal)}</span>
@@ -528,16 +527,16 @@ export function KitchenClient({ tenantId, tenantSlug, tenantName, country, brand
               <span>{tr('kitchen.tax')} {taxRate > 0 ? `${taxRate}%` : '0%'}:</span>
               <span>{money(taxAmount)}</span>
             </div>
-            <div className="flex items-end justify-between border-t border-black/10 pt-2">
+            <div className="flex items-end justify-between border-t border-[#f6b92f]/14 pt-2">
               <span>{tr('kitchen.total')}:</span>
-              <span className="text-2xl font-black" style={{ color: brand.primary }}>{money(total)}</span>
+              <span className="text-2xl font-black text-[#ffd66b]">{money(total)}</span>
             </div>
           </div>
         </div>
         <button
           onClick={sendOrder}
           disabled={cart.length === 0 || !tableNumber || sending}
-          className="flex h-14 w-full items-center justify-center gap-2 rounded-[1.25rem] text-base font-black shadow-xl shadow-black/20 transition active:scale-[0.98] disabled:bg-black/10 disabled:text-black/35 disabled:shadow-none"
+          className="flex h-14 w-full items-center justify-center gap-2 rounded-[1.25rem] text-base font-black shadow-xl shadow-black/20 transition active:scale-[0.98] disabled:bg-white/[0.07] disabled:text-[#f8f5ec]/35 disabled:shadow-none"
           style={!cart.length || !tableNumber || sending ? undefined : { backgroundColor: brand.button, color: brand.buttonText }}
         >
           {sending ? <div className="h-5 w-5 animate-spin rounded-full border-2 border-white border-t-transparent" /> : <><Send className="h-5 w-5" /> {tr('kitchen.send')}</>}
