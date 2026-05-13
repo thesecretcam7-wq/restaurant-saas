@@ -1898,15 +1898,26 @@ export function POSTerminal({
     <div ref={posRootRef} className={`pos-premium ${isFullscreen ? 'fixed inset-0 z-[9999] h-[100dvh] w-screen p-0 m-0 overflow-hidden flex flex-col bg-[#020617]' : 'min-h-[100dvh]'} text-white flex flex-col`}>
       {/* Fullscreen Header - Logo and Controls - TPV Header with Eccofood Brand */}
       {isFullscreen && (
-        <div className="pos-panel border-x-0 border-t-0 px-6 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-4">
+        <div className="pos-panel border-x-0 border-t-0 px-6 py-4 flex items-center justify-between gap-4">
+          <div className="flex min-w-0 items-center gap-4">
             <div className="rounded-xl border border-cyan-300/25 bg-cyan-300/10 p-2.5 shadow-lg shadow-cyan-900/20">
               <DollarSign className="w-6 h-6 text-cyan-100" />
             </div>
-            <div>
+            <div className="min-w-0">
               <p className="text-cyan-100/55 text-xs font-black uppercase">Punto de venta</p>
-              <h1 className="text-white font-black text-lg">{restaurantName}</h1>
+              <h1 className="truncate text-white font-black text-lg">{restaurantName}</h1>
             </div>
+          </div>
+          <div className="relative hidden min-w-[280px] max-w-xl flex-1 xl:block">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-cyan-100/45 pointer-events-none" />
+            <input
+              ref={searchInputRef}
+              type="text"
+              placeholder="Buscar producto... (/ o F2)"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full rounded-xl py-3 pl-12 pr-4 text-sm font-bold text-white outline-none transition-all"
+            />
           </div>
           <div className="flex items-center gap-2">
             <button
@@ -2030,17 +2041,19 @@ export function POSTerminal({
         <div className={`${isFullscreen ? 'min-h-0 flex-1' : 'min-h-[44dvh] max-h-[58dvh] lg:min-h-0 lg:max-h-none lg:flex-1'} flex flex-col overflow-hidden`}>
           {/* Search and Controls - Sticky Header */}
           <div className={`pos-panel pos-command-bar border-x-0 border-t-0 flex flex-wrap gap-2.5 items-center sticky top-0 z-10 lg:flex-nowrap ${isFullscreen ? 'px-4 py-3' : 'p-3 sm:p-4'}`}>
-            <div className="relative min-w-[220px] flex-[1_1_260px]">
-              <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-cyan-100/45 pointer-events-none" />
-              <input
-                ref={searchInputRef}
-                type="text"
-                placeholder="Buscar producto... (/ o F2)"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-12 pr-4 py-3 rounded-xl outline-none text-white text-sm font-bold transition-all"
-              />
-            </div>
+            {!isFullscreen && (
+              <div className="relative min-w-[220px] flex-[1_1_260px]">
+                <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-cyan-100/45 pointer-events-none" />
+                <input
+                  ref={searchInputRef}
+                  type="text"
+                  placeholder="Buscar producto... (/ o F2)"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full pl-12 pr-4 py-3 rounded-xl outline-none text-white text-sm font-bold transition-all"
+                />
+              </div>
+            )}
             {!isFullscreen && (
               <>
                 <button
