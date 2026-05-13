@@ -1892,7 +1892,13 @@ export function POSTerminal({
               className={`pos-action-ghost ${!isOnline ? 'border-amber-300/45 bg-amber-300/12 text-amber-100' : offlinePendingCount > 0 ? 'border-emerald-300/45 bg-emerald-300/12 text-emerald-100' : ''} disabled:opacity-75`}
               title={isOnline ? 'Sincronizar ventas offline' : 'Modo offline activo'}
             >
-              <span className={`h-2.5 w-2.5 rounded-full ${isOnline ? 'bg-emerald-300' : 'bg-amber-300 animate-pulse'}`} />
+              <span
+                className={`h-2.5 w-2.5 rounded-full ${
+                  isOnline
+                    ? 'bg-[#39ff88] shadow-[0_0_8px_#39ff88,0_0_18px_rgba(57,255,136,0.72)]'
+                    : 'animate-pulse bg-[#ff174d] shadow-[0_0_8px_#ff174d,0_0_18px_rgba(255,23,77,0.72)]'
+                }`}
+              />
               <span className="hidden sm:inline">{isOnline ? (syncingOffline ? 'Sync...' : 'Online') : 'Offline'}</span>
               {offlinePendingCount > 0 && (
                 <span className="rounded-full bg-amber-400 px-1.5 py-0.5 text-[10px] font-black text-slate-950">
