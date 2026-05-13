@@ -5,6 +5,7 @@ import BottomNav from '@/components/store/BottomNav'
 import WhatsAppFloat from '@/components/store/WhatsAppFloat'
 import StoreClosed from '@/components/store/StoreClosed'
 import StoreBrandingMemory from '@/components/store/StoreBrandingMemory'
+import './store-premium.css'
 
 interface Props {
   children: React.ReactNode
@@ -46,18 +47,18 @@ export default async function StoreLayout({ children, params }: Props) {
 
   return (
     <div
-      className="pb-[72px]"
+      className="ecco-store-premium pb-[72px]"
       style={{
-        '--primary-color': palette.primary,
-        '--secondary-color': palette.secondary,
-        '--button-primary-color': palette.buttonPrimary,
-        '--button-secondary-color': palette.buttonSecondary,
-        '--price-color': palette.accent,
-        '--brand-background-color': palette.background,
-        '--brand-surface-color': palette.surface,
-        '--brand-soft-color': palette.neutralSoft,
-        '--brand-text-color': palette.text,
-        '--brand-muted-color': palette.mutedText,
+        '--primary-color': '#e7b43f',
+        '--secondary-color': '#191612',
+        '--button-primary-color': '#e7b43f',
+        '--button-secondary-color': '#28231a',
+        '--price-color': '#ffcf64',
+        '--brand-background-color': '#050505',
+        '--brand-surface-color': '#151410',
+        '--brand-soft-color': 'rgba(255, 247, 223, 0.08)',
+        '--brand-text-color': '#fff7df',
+        '--brand-muted-color': 'rgba(255, 247, 223, 0.66)',
       } as React.CSSProperties}
     >
       <StoreBrandingMemory
