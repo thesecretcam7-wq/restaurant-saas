@@ -40,6 +40,7 @@ export function PaymentsOnlineForm({ tenantId, mode = 'full' }: Props) {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState('')
+  const isSuccessMessage = message === 'Wompi guardado' || message === 'Pagos online guardados'
 
   useEffect(() => {
     fetch(`/api/tenant/delivery?tenantId=${tenantId}`)
@@ -93,8 +94,15 @@ export function PaymentsOnlineForm({ tenantId, mode = 'full' }: Props) {
         setMessage(`Error: ${data.error || 'No se pudo guardar'}`)
         return
       }
+      setForm(f => ({
+        ...f,
+        wompi_private_key: '',
+        wompi_integrity_key: '',
+        wompi_has_private_key: data.data?.wompi_has_private_key ?? f.wompi_has_private_key,
+        wompi_has_integrity_key: data.data?.wompi_has_integrity_key ?? f.wompi_has_integrity_key,
+      }))
       setMessage(isWompiMode ? 'Wompi guardado' : 'Pagos online guardados')
-      setTimeout(() => setMessage(''), 3000)
+      setTimeout(() => setMessage(''), 5000)
     } catch {
       setMessage('Error al guardar')
     } finally {
@@ -109,7 +117,7 @@ export function PaymentsOnlineForm({ tenantId, mode = 'full' }: Props) {
   return (
     <form id={isWompiMode ? 'wompi-configuracion' : 'pagos-online-form'} method="post" onSubmit={handleSave} className="admin-panel scroll-mt-32 overflow-hidden">
       {message && (
-        <div className={`border-b px-5 py-4 text-sm font-black ${message.startsWith('Pagos') ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'}`}>
+        <div className={`border-b px-5 py-4 text-sm font-black ${isSuccessMessage ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'}`}>
           {message}
         </div>
       )}
@@ -279,10 +287,22 @@ export function PaymentsOnlineForm({ tenantId, mode = 'full' }: Props) {
         </div>
       </section>
 
-      <div className="flex justify-end border-t border-black/10 p-5">
+      <div className="flex flex-col gap-3 border-t border-black/10 p-5 sm:flex-row sm:items-center sm:justify-between">
+        <div
+          aria-live="polite"
+          className={`min-h-6 text-sm font-black ${
+            !message
+              ? 'text-transparent'
+              : isSuccessMessage
+                ? 'text-emerald-200'
+                : 'text-red-200'
+          }`}
+        >
+          {message || 'Sin cambios'}
+        </div>
         <button type="submit" disabled={saving} className="admin-button-primary inline-flex items-center gap-2 disabled:opacity-50">
           <Save className="size-4" />
-          {saving ? 'Guardando...' : isWompiMode ? 'Guardar Wompi' : 'Guardar pagos online'}
+          {saving ? 'Guardando...' : isSuccessMessage ? 'Guardado' : isWompiMode ? 'Guardar Wompi' : 'Guardar pagos online'}
         </button>
       </div>
     </form>

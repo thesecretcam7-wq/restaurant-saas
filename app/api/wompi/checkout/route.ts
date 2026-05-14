@@ -5,6 +5,7 @@ import { calculateOrderTotals } from '@/lib/order-totals'
 import { canCreateOrder } from '@/lib/checkPlan'
 import { syncCustomerFromOrder } from '@/lib/customer-sync'
 import { createWompiIntegritySignature, getWompiCheckoutUrl } from '@/lib/wompi'
+import { decryptServerSecret } from '@/lib/server-secret-box'
 
 export async function POST(request: NextRequest) {
   try {
@@ -177,7 +178,7 @@ export async function POST(request: NextRequest) {
       reference: orderNumber,
       amountInCents,
       currency,
-      integrityKey: settings.wompi_integrity_key,
+      integrityKey: decryptServerSecret(settings.wompi_integrity_key),
     })
 
     const url = new URL(getWompiCheckoutUrl())

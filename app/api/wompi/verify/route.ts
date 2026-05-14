@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
 import { applyRecipeStockMovement } from '@/lib/inventory-recipes'
 import { getWompiApiBase, normalizeWompiStatus } from '@/lib/wompi'
+import { decryptServerSecret } from '@/lib/server-secret-box'
 
 async function createKitchenItemsIfNeeded(supabase: any, order: any) {
   if (!Array.isArray(order.items) || order.items.length === 0) return
@@ -64,12 +65,14 @@ export async function POST(request: NextRequest) {
       .eq('tenant_id', order.tenant_id)
       .maybeSingle()
 
-    if (!settings?.wompi_private_key) {
+    const wompiPrivateKey = decryptServerSecret(settings?.wompi_private_key)
+
+    if (!wompiPrivateKey) {
       return NextResponse.json({ error: 'Wompi no esta configurado' }, { status: 400 })
     }
 
-    const response = await fetch(`${getWompiApiBase(settings.wompi_environment)}/transactions/${transactionId}`, {
-      headers: { Authorization: `Bearer ${settings.wompi_private_key}` },
+    const response = await fetch(`${getWompiApiBase(settings?.wompi_environment)}/transactions/${transactionId}`, {
+      headers: { Authorization: `Bearer ${wompiPrivateKey}` },
       cache: 'no-store',
     })
 

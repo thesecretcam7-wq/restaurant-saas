@@ -1,6 +1,7 @@
 import { createServiceClient } from '@/lib/supabase/server'
 import { NextRequest, NextResponse } from 'next/server'
 import { requireTenantAccess, tenantAuthErrorResponse } from '@/lib/tenant-api-auth'
+import { encryptServerSecret } from '@/lib/server-secret-box'
 
 type SupabaseClient = ReturnType<typeof createServiceClient>
 
@@ -84,8 +85,12 @@ export async function PUT(request: NextRequest) {
     }
 
     const wompiPublicKey = String(data.wompi_public_key || '').trim()
-    const wompiPrivateKey = String(data.wompi_private_key || '').trim() || existingSettings?.wompi_private_key || ''
-    const wompiIntegrityKey = String(data.wompi_integrity_key || '').trim() || existingSettings?.wompi_integrity_key || ''
+    const wompiPrivateKey = String(data.wompi_private_key || '').trim()
+      ? encryptServerSecret(String(data.wompi_private_key || '').trim())
+      : existingSettings?.wompi_private_key || ''
+    const wompiIntegrityKey = String(data.wompi_integrity_key || '').trim()
+      ? encryptServerSecret(String(data.wompi_integrity_key || '').trim())
+      : existingSettings?.wompi_integrity_key || ''
 
     if (country === 'CO' && onlinePaymentProvider === 'wompi' && wompiEnabled) {
       if (!wompiPublicKey || !wompiPrivateKey || !wompiIntegrityKey) {
