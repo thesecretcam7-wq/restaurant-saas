@@ -33,6 +33,7 @@ import {
 import { detectAdminSection, getSectionColorVar } from '@/lib/colors'
 import { StoreStatusToggle } from './StoreStatusToggle'
 import LanguageSwitcher, { useI18n } from '@/components/LanguageSwitcher'
+import { AdminMobileMenuTrigger } from './AdminMobileMenuTrigger'
 
 interface NavLink {
   href: string
@@ -245,7 +246,9 @@ export function AdminSidebar({
         {sidebarContent}
       </aside>
 
-      <div className="fixed inset-x-0 top-0 z-[9997] flex h-16 items-center justify-between border-b border-[#e7b43f]/20 bg-[#080807]/95 px-3 shadow-2xl shadow-black/30 backdrop-blur-xl md:hidden">
+      <AdminMobileMenuTrigger onOpen={() => setOpen(true)} />
+
+      <div className="fixed inset-x-0 top-0 z-[2147483644] flex h-16 items-center justify-between border-b border-[#e7b43f]/20 bg-[#080807]/95 px-3 shadow-2xl shadow-black/30 backdrop-blur-xl md:hidden">
         <button
           className="inline-flex h-11 items-center gap-2 rounded-xl border border-[#e7b43f]/35 bg-[#e7b43f] px-4 text-sm font-black text-[#0a0805] shadow-lg shadow-[#e7b43f]/20 active:scale-95"
           onClick={() => setOpen(true)}
@@ -272,11 +275,11 @@ export function AdminSidebar({
       </button>
 
       {open && (
-        <div className="fixed inset-0 z-[9998] bg-black/70 backdrop-blur-sm md:hidden" onClick={() => setOpen(false)} />
+        <div className="fixed inset-0 z-[2147483645] bg-black/70 backdrop-blur-sm md:hidden" onClick={() => setOpen(false)} />
       )}
 
       <aside
-        className={`admin-sidebar fixed inset-y-0 left-0 z-[9999] flex max-h-dvh w-[min(92vw,22rem)] flex-col bg-[#15130f] shadow-2xl transition-transform duration-200 md:hidden ${
+        className={`admin-sidebar fixed inset-y-0 left-0 z-[2147483646] flex max-h-dvh w-[min(92vw,22rem)] flex-col bg-[#15130f] shadow-2xl transition-transform duration-200 md:hidden ${
           open ? 'translate-x-0' : '-translate-x-full'
         }`}
       >

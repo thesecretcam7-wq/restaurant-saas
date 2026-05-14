@@ -4,7 +4,11 @@ import { useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { Menu } from 'lucide-react'
 
-export function AdminMobileMenuTrigger() {
+interface AdminMobileMenuTriggerProps {
+  onOpen?: () => void
+}
+
+export function AdminMobileMenuTrigger({ onOpen }: AdminMobileMenuTriggerProps) {
   const [mounted, setMounted] = useState(false)
 
   useEffect(() => {
@@ -16,7 +20,13 @@ export function AdminMobileMenuTrigger() {
   return createPortal(
     <button
       type="button"
-      onClick={() => window.dispatchEvent(new Event('eccofood:open-admin-menu'))}
+      onClick={() => {
+        if (onOpen) {
+          onOpen()
+          return
+        }
+        window.dispatchEvent(new Event('eccofood:open-admin-menu'))
+      }}
       className="ecco-admin-mobile-menu-trigger md:hidden"
       aria-label="Abrir menu del panel"
     >
