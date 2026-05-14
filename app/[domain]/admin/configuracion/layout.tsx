@@ -76,7 +76,7 @@ export default function ConfiguracionLayout({ children }: { children: React.Reac
       </div>
 
       {isInSection ? (
-        <div className="sticky top-0 z-20 mb-4 space-y-3 border-b border-[#e7b43f]/20 bg-[#080807]/95 px-1 py-3 backdrop-blur-xl lg:hidden">
+        <div className="sticky top-0 z-[80] mb-4 space-y-3 border-b border-[#e7b43f]/20 bg-[#080807]/98 px-1 py-3 shadow-2xl shadow-black/35 backdrop-blur-xl lg:hidden">
           <div className="flex h-10 items-center gap-3">
             <button onClick={() => router.back()} className="rounded-lg border border-[#e7b43f]/20 bg-white/8 p-2 text-[#fff7df] transition hover:bg-white/12" aria-label="Volver">
               <ChevronRight className="size-5 rotate-180" />

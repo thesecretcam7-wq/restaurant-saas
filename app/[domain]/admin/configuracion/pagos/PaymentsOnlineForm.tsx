@@ -98,7 +98,7 @@ export function PaymentsOnlineForm({ tenantId }: Props) {
   }
 
   return (
-    <form id="pagos-online-form" method="post" onSubmit={handleSave} className="admin-panel overflow-hidden">
+    <form id="pagos-online-form" method="post" onSubmit={handleSave} className="admin-panel scroll-mt-32 overflow-hidden">
       {message && (
         <div className={`border-b px-5 py-4 text-sm font-black ${message.startsWith('Pagos') ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'}`}>
           {message}
@@ -116,7 +116,7 @@ export function PaymentsOnlineForm({ tenantId }: Props) {
               Aqui se configura el pais, la moneda y las conexiones de pago disponibles para la tienda.
             </p>
 
-            <div className="mt-4 grid gap-4 md:grid-cols-2">
+            <div id="pais-moneda" className="mt-4 grid scroll-mt-32 gap-4 md:grid-cols-2">
               <label className="block">
                 <span className="text-xs font-black uppercase text-black/42">Pais real del restaurante</span>
                 <select
@@ -136,7 +136,7 @@ export function PaymentsOnlineForm({ tenantId }: Props) {
                 <span className="mt-1 block text-xs font-semibold text-black/35">No depende de donde abras el panel.</span>
               </label>
 
-              <label className="block">
+              <label id="wompi-configuracion" className="block scroll-mt-32">
                 <span className="text-xs font-black uppercase text-black/42">Proveedor activo</span>
                 <select
                   value={form.online_payment_provider}
@@ -171,7 +171,7 @@ export function PaymentsOnlineForm({ tenantId }: Props) {
         </label>
 
         {isColombia && form.online_payment_provider === 'wompi' && (
-          <div id="wompi-settings" className="rounded-2xl border border-amber-200 bg-amber-50/80 p-4">
+          <div id="wompi-settings" className="scroll-mt-32 rounded-2xl border border-amber-200 bg-amber-50/80 p-4">
             <div className="flex gap-3">
               <span className="flex size-10 items-center justify-center rounded-xl bg-[#15130f] text-amber-300">
                 <ShieldCheck className="size-5" />

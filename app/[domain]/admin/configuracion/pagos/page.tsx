@@ -73,7 +73,7 @@ export default async function PagosOnlinePage({ params }: Props) {
       name: 'Wompi',
       countryLabel: 'Colombia',
       description: 'Pagos online en pesos colombianos para comercios registrados en Colombia.',
-      href: '#pagos-online-form',
+      href: '#wompi-configuracion',
       Icon: Smartphone,
       status: wompiStatus,
       available: wompiAvailable,
@@ -107,7 +107,7 @@ export default async function PagosOnlinePage({ params }: Props) {
             </div>
           </div>
           <Link
-            href="#pagos-online-form"
+            href="#pais-moneda"
             className="inline-flex h-11 items-center justify-center rounded-xl border border-[#d9a441]/40 bg-[#d9a441]/15 px-4 text-sm font-black text-[#f2cf82] transition hover:bg-[#d9a441]/25"
           >
             Cambiar pais y moneda
