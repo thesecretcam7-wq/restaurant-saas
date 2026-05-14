@@ -239,9 +239,9 @@ export function AdminSidebar({
         {sidebarContent}
       </aside>
 
-      <div className="fixed inset-x-0 top-0 z-40 flex h-14 items-center justify-between border-b border-[#e7b43f]/20 bg-[#080807]/95 px-3 shadow-2xl shadow-black/30 backdrop-blur-xl md:hidden">
+      <div className="fixed inset-x-0 top-0 z-[70] flex h-16 items-center justify-between border-b border-[#e7b43f]/20 bg-[#080807]/95 px-3 shadow-2xl shadow-black/30 backdrop-blur-xl md:hidden">
         <button
-          className="inline-flex h-10 items-center gap-2 rounded-xl border border-[#e7b43f]/35 bg-[#e7b43f] px-4 text-sm font-black text-[#0a0805] shadow-lg shadow-[#e7b43f]/20 active:scale-95"
+          className="inline-flex h-11 items-center gap-2 rounded-xl border border-[#e7b43f]/35 bg-[#e7b43f] px-4 text-sm font-black text-[#0a0805] shadow-lg shadow-[#e7b43f]/20 active:scale-95"
           onClick={() => setOpen(true)}
           aria-label={tr('admin.openMenu')}
           type="button"
@@ -249,18 +249,18 @@ export function AdminSidebar({
           <Menu className="size-5" />
           Menu
         </button>
-        <div className="min-w-0 text-right">
+        <div className="min-w-0 pl-3 text-right">
           <p className="truncate text-sm font-black text-[#fff7df]">{restaurantName}</p>
           <p className="text-[11px] font-bold uppercase tracking-wide text-[#e7b43f]">Panel operativo</p>
         </div>
       </div>
 
       {open && (
-        <div className="fixed inset-0 z-30 bg-black/35 md:hidden" onClick={() => setOpen(false)} />
+        <div className="fixed inset-0 z-[80] bg-black/70 backdrop-blur-sm md:hidden" onClick={() => setOpen(false)} />
       )}
 
       <aside
-        className={`admin-sidebar fixed inset-y-0 left-0 z-40 flex w-72 flex-col bg-[#15130f] shadow-2xl transition-transform duration-200 md:hidden ${
+        className={`admin-sidebar fixed inset-y-0 left-0 z-[90] flex max-h-dvh w-[min(92vw,22rem)] flex-col bg-[#15130f] shadow-2xl transition-transform duration-200 md:hidden ${
           open ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
