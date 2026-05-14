@@ -47,7 +47,7 @@ export default async function StoreLayout({ children, params }: Props) {
 
   return (
     <div
-      className="ecco-store-premium pt-[calc(4rem+env(safe-area-inset-top))]"
+      className="ecco-store-premium pb-[calc(6.25rem+env(safe-area-inset-bottom))]"
       style={{
         '--primary-color': '#e7b43f',
         '--secondary-color': '#191612',

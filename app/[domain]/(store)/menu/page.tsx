@@ -150,6 +150,7 @@ export default async function MenuPage({ params }: MenuProps) {
   const br = getBorderRadius(pageConfig.appearance.border_radius)
   const cardCls = getCardClasses(pageConfig.appearance.card_style)
   const btnCls = getButtonClasses(pageConfig.appearance.button_style)
+  const featuredCarousel = featured.length > 1 ? featured : items.slice(0, 8)
 
   return (
     <div className="store-surface min-h-screen overflow-x-hidden bg-[#faf8f3]" style={{ fontFamily, ...backgroundStyle }}>
@@ -158,10 +159,35 @@ export default async function MenuPage({ params }: MenuProps) {
           from { opacity: 0; transform: translateY(18px) scale(.985); }
           to { opacity: 1; transform: translateY(0) scale(1); }
         }
+        @keyframes featuredAutoSlide {
+          from { transform: translate3d(0, 0, 0); }
+          to { transform: translate3d(-50%, 0, 0); }
+        }
         .menu-rise { animation: menuRise .52s cubic-bezier(.2,.8,.2,1) both; }
+        .store-featured-track {
+          display: flex;
+          width: max-content;
+          will-change: transform;
+          animation: featuredAutoSlide ${Math.max(featuredCarousel.length * 2.5, 12)}s linear infinite;
+        }
+        .store-featured-track > * {
+          flex: 0 0 min(82vw, 24rem);
+        }
+        @media (min-width: 640px) {
+          .store-featured-track > * { flex-basis: 22rem; }
+        }
+        @media (min-width: 1024px) {
+          .store-featured-track > * { flex-basis: 18rem; }
+        }
+        .store-featured-carousel:hover .store-featured-track {
+          animation-play-state: paused;
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .store-featured-track { animation: none; width: auto; overflow-x: auto; }
+        }
       `}</style>
       {/* Header - Professional */}
-      <header className="fixed inset-x-0 top-[calc(4rem+env(safe-area-inset-top))] z-40 border-b border-[#e7b43f]/20 bg-[#0b0a08]/95 shadow-lg shadow-black/20 backdrop-blur-xl">
+      <header className="fixed inset-x-0 top-0 z-[60] border-b border-[#e7b43f]/20 bg-[#0b0a08]/95 shadow-lg shadow-black/20 backdrop-blur-xl" style={{ paddingTop: 'env(safe-area-inset-top)' }}>
         <div className="mx-auto flex h-14 max-w-7xl items-center justify-between px-3 sm:h-16 sm:px-6 lg:px-8">
           <div className="flex items-center gap-2 sm:gap-3 min-w-0">
             {context.tenant?.logo_url && (
@@ -210,7 +236,7 @@ export default async function MenuPage({ params }: MenuProps) {
         />
       </header>
 
-      <main id="top" className="mx-auto max-w-7xl space-y-5 px-3 pb-28 pt-[122px] sm:space-y-8 sm:px-6 sm:pb-32 sm:pt-[132px] lg:px-8">
+      <main id="top" className="mx-auto max-w-7xl space-y-5 px-3 pb-32 pt-[122px] sm:space-y-8 sm:px-6 sm:pb-36 sm:pt-[132px] lg:px-8">
         <section className="menu-rise overflow-hidden rounded-[22px] border border-black/8 bg-white p-4 shadow-xl shadow-black/[0.04] sm:rounded-[28px] sm:p-7">
           <p className="text-xs font-black uppercase text-black/42">Carta digital</p>
           <div className="mt-2 flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
@@ -229,7 +255,7 @@ export default async function MenuPage({ params }: MenuProps) {
           </div>
         </section>
         {/* Featured - Professional */}
-        {featured.length > 0 && (
+        {featuredCarousel.length > 0 && (
           <section className="menu-rise scroll-mt-28 rounded-[22px] border border-black/8 bg-white p-4 shadow-xl shadow-black/[0.04] sm:rounded-[28px] sm:p-7" data-featured style={{ animationDelay: '80ms' }}>
             <div className="flex items-center gap-2 mb-3 sm:mb-4">
               <div className="w-1 h-5 sm:h-6 rounded-full" style={{ backgroundColor: buttonColor }} />
@@ -245,14 +271,15 @@ export default async function MenuPage({ params }: MenuProps) {
                 ⭐ Lo más pedido
               </h2>
             </div>
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-              {featured.map((item, index) => (
+            <div className="store-featured-carousel -mx-2 overflow-hidden px-2">
+              <div className="store-featured-track flex gap-4">
+                {[...featuredCarousel, ...featuredCarousel].map((item, index) => (
                 <div
-                  key={item.id}
+                  key={`${item.id}-${index}`}
                   className={`menu-rise group flex flex-col overflow-hidden border border-black/8 bg-white shadow-sm transition hover:-translate-y-0.5 hover:shadow-xl ${cardCls}`}
                   style={{
                     borderRadius: br,
-                    animationDelay: `${120 + index * 45}ms`,
+                    animationDelay: `${120 + (index % Math.max(featuredCarousel.length, 1)) * 45}ms`,
                     backgroundImage: `linear-gradient(135deg, ${primary}12, transparent 60%)`,
                   }}
                 >
@@ -276,7 +303,8 @@ export default async function MenuPage({ params }: MenuProps) {
                     </div>
                   </div>
                 </div>
-              ))}
+                ))}
+              </div>
             </div>
           </section>
         )}

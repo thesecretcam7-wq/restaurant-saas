@@ -62,7 +62,6 @@ export async function ensureInventoryItemForMenuItem(
     current_stock: 0,
     min_stock: 0,
     max_stock: 100,
-    unit: 'unidad',
     cost_per_unit: 0,
   };
 

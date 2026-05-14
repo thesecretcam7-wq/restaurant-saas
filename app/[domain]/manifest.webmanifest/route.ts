@@ -4,6 +4,12 @@ import { getTenantContext } from '@/lib/tenant'
 export const dynamic = 'force-dynamic'
 
 const BASE_DOMAIN = process.env.NEXT_PUBLIC_BASE_DOMAIN || 'eccofoodapp.com'
+const PLATFORM_HOSTS = new Set([
+  'eccofoodapp.com',
+  'www.eccofoodapp.com',
+  'eccofood.vercel.app',
+  'restaurant-saas.vercel.app',
+])
 
 export async function GET(
   request: Request,
@@ -20,11 +26,14 @@ export async function GET(
   const primaryColor = '#D9A441'
   const backgroundColor = '#0B0906'
   const host = request.headers.get('host') || ''
+  const cleanHost = host.split(':')[0]?.toLowerCase() || ''
   const isTenantHost =
-    host &&
-    !host.includes('localhost') &&
-    !host.includes('127.0.0.1') &&
-    (!host.includes(BASE_DOMAIN) || host.startsWith(`${tenantSlug}.`))
+    cleanHost &&
+    !cleanHost.includes('localhost') &&
+    !cleanHost.includes('127.0.0.1') &&
+    !cleanHost.endsWith('.vercel.app') &&
+    !PLATFORM_HOSTS.has(cleanHost) &&
+    (!cleanHost.includes(BASE_DOMAIN) || cleanHost.startsWith(`${tenantSlug}.`))
   const appScope = isTenantHost ? '/' : `/${tenantSlug}/`
   const icon192Url = isTenantHost ? '/icon-192.png' : `/${tenantSlug}/icon-192.png`
   const icon512Url = isTenantHost ? '/icon-512.png' : `/${tenantSlug}/icon-512.png`

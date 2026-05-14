@@ -24,7 +24,7 @@ export default function CartBar({
   if (count === 0) return null
 
   return (
-    <div className="fixed bottom-[calc(env(safe-area-inset-bottom)+0.75rem)] left-0 right-0 z-40 px-4">
+    <div className="fixed bottom-[calc(env(safe-area-inset-bottom)+5.25rem)] left-0 right-0 z-40 px-4">
       <Link
         href={`${pathBase}/carrito`}
         className="flex items-center justify-between w-full max-w-lg mx-auto px-4 py-3.5 rounded-2xl text-white shadow-xl active:scale-95 transition-transform"

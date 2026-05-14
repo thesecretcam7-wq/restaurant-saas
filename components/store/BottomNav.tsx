@@ -1,12 +1,14 @@
 'use client'
 
+import { useEffect, useState } from 'react'
 import { usePathname } from 'next/navigation'
 import Link from 'next/link'
+import { createPortal } from 'react-dom'
 import { useCartStore } from '@/lib/store/cart'
 
 function HomeIcon({ active, color }: { active: boolean; color: string }) {
   return (
-    <svg width="22" height="22" viewBox="0 0 24 24" fill={active ? color : 'none'} stroke={active ? color : '#94A3B8'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <svg width="23" height="23" viewBox="0 0 24 24" fill={active ? color : 'none'} stroke={active ? color : 'rgba(255,247,223,.72)'} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
       <path d="M3 9.5L12 3l9 6.5V20a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9.5z"/>
       <path d="M9 21V12h6v9"/>
     </svg>
@@ -15,7 +17,7 @@ function HomeIcon({ active, color }: { active: boolean; color: string }) {
 
 function MenuIcon({ active, color }: { active: boolean; color: string }) {
   return (
-    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={active ? color : '#94A3B8'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke={active ? color : 'rgba(255,247,223,.72)'} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
       <path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2"/>
       <path d="M7 2v20"/>
       <path d="M21 15V2a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3v7"/>
@@ -25,7 +27,7 @@ function MenuIcon({ active, color }: { active: boolean; color: string }) {
 
 function CartIcon({ active, color }: { active: boolean; color: string }) {
   return (
-    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={active ? color : '#94A3B8'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke={active ? color : 'rgba(255,247,223,.72)'} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
       <path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/>
       <line x1="3" y1="6" x2="21" y2="6"/>
       <path d="M16 10a4 4 0 0 1-8 0"/>
@@ -35,7 +37,7 @@ function CartIcon({ active, color }: { active: boolean; color: string }) {
 
 function OrdersIcon({ active, color }: { active: boolean; color: string }) {
   return (
-    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={active ? color : '#94A3B8'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke={active ? color : 'rgba(255,247,223,.72)'} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
       <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
       <polyline points="14 2 14 8 20 8"/>
       <line x1="16" y1="13" x2="8" y2="13"/>
@@ -54,6 +56,7 @@ export default function BottomNav({
   primaryColor?: string
   basePath?: string
 }) {
+  const [mounted, setMounted] = useState(false)
   const pathname = usePathname()
   const { items } = useCartStore()
   const cartCount = items.reduce((s, i) => s + i.qty, 0)
@@ -73,35 +76,54 @@ export default function BottomNav({
     { href: `${pathBase}/mis-pedidos`, label: 'Pedidos', Icon: OrdersIcon, active: isOrders },
   ]
 
-  return (
+  useEffect(() => {
+    setMounted(true)
+  }, [])
+
+  const nav = (
     <nav
-      className="fixed left-0 right-0 top-0 z-50 border-b border-[#e7b43f]/20 bg-[#080807]/95 backdrop-blur-xl"
-      style={{ boxShadow: '0 14px 34px rgba(0,0,0,0.28)', paddingTop: 'env(safe-area-inset-top)' }}
+      className="!fixed bottom-0 left-0 right-0 z-[9999] px-3 pb-3 pt-2"
+      style={{
+        position: 'fixed',
+        inset: 'auto 0 0 0',
+        paddingBottom: 'calc(env(safe-area-inset-bottom) + 0.75rem)',
+        background: 'linear-gradient(to top, rgba(0,0,0,.94), rgba(0,0,0,.72) 68%, rgba(0,0,0,0))',
+        transform: 'translate3d(0, 0, 0)',
+        WebkitTransform: 'translate3d(0, 0, 0)',
+        isolation: 'isolate',
+      }}
+      aria-label="Navegacion de tienda"
     >
-      <div className="mx-auto flex h-16 max-w-lg items-center px-2">
+      <div className="mx-auto flex h-[72px] max-w-md items-center gap-1 rounded-[28px] border border-[#e7b43f]/24 bg-[#080807]/88 px-2 shadow-[0_-18px_52px_rgba(0,0,0,.54),inset_0_1px_0_rgba(255,255,255,.08)] backdrop-blur-2xl">
         {tabs.map(({ href, label, Icon, active, badge }) => (
           <Link
             key={href}
             href={href}
-            className={`relative flex h-12 flex-1 flex-col items-center justify-center gap-0.5 rounded-2xl transition-all duration-200 ${
-              active ? 'bg-[#e7b43f]/16 shadow-[inset_0_0_0_1px_rgba(231,180,63,0.35)]' : 'hover:bg-white/8'
+            aria-label={label}
+            className={`relative flex h-[58px] flex-1 touch-manipulation flex-col items-center justify-center gap-1 rounded-[22px] transition-all duration-200 active:scale-[0.96] ${
+              active
+                ? 'bg-[#e7b43f]/18 shadow-[0_0_24px_rgba(231,180,63,.18),inset_0_0_0_1px_rgba(231,180,63,0.42)]'
+                : 'hover:bg-white/8'
             }`}
           >
+            {active && (
+              <span className="absolute -top-1 h-1 w-8 rounded-full bg-[#ffcf64] shadow-[0_0_18px_rgba(255,207,100,.85)]" />
+            )}
             <div className="relative">
               {active && (
-                <span className="absolute inset-0 scale-150 rounded-full opacity-15" style={{ backgroundColor: color }} />
+                <span className="absolute inset-0 scale-150 rounded-full opacity-20 blur-sm" style={{ backgroundColor: color }} />
               )}
               <Icon active={active} color={color} />
               {badge ? (
                 <span
-                  className="absolute -top-2 -right-2 min-w-[18px] h-[18px] text-white text-[9px] font-black rounded-full flex items-center justify-center px-1 shadow-md"
-                  style={{ backgroundColor: color }}
+                  className="absolute -right-2 -top-2 flex h-[19px] min-w-[19px] items-center justify-center rounded-full px-1 text-[9px] font-black text-[#080704] shadow-[0_0_18px_rgba(255,207,100,.55)]"
+                  style={{ background: 'linear-gradient(135deg, #ffcf64, #ff8a1a)' }}
                 >
                   {badge > 9 ? '9+' : badge}
                 </span>
               ) : null}
             </div>
-            <span className="text-[11px] font-black tracking-wide" style={{ color: active ? color : 'rgba(255,247,223,.62)' }}>
+            <span className="text-[11px] font-black leading-none tracking-wide" style={{ color: active ? color : 'rgba(255,247,223,.72)' }}>
               {label}
             </span>
           </Link>
@@ -109,4 +131,7 @@ export default function BottomNav({
       </div>
     </nav>
   )
+
+  if (!mounted) return nav
+  return createPortal(nav, document.body)
 }

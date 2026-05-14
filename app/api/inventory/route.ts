@@ -104,7 +104,6 @@ export async function POST(request: NextRequest) {
           cost_per_unit: parsedCost,
           supplier: String(supplier || '').trim() || null,
           current_stock: parsedInitialStock,
-          unit: 'unidad',
         },
       ])
       .select()

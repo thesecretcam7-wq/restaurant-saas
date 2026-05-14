@@ -19,6 +19,7 @@ import TestimonialsSection from '@/components/store/sections/TestimonialsSection
 import ActionsSection from '@/components/store/sections/ActionsSection'
 import WhatsAppFloat from '@/components/store/WhatsAppFloat'
 import StoreClosed from '@/components/store/StoreClosed'
+import BottomNav from '@/components/store/BottomNav'
 import LanguageSwitcher from '@/components/LanguageSwitcher'
 import { formatPriceWithCurrency, getCurrencyByCountry } from '@/lib/currency'
 import { normalizeLocale, translate } from '@/lib/i18n'
@@ -107,6 +108,23 @@ export default async function HomePage({ params }: HomePageProps) {
     featured = data || []
   }
 
+  if (featured.length < 4) {
+    const featuredIds = new Set(featured.map(item => item.id))
+    const { data: fallbackItems } = await supabase
+      .from('menu_items')
+      .select('*')
+      .eq('tenant_id', tenant.id)
+      .eq('available', true)
+      .order('featured', { ascending: false })
+      .order('created_at', { ascending: false })
+      .limit(8)
+
+    featured = [
+      ...featured,
+      ...(fallbackItems || []).filter(item => !featuredIds.has(item.id)),
+    ].slice(0, 8)
+  }
+
   const palette = deriveBrandPalette({
     primary: branding?.primary_color,
     secondary: branding?.secondary_color,
@@ -166,7 +184,7 @@ export default async function HomePage({ params }: HomePageProps) {
     website: social.website || (branding as any)?.website_url || '',
   }
   const whatsappLink = mergedSocial.whatsapp || null
-  const heroMinHeight = hero.height === 'small' ? '560px' : hero.height === 'medium' ? '640px' : '720px'
+  const heroMinHeight = hero.height === 'small' ? '420px' : hero.height === 'medium' ? '480px' : '540px'
   const heroOverlay = Math.min(Math.max(hero.overlay_opacity || 45, 26), 78) / 100
   const countryCurrency = getCurrencyByCountry(settings?.country_code || settings?.country || (tenant as any)?.country || 'ES')
   const currencyInfo = settings?.currency
@@ -175,7 +193,7 @@ export default async function HomePage({ params }: HomePageProps) {
   const formatMoney = (value: number) => formatPriceWithCurrency(Number(value || 0), currencyInfo.code, currencyInfo.locale)
 
   return (
-    <div className="ecco-store-premium store-surface min-h-screen overflow-hidden pb-8 pt-[calc(4rem+env(safe-area-inset-top))] text-[#fff7df]" style={pageBackgroundStyle}>
+    <div className="ecco-store-premium store-surface min-h-screen overflow-hidden pb-[calc(6.5rem+env(safe-area-inset-bottom))] pt-[calc(4rem+env(safe-area-inset-top))] text-[#fff7df]" style={pageBackgroundStyle}>
       <header className="fixed left-0 right-0 top-0 z-50 border-b border-[#e7b43f]/20 bg-[#080807]/95 backdrop-blur-xl" style={{ paddingTop: 'env(safe-area-inset-top)' }}>
         <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
           <Link href={tenantHomePath} className="flex min-w-0 items-center gap-3">
@@ -195,14 +213,12 @@ export default async function HomePage({ params }: HomePageProps) {
           </Link>
           <div className="flex items-center gap-2">
             <LanguageSwitcher compact className="border-[#e7b43f]/25 bg-white/8 text-[#fff7df] [&_select]:text-[#fff7df]" reloadOnChange />
-            <Link href={`${tenantBasePath}/menu`} className="inline-flex h-11 items-center justify-center rounded-2xl bg-gradient-to-br from-[#ffcf64] via-[#d9a441] to-[#ff6a1a] px-4 text-sm font-black text-[#080704] shadow-[0_14px_34px_rgba(231,180,63,.25)] transition hover:scale-[1.02] sm:px-5">
-              {tr('store.viewMenu')}
-            </Link>
           </div>
         </div>
       </header>
 
-      <section className="relative overflow-hidden" style={{ minHeight: heroMinHeight }}>
+      <section className="relative mx-auto max-w-7xl px-4 pb-6 pt-6 sm:px-6 lg:px-8">
+        <div className="relative overflow-hidden rounded-[28px] border border-[#e7b43f]/22 bg-[#151410]/86 shadow-[0_24px_80px_rgba(0,0,0,.42),inset_0_1px_0_rgba(255,255,255,.08)]" style={{ minHeight: heroMinHeight }}>
         <div className="absolute inset-0">
           {heroImage ? (
             <img src={heroImage} alt={appName} className="h-full w-full object-cover" />
@@ -214,16 +230,16 @@ export default async function HomePage({ params }: HomePageProps) {
           <div className="absolute inset-x-0 bottom-0 h-48" style={{ background: `linear-gradient(to top, ${background}, transparent)` }} />
         </div>
 
-        <div className="relative z-10 mx-auto grid max-w-7xl gap-10 px-4 pb-16 pt-14 sm:px-6 lg:grid-cols-[minmax(0,1fr)_380px] lg:px-8 lg:pb-24 lg:pt-24">
+        <div className="relative z-10 grid gap-8 px-5 py-8 sm:px-8 sm:py-10 lg:grid-cols-[minmax(0,1fr)_360px] lg:p-10">
           <div className="max-w-3xl">
-            <div className="mb-5 inline-flex rounded-full border border-white/18 bg-white/12 px-4 py-2 text-xs font-black uppercase text-white/80 backdrop-blur-md">
-              {tr('store.experience')}
+            <div className="mb-4 inline-flex rounded-full border border-[#e7b43f]/28 bg-[#e7b43f]/12 px-4 py-2 text-xs font-black uppercase text-[#ffcf64] backdrop-blur-md">
+              Carta digital premium
             </div>
-            <h1 className="text-5xl font-black leading-[0.92] text-white drop-shadow-xl sm:text-6xl lg:text-7xl">
+            <h1 className="max-w-3xl text-4xl font-black leading-[0.92] text-white drop-shadow-xl sm:text-5xl lg:text-6xl">
               {heroTitle}
             </h1>
             {heroSubtitle && (
-              <p className="mt-6 max-w-2xl text-lg font-semibold leading-8 text-white/84 sm:text-xl">
+              <p className="mt-5 max-w-2xl text-base font-semibold leading-7 text-white/84 sm:text-lg">
                 {heroSubtitle}
               </p>
             )}
@@ -233,10 +249,7 @@ export default async function HomePage({ params }: HomePageProps) {
               </div>
             )}
             {hero.show_info_pills && <InfoPills settings={settings} primary={primary} />}
-            <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-              <Link href={`${tenantBasePath}/menu`} className="inline-flex h-14 items-center justify-center rounded-2xl bg-gradient-to-br from-[#ffcf64] via-[#d9a441] to-[#ff6a1a] px-7 text-sm font-black text-[#080704] shadow-[0_18px_44px_rgba(231,180,63,.28)] transition hover:scale-[1.02]">
-                {hero.cta_primary_text || tr('store.viewMenu')}
-              </Link>
+            <div className="mt-6 flex flex-col gap-3 sm:flex-row">
               {settings?.reservations_enabled && (
                 <Link href={`${tenantBasePath}/reservas`} className="inline-flex h-14 items-center justify-center rounded-2xl border border-[#e7b43f]/35 bg-white/10 px-7 text-sm font-black text-[#fff7df] backdrop-blur-md transition hover:bg-white/16">
                   {hero.cta_secondary_text || tr('store.reserve')}
@@ -246,7 +259,7 @@ export default async function HomePage({ params }: HomePageProps) {
           </div>
 
           {featured.length > 0 && (
-            <div className="hidden self-end rounded-[28px] border border-[#e7b43f]/22 bg-white/10 p-3 shadow-2xl backdrop-blur-xl lg:block">
+            <div className="hidden self-stretch rounded-[28px] border border-[#e7b43f]/22 bg-white/10 p-3 shadow-2xl backdrop-blur-xl lg:block">
               <div className="rounded-[22px] border border-[#e7b43f]/18 bg-[#151410]/92 p-4">
                 <p className="text-xs font-black uppercase text-[#e7b43f]">{tr('store.favorites')}</p>
                 <div className="mt-4 space-y-3">
@@ -268,9 +281,10 @@ export default async function HomePage({ params }: HomePageProps) {
             </div>
           )}
         </div>
+        </div>
       </section>
 
-      <main className="relative z-10 mx-auto -mt-10 max-w-7xl space-y-6 px-4 sm:px-6 lg:px-8">
+      <main className="relative z-10 mx-auto max-w-7xl space-y-6 px-4 sm:px-6 lg:px-8">
         {enabledSections.map(section => {
           const sTitle = section.title || ''
           switch (section.type) {
@@ -307,6 +321,7 @@ export default async function HomePage({ params }: HomePageProps) {
         </div>
       </footer>
 
+      <BottomNav tenantId={tenant.slug} primaryColor={buttonPrimary} basePath={tenantBasePath} />
       <WhatsAppFloat whatsapp={whatsappLink} restaurantName={appName} primaryColor="#25D366" />
     </div>
   )
