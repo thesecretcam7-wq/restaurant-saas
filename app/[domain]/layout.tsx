@@ -29,11 +29,13 @@ export async function generateMetadata({
   const brandedTitle = `${restaurantName} | Eccofood`
   const tenantSlug = context.tenant?.slug || domain
   const tenantAppleIconUrl = `/${tenantSlug}/apple-touch-icon.png`
-  const iconUrl =
+  const tenantIcon192Url = `/${tenantSlug}/icon-192.png`
+  const tenantIcon512Url = `/${tenantSlug}/icon-512.png`
+  const openGraphImageUrl =
     context.branding?.favicon_url ||
     context.branding?.logo_url ||
     context.tenant?.logo_url ||
-    '/icons/apple-touch-icon.png'
+    tenantIcon512Url
 
   return {
     title: {
@@ -50,8 +52,8 @@ export async function generateMetadata({
     },
     icons: {
       icon: [
-        { url: iconUrl },
-        { url: '/favicon.ico', sizes: '32x32', type: 'image/png' },
+        { url: tenantIcon192Url, sizes: '192x192', type: 'image/png' },
+        { url: tenantIcon512Url, sizes: '512x512', type: 'image/png' },
       ],
       apple: [{ url: tenantAppleIconUrl, sizes: '180x180', type: 'image/png' }],
     },
@@ -59,7 +61,7 @@ export async function generateMetadata({
       type: 'website',
       title: brandedTitle,
       description: context.branding?.tagline || context.branding?.description || `Tienda online de ${restaurantName}`,
-      images: iconUrl ? [{ url: iconUrl }] : undefined,
+      images: openGraphImageUrl ? [{ url: openGraphImageUrl }] : undefined,
     },
   }
 }

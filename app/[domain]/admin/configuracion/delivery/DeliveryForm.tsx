@@ -6,6 +6,16 @@ import { getCurrencyByCountry } from '@/lib/currency'
 
 interface Props { tenantId: string }
 
+const COUNTRY_OPTIONS = [
+  { code: 'ES', label: 'Espana' },
+  { code: 'CO', label: 'Colombia' },
+  { code: 'MX', label: 'Mexico' },
+  { code: 'US', label: 'Estados Unidos' },
+  { code: 'AR', label: 'Argentina' },
+  { code: 'PE', label: 'Peru' },
+  { code: 'CL', label: 'Chile' },
+]
+
 export default function DeliveryForm({ tenantId }: Props) {
   const [form, setForm] = useState({
     delivery_enabled: false,
@@ -113,8 +123,32 @@ export default function DeliveryForm({ tenantId }: Props) {
               <div className="flex-1">
                 <h2 className="font-black text-[#15130f]">Delivery a domicilio</h2>
                 <p className="mt-1 text-sm font-semibold text-black/45">Estos valores se muestran en la tienda y se suman al pedido.</p>
-                <p className="mt-2 inline-flex rounded-full border border-black/10 bg-black/[0.04] px-3 py-1 text-xs font-black text-black/55">
-                  Pais del restaurante: {form.country} - Moneda: {currencyInfo.code}
+                <div className="mt-3 grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end">
+                  <label className="block max-w-xs">
+                    <span className="text-xs font-black uppercase text-black/42">Pais real del restaurante</span>
+                    <select
+                      value={form.country}
+                      onChange={e => setForm(f => ({
+                        ...f,
+                        country: e.target.value,
+                        online_payment_provider: e.target.value === 'CO' ? f.online_payment_provider : (f.online_payment_provider === 'wompi' ? 'stripe' : f.online_payment_provider),
+                        wompi_enabled: e.target.value === 'CO' ? f.wompi_enabled : false,
+                      }))}
+                      className="mt-2 w-full rounded-xl border border-black/10 bg-white px-4 py-3 text-sm font-black text-[#15130f] outline-none transition focus:border-[#15130f]"
+                    >
+                      {COUNTRY_OPTIONS.map(country => (
+                        <option key={country.code} value={country.code}>
+                          {country.label}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <p className="inline-flex rounded-full border border-black/10 bg-black/[0.04] px-3 py-2 text-xs font-black text-black/55">
+                    Moneda: {currencyInfo.code}
+                  </p>
+                </div>
+                <p className="mt-2 text-xs font-semibold leading-5 text-black/45">
+                  Esto no depende de donde abras el panel. Para ParrillaBurgers selecciona Colombia y se habilita Wompi.
                 </p>
               </div>
               <label className="relative inline-flex cursor-pointer items-center">

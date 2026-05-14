@@ -19,6 +19,11 @@ function normalizeWompiEnvironment(value: unknown) {
   return String(value || 'sandbox').toLowerCase() === 'production' ? 'production' : 'sandbox'
 }
 
+function normalizeCountry(value: unknown, fallback = 'ES') {
+  const country = String(value || fallback || 'ES').trim().toUpperCase()
+  return ['ES', 'CO', 'MX', 'US', 'AR', 'PE', 'CL'].includes(country) ? country : 'ES'
+}
+
 async function resolveTenantId(supabase: SupabaseClient, slugOrId: string): Promise<string | null> {
   const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
   if (uuidRegex.test(slugOrId)) return slugOrId
@@ -70,7 +75,7 @@ export async function PUT(request: NextRequest) {
       .eq('id', tenantId)
       .maybeSingle()
 
-    const country = String(existingSettings?.country || tenant?.country || 'ES').toUpperCase()
+    const country = normalizeCountry(data.country, existingSettings?.country || tenant?.country || 'ES')
     const onlinePaymentProvider = normalizeProvider(data.online_payment_provider)
     const wompiEnabled = Boolean(data.wompi_enabled)
 
@@ -115,6 +120,15 @@ export async function PUT(request: NextRequest) {
     if (error) {
       console.error('Error updating delivery settings:', error)
       return NextResponse.json({ error: 'Error al guardar los cambios' }, { status: 500 })
+    }
+
+    const { error: tenantError } = await supabase
+      .from('tenants')
+      .update({ country, updated_at: new Date().toISOString() })
+      .eq('id', tenantId)
+
+    if (tenantError) {
+      console.warn('Could not sync tenant country from delivery settings:', tenantError)
     }
 
     return NextResponse.json({

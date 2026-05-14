@@ -17,11 +17,8 @@ export async function GET(
   const tenantSlug = context.tenant?.slug || domain
   const primaryColor = context.branding?.primary_color || '#F97316'
   const backgroundColor = context.branding?.background_color || '#FFFFFF'
-  const iconUrl =
-    context.branding?.favicon_url ||
-    context.branding?.logo_url ||
-    context.tenant?.logo_url ||
-    '/icons/icon-512.png'
+  const icon192Url = `/${tenantSlug}/icon-192.png`
+  const icon512Url = `/${tenantSlug}/icon-512.png`
 
   return NextResponse.json(
     {
@@ -39,16 +36,16 @@ export async function GET(
       orientation: 'portrait-primary',
       icons: [
         {
-          src: iconUrl,
+          src: icon192Url,
           sizes: '192x192',
           type: 'image/png',
           purpose: 'any',
         },
         {
-          src: iconUrl,
+          src: icon512Url,
           sizes: '512x512',
           type: 'image/png',
-          purpose: 'maskable',
+          purpose: 'any maskable',
         },
       ],
       categories: ['food', 'shopping'],

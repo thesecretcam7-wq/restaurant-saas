@@ -8,7 +8,7 @@ export async function GET(
   { params }: { params: Promise<{ domain: string }> }
 ) {
   const { domain } = await params
-  const png = await createTenantPwaIcon(domain, 180)
+  const png = await createTenantPwaIcon(domain, 192)
 
   return new Response(new Uint8Array(png), {
     headers: {

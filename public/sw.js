@@ -1,13 +1,9 @@
-const CACHE_NAME = 'eccofood-v10';
+const CACHE_NAME = 'eccofood-v11';
 const STATIC_ASSETS = [
   '/',
   '/planes',
-  '/manifest.webmanifest',
   '/favicon.ico',
   '/icons/icon.svg',
-  '/icons/apple-touch-icon.png',
-  '/icons/icon-192.png',
-  '/icons/icon-512.png',
 ];
 
 function offlinePage() {
@@ -102,6 +98,17 @@ self.addEventListener('fetch', (event) => {
     url.pathname.includes('/kiosko');
 
   if (request.method !== 'GET') {
+    return;
+  }
+
+  const isPwaIdentityAsset =
+    url.pathname.endsWith('/manifest.webmanifest') ||
+    url.pathname.endsWith('/apple-touch-icon.png') ||
+    url.pathname.endsWith('/icon-192.png') ||
+    url.pathname.endsWith('/icon-512.png');
+
+  if (isPwaIdentityAsset) {
+    event.respondWith(fetch(request));
     return;
   }
 
