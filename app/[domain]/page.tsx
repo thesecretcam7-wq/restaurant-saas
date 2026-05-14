@@ -7,7 +7,6 @@ import { cookies, headers } from 'next/headers'
 import { createClient } from '@/lib/supabase/server'
 import { getTenantContext } from '@/lib/tenant'
 import { getPageConfig, getBorderRadius, getCardClasses, getButtonClasses } from '@/lib/pageConfig'
-import BottomNav from '@/components/store/BottomNav'
 import BannerSection from '@/components/store/sections/BannerSection'
 import FeaturedSection from '@/components/store/sections/FeaturedSection'
 import InfoSection from '@/components/store/sections/InfoSection'
@@ -163,7 +162,7 @@ export default async function HomePage({ params }: HomePageProps) {
   const formatMoney = (value: number) => formatPriceWithCurrency(Number(value || 0), currencyInfo.code, currencyInfo.locale)
 
   return (
-    <div className="store-surface min-h-screen overflow-hidden pb-[88px] text-[#15130f]" style={pageBackgroundStyle}>
+    <div className="store-surface min-h-screen overflow-hidden pb-8 text-[#15130f]" style={pageBackgroundStyle}>
       <section className="relative overflow-hidden" style={{ minHeight: heroMinHeight }}>
         <div className="absolute inset-0">
           {heroImage ? (
@@ -292,7 +291,6 @@ export default async function HomePage({ params }: HomePageProps) {
         </div>
       </footer>
 
-      <BottomNav tenantId={tenant.slug} primaryColor={buttonPrimary} basePath={tenantBasePath} />
       <WhatsAppFloat whatsapp={whatsappLink} restaurantName={appName} primaryColor="#25D366" />
     </div>
   )

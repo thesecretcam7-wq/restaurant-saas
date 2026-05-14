@@ -161,7 +161,7 @@ export default async function MenuPage({ params }: MenuProps) {
         .menu-rise { animation: menuRise .52s cubic-bezier(.2,.8,.2,1) both; }
       `}</style>
       {/* Header - Professional */}
-      <header className="fixed inset-x-0 top-0 z-50 border-b border-black/10 bg-white/95 shadow-lg shadow-black/[0.04] backdrop-blur-xl">
+      <header className="fixed inset-x-0 top-[calc(4rem+env(safe-area-inset-top))] z-40 border-b border-[#e7b43f]/20 bg-[#0b0a08]/95 shadow-lg shadow-black/20 backdrop-blur-xl">
         <div className="mx-auto flex h-14 max-w-7xl items-center justify-between px-3 sm:h-16 sm:px-6 lg:px-8">
           <div className="flex items-center gap-2 sm:gap-3 min-w-0">
             {context.tenant?.logo_url && (
@@ -177,7 +177,7 @@ export default async function MenuPage({ params }: MenuProps) {
             )}
             <div className="min-w-0">
               <h1
-                className="text-gray-900 text-sm sm:text-base truncate"
+                className="truncate text-sm text-[#fff7df] sm:text-base"
                 style={{
                   fontWeight: headingFontWeight,
                   letterSpacing: `${letterSpacing}em`,
@@ -190,7 +190,7 @@ export default async function MenuPage({ params }: MenuProps) {
               <p className="text-xs text-gray-500 font-medium">Menú</p>
             </div>
           </div>
-          <Link href={`${storeBasePath}/carrito`} className="relative p-2 sm:p-2.5 hover:bg-gray-100 active:bg-gray-200 rounded-xl transition-all flex-shrink-0" title="Carrito">
+          <Link href={`${storeBasePath}/carrito`} className="relative flex-shrink-0 rounded-xl border border-[#e7b43f]/25 bg-white/8 p-2 transition-all hover:bg-white/14 active:bg-white/20 sm:p-2.5" title="Carrito">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={buttonColor} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="sm:w-5 sm:h-5">
               <path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/>
               <line x1="3" y1="6" x2="21" y2="6"/>
@@ -210,7 +210,7 @@ export default async function MenuPage({ params }: MenuProps) {
         />
       </header>
 
-      <main id="top" className="mx-auto max-w-7xl space-y-5 px-3 pb-32 pt-[122px] sm:space-y-8 sm:px-6 sm:pb-36 sm:pt-[132px] lg:px-8">
+      <main id="top" className="mx-auto max-w-7xl space-y-5 px-3 pb-28 pt-[122px] sm:space-y-8 sm:px-6 sm:pb-32 sm:pt-[132px] lg:px-8">
         <section className="menu-rise overflow-hidden rounded-[22px] border border-black/8 bg-white p-4 shadow-xl shadow-black/[0.04] sm:rounded-[28px] sm:p-7">
           <p className="text-xs font-black uppercase text-black/42">Carta digital</p>
           <div className="mt-2 flex flex-col gap-3 md:flex-row md:items-end md:justify-between">

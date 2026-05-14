@@ -75,16 +75,16 @@ export default function BottomNav({
 
   return (
     <nav
-      className="fixed bottom-0 left-0 right-0 z-50 bg-white/98 backdrop-blur-xl border-t border-gray-200"
-      style={{ boxShadow: '0 -4px 24px rgba(0,0,0,0.1)', paddingBottom: 'env(safe-area-inset-bottom)' }}
+      className="fixed left-0 right-0 top-0 z-50 border-b border-[#e7b43f]/20 bg-[#080807]/95 backdrop-blur-xl"
+      style={{ boxShadow: '0 14px 34px rgba(0,0,0,0.28)', paddingTop: 'env(safe-area-inset-top)' }}
     >
-      <div className="max-w-lg mx-auto flex">
+      <div className="mx-auto flex h-16 max-w-lg items-center px-2">
         {tabs.map(({ href, label, Icon, active, badge }) => (
           <Link
             key={href}
             href={href}
-            className={`flex-1 flex flex-col items-center py-3 gap-1 relative transition-all duration-200 ${
-              active ? 'bg-gray-50/50' : ''
+            className={`relative flex h-12 flex-1 flex-col items-center justify-center gap-0.5 rounded-2xl transition-all duration-200 ${
+              active ? 'bg-[#e7b43f]/16 shadow-[inset_0_0_0_1px_rgba(231,180,63,0.35)]' : 'hover:bg-white/8'
             }`}
           >
             <div className="relative">
@@ -101,7 +101,7 @@ export default function BottomNav({
                 </span>
               ) : null}
             </div>
-            <span className="text-[11px] font-bold tracking-wide" style={{ color: active ? color : '#9CA3AF' }}>
+            <span className="text-[11px] font-black tracking-wide" style={{ color: active ? color : 'rgba(255,247,223,.62)' }}>
               {label}
             </span>
           </Link>
