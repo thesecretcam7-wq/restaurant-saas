@@ -28,7 +28,9 @@ import {
   ShoppingBag,
   Store,
   Table2,
+  Truck,
   UsersRound,
+  WalletCards,
   X,
 } from 'lucide-react'
 import { detectAdminSection, getSectionColorVar } from '@/lib/colors'
@@ -67,6 +69,8 @@ const icons: Record<string, ComponentType<{ className?: string }>> = {
   sales: BarChart3,
   cash: CreditCard,
   settings: Settings,
+  delivery: Truck,
+  payments: WalletCards,
   pos: CreditCard,
   inventory: Package,
   tables: Table2,

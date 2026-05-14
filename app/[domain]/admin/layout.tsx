@@ -82,6 +82,8 @@ export default async function AdminLayout({ children, params }: AdminLayoutProps
     { href: `/${tenantSlug}/admin/auditoria`, label: 'Auditoria', icon: 'audit' },
     { href: `/${tenantSlug}/admin/salud`, label: 'Salud del sistema', icon: 'health' },
     { href: `/${tenantSlug}/admin/configuracion/restaurante`, label: 'Configuracion', icon: 'settings' },
+    { href: `/${tenantSlug}/admin/configuracion/delivery`, label: 'Delivery', icon: 'delivery' },
+    { href: `/${tenantSlug}/admin/configuracion/pagos`, label: 'Pagos online', icon: 'payments' },
     { href: `/${tenantSlug}/admin/inventario`, label: 'Inventario', icon: 'inventory' },
     { href: `/${tenantSlug}/admin/cuenta/cambiar-contrasena`, label: 'Cambiar Contrasena', icon: 'password', divider: true },
   ]

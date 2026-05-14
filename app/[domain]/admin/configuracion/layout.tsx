@@ -76,11 +76,31 @@ export default function ConfiguracionLayout({ children }: { children: React.Reac
       </div>
 
       {isInSection ? (
-        <div className="sticky top-0 z-10 mb-4 flex h-14 items-center gap-3 border-b border-black/10 bg-[#f5f3ee]/92 px-1 backdrop-blur lg:hidden">
-          <button onClick={() => router.back()} className="rounded-lg p-2 text-black/55 transition hover:bg-white hover:text-black" aria-label="Volver">
-            <ChevronRight className="size-5 rotate-180" />
-          </button>
-          <h1 className="text-lg font-black text-[#15130f]">{activeSection.label}</h1>
+        <div className="sticky top-0 z-20 mb-4 space-y-3 border-b border-[#e7b43f]/20 bg-[#080807]/95 px-1 py-3 backdrop-blur-xl lg:hidden">
+          <div className="flex h-10 items-center gap-3">
+            <button onClick={() => router.back()} className="rounded-lg border border-[#e7b43f]/20 bg-white/8 p-2 text-[#fff7df] transition hover:bg-white/12" aria-label="Volver">
+              <ChevronRight className="size-5 rotate-180" />
+            </button>
+            <h1 className="text-lg font-black text-[#fff7df]">{activeSection.label}</h1>
+          </div>
+          <div className="flex gap-2 overflow-x-auto pb-1">
+            {sections.filter(section => !section.hidden).map(({ href, label }) => {
+              const active = activeSection?.href === href
+              return (
+                <Link
+                  key={href}
+                  href={`/${tenantId}/admin/configuracion/${href}`}
+                  className={`shrink-0 rounded-full border px-4 py-2 text-xs font-black transition ${
+                    active
+                      ? 'border-[#e7b43f] bg-[#e7b43f] text-[#080704]'
+                      : 'border-[#e7b43f]/25 bg-white/8 text-[#fff7df] hover:bg-white/12'
+                  }`}
+                >
+                  {label}
+                </Link>
+              )
+            })}
+          </div>
         </div>
       ) : (
         <div className="mb-4 lg:hidden">
