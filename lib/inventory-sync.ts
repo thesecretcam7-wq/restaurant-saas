@@ -91,13 +91,97 @@ export async function ensureInventoryItemsForTenant(
 
   if (error) throw error;
 
-  for (const product of (products || []) as MenuItemForInventory[]) {
-    if (!product.id || !product.name?.trim()) continue;
-    await ensureInventoryItemForMenuItem(supabase, {
-      tenantId,
-      productId: product.id,
-      productName: product.name,
-    });
+  const productRows = ((products || []) as MenuItemForInventory[])
+    .filter(product => product.id && product.name?.trim())
+    .map(product => ({ id: product.id, name: product.name!.trim() }));
+
+  if (productRows.length === 0) return;
+
+  const linkedInventoryLookup = await supabase
+    .from('inventory')
+    .select('id, product_id, product_name')
+    .eq('tenant_id', tenantId);
+
+  const supportsProductId = !isMissingProductIdColumn(linkedInventoryLookup.error);
+  if (linkedInventoryLookup.error && supportsProductId) throw linkedInventoryLookup.error;
+
+  const inventoryLookup = supportsProductId
+    ? linkedInventoryLookup
+    : await supabase
+        .from('inventory')
+        .select('id, product_name')
+        .eq('tenant_id', tenantId);
+
+  if (inventoryLookup.error) throw inventoryLookup.error;
+
+  const existingRows = (inventoryLookup.data || []) as Array<{
+    id: string;
+    product_id?: string | null;
+    product_name?: string | null;
+  }>;
+
+  const existingByProductId = new Map(
+    existingRows
+      .filter(row => row.product_id)
+      .map(row => [row.product_id as string, row])
+  );
+  const existingByName = new Map(
+    existingRows
+      .filter(row => row.product_name?.trim())
+      .map(row => [row.product_name!.trim().toLowerCase(), row])
+  );
+
+  const inserts: Record<string, unknown>[] = [];
+  const updates: Promise<unknown>[] = [];
+
+  for (const product of productRows) {
+    const existingItem = supportsProductId
+      ? existingByProductId.get(product.id)
+      : existingByName.get(product.name.toLowerCase());
+
+    if (existingItem?.id) {
+      if (supportsProductId && existingItem.product_name !== product.name) {
+        updates.push(
+          supabase
+            .from('inventory')
+            .update({
+              product_name: product.name,
+              updated_at: new Date().toISOString(),
+            })
+            .eq('id', existingItem.id)
+        );
+      }
+      continue;
+    }
+
+    const insertPayload: Record<string, unknown> = {
+      tenant_id: tenantId,
+      product_name: product.name,
+      current_stock: 0,
+      min_stock: 0,
+      max_stock: 100,
+      cost_per_unit: 0,
+    };
+
+    if (supportsProductId) {
+      insertPayload.product_id = product.id;
+    }
+
+    inserts.push(insertPayload);
+  }
+
+  if (inserts.length > 0) {
+    const { error: insertError } = await supabase
+      .from('inventory')
+      .insert(inserts);
+
+    if (insertError) throw insertError;
+  }
+
+  if (updates.length > 0) {
+    const results = await Promise.all(updates);
+    const failedUpdate = results.find((result: any) => result?.error);
+    if (failedUpdate) throw (failedUpdate as any).error;
   }
 }
 

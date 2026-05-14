@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, useMemo } from 'react';
-import { createClient } from '@supabase/supabase-js';
+import { createClient } from '@/lib/supabase/client';
 import { Users } from 'lucide-react';
 
 interface Table {
@@ -38,12 +38,7 @@ export function TableMap({ tenantId, occupiedTableNumbers, selectedTableNumber, 
   const [tables, setTables] = useState<Table[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const supabase = useMemo(() =>
-    createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-    ), []
-  );
+  const supabase = useMemo(() => createClient(), []);
 
   useEffect(() => {
     supabase

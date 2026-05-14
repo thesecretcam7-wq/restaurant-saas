@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState, useCallback } from 'react';
-import { createClient } from '@supabase/supabase-js';
+import { createClient } from '@/lib/supabase/client';
 import {
   BellRing,
   CheckCircle2,
@@ -21,10 +21,7 @@ import {
 import { useWakeLock } from '@/lib/hooks/useWakeLock';
 import LanguageSwitcher, { useI18n } from '@/components/LanguageSwitcher';
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
+const supabase = createClient();
 
 interface OrderItemWithOrder {
   id: string;

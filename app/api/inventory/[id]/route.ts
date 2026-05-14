@@ -62,6 +62,36 @@ export async function DELETE(
     await requireTenantAccess(tenantId, { staffRoles: ['admin'] });
     const supabase = createServiceClient();
 
+    const { error: recipeError } = await supabase
+      .from('product_recipes')
+      .delete()
+      .eq('inventory_id', id)
+      .eq('tenant_id', tenantId);
+
+    if (recipeError && recipeError.code !== '42P01') {
+      return NextResponse.json({ error: recipeError.message }, { status: 500 });
+    }
+
+    const { error: alertError } = await supabase
+      .from('stock_alerts')
+      .delete()
+      .eq('inventory_id', id)
+      .eq('tenant_id', tenantId);
+
+    if (alertError && alertError.code !== '42P01') {
+      return NextResponse.json({ error: alertError.message }, { status: 500 });
+    }
+
+    const { error: movementError } = await supabase
+      .from('stock_movements')
+      .delete()
+      .eq('inventory_id', id)
+      .eq('tenant_id', tenantId);
+
+    if (movementError && movementError.code !== '42P01') {
+      return NextResponse.json({ error: movementError.message }, { status: 500 });
+    }
+
     const { error } = await supabase
       .from('inventory')
       .delete()

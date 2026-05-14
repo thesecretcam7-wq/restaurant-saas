@@ -1,7 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import { NextRequest, NextResponse } from 'next/server';
 import { requireTenantAccess, tenantAuthErrorResponse } from '@/lib/tenant-api-auth';
-import { ensureInventoryItemsForTenant } from '@/lib/inventory-sync';
 
 function toNumber(value: unknown, fallback = 0) {
   if (value === undefined || value === null || value === '') return fallback;
@@ -25,23 +24,29 @@ export async function GET(request: NextRequest) {
   try {
     await requireTenantAccess(tenantId, { staffRoles: ['admin'] });
 
-    await ensureInventoryItemsForTenant(supabase, tenantId);
-
-    const { data: inventory, error } = await supabase
+    const inventoryRequest = supabase
       .from('inventory')
       .select('*')
       .eq('tenant_id', tenantId)
       .order('product_name');
 
+    const alertsRequest = includeAlerts
+      ? supabase
+          .from('stock_alerts')
+          .select('*')
+          .eq('tenant_id', tenantId)
+          .eq('is_resolved', false)
+      : Promise.resolve({ data: null, error: null });
+
+    const [{ data: inventory, error }, { data: alerts, error: alertsError }] = await Promise.all([
+      inventoryRequest,
+      alertsRequest,
+    ]);
+
     if (error) throw error;
+    if (alertsError) throw alertsError;
 
     if (includeAlerts) {
-      const { data: alerts } = await supabase
-        .from('stock_alerts')
-        .select('*')
-        .eq('tenant_id', tenantId)
-        .eq('is_resolved', false);
-
       return NextResponse.json({ inventory, alerts });
     }
 

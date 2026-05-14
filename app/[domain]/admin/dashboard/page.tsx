@@ -169,11 +169,11 @@ export default async function DashboardPage({ params }: DashboardProps) {
 
   const onboardingSteps = [
     {
-      label: 'Personaliza tu marca',
-      description: 'Logo, colores y nombre publico.',
+      label: 'Configura tu restaurante',
+      description: 'Nombre, contacto y datos publicos.',
       done: hasBranding,
-      href: `/${tenantSlug}/admin/configuracion/branding`,
-      icon: Palette,
+      href: `/${tenantSlug}/admin/configuracion/restaurante`,
+      icon: Store,
     },
     {
       label: 'Completa informacion del restaurante',

@@ -52,11 +52,12 @@ export default function CashClosingsPage() {
           .limit(50)
 
         if (!error && data) {
+          const closingRows = data as CashClosing[]
           const missingStaffIds = Array.from(new Set(
-            data
+            closingRows
               .filter(closing => !closing.staff_name && closing.staff_id)
               .map(closing => closing.staff_id)
-              .filter(Boolean)
+              .filter((staffId): staffId is string => Boolean(staffId))
           ))
 
           let staffById = new Map<string, string>()
@@ -66,10 +67,10 @@ export default function CashClosingsPage() {
               .select('id, name')
               .in('id', missingStaffIds)
 
-            staffById = new Map((staffRows || []).map(staff => [staff.id, staff.name]))
+            staffById = new Map(((staffRows || []) as { id: string; name: string }[]).map(staff => [staff.id, staff.name]))
           }
 
-          setClosings(data.map(closing => ({
+          setClosings(closingRows.map(closing => ({
             ...closing,
             staff_name: closing.staff_name || (closing.staff_id ? staffById.get(closing.staff_id) : '') || 'Sin asignar',
           })))

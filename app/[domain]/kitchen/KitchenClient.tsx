@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import Image from 'next/image';
-import { createClient } from '@supabase/supabase-js';
+import { createClient } from '@/lib/supabase/client';
 import { formatPriceWithCurrency, getCurrencyByCountry } from '@/lib/currency';
 import LanguageSwitcher, { useI18n } from '@/components/LanguageSwitcher';
 import {
@@ -20,10 +20,7 @@ import {
   X,
 } from 'lucide-react';
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
+const supabase = createClient();
 
 interface Category { id: string; name: string; sort_order: number; }
 interface MenuItem { id: string; name: string; price: number; category_id: string; description: string | null; image_url: string | null; }
