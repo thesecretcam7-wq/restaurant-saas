@@ -1832,6 +1832,23 @@ body:has(.admin-app-shell) {
     rgba(255,255,255,0.055) !important;
 }
 
+.admin-app-shell select {
+  color: #fff4d8 !important;
+  background-color: #2a261e !important;
+  border-color: rgba(217,164,65,0.36) !important;
+}
+
+.admin-app-shell select option {
+  color: #15130f !important;
+  background-color: #fff8e8 !important;
+  font-weight: 800;
+}
+
+.admin-app-shell select option:checked {
+  color: #080704 !important;
+  background-color: #d9a441 !important;
+}
+
 .admin-app-shell .admin-page :where(.bg-\[\#15130f\]) {
   border-color: rgba(255,194,71,0.20) !important;
   background:
