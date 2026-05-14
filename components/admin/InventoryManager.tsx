@@ -306,8 +306,8 @@ export function InventoryManager({ tenantId }: { tenantId: string }) {
         )}
         {/* Add Form Modal */}
         {showAddForm && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/55 p-4 backdrop-blur-sm">
-            <div className="admin-panel w-full max-w-2xl overflow-hidden">
+          <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/55 p-4 backdrop-blur-sm sm:items-center">
+            <div className="admin-panel my-4 w-full max-w-2xl overflow-hidden">
               <div className="flex items-start justify-between gap-4 border-b border-black/10 bg-white/70 px-6 py-5">
                 <div className="flex items-start gap-4">
                   <span className="flex size-12 flex-shrink-0 items-center justify-center rounded-xl bg-[#15130f] text-white shadow-sm">
@@ -452,8 +452,8 @@ export function InventoryManager({ tenantId }: { tenantId: string }) {
         )}
 
         {editingItem && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/55 p-4 backdrop-blur-sm">
-            <div className="admin-panel w-full max-w-2xl overflow-hidden">
+          <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/55 p-4 backdrop-blur-sm sm:items-center">
+            <div className="admin-panel my-4 w-full max-w-2xl overflow-hidden">
               <div className="flex items-start justify-between gap-4 border-b border-black/10 bg-white/70 px-6 py-5">
                 <div className="flex items-start gap-4">
                   <span className="flex size-12 flex-shrink-0 items-center justify-center rounded-xl bg-[#15130f] text-white shadow-sm">
