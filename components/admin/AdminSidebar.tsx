@@ -33,7 +33,6 @@ import {
 import { detectAdminSection, getSectionColorVar } from '@/lib/colors'
 import { StoreStatusToggle } from './StoreStatusToggle'
 import LanguageSwitcher, { useI18n } from '@/components/LanguageSwitcher'
-import { AdminMobileMenuTrigger } from './AdminMobileMenuTrigger'
 
 interface NavLink {
   href: string
@@ -245,8 +244,6 @@ export function AdminSidebar({
       <aside className="admin-sidebar hidden md:flex fixed inset-y-0 left-0 z-30 w-64 flex-col border-r border-black/10 bg-[#15130f] shadow-2xl shadow-black/10">
         {sidebarContent}
       </aside>
-
-      <AdminMobileMenuTrigger onOpen={() => setOpen(true)} />
 
       <div className="fixed inset-x-0 top-0 z-[2147483644] flex h-16 items-center justify-between border-b border-[#e7b43f]/20 bg-[#080807]/95 px-3 shadow-2xl shadow-black/30 backdrop-blur-xl md:hidden">
         <button
