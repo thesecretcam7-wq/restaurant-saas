@@ -6,7 +6,6 @@ import {
   CalendarDays,
   ChevronRight,
   Clock3,
-  CreditCard,
   Globe2,
   LayoutTemplate,
   Printer,
@@ -14,6 +13,7 @@ import {
   Store,
   Truck,
   UsersRound,
+  WalletCards,
 } from 'lucide-react'
 
 const sections = [
@@ -22,9 +22,9 @@ const sections = [
   { href: 'personal', label: 'Personal', desc: 'Empleados, roles y PINs', Icon: UsersRound },
   { href: 'horarios', label: 'Horarios', desc: 'Dias y horas de atencion', Icon: Clock3 },
   { href: 'delivery', label: 'Delivery y pagos', desc: 'Tarifas, metodos, impuestos', Icon: Truck },
+  { href: 'pagos', label: 'Pagos online', desc: 'Stripe, Wompi y conexiones por pais', Icon: WalletCards },
   { href: 'reservas', label: 'Reservas', desc: 'Mesas, capacidad y anticipacion', Icon: CalendarDays },
   { href: 'impresoras', label: 'Impresoras', desc: 'Tickets y dispositivos USB', Icon: Printer },
-  { href: 'stripe', label: 'Stripe', desc: 'Cuenta de cobro e integracion', Icon: CreditCard },
   { href: 'dominio', label: 'Dominio', desc: 'Dominio propio y URLs', Icon: Globe2 },
   { href: 'planes', label: 'Plan', desc: 'Suscripcion y limites', Icon: Settings },
 ]
