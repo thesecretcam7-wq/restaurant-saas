@@ -127,7 +127,7 @@ export function PaymentsOnlineForm({ tenantId, mode = 'full' }: Props) {
                 : 'Aqui se configura el pais, la moneda y las conexiones de pago disponibles para la tienda.'}
             </p>
 
-            <div id="pais-moneda" className="mt-4 grid scroll-mt-32 gap-4 md:grid-cols-2">
+            <div id="pais-moneda" className={`mt-4 grid scroll-mt-32 gap-4 ${isWompiMode ? '' : 'md:grid-cols-2'}`}>
               <label className="block">
                 <span className="text-xs font-black uppercase text-black/42">Pais real del restaurante</span>
                 <select
@@ -147,19 +147,7 @@ export function PaymentsOnlineForm({ tenantId, mode = 'full' }: Props) {
                 <span className="mt-1 block text-xs font-semibold text-black/35">No depende de donde abras el panel.</span>
               </label>
 
-              {isWompiMode ? (
-                <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
-                  <span className="text-xs font-black uppercase text-amber-900">Proveedor</span>
-                  <p className="mt-1 text-sm font-black text-[#15130f]">
-                    Wompi Colombia · Moneda actual: {currencyInfo.code}
-                  </p>
-                  {!isColombia && (
-                    <p className="mt-1 text-xs font-semibold leading-5 text-amber-900">
-                      Cambia el pais a Colombia para habilitar las credenciales de Wompi.
-                    </p>
-                  )}
-                </div>
-              ) : (
+              {!isWompiMode && (
                 <label id="wompi-configuracion" className="block scroll-mt-32">
                   <span className="text-xs font-black uppercase text-black/42">Proveedor activo</span>
                   <select
@@ -181,6 +169,12 @@ export function PaymentsOnlineForm({ tenantId, mode = 'full' }: Props) {
             </div>
           </div>
         </div>
+
+        {isWompiMode && !isColombia && (
+          <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-semibold leading-6 text-amber-900">
+            Cambia el pais real del restaurante a Colombia para habilitar las credenciales de Wompi.
+          </div>
+        )}
 
         <label className="flex cursor-pointer items-center justify-between rounded-xl border border-black/10 bg-white p-4">
           <span>
