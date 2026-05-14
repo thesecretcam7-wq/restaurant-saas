@@ -4,7 +4,10 @@ import { useEffect, useState } from 'react'
 import { CreditCard, ReceiptText, Save, ShieldCheck } from 'lucide-react'
 import { getCurrencyByCountry } from '@/lib/currency'
 
-interface Props { tenantId: string }
+interface Props {
+  tenantId: string
+  mode?: 'full' | 'wompi'
+}
 
 const COUNTRY_OPTIONS = [
   { code: 'ES', label: 'Espana' },
@@ -16,7 +19,7 @@ const COUNTRY_OPTIONS = [
   { code: 'CL', label: 'Chile' },
 ]
 
-export function PaymentsOnlineForm({ tenantId }: Props) {
+export function PaymentsOnlineForm({ tenantId, mode = 'full' }: Props) {
   const [form, setForm] = useState({
     delivery_enabled: false,
     delivery_fee: '0',
@@ -67,6 +70,7 @@ export function PaymentsOnlineForm({ tenantId }: Props) {
   }, [tenantId])
 
   const isColombia = String(form.country || '').toUpperCase() === 'CO'
+  const isWompiMode = mode === 'wompi'
   const currencyInfo = getCurrencyByCountry(form.country)
 
   const handleSave = async (e: React.FormEvent) => {
@@ -77,14 +81,19 @@ export function PaymentsOnlineForm({ tenantId }: Props) {
       const res = await fetch('/api/tenant/delivery', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ tenantId, ...form }),
+        body: JSON.stringify({
+          tenantId,
+          ...form,
+          online_payment_provider: isWompiMode && isColombia ? 'wompi' : form.online_payment_provider,
+          wompi_enabled: isWompiMode && !isColombia ? false : form.wompi_enabled,
+        }),
       })
       const data = await res.json()
       if (!res.ok) {
         setMessage(`Error: ${data.error || 'No se pudo guardar'}`)
         return
       }
-      setMessage('Pagos online guardados')
+      setMessage(isWompiMode ? 'Wompi guardado' : 'Pagos online guardados')
       setTimeout(() => setMessage(''), 3000)
     } catch {
       setMessage('Error al guardar')
@@ -98,7 +107,7 @@ export function PaymentsOnlineForm({ tenantId }: Props) {
   }
 
   return (
-    <form id="pagos-online-form" method="post" onSubmit={handleSave} className="admin-panel scroll-mt-32 overflow-hidden">
+    <form id={isWompiMode ? 'wompi-configuracion' : 'pagos-online-form'} method="post" onSubmit={handleSave} className="admin-panel scroll-mt-32 overflow-hidden">
       {message && (
         <div className={`border-b px-5 py-4 text-sm font-black ${message.startsWith('Pagos') ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'}`}>
           {message}
@@ -111,9 +120,11 @@ export function PaymentsOnlineForm({ tenantId }: Props) {
             <CreditCard className="size-5" />
           </span>
           <div className="flex-1">
-            <h2 className="font-black text-[#15130f]">Proveedor de pago online</h2>
+            <h2 className="font-black text-[#15130f]">{isWompiMode ? 'Configuracion Wompi' : 'Proveedor de pago online'}</h2>
             <p className="mt-1 text-sm font-semibold text-black/45">
-              Aqui se configura el pais, la moneda y las conexiones de pago disponibles para la tienda.
+              {isWompiMode
+                ? 'Configura el pais real del restaurante y las credenciales de Wompi Colombia.'
+                : 'Aqui se configura el pais, la moneda y las conexiones de pago disponibles para la tienda.'}
             </p>
 
             <div id="pais-moneda" className="mt-4 grid scroll-mt-32 gap-4 md:grid-cols-2">
@@ -136,23 +147,37 @@ export function PaymentsOnlineForm({ tenantId }: Props) {
                 <span className="mt-1 block text-xs font-semibold text-black/35">No depende de donde abras el panel.</span>
               </label>
 
-              <label id="wompi-configuracion" className="block scroll-mt-32">
-                <span className="text-xs font-black uppercase text-black/42">Proveedor activo</span>
-                <select
-                  value={form.online_payment_provider}
-                  onChange={e => setForm(f => ({
-                    ...f,
-                    online_payment_provider: e.target.value,
-                    wompi_enabled: e.target.value === 'wompi' ? f.wompi_enabled : false,
-                  }))}
-                  className="mt-2 w-full rounded-xl border border-black/10 bg-white px-4 py-3 text-sm font-black text-[#15130f] outline-none transition focus:border-[#15130f]"
-                >
-                  <option value="stripe">Stripe</option>
-                  <option value="wompi" disabled={!isColombia}>Wompi Colombia</option>
-                  <option value="none">Sin pago online</option>
-                </select>
-                <span className="mt-1 block text-xs font-semibold text-black/35">Moneda actual: {currencyInfo.code}</span>
-              </label>
+              {isWompiMode ? (
+                <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
+                  <span className="text-xs font-black uppercase text-amber-900">Proveedor</span>
+                  <p className="mt-1 text-sm font-black text-[#15130f]">
+                    Wompi Colombia · Moneda actual: {currencyInfo.code}
+                  </p>
+                  {!isColombia && (
+                    <p className="mt-1 text-xs font-semibold leading-5 text-amber-900">
+                      Cambia el pais a Colombia para habilitar las credenciales de Wompi.
+                    </p>
+                  )}
+                </div>
+              ) : (
+                <label id="wompi-configuracion" className="block scroll-mt-32">
+                  <span className="text-xs font-black uppercase text-black/42">Proveedor activo</span>
+                  <select
+                    value={form.online_payment_provider}
+                    onChange={e => setForm(f => ({
+                      ...f,
+                      online_payment_provider: e.target.value,
+                      wompi_enabled: e.target.value === 'wompi' ? f.wompi_enabled : false,
+                    }))}
+                    className="mt-2 w-full rounded-xl border border-black/10 bg-white px-4 py-3 text-sm font-black text-[#15130f] outline-none transition focus:border-[#15130f]"
+                  >
+                    <option value="stripe">Stripe</option>
+                    <option value="wompi" disabled={!isColombia}>Wompi Colombia</option>
+                    <option value="none">Sin pago online</option>
+                  </select>
+                  <span className="mt-1 block text-xs font-semibold text-black/35">Moneda actual: {currencyInfo.code}</span>
+                </label>
+              )}
             </div>
           </div>
         </div>
@@ -170,7 +195,7 @@ export function PaymentsOnlineForm({ tenantId }: Props) {
           />
         </label>
 
-        {isColombia && form.online_payment_provider === 'wompi' && (
+        {isColombia && (isWompiMode || form.online_payment_provider === 'wompi') && (
           <div id="wompi-settings" className="scroll-mt-32 rounded-2xl border border-amber-200 bg-amber-50/80 p-4">
             <div className="flex gap-3">
               <span className="flex size-10 items-center justify-center rounded-xl bg-[#15130f] text-amber-300">
@@ -192,7 +217,7 @@ export function PaymentsOnlineForm({ tenantId }: Props) {
               <input
                 type="checkbox"
                 checked={form.wompi_enabled}
-                onChange={e => setForm(f => ({ ...f, wompi_enabled: e.target.checked }))}
+                onChange={e => setForm(f => ({ ...f, wompi_enabled: e.target.checked, online_payment_provider: e.target.checked ? 'wompi' : f.online_payment_provider }))}
                 className="size-5"
               />
             </label>
@@ -263,7 +288,7 @@ export function PaymentsOnlineForm({ tenantId }: Props) {
       <div className="flex justify-end border-t border-black/10 p-5">
         <button type="submit" disabled={saving} className="admin-button-primary inline-flex items-center gap-2 disabled:opacity-50">
           <Save className="size-4" />
-          {saving ? 'Guardando...' : 'Guardar pagos online'}
+          {saving ? 'Guardando...' : isWompiMode ? 'Guardar Wompi' : 'Guardar pagos online'}
         </button>
       </div>
     </form>

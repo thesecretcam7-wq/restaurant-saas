@@ -23,6 +23,8 @@ const sections = [
   { href: 'horarios', label: 'Horarios', desc: 'Dias y horas de atencion', Icon: Clock3 },
   { href: 'delivery', label: 'Delivery', desc: 'Tarifas y tiempos de domicilio', Icon: Truck },
   { href: 'pagos', label: 'Pagos online', desc: 'Stripe, Wompi y conexiones por pais', Icon: WalletCards },
+  { href: 'stripe', label: 'Stripe', desc: 'Configuracion de Stripe', Icon: WalletCards, hidden: true },
+  { href: 'wompi', label: 'Wompi', desc: 'Configuracion de Wompi', Icon: WalletCards, hidden: true },
   { href: 'reservas', label: 'Reservas', desc: 'Mesas, capacidad y anticipacion', Icon: CalendarDays },
   { href: 'impresoras', label: 'Impresoras', desc: 'Tickets y dispositivos USB', Icon: Printer },
   { href: 'dominio', label: 'Dominio', desc: 'Dominio propio y URLs', Icon: Globe2 },

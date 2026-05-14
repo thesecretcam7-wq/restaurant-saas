@@ -2,7 +2,6 @@ import Link from 'next/link'
 import { createServiceClient } from '@/lib/supabase/server'
 import { CreditCard, MapPin, ShieldCheck, Smartphone, WalletCards } from 'lucide-react'
 import { getCurrencyByCountry } from '@/lib/currency'
-import { PaymentsOnlineForm } from './PaymentsOnlineForm'
 
 interface Props { params: Promise<{ domain: string }> }
 
@@ -73,7 +72,7 @@ export default async function PagosOnlinePage({ params }: Props) {
       name: 'Wompi',
       countryLabel: 'Colombia',
       description: 'Pagos online en pesos colombianos para comercios registrados en Colombia.',
-      href: '#wompi-configuracion',
+      href: `/${tenantSlug}/admin/configuracion/wompi`,
       Icon: Smartphone,
       status: wompiStatus,
       available: wompiAvailable,
@@ -137,8 +136,6 @@ export default async function PagosOnlinePage({ params }: Props) {
           </article>
         ))}
       </div>
-
-      {tenant?.id && <PaymentsOnlineForm tenantId={tenant.id} />}
 
       <section className="admin-panel p-5">
         <div className="flex gap-3">
