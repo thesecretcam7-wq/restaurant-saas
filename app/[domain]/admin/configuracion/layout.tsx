@@ -21,7 +21,7 @@ const sections = [
   { href: 'restaurante', label: 'Restaurante', desc: 'Nombre, ubicacion y datos publicos', Icon: Store },
   { href: 'personal', label: 'Personal', desc: 'Empleados, roles y PINs', Icon: UsersRound },
   { href: 'horarios', label: 'Horarios', desc: 'Dias y horas de atencion', Icon: Clock3 },
-  { href: 'delivery', label: 'Delivery y pagos', desc: 'Tarifas, metodos, impuestos', Icon: Truck },
+  { href: 'delivery', label: 'Delivery', desc: 'Tarifas y tiempos de domicilio', Icon: Truck },
   { href: 'pagos', label: 'Pagos online', desc: 'Stripe, Wompi y conexiones por pais', Icon: WalletCards },
   { href: 'reservas', label: 'Reservas', desc: 'Mesas, capacidad y anticipacion', Icon: CalendarDays },
   { href: 'impresoras', label: 'Impresoras', desc: 'Tickets y dispositivos USB', Icon: Printer },
