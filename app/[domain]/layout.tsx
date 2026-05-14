@@ -27,7 +27,6 @@ export async function generateMetadata({
   const { domain } = await params
   const context = await getTenantContext(domain)
   const restaurantName = getRestaurantDisplayName(context)
-  const brandedTitle = `${restaurantName} | Eccofood`
   const tenantSlug = context.tenant?.slug || domain
   const tenantAppleIconUrl = `/${tenantSlug}/apple-touch-icon.png`
   const tenantIcon192Url = `/${tenantSlug}/icon-192.png`
@@ -40,8 +39,8 @@ export async function generateMetadata({
 
   return {
     title: {
-      default: brandedTitle,
-      template: `%s | ${restaurantName} | Eccofood`,
+      default: restaurantName,
+      template: `%s | ${restaurantName}`,
     },
     description: context.branding?.tagline || context.branding?.description || `Tienda online de ${restaurantName}`,
     applicationName: restaurantName,
@@ -50,6 +49,10 @@ export async function generateMetadata({
       capable: true,
       statusBarStyle: 'default',
       title: restaurantName,
+    },
+    other: {
+      'apple-mobile-web-app-title': restaurantName,
+      'mobile-web-app-capable': 'yes',
     },
     icons: {
       icon: [
@@ -60,7 +63,7 @@ export async function generateMetadata({
     },
     openGraph: {
       type: 'website',
-      title: brandedTitle,
+      title: restaurantName,
       description: context.branding?.tagline || context.branding?.description || `Tienda online de ${restaurantName}`,
       images: openGraphImageUrl ? [{ url: openGraphImageUrl }] : undefined,
     },

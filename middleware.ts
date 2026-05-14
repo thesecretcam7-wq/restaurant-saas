@@ -15,6 +15,12 @@ const PUBLIC_PATHS = new Set([
   '/manifest.webmanifest',
   '/sw.js',
 ])
+const TENANT_PWA_IDENTITY_PATHS = new Set([
+  '/manifest.webmanifest',
+  '/apple-touch-icon.png',
+  '/icon-192.png',
+  '/icon-512.png',
+])
 
 type TenantRoute = { id: string; slug: string }
 type StaffSession = {
@@ -82,6 +88,10 @@ function withStoreHeaders(request: NextRequest, slug: string) {
   return requestHeaders
 }
 
+function isTenantPwaIdentityPath(pathname: string) {
+  return TENANT_PWA_IDENTITY_PATHS.has(pathname)
+}
+
 function getOperationalAccess(pathname: string) {
   const slugMatch = pathname.match(SLUG_PATH_REGEX)
   const slug = slugMatch?.[1] || ''
@@ -138,6 +148,22 @@ export async function middleware(request: NextRequest) {
     const tenant = await getTenantByDomain(hostname)
     if (tenant) {
       url.pathname = `/${tenant.slug}`
+      return NextResponse.rewrite(url, { request: { headers: withStoreHeaders(request, tenant.slug) } })
+    }
+  }
+
+  if (!hostname.includes(BASE_DOMAIN) && isTenantPwaIdentityPath(pathname)) {
+    const tenant = await getTenantByDomain(hostname)
+    if (tenant) {
+      url.pathname = `/${tenant.slug}${pathname}`
+      return NextResponse.rewrite(url, { request: { headers: withStoreHeaders(request, tenant.slug) } })
+    }
+  }
+
+  if (earlySubdomain && earlySubdomain !== 'www' && earlySubdomain !== 'app' && isTenantPwaIdentityPath(pathname)) {
+    const tenant = await getTenantBySlug(earlySubdomain)
+    if (tenant) {
+      url.pathname = `/${tenant.slug}${pathname}`
       return NextResponse.rewrite(url, { request: { headers: withStoreHeaders(request, tenant.slug) } })
     }
   }
