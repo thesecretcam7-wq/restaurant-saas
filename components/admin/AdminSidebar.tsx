@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import type { ComponentType } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
@@ -123,6 +123,12 @@ export function AdminSidebar({
   const pathname = usePathname()
   const storeUrl = getRestaurantStoreUrl(tenantSlug)
   const { tr } = useI18n()
+
+  useEffect(() => {
+    const openMenu = () => setOpen(true)
+    window.addEventListener('eccofood:open-admin-menu', openMenu)
+    return () => window.removeEventListener('eccofood:open-admin-menu', openMenu)
+  }, [])
 
   const sidebarContent = (
     <>
