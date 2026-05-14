@@ -3,6 +3,12 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireTenantAccess, tenantAuthErrorResponse } from '@/lib/tenant-api-auth';
 import { ensureInventoryItemsForTenant } from '@/lib/inventory-sync';
 
+function toNumber(value: unknown, fallback = 0) {
+  if (value === undefined || value === null || value === '') return fallback;
+  const parsed = Number(String(value).replace(',', '.'));
+  return Number.isFinite(parsed) ? parsed : NaN;
+}
+
 export async function GET(request: NextRequest) {
   const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -57,33 +63,57 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
     const { tenantId, productName, sku, minStock, maxStock, initialStock, costPerUnit, supplier } = body;
+    const normalizedName = String(productName || '').trim();
+    const normalizedSku = String(sku || '').trim();
+    const parsedMinStock = Math.max(0, Math.trunc(toNumber(minStock, 5)));
+    const parsedMaxStock = Math.max(0, Math.trunc(toNumber(maxStock, 100)));
+    const parsedInitialStock = Math.max(0, Math.trunc(toNumber(initialStock, 0)));
+    const parsedCost = toNumber(costPerUnit);
 
-    if (!tenantId || !productName || !costPerUnit) {
+    if (!tenantId || !normalizedName || !Number.isFinite(parsedCost) || parsedCost < 0) {
       return NextResponse.json(
-        { error: 'Missing required fields' },
+        { error: 'Completa producto y costo unitario con valores validos' },
         { status: 400 }
       );
     }
     await requireTenantAccess(tenantId, { staffRoles: ['admin'] });
+
+    if (normalizedSku) {
+      const { data: existingSku, error: skuError } = await supabase
+        .from('inventory')
+        .select('id')
+        .eq('tenant_id', tenantId)
+        .eq('sku', normalizedSku)
+        .maybeSingle();
+
+      if (skuError) throw skuError;
+      if (existingSku?.id) {
+        return NextResponse.json({ error: 'Ese SKU ya existe en el inventario' }, { status: 409 });
+      }
+    }
 
     const { data, error } = await supabase
       .from('inventory')
       .insert([
         {
           tenant_id: tenantId,
-          product_name: productName,
-          sku: sku || null,
-          min_stock: minStock || 5,
-          max_stock: maxStock || 100,
-          cost_per_unit: costPerUnit,
-          supplier: supplier || null,
-          current_stock: Number(initialStock) || 0,
+          product_name: normalizedName,
+          sku: normalizedSku || null,
+          min_stock: parsedMinStock,
+          max_stock: parsedMaxStock,
+          cost_per_unit: parsedCost,
+          supplier: String(supplier || '').trim() || null,
+          current_stock: parsedInitialStock,
+          unit: 'unidad',
         },
       ])
       .select()
       .single();
 
-    if (error) throw error;
+    if (error) {
+      console.error('Inventory insert error:', error);
+      return NextResponse.json({ error: error.message || 'No se pudo guardar en inventario' }, { status: 500 });
+    }
 
     return NextResponse.json(data, { status: 201 });
   } catch (error) {
@@ -91,6 +121,6 @@ export async function POST(request: NextRequest) {
       return tenantAuthErrorResponse(error);
     }
     console.error('Error creating inventory item:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    return NextResponse.json({ error: error instanceof Error ? error.message : 'No se pudo guardar en inventario' }, { status: 500 });
   }
 }

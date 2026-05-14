@@ -50,6 +50,8 @@ export function InventoryManager({ tenantId }: { tenantId: string }) {
   const [alerts, setAlerts] = useState<StockAlert[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAddForm, setShowAddForm] = useState(false);
+  const [savingAdd, setSavingAdd] = useState(false);
+  const [addError, setAddError] = useState('');
   const [selectedItem, setSelectedItem] = useState<string | null>(null);
   const [editingItem, setEditingItem] = useState<InventoryItem | null>(null);
   const [savingEdit, setSavingEdit] = useState(false);
@@ -86,7 +88,10 @@ export function InventoryManager({ tenantId }: { tenantId: string }) {
 
   async function addInventoryItem(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    const formData = new FormData(e.currentTarget);
+    const form = e.currentTarget;
+    const formData = new FormData(form);
+    setSavingAdd(true);
+    setAddError('');
 
     try {
       const response = await fetch('/api/inventory', {
@@ -105,12 +110,17 @@ export function InventoryManager({ tenantId }: { tenantId: string }) {
         }),
       });
 
-      if (!response.ok) throw new Error('Failed to add item');
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.error || 'No se pudo agregar el producto al inventario');
 
+      form.reset();
       setShowAddForm(false);
       await fetchInventory();
     } catch (error) {
       console.error('Error adding inventory item:', error);
+      setAddError(error instanceof Error ? error.message : 'No se pudo agregar el producto al inventario');
+    } finally {
+      setSavingAdd(false);
     }
   }
 
@@ -256,7 +266,10 @@ export function InventoryManager({ tenantId }: { tenantId: string }) {
             </p>
           </div>
           <button
-            onClick={() => setShowAddForm(true)}
+            onClick={() => {
+              setAddError('');
+              setShowAddForm(true);
+            }}
             className="admin-button-primary"
           >
             <Plus className="w-5 h-5" /> Agregar Producto
@@ -332,6 +345,12 @@ export function InventoryManager({ tenantId }: { tenantId: string }) {
               </div>
 
               <form onSubmit={addInventoryItem} className="space-y-5 p-6">
+                {addError && (
+                  <div className="rounded-xl border border-red-300 bg-red-50 px-4 py-3 text-sm font-black text-red-700">
+                    {addError}
+                  </div>
+                )}
+
                 <div>
                   <label className="mb-2 block text-xs font-black uppercase text-black/45">Producto *</label>
                   <input
@@ -422,16 +441,18 @@ export function InventoryManager({ tenantId }: { tenantId: string }) {
                   <button
                     type="button"
                     onClick={() => setShowAddForm(false)}
-                    className="admin-button-ghost sm:w-auto"
+                    disabled={savingAdd}
+                    className="admin-button-ghost sm:w-auto disabled:opacity-50"
                   >
                     Cancelar
                   </button>
                   <button
                     type="submit"
-                    className="admin-button-primary sm:w-auto"
+                    disabled={savingAdd}
+                    className="admin-button-primary sm:w-auto disabled:opacity-50"
                   >
                     <Plus className="size-4" />
-                    Agregar al inventario
+                    {savingAdd ? 'Guardando...' : 'Agregar al inventario'}
                   </button>
                 </div>
               </form>
