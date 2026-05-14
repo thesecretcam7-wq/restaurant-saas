@@ -239,7 +239,7 @@ export function AdminSidebar({
         {sidebarContent}
       </aside>
 
-      <div className="fixed inset-x-0 top-0 z-[70] flex h-16 items-center justify-between border-b border-[#e7b43f]/20 bg-[#080807]/95 px-3 shadow-2xl shadow-black/30 backdrop-blur-xl md:hidden">
+      <div className="fixed inset-x-0 top-0 z-[9997] flex h-16 items-center justify-between border-b border-[#e7b43f]/20 bg-[#080807]/95 px-3 shadow-2xl shadow-black/30 backdrop-blur-xl md:hidden">
         <button
           className="inline-flex h-11 items-center gap-2 rounded-xl border border-[#e7b43f]/35 bg-[#e7b43f] px-4 text-sm font-black text-[#0a0805] shadow-lg shadow-[#e7b43f]/20 active:scale-95"
           onClick={() => setOpen(true)}
@@ -255,12 +255,22 @@ export function AdminSidebar({
         </div>
       </div>
 
+      <button
+        className="fixed bottom-[calc(env(safe-area-inset-bottom)+1rem)] left-4 z-[9998] inline-flex h-14 items-center gap-2 rounded-2xl border border-[#f2cf82]/45 bg-gradient-to-br from-[#f2cf82] via-[#d9a441] to-[#b85c1f] px-5 text-base font-black text-[#080704] shadow-[0_18px_60px_rgba(217,164,65,0.35)] active:scale-95 md:hidden"
+        onClick={() => setOpen(true)}
+        aria-label={tr('admin.openMenu')}
+        type="button"
+      >
+        <Menu className="size-6" />
+        Menu
+      </button>
+
       {open && (
-        <div className="fixed inset-0 z-[80] bg-black/70 backdrop-blur-sm md:hidden" onClick={() => setOpen(false)} />
+        <div className="fixed inset-0 z-[9998] bg-black/70 backdrop-blur-sm md:hidden" onClick={() => setOpen(false)} />
       )}
 
       <aside
-        className={`admin-sidebar fixed inset-y-0 left-0 z-[90] flex max-h-dvh w-[min(92vw,22rem)] flex-col bg-[#15130f] shadow-2xl transition-transform duration-200 md:hidden ${
+        className={`admin-sidebar fixed inset-y-0 left-0 z-[9999] flex max-h-dvh w-[min(92vw,22rem)] flex-col bg-[#15130f] shadow-2xl transition-transform duration-200 md:hidden ${
           open ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
