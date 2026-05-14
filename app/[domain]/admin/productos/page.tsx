@@ -1,6 +1,7 @@
 import { createServiceClient } from '@/lib/supabase/server'
 import Link from 'next/link'
 import ProductosClient from './ProductosClient'
+import { getCurrencyByCountry } from '@/lib/currency'
 
 interface Props {
   params: Promise<{ domain: string }>
@@ -25,7 +26,7 @@ export default async function ProductosPage({ params }: Props) {
 
   const { data: tenant } = await supabase
     .from('tenants')
-    .select('id')
+    .select('id, country')
     .eq(isUUID ? 'id' : 'slug', domain)
     .single()
 
@@ -37,13 +38,15 @@ export default async function ProductosPage({ params }: Props) {
     )
   }
 
-  const [catRes, itemRes] = await Promise.all([
+  const [catRes, itemRes, settingsRes] = await Promise.all([
     supabase.from('menu_categories').select('id, name, sort_order').eq('tenant_id', tenant.id).order('sort_order'),
     supabase.from('menu_items').select('id, name, description, price, category_id, image_url, available, featured').eq('tenant_id', tenant.id).order('name'),
+    supabase.from('restaurant_settings').select('country').eq('tenant_id', tenant.id).maybeSingle(),
   ])
 
   const categories: Category[] = catRes.data || []
   const products: Product[] = itemRes.data || []
+  const currencyInfo = getCurrencyByCountry(settingsRes.data?.country || tenant.country || 'ES')
 
   return (
     <ProductosClient
@@ -51,7 +54,7 @@ export default async function ProductosPage({ params }: Props) {
       categories={categories}
       initialProducts={products}
       tenantId={tenant.id}
+      currencyInfo={currencyInfo}
     />
   )
 }
-

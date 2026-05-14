@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import toast from 'react-hot-toast'
 import { ChefHat, Edit3, PackageOpen, Plus, Search, Sparkles } from 'lucide-react'
+import { formatPriceWithCurrency } from '@/lib/currency'
 
 interface Category { id: string; name: string; sort_order: number }
 interface Product {
@@ -22,11 +23,13 @@ export default function ProductosClient({
   domain,
   categories,
   initialProducts,
+  currencyInfo,
 }: {
   domain: string
   categories: Category[]
   initialProducts: Product[]
   tenantId: string
+  currencyInfo: { code: string; locale: string }
 }) {
   const [products, setProducts] = useState<Product[]>(initialProducts)
   const [togglingId, setTogglingId] = useState<string | null>(null)
@@ -117,6 +120,7 @@ export default function ProductosClient({
                 domain={domain}
                 togglingId={togglingId}
                 onToggle={toggleAvailable}
+                currencyInfo={currencyInfo}
               />
             ))}
             {uncategorized.length > 0 && (
@@ -126,6 +130,7 @@ export default function ProductosClient({
                 domain={domain}
                 togglingId={togglingId}
                 onToggle={toggleAvailable}
+                currencyInfo={currencyInfo}
               />
             )}
           </>
@@ -147,6 +152,7 @@ function CategoryGroup({
   domain,
   togglingId,
   onToggle,
+  currencyInfo,
 }: {
   name: string
   editHref?: string
@@ -154,6 +160,7 @@ function CategoryGroup({
   domain: string
   togglingId: string | null
   onToggle: (p: Product) => void
+  currencyInfo: { code: string; locale: string }
 }) {
   return (
     <section className="admin-panel overflow-hidden">
@@ -183,6 +190,7 @@ function CategoryGroup({
             domain={domain}
             toggling={togglingId === product.id}
             onToggle={onToggle}
+            currencyInfo={currencyInfo}
           />
         ))}
       </div>
@@ -195,11 +203,13 @@ function ProductRow({
   domain,
   toggling,
   onToggle,
+  currencyInfo,
 }: {
   product: Product
   domain: string
   toggling: boolean
   onToggle: (p: Product) => void
+  currencyInfo: { code: string; locale: string }
 }) {
   return (
     <div className="grid gap-3 px-5 py-4 transition hover:bg-white/70 sm:grid-cols-[1fr_auto] sm:items-center">
@@ -217,7 +227,9 @@ function ProductRow({
             {product.featured && <Sparkles className="size-4 flex-shrink-0 text-[#c47a16]" />}
           </span>
           {product.description && <span className="mt-0.5 block truncate text-xs font-semibold text-black/45">{product.description}</span>}
-          <span className="mt-1 block text-sm font-black text-[#e43d30]">${Number(product.price).toLocaleString('es-CO')}</span>
+          <span className="mt-1 block text-sm font-black text-[#e43d30]">
+            {formatPriceWithCurrency(Number(product.price || 0), currencyInfo.code, currencyInfo.locale)}
+          </span>
         </span>
       </Link>
 

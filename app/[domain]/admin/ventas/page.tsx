@@ -6,6 +6,7 @@ import UpgradeGate from '@/components/admin/UpgradeGate'
 import { BarChart3, PackageOpen, ReceiptText, ShoppingBag, TrendingUp, Wallet } from 'lucide-react'
 import { VoidSaleButton } from '@/components/admin/VoidSaleButton'
 import { ReprintReceiptButton } from '@/components/admin/ReprintReceiptButton'
+import { formatPriceWithCurrency, getCurrencyByCountry } from '@/lib/currency'
 
 interface Props {
   params: Promise<{ domain: string }>
@@ -25,13 +26,17 @@ export default async function VentasPage({ params }: Props) {
   const startOfLastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1).toISOString()
   const startOf7Days = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString()
 
-  const [allOrdersRes, monthOrdersRes, lastMonthRes, weekOrdersRes, topItemsRes] = await Promise.all([
+  const [allOrdersRes, monthOrdersRes, lastMonthRes, weekOrdersRes, topItemsRes, tenantRes, settingsRes] = await Promise.all([
     supabase.from('orders').select('id, order_number, total, payment_status, status, created_at').eq('tenant_id', tenantId).order('created_at', { ascending: false }).limit(500),
     supabase.from('orders').select('total, status').eq('tenant_id', tenantId).gte('created_at', startOfMonth),
     supabase.from('orders').select('total, status').eq('tenant_id', tenantId).gte('created_at', startOfLastMonth).lt('created_at', startOfMonth),
     supabase.from('orders').select('total, status').eq('tenant_id', tenantId).gte('created_at', startOf7Days),
     supabase.from('orders').select('items, status').eq('tenant_id', tenantId).gte('created_at', startOfMonth),
+    supabase.from('tenants').select('country').eq('id', tenantId).maybeSingle(),
+    supabase.from('restaurant_settings').select('country').eq('tenant_id', tenantId).maybeSingle(),
   ])
+  const currencyInfo = getCurrencyByCountry(settingsRes.data?.country || tenantRes.data?.country || 'ES')
+  const money = (value: number) => formatPriceWithCurrency(Number(value || 0), currencyInfo.code, currencyInfo.locale)
 
   const allOrders = allOrdersRes.data || []
   const monthOrders = monthOrdersRes.data || []
@@ -61,9 +66,9 @@ export default async function VentasPage({ params }: Props) {
   }
   const topProducts = Object.values(productCounts).sort((a, b) => b.qty - a.qty).slice(0, 5)
   const formatChartMoney = (value: number) => {
-    if (value >= 1000000) return `$${(value / 1000000).toFixed(value >= 10000000 ? 0 : 1)}M`
-    if (value >= 1000) return `$${Math.round(value / 1000)}k`
-    return `$${value.toLocaleString('es-CO')}`
+    if (value >= 1000000) return `${currencyInfo.symbol}${(value / 1000000).toFixed(value >= 10000000 ? 0 : 1)}M`
+    if (value >= 1000) return `${currencyInfo.symbol}${Math.round(value / 1000)}k`
+    return money(value)
   }
 
   const dayLabels: string[] = []
@@ -90,17 +95,17 @@ export default async function VentasPage({ params }: Props) {
       {allCountableOrders.length > 0 && monthCount === 0 && (
         <div className="admin-panel mb-5 flex flex-col gap-2 border-amber-200 bg-amber-50/80 p-4 text-amber-900 md:flex-row md:items-center md:justify-between">
           <p className="text-sm font-black">Hay ventas registradas, pero ninguna cae dentro del mes actual.</p>
-          <p className="text-xs font-bold">Historico: {allCountableOrders.length} pedidos - ${totalRevenue.toLocaleString('es-CO')}</p>
+          <p className="text-xs font-bold">Historico: {allCountableOrders.length} pedidos - {money(totalRevenue)}</p>
         </div>
       )}
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
         {[
-          { label: 'Ingresos del mes', value: `$${monthRevenue.toLocaleString('es-CO')}`, icon: Wallet, helper: growthPct === null ? 'Sin comparativo' : `${growthPct >= 0 ? '+' : ''}${growthPct.toFixed(1)}% vs mes anterior` },
+          { label: 'Ingresos del mes', value: money(monthRevenue), icon: Wallet, helper: growthPct === null ? 'Sin comparativo' : `${growthPct >= 0 ? '+' : ''}${growthPct.toFixed(1)}% vs mes anterior` },
           { label: 'Pedidos del mes', value: monthCount.toLocaleString('es-CO'), icon: ShoppingBag, helper: 'Pedidos no cancelados' },
-          { label: 'Ticket promedio', value: `$${avgTicket.toLocaleString('es-CO', { maximumFractionDigits: 0 })}`, icon: ReceiptText, helper: 'Ingreso medio por pedido' },
-          { label: 'Ultimos 7 dias', value: `$${weekRevenue.toLocaleString('es-CO')}`, icon: TrendingUp, helper: `${weekCount} pedidos` },
-          { label: 'Ventas registradas', value: `$${totalRevenue.toLocaleString('es-CO')}`, icon: BarChart3, helper: `${allCountableOrders.length} pedidos en historial` },
+          { label: 'Ticket promedio', value: money(avgTicket), icon: ReceiptText, helper: 'Ingreso medio por pedido' },
+          { label: 'Ultimos 7 dias', value: money(weekRevenue), icon: TrendingUp, helper: `${weekCount} pedidos` },
+          { label: 'Ventas registradas', value: money(totalRevenue), icon: BarChart3, helper: `${allCountableOrders.length} pedidos en historial` },
         ].map(({ label, value, icon: Icon, helper }) => (
           <article key={label} className="admin-card p-5">
             <div className="flex items-center justify-between">
@@ -155,7 +160,7 @@ export default async function VentasPage({ params }: Props) {
                       <div className="h-full rounded-full bg-[#15130f]" style={{ width: `${(product.qty / topProducts[0].qty) * 100}%` }} />
                     </div>
                   </div>
-                  <p className="w-24 text-right text-xs font-black text-[#e43d30]">${product.revenue.toLocaleString('es-CO')}</p>
+                  <p className="w-24 text-right text-xs font-black text-[#e43d30]">{money(product.revenue)}</p>
                 </div>
               ))}
             </div>
@@ -193,7 +198,7 @@ export default async function VentasPage({ params }: Props) {
                       {order.status === 'delivered' ? 'Entregado' : order.status === 'cancelled' ? 'Cancelado' : 'En proceso'}
                     </span>
                   </td>
-                  <td className="px-5 py-3 text-right font-black text-[#15130f]">${Number(order.total).toLocaleString('es-CO')}</td>
+                  <td className="px-5 py-3 text-right font-black text-[#15130f]">{money(Number(order.total))}</td>
                   <td className="px-5 py-3 text-right">
                     {order.payment_status === 'paid' ? (
                       <div className="flex flex-wrap justify-end gap-2">
