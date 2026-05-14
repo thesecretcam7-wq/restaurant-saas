@@ -3,6 +3,7 @@ export const revalidate = 0
 export const dynamicParams = true
 
 import Link from 'next/link'
+import type { CSSProperties } from 'react'
 import { cookies, headers } from 'next/headers'
 import { createClient } from '@/lib/supabase/server'
 import { getTenantContext } from '@/lib/tenant'
@@ -118,12 +119,12 @@ export default async function HomePage({ params }: HomePageProps) {
     textSecondary: branding?.text_secondary_color,
     border: branding?.border_color,
   })
-  const primary = palette.primary
-  const secondary = palette.secondary
-  const accent = palette.accent
-  const buttonPrimary = palette.buttonPrimary
-  const background = palette.background
-  const sectionSurface = palette.surface
+  const primary = '#e7b43f'
+  const secondary = '#191612'
+  const accent = '#ffcf64'
+  const buttonPrimary = '#e7b43f'
+  const background = '#050505'
+  const sectionSurface = '#151410'
   const appName = branding?.app_name || tenant.organization_name
   const tagline = branding?.tagline || settings?.description || ''
   const heroImage = hero.image_url || (branding as any)?.hero_image_url || (branding as any)?.hero?.image_url
@@ -136,15 +137,27 @@ export default async function HomePage({ params }: HomePageProps) {
   const heroSubtitle = hero.subtitle_text || tagline
   const featuredText = (branding as any)?.featured_text?.trim()
   const sectionBackgroundImage = (branding as any)?.section_background_image_url || ''
-  const pageBackgroundStyle = sectionBackgroundImage
-    ? {
-        backgroundColor: background,
-        backgroundImage: `linear-gradient(${background}db, ${background}db), url(${sectionBackgroundImage})`,
-        backgroundSize: 'cover',
-        backgroundPosition: 'center',
-        backgroundAttachment: 'fixed',
-      }
-    : { backgroundColor: background }
+  const pageBackgroundStyle = {
+    '--primary-color': primary,
+    '--secondary-color': secondary,
+    '--button-primary-color': buttonPrimary,
+    '--button-secondary-color': '#28231a',
+    '--price-color': accent,
+    '--brand-background-color': background,
+    '--brand-surface-color': sectionSurface,
+    '--brand-soft-color': 'rgba(255, 247, 223, 0.08)',
+    '--brand-text-color': '#fff7df',
+    '--brand-muted-color': 'rgba(255, 247, 223, 0.66)',
+    backgroundColor: background,
+    ...(sectionBackgroundImage
+      ? {
+          backgroundImage: `linear-gradient(rgba(5,5,5,.84), rgba(5,5,5,.94)), url(${sectionBackgroundImage})`,
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
+          backgroundAttachment: 'fixed',
+        }
+      : {}),
+  } as CSSProperties
   const mergedSocial = {
     ...social,
     instagram: social.instagram || branding?.instagram_url || '',
@@ -162,7 +175,33 @@ export default async function HomePage({ params }: HomePageProps) {
   const formatMoney = (value: number) => formatPriceWithCurrency(Number(value || 0), currencyInfo.code, currencyInfo.locale)
 
   return (
-    <div className="store-surface min-h-screen overflow-hidden pb-8 text-[#15130f]" style={pageBackgroundStyle}>
+    <div className="ecco-store-premium store-surface min-h-screen overflow-hidden pb-8 pt-[calc(4rem+env(safe-area-inset-top))] text-[#fff7df]" style={pageBackgroundStyle}>
+      <header className="fixed left-0 right-0 top-0 z-50 border-b border-[#e7b43f]/20 bg-[#080807]/95 backdrop-blur-xl" style={{ paddingTop: 'env(safe-area-inset-top)' }}>
+        <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
+          <Link href={tenantHomePath} className="flex min-w-0 items-center gap-3">
+            {tenant.logo_url ? (
+              <span className="flex h-11 w-20 flex-shrink-0 items-center justify-center overflow-visible">
+                <img src={tenant.logo_url} alt={appName} className="max-h-full max-w-full scale-150 object-contain drop-shadow-xl" />
+              </span>
+            ) : (
+              <span className="grid size-11 flex-shrink-0 place-items-center rounded-2xl border border-[#e7b43f]/28 bg-[#e7b43f]/15 text-lg font-black text-[#ffcf64]">
+                {appName.slice(0, 1).toUpperCase()}
+              </span>
+            )}
+            <span className="min-w-0">
+              <span className="block truncate text-sm font-black text-[#fff7df] sm:text-base">{appName}</span>
+              <span className="block truncate text-[11px] font-black uppercase tracking-[0.16em] text-[#e7b43f]">{tr('store.onlineOrder')}</span>
+            </span>
+          </Link>
+          <div className="flex items-center gap-2">
+            <LanguageSwitcher compact className="border-[#e7b43f]/25 bg-white/8 text-[#fff7df] [&_select]:text-[#fff7df]" reloadOnChange />
+            <Link href={`${tenantBasePath}/menu`} className="inline-flex h-11 items-center justify-center rounded-2xl bg-gradient-to-br from-[#ffcf64] via-[#d9a441] to-[#ff6a1a] px-4 text-sm font-black text-[#080704] shadow-[0_14px_34px_rgba(231,180,63,.25)] transition hover:scale-[1.02] sm:px-5">
+              {tr('store.viewMenu')}
+            </Link>
+          </div>
+        </div>
+      </header>
+
       <section className="relative overflow-hidden" style={{ minHeight: heroMinHeight }}>
         <div className="absolute inset-0">
           {heroImage ? (
@@ -171,32 +210,9 @@ export default async function HomePage({ params }: HomePageProps) {
             <div className="h-full w-full" style={{ background: `linear-gradient(135deg, ${primary}, ${secondary}, #111111)` }} />
           )}
           <div className="absolute inset-0" style={{ background: `linear-gradient(90deg, rgba(0,0,0,${Math.min(heroOverlay + 0.25, 0.86)}) 0%, rgba(0,0,0,${heroOverlay}) 48%, rgba(0,0,0,0.22) 100%)` }} />
-          <div className="absolute inset-x-0 bottom-0 h-36" style={{ background: `linear-gradient(to top, ${background}, transparent)` }} />
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_18%_16%,rgba(231,180,63,.2),transparent_24rem),radial-gradient(circle_at_92%_6%,rgba(255,106,26,.16),transparent_24rem)]" />
+          <div className="absolute inset-x-0 bottom-0 h-48" style={{ background: `linear-gradient(to top, ${background}, transparent)` }} />
         </div>
-
-        <header className="relative z-10 mx-auto flex max-w-7xl items-center justify-between px-4 py-5 sm:px-6 lg:px-8">
-          <Link href={tenantHomePath} className="flex min-w-0 items-center gap-3">
-            {hero.show_logo && tenant.logo_url ? (
-              <span className="flex h-12 w-28 flex-shrink-0 items-center justify-center overflow-visible sm:w-36 lg:w-44">
-                <img src={tenant.logo_url} alt={appName} className="max-h-full max-w-full scale-150 object-contain drop-shadow-xl sm:scale-[1.85] lg:scale-[2.15]" />
-              </span>
-            ) : (
-              <span className="flex size-12 items-center justify-center rounded-2xl border border-white/20 bg-white/15 text-lg font-black text-white backdrop-blur-md">
-                {appName.slice(0, 1).toUpperCase()}
-              </span>
-            )}
-            <span className="min-w-0">
-              <span className="block truncate text-base font-black text-white">{appName}</span>
-              <span className="block truncate text-xs font-bold uppercase text-white/70">{tr('store.onlineOrder')}</span>
-            </span>
-          </Link>
-          <div className="flex items-center gap-2">
-            <LanguageSwitcher compact className="border-white/20 bg-white/16 text-white [&_select]:text-white" reloadOnChange />
-            <Link href={`${tenantBasePath}/menu`} className={`hidden px-5 py-3 text-sm font-black text-white shadow-xl transition hover:scale-[1.02] sm:inline-flex ${btnCls}`} style={{ backgroundColor: buttonPrimary }}>
-              {tr('store.viewMenu')}
-            </Link>
-          </div>
-        </header>
 
         <div className="relative z-10 mx-auto grid max-w-7xl gap-10 px-4 pb-16 pt-14 sm:px-6 lg:grid-cols-[minmax(0,1fr)_380px] lg:px-8 lg:pb-24 lg:pt-24">
           <div className="max-w-3xl">
@@ -212,17 +228,17 @@ export default async function HomePage({ params }: HomePageProps) {
               </p>
             )}
             {featuredText && (
-              <div className="mt-5 max-w-2xl rounded-2xl border border-white/18 bg-white/14 px-4 py-3 text-sm font-black leading-6 text-white shadow-xl backdrop-blur-md" style={{ boxShadow: `inset 4px 0 0 ${primary}` }}>
+              <div className="mt-5 max-w-2xl rounded-2xl border border-[#e7b43f]/22 bg-white/10 px-4 py-3 text-sm font-black leading-6 text-[#fff7df] shadow-xl backdrop-blur-md" style={{ boxShadow: `inset 4px 0 0 ${primary}` }}>
                 {featuredText}
               </div>
             )}
             {hero.show_info_pills && <InfoPills settings={settings} primary={primary} />}
             <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-              <Link href={`${tenantBasePath}/menu`} className={`inline-flex h-14 items-center justify-center px-7 text-sm font-black text-white shadow-2xl transition hover:scale-[1.02] ${btnCls}`} style={{ backgroundColor: buttonPrimary }}>
+              <Link href={`${tenantBasePath}/menu`} className="inline-flex h-14 items-center justify-center rounded-2xl bg-gradient-to-br from-[#ffcf64] via-[#d9a441] to-[#ff6a1a] px-7 text-sm font-black text-[#080704] shadow-[0_18px_44px_rgba(231,180,63,.28)] transition hover:scale-[1.02]">
                 {hero.cta_primary_text || tr('store.viewMenu')}
               </Link>
               {settings?.reservations_enabled && (
-                <Link href={`${tenantBasePath}/reservas`} className={`inline-flex h-14 items-center justify-center border border-white/35 bg-white/14 px-7 text-sm font-black text-white backdrop-blur-md transition hover:bg-white/22 ${btnCls}`}>
+                <Link href={`${tenantBasePath}/reservas`} className="inline-flex h-14 items-center justify-center rounded-2xl border border-[#e7b43f]/35 bg-white/10 px-7 text-sm font-black text-[#fff7df] backdrop-blur-md transition hover:bg-white/16">
                   {hero.cta_secondary_text || tr('store.reserve')}
                 </Link>
               )}
@@ -230,19 +246,19 @@ export default async function HomePage({ params }: HomePageProps) {
           </div>
 
           {featured.length > 0 && (
-            <div className="hidden self-end rounded-[28px] border border-white/18 bg-white/14 p-3 shadow-2xl backdrop-blur-xl lg:block">
-              <div className="rounded-[22px] bg-white p-4">
-                <p className="text-xs font-black uppercase text-black/45">{tr('store.favorites')}</p>
+            <div className="hidden self-end rounded-[28px] border border-[#e7b43f]/22 bg-white/10 p-3 shadow-2xl backdrop-blur-xl lg:block">
+              <div className="rounded-[22px] border border-[#e7b43f]/18 bg-[#151410]/92 p-4">
+                <p className="text-xs font-black uppercase text-[#e7b43f]">{tr('store.favorites')}</p>
                 <div className="mt-4 space-y-3">
                   {featured.slice(0, 3).map((item: any) => (
-                    <Link key={item.id} href={`${tenantBasePath}/menu`} className="flex items-center gap-3 rounded-2xl border border-black/8 p-2 transition hover:border-black/18 hover:bg-black/[0.025]">
+                    <Link key={item.id} href={`${tenantBasePath}/menu`} className="flex items-center gap-3 rounded-2xl border border-[#e7b43f]/14 p-2 transition hover:border-[#e7b43f]/30 hover:bg-white/[0.04]">
                       {item.image_url ? (
                         <img src={item.image_url} alt={item.name} className="size-16 rounded-xl object-cover" />
                       ) : (
                         <span className="size-16 rounded-xl" style={{ backgroundColor: `${primary}20` }} />
                       )}
                       <span className="min-w-0 flex-1">
-                        <span className="block truncate text-sm font-black text-[#15130f]">{item.name}</span>
+                        <span className="block truncate text-sm font-black text-[#fff7df]">{item.name}</span>
                         <span className="mt-1 block text-sm font-black" style={{ color: accent }}>{formatMoney(item.price)}</span>
                       </span>
                     </Link>

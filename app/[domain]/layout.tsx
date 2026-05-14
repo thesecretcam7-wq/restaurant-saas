@@ -6,6 +6,7 @@ import TenantAccessGuard from '@/components/TenantAccessGuard'
 import { getTenantAccessInfo } from '@/lib/tenant-access'
 import { deriveBrandPalette } from '@/lib/brand-colors'
 import type { Metadata } from 'next'
+import './(store)/store-premium.css'
 
 export const dynamic = 'force-dynamic'
 
