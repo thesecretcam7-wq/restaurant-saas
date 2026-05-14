@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import type { ComponentType } from 'react'
+import { createPortal } from 'react-dom'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import {
@@ -120,15 +121,19 @@ export function AdminSidebar({
   storeEnabled = true,
 }: AdminSidebarProps) {
   const [open, setOpen] = useState(false)
+  const [mounted, setMounted] = useState(false)
   const pathname = usePathname()
   const storeUrl = getRestaurantStoreUrl(tenantSlug)
   const { tr } = useI18n()
 
   useEffect(() => {
+    setMounted(true)
     const openMenu = () => setOpen(true)
     window.addEventListener('eccofood:open-admin-menu', openMenu)
     return () => window.removeEventListener('eccofood:open-admin-menu', openMenu)
   }, [])
+
+  const openMenu = () => setOpen(true)
 
   const sidebarContent = (
     <>
@@ -239,49 +244,63 @@ export function AdminSidebar({
     </>
   )
 
+  const mobileMenuLayer = mounted
+    ? createPortal(
+        <>
+          <button
+            className="fixed left-[max(0.85rem,env(safe-area-inset-left))] top-[calc(env(safe-area-inset-top)+0.85rem)] z-[2147483647] inline-flex h-12 items-center gap-2 rounded-2xl border border-[#f2cf82]/55 bg-gradient-to-br from-[#f2cf82] via-[#d9a441] to-[#b85c1f] px-4 text-sm font-black text-[#080704] shadow-[0_18px_60px_rgba(217,164,65,0.42)] active:scale-95 md:hidden"
+            onPointerDown={(event) => {
+              event.preventDefault()
+              event.stopPropagation()
+              openMenu()
+            }}
+            onTouchStart={(event) => {
+              event.preventDefault()
+              event.stopPropagation()
+              openMenu()
+            }}
+            onClick={(event) => {
+              event.preventDefault()
+              event.stopPropagation()
+              openMenu()
+            }}
+            aria-label={tr('admin.openMenu')}
+            type="button"
+          >
+            <Menu className="size-5" />
+            Menu
+          </button>
+
+          {open && (
+            <div className="fixed inset-0 z-[2147483645] bg-black/70 backdrop-blur-sm md:hidden" onClick={() => setOpen(false)} />
+          )}
+
+          <aside
+            className={`admin-sidebar fixed inset-y-0 left-0 z-[2147483646] flex max-h-dvh w-[min(92vw,22rem)] flex-col bg-[#15130f] shadow-2xl transition-transform duration-200 md:hidden ${
+              open ? 'translate-x-0' : '-translate-x-full'
+            }`}
+          >
+            {sidebarContent}
+          </aside>
+        </>,
+        document.body
+      )
+    : null
+
   return (
     <>
       <aside className="admin-sidebar hidden md:flex fixed inset-y-0 left-0 z-30 w-64 flex-col border-r border-black/10 bg-[#15130f] shadow-2xl shadow-black/10">
         {sidebarContent}
       </aside>
 
-      <div className="fixed inset-x-0 top-0 z-[2147483644] flex h-16 items-center justify-between border-b border-[#e7b43f]/20 bg-[#080807]/95 px-3 shadow-2xl shadow-black/30 backdrop-blur-xl md:hidden">
-        <button
-          className="inline-flex h-11 items-center gap-2 rounded-xl border border-[#e7b43f]/35 bg-[#e7b43f] px-4 text-sm font-black text-[#0a0805] shadow-lg shadow-[#e7b43f]/20 active:scale-95"
-          onClick={() => setOpen(true)}
-          aria-label={tr('admin.openMenu')}
-          type="button"
-        >
-          <Menu className="size-5" />
-          Menu
-        </button>
+      {mobileMenuLayer}
+
+      <div className="fixed inset-x-0 top-0 z-[2147483644] flex h-16 items-center justify-end border-b border-[#e7b43f]/20 bg-[#080807]/95 px-3 pl-32 shadow-2xl shadow-black/30 backdrop-blur-xl md:hidden">
         <div className="min-w-0 pl-3 text-right">
           <p className="truncate text-sm font-black text-[#fff7df]">{restaurantName}</p>
           <p className="text-[11px] font-bold uppercase tracking-wide text-[#e7b43f]">Panel operativo</p>
         </div>
       </div>
-
-      <button
-        className="fixed bottom-[calc(env(safe-area-inset-bottom)+1rem)] left-4 z-[9998] inline-flex h-14 items-center gap-2 rounded-2xl border border-[#f2cf82]/45 bg-gradient-to-br from-[#f2cf82] via-[#d9a441] to-[#b85c1f] px-5 text-base font-black text-[#080704] shadow-[0_18px_60px_rgba(217,164,65,0.35)] active:scale-95 md:hidden"
-        onClick={() => setOpen(true)}
-        aria-label={tr('admin.openMenu')}
-        type="button"
-      >
-        <Menu className="size-6" />
-        Menu
-      </button>
-
-      {open && (
-        <div className="fixed inset-0 z-[2147483645] bg-black/70 backdrop-blur-sm md:hidden" onClick={() => setOpen(false)} />
-      )}
-
-      <aside
-        className={`admin-sidebar fixed inset-y-0 left-0 z-[2147483646] flex max-h-dvh w-[min(92vw,22rem)] flex-col bg-[#15130f] shadow-2xl transition-transform duration-200 md:hidden ${
-          open ? 'translate-x-0' : '-translate-x-full'
-        }`}
-      >
-        {sidebarContent}
-      </aside>
     </>
   )
 }
