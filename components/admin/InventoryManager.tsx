@@ -341,7 +341,7 @@ export function InventoryManager({ tenantId }: { tenantId: string }) {
                       name="productName"
                       placeholder="Ej. Queso mozzarella, harina, salsa base"
                       required
-                      className="admin-input pl-10"
+                      className="admin-input pl-12"
                     />
                   </div>
                 </div>
@@ -352,11 +352,11 @@ export function InventoryManager({ tenantId }: { tenantId: string }) {
                     <div className="relative">
                       <Hash className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-black/32" />
                       <input
-                        type="text"
-                        name="sku"
-                        placeholder="Opcional"
-                        className="admin-input pl-10"
-                      />
+                      type="text"
+                      name="sku"
+                      placeholder="Opcional"
+                      className="admin-input pl-12"
+                    />
                     </div>
                   </div>
                   <div>
@@ -364,11 +364,11 @@ export function InventoryManager({ tenantId }: { tenantId: string }) {
                     <div className="relative">
                       <Truck className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-black/32" />
                       <input
-                        type="text"
-                        name="supplier"
-                        placeholder="Opcional"
-                        className="admin-input pl-10"
-                      />
+                      type="text"
+                      name="supplier"
+                      placeholder="Opcional"
+                      className="admin-input pl-12"
+                    />
                     </div>
                   </div>
                 </div>
@@ -418,7 +418,7 @@ export function InventoryManager({ tenantId }: { tenantId: string }) {
                         name="costPerUnit"
                         placeholder="0.00"
                         required
-                        className="admin-input pl-10"
+                        className="admin-input pl-12"
                       />
                     </div>
                   </div>
@@ -487,7 +487,7 @@ export function InventoryManager({ tenantId }: { tenantId: string }) {
                       name="productName"
                       defaultValue={editingItem.product_name}
                       required
-                      className="admin-input pl-10"
+                      className="admin-input pl-12"
                     />
                   </div>
                 </div>
@@ -501,7 +501,7 @@ export function InventoryManager({ tenantId }: { tenantId: string }) {
                         type="text"
                         name="sku"
                         defaultValue={editingItem.sku || ''}
-                        className="admin-input pl-10"
+                        className="admin-input pl-12"
                       />
                     </div>
                   </div>
@@ -513,7 +513,7 @@ export function InventoryManager({ tenantId }: { tenantId: string }) {
                         type="text"
                         name="supplier"
                         defaultValue={editingItem.supplier || ''}
-                        className="admin-input pl-10"
+                        className="admin-input pl-12"
                       />
                     </div>
                   </div>
@@ -551,7 +551,7 @@ export function InventoryManager({ tenantId }: { tenantId: string }) {
                         name="costPerUnit"
                         defaultValue={editingItem.cost_per_unit}
                         required
-                        className="admin-input pl-10"
+                        className="admin-input pl-12"
                       />
                     </div>
                   </div>
