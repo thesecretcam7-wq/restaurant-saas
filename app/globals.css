@@ -789,10 +789,6 @@ body {
   transition: 160ms ease;
 }
 
-.admin-input-with-icon {
-  padding-left: 3.25rem;
-}
-
 .admin-input:focus {
   border-color: #e43d30;
   box-shadow: 0 0 0 4px rgba(228, 61, 48, 0.10);

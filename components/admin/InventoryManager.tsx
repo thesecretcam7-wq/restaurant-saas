@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { createClient } from '@supabase/supabase-js';
-import { AlertTriangle, Plus, Minus, PackagePlus, X, Hash, Boxes, DollarSign, Truck, History, ReceiptText, Search, Pencil, Trash2 } from 'lucide-react';
+import { AlertTriangle, Plus, Minus, PackagePlus, X, History, ReceiptText, Search, Pencil, Trash2 } from 'lucide-react';
 import { NumericKeyboard } from './NumericKeyboard';
 
 const supabase = createClient(
@@ -334,42 +334,33 @@ export function InventoryManager({ tenantId }: { tenantId: string }) {
               <form onSubmit={addInventoryItem} className="space-y-5 p-6">
                 <div>
                   <label className="mb-2 block text-xs font-black uppercase text-black/45">Producto *</label>
-                  <div className="relative">
-                    <Boxes className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-black/32" />
-                    <input
-                      type="text"
-                      name="productName"
-                      placeholder="Ej. Queso mozzarella, harina, salsa base"
-                      required
-                      className="admin-input admin-input-with-icon"
-                    />
-                  </div>
+                  <input
+                    type="text"
+                    name="productName"
+                    placeholder="Ej. Queso mozzarella, harina, salsa base"
+                    required
+                    className="admin-input"
+                  />
                 </div>
 
                 <div className="grid gap-4 sm:grid-cols-2">
                   <div>
                     <label className="mb-2 block text-xs font-black uppercase text-black/45">SKU</label>
-                    <div className="relative">
-                      <Hash className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-black/32" />
-                      <input
+                    <input
                       type="text"
                       name="sku"
                       placeholder="Opcional"
-                      className="admin-input admin-input-with-icon"
+                      className="admin-input"
                     />
-                    </div>
                   </div>
                   <div>
                     <label className="mb-2 block text-xs font-black uppercase text-black/45">Proveedor</label>
-                    <div className="relative">
-                      <Truck className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-black/32" />
-                      <input
+                    <input
                       type="text"
                       name="supplier"
                       placeholder="Opcional"
-                      className="admin-input admin-input-with-icon"
+                      className="admin-input"
                     />
-                    </div>
                   </div>
                 </div>
 
@@ -409,18 +400,15 @@ export function InventoryManager({ tenantId }: { tenantId: string }) {
                   </div>
                   <div>
                     <label className="mb-2 block text-xs font-black uppercase text-black/45">Costo unitario *</label>
-                    <div className="relative">
-                      <DollarSign className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-black/32" />
-                      <input
-                        type="number"
-                        step="0.01"
-                        min="0"
-                        name="costPerUnit"
-                        placeholder="0.00"
-                        required
-                        className="admin-input admin-input-with-icon"
-                      />
-                    </div>
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      name="costPerUnit"
+                      placeholder="0.00"
+                      required
+                      className="admin-input"
+                    />
                   </div>
                 </div>
 
@@ -480,42 +468,33 @@ export function InventoryManager({ tenantId }: { tenantId: string }) {
               <form onSubmit={updateInventoryItem} className="space-y-5 p-6">
                 <div>
                   <label className="mb-2 block text-xs font-black uppercase text-black/45">Producto *</label>
-                  <div className="relative">
-                    <Boxes className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-black/32" />
-                    <input
-                      type="text"
-                      name="productName"
-                      defaultValue={editingItem.product_name}
-                      required
-                      className="admin-input admin-input-with-icon"
-                    />
-                  </div>
+                  <input
+                    type="text"
+                    name="productName"
+                    defaultValue={editingItem.product_name}
+                    required
+                    className="admin-input"
+                  />
                 </div>
 
                 <div className="grid gap-4 sm:grid-cols-2">
                   <div>
                     <label className="mb-2 block text-xs font-black uppercase text-black/45">SKU / codigo de barras</label>
-                    <div className="relative">
-                      <Hash className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-black/32" />
-                      <input
-                        type="text"
-                        name="sku"
-                        defaultValue={editingItem.sku || ''}
-                        className="admin-input admin-input-with-icon"
-                      />
-                    </div>
+                    <input
+                      type="text"
+                      name="sku"
+                      defaultValue={editingItem.sku || ''}
+                      className="admin-input"
+                    />
                   </div>
                   <div>
                     <label className="mb-2 block text-xs font-black uppercase text-black/45">Proveedor</label>
-                    <div className="relative">
-                      <Truck className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-black/32" />
-                      <input
-                        type="text"
-                        name="supplier"
-                        defaultValue={editingItem.supplier || ''}
-                        className="admin-input admin-input-with-icon"
-                      />
-                    </div>
+                    <input
+                      type="text"
+                      name="supplier"
+                      defaultValue={editingItem.supplier || ''}
+                      className="admin-input"
+                    />
                   </div>
                 </div>
 
@@ -542,18 +521,15 @@ export function InventoryManager({ tenantId }: { tenantId: string }) {
                   </div>
                   <div>
                     <label className="mb-2 block text-xs font-black uppercase text-black/45">Costo unitario *</label>
-                    <div className="relative">
-                      <DollarSign className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-black/32" />
-                      <input
-                        type="number"
-                        step="0.01"
-                        min="0"
-                        name="costPerUnit"
-                        defaultValue={editingItem.cost_per_unit}
-                        required
-                        className="admin-input admin-input-with-icon"
-                      />
-                    </div>
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      name="costPerUnit"
+                      defaultValue={editingItem.cost_per_unit}
+                      required
+                      className="admin-input"
+                    />
                   </div>
                 </div>
 
