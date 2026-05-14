@@ -93,7 +93,7 @@ export default function DeliveryForm({ tenantId }: Props) {
         </div>
       </div>
 
-      <form onSubmit={handleSave} className="admin-panel overflow-hidden">
+      <form method="post" onSubmit={handleSave} className="admin-panel overflow-hidden">
         {message && (
           <div className={`border-b px-5 py-4 text-sm font-black ${message.startsWith('Delivery') ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'}`}>
             {message}
