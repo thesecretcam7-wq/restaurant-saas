@@ -8,6 +8,11 @@ interface EnsureInventoryItemInput {
   productName: string;
 }
 
+interface MenuItemForInventory {
+  id: string;
+  name: string | null;
+}
+
 export async function ensureInventoryItemForMenuItem(
   supabase: SupabaseLike,
   { tenantId, productId, productName }: EnsureInventoryItemInput
@@ -73,6 +78,28 @@ export async function ensureInventoryItemForMenuItem(
 
   if (insertError) throw insertError;
   return inventoryItem;
+}
+
+export async function ensureInventoryItemsForTenant(
+  supabase: SupabaseLike,
+  tenantId: string
+) {
+  const { data: products, error } = await supabase
+    .from('menu_items')
+    .select('id, name')
+    .eq('tenant_id', tenantId)
+    .order('name', { ascending: true });
+
+  if (error) throw error;
+
+  for (const product of (products || []) as MenuItemForInventory[]) {
+    if (!product.id || !product.name?.trim()) continue;
+    await ensureInventoryItemForMenuItem(supabase, {
+      tenantId,
+      productId: product.id,
+      productName: product.name,
+    });
+  }
 }
 
 function isMissingProductIdColumn(error: any) {

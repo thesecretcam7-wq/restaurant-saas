@@ -1,6 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 import { NextRequest, NextResponse } from 'next/server';
 import { requireTenantAccess, tenantAuthErrorResponse } from '@/lib/tenant-api-auth';
+import { ensureInventoryItemsForTenant } from '@/lib/inventory-sync';
 
 export async function GET(request: NextRequest) {
   const supabase = createClient(
@@ -17,6 +18,8 @@ export async function GET(request: NextRequest) {
 
   try {
     await requireTenantAccess(tenantId, { staffRoles: ['admin'] });
+
+    await ensureInventoryItemsForTenant(supabase, tenantId);
 
     const { data: inventory, error } = await supabase
       .from('inventory')
