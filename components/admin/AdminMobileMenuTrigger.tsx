@@ -1,17 +1,28 @@
 'use client'
 
+import { useEffect, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { Menu } from 'lucide-react'
 
 export function AdminMobileMenuTrigger() {
-  return (
+  const [mounted, setMounted] = useState(false)
+
+  useEffect(() => {
+    setMounted(true)
+  }, [])
+
+  if (!mounted) return null
+
+  return createPortal(
     <button
       type="button"
       onClick={() => window.dispatchEvent(new Event('eccofood:open-admin-menu'))}
-      className="fixed left-4 top-[calc(env(safe-area-inset-top)+0.85rem)] z-[10000] inline-flex h-12 items-center gap-2 rounded-2xl border border-[#f2cf82]/45 bg-gradient-to-br from-[#f2cf82] via-[#d9a441] to-[#b85c1f] px-4 text-sm font-black text-[#080704] shadow-[0_18px_60px_rgba(217,164,65,0.35)] active:scale-95 md:hidden"
+      className="ecco-admin-mobile-menu-trigger md:hidden"
       aria-label="Abrir menu del panel"
     >
       <Menu className="size-5" />
       Menu
-    </button>
+    </button>,
+    document.body
   )
 }
