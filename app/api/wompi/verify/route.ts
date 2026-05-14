@@ -3,6 +3,7 @@ import { createServiceClient } from '@/lib/supabase/server'
 import { applyRecipeStockMovement } from '@/lib/inventory-recipes'
 import { getWompiApiBase, normalizeWompiStatus } from '@/lib/wompi'
 import { decryptServerSecret } from '@/lib/server-secret-box'
+import { getPaymentConfig, selectSettingsWithPaymentFallback } from '@/lib/payment-settings'
 
 async function createKitchenItemsIfNeeded(supabase: any, order: any) {
   if (!Array.isArray(order.items) || order.items.length === 0) return
@@ -59,12 +60,19 @@ export async function POST(request: NextRequest) {
 
     if (!order) return NextResponse.json({ error: 'Pedido no encontrado' }, { status: 404 })
 
-    const { data: settings } = await supabase
-      .from('restaurant_settings')
-      .select('wompi_environment, wompi_private_key')
-      .eq('tenant_id', order.tenant_id)
-      .maybeSingle()
+    const { data: settingsRow, error: settingsError } = await selectSettingsWithPaymentFallback(
+      supabase,
+      order.tenant_id,
+      'printer_settings, wompi_environment, wompi_private_key',
+      'printer_settings'
+    )
 
+    if (settingsError) {
+      console.error('[wompi/verify] settings error:', settingsError)
+      return NextResponse.json({ error: 'No pude leer la configuracion de Wompi' }, { status: 500 })
+    }
+
+    const settings = getPaymentConfig(settingsRow)
     const wompiPrivateKey = decryptServerSecret(settings?.wompi_private_key)
 
     if (!wompiPrivateKey) {

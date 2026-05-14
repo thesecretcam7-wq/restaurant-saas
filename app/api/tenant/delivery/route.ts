@@ -2,6 +2,11 @@ import { createServiceClient } from '@/lib/supabase/server'
 import { NextRequest, NextResponse } from 'next/server'
 import { requireTenantAccess, tenantAuthErrorResponse } from '@/lib/tenant-api-auth'
 import { encryptServerSecret } from '@/lib/server-secret-box'
+import {
+  getPaymentConfig,
+  mergePaymentConfigIntoPrinterSettings,
+  selectSettingsWithPaymentFallback,
+} from '@/lib/payment-settings'
 
 type SupabaseClient = ReturnType<typeof createServiceClient>
 
@@ -64,19 +69,28 @@ export async function PUT(request: NextRequest) {
 
     await requireTenantAccess(tenantId, { staffRoles: ['admin'], requireAdminPermission: true })
 
-    const { data: existingSettings } = await supabase
-      .from('restaurant_settings')
-      .select('display_name, country, wompi_private_key, wompi_integrity_key')
-      .eq('tenant_id', tenantId)
-      .maybeSingle()
-
     const { data: tenant } = await supabase
       .from('tenants')
       .select('organization_name, country')
       .eq('id', tenantId)
       .maybeSingle()
 
-    const country = normalizeCountry(data.country, existingSettings?.country || tenant?.country || 'ES')
+    const existingResult = await selectSettingsWithPaymentFallback(
+      supabase,
+      tenantId,
+      'display_name, country, delivery_enabled, delivery_fee, delivery_min_order, delivery_time_minutes, cash_payment_enabled, tax_rate, printer_settings, online_payment_provider, wompi_enabled, wompi_environment, wompi_public_key, wompi_private_key, wompi_integrity_key',
+      'display_name, country, delivery_enabled, delivery_fee, delivery_min_order, delivery_time_minutes, cash_payment_enabled, tax_rate, printer_settings'
+    )
+
+    if (existingResult.error) {
+      console.error('Error reading delivery settings before update:', existingResult.error)
+      return NextResponse.json({ error: 'No pude leer la configuracion actual del restaurante' }, { status: 500 })
+    }
+
+    const existingSettings = existingResult.data
+    const existingPayment = getPaymentConfig(existingSettings, tenant?.country || 'ES')
+
+    const country = normalizeCountry(data.country, existingPayment.country || tenant?.country || 'ES')
     const onlinePaymentProvider = normalizeProvider(data.online_payment_provider)
     const wompiEnabled = Boolean(data.wompi_enabled)
 
@@ -87,10 +101,10 @@ export async function PUT(request: NextRequest) {
     const wompiPublicKey = String(data.wompi_public_key || '').trim()
     const wompiPrivateKey = String(data.wompi_private_key || '').trim()
       ? encryptServerSecret(String(data.wompi_private_key || '').trim())
-      : existingSettings?.wompi_private_key || ''
+      : existingPayment.wompi_private_key || ''
     const wompiIntegrityKey = String(data.wompi_integrity_key || '').trim()
       ? encryptServerSecret(String(data.wompi_integrity_key || '').trim())
-      : existingSettings?.wompi_integrity_key || ''
+      : existingPayment.wompi_integrity_key || ''
 
     if (country === 'CO' && onlinePaymentProvider === 'wompi' && wompiEnabled) {
       if (!wompiPublicKey || !wompiPrivateKey || !wompiIntegrityKey) {
@@ -98,33 +112,51 @@ export async function PUT(request: NextRequest) {
       }
     }
 
+    const paymentPayload = {
+      online_payment_provider: onlinePaymentProvider,
+      wompi_enabled: country === 'CO' ? wompiEnabled : false,
+      wompi_environment: normalizeWompiEnvironment(data.wompi_environment),
+      wompi_public_key: wompiPublicKey || null,
+      wompi_private_key: wompiPrivateKey || null,
+      wompi_integrity_key: wompiIntegrityKey || null,
+    }
+
+    const settingsPayload: Record<string, any> = {
+      tenant_id: tenantId,
+      display_name: existingSettings?.display_name || tenant?.organization_name || 'Restaurante',
+      country,
+      delivery_enabled: data.delivery_enabled,
+      delivery_fee: deliveryFee || 0,
+      delivery_min_order: deliveryMinOrder || 0,
+      delivery_time_minutes: deliveryTimeMinutes || 30,
+      cash_payment_enabled: data.cash_payment_enabled,
+      tax_rate: taxRate || 0,
+      printer_settings: mergePaymentConfigIntoPrinterSettings(existingSettings?.printer_settings, paymentPayload),
+      updated_at: new Date().toISOString(),
+    }
+
+    if (existingResult.hasPaymentColumns) {
+      Object.assign(settingsPayload, paymentPayload)
+    }
+
+    const updatedSelect = existingResult.hasPaymentColumns
+      ? 'tenant_id, country, delivery_enabled, delivery_fee, delivery_min_order, delivery_time_minutes, cash_payment_enabled, tax_rate, printer_settings, online_payment_provider, wompi_enabled, wompi_environment, wompi_public_key, wompi_private_key, wompi_integrity_key'
+      : 'tenant_id, country, delivery_enabled, delivery_fee, delivery_min_order, delivery_time_minutes, cash_payment_enabled, tax_rate, printer_settings'
+
     const { data: updated, error } = await supabase
       .from('restaurant_settings')
-      .upsert({
-        tenant_id: tenantId,
-        display_name: existingSettings?.display_name || tenant?.organization_name || 'Restaurante',
-        country,
-        delivery_enabled: data.delivery_enabled,
-        delivery_fee: deliveryFee || 0,
-        delivery_min_order: deliveryMinOrder || 0,
-        delivery_time_minutes: deliveryTimeMinutes || 30,
-        cash_payment_enabled: data.cash_payment_enabled,
-        tax_rate: taxRate || 0,
-        online_payment_provider: onlinePaymentProvider,
-        wompi_enabled: country === 'CO' ? wompiEnabled : false,
-        wompi_environment: normalizeWompiEnvironment(data.wompi_environment),
-        wompi_public_key: wompiPublicKey || null,
-        wompi_private_key: wompiPrivateKey || null,
-        wompi_integrity_key: wompiIntegrityKey || null,
-        wompi_updated_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      }, { onConflict: 'tenant_id' })
-      .select()
+      .upsert(settingsPayload, { onConflict: 'tenant_id' })
+      .select(updatedSelect)
       .single()
 
     if (error) {
-      console.error('Error updating delivery settings:', error)
-      return NextResponse.json({ error: 'Error al guardar los cambios' }, { status: 500 })
+      console.error('Error updating delivery settings:', {
+        code: error.code,
+        message: error.message,
+        details: error.details,
+        hint: error.hint,
+      })
+      return NextResponse.json({ error: error.message || 'Error al guardar los cambios' }, { status: 500 })
     }
 
     const { error: tenantError } = await supabase
@@ -136,14 +168,17 @@ export async function PUT(request: NextRequest) {
       console.warn('Could not sync tenant country from delivery settings:', tenantError)
     }
 
+    const updatedPayment = getPaymentConfig(updated, country)
+
     return NextResponse.json({
       success: true,
       data: updated ? {
-        ...updated,
+        ...(updated as Record<string, any>),
+        ...updatedPayment,
         wompi_private_key: undefined,
         wompi_integrity_key: undefined,
-        wompi_has_private_key: Boolean(updated.wompi_private_key),
-        wompi_has_integrity_key: Boolean(updated.wompi_integrity_key),
+        wompi_has_private_key: Boolean(updatedPayment.wompi_private_key),
+        wompi_has_integrity_key: Boolean(updatedPayment.wompi_integrity_key),
       } : null,
       message: 'Configuracion de delivery actualizada',
     })
@@ -171,13 +206,15 @@ export async function GET(request: NextRequest) {
       .eq('id', tenantId)
       .maybeSingle()
 
-    const { data, error } = await supabase
-      .from('restaurant_settings')
-      .select('delivery_enabled, delivery_fee, delivery_min_order, delivery_time_minutes, cash_payment_enabled, tax_rate, country, online_payment_provider, wompi_enabled, wompi_environment, wompi_public_key, wompi_private_key, wompi_integrity_key')
-      .eq('tenant_id', tenantId)
-      .maybeSingle()
+    const { data, error } = await selectSettingsWithPaymentFallback(
+      supabase,
+      tenantId,
+      'delivery_enabled, delivery_fee, delivery_min_order, delivery_time_minutes, cash_payment_enabled, tax_rate, country, printer_settings, online_payment_provider, wompi_enabled, wompi_environment, wompi_public_key, wompi_private_key, wompi_integrity_key',
+      'delivery_enabled, delivery_fee, delivery_min_order, delivery_time_minutes, cash_payment_enabled, tax_rate, country, printer_settings'
+    )
 
     if (error) return NextResponse.json({ error: 'Error al obtener la configuracion' }, { status: 500 })
+    const paymentConfig = getPaymentConfig(data, tenant?.country || 'ES')
     return NextResponse.json({
       success: true,
       data: {
@@ -188,15 +225,15 @@ export async function GET(request: NextRequest) {
         delivery_time_minutes: data?.delivery_time_minutes ?? 30,
         cash_payment_enabled: data?.cash_payment_enabled ?? true,
         tax_rate: data?.tax_rate ?? 0,
-        country: data?.country || tenant?.country || 'ES',
-        online_payment_provider: data?.online_payment_provider ?? 'stripe',
-        wompi_enabled: data?.wompi_enabled ?? false,
-        wompi_environment: data?.wompi_environment ?? 'sandbox',
-        wompi_public_key: data?.wompi_public_key ?? '',
+        country: paymentConfig.country || tenant?.country || 'ES',
+        online_payment_provider: paymentConfig.online_payment_provider,
+        wompi_enabled: paymentConfig.wompi_enabled,
+        wompi_environment: paymentConfig.wompi_environment,
+        wompi_public_key: paymentConfig.wompi_public_key,
         wompi_private_key: undefined,
         wompi_integrity_key: undefined,
-        wompi_has_private_key: Boolean(data?.wompi_private_key),
-        wompi_has_integrity_key: Boolean(data?.wompi_integrity_key),
+        wompi_has_private_key: Boolean(paymentConfig.wompi_private_key),
+        wompi_has_integrity_key: Boolean(paymentConfig.wompi_integrity_key),
       },
     })
   } catch {

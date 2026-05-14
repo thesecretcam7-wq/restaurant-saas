@@ -1,5 +1,6 @@
 import { createServiceClient } from '@/lib/supabase/server'
 import { NextRequest, NextResponse } from 'next/server'
+import { getPaymentConfig, selectSettingsWithPaymentFallback } from '@/lib/payment-settings'
 
 async function resolveTenantId(supabase: ReturnType<typeof createServiceClient>, slugOrId: string) {
   const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
@@ -18,11 +19,12 @@ export async function GET(_: NextRequest, { params }: { params: Promise<{ tenant
   const { tenantId: slugOrId } = await params
   const supabase = createServiceClient()
   const tenantId = await resolveTenantId(supabase, slugOrId)
-  let { data, error } = await supabase
-    .from('restaurant_settings')
-    .select('delivery_enabled, delivery_fee, delivery_min_order, delivery_time_minutes, cash_payment_enabled, tax_rate, reservations_enabled, country, online_payment_provider, wompi_enabled, wompi_environment, wompi_public_key')
-    .eq('tenant_id', tenantId)
-    .maybeSingle()
+  let { data, error } = await selectSettingsWithPaymentFallback(
+    supabase,
+    tenantId,
+    'delivery_enabled, delivery_fee, delivery_min_order, delivery_time_minutes, cash_payment_enabled, tax_rate, reservations_enabled, country, printer_settings, online_payment_provider, wompi_enabled, wompi_environment, wompi_public_key',
+    'delivery_enabled, delivery_fee, delivery_min_order, delivery_time_minutes, cash_payment_enabled, tax_rate, reservations_enabled, country, printer_settings'
+  )
 
   if (error) {
     console.warn('[settings] full settings query failed, using safe fallback:', error.message)
@@ -37,10 +39,6 @@ export async function GET(_: NextRequest, { params }: { params: Promise<{ tenant
         delivery_time_minutes: null,
         reservations_enabled: false,
         country: null,
-        online_payment_provider: 'stripe',
-        wompi_enabled: false,
-        wompi_environment: 'sandbox',
-        wompi_public_key: null,
       } : null
   }
 
@@ -50,11 +48,15 @@ export async function GET(_: NextRequest, { params }: { params: Promise<{ tenant
     .eq('id', tenantId)
     .maybeSingle()
 
+  const paymentConfig = getPaymentConfig(data, tenant?.country || 'ES')
+
   return NextResponse.json({
     ...(data || {}),
     tenant_id: tenantId,
-    country: data?.country || tenant?.country || 'ES',
-    online_payment_provider: data?.online_payment_provider || 'stripe',
-    wompi_enabled: Boolean(data?.wompi_enabled && data?.wompi_public_key),
+    country: paymentConfig.country || tenant?.country || 'ES',
+    online_payment_provider: paymentConfig.online_payment_provider,
+    wompi_enabled: Boolean(paymentConfig.wompi_enabled && paymentConfig.wompi_public_key),
+    wompi_environment: paymentConfig.wompi_environment,
+    wompi_public_key: paymentConfig.wompi_public_key,
   })
 }

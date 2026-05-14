@@ -6,6 +6,7 @@ import { canCreateOrder } from '@/lib/checkPlan'
 import { syncCustomerFromOrder } from '@/lib/customer-sync'
 import { createWompiIntegritySignature, getWompiCheckoutUrl } from '@/lib/wompi'
 import { decryptServerSecret } from '@/lib/server-secret-box'
+import { getPaymentConfig, selectSettingsWithPaymentFallback } from '@/lib/payment-settings'
 
 export async function POST(request: NextRequest) {
   try {
@@ -34,13 +35,21 @@ export async function POST(request: NextRequest) {
 
     if (!tenant?.id) return NextResponse.json({ error: 'Restaurante no encontrado' }, { status: 404 })
 
-    const { data: settings } = await supabase
-      .from('restaurant_settings')
-      .select('tax_rate, delivery_fee, delivery_min_order, delivery_enabled, country, online_payment_provider, wompi_enabled, wompi_environment, wompi_public_key, wompi_integrity_key')
-      .eq('tenant_id', tenant.id)
-      .maybeSingle()
+    const { data: settingsRow, error: settingsError } = await selectSettingsWithPaymentFallback(
+      supabase,
+      tenant.id,
+      'tax_rate, delivery_fee, delivery_min_order, delivery_enabled, country, printer_settings, online_payment_provider, wompi_enabled, wompi_environment, wompi_public_key, wompi_integrity_key',
+      'tax_rate, delivery_fee, delivery_min_order, delivery_enabled, country, printer_settings'
+    )
 
-    const country = String(settings?.country || tenant.country || 'ES').toUpperCase()
+    if (settingsError) {
+      console.error('[wompi/checkout] settings error:', settingsError)
+      return NextResponse.json({ error: 'No pude leer la configuracion de pagos' }, { status: 500 })
+    }
+
+    const paymentConfig = getPaymentConfig(settingsRow, tenant.country || 'ES')
+    const settings = { ...settingsRow, ...paymentConfig }
+    const country = String(settings.country || tenant.country || 'ES').toUpperCase()
     if (country !== 'CO') {
       return NextResponse.json({ error: 'Wompi solo esta disponible para restaurantes de Colombia' }, { status: 400 })
     }

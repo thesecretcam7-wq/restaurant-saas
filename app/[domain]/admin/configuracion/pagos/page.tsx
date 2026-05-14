@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { createServiceClient } from '@/lib/supabase/server'
 import { CreditCard, MapPin, ShieldCheck, Smartphone, WalletCards } from 'lucide-react'
 import { getCurrencyByCountry } from '@/lib/currency'
+import { getPaymentConfig, selectSettingsWithPaymentFallback } from '@/lib/payment-settings'
 
 interface Props { params: Promise<{ domain: string }> }
 
@@ -38,16 +39,18 @@ export default async function PagosOnlinePage({ params }: Props) {
     .eq(isUUID ? 'id' : 'slug', domain)
     .maybeSingle<PaymentTenant>()
 
-  const { data: settings } = tenant?.id
-    ? await supabase
-      .from('restaurant_settings')
-      .select('country, online_payment_provider, wompi_enabled, wompi_public_key')
-      .eq('tenant_id', tenant.id)
-      .maybeSingle<PaymentSettings>()
+  const { data: settingsRow } = tenant?.id
+    ? await selectSettingsWithPaymentFallback(
+      supabase,
+      tenant.id,
+      'country, printer_settings, online_payment_provider, wompi_enabled, wompi_public_key',
+      'country, printer_settings'
+    )
     : { data: null }
 
   const tenantSlug = tenant?.slug || domain
-  const country = String(settings?.country || tenant?.country || 'ES').toUpperCase()
+  const settings = getPaymentConfig(settingsRow, tenant?.country || 'ES') as PaymentSettings
+  const country = String(settings.country || tenant?.country || 'ES').toUpperCase()
   const currency = getCurrencyByCountry(country)
   const stripeConnected = tenant?.stripe_account_status === 'verified'
   const stripeActive = settings?.online_payment_provider === 'stripe'

@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { createServiceClient } from '@/lib/supabase/server'
 import { ArrowLeft, ShieldCheck, Smartphone } from 'lucide-react'
 import { PaymentsOnlineForm } from '../pagos/PaymentsOnlineForm'
+import { getPaymentConfig, selectSettingsWithPaymentFallback } from '@/lib/payment-settings'
 
 interface Props { params: Promise<{ domain: string }> }
 
@@ -29,15 +30,17 @@ export default async function WompiConfigPage({ params }: Props) {
     .eq(isUUID ? 'id' : 'slug', domain)
     .maybeSingle<WompiTenant>()
 
-  const { data: settings } = tenant?.id
-    ? await supabase
-      .from('restaurant_settings')
-      .select('country, online_payment_provider, wompi_enabled, wompi_public_key')
-      .eq('tenant_id', tenant.id)
-      .maybeSingle<WompiSettings>()
+  const { data: settingsRow } = tenant?.id
+    ? await selectSettingsWithPaymentFallback(
+      supabase,
+      tenant.id,
+      'country, printer_settings, online_payment_provider, wompi_enabled, wompi_public_key',
+      'country, printer_settings'
+    )
     : { data: null }
 
   const tenantSlug = tenant?.slug || domain
+  const settings = getPaymentConfig(settingsRow, 'ES') as WompiSettings
   const isColombia = String(settings?.country || '').toUpperCase() === 'CO'
   const isActive = settings?.online_payment_provider === 'wompi' && Boolean(settings?.wompi_enabled)
   const hasKeys = Boolean(settings?.wompi_public_key)
