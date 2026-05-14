@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { Bike, CreditCard, ReceiptText, Save, ShieldCheck } from 'lucide-react'
+import { getCurrencyByCountry } from '@/lib/currency'
 
 interface Props { tenantId: string }
 
@@ -80,6 +81,7 @@ export default function DeliveryForm({ tenantId }: Props) {
   }
 
   const isColombia = String(form.country || '').toUpperCase() === 'CO'
+  const currencyInfo = getCurrencyByCountry(form.country)
 
   if (loading) {
     return <div className="admin-empty min-h-48">Cargando configuracion de delivery...</div>
@@ -111,6 +113,9 @@ export default function DeliveryForm({ tenantId }: Props) {
               <div className="flex-1">
                 <h2 className="font-black text-[#15130f]">Delivery a domicilio</h2>
                 <p className="mt-1 text-sm font-semibold text-black/45">Estos valores se muestran en la tienda y se suman al pedido.</p>
+                <p className="mt-2 inline-flex rounded-full border border-black/10 bg-black/[0.04] px-3 py-1 text-xs font-black text-black/55">
+                  Pais del restaurante: {form.country} - Moneda: {currencyInfo.code}
+                </p>
               </div>
               <label className="relative inline-flex cursor-pointer items-center">
                 <input

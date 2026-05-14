@@ -1,7 +1,6 @@
 'use client'
 
 import { use, useEffect, useState } from 'react'
-import { createClient } from '@/lib/supabase/client'
 import { useTenantResolver } from '@/lib/hooks/useTenantResolver'
 import toast from 'react-hot-toast'
 
@@ -39,10 +38,13 @@ export default function RestauranteConfigPage({ params }: Props) {
     if (!tenantUUID) return
     const loadSettings = async () => {
       try {
-        const supabase = createClient()
-        const uuid = tenantUUID
-        const { data } = await supabase.from('restaurant_settings').select('*').eq('tenant_id', uuid).single()
-        if (data) {
+        const response = await fetch(`/api/tenant/restaurant?tenantId=${encodeURIComponent(tenantUUID)}`, {
+          credentials: 'include',
+          cache: 'no-store',
+        })
+        const result = await response.json()
+        if (response.ok && result.data) {
+          const data = result.data
           setForm({
             display_name: data.display_name || '',
             description: data.description || '',
@@ -52,8 +54,8 @@ export default function RestauranteConfigPage({ params }: Props) {
             city: data.city || '',
             country: data.country || 'ES',
             timezone: data.timezone || 'America/Bogota',
-            cash_payment_enabled: data.cash_payment_enabled,
-            tax_rate: String(data.tax_rate),
+            cash_payment_enabled: data.cash_payment_enabled ?? true,
+            tax_rate: String(data.tax_rate ?? 0),
           })
         }
       } catch (err) {
@@ -67,32 +69,34 @@ export default function RestauranteConfigPage({ params }: Props) {
 
   const handleSave = async () => {
     setSaving(true)
-    const supabase = createClient()
     try {
-      const uuid = tenantUUID!
-      const { error } = await supabase.from('restaurant_settings').upsert({
-        tenant_id: uuid,
-        display_name: form.display_name,
-        description: form.description || null,
-        address: form.address || null,
-        phone: form.phone || null,
-        email: form.email || null,
-        city: form.city || null,
-        country: form.country,
-        timezone: form.timezone,
-        cash_payment_enabled: form.cash_payment_enabled,
-        tax_rate: parseFloat(form.tax_rate),
-      }, { onConflict: 'tenant_id' })
-      await supabase.from('tenants').update({ country: form.country }).eq('id', uuid)
+      const response = await fetch('/api/tenant/restaurant', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          tenantId: tenantUUID!,
+          display_name: form.display_name,
+          description: form.description || null,
+          address: form.address || null,
+          phone: form.phone || null,
+          email: form.email || null,
+          city: form.city || null,
+          country: form.country,
+          timezone: form.timezone,
+          cash_payment_enabled: form.cash_payment_enabled,
+          tax_rate: parseFloat(form.tax_rate),
+        }),
+      })
+      const result = await response.json()
       setSaving(false)
-      if (!error) toast.success('Configuración guardada')
-      else toast.error('Error al guardar: ' + error.message)
+      if (response.ok) toast.success('Configuracion guardada')
+      else toast.error('Error al guardar: ' + (result.error || 'No se pudo guardar'))
     } catch (err) {
       setSaving(false)
       toast.error('Error al guardar')
     }
   }
-
   if (resolvingTenant || loading) return <div className="flex items-center justify-center h-64 text-gray-400">Cargando...</div>
 
   const field = (label: string, key: keyof typeof form, type = 'text', placeholder = '') => (

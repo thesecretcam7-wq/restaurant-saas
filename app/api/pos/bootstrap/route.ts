@@ -27,12 +27,12 @@ export async function GET(request: NextRequest) {
         .order('name', { ascending: true }),
       supabase
         .from('tenants')
-        .select('organization_name, logo_url')
+        .select('organization_name, logo_url, country')
         .eq('id', tenantId)
         .maybeSingle(),
       supabase
         .from('restaurant_settings')
-        .select('tax_rate, display_name, phone, delivery_enabled, delivery_fee')
+        .select('tax_rate, display_name, phone, delivery_enabled, delivery_fee, country')
         .eq('tenant_id', tenantId)
         .maybeSingle(),
       supabase
@@ -51,7 +51,10 @@ export async function GET(request: NextRequest) {
       categories: categoriesRes.data || [],
       menu: menuRes.data || [],
       tenant: tenantRes.data || null,
-      settings: settingsRes.data || null,
+      settings: {
+        ...(settingsRes.data || {}),
+        country: settingsRes.data?.country || tenantRes.data?.country || 'ES',
+      },
       tables: tablesRes.data || [],
     });
   } catch (error) {

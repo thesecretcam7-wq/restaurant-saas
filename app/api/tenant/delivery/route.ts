@@ -146,17 +146,34 @@ export async function GET(request: NextRequest) {
     const tenantId = await resolveTenantId(supabase, slugOrId)
     if (!tenantId) return NextResponse.json({ error: 'Restaurante no encontrado' }, { status: 404 })
 
+    const { data: tenant } = await supabase
+      .from('tenants')
+      .select('country')
+      .eq('id', tenantId)
+      .maybeSingle()
+
     const { data, error } = await supabase
       .from('restaurant_settings')
       .select('delivery_enabled, delivery_fee, delivery_min_order, delivery_time_minutes, cash_payment_enabled, tax_rate, country, online_payment_provider, wompi_enabled, wompi_environment, wompi_public_key, wompi_private_key, wompi_integrity_key')
       .eq('tenant_id', tenantId)
-      .single()
+      .maybeSingle()
 
     if (error) return NextResponse.json({ error: 'Error al obtener la configuracion' }, { status: 500 })
     return NextResponse.json({
       success: true,
       data: {
         ...data,
+        delivery_enabled: data?.delivery_enabled ?? false,
+        delivery_fee: data?.delivery_fee ?? 0,
+        delivery_min_order: data?.delivery_min_order ?? 0,
+        delivery_time_minutes: data?.delivery_time_minutes ?? 30,
+        cash_payment_enabled: data?.cash_payment_enabled ?? true,
+        tax_rate: data?.tax_rate ?? 0,
+        country: data?.country || tenant?.country || 'ES',
+        online_payment_provider: data?.online_payment_provider ?? 'stripe',
+        wompi_enabled: data?.wompi_enabled ?? false,
+        wompi_environment: data?.wompi_environment ?? 'sandbox',
+        wompi_public_key: data?.wompi_public_key ?? '',
         wompi_private_key: undefined,
         wompi_integrity_key: undefined,
         wompi_has_private_key: Boolean(data?.wompi_private_key),
