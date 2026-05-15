@@ -238,7 +238,6 @@ export async function POST(request: NextRequest) {
     if (customerInfo?.phone) {
       url.searchParams.set('customer-data:phone-number', String(customerInfo.phone).replace(/\D/g, ''))
       url.searchParams.set('customer-data:phone-number-prefix', '+57')
-      url.searchParams.set('customer-data:legal-id-type', 'CC')
     }
 
     return NextResponse.json({ url: url.toString(), orderId: order.id, orderNumber })
