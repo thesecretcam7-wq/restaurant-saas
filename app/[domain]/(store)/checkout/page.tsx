@@ -24,6 +24,7 @@ export default function CheckoutPage({ params }: Props) {
   const [storeBranding, setStoreBranding] = useState<{ appName?: string; logoUrl?: string | null; primaryColor?: string } | null>(null)
   const [csrfToken, setCsrfToken] = useState('')
   const [loading, setLoading] = useState(false)
+  const [mounted, setMounted] = useState(false)
   const [profileLookup, setProfileLookup] = useState<'idle' | 'searching' | 'found' | 'none'>('idle')
   const [errors, setErrors] = useState<Array<{ field: string; message: string }>>([])
   const [form, setForm] = useState({
@@ -34,6 +35,11 @@ export default function CheckoutPage({ params }: Props) {
   const tenantId = settings?.tenant_id || tenantSlug
 
   useEffect(() => {
+    setMounted(true)
+  }, [])
+
+  useEffect(() => {
+    if (!mounted) return
     if (items.length === 0) router.replace(getStorePath(tenantSlug, '/menu'))
     fetch(`/api/settings/${tenantSlug}`)
       .then(r => r.json())
@@ -60,16 +66,16 @@ export default function CheckoutPage({ params }: Props) {
         if (token) setCsrfToken(token)
       })
       .catch(() => {})
-  }, [tenantSlug, items.length, router])
+  }, [tenantSlug, items.length, router, mounted])
 
   useEffect(() => {
-    if (!settings?.tenant_id || !cartTenantId || items.length === 0) return
+    if (!mounted || !settings?.tenant_id || !cartTenantId || items.length === 0) return
     if (cartTenantId !== settings.tenant_id) {
       clearCart()
       toast.error('El carrito tenia productos de otro restaurante. Vuelve a elegir tu pedido.')
       router.replace(getStorePath(tenantSlug, '/menu'))
     }
-  }, [settings?.tenant_id, cartTenantId, items.length, clearCart, router, tenantSlug])
+  }, [mounted, settings?.tenant_id, cartTenantId, items.length, clearCart, router, tenantSlug])
 
   useEffect(() => {
     if (!settings) return
@@ -255,6 +261,10 @@ export default function CheckoutPage({ params }: Props) {
   const surface = 'var(--brand-surface-color, #ffffff)'
   const text = 'var(--brand-text-color, #15130f)'
   const muted = 'var(--brand-muted-color, rgba(21, 19, 15, 0.62))'
+
+  if (!mounted) {
+    return <div className="min-h-screen" style={{ backgroundColor: pageBg }} />
+  }
 
   return (
     <div className="min-h-screen" style={{ backgroundColor: pageBg, color: text }}>

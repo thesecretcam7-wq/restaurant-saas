@@ -168,7 +168,7 @@ CREATE TABLE orders (
   delivery_fee NUMERIC(10,2) DEFAULT 0,
   total NUMERIC(10,2) NOT NULL,
   status TEXT DEFAULT 'pending' CHECK (status IN ('pending','confirmed','preparing','on_the_way','delivered','cancelled')),
-  payment_method TEXT CHECK (payment_method IN ('stripe', 'cash')),
+  payment_method TEXT CHECK (payment_method IN ('stripe', 'cash', 'wompi')),
   payment_status TEXT DEFAULT 'pending' CHECK (payment_status IN ('pending', 'paid', 'failed')),
   stripe_payment_intent_id TEXT,
   delivery_type TEXT DEFAULT 'pickup' CHECK (delivery_type IN ('pickup', 'delivery')),

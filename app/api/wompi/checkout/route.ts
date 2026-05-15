@@ -19,25 +19,34 @@ export async function POST(request: NextRequest) {
     const body = await request.json()
     const { tenantId: tenantParam, tenantSlug, items, customerInfo, deliveryType, deliveryAddress, notes } = body
 
-    if (!tenantParam || !Array.isArray(items) || items.length === 0) {
+    if ((!tenantParam && !tenantSlug) || !Array.isArray(items) || items.length === 0) {
       return NextResponse.json({ error: 'Faltan datos del pedido' }, { status: 400 })
     }
 
     const supabase = createServiceClient()
-    const tenantLookup = String(tenantParam)
-    const isTenantUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(tenantLookup)
+    const tenantCandidates = Array.from(new Set([
+      tenantParam,
+      tenantSlug,
+      request.headers.get('referer') ? new URL(request.headers.get('referer') as string).pathname.split('/').filter(Boolean)[0] : '',
+    ].map(value => String(value || '').trim()).filter(Boolean)))
 
-    let tenantResult = await supabase
-      .from('tenants')
-      .select('id, slug, primary_domain, country')
-      .eq(isTenantUUID ? 'id' : 'slug', tenantLookup)
-      .maybeSingle()
-    if (tenantResult.error?.code === '42703' || String(tenantResult.error?.message || '').includes('primary_domain')) {
+    let tenantResult: any = { data: null, error: null }
+    for (const tenantLookup of tenantCandidates) {
+      const isTenantUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(tenantLookup)
       tenantResult = await supabase
         .from('tenants')
-        .select('id, slug, country')
+        .select('id, slug, primary_domain, country')
         .eq(isTenantUUID ? 'id' : 'slug', tenantLookup)
         .maybeSingle()
+      if (tenantResult.error?.code === '42703' || String(tenantResult.error?.message || '').includes('primary_domain')) {
+        tenantResult = await supabase
+          .from('tenants')
+          .select('id, slug, country')
+          .eq(isTenantUUID ? 'id' : 'slug', tenantLookup)
+          .maybeSingle()
+      }
+
+      if (tenantResult.data?.id || tenantResult.error) break
     }
 
     const { data: tenant, error: tenantError } = tenantResult
@@ -179,6 +188,9 @@ export async function POST(request: NextRequest) {
 
     if (orderError || !order) {
       console.error('[wompi/checkout] order insert error:', orderError)
+      if (orderError?.code === '23514' && String(orderError.message || '').includes('orders_payment_method_check')) {
+        return NextResponse.json({ error: 'Falta actualizar la base de datos para aceptar pagos Wompi' }, { status: 500 })
+      }
       return NextResponse.json({ error: 'Error al crear el pedido' }, { status: 500 })
     }
 

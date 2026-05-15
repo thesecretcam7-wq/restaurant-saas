@@ -19,8 +19,13 @@ export default function CarritoPage({ params }: Props) {
   const surface = 'var(--brand-surface-color, #ffffff)'
   const text = 'var(--brand-text-color, #15130f)'
   const muted = 'var(--brand-muted-color, rgba(21, 19, 15, 0.62))'
+  const [mounted, setMounted] = useState(false)
   const [currencyInfo, setCurrencyInfo] = useState(() => getCurrencyByCountry('ES'))
   const money = (amount: number) => formatPriceWithCurrency(Number(amount || 0), currencyInfo.code, currencyInfo.locale)
+
+  useEffect(() => {
+    setMounted(true)
+  }, [])
 
   useEffect(() => {
     fetch(`/api/settings/${tenantSlug}`, { cache: 'no-store' })
@@ -32,6 +37,10 @@ export default function CarritoPage({ params }: Props) {
       })
       .catch(() => {})
   }, [tenantSlug])
+
+  if (!mounted) {
+    return <div className="min-h-screen" style={{ backgroundColor: pageBg }} />
+  }
 
   if (items.length === 0) {
     return (

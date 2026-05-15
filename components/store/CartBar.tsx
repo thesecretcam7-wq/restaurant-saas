@@ -1,5 +1,6 @@
 'use client'
 
+import { useEffect, useState } from 'react'
 import { useCartStore } from '@/lib/store/cart'
 import { formatPriceWithCurrency } from '@/lib/currency'
 import Link from 'next/link'
@@ -15,11 +16,16 @@ export default function CartBar({
   currencyInfo?: { code: string; locale: string }
   basePath?: string
 }) {
+  const [mounted, setMounted] = useState(false)
   const { items, total } = useCartStore()
-  const count = items.reduce((s, i) => s + i.qty, 0)
+  const count = mounted ? items.reduce((s, i) => s + i.qty, 0) : 0
   const color = primaryColor || '#4F46E5'
   const money = (value: number) => formatPriceWithCurrency(Number(value || 0), currencyInfo?.code || 'EUR', currencyInfo?.locale || 'es-ES')
   const pathBase = basePath ?? `/${tenantId}`
+
+  useEffect(() => {
+    setMounted(true)
+  }, [])
 
   if (count === 0) return null
 

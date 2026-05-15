@@ -61,7 +61,7 @@ export default function BottomNav({
   const [mounted, setMounted] = useState(false)
   const pathname = usePathname()
   const { items } = useCartStore()
-  const cartCount = items.reduce((s, i) => s + i.qty, 0)
+  const cartCount = mounted ? items.reduce((s, i) => s + i.qty, 0) : 0
   const color = primaryColor || '#4F46E5'
   const isLight = themeMode === 'light'
   const inactiveColor = isLight ? 'rgba(21,19,15,.62)' : 'rgba(255,247,223,.72)'

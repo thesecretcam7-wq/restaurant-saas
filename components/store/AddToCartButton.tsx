@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useCartStore } from '@/lib/store/cart'
 import ToppingsModal from './ToppingsModal'
 
@@ -21,9 +21,14 @@ interface Props {
 }
 
 export default function AddToCartButton({ item, tenantId, color = '#4F46E5', small, toppings = [], currencyInfo, freeToppingsLabel }: Props) {
+  const [mounted, setMounted] = useState(false)
   const [showToppingsModal, setShowToppingsModal] = useState(false)
   const { addItem, removeItem, items } = useCartStore()
-  const qty = items.filter(i => i.item_id === item.id).length
+  const qty = mounted ? items.filter(i => i.item_id === item.id).reduce((sum, i) => sum + i.qty, 0) : 0
+
+  useEffect(() => {
+    setMounted(true)
+  }, [])
 
   const add = (e: React.MouseEvent) => {
     e.preventDefault()
