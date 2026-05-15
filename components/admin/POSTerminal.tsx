@@ -2036,7 +2036,7 @@ export function POSTerminal({
               </button>
             )}
 
-            <div className="grid grid-cols-3 gap-2 lg:min-w-[420px]">
+            <div className="grid grid-cols-2 gap-2 lg:min-w-[280px]">
               <div className="pos-kpi">
                 <span>Carrito</span>
                 <strong>{cart.length}</strong>
@@ -2044,10 +2044,6 @@ export function POSTerminal({
               <div className="pos-kpi">
                 <span>Delivery</span>
                 <strong>{incomingOrders.length}</strong>
-              </div>
-              <div className="pos-kpi">
-                <span>Total</span>
-                <strong>{formatPriceWithCurrency(total, currencyInfo.code, currencyInfo.locale)}</strong>
               </div>
             </div>
           </div>
@@ -2254,6 +2250,12 @@ export function POSTerminal({
                       onClick={() => {
                         if (group) {
                           loadTableToCart(group.orders);
+                        } else if (selectedTableId === table.id) {
+                          setSelectedTableId(null);
+                          setSelectedTableNumber(null);
+                          setSelectedStaffId(null);
+                          setSelectedStaffName('');
+                          setPosMode('simple');
                         } else {
                           setSelectedTableId(table.id);
                           setSelectedTableNumber(table.table_number);
@@ -2293,7 +2295,7 @@ export function POSTerminal({
 
         {/* Cart/Payment Section */}
         <div className={`${isFullscreen ? 'h-[44dvh] min-h-0 overflow-hidden lg:h-auto lg:min-h-0 lg:w-72 xl:w-80' : 'min-h-[520px] flex-none overflow-y-auto pb-6 lg:min-h-0 lg:h-auto lg:w-80 lg:overflow-y-auto lg:pb-0'} pos-panel border-x-0 border-b-0 lg:border-y-0 lg:border-r-0 flex flex-col`}>
-          {/* Tabs: Cart / Entregas / Salón */}
+          {/* Tabs: Cart / Entregas / Mesa abierta */}
           <div className="border-b border-white/10 flex bg-black/20 backdrop-blur-xl">
             <button
               onClick={() => { setShowIncomingPanel(false); setShowDineInPanel(false); setShowFindPayPanel(false); }}
@@ -2341,7 +2343,7 @@ export function POSTerminal({
                   <span className="absolute -top-1.5 -right-2 bg-emerald-500 text-white rounded-full w-4 h-4 text-[9px] font-black flex items-center justify-center">{dineInOrders.length}</span>
                 )}
               </div>
-              <span className="text-[10px] font-bold">Salón</span>
+              <span className="text-[10px] font-bold">Mesa abierta</span>
             </button>
           </div>
 
