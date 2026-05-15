@@ -10,6 +10,25 @@ import { calculateOrderTotals } from '@/lib/order-totals'
 import { syncCustomerFromOrder } from '@/lib/customer-sync'
 import { deriveBrandPalette } from '@/lib/brand-colors'
 
+type DeliveryZone = {
+  id: string
+  name: string
+  fee: number
+  min_order?: number
+}
+
+function normalizeDeliveryZones(value: unknown): DeliveryZone[] {
+  if (!Array.isArray(value)) return []
+  return value
+    .map((zone: any) => ({
+      id: String(zone?.id || '').trim(),
+      name: String(zone?.name || '').trim(),
+      fee: Number(zone?.fee || 0),
+      min_order: Number(zone?.min_order || 0),
+    }))
+    .filter(zone => zone.id && zone.name && Number.isFinite(zone.fee) && zone.fee >= 0)
+}
+
 export async function GET(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams
@@ -75,7 +94,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { tenantId: tenantParam, tenantSlug, items, customerInfo, deliveryType, deliveryAddress, notes, paymentMethod, tableNumber, waiterName, amountPaid, source } = body
+    const { tenantId: tenantParam, tenantSlug, items, customerInfo, deliveryType, deliveryAddress, deliveryZone, notes, paymentMethod, tableNumber, waiterName, amountPaid, source } = body
 
     if (!tenantParam) {
       return NextResponse.json({ error: 'tenantId is required' }, { status: 400 })
@@ -190,13 +209,25 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: orderCheck.reason, limitReached: true, used: orderCheck.used, limit: orderCheck.limit }, { status: 403 })
     }
 
-    const { data: settings } = await supabase
+    const settingsResult = await supabase
       .from('restaurant_settings')
-      .select('tax_rate, delivery_fee, delivery_min_order, delivery_enabled, cash_payment_enabled, kds_enabled')
+      .select('tax_rate, delivery_fee, delivery_min_order, delivery_zones, delivery_enabled, cash_payment_enabled, kds_enabled')
       .eq('tenant_id', tenantId)
       .single()
+    const fallbackSettingsResult = settingsResult.error?.code === '42703'
+      ? await supabase
+        .from('restaurant_settings')
+        .select('tax_rate, delivery_fee, delivery_min_order, delivery_enabled, cash_payment_enabled, kds_enabled')
+        .eq('tenant_id', tenantId)
+        .single()
+      : null
+    const settings = fallbackSettingsResult?.data || settingsResult.data
 
     const subtotal = sanitizedItems.reduce((sum: number, i: any) => sum + i.price * i.qty, 0)
+    const deliveryZones = normalizeDeliveryZones((settings as any)?.delivery_zones)
+    let selectedDeliveryZone: DeliveryZone | null = null
+    let selectedDeliveryFee = Number(settings?.delivery_fee || 0)
+    let selectedMinOrder = Number(settings?.delivery_min_order || 0)
 
     if (source === 'store' && paymentMethod === 'cash' && settings?.cash_payment_enabled === false) {
       return NextResponse.json({ error: 'Pago en efectivo no esta habilitado para este restaurante' }, { status: 400 })
@@ -207,10 +238,19 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: 'Delivery no esta habilitado para este restaurante' }, { status: 400 })
       }
 
-      const minOrder = Number(settings?.delivery_min_order || 0)
-      if (minOrder > 0 && subtotal < minOrder) {
+      if (deliveryZones.length > 0) {
+        const requestedZoneId = String(deliveryZone?.id || '').trim()
+        selectedDeliveryZone = deliveryZones.find(zone => zone.id === requestedZoneId) || null
+        if (!selectedDeliveryZone) {
+          return NextResponse.json({ error: 'Escoge una zona de delivery valida' }, { status: 400 })
+        }
+        selectedDeliveryFee = selectedDeliveryZone.fee
+        selectedMinOrder = Number(selectedDeliveryZone.min_order || 0)
+      }
+
+      if (selectedMinOrder > 0 && subtotal < selectedMinOrder) {
         return NextResponse.json(
-          { error: `El pedido minimo para delivery es ${minOrder}` },
+          { error: `El pedido minimo para esta zona es ${selectedMinOrder}` },
           { status: 400 }
         )
       }
@@ -220,7 +260,7 @@ export async function POST(request: NextRequest) {
       items: sanitizedItems,
       taxRate: settings?.tax_rate,
       deliveryType,
-      deliveryFee: settings?.delivery_fee,
+      deliveryFee: selectedDeliveryFee,
     })
     const tax = totals.tax
     const deliveryFee = totals.deliveryFee
@@ -252,10 +292,12 @@ export async function POST(request: NextRequest) {
       payment_method: paymentMethod,
       payment_status: 'pending',
       delivery_type: deliveryType,
-      delivery_address: deliveryAddress || null,
+      delivery_address: selectedDeliveryZone ? `Zona: ${selectedDeliveryZone.name}` : deliveryAddress || null,
       table_number: tableNumber || null,
       waiter_name: waiterName || null,
-      notes: notes || null,
+      notes: [notes || null, selectedDeliveryZone ? `Zona delivery: ${selectedDeliveryZone.name}` : null]
+        .filter(Boolean)
+        .join('\n') || null,
       status: 'pending',
       display_number: displayNumber,
     }

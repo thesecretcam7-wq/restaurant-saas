@@ -37,6 +37,13 @@ interface Category {
   name: string;
 }
 
+interface DeliveryZone {
+  id: string;
+  name: string;
+  fee: number;
+  min_order?: number;
+}
+
 type POSMode = 'simple' | 'table';
 type PaymentMethod = 'cash' | 'stripe';
 
@@ -432,6 +439,8 @@ export function POSTerminal({
   const [taxRate, setTaxRate] = useState(0);
   const [deliveryEnabled, setDeliveryEnabled] = useState(false);
   const [deliveryFee, setDeliveryFee] = useState(0);
+  const [deliveryZones, setDeliveryZones] = useState<DeliveryZone[]>([]);
+  const [selectedDeliveryZoneId, setSelectedDeliveryZoneId] = useState('');
   const [restaurantName, setRestaurantName] = useState('Restaurante');
   const [restaurantPhone, setRestaurantPhone] = useState<string | null>(null);
   const [restaurantLogo, setRestaurantLogo] = useState<string | undefined>();
@@ -547,6 +556,12 @@ export function POSTerminal({
       setPosOrderType('takeaway');
     }
   }, [deliveryEnabled, posOrderType]);
+
+  useEffect(() => {
+    if (posOrderType === 'delivery' && deliveryZones.length > 0 && !selectedDeliveryZoneId) {
+      setSelectedDeliveryZoneId(deliveryZones[0].id);
+    }
+  }, [deliveryZones, posOrderType, selectedDeliveryZoneId]);
 
   const syncOfflineSales = useCallback(async (showToast = false) => {
     if (typeof navigator !== 'undefined' && !navigator.onLine) return;
@@ -1305,6 +1320,18 @@ export function POSTerminal({
         setTaxRate(Number(data.settings.tax_rate || 0));
         setDeliveryEnabled(data.settings.delivery_enabled === true);
         setDeliveryFee(Number(data.settings.delivery_fee || 0));
+        const zones = Array.isArray(data.settings.delivery_zones)
+          ? data.settings.delivery_zones
+            .map((zone: any) => ({
+              id: String(zone.id || '').trim(),
+              name: String(zone.name || '').trim(),
+              fee: Number(zone.fee || 0),
+              min_order: Number(zone.min_order || 0),
+            }))
+            .filter((zone: DeliveryZone) => zone.id && zone.name && Number.isFinite(zone.fee))
+          : [];
+        setDeliveryZones(zones);
+        setSelectedDeliveryZoneId(current => current || zones[0]?.id || '');
         if (data.settings.display_name) setRestaurantName(data.settings.display_name);
         if (data.settings.phone) setRestaurantPhone(data.settings.phone);
       }
@@ -1492,7 +1519,12 @@ export function POSTerminal({
           items: formattedItems,
           paymentMethod,
           deliveryType: selectedTableId ? 'dine-in' : posOrderType,
-          deliveryAddress: posOrderType === 'delivery' ? 'Pedido telefonico desde TPV' : null,
+          deliveryZone: posOrderType === 'delivery' && selectedDeliveryZone ? selectedDeliveryZone : null,
+          deliveryAddress: posOrderType === 'delivery'
+            ? selectedDeliveryZone
+              ? `Zona: ${selectedDeliveryZone.name}`
+              : 'Pedido telefonico desde TPV'
+            : null,
           waiterName: selectedStaffName || null,
           tableNumber: selectedTableNumber || null,
           tip: tip > 0 ? tip : null,
@@ -1705,6 +1737,7 @@ export function POSTerminal({
       setSelectedStaffName('');
       setPosMode('simple');
       setPosOrderType('takeaway');
+      setSelectedDeliveryZoneId(deliveryZones[0]?.id || '');
 
       // Clear localStorage
       if (typeof window !== 'undefined') {
@@ -1743,7 +1776,9 @@ export function POSTerminal({
   const subtotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
   const taxableSubtotal = Math.max(0, subtotal - discount);
   const taxAmount = taxRate > 0 ? taxableSubtotal * (taxRate / 100) : 0;
-  const activeDeliveryFee = !selectedTableId && posOrderType === 'delivery' && deliveryEnabled ? deliveryFee : 0;
+  const selectedDeliveryZone = deliveryZones.find(zone => zone.id === selectedDeliveryZoneId) || null;
+  const currentDeliveryFee = selectedDeliveryZone ? selectedDeliveryZone.fee : deliveryFee;
+  const activeDeliveryFee = !selectedTableId && posOrderType === 'delivery' && deliveryEnabled ? currentDeliveryFee : 0;
   const paymentBaseTotal = taxableSubtotal + taxAmount + activeDeliveryFee;
   const total = paymentBaseTotal + tip;
 
@@ -2389,6 +2424,7 @@ export function POSTerminal({
             <div className="flex-1 flex flex-col overflow-hidden">
               <POSOrderLookup
                 domain={tenantId}
+                country={country}
                 onOrderSelected={handleOrderSelected}
                 onVoidOrder={voidCompletedSale}
               />
@@ -2606,10 +2642,26 @@ export function POSTerminal({
                     title="Pedido por llamada con cobro de domicilio"
                   >
                     <Truck className="h-3.5 w-3.5" />
-                    Delivery + {formatPriceWithCurrency(deliveryFee, currencyInfo.code, currencyInfo.locale)}
+                    Delivery + {formatPriceWithCurrency(currentDeliveryFee, currencyInfo.code, currencyInfo.locale)}
                   </button>
                 )}
               </div>
+              {posOrderType === 'delivery' && deliveryEnabled && deliveryZones.length > 0 && (
+                <label className="block">
+                  <span className="text-amber-100/70 text-xs font-black uppercase">Zona</span>
+                  <select
+                    value={selectedDeliveryZoneId}
+                    onChange={(event) => setSelectedDeliveryZoneId(event.target.value)}
+                    className="mt-1 w-full rounded-lg border border-amber-300/30 bg-[#18130b] px-2 py-2 text-xs font-black text-amber-50 outline-none"
+                  >
+                    {deliveryZones.map(zone => (
+                      <option key={zone.id} value={zone.id}>
+                        {zone.name} - {formatPriceWithCurrency(zone.fee, currencyInfo.code, currencyInfo.locale)}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              )}
             </div>
           )}
 

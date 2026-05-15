@@ -2,6 +2,7 @@
 
 import { useRouter } from 'next/navigation'
 import { useMemo, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { Edit3, Minus, Trash2, X } from 'lucide-react'
 
 type SaleItem = {
@@ -19,6 +20,7 @@ type EditSaleButtonProps = {
   tenantId: string
   orderId: string
   orderNumber?: string | null
+  onEdited?: (order: any) => void
 }
 
 function getItemId(item: SaleItem, index: number) {
@@ -30,7 +32,7 @@ function getQuantity(item: SaleItem) {
   return Number.isFinite(quantity) && quantity > 0 ? quantity : 1
 }
 
-export function EditSaleButton({ tenantId, orderId, orderNumber }: EditSaleButtonProps) {
+export function EditSaleButton({ tenantId, orderId, orderNumber, onEdited }: EditSaleButtonProps) {
   const router = useRouter()
   const [open, setOpen] = useState(false)
   const [loading, setLoading] = useState(false)
@@ -49,7 +51,8 @@ export function EditSaleButton({ tenantId, orderId, orderNumber }: EditSaleButto
   )
   const refundEstimate = Math.max(0, originalTotal - editedTotal)
 
-  async function openEditor() {
+  async function openEditor(event?: React.MouseEvent<HTMLButtonElement>) {
+    event?.stopPropagation()
     setOpen(true)
     setLoading(true)
     try {
@@ -119,6 +122,7 @@ export function EditSaleButton({ tenantId, orderId, orderNumber }: EditSaleButto
       const data = await response.json().catch(() => ({}))
       if (!response.ok) throw new Error(data.error || 'No se pudo editar la venta')
 
+      if (data.order) onEdited?.(data.order)
       setOpen(false)
       router.refresh()
     } catch (error) {
@@ -127,6 +131,93 @@ export function EditSaleButton({ tenantId, orderId, orderNumber }: EditSaleButto
       setSaving(false)
     }
   }
+
+  const modal = open && typeof document !== 'undefined' ? createPortal(
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/70 p-4" onClick={() => setOpen(false)}>
+      <div
+        className="w-full max-w-xl overflow-hidden rounded-xl border border-black/10 bg-white text-[#15130f] shadow-2xl"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <div className="flex items-center justify-between border-b border-black/10 bg-white px-5 py-4">
+          <div>
+            <h2 className="text-lg font-black text-[#15130f]">Editar venta</h2>
+            <p className="text-xs font-bold text-black/60">{orderNumber || orderId}</p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setOpen(false)}
+            className="rounded-lg p-2 text-black/55 transition hover:bg-black/5 hover:text-black"
+          >
+            <X className="size-5" />
+          </button>
+        </div>
+
+        <div className="max-h-[62vh] overflow-y-auto bg-white px-5 py-4">
+          {loading ? (
+            <p className="py-8 text-center text-sm font-bold text-black/60">Cargando venta...</p>
+          ) : (
+            <div className="space-y-3">
+              {items.map((item, index) => {
+                const quantity = getQuantity(item)
+                return (
+                  <div key={`${getItemId(item, index)}-${index}`} className="flex items-center gap-3 rounded-lg border border-black/10 bg-white p-3 shadow-sm">
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-black text-[#15130f]">{item.name}</p>
+                      <p className="text-xs font-bold text-black/60">
+                        {quantity} x ${Number(item.price || 0).toLocaleString('es-CO')}
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => reduceItem(index)}
+                      className="rounded-lg border border-black/15 bg-white p-2 text-black/75 transition hover:bg-black/5"
+                      title="Quitar una unidad"
+                    >
+                      <Minus className="size-4" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => removeItem(index)}
+                      className="rounded-lg border border-red-200 bg-red-50 p-2 text-red-700 transition hover:bg-red-100"
+                      title="Eliminar producto"
+                    >
+                      <Trash2 className="size-4" />
+                    </button>
+                  </div>
+                )
+              })}
+
+              <label className="block">
+                <span className="text-xs font-black uppercase text-black/60">Motivo</span>
+                <textarea
+                  value={reason}
+                  onChange={(event) => setReason(event.target.value)}
+                  className="mt-1 min-h-24 w-full rounded-lg border border-black/15 bg-white px-3 py-2 text-sm font-semibold text-[#15130f] outline-none placeholder:text-black/35 focus:border-blue-400"
+                  placeholder="Ej: cliente pidio retirar una bebida de la factura"
+                />
+              </label>
+            </div>
+          )}
+        </div>
+
+        <div className="flex flex-col gap-3 border-t border-black/10 bg-white px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="text-sm">
+            <p className="font-black text-[#15130f]">Nuevo total: ${editedTotal.toLocaleString('es-CO')}</p>
+            <p className="text-xs font-bold text-black/60">Diferencia aprox.: ${refundEstimate.toLocaleString('es-CO')}</p>
+          </div>
+          <button
+            type="button"
+            onClick={saveChanges}
+            disabled={loading || saving}
+            className="rounded-lg bg-[#15130f] px-5 py-3 text-sm font-black text-white transition hover:bg-black disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {saving ? 'Guardando...' : 'Guardar cambios'}
+          </button>
+        </div>
+      </div>
+    </div>,
+    document.body
+  ) : null
 
   return (
     <>
@@ -138,89 +229,7 @@ export function EditSaleButton({ tenantId, orderId, orderNumber }: EditSaleButto
         <Edit3 className="size-3.5" />
         Editar
       </button>
-
-      {open && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/55 p-4">
-          <div className="w-full max-w-lg rounded-xl bg-white shadow-2xl">
-            <div className="flex items-center justify-between border-b border-black/10 px-5 py-4">
-              <div>
-                <h2 className="text-base font-black text-[#15130f]">Editar venta</h2>
-                <p className="text-xs font-bold text-black/45">{orderNumber || orderId}</p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setOpen(false)}
-                className="rounded-lg p-2 text-black/45 transition hover:bg-black/5 hover:text-black"
-              >
-                <X className="size-4" />
-              </button>
-            </div>
-
-            <div className="max-h-[60vh] overflow-y-auto px-5 py-4">
-              {loading ? (
-                <p className="py-8 text-center text-sm font-bold text-black/45">Cargando venta...</p>
-              ) : (
-                <div className="space-y-3">
-                  {items.map((item, index) => {
-                    const quantity = getQuantity(item)
-                    return (
-                      <div key={`${getItemId(item, index)}-${index}`} className="flex items-center gap-3 rounded-lg border border-black/10 p-3">
-                        <div className="min-w-0 flex-1">
-                          <p className="truncate text-sm font-black text-[#15130f]">{item.name}</p>
-                          <p className="text-xs font-bold text-black/45">
-                            {quantity} x ${Number(item.price || 0).toLocaleString('es-CO')}
-                          </p>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => reduceItem(index)}
-                          className="rounded-lg border border-black/10 p-2 text-black/70 transition hover:bg-black/5"
-                          title="Quitar una unidad"
-                        >
-                          <Minus className="size-4" />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => removeItem(index)}
-                          className="rounded-lg border border-red-200 bg-red-50 p-2 text-red-700 transition hover:bg-red-100"
-                          title="Eliminar producto"
-                        >
-                          <Trash2 className="size-4" />
-                        </button>
-                      </div>
-                    )
-                  })}
-
-                  <label className="block">
-                    <span className="text-xs font-black uppercase text-black/45">Motivo</span>
-                    <textarea
-                      value={reason}
-                      onChange={(event) => setReason(event.target.value)}
-                      className="mt-1 min-h-20 w-full rounded-lg border border-black/10 px-3 py-2 text-sm outline-none focus:border-blue-400"
-                      placeholder="Ej: cliente pidio retirar una bebida de la factura"
-                    />
-                  </label>
-                </div>
-              )}
-            </div>
-
-            <div className="flex flex-col gap-3 border-t border-black/10 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
-              <div className="text-sm">
-                <p className="font-black text-[#15130f]">Nuevo total: ${editedTotal.toLocaleString('es-CO')}</p>
-                <p className="text-xs font-bold text-black/45">Diferencia aprox.: ${refundEstimate.toLocaleString('es-CO')}</p>
-              </div>
-              <button
-                type="button"
-                onClick={saveChanges}
-                disabled={loading || saving}
-                className="rounded-lg bg-[#15130f] px-4 py-2 text-sm font-black text-white transition hover:bg-black disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                {saving ? 'Guardando...' : 'Guardar cambios'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {modal}
     </>
   )
 }

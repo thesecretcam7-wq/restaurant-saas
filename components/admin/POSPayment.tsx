@@ -161,14 +161,15 @@ export function POSPayment({
           </div>
 
           {/* Billetes Sugeridos */}
-          <div className={compact ? 'space-y-1' : 'space-y-2'}>
-            <p className="text-xs text-slate-500">Billetes sugeridos:</p>
-            <div className={`grid grid-cols-4 ${compact ? 'gap-1.5' : 'gap-2'}`}>
+          <div className={compact ? 'space-y-1.5' : 'space-y-2'}>
+            <p className="text-xs font-black uppercase text-slate-400">Billetes sugeridos:</p>
+            <div className={`grid grid-cols-2 ${compact ? 'gap-2' : 'gap-2.5'}`}>
               {suggestedAmounts.map((amount) => (
                 <button
+                  type="button"
                   key={amount}
                   onClick={() => handleSuggestedAmount(amount)}
-                  className={`${compact ? 'py-1' : 'py-1'} px-1 bg-white/10 hover:bg-white/15 rounded-lg text-xs font-black text-emerald-300 border border-white/10 hover:border-emerald-300/40`}
+                  className={`${compact ? 'min-h-10 px-2 py-2 text-sm' : 'min-h-11 px-3 py-2 text-sm'} rounded-xl border border-emerald-300/35 bg-emerald-400/18 font-black text-emerald-50 shadow-sm shadow-emerald-950/20 transition hover:bg-emerald-400/28 active:scale-95`}
                 >
                   {formatPriceWithCurrency(amount, currencyInfo.code, currencyInfo.locale)}
                 </button>

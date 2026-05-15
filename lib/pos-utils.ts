@@ -17,7 +17,7 @@ export function getSuggestedBillAmounts(total: number, currency: string = 'EUR')
   const normalizedTotal = Math.max(0, Number(total) || 0);
   const currencyCode = currency.toUpperCase();
   const cashStepsByCurrency: Record<string, number[]> = {
-    COP: [1000, 2000, 5000, 10000, 20000, 50000, 100000],
+    COP: [5000, 10000, 20000, 50000],
     CLP: [1000, 2000, 5000, 10000, 20000],
     MXN: [10, 20, 50, 100, 200, 500, 1000],
     ARS: [100, 200, 500, 1000, 2000, 10000],
@@ -26,6 +26,12 @@ export function getSuggestedBillAmounts(total: number, currency: string = 'EUR')
     EUR: [1, 2, 5, 10, 20, 50, 100, 200, 500],
   };
   const steps = cashStepsByCurrency[currencyCode] || cashStepsByCurrency.EUR;
+
+  if (currencyCode === 'COP') {
+    const realBills = steps.filter((bill) => bill >= normalizedTotal);
+    return realBills.length > 0 ? realBills.slice(0, 4) : [normalizedTotal];
+  }
+
   const suggestions = new Set<number>();
   const roundUpTo = (step: number) => Math.ceil(normalizedTotal / step) * step;
 
@@ -40,7 +46,8 @@ export function getSuggestedBillAmounts(total: number, currency: string = 'EUR')
     if (suggestions.size >= 4) break;
   }
 
-  return Array.from(suggestions).sort((a, b) => a - b).slice(0, 4);
+  const sortedSuggestions = Array.from(suggestions).sort((a, b) => a - b).slice(0, 4);
+  return sortedSuggestions.length > 0 ? sortedSuggestions : [normalizedTotal];
 }
 
 /**

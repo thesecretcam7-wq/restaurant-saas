@@ -3,7 +3,9 @@
 import { useEffect, useState } from 'react';
 import { Search, Loader2, AlertCircle } from 'lucide-react';
 import { useTouchDevice } from '@/lib/hooks/useTouchDevice';
+import { getCurrencyByCountry, formatPriceWithCurrency } from '@/lib/currency';
 import { EditSaleButton } from './EditSaleButton';
+import { ReprintReceiptButton } from './ReprintReceiptButton';
 import { NumericKeyboard } from './NumericKeyboard';
 
 interface Order {
@@ -22,12 +24,14 @@ interface Order {
 
 interface POSOrderLookupProps {
   domain: string;
+  country?: string;
   onOrderSelected: (order: Order) => void;
   onVoidOrder?: (order: Order) => Promise<boolean | void>;
 }
 
-export function POSOrderLookup({ domain, onOrderSelected, onVoidOrder }: POSOrderLookupProps) {
+export function POSOrderLookup({ domain, country = 'CO', onOrderSelected, onVoidOrder }: POSOrderLookupProps) {
   const isTouchDevice = useTouchDevice();
+  const currencyInfo = getCurrencyByCountry(country);
   const [searchInput, setSearchInput] = useState('');
   const [results, setResults] = useState<Order[]>([]);
   const [loading, setLoading] = useState(false);
@@ -156,6 +160,21 @@ export function POSOrderLookup({ domain, onOrderSelected, onVoidOrder }: POSOrde
     }
   }
 
+  function handleOrderEdited(updatedOrder: Partial<Order> & { id: string }) {
+    setResults((current) =>
+      current.map((item) =>
+        item.id === updatedOrder.id
+          ? {
+              ...item,
+              ...updatedOrder,
+              total: Number(updatedOrder.total ?? item.total),
+              items: Array.isArray(updatedOrder.items) ? updatedOrder.items : item.items,
+            }
+          : item
+      )
+    );
+  }
+
   return (
     <div className="w-full h-full flex flex-col bg-gradient-to-b from-gray-900 to-gray-950">
       {/* Search Bar */}
@@ -230,7 +249,7 @@ export function POSOrderLookup({ domain, onOrderSelected, onVoidOrder }: POSOrde
                   </div>
                   <div className="flex flex-col items-end gap-1 shrink-0">
                     <span className="font-bold text-green-400 text-sm">
-                      ${order.total.toFixed(2)}
+                      {formatPriceWithCurrency(order.total, currencyInfo.code, currencyInfo.locale)}
                     </span>
                     <span
                       className={`text-xs font-semibold px-2 py-0.5 rounded ${getPaymentStatusColor(
@@ -272,11 +291,17 @@ export function POSOrderLookup({ domain, onOrderSelected, onVoidOrder }: POSOrde
                   </div>
                 ) : order.payment_status === 'paid' ? (
                   <div className="mt-2 grid grid-cols-2 gap-2" onClick={(e) => e.stopPropagation()}>
-                    <EditSaleButton tenantId={domain} orderId={order.id} orderNumber={order.order_number} />
+                    <EditSaleButton
+                      tenantId={domain}
+                      orderId={order.id}
+                      orderNumber={order.order_number}
+                      onEdited={handleOrderEdited}
+                    />
+                    <ReprintReceiptButton tenantId={domain} orderId={order.id} orderNumber={order.order_number} />
                     <button
                       onClick={() => handleVoidOrder(order)}
                       disabled={!onVoidOrder || voidingOrderId === order.id}
-                      className="rounded-lg bg-red-600 py-2 text-xs font-semibold text-white transition-all hover:bg-red-700 disabled:opacity-50"
+                      className="col-span-2 rounded-lg bg-red-600 py-2 text-xs font-semibold text-white transition-all hover:bg-red-700 disabled:opacity-50"
                     >
                       {voidingOrderId === order.id ? 'Anulando...' : 'Anular venta'}
                     </button>

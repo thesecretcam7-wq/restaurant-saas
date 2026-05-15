@@ -1,9 +1,16 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Bike, Save } from 'lucide-react'
+import { Bike, Plus, Save, Trash2 } from 'lucide-react'
 
 interface Props { tenantId: string }
+
+interface DeliveryZone {
+  id: string
+  name: string
+  fee: string
+  min_order: string
+}
 
 export default function DeliveryForm({ tenantId }: Props) {
   const [form, setForm] = useState({
@@ -22,6 +29,7 @@ export default function DeliveryForm({ tenantId }: Props) {
     wompi_integrity_key: '',
     wompi_has_private_key: false,
     wompi_has_integrity_key: false,
+    delivery_zones: [] as DeliveryZone[],
   })
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -48,6 +56,14 @@ export default function DeliveryForm({ tenantId }: Props) {
             wompi_integrity_key: '',
             wompi_has_private_key: data.data.wompi_has_private_key ?? false,
             wompi_has_integrity_key: data.data.wompi_has_integrity_key ?? false,
+            delivery_zones: Array.isArray(data.data.delivery_zones)
+              ? data.data.delivery_zones.map((zone: any, index: number) => ({
+                id: String(zone.id || `zona-${index + 1}`),
+                name: String(zone.name || ''),
+                fee: String(zone.fee ?? 0),
+                min_order: String(zone.min_order ?? 0),
+              }))
+              : [],
           })
         }
       })
@@ -77,6 +93,37 @@ export default function DeliveryForm({ tenantId }: Props) {
     } finally {
       setSaving(false)
     }
+  }
+
+  const addZone = () => {
+    setForm(f => ({
+      ...f,
+      delivery_zones: [
+        ...f.delivery_zones,
+        {
+          id: `zona-${Date.now()}`,
+          name: '',
+          fee: '0',
+          min_order: '0',
+        },
+      ],
+    }))
+  }
+
+  const updateZone = (id: string, key: keyof Omit<DeliveryZone, 'id'>, value: string) => {
+    setForm(f => ({
+      ...f,
+      delivery_zones: f.delivery_zones.map(zone =>
+        zone.id === id ? { ...zone, [key]: value } : zone
+      ),
+    }))
+  }
+
+  const removeZone = (id: string) => {
+    setForm(f => ({
+      ...f,
+      delivery_zones: f.delivery_zones.filter(zone => zone.id !== id),
+    }))
   }
 
   if (loading) {
@@ -139,6 +186,76 @@ export default function DeliveryForm({ tenantId }: Props) {
                 <span className="mt-1 block text-xs font-semibold text-black/35">{helper}</span>
               </label>
             ))}
+          </div>
+
+          <div className="rounded-2xl border border-black/10 bg-black/[0.02] p-4">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <h3 className="font-black text-[#15130f]">Zonas de delivery</h3>
+                <p className="mt-1 text-sm font-semibold text-black/45">
+                  Si agregas zonas, el TPV dejara escoger una zona y usara su precio.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={addZone}
+                className="inline-flex items-center gap-2 rounded-xl bg-[#15130f] px-4 py-2 text-sm font-black text-white transition hover:bg-black"
+              >
+                <Plus className="size-4" />
+                Agregar
+              </button>
+            </div>
+
+            <div className="mt-4 space-y-3">
+              {form.delivery_zones.length === 0 ? (
+                <div className="rounded-xl border border-dashed border-black/15 bg-white px-4 py-5 text-sm font-semibold text-black/45">
+                  Sin zonas. El TPV usara el monto delivery general.
+                </div>
+              ) : (
+                form.delivery_zones.map((zone) => (
+                  <div key={zone.id} className="grid gap-3 rounded-xl border border-black/10 bg-white p-3 sm:grid-cols-[1.4fr_1fr_1fr_auto]">
+                    <label className="block">
+                      <span className="text-xs font-black uppercase text-black/42">Zona</span>
+                      <input
+                        type="text"
+                        value={zone.name}
+                        onChange={e => updateZone(zone.id, 'name', e.target.value)}
+                        placeholder="Centro, Norte, Kennedy..."
+                        className="mt-2 w-full rounded-xl border border-black/10 bg-white px-4 py-3 text-sm font-black text-[#15130f] outline-none transition focus:border-[#15130f]"
+                      />
+                    </label>
+                    <label className="block">
+                      <span className="text-xs font-black uppercase text-black/42">Precio</span>
+                      <input
+                        type="text"
+                        inputMode="decimal"
+                        value={zone.fee}
+                        onChange={e => updateZone(zone.id, 'fee', e.target.value)}
+                        className="mt-2 w-full rounded-xl border border-black/10 bg-white px-4 py-3 text-sm font-black text-[#15130f] outline-none transition focus:border-[#15130f]"
+                      />
+                    </label>
+                    <label className="block">
+                      <span className="text-xs font-black uppercase text-black/42">Minimo</span>
+                      <input
+                        type="text"
+                        inputMode="decimal"
+                        value={zone.min_order}
+                        onChange={e => updateZone(zone.id, 'min_order', e.target.value)}
+                        className="mt-2 w-full rounded-xl border border-black/10 bg-white px-4 py-3 text-sm font-black text-[#15130f] outline-none transition focus:border-[#15130f]"
+                      />
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => removeZone(zone.id)}
+                      className="mt-6 flex h-12 items-center justify-center rounded-xl border border-red-200 bg-red-50 px-4 text-red-700 transition hover:bg-red-100"
+                      title="Eliminar zona"
+                    >
+                      <Trash2 className="size-4" />
+                    </button>
+                  </div>
+                ))
+              )}
+            </div>
           </div>
         </section>
 

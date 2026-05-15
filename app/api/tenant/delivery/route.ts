@@ -30,6 +30,25 @@ function normalizeCountry(value: unknown, fallback = 'ES') {
   return ['ES', 'CO', 'MX', 'US', 'AR', 'PE', 'CL'].includes(country) ? country : 'ES'
 }
 
+function normalizeDeliveryZones(value: unknown) {
+  if (!Array.isArray(value)) return []
+  return value
+    .map((zone, index) => {
+      const raw = zone && typeof zone === 'object' ? zone as Record<string, unknown> : {}
+      const name = String(raw.name || '').trim()
+      const fee = toDecimal(raw.fee)
+      const minOrder = toDecimal(raw.min_order, 0)
+      if (!name || isNaN(fee) || fee < 0 || isNaN(minOrder) || minOrder < 0) return null
+      return {
+        id: String(raw.id || `zone-${index + 1}`).trim() || `zone-${index + 1}`,
+        name,
+        fee,
+        min_order: minOrder,
+      }
+    })
+    .filter(Boolean)
+}
+
 async function resolveTenantId(supabase: SupabaseClient, slugOrId: string): Promise<string | null> {
   const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
   if (uuidRegex.test(slugOrId)) return slugOrId
@@ -78,7 +97,7 @@ export async function PUT(request: NextRequest) {
     const existingResult = await selectSettingsWithPaymentFallback(
       supabase,
       tenantId,
-      'display_name, country, delivery_enabled, delivery_fee, delivery_min_order, delivery_time_minutes, cash_payment_enabled, tax_rate, printer_settings, online_payment_provider, wompi_enabled, wompi_environment, wompi_public_key, wompi_private_key, wompi_integrity_key',
+      'display_name, country, delivery_enabled, delivery_fee, delivery_min_order, delivery_time_minutes, delivery_zones, cash_payment_enabled, tax_rate, printer_settings, online_payment_provider, wompi_enabled, wompi_environment, wompi_public_key, wompi_private_key, wompi_integrity_key',
       'display_name, country, delivery_enabled, delivery_fee, delivery_min_order, delivery_time_minutes, cash_payment_enabled, tax_rate, printer_settings'
     )
 
@@ -129,6 +148,7 @@ export async function PUT(request: NextRequest) {
       delivery_fee: deliveryFee || 0,
       delivery_min_order: deliveryMinOrder || 0,
       delivery_time_minutes: deliveryTimeMinutes || 30,
+      delivery_zones: normalizeDeliveryZones(data.delivery_zones),
       cash_payment_enabled: data.cash_payment_enabled,
       tax_rate: taxRate || 0,
       printer_settings: mergePaymentConfigIntoPrinterSettings(existingSettings?.printer_settings, paymentPayload),
@@ -140,7 +160,7 @@ export async function PUT(request: NextRequest) {
     }
 
     const updatedSelect = existingResult.hasPaymentColumns
-      ? 'tenant_id, country, delivery_enabled, delivery_fee, delivery_min_order, delivery_time_minutes, cash_payment_enabled, tax_rate, printer_settings, online_payment_provider, wompi_enabled, wompi_environment, wompi_public_key, wompi_private_key, wompi_integrity_key'
+      ? 'tenant_id, country, delivery_enabled, delivery_fee, delivery_min_order, delivery_time_minutes, delivery_zones, cash_payment_enabled, tax_rate, printer_settings, online_payment_provider, wompi_enabled, wompi_environment, wompi_public_key, wompi_private_key, wompi_integrity_key'
       : 'tenant_id, country, delivery_enabled, delivery_fee, delivery_min_order, delivery_time_minutes, cash_payment_enabled, tax_rate, printer_settings'
 
     const { data: updated, error } = await supabase
@@ -209,7 +229,7 @@ export async function GET(request: NextRequest) {
     const { data, error } = await selectSettingsWithPaymentFallback(
       supabase,
       tenantId,
-      'delivery_enabled, delivery_fee, delivery_min_order, delivery_time_minutes, cash_payment_enabled, tax_rate, country, printer_settings, online_payment_provider, wompi_enabled, wompi_environment, wompi_public_key, wompi_private_key, wompi_integrity_key',
+      'delivery_enabled, delivery_fee, delivery_min_order, delivery_time_minutes, delivery_zones, cash_payment_enabled, tax_rate, country, printer_settings, online_payment_provider, wompi_enabled, wompi_environment, wompi_public_key, wompi_private_key, wompi_integrity_key',
       'delivery_enabled, delivery_fee, delivery_min_order, delivery_time_minutes, cash_payment_enabled, tax_rate, country, printer_settings'
     )
 
@@ -223,6 +243,7 @@ export async function GET(request: NextRequest) {
         delivery_fee: data?.delivery_fee ?? 0,
         delivery_min_order: data?.delivery_min_order ?? 0,
         delivery_time_minutes: data?.delivery_time_minutes ?? 30,
+        delivery_zones: Array.isArray((data as any)?.delivery_zones) ? (data as any).delivery_zones : [],
         cash_payment_enabled: data?.cash_payment_enabled ?? true,
         tax_rate: data?.tax_rate ?? 0,
         country: paymentConfig.country || tenant?.country || 'ES',
