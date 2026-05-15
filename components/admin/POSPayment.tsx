@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { DollarSign, CreditCard } from 'lucide-react';
-import { calculateChange, getSuggestedBillAmounts, formatCurrency } from '@/lib/pos-utils';
+import { calculateChange, getSuggestedBillAmounts } from '@/lib/pos-utils';
 import { getCurrencyByCountry, formatPriceWithCurrency } from '@/lib/currency';
 import { useTouchDevice } from '@/lib/hooks/useTouchDevice';
 import { NumericKeyboard } from './NumericKeyboard';
@@ -42,7 +42,7 @@ export function POSPayment({
   const [showTipKeyboard, setShowTipKeyboard] = useState(false);
   const totalWithTip = total + tip;
 
-  const suggestedAmounts = getSuggestedBillAmounts(totalWithTip);
+  const suggestedAmounts = getSuggestedBillAmounts(totalWithTip, currencyInfo.code);
   const paidAmount = amountPaid ? Number(amountPaid) : 0;
 
   const handleAmountChange = (value: string) => {
@@ -170,7 +170,7 @@ export function POSPayment({
                   onClick={() => handleSuggestedAmount(amount)}
                   className={`${compact ? 'py-1' : 'py-1'} px-1 bg-white/10 hover:bg-white/15 rounded-lg text-xs font-black text-emerald-300 border border-white/10 hover:border-emerald-300/40`}
                 >
-                  {currencyInfo.symbol}{amount}
+                  {formatPriceWithCurrency(amount, currencyInfo.code, currencyInfo.locale)}
                 </button>
               ))}
             </div>

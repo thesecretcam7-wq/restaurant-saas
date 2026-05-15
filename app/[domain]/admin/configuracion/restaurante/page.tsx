@@ -31,6 +31,7 @@ export default function RestauranteConfigPage({ params }: Props) {
     country: 'ES',
     timezone: 'Europe/Madrid',
     cash_payment_enabled: true,
+    kds_enabled: false,
     tax_rate: '0',
   })
 
@@ -55,6 +56,7 @@ export default function RestauranteConfigPage({ params }: Props) {
             country: data.country || 'ES',
             timezone: data.timezone || 'America/Bogota',
             cash_payment_enabled: data.cash_payment_enabled ?? true,
+            kds_enabled: data.kds_enabled ?? false,
             tax_rate: String(data.tax_rate ?? 0),
           })
         }
@@ -85,6 +87,7 @@ export default function RestauranteConfigPage({ params }: Props) {
           country: form.country,
           timezone: form.timezone,
           cash_payment_enabled: form.cash_payment_enabled,
+          kds_enabled: form.kds_enabled,
           tax_rate: parseFloat(form.tax_rate),
         }),
       })
@@ -204,6 +207,15 @@ export default function RestauranteConfigPage({ params }: Props) {
             />
             <p className="text-xs text-gray-400 mt-1">Porcentaje que se suma al subtotal. Pon 0 para no cobrar impuesto.</p>
           </div>
+        </div>
+
+        {/* Cocina */}
+        <div className="bg-white rounded-xl border p-6 space-y-4">
+          <h2 className="font-semibold">Cocina / KDS</h2>
+          {toggle('Usar pantalla de cocina', 'Si esta apagado, las ventas del TPV no llenan la pantalla KDS.', 'kds_enabled')}
+          <p className="rounded-lg bg-amber-50 px-3 py-2 text-xs font-medium text-amber-800">
+            Activalo solo si el restaurante trabaja con pantalla de cocina. Para negocios simples, mantenlo apagado.
+          </p>
         </div>
 
         {/* Configuración Avanzada */}

@@ -266,6 +266,16 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     // When confirming an order, ensure order_items exist for KDS visibility.
     // Kiosk cash orders skip order_items at creation time, so we create them here.
     if (status === 'confirmed' && Array.isArray(order.items) && order.items.length > 0) {
+      const { data: kdsSettings } = await supabase
+        .from('restaurant_settings')
+        .select('kds_enabled')
+        .eq('tenant_id', order.tenant_id)
+        .maybeSingle()
+
+      if (kdsSettings?.kds_enabled !== true) {
+        return NextResponse.json({ order })
+      }
+
       const kitchenItems = order.items.filter((item: any) => item.requires_kitchen !== false)
       const { count } = await supabase
         .from('order_items')

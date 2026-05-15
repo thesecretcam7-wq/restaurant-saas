@@ -13,24 +13,34 @@ export function calculateChange(total: number, amountPaid: number): number {
  * Retorna billetes sugeridos para pagar
  * Ejemplo: total 23.50 → [24, 25, 30, 50]
  */
-export function getSuggestedBillAmounts(total: number): number[] {
-  const billDenominations = [1, 5, 10, 20, 50, 100];
-  const suggested: number[] = [];
+export function getSuggestedBillAmounts(total: number, currency: string = 'EUR'): number[] {
+  const normalizedTotal = Math.max(0, Number(total) || 0);
+  const currencyCode = currency.toUpperCase();
+  const cashStepsByCurrency: Record<string, number[]> = {
+    COP: [1000, 2000, 5000, 10000, 20000, 50000, 100000],
+    CLP: [1000, 2000, 5000, 10000, 20000],
+    MXN: [10, 20, 50, 100, 200, 500, 1000],
+    ARS: [100, 200, 500, 1000, 2000, 10000],
+    PEN: [1, 2, 5, 10, 20, 50, 100, 200],
+    USD: [1, 5, 10, 20, 50, 100],
+    EUR: [1, 2, 5, 10, 20, 50, 100, 200, 500],
+  };
+  const steps = cashStepsByCurrency[currencyCode] || cashStepsByCurrency.EUR;
+  const suggestions = new Set<number>();
+  const roundUpTo = (step: number) => Math.ceil(normalizedTotal / step) * step;
 
-  for (const bill of billDenominations) {
-    if (bill > total) {
-      suggested.push(bill);
-      if (suggested.length >= 4) break;
-    }
+  for (const step of steps) {
+    const rounded = roundUpTo(step);
+    if (rounded >= normalizedTotal && rounded > 0) suggestions.add(Number(rounded.toFixed(2)));
+    if (suggestions.size >= 4) break;
   }
 
-  // Si no hay suficientes billetes mayores, agregar algunos
-  if (suggested.length < 2) {
-    const nextBill = billDenominations.find(b => b >= total);
-    if (nextBill) suggested.push(nextBill);
+  for (const bill of steps) {
+    if (bill >= normalizedTotal) suggestions.add(bill);
+    if (suggestions.size >= 4) break;
   }
 
-  return suggested.slice(0, 4);
+  return Array.from(suggestions).sort((a, b) => a - b).slice(0, 4);
 }
 
 /**

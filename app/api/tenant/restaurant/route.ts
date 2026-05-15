@@ -96,7 +96,7 @@ export async function PUT(request: NextRequest) {
 
     const { data: existingSettings } = await supabase
       .from('restaurant_settings')
-      .select('delivery_enabled, reservations_enabled')
+      .select('delivery_enabled, reservations_enabled, kds_enabled')
       .eq('tenant_id', tenant.id)
       .maybeSingle()
 
@@ -113,6 +113,7 @@ export async function PUT(request: NextRequest) {
         country,
         timezone: restaurantData.timezone,
         cash_payment_enabled: restaurantData.cash_payment_enabled ?? true,
+        kds_enabled: restaurantData.kds_enabled ?? existingSettings?.kds_enabled ?? false,
         tax_rate: Number(restaurantData.tax_rate) || 0,
         delivery_enabled: restaurantData.delivery_enabled ?? existingSettings?.delivery_enabled ?? false,
         reservations_enabled: restaurantData.reservations_enabled ?? existingSettings?.reservations_enabled ?? false,

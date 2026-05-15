@@ -192,7 +192,7 @@ export async function POST(request: NextRequest) {
 
     const { data: settings } = await supabase
       .from('restaurant_settings')
-      .select('tax_rate, delivery_fee, delivery_min_order, delivery_enabled, cash_payment_enabled')
+      .select('tax_rate, delivery_fee, delivery_min_order, delivery_enabled, cash_payment_enabled, kds_enabled')
       .eq('tenant_id', tenantId)
       .single()
 
@@ -282,11 +282,12 @@ export async function POST(request: NextRequest) {
       })
     }
 
-    // Auto-create order_items so KDS can display the order in real-time.
-    // Exception: kiosk cash orders skip this — items are created when cashier confirms payment.
+    // Auto-create order_items only when the restaurant uses KDS.
+    // Exception: kiosk cash orders skip this; items may be created when cashier confirms payment.
     const isKioskCash = source === 'kiosk' && paymentMethod === 'cash'
+    const kdsEnabled = settings?.kds_enabled === true
     const kitchenItems = sanitizedItems.filter((item: any) => item.requires_kitchen !== false)
-    if (!isKioskCash && kitchenItems.length > 0) {
+    if (kdsEnabled && !isKioskCash && kitchenItems.length > 0) {
       const orderItemsData = kitchenItems.map((item: any) => ({
         order_id: order.id,
         tenant_id: tenantId,
