@@ -8,6 +8,15 @@ import { createWompiIntegritySignature, getWompiCheckoutUrl } from '@/lib/wompi'
 import { decryptServerSecret } from '@/lib/server-secret-box'
 import { getPaymentConfig, selectSettingsWithPaymentFallback } from '@/lib/payment-settings'
 
+function buildWompiCustomerEmail(customerInfo: any, orderNumber: string) {
+  const email = String(customerInfo?.email || '').trim()
+  if (email) return email
+
+  const phoneDigits = String(customerInfo?.phone || '').replace(/\D/g, '')
+  const suffix = phoneDigits || orderNumber.toLowerCase().replace(/[^a-z0-9]/g, '')
+  return `cliente-${suffix}@eccofoodapp.com`
+}
+
 export async function POST(request: NextRequest) {
   try {
     const ip = getClientIp(request)
@@ -139,6 +148,7 @@ export async function POST(request: NextRequest) {
     })
 
     const orderNumber = `ORD-${Date.now()}`
+    const customerEmail = buildWompiCustomerEmail(customerInfo, orderNumber)
     const todayStart = new Date()
     todayStart.setHours(0, 0, 0, 0)
     const { count: todayCount } = await supabase
@@ -153,7 +163,7 @@ export async function POST(request: NextRequest) {
         order_number: orderNumber,
         wompi_reference: orderNumber,
         customer_name: customerInfo?.name,
-        customer_email: customerInfo?.email || null,
+        customer_email: customerEmail,
         customer_phone: customerInfo?.phone,
         items: orderItems,
         subtotal: totals.subtotal,
@@ -197,7 +207,7 @@ export async function POST(request: NextRequest) {
     await syncCustomerFromOrder(supabase, {
       tenantId: tenant.id,
       name: customerInfo?.name,
-      email: customerInfo?.email,
+      email: customerInfo?.email || null,
       phone: customerInfo?.phone,
       address: deliveryAddress,
       total: totals.total,
@@ -223,10 +233,11 @@ export async function POST(request: NextRequest) {
     url.searchParams.set('reference', orderNumber)
     url.searchParams.set('signature:integrity', signature)
     url.searchParams.set('redirect-url', `${domain}/gracias?order=${order.id}&provider=wompi&reference=${encodeURIComponent(orderNumber)}`)
-    if (customerInfo?.email) url.searchParams.set('customer-data:email', customerInfo.email)
+    url.searchParams.set('customer-data:email', customerEmail)
     if (customerInfo?.name) url.searchParams.set('customer-data:full-name', customerInfo.name)
     if (customerInfo?.phone) {
       url.searchParams.set('customer-data:phone-number', String(customerInfo.phone).replace(/\D/g, ''))
+      url.searchParams.set('customer-data:phone-number-prefix', '+57')
       url.searchParams.set('customer-data:legal-id-type', 'CC')
     }
 
