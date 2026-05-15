@@ -4,7 +4,7 @@ import { checkRateLimit, getClientIp, orderLimiter } from '@/lib/ratelimit'
 import { calculateOrderTotals } from '@/lib/order-totals'
 import { canCreateOrder } from '@/lib/checkPlan'
 import { syncCustomerFromOrder } from '@/lib/customer-sync'
-import { createWompiIntegritySignature, getWompiApiBase } from '@/lib/wompi'
+import { createWompiIntegritySignature, getWompiCheckoutUrl } from '@/lib/wompi'
 import { decryptServerSecret } from '@/lib/server-secret-box'
 import { getPaymentConfig, selectSettingsWithPaymentFallback } from '@/lib/payment-settings'
 
@@ -89,9 +89,6 @@ export async function POST(request: NextRequest) {
     }
 
     const phoneDigits = String(customerInfo?.phone || '').replace(/\D/g, '')
-    if (!/^3\d{9}$/.test(phoneDigits)) {
-      return NextResponse.json({ error: 'Para pagar con Nequi escribe un celular colombiano de 10 digitos que empiece por 3.' }, { status: 400 })
-    }
 
     const orderAccess = await canCreateOrder(tenant.id)
     if (!orderAccess.allowed) {
@@ -239,88 +236,22 @@ export async function POST(request: NextRequest) {
       integrityKey: wompiIntegrityKey,
     })
 
-    const merchantResponse = await fetch(`${getWompiApiBase(settings?.wompi_environment)}/merchants/${settings.wompi_public_key}`, {
-      cache: 'no-store',
-    })
-
-    if (!merchantResponse.ok) {
-      const merchantError = await merchantResponse.json().catch(() => null)
-      console.error('[wompi/checkout] merchant error:', merchantError)
-      await supabase.from('orders').delete().eq('id', order.id)
-      return NextResponse.json({ error: 'No pude preparar Wompi Nequi. Revisa la llave publica.' }, { status: 502 })
+    const url = new URL(getWompiCheckoutUrl())
+    url.searchParams.set('public-key', settings.wompi_public_key)
+    url.searchParams.set('currency', currency)
+    url.searchParams.set('amount-in-cents', String(amountInCents))
+    url.searchParams.set('reference', orderNumber)
+    url.searchParams.set('integrity', signature)
+    url.searchParams.set('signature:integrity', signature)
+    url.searchParams.set('redirect-url', `${domain}/gracias?order=${order.id}&provider=wompi&reference=${encodeURIComponent(orderNumber)}`)
+    url.searchParams.set('customer-data:email', customerEmail)
+    if (customerInfo?.name) url.searchParams.set('customer-data:full-name', customerInfo.name)
+    if (phoneDigits) {
+      url.searchParams.set('customer-data:phone-number', phoneDigits)
+      url.searchParams.set('customer-data:phone-number-prefix', '+57')
     }
 
-    const merchantPayload = await merchantResponse.json()
-    const acceptanceToken = merchantPayload?.data?.presigned_acceptance?.acceptance_token
-    const personalDataToken = merchantPayload?.data?.presigned_personal_data_auth?.acceptance_token
-
-    if (!acceptanceToken || !personalDataToken) {
-      await supabase.from('orders').delete().eq('id', order.id)
-      return NextResponse.json({ error: 'Wompi no entrego tokens de aceptacion para este comercio.' }, { status: 502 })
-    }
-
-    const transactionResponse = await fetch(`${getWompiApiBase(settings?.wompi_environment)}/transactions`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${wompiPrivateKey}`,
-      },
-      body: JSON.stringify({
-        amount_in_cents: amountInCents,
-        currency,
-        customer_email: customerEmail,
-        reference: orderNumber,
-        signature,
-        payment_method_type: 'NEQUI',
-        payment_method: {
-          type: 'NEQUI',
-          phone_number: phoneDigits,
-        },
-        acceptance_token: acceptanceToken,
-        accept_personal_auth: personalDataToken,
-      }),
-    })
-
-    const transactionPayload = await transactionResponse.json()
-    if (!transactionResponse.ok || !transactionPayload?.data?.id) {
-      console.error('[wompi/checkout] nequi transaction error:', transactionPayload)
-      await supabase.from('orders').delete().eq('id', order.id)
-      const rawMessages = transactionPayload?.error?.messages
-      const message = Array.isArray(rawMessages)
-        ? rawMessages.join(', ')
-        : typeof rawMessages === 'object' && rawMessages
-          ? Object.entries(rawMessages).map(([field, value]) => `${field}: ${Array.isArray(value) ? value.join(', ') : String(value)}`).join(', ')
-          : transactionPayload?.error?.reason || transactionPayload?.error?.type || transactionPayload?.message
-      return NextResponse.json({ error: message || 'No se pudo enviar el pago a Nequi' }, { status: 502 })
-    }
-
-    const transactionId = String(transactionPayload.data.id)
-    let updateResult = await supabase
-      .from('orders')
-      .update({
-        wompi_transaction_id: transactionId,
-        wompi_reference: orderNumber,
-        payment_status: 'pending',
-        status: 'pending',
-      })
-      .eq('id', order.id)
-
-    if (updateResult.error?.message?.includes('wompi_')) {
-      updateResult = await supabase
-        .from('orders')
-        .update({
-          payment_status: 'pending',
-          status: 'pending',
-        })
-        .eq('id', order.id)
-    }
-
-    if (updateResult.error) {
-      console.error('[wompi/checkout] transaction update error:', updateResult.error)
-    }
-
-    const redirectUrl = `${domain}/gracias?order=${order.id}&provider=wompi&reference=${encodeURIComponent(orderNumber)}&id=${encodeURIComponent(transactionId)}`
-    return NextResponse.json({ url: redirectUrl, orderId: order.id, orderNumber, transactionId })
+    return NextResponse.json({ url: url.toString(), orderId: order.id, orderNumber })
   } catch (error) {
     console.error('[wompi/checkout] error:', error)
     return NextResponse.json({ error: 'Error al crear pago con Wompi' }, { status: 500 })

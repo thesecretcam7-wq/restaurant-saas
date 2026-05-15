@@ -54,9 +54,9 @@ export function WompiReturnVerifier({
   if (!transactionId) return null
 
   const copy = {
-    checking: 'Verificando pago con Nequi...',
-    paid: 'Pago Nequi confirmado',
-    pending: 'Pago Nequi pendiente. Acepta la notificacion en tu app Nequi.',
+    checking: 'Verificando pago con Wompi...',
+    paid: 'Pago Wompi confirmado',
+    pending: 'Pago Wompi pendiente de confirmacion',
     failed: 'Pago Wompi no aprobado',
     idle: '',
   }[status]
