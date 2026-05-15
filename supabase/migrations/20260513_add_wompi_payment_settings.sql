@@ -7,6 +7,7 @@ ALTER TABLE restaurant_settings
   ADD COLUMN IF NOT EXISTS wompi_public_key TEXT,
   ADD COLUMN IF NOT EXISTS wompi_private_key TEXT,
   ADD COLUMN IF NOT EXISTS wompi_integrity_key TEXT,
+  ADD COLUMN IF NOT EXISTS wompi_event_key TEXT,
   ADD COLUMN IF NOT EXISTS wompi_updated_at TIMESTAMPTZ;
 
 ALTER TABLE orders

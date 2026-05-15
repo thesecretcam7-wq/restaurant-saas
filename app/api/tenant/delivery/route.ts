@@ -35,6 +35,11 @@ function isMissingDeliveryZonesColumn(error: any) {
   return error?.code === '42703' || message.includes('delivery_zones')
 }
 
+function isMissingColumn(error: any, column: string) {
+  const message = String(error?.message || error?.details || '')
+  return error?.code === '42703' || message.includes(column)
+}
+
 function normalizeDeliveryZones(value: unknown) {
   if (!Array.isArray(value)) return []
   return value
@@ -99,12 +104,23 @@ export async function PUT(request: NextRequest) {
       .eq('id', tenantId)
       .maybeSingle()
 
-    const existingResult = await selectSettingsWithPaymentFallback(
+    let hasDeliveryZonesColumn = true
+    let existingResult = await selectSettingsWithPaymentFallback(
       supabase,
       tenantId,
       'display_name, country, delivery_enabled, delivery_fee, delivery_min_order, delivery_time_minutes, delivery_zones, cash_payment_enabled, tax_rate, printer_settings, online_payment_provider, wompi_enabled, wompi_environment, wompi_public_key, wompi_private_key, wompi_integrity_key',
       'display_name, country, delivery_enabled, delivery_fee, delivery_min_order, delivery_time_minutes, cash_payment_enabled, tax_rate, printer_settings'
     )
+
+    if (existingResult.error && isMissingDeliveryZonesColumn(existingResult.error)) {
+      hasDeliveryZonesColumn = false
+      existingResult = await selectSettingsWithPaymentFallback(
+        supabase,
+        tenantId,
+        'display_name, country, delivery_enabled, delivery_fee, delivery_min_order, delivery_time_minutes, cash_payment_enabled, tax_rate, printer_settings, online_payment_provider, wompi_enabled, wompi_environment, wompi_public_key, wompi_private_key, wompi_integrity_key',
+        'display_name, country, delivery_enabled, delivery_fee, delivery_min_order, delivery_time_minutes, cash_payment_enabled, tax_rate, printer_settings'
+      )
+    }
 
     if (existingResult.error) {
       console.error('Error reading delivery settings before update:', existingResult.error)
@@ -171,20 +187,24 @@ export async function PUT(request: NextRequest) {
       delivery_fee: deliveryFee || 0,
       delivery_min_order: deliveryMinOrder || 0,
       delivery_time_minutes: deliveryTimeMinutes || 30,
-      delivery_zones: normalizeDeliveryZones(data.delivery_zones),
       cash_payment_enabled: data.cash_payment_enabled,
       tax_rate: taxRate || 0,
       printer_settings: mergePaymentConfigIntoPrinterSettings(existingSettings?.printer_settings, paymentPayload),
       updated_at: new Date().toISOString(),
     }
 
+    if (hasDeliveryZonesColumn) {
+      settingsPayload.delivery_zones = normalizeDeliveryZones(data.delivery_zones)
+    }
+
     if (existingResult.hasPaymentColumns) {
-      Object.assign(settingsPayload, paymentPayload)
+      const { wompi_event_key, ...columnPaymentPayload } = paymentPayload
+      Object.assign(settingsPayload, columnPaymentPayload)
     }
 
     const updatedSelect = existingResult.hasPaymentColumns
-      ? 'tenant_id, country, delivery_enabled, delivery_fee, delivery_min_order, delivery_time_minutes, delivery_zones, cash_payment_enabled, tax_rate, printer_settings, online_payment_provider, wompi_enabled, wompi_environment, wompi_public_key, wompi_private_key, wompi_integrity_key'
-      : 'tenant_id, country, delivery_enabled, delivery_fee, delivery_min_order, delivery_time_minutes, cash_payment_enabled, tax_rate, printer_settings'
+      ? `tenant_id, country, delivery_enabled, delivery_fee, delivery_min_order, delivery_time_minutes, ${hasDeliveryZonesColumn ? 'delivery_zones,' : ''} cash_payment_enabled, tax_rate, printer_settings, online_payment_provider, wompi_enabled, wompi_environment, wompi_public_key, wompi_private_key, wompi_integrity_key`
+      : `tenant_id, country, delivery_enabled, delivery_fee, delivery_min_order, delivery_time_minutes, ${hasDeliveryZonesColumn ? 'delivery_zones,' : ''} cash_payment_enabled, tax_rate, printer_settings`
 
     const { data: updated, error } = await supabase
       .from('restaurant_settings')
@@ -204,6 +224,9 @@ export async function PUT(request: NextRequest) {
           { error: 'Falta aplicar la migracion de zonas de delivery en Supabase. Pega el SQL que te dio Codex y vuelve a guardar.' },
           { status: 409 }
         )
+      }
+      if (isMissingColumn(error, 'wompi_event_key')) {
+        return NextResponse.json({ error: 'Actualiza la pagina e intenta guardar de nuevo. La clave de evento se guardara en la configuracion protegida.' }, { status: 409 })
       }
       return NextResponse.json({ error: error.message || 'Error al guardar los cambios' }, { status: 500 })
     }
