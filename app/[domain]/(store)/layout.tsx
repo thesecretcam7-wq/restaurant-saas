@@ -18,6 +18,7 @@ export default async function StoreLayout({ children, params }: Props) {
   const { branding, tenant } = context
   const tenantSlug = context.tenant?.slug || tenantId
   const pageConfig = getPageConfig((tenant as any)?.metadata?.page_config || branding?.page_config)
+  const themeMode = pageConfig.appearance.theme_mode
   const whatsappLink = pageConfig.social.whatsapp || branding?.whatsapp_number || null
   const restaurantName = branding?.app_name || tenant?.organization_name || null
   const storeLogoUrl = branding?.logo_url || tenant?.logo_url || null
@@ -33,6 +34,32 @@ export default async function StoreLayout({ children, params }: Props) {
     textSecondary: branding?.text_secondary_color,
     border: branding?.border_color,
   })
+  const isLightTheme = themeMode === 'light'
+  const themeVars = isLightTheme
+    ? {
+        primary: palette.primary,
+        secondary: '#f1eadc',
+        buttonPrimary: palette.buttonPrimary,
+        buttonSecondary: '#ffffff',
+        price: palette.accent,
+        background: '#f8f5ee',
+        surface: '#ffffff',
+        soft: 'rgba(21, 19, 15, 0.06)',
+        text: '#15130f',
+        muted: 'rgba(21, 19, 15, 0.64)',
+      }
+    : {
+        primary: '#e7b43f',
+        secondary: '#191612',
+        buttonPrimary: '#e7b43f',
+        buttonSecondary: '#28231a',
+        price: '#ffcf64',
+        background: '#050505',
+        surface: '#151410',
+        soft: 'rgba(255, 247, 223, 0.08)',
+        text: '#fff7df',
+        muted: 'rgba(255, 247, 223, 0.66)',
+      }
 
   if (tenant && !storeEnabled) {
     return (
@@ -47,18 +74,18 @@ export default async function StoreLayout({ children, params }: Props) {
 
   return (
     <div
-      className="ecco-store-premium pb-[calc(6.25rem+env(safe-area-inset-bottom))]"
+      className={`ecco-store-premium ${themeMode === 'light' ? 'ecco-store-light' : 'ecco-store-dark'} pb-[calc(6.25rem+env(safe-area-inset-bottom))]`}
       style={{
-        '--primary-color': '#e7b43f',
-        '--secondary-color': '#191612',
-        '--button-primary-color': '#e7b43f',
-        '--button-secondary-color': '#28231a',
-        '--price-color': '#ffcf64',
-        '--brand-background-color': '#050505',
-        '--brand-surface-color': '#151410',
-        '--brand-soft-color': 'rgba(255, 247, 223, 0.08)',
-        '--brand-text-color': '#fff7df',
-        '--brand-muted-color': 'rgba(255, 247, 223, 0.66)',
+        '--primary-color': themeVars.primary,
+        '--secondary-color': themeVars.secondary,
+        '--button-primary-color': themeVars.buttonPrimary,
+        '--button-secondary-color': themeVars.buttonSecondary,
+        '--price-color': themeVars.price,
+        '--brand-background-color': themeVars.background,
+        '--brand-surface-color': themeVars.surface,
+        '--brand-soft-color': themeVars.soft,
+        '--brand-text-color': themeVars.text,
+        '--brand-muted-color': themeVars.muted,
       } as React.CSSProperties}
     >
       <StoreBrandingMemory
@@ -67,7 +94,7 @@ export default async function StoreLayout({ children, params }: Props) {
         primaryColor={branding?.primary_color}
       />
       {children}
-      <BottomNav tenantId={tenantSlug} primaryColor={palette.buttonPrimary} />
+      <BottomNav tenantId={tenantSlug} primaryColor={palette.buttonPrimary} themeMode={themeMode} />
       <WhatsAppFloat whatsapp={whatsappLink} restaurantName={restaurantName} primaryColor="#25D366" />
     </div>
   )

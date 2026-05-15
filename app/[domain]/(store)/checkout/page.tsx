@@ -251,9 +251,13 @@ export default function CheckoutPage({ params }: Props) {
 
   const inputCls = "w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:bg-white transition-all placeholder:text-muted-foreground"
   const primary = 'var(--button-primary-color, var(--primary-color, #15130f))'
+  const pageBg = 'var(--brand-background-color, #f8f5ef)'
+  const surface = 'var(--brand-surface-color, #ffffff)'
+  const text = 'var(--brand-text-color, #15130f)'
+  const muted = 'var(--brand-muted-color, rgba(21, 19, 15, 0.62))'
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen" style={{ backgroundColor: pageBg, color: text }}>
       {loading && (
         <CheckoutStoreLoader
           logoUrl={storeBranding?.logoUrl}
@@ -261,7 +265,7 @@ export default function CheckoutPage({ params }: Props) {
           primaryColor={storeBranding?.primaryColor}
         />
       )}
-      <header className="bg-white border-b">
+      <header className="border-b backdrop-blur-lg" style={{ backgroundColor: surface }}>
         <div className="max-w-lg mx-auto px-4 h-14 flex items-center gap-3">
           <Link href={`${storeBasePath}/carrito`} className="w-9 h-9 rounded-full bg-gray-100 flex items-center justify-center">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#374151" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
@@ -269,8 +273,8 @@ export default function CheckoutPage({ params }: Props) {
             </svg>
           </Link>
           <div>
-            <h1 className="font-extrabold text-gray-900">Confirmar pedido</h1>
-            <p className="text-xs text-muted-foreground">{items.reduce((s, i) => s + i.qty, 0)} productos</p>
+            <h1 className="font-extrabold" style={{ color: text }}>Confirmar pedido</h1>
+            <p className="text-xs" style={{ color: muted }}>{items.reduce((s, i) => s + i.qty, 0)} productos</p>
           </div>
         </div>
       </header>
@@ -279,8 +283,8 @@ export default function CheckoutPage({ params }: Props) {
         <form onSubmit={handleSubmit} className="space-y-4">
 
           {/* Contact */}
-          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 space-y-3">
-            <h2 className="font-extrabold text-gray-900 flex items-center gap-2">
+          <div className="rounded-2xl border border-gray-100 shadow-sm p-5 space-y-3" style={{ backgroundColor: surface }}>
+            <h2 className="font-extrabold flex items-center gap-2" style={{ color: text }}>
               <span className="w-6 h-6 rounded-full text-white text-xs font-bold flex items-center justify-center" style={{ backgroundColor: primary }}>1</span>
               Tus datos
             </h2>
@@ -302,8 +306,8 @@ export default function CheckoutPage({ params }: Props) {
 
           {/* Delivery */}
           {settings?.delivery_enabled && (
-            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 space-y-3">
-              <h2 className="font-extrabold text-gray-900 flex items-center gap-2">
+            <div className="rounded-2xl border border-gray-100 shadow-sm p-5 space-y-3" style={{ backgroundColor: surface }}>
+              <h2 className="font-extrabold flex items-center gap-2" style={{ color: text }}>
                 <span className="w-6 h-6 rounded-full text-white text-xs font-bold flex items-center justify-center" style={{ backgroundColor: primary }}>2</span>
                 Entrega
               </h2>
@@ -336,8 +340,8 @@ export default function CheckoutPage({ params }: Props) {
           )}
 
           {/* Payment */}
-          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 space-y-3">
-            <h2 className="font-extrabold text-gray-900 flex items-center gap-2">
+          <div className="rounded-2xl border border-gray-100 shadow-sm p-5 space-y-3" style={{ backgroundColor: surface }}>
+            <h2 className="font-extrabold flex items-center gap-2" style={{ color: text }}>
               <span className="w-6 h-6 rounded-full text-white text-xs font-bold flex items-center justify-center" style={{ backgroundColor: primary }}>{settings?.delivery_enabled ? '3' : '2'}</span>
               Pago
             </h2>
@@ -362,14 +366,14 @@ export default function CheckoutPage({ params }: Props) {
           </div>
 
           {/* Notes */}
-          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+          <div className="rounded-2xl border border-gray-100 shadow-sm p-5" style={{ backgroundColor: surface }}>
             <textarea value={form.notes} onChange={e => setForm(f => ({...f, notes: e.target.value}))}
               className={inputCls + ' resize-none'} placeholder="¿Alguna nota? Alergias, indicaciones... (opcional)" rows={2} />
           </div>
 
           {/* Order summary */}
-          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 space-y-2">
-            <h3 className="font-extrabold text-gray-900 mb-3">Resumen del pedido</h3>
+          <div className="rounded-2xl border border-gray-100 shadow-sm p-5 space-y-2" style={{ backgroundColor: surface }}>
+            <h3 className="font-extrabold mb-3" style={{ color: text }}>Resumen del pedido</h3>
             {items.map(item => (
               <div key={item.item_id} className="flex justify-between text-sm text-gray-600">
                 <span>{item.qty}× {item.name}</span>

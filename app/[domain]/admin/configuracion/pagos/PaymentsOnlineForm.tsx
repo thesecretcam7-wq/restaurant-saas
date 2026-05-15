@@ -34,8 +34,10 @@ export function PaymentsOnlineForm({ tenantId, mode = 'full' }: Props) {
     wompi_public_key: '',
     wompi_private_key: '',
     wompi_integrity_key: '',
+    wompi_event_key: '',
     wompi_has_private_key: false,
     wompi_has_integrity_key: false,
+    wompi_has_event_key: false,
   })
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -61,8 +63,10 @@ export function PaymentsOnlineForm({ tenantId, mode = 'full' }: Props) {
             wompi_public_key: data.data.wompi_public_key ?? '',
             wompi_private_key: '',
             wompi_integrity_key: '',
+            wompi_event_key: '',
             wompi_has_private_key: data.data.wompi_has_private_key ?? false,
             wompi_has_integrity_key: data.data.wompi_has_integrity_key ?? false,
+            wompi_has_event_key: data.data.wompi_has_event_key ?? false,
           })
         }
       })
@@ -98,8 +102,10 @@ export function PaymentsOnlineForm({ tenantId, mode = 'full' }: Props) {
         ...f,
         wompi_private_key: '',
         wompi_integrity_key: '',
+        wompi_event_key: '',
         wompi_has_private_key: data.data?.wompi_has_private_key ?? f.wompi_has_private_key,
         wompi_has_integrity_key: data.data?.wompi_has_integrity_key ?? f.wompi_has_integrity_key,
+        wompi_has_event_key: data.data?.wompi_has_event_key ?? f.wompi_has_event_key,
       }))
       setMessage(isWompiMode ? 'Wompi guardado' : 'Pagos online guardados')
       setTimeout(() => setMessage(''), 5000)
@@ -264,6 +270,19 @@ export function PaymentsOnlineForm({ tenantId, mode = 'full' }: Props) {
                   placeholder={form.wompi_has_integrity_key ? 'Guardada. Escribe solo para cambiarla.' : 'Llave de integridad'}
                   type="password"
                 />
+              </label>
+              <label className="block sm:col-span-2">
+                <span className="text-xs font-black uppercase text-black/42">Clave de evento / webhook</span>
+                <input
+                  value={form.wompi_event_key}
+                  onChange={e => setForm(f => ({ ...f, wompi_event_key: e.target.value }))}
+                  className="mt-2 w-full rounded-xl border border-black/10 bg-white px-4 py-3 text-sm font-black text-[#15130f] outline-none transition focus:border-[#15130f]"
+                  placeholder={form.wompi_has_event_key ? 'Guardada. Escribe solo para cambiarla.' : 'test_events_...'}
+                  type="password"
+                />
+                <span className="mt-1 block text-xs font-semibold text-black/45">
+                  Se usara para verificar eventos automaticos de Wompi cuando activemos el webhook.
+                </span>
               </label>
             </div>
           </div>

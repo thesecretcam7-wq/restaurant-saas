@@ -163,7 +163,7 @@ export default function DeliveryForm({ tenantId }: Props) {
                 onChange={e => setForm(f => ({ ...f, delivery_enabled: e.target.checked }))}
                 className="peer sr-only"
               />
-              <span className="h-7 w-12 rounded-full bg-black/15 transition peer-checked:bg-[#15130f]" />
+              <span className="h-7 w-12 rounded-full bg-black/25 transition peer-checked:bg-emerald-500 peer-checked:shadow-[0_0_18px_rgba(16,185,129,.42)]" />
               <span className="absolute left-1 top-1 size-5 rounded-full bg-white shadow transition peer-checked:translate-x-5" />
             </label>
           </div>

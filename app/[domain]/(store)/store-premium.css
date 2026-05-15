@@ -124,3 +124,93 @@
   border-color: var(--store-border) !important;
   box-shadow: 0 -18px 60px rgba(0, 0, 0, 0.52) !important;
 }
+
+.ecco-store-light {
+  --store-ink: #15130f;
+  --store-muted: rgba(21, 19, 15, 0.64);
+  --store-dim: rgba(21, 19, 15, 0.42);
+  --store-panel: rgba(255, 255, 255, 0.92);
+  --store-panel-2: rgba(255, 252, 246, 0.96);
+  --store-border: rgba(151, 111, 31, 0.2);
+  background:
+    radial-gradient(circle at 12% -10%, rgba(231, 180, 63, 0.18), transparent 24rem),
+    radial-gradient(circle at 90% 4%, rgba(255, 207, 100, 0.15), transparent 24rem),
+    linear-gradient(135deg, #fffdf8 0%, #f8f5ee 52%, #efe7d8 100%) !important;
+  color: var(--store-ink);
+}
+
+.ecco-store-light::before {
+  background-image:
+    linear-gradient(rgba(21, 19, 15, 0.035) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(21, 19, 15, 0.03) 1px, transparent 1px);
+  opacity: 0.55;
+}
+
+.ecco-store-light header {
+  background: rgba(255, 252, 246, 0.92) !important;
+  border-color: var(--store-border) !important;
+  box-shadow: 0 18px 60px rgba(60, 45, 17, 0.1) !important;
+}
+
+.ecco-store-light .bg-white,
+.ecco-store-light .bg-gray-50,
+.ecco-store-light .bg-gray-100 {
+  background:
+    linear-gradient(145deg, rgba(255, 255, 255, 0.94), rgba(255, 248, 235, 0.72)),
+    var(--store-panel) !important;
+}
+
+.ecco-store-light .shadow-sm,
+.ecco-store-light .shadow-lg,
+.ecco-store-light .shadow-xl {
+  box-shadow: 0 22px 70px rgba(60, 45, 17, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.95) !important;
+}
+
+.ecco-store-light .text-white,
+.ecco-store-light .text-\[\#fff7df\],
+.ecco-store-light .text-gray-900,
+.ecco-store-light .text-gray-800,
+.ecco-store-light .text-gray-700,
+.ecco-store-light .text-\[\#15130f\] {
+  color: var(--store-ink) !important;
+}
+
+.ecco-store-light .store-hero-invert .text-white,
+.ecco-store-light .store-hero-invert .text-\[\#fff7df\],
+.ecco-store-light .store-hero-invert [class*="text-white/"] {
+  color: #fff7df !important;
+}
+
+.ecco-store-light .text-gray-600,
+.ecco-store-light .text-gray-500,
+.ecco-store-light .text-muted-foreground,
+.ecco-store-light [class*="text-black/"],
+.ecco-store-light [class*="text-white/"] {
+  color: var(--store-muted) !important;
+}
+
+.ecco-store-light input,
+.ecco-store-light textarea,
+.ecco-store-light select {
+  background: rgba(255, 255, 255, 0.88) !important;
+  border-color: rgba(151, 111, 31, 0.2) !important;
+  color: var(--store-ink) !important;
+}
+
+.ecco-store-light input::placeholder,
+.ecco-store-light textarea::placeholder {
+  color: rgba(21, 19, 15, 0.38) !important;
+}
+
+.ecco-store-light .menu-rise {
+  background:
+    radial-gradient(circle at 18% 0%, rgba(231, 180, 63, 0.08), transparent 15rem),
+    linear-gradient(145deg, rgba(255, 255, 255, 0.96), rgba(255, 248, 235, 0.74)),
+    var(--store-panel-2) !important;
+}
+
+.ecco-store-light nav {
+  background: rgba(255, 252, 246, 0.92) !important;
+  border-color: var(--store-border) !important;
+  box-shadow: 0 -18px 60px rgba(60, 45, 17, 0.14) !important;
+}

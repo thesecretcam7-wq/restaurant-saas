@@ -30,6 +30,11 @@ function normalizeCountry(value: unknown, fallback = 'ES') {
   return ['ES', 'CO', 'MX', 'US', 'AR', 'PE', 'CL'].includes(country) ? country : 'ES'
 }
 
+function isMissingDeliveryZonesColumn(error: any) {
+  const message = String(error?.message || error?.details || '')
+  return error?.code === '42703' || message.includes('delivery_zones')
+}
+
 function normalizeDeliveryZones(value: unknown) {
   if (!Array.isArray(value)) return []
   return value
@@ -124,6 +129,9 @@ export async function PUT(request: NextRequest) {
     const wompiIntegrityKey = String(data.wompi_integrity_key || '').trim()
       ? encryptServerSecret(String(data.wompi_integrity_key || '').trim())
       : existingPayment.wompi_integrity_key || ''
+    const wompiEventKey = String(data.wompi_event_key || '').trim()
+      ? encryptServerSecret(String(data.wompi_event_key || '').trim())
+      : existingPayment.wompi_event_key || ''
 
     if (country === 'CO' && onlinePaymentProvider === 'wompi' && wompiEnabled) {
       if (!wompiPublicKey || !wompiPrivateKey || !wompiIntegrityKey) {
@@ -138,6 +146,7 @@ export async function PUT(request: NextRequest) {
       wompi_public_key: wompiPublicKey || null,
       wompi_private_key: wompiPrivateKey || null,
       wompi_integrity_key: wompiIntegrityKey || null,
+      wompi_event_key: wompiEventKey || null,
     }
 
     const settingsPayload: Record<string, any> = {
@@ -176,6 +185,12 @@ export async function PUT(request: NextRequest) {
         details: error.details,
         hint: error.hint,
       })
+      if (isMissingDeliveryZonesColumn(error)) {
+        return NextResponse.json(
+          { error: 'Falta aplicar la migracion de zonas de delivery en Supabase. Pega el SQL que te dio Codex y vuelve a guardar.' },
+          { status: 409 }
+        )
+      }
       return NextResponse.json({ error: error.message || 'Error al guardar los cambios' }, { status: 500 })
     }
 
@@ -197,8 +212,10 @@ export async function PUT(request: NextRequest) {
         ...updatedPayment,
         wompi_private_key: undefined,
         wompi_integrity_key: undefined,
+        wompi_event_key: undefined,
         wompi_has_private_key: Boolean(updatedPayment.wompi_private_key),
         wompi_has_integrity_key: Boolean(updatedPayment.wompi_integrity_key),
+        wompi_has_event_key: Boolean(updatedPayment.wompi_event_key),
       } : null,
       message: 'Configuracion de delivery actualizada',
     })
@@ -253,8 +270,10 @@ export async function GET(request: NextRequest) {
         wompi_public_key: paymentConfig.wompi_public_key,
         wompi_private_key: undefined,
         wompi_integrity_key: undefined,
+        wompi_event_key: undefined,
         wompi_has_private_key: Boolean(paymentConfig.wompi_private_key),
         wompi_has_integrity_key: Boolean(paymentConfig.wompi_integrity_key),
+        wompi_has_event_key: Boolean(paymentConfig.wompi_event_key),
       },
     })
   } catch {

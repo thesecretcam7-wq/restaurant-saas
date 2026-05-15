@@ -23,6 +23,7 @@ export function getPaymentConfig(row: any, fallbackCountry = 'ES') {
     wompi_public_key: row?.wompi_public_key ?? jsonConfig.wompi_public_key ?? '',
     wompi_private_key: row?.wompi_private_key ?? jsonConfig.wompi_private_key ?? '',
     wompi_integrity_key: row?.wompi_integrity_key ?? jsonConfig.wompi_integrity_key ?? '',
+    wompi_event_key: row?.wompi_event_key ?? jsonConfig.wompi_event_key ?? '',
   }
 }
 

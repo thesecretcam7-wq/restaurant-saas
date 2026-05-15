@@ -6,18 +6,18 @@ import Link from 'next/link'
 import { createPortal } from 'react-dom'
 import { useCartStore } from '@/lib/store/cart'
 
-function HomeIcon({ active, color }: { active: boolean; color: string }) {
+function HomeIcon({ active, color, inactiveColor }: { active: boolean; color: string; inactiveColor: string }) {
   return (
-    <svg width="23" height="23" viewBox="0 0 24 24" fill={active ? color : 'none'} stroke={active ? color : 'rgba(255,247,223,.72)'} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+    <svg width="23" height="23" viewBox="0 0 24 24" fill={active ? color : 'none'} stroke={active ? color : inactiveColor} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
       <path d="M3 9.5L12 3l9 6.5V20a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9.5z"/>
       <path d="M9 21V12h6v9"/>
     </svg>
   )
 }
 
-function MenuIcon({ active, color }: { active: boolean; color: string }) {
+function MenuIcon({ active, color, inactiveColor }: { active: boolean; color: string; inactiveColor: string }) {
   return (
-    <svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke={active ? color : 'rgba(255,247,223,.72)'} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+    <svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke={active ? color : inactiveColor} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
       <path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2"/>
       <path d="M7 2v20"/>
       <path d="M21 15V2a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3v7"/>
@@ -25,9 +25,9 @@ function MenuIcon({ active, color }: { active: boolean; color: string }) {
   )
 }
 
-function CartIcon({ active, color }: { active: boolean; color: string }) {
+function CartIcon({ active, color, inactiveColor }: { active: boolean; color: string; inactiveColor: string }) {
   return (
-    <svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke={active ? color : 'rgba(255,247,223,.72)'} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+    <svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke={active ? color : inactiveColor} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
       <path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/>
       <line x1="3" y1="6" x2="21" y2="6"/>
       <path d="M16 10a4 4 0 0 1-8 0"/>
@@ -35,9 +35,9 @@ function CartIcon({ active, color }: { active: boolean; color: string }) {
   )
 }
 
-function OrdersIcon({ active, color }: { active: boolean; color: string }) {
+function OrdersIcon({ active, color, inactiveColor }: { active: boolean; color: string; inactiveColor: string }) {
   return (
-    <svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke={active ? color : 'rgba(255,247,223,.72)'} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+    <svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke={active ? color : inactiveColor} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
       <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
       <polyline points="14 2 14 8 20 8"/>
       <line x1="16" y1="13" x2="8" y2="13"/>
@@ -51,16 +51,20 @@ export default function BottomNav({
   tenantId,
   primaryColor,
   basePath,
+  themeMode = 'dark',
 }: {
   tenantId: string
   primaryColor?: string
   basePath?: string
+  themeMode?: 'dark' | 'light'
 }) {
   const [mounted, setMounted] = useState(false)
   const pathname = usePathname()
   const { items } = useCartStore()
   const cartCount = items.reduce((s, i) => s + i.qty, 0)
   const color = primaryColor || '#4F46E5'
+  const isLight = themeMode === 'light'
+  const inactiveColor = isLight ? 'rgba(21,19,15,.62)' : 'rgba(255,247,223,.72)'
   const pathBase = basePath ?? `/${tenantId}`
   const homePath = pathBase || '/'
 
@@ -87,14 +91,16 @@ export default function BottomNav({
         position: 'fixed',
         inset: 'auto 0 0 0',
         paddingBottom: 'calc(env(safe-area-inset-bottom) + 0.75rem)',
-        background: 'linear-gradient(to top, rgba(0,0,0,.94), rgba(0,0,0,.72) 68%, rgba(0,0,0,0))',
+        background: isLight
+          ? 'linear-gradient(to top, rgba(248,245,238,.96), rgba(248,245,238,.84) 68%, rgba(248,245,238,0))'
+          : 'linear-gradient(to top, rgba(0,0,0,.94), rgba(0,0,0,.72) 68%, rgba(0,0,0,0))',
         transform: 'translate3d(0, 0, 0)',
         WebkitTransform: 'translate3d(0, 0, 0)',
         isolation: 'isolate',
       }}
       aria-label="Navegacion de tienda"
     >
-      <div className="mx-auto flex h-[72px] max-w-md items-center gap-1 rounded-[28px] border border-[#e7b43f]/24 bg-[#080807]/88 px-2 shadow-[0_-18px_52px_rgba(0,0,0,.54),inset_0_1px_0_rgba(255,255,255,.08)] backdrop-blur-2xl">
+      <div className="mx-auto flex h-[72px] max-w-md items-center gap-1 rounded-[28px] border border-[#e7b43f]/24 px-2 backdrop-blur-2xl" style={{ backgroundColor: isLight ? 'rgba(255,255,255,.9)' : 'rgba(8,8,7,.88)', boxShadow: isLight ? '0 -18px 52px rgba(21,19,15,.12), inset 0 1px 0 rgba(255,255,255,.9)' : '0 -18px 52px rgba(0,0,0,.54), inset 0 1px 0 rgba(255,255,255,.08)' }}>
         {tabs.map(({ href, label, Icon, active, badge }) => (
           <Link
             key={href}
@@ -113,7 +119,7 @@ export default function BottomNav({
               {active && (
                 <span className="absolute inset-0 scale-150 rounded-full opacity-20 blur-sm" style={{ backgroundColor: color }} />
               )}
-              <Icon active={active} color={color} />
+              <Icon active={active} color={color} inactiveColor={inactiveColor} />
               {badge ? (
                 <span
                   className="absolute -right-2 -top-2 flex h-[19px] min-w-[19px] items-center justify-center rounded-full px-1 text-[9px] font-black text-[#080704] shadow-[0_0_18px_rgba(255,207,100,.55)]"
@@ -123,7 +129,7 @@ export default function BottomNav({
                 </span>
               ) : null}
             </div>
-            <span className="text-[11px] font-black leading-none tracking-wide" style={{ color: active ? color : 'rgba(255,247,223,.72)' }}>
+            <span className="text-[11px] font-black leading-none tracking-wide" style={{ color: active ? color : inactiveColor }}>
               {label}
             </span>
           </Link>

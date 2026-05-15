@@ -206,6 +206,7 @@ export default function PageBuilderPage() {
   const updateAppearance = (key: string, value: any) => {
     setConfig(c => ({ ...c, appearance: { ...c.appearance, [key]: value } }))
     markDirty()
+    if (key === 'theme_mode') toast.success('Tema aplicado')
   }
 
   const updateBanner = (key: string, value: any) => {
@@ -385,8 +386,16 @@ export default function PageBuilderPage() {
               <div className="grid gap-4 md:grid-cols-3">
                 <StatCard label="Secciones activas" value={`${activeSections}/${config.sections.length}`} />
                 <StatCard label="Portada" value={config.hero.image_url ? 'Con imagen' : 'Sin imagen'} />
-                <StatCard label="Menu" value={labelFor(config.appearance.menu_layout, menuLayoutOptions)} />
+                <StatCard label="Modo" value={labelFor(config.appearance.theme_mode, themeModeOptions)} />
               </div>
+              <Panel title="Modo de tienda" desc="Escoge si esta tienda se muestra con apariencia oscura o clara.">
+                <ChoiceGrid
+                  label="Apariencia publica"
+                  value={config.appearance.theme_mode}
+                  options={themeModeOptions}
+                  onChange={v => updateAppearance('theme_mode', v)}
+                />
+              </Panel>
               <Panel title="¿Qué quieres cambiar?" desc="Elige una acción rápida. Todo queda guardado solo cuando presionas Guardar.">
                 <div className="grid gap-3 md:grid-cols-2">
                   <QuickButton title="Cambiar foto principal" desc="Imagen grande de entrada" onClick={() => setTab('hero')} />
@@ -494,6 +503,7 @@ export default function PageBuilderPage() {
           {tab === 'style' && (
             <Panel title="Estilo visual" desc="Controles simples para que la tienda se vea consistente. Los colores principales se editan en Branding.">
               <div className="space-y-5">
+                <ChoiceGrid label="Modo de tienda" value={config.appearance.theme_mode} options={themeModeOptions} onChange={v => updateAppearance('theme_mode', v)} />
                 <ChoiceGrid label="Esquinas" value={config.appearance.border_radius} options={radiusOptions} onChange={v => updateAppearance('border_radius', v)} />
                 <ChoiceGrid label="Tarjetas" value={config.appearance.card_style} options={cardOptions} onChange={v => updateAppearance('card_style', v)} />
                 <ChoiceGrid label="Botones" value={config.appearance.button_style} options={buttonOptions} onChange={v => updateAppearance('button_style', v)} />
@@ -716,6 +726,11 @@ const radiusOptions = [
   { id: 'large', label: 'Premium' },
 ]
 
+const themeModeOptions = [
+  { id: 'dark', label: 'Dark premium' },
+  { id: 'light', label: 'Light premium' },
+]
+
 const cardOptions = [
   { id: 'flat', label: 'Plano' },
   { id: 'bordered', label: 'Borde' },
@@ -831,7 +846,7 @@ function ChoiceGrid({ label, value, options, onChange }: {
             key={option.id}
             onClick={() => onChange(option.id)}
             className={`rounded-lg border px-3 py-2 text-sm font-black transition ${
-              value === option.id ? 'border-[#e43d30] bg-red-50 text-[#15130f]' : 'border-black/12 bg-white text-black/72 hover:border-black/25'
+              value === option.id ? 'border-[#e43d30] bg-[#15130f] text-white' : 'border-black/12 bg-white text-[#15130f] hover:border-black/25'
             }`}
           >
             {option.label}

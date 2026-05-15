@@ -27,12 +27,25 @@ export async function POST(request: NextRequest) {
     const tenantLookup = String(tenantParam)
     const isTenantUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(tenantLookup)
 
-    const { data: tenant } = await supabase
+    let tenantResult = await supabase
       .from('tenants')
       .select('id, slug, primary_domain, country')
       .eq(isTenantUUID ? 'id' : 'slug', tenantLookup)
       .maybeSingle()
+    if (tenantResult.error?.code === '42703' || String(tenantResult.error?.message || '').includes('primary_domain')) {
+      tenantResult = await supabase
+        .from('tenants')
+        .select('id, slug, country')
+        .eq(isTenantUUID ? 'id' : 'slug', tenantLookup)
+        .maybeSingle()
+    }
 
+    const { data: tenant, error: tenantError } = tenantResult
+
+    if (tenantError) {
+      console.error('[wompi/checkout] tenant lookup error:', tenantError)
+      return NextResponse.json({ error: 'No pude leer el restaurante' }, { status: 500 })
+    }
     if (!tenant?.id) return NextResponse.json({ error: 'Restaurante no encontrado' }, { status: 404 })
 
     const { data: settingsRow, error: settingsError } = await selectSettingsWithPaymentFallback(
@@ -178,8 +191,9 @@ export async function POST(request: NextRequest) {
       total: totals.total,
     })
 
-    const domain = tenant.primary_domain
-      ? `https://${tenant.primary_domain}`
+    const primaryDomain = (tenant as any).primary_domain
+    const domain = primaryDomain
+      ? `https://${primaryDomain}`
       : `${process.env.NEXT_PUBLIC_APP_URL || request.nextUrl.origin}/${tenant.slug || tenantSlug || tenant.id}`
     const amountInCents = Math.round(Number(totals.total || 0) * 100)
     const currency = 'COP'

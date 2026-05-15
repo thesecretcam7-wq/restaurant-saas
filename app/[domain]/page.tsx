@@ -69,6 +69,7 @@ export default async function HomePage({ params }: HomePageProps) {
   const tenantBasePath = isCustomDomain ? '' : `/${tenant.slug}`
   const tenantHomePath = tenantBasePath || '/'
   const { hero, sections, appearance, social, banner, about, gallery, testimonials, footer } = pageConfig
+  const themeMode = appearance.theme_mode
 
   const supabase = await createClient()
   const { data: orders } = await supabase.from('orders').select('items').eq('tenant_id', tenant.id)
@@ -155,21 +156,47 @@ export default async function HomePage({ params }: HomePageProps) {
   const heroSubtitle = hero.subtitle_text || tagline
   const featuredText = (branding as any)?.featured_text?.trim()
   const sectionBackgroundImage = (branding as any)?.section_background_image_url || ''
+  const isLightTheme = themeMode === 'light'
+  const themeColors = isLightTheme
+    ? {
+        background: '#f8f5ee',
+        surface: '#ffffff',
+        soft: 'rgba(21, 19, 15, 0.06)',
+        text: '#15130f',
+        muted: 'rgba(21, 19, 15, 0.64)',
+        header: 'rgba(255, 252, 246, 0.94)',
+        heroPanel: '#fffaf0',
+        heroText: '#fff7df',
+        footerText: 'rgba(21, 19, 15, 0.62)',
+      }
+    : {
+        background,
+        surface: sectionSurface,
+        soft: 'rgba(255, 247, 223, 0.08)',
+        text: '#fff7df',
+        muted: 'rgba(255, 247, 223, 0.66)',
+        header: 'rgba(8, 8, 7, 0.95)',
+        heroPanel: sectionSurface,
+        heroText: '#fff7df',
+        footerText: 'rgba(255, 247, 223, 0.62)',
+      }
   const pageBackgroundStyle = {
     '--primary-color': primary,
     '--secondary-color': secondary,
     '--button-primary-color': buttonPrimary,
     '--button-secondary-color': '#28231a',
     '--price-color': accent,
-    '--brand-background-color': background,
-    '--brand-surface-color': sectionSurface,
-    '--brand-soft-color': 'rgba(255, 247, 223, 0.08)',
-    '--brand-text-color': '#fff7df',
-    '--brand-muted-color': 'rgba(255, 247, 223, 0.66)',
-    backgroundColor: background,
+    '--brand-background-color': themeColors.background,
+    '--brand-surface-color': themeColors.surface,
+    '--brand-soft-color': themeColors.soft,
+    '--brand-text-color': themeColors.text,
+    '--brand-muted-color': themeColors.muted,
+    backgroundColor: themeColors.background,
     ...(sectionBackgroundImage
       ? {
-          backgroundImage: `linear-gradient(rgba(5,5,5,.84), rgba(5,5,5,.94)), url(${sectionBackgroundImage})`,
+          backgroundImage: isLightTheme
+            ? `linear-gradient(rgba(248,245,238,.88), rgba(248,245,238,.94)), url(${sectionBackgroundImage})`
+            : `linear-gradient(rgba(5,5,5,.84), rgba(5,5,5,.94)), url(${sectionBackgroundImage})`,
           backgroundSize: 'cover',
           backgroundPosition: 'center',
           backgroundAttachment: 'fixed',
@@ -193,8 +220,8 @@ export default async function HomePage({ params }: HomePageProps) {
   const formatMoney = (value: number) => formatPriceWithCurrency(Number(value || 0), currencyInfo.code, currencyInfo.locale)
 
   return (
-    <div className="ecco-store-premium store-surface min-h-screen overflow-hidden pb-[calc(6.5rem+env(safe-area-inset-bottom))] pt-[calc(4rem+env(safe-area-inset-top))] text-[#fff7df]" style={pageBackgroundStyle}>
-      <header className="fixed left-0 right-0 top-0 z-50 border-b border-[#e7b43f]/20 bg-[#080807]/95 backdrop-blur-xl" style={{ paddingTop: 'env(safe-area-inset-top)' }}>
+    <div className={`ecco-store-premium ${isLightTheme ? 'ecco-store-light' : 'ecco-store-dark'} store-surface min-h-screen overflow-hidden pb-[calc(6.5rem+env(safe-area-inset-bottom))] pt-[calc(4rem+env(safe-area-inset-top))]`} style={pageBackgroundStyle}>
+      <header className="fixed left-0 right-0 top-0 z-50 border-b border-[#e7b43f]/20 backdrop-blur-xl" style={{ paddingTop: 'env(safe-area-inset-top)', backgroundColor: themeColors.header }}>
         <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
           <Link href={tenantHomePath} className="flex min-w-0 items-center gap-3">
             {tenant.logo_url ? (
@@ -207,18 +234,18 @@ export default async function HomePage({ params }: HomePageProps) {
               </span>
             )}
             <span className="min-w-0">
-              <span className="block truncate text-sm font-black text-[#fff7df] sm:text-base">{appName}</span>
+              <span className="block truncate text-sm font-black sm:text-base" style={{ color: themeColors.text }}>{appName}</span>
               <span className="block truncate text-[11px] font-black uppercase tracking-[0.16em] text-[#e7b43f]">{tr('store.onlineOrder')}</span>
             </span>
           </Link>
           <div className="flex items-center gap-2">
-            <LanguageSwitcher compact className="border-[#e7b43f]/25 bg-white/8 text-[#fff7df] [&_select]:text-[#fff7df]" reloadOnChange />
+            <LanguageSwitcher compact className="border-[#e7b43f]/25 bg-white/8 [&_select]:text-current" reloadOnChange />
           </div>
         </div>
       </header>
 
       <section className="relative mx-auto max-w-7xl px-4 pb-6 pt-6 sm:px-6 lg:px-8">
-        <div className="relative overflow-hidden rounded-[28px] border border-[#e7b43f]/22 bg-[#151410]/86 shadow-[0_24px_80px_rgba(0,0,0,.42),inset_0_1px_0_rgba(255,255,255,.08)]" style={{ minHeight: heroMinHeight }}>
+        <div className="store-hero-invert relative overflow-hidden rounded-[28px] border border-[#e7b43f]/22 shadow-[0_24px_80px_rgba(0,0,0,.16),inset_0_1px_0_rgba(255,255,255,.16)]" style={{ minHeight: heroMinHeight, backgroundColor: themeColors.heroPanel }}>
         <div className="absolute inset-0">
           {heroImage ? (
             <img src={heroImage} alt={appName} className="h-full w-full object-cover" />
@@ -227,7 +254,7 @@ export default async function HomePage({ params }: HomePageProps) {
           )}
           <div className="absolute inset-0" style={{ background: `linear-gradient(90deg, rgba(0,0,0,${Math.min(heroOverlay + 0.25, 0.86)}) 0%, rgba(0,0,0,${heroOverlay}) 48%, rgba(0,0,0,0.22) 100%)` }} />
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_18%_16%,rgba(231,180,63,.2),transparent_24rem),radial-gradient(circle_at_92%_6%,rgba(255,106,26,.16),transparent_24rem)]" />
-          <div className="absolute inset-x-0 bottom-0 h-48" style={{ background: `linear-gradient(to top, ${background}, transparent)` }} />
+          <div className="absolute inset-x-0 bottom-0 h-48" style={{ background: `linear-gradient(to top, ${themeColors.background}, transparent)` }} />
         </div>
 
         <div className="relative z-10 grid gap-8 px-5 py-8 sm:px-8 sm:py-10 lg:grid-cols-[minmax(0,1fr)_360px] lg:p-10">
@@ -312,16 +339,16 @@ export default async function HomePage({ params }: HomePageProps) {
         })}
       </main>
 
-      <footer className="mt-10 border-t border-black/8 px-4 py-8" style={{ backgroundColor: `${sectionSurface}cc` }}>
+      <footer className="mt-10 border-t border-black/8 px-4 py-8" style={{ backgroundColor: `${themeColors.surface}cc` }}>
         <div className="mx-auto max-w-7xl text-center">
-          {footer.custom_text && <p className="text-sm font-bold text-black/65">{footer.custom_text}</p>}
+          {footer.custom_text && <p className="text-sm font-bold" style={{ color: themeColors.footerText }}>{footer.custom_text}</p>}
           <StoreSocialLinks social={mergedSocial} primary={primary} />
-          <p className="mt-2 text-xs font-bold text-black/42">{new Date().getFullYear()} {appName}</p>
-          {footer.show_powered_by && <p className="mt-2 text-xs font-bold text-black/35">Por Eccofood</p>}
+          <p className="mt-2 text-xs font-bold" style={{ color: themeColors.footerText }}>{new Date().getFullYear()} {appName}</p>
+          {footer.show_powered_by && <p className="mt-2 text-xs font-bold" style={{ color: themeColors.footerText }}>Por Eccofood</p>}
         </div>
       </footer>
 
-      <BottomNav tenantId={tenant.slug} primaryColor={buttonPrimary} basePath={tenantBasePath} />
+      <BottomNav tenantId={tenant.slug} primaryColor={buttonPrimary} basePath={tenantBasePath} themeMode={themeMode} />
       <WhatsAppFloat whatsapp={whatsappLink} restaurantName={appName} primaryColor="#25D366" />
     </div>
   )

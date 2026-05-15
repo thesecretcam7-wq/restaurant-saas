@@ -25,11 +25,13 @@ export interface SectionConfig {
 }
 
 export interface AppearanceConfig {
+  theme_mode: 'dark' | 'light'
   border_radius: 'none' | 'small' | 'medium' | 'large'  // 0, 8, 16, 24px
   card_style: 'flat' | 'bordered' | 'shadow' | 'glass'
   button_style: 'rounded' | 'pill' | 'square'
   header_style: 'transparent' | 'solid' | 'colored'
   menu_layout: 'list' | 'grid' | 'compact'
+  /** @deprecated Use theme_mode. Kept only for older saved configs. */
   dark_mode: boolean
   animations: boolean
 }
@@ -115,12 +117,13 @@ export const DEFAULT_PAGE_CONFIG: PageConfig = {
     { id: 'social', type: 'social', enabled: false, order: 8, title: 'Síguenos', config: {} },
   ],
   appearance: {
+    theme_mode: 'dark',
     border_radius: 'large',
     card_style: 'bordered',
     button_style: 'rounded',
     header_style: 'solid',
     menu_layout: 'list',
-    dark_mode: false,
+    dark_mode: true,
     animations: true,
   },
   social: {},
@@ -150,11 +153,19 @@ export const DEFAULT_PAGE_CONFIG: PageConfig = {
 
 export function getPageConfig(raw: any): PageConfig {
   if (!raw) return { ...DEFAULT_PAGE_CONFIG }
+  const rawAppearance = raw.appearance || {}
+  const themeMode = rawAppearance.theme_mode === 'light'
+    ? 'light'
+    : rawAppearance.theme_mode === 'dark'
+      ? 'dark'
+      : rawAppearance.dark_mode === false
+        ? 'light'
+        : 'dark'
   // Deep merge with defaults so new fields always have values
   return {
     hero: { ...DEFAULT_PAGE_CONFIG.hero, ...(raw.hero || {}) },
     sections: raw.sections?.length ? raw.sections : DEFAULT_PAGE_CONFIG.sections,
-    appearance: { ...DEFAULT_PAGE_CONFIG.appearance, ...(raw.appearance || {}) },
+    appearance: { ...DEFAULT_PAGE_CONFIG.appearance, ...rawAppearance, theme_mode: themeMode, dark_mode: themeMode === 'dark' },
     social: { ...DEFAULT_PAGE_CONFIG.social, ...(raw.social || {}) },
     banner: { ...DEFAULT_PAGE_CONFIG.banner, ...(raw.banner || {}) },
     about: { ...DEFAULT_PAGE_CONFIG.about, ...(raw.about || {}) },

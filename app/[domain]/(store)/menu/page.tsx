@@ -146,6 +146,7 @@ export default async function MenuPage({ params }: MenuProps) {
     : getCurrencyByCountry(settings?.country_code || settings?.country || (context.tenant as any)?.country || 'ES')
 
   const pageConfig = getPageConfig((context.tenant as any)?.metadata?.page_config || branding?.page_config)
+  const themeMode = pageConfig.appearance.theme_mode
   const layout = pageConfig.appearance.menu_layout
   const br = getBorderRadius(pageConfig.appearance.border_radius)
   const cardCls = getCardClasses(pageConfig.appearance.card_style)
@@ -153,7 +154,7 @@ export default async function MenuPage({ params }: MenuProps) {
   const featuredCarousel = featured.length > 1 ? featured : items.slice(0, 8)
 
   return (
-    <div className="store-surface min-h-screen overflow-x-hidden bg-[#faf8f3]" style={{ fontFamily, ...backgroundStyle }}>
+    <div className={`store-surface min-h-screen overflow-x-hidden ${themeMode === 'light' ? 'ecco-store-light' : 'ecco-store-dark'}`} style={{ fontFamily, ...backgroundStyle }}>
       <style>{`
         @keyframes menuRise {
           from { opacity: 0; transform: translateY(18px) scale(.985); }
