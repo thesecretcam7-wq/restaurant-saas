@@ -244,13 +244,6 @@ export async function POST(request: NextRequest) {
     url.searchParams.set('integrity', signature)
     url.searchParams.set('signature:integrity', signature)
     url.searchParams.set('redirect-url', `${domain}/gracias?order=${order.id}&provider=wompi&reference=${encodeURIComponent(orderNumber)}`)
-    url.searchParams.set('customer-data:email', customerEmail)
-    if (customerInfo?.name) url.searchParams.set('customer-data:full-name', customerInfo.name)
-    if (phoneDigits) {
-      url.searchParams.set('customer-data:phone-number', phoneDigits)
-      url.searchParams.set('customer-data:phone-number-prefix', '+57')
-    }
-
     return NextResponse.json({ url: url.toString(), orderId: order.id, orderNumber })
   } catch (error) {
     console.error('[wompi/checkout] error:', error)
