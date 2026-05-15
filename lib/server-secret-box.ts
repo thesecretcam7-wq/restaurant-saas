@@ -12,6 +12,17 @@ function getSecretKey() {
   return crypto.createHash('sha256').update(raw).digest()
 }
 
+function getFallbackSecretKeys() {
+  return [
+    process.env.WOMPI_ENCRYPTION_KEY,
+    process.env.SECRETS_ENCRYPTION_KEY,
+    process.env.SUPABASE_SERVICE_ROLE_KEY,
+  ]
+    .map(value => String(value || '').trim())
+    .filter(Boolean)
+    .map(value => crypto.createHash('sha256').update(value).digest())
+}
+
 export function encryptServerSecret(value: string | null | undefined) {
   const plainText = String(value || '').trim()
   if (!plainText) return ''
@@ -35,11 +46,16 @@ export function decryptServerSecret(value: string | null | undefined) {
     const iv = payload.subarray(0, 12)
     const tag = payload.subarray(12, 28)
     const encrypted = payload.subarray(28)
-    const decipher = crypto.createDecipheriv('aes-256-gcm', getSecretKey(), iv)
-    decipher.setAuthTag(tag)
-    return Buffer.concat([decipher.update(encrypted), decipher.final()]).toString('utf8')
+    for (const secretKey of getFallbackSecretKeys()) {
+      try {
+        const decipher = crypto.createDecipheriv('aes-256-gcm', secretKey, iv)
+        decipher.setAuthTag(tag)
+        return Buffer.concat([decipher.update(encrypted), decipher.final()]).toString('utf8')
+      } catch {}
+    }
   } catch (error) {
     console.error('Could not decrypt server secret', error)
-    return ''
   }
+  console.error('Could not decrypt server secret')
+  return ''
 }

@@ -229,7 +229,7 @@ export async function POST(request: NextRequest) {
 
     if (!wompiPrivateKey || !wompiIntegrityKey) {
       await supabase.from('orders').delete().eq('id', order.id)
-      return NextResponse.json({ error: 'Las llaves privadas de Wompi no se pudieron leer en el servidor. Vuelve a guardar las credenciales Wompi.' }, { status: 500 })
+      return NextResponse.json({ error: 'Las llaves privadas de Wompi no se pudieron leer. En Administrador > Wompi pega de nuevo la llave privada y la llave de integridad, guarda y prueba otra vez.' }, { status: 500 })
     }
 
     const signature = createWompiIntegritySignature({
