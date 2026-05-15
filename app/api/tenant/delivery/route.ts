@@ -1,7 +1,6 @@
 import { createServiceClient } from '@/lib/supabase/server'
 import { NextRequest, NextResponse } from 'next/server'
 import { requireTenantAccess, tenantAuthErrorResponse } from '@/lib/tenant-api-auth'
-import { encryptServerSecret } from '@/lib/server-secret-box'
 import {
   getPaymentConfig,
   mergePaymentConfigIntoPrinterSettings,
@@ -154,13 +153,13 @@ export async function PUT(request: NextRequest) {
     }
 
     const wompiPrivateKey = String(data.wompi_private_key || '').trim()
-      ? encryptServerSecret(rawWompiPrivateKey)
+      ? rawWompiPrivateKey
       : existingPayment.wompi_private_key || ''
     const wompiIntegrityKey = String(data.wompi_integrity_key || '').trim()
-      ? encryptServerSecret(rawWompiIntegrityKey)
+      ? rawWompiIntegrityKey
       : existingPayment.wompi_integrity_key || ''
     const wompiEventKey = String(data.wompi_event_key || '').trim()
-      ? encryptServerSecret(rawWompiEventKey)
+      ? rawWompiEventKey
       : existingPayment.wompi_event_key || ''
 
     if (country === 'CO' && onlinePaymentProvider === 'wompi' && wompiEnabled) {
