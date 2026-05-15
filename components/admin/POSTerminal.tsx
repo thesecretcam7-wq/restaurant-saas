@@ -1781,6 +1781,13 @@ export function POSTerminal({
   const activeDeliveryFee = !selectedTableId && posOrderType === 'delivery' && deliveryEnabled ? currentDeliveryFee : 0;
   const paymentBaseTotal = taxableSubtotal + taxAmount + activeDeliveryFee;
   const total = paymentBaseTotal + tip;
+  const currentOrderLabel = selectedTableNumber
+    ? `Mesa ${selectedTableNumber}`
+    : posOrderType === 'delivery'
+    ? selectedDeliveryZone?.name || 'Delivery'
+    : posOrderType === 'pickup'
+    ? 'Recojo'
+    : 'Para llevar';
 
   const tableGroups = useMemo((): TableGroup[] => {
     const groups = new Map<number, DineInOrder[]>();
@@ -2038,8 +2045,8 @@ export function POSTerminal({
 
             <div className="grid grid-cols-2 gap-2 lg:min-w-[280px]">
               <div className="pos-kpi">
-                <span>Carrito</span>
-                <strong>{cart.length}</strong>
+                <span>Pedido</span>
+                <strong className="truncate text-sm leading-tight">{currentOrderLabel}</strong>
               </div>
               <div className="pos-kpi">
                 <span>Delivery</span>
@@ -2166,9 +2173,9 @@ export function POSTerminal({
             <button
               onClick={() => setSelectedCategory(null)}
               title="Alt + flechas cambia categorias"
-              className={`pos-chip px-4 py-2 transition-all duration-200 shrink-0 ${
+              className={`pos-chip relative px-4 py-2 transition-all duration-200 shrink-0 ${
                 selectedCategory === null
-                  ? 'border-cyan-300/60 bg-cyan-300/16 text-cyan-50 shadow-lg shadow-cyan-900/20'
+                  ? 'border-amber-300/80 bg-amber-300/22 text-amber-50 shadow-lg shadow-amber-900/30 after:absolute after:left-3 after:right-3 after:-bottom-1 after:h-1 after:rounded-full after:bg-amber-300'
                   : 'hover:border-cyan-300/35 hover:text-white'
               }`}
             >
@@ -2179,9 +2186,9 @@ export function POSTerminal({
                 key={cat.id}
                 onClick={() => setSelectedCategory(cat.id)}
                 title="Alt + flechas cambia categorias"
-                className={`pos-chip px-4 py-2 transition-all duration-200 shrink-0 ${
+                className={`pos-chip relative px-4 py-2 transition-all duration-200 shrink-0 ${
                   selectedCategory === cat.id
-                    ? 'border-cyan-300/60 bg-cyan-300/16 text-cyan-50 shadow-lg shadow-cyan-900/20'
+                    ? 'border-amber-300/80 bg-amber-300/22 text-amber-50 shadow-lg shadow-amber-900/30 after:absolute after:left-3 after:right-3 after:-bottom-1 after:h-1 after:rounded-full after:bg-amber-300'
                     : 'hover:border-cyan-300/35 hover:text-white'
                 }`}
               >
