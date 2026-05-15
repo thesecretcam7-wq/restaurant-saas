@@ -257,9 +257,10 @@ export function PaymentsOnlineForm({ tenantId, mode = 'full' }: Props) {
                   value={form.wompi_private_key}
                   onChange={e => setForm(f => ({ ...f, wompi_private_key: e.target.value }))}
                   className="mt-2 w-full rounded-xl border border-black/10 bg-white px-4 py-3 text-sm font-black text-[#15130f] outline-none transition focus:border-[#15130f]"
-                  placeholder={form.wompi_has_private_key ? 'Guardada. Escribe solo para cambiarla.' : 'prv_prod_...'}
+                  placeholder={form.wompi_has_private_key ? 'Guardada. Escribe solo para cambiarla.' : 'prv_test_...'}
                   type="password"
                 />
+                <span className="mt-1 block text-xs font-semibold text-black/45">En pruebas empieza por prv_test_.</span>
               </label>
               <label className="block">
                 <span className="text-xs font-black uppercase text-black/42">Llave de integridad</span>
@@ -267,9 +268,10 @@ export function PaymentsOnlineForm({ tenantId, mode = 'full' }: Props) {
                   value={form.wompi_integrity_key}
                   onChange={e => setForm(f => ({ ...f, wompi_integrity_key: e.target.value }))}
                   className="mt-2 w-full rounded-xl border border-black/10 bg-white px-4 py-3 text-sm font-black text-[#15130f] outline-none transition focus:border-[#15130f]"
-                  placeholder={form.wompi_has_integrity_key ? 'Guardada. Escribe solo para cambiarla.' : 'Llave de integridad'}
+                  placeholder={form.wompi_has_integrity_key ? 'Guardada. Escribe solo para cambiarla.' : 'test_integrity_...'}
                   type="password"
                 />
+                <span className="mt-1 block text-xs font-semibold text-black/45">Debe ser el Secreto de integridad. No uses test_events_ aqui.</span>
               </label>
               <label className="block sm:col-span-2">
                 <span className="text-xs font-black uppercase text-black/42">Clave de evento / webhook</span>

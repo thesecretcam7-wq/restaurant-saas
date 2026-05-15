@@ -123,14 +123,28 @@ export async function PUT(request: NextRequest) {
     }
 
     const wompiPublicKey = String(data.wompi_public_key || '').trim()
+    const rawWompiPrivateKey = String(data.wompi_private_key || '').trim()
+    const rawWompiIntegrityKey = String(data.wompi_integrity_key || '').trim()
+    const rawWompiEventKey = String(data.wompi_event_key || '').trim()
+
+    if (rawWompiPrivateKey && !/^prv_(test|prod)_/.test(rawWompiPrivateKey)) {
+      return NextResponse.json({ error: 'La llave privada de Wompi debe empezar por prv_test_ o prv_prod_.' }, { status: 400 })
+    }
+    if (rawWompiIntegrityKey && !/^(test|prod)_integrity_/.test(rawWompiIntegrityKey)) {
+      return NextResponse.json({ error: 'La llave de integridad debe empezar por test_integrity_ o prod_integrity_. No pegues aqui la clave de eventos.' }, { status: 400 })
+    }
+    if (rawWompiEventKey && !/^(test|prod)_events_/.test(rawWompiEventKey)) {
+      return NextResponse.json({ error: 'La clave de evento debe empezar por test_events_ o prod_events_.' }, { status: 400 })
+    }
+
     const wompiPrivateKey = String(data.wompi_private_key || '').trim()
-      ? encryptServerSecret(String(data.wompi_private_key || '').trim())
+      ? encryptServerSecret(rawWompiPrivateKey)
       : existingPayment.wompi_private_key || ''
     const wompiIntegrityKey = String(data.wompi_integrity_key || '').trim()
-      ? encryptServerSecret(String(data.wompi_integrity_key || '').trim())
+      ? encryptServerSecret(rawWompiIntegrityKey)
       : existingPayment.wompi_integrity_key || ''
     const wompiEventKey = String(data.wompi_event_key || '').trim()
-      ? encryptServerSecret(String(data.wompi_event_key || '').trim())
+      ? encryptServerSecret(rawWompiEventKey)
       : existingPayment.wompi_event_key || ''
 
     if (country === 'CO' && onlinePaymentProvider === 'wompi' && wompiEnabled) {
