@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { DollarSign, CreditCard } from 'lucide-react';
 import { calculateChange, getSuggestedBillAmounts, formatCurrency } from '@/lib/pos-utils';
 import { getCurrencyByCountry, formatPriceWithCurrency } from '@/lib/currency';
+import { useTouchDevice } from '@/lib/hooks/useTouchDevice';
 import { NumericKeyboard } from './NumericKeyboard';
 
 type PaymentMethod = 'cash' | 'stripe';
@@ -34,6 +35,7 @@ export function POSPayment({
   compact = false,
 }: POSPaymentProps) {
   const currencyInfo = getCurrencyByCountry(country);
+  const isTouchDevice = useTouchDevice();
   const [amountPaid, setAmountPaid] = useState<string>('');
   const [change, setChange] = useState<number>(0);
   const [showNumericKeyboard, setShowNumericKeyboard] = useState(false);
@@ -125,10 +127,19 @@ export function POSPayment({
           <div className="flex gap-2">
             <input
               type="number"
-              inputMode="decimal"
+              inputMode={isTouchDevice ? 'none' : 'decimal'}
               min="0"
               step="0.01"
               value={amountPaid}
+              readOnly={isTouchDevice}
+              onPointerDown={(event) => {
+                if (!isTouchDevice) return;
+                event.preventDefault();
+                setShowNumericKeyboard(true);
+              }}
+              onFocus={() => {
+                if (isTouchDevice) setShowNumericKeyboard(true);
+              }}
               onChange={(event) => handleAmountChange(event.target.value)}
               onKeyDown={(event) => {
                 if (event.key === 'Enter' && isValidPayment && !disabled && !loading) {
@@ -137,7 +148,7 @@ export function POSPayment({
               }}
               placeholder="0.00"
               className={`min-w-0 flex-1 rounded-xl border-2 border-emerald-300/35 bg-emerald-400/10 px-3 text-center font-black text-emerald-200 outline-none transition placeholder:text-emerald-200/38 focus:border-emerald-200 focus:bg-emerald-400/16 ${compact ? 'py-1.5 text-base' : 'py-2 text-lg'}`}
-              title="Puedes escribir el dinero recibido con teclado"
+              title={isTouchDevice ? 'Usa el teclado interno de Eccofood' : 'Puedes escribir el dinero recibido con teclado'}
             />
             <button
               type="button"

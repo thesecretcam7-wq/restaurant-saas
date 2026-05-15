@@ -7,6 +7,7 @@ import { BarChart3, PackageOpen, ReceiptText, ShoppingBag, TrendingUp, Wallet } 
 import { VoidSaleButton } from '@/components/admin/VoidSaleButton'
 import { ReprintReceiptButton } from '@/components/admin/ReprintReceiptButton'
 import { formatPriceWithCurrency, getCurrencyByCountry } from '@/lib/currency'
+import { EditSaleButton } from '@/components/admin/EditSaleButton'
 
 interface Props {
   params: Promise<{ domain: string }>
@@ -204,7 +205,10 @@ export default async function VentasPage({ params }: Props) {
                       <div className="flex flex-wrap justify-end gap-2">
                         <ReprintReceiptButton tenantId={tenantId} orderId={order.id} orderNumber={order.order_number} />
                         {order.status !== 'cancelled' && (
-                          <VoidSaleButton orderId={order.id} orderNumber={order.order_number} />
+                          <>
+                            <EditSaleButton tenantId={tenantId} orderId={order.id} orderNumber={order.order_number} />
+                            <VoidSaleButton orderId={order.id} orderNumber={order.order_number} />
+                          </>
                         )}
                       </div>
                     ) : (

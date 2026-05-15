@@ -1,7 +1,10 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Search, Loader2, AlertCircle } from 'lucide-react';
+import { useTouchDevice } from '@/lib/hooks/useTouchDevice';
+import { EditSaleButton } from './EditSaleButton';
+import { NumericKeyboard } from './NumericKeyboard';
 
 interface Order {
   id: string;
@@ -24,29 +27,27 @@ interface POSOrderLookupProps {
 }
 
 export function POSOrderLookup({ domain, onOrderSelected, onVoidOrder }: POSOrderLookupProps) {
+  const isTouchDevice = useTouchDevice();
   const [searchInput, setSearchInput] = useState('');
   const [results, setResults] = useState<Order[]>([]);
   const [loading, setLoading] = useState(false);
   const [voidingOrderId, setVoidingOrderId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [searched, setSearched] = useState(false);
+  const [showSearchKeyboard, setShowSearchKeyboard] = useState(false);
 
   async function handleSearch(e: React.FormEvent) {
     e.preventDefault();
-
-    if (!searchInput.trim()) {
-      setError('Por favor ingresa un número de pedido');
-      return;
-    }
 
     setLoading(true);
     setError(null);
     setResults([]);
 
     try {
-      const response = await fetch(
-        `/api/orders/search?domain=${domain}&order_number=${encodeURIComponent(searchInput)}`
-      );
+      const params = new URLSearchParams({ domain, limit: '200' });
+      if (searchInput.trim()) params.set('order_number', searchInput.trim());
+
+      const response = await fetch(`/api/orders/search?${params.toString()}`);
 
       if (!response.ok) {
         throw new Error('Error al buscar pedido');
@@ -57,7 +58,7 @@ export function POSOrderLookup({ domain, onOrderSelected, onVoidOrder }: POSOrde
       setSearched(true);
 
       if (!data.orders || data.orders.length === 0) {
-        setError('No se encontraron pedidos con ese número');
+        setError(searchInput.trim() ? 'No se encontraron pedidos con ese numero' : 'No hay ventas registradas hoy');
       }
     } catch (err) {
       setError('Error al buscar. Intenta de nuevo.');
@@ -66,6 +67,43 @@ export function POSOrderLookup({ domain, onOrderSelected, onVoidOrder }: POSOrde
       setLoading(false);
     }
   }
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadTodayOrders() {
+      setLoading(true);
+      setError(null);
+      setResults([]);
+
+      try {
+        const params = new URLSearchParams({ domain, limit: '200' });
+        const response = await fetch(`/api/orders/search?${params.toString()}`);
+        if (!response.ok) throw new Error('Error al cargar ventas del dia');
+
+        const data = await response.json();
+        if (cancelled) return;
+
+        setResults(data.orders || []);
+        setSearched(true);
+        if (!data.orders || data.orders.length === 0) {
+          setError('No hay ventas registradas hoy');
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setError('Error al cargar ventas del dia');
+          console.error('Today orders error:', err);
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
+
+    loadTodayOrders();
+    return () => {
+      cancelled = true;
+    };
+  }, [domain]);
 
   const getPaymentStatusLabel = (status: string) => {
     const labels: { [key: string]: string } = {
@@ -125,7 +163,17 @@ export function POSOrderLookup({ domain, onOrderSelected, onVoidOrder }: POSOrde
         <form onSubmit={handleSearch} className="flex gap-2">
           <input
             type="text"
+            inputMode={isTouchDevice ? 'none' : 'search'}
+            readOnly={isTouchDevice}
             value={searchInput}
+            onPointerDown={(event) => {
+              if (!isTouchDevice) return;
+              event.preventDefault();
+              setShowSearchKeyboard(true);
+            }}
+            onFocus={() => {
+              if (isTouchDevice) setShowSearchKeyboard(true);
+            }}
             onChange={(e) => setSearchInput(e.target.value)}
             placeholder="Buscar por número de pedido..."
             className="flex-1 bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white placeholder-gray-500 focus:outline-none focus:border-blue-500 focus:bg-gray-800/50 text-sm"
@@ -223,16 +271,16 @@ export function POSOrderLookup({ domain, onOrderSelected, onVoidOrder }: POSOrde
                     Ticket anulado
                   </div>
                 ) : order.payment_status === 'paid' ? (
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleVoidOrder(order);
-                    }}
-                    disabled={!onVoidOrder || voidingOrderId === order.id}
-                    className="w-full mt-2 bg-red-600 hover:bg-red-700 disabled:opacity-50 text-white rounded-lg py-2 font-semibold text-xs transition-all"
-                  >
-                    {voidingOrderId === order.id ? 'Anulando...' : 'Anular venta terminada'}
-                  </button>
+                  <div className="mt-2 grid grid-cols-2 gap-2" onClick={(e) => e.stopPropagation()}>
+                    <EditSaleButton tenantId={domain} orderId={order.id} orderNumber={order.order_number} />
+                    <button
+                      onClick={() => handleVoidOrder(order)}
+                      disabled={!onVoidOrder || voidingOrderId === order.id}
+                      className="rounded-lg bg-red-600 py-2 text-xs font-semibold text-white transition-all hover:bg-red-700 disabled:opacity-50"
+                    >
+                      {voidingOrderId === order.id ? 'Anulando...' : 'Anular venta'}
+                    </button>
+                  </div>
                 ) : (
                   <button
                     onClick={(e) => {
@@ -263,6 +311,18 @@ export function POSOrderLookup({ domain, onOrderSelected, onVoidOrder }: POSOrde
           </div>
         )}
       </div>
+
+      <NumericKeyboard
+        isOpen={showSearchKeyboard}
+        title="Numero de ticket"
+        initialValue={Number(searchInput.replace(/\D/g, '')) || 0}
+        onConfirm={(value) => {
+          setSearchInput(value > 0 ? Math.trunc(value).toString() : '');
+          setShowSearchKeyboard(false);
+        }}
+        onCancel={() => setShowSearchKeyboard(false)}
+        allowDecimal={false}
+      />
     </div>
   );
 }

@@ -4,8 +4,9 @@ import { sendOrderStatusUpdate } from '@/lib/email'
 import { sendWhatsAppOrderStatus } from '@/lib/whatsapp'
 import { requireTenantAccess, tenantAuthErrorResponse } from '@/lib/tenant-api-auth'
 import { writeAuditLog } from '@/lib/audit-log'
-import { applyRecipeStockMovement } from '@/lib/inventory-recipes'
+import { applyRecipeStockMovement, returnRecipeStockForItems } from '@/lib/inventory-recipes'
 import { deriveBrandPalette } from '@/lib/brand-colors'
+import { calculateOrderTotals } from '@/lib/order-totals'
 
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -45,21 +46,21 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     const { id } = await params
     const orderId = id
     const body = await request.json()
-    const { status, payment_status, payment_method, cancel_reason } = body
+    const { status, payment_status, payment_method, cancel_reason, items, edit_reason } = body
 
     if (!orderId) {
       return NextResponse.json({ error: 'Order ID is required' }, { status: 400 })
     }
 
-    if (!status && !payment_status && !payment_method) {
-      return NextResponse.json({ error: 'Status, payment_status or payment_method is required' }, { status: 400 })
+    if (!status && !payment_status && !payment_method && !items) {
+      return NextResponse.json({ error: 'Status, payment_status, payment_method or items is required' }, { status: 400 })
     }
 
     const supabase = createServiceClient()
 
     const { data: existingOrder, error: existingError } = await supabase
       .from('orders')
-      .select('id, tenant_id, order_number, status, payment_status, total, notes, items')
+      .select('id, tenant_id, order_number, status, payment_status, total, subtotal, tax, delivery_fee, delivery_type, notes, items')
       .eq('id', orderId)
       .single()
 
@@ -68,6 +69,105 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     }
 
     const access = await requireTenantAccess(existingOrder.tenant_id, { staffRoles: ['admin', 'cajero', 'camarero', 'cocinero'] })
+
+    let editedItems: any[] | null = null
+    let returnedItems: any[] = []
+    let editTotals: { subtotal: number; tax: number; deliveryFee: number; total: number } | null = null
+
+    if (items) {
+      if (!Array.isArray(items) || items.length === 0) {
+        return NextResponse.json({ error: 'La venta debe conservar al menos un producto. Si quieres quitar todo, anula la venta completa.' }, { status: 400 })
+      }
+
+      if (existingOrder.status === 'cancelled') {
+        return NextResponse.json({ error: 'No se puede editar una venta anulada' }, { status: 400 })
+      }
+
+      const currentItems = Array.isArray(existingOrder.items) ? existingOrder.items : []
+      const currentByMenuId = new Map<string, { quantity: number; name: string; price: number; menu_item_id: string }>()
+
+      for (const item of currentItems) {
+        const menuItemId = item.menu_item_id || item.item_id || item.id
+        if (!menuItemId) continue
+        const current = currentByMenuId.get(menuItemId)
+        const quantity = Math.max(1, Number(item.qty ?? item.quantity ?? 1))
+        currentByMenuId.set(menuItemId, {
+          menu_item_id: menuItemId,
+          name: item.name,
+          price: Number(item.price || 0),
+          quantity: (current?.quantity || 0) + quantity,
+        })
+      }
+
+      const nextByMenuId = new Map<string, { quantity: number; notes?: string | null }>()
+      for (const item of items) {
+        const menuItemId = item.menu_item_id || item.item_id || item.id
+        if (!menuItemId || !currentByMenuId.has(menuItemId)) {
+          return NextResponse.json({ error: 'Desde esta pantalla solo puedes quitar productos de la venta original.' }, { status: 400 })
+        }
+
+        const quantity = Math.max(1, Number(item.qty ?? item.quantity ?? 1))
+        const current = nextByMenuId.get(menuItemId)
+        nextByMenuId.set(menuItemId, {
+          quantity: (current?.quantity || 0) + quantity,
+          notes: item.notes || null,
+        })
+      }
+
+      for (const [menuItemId, nextItem] of nextByMenuId) {
+        const currentItem = currentByMenuId.get(menuItemId)
+        if (!currentItem || nextItem.quantity > currentItem.quantity) {
+          return NextResponse.json({ error: 'No se pueden aumentar cantidades en una factura ya cobrada.' }, { status: 400 })
+        }
+      }
+
+      editedItems = []
+      for (const [menuItemId, currentItem] of currentByMenuId) {
+        const nextItem = nextByMenuId.get(menuItemId)
+        const nextQuantity = nextItem?.quantity || 0
+        const removedQuantity = currentItem.quantity - nextQuantity
+
+        if (nextQuantity > 0) {
+          editedItems.push({
+            menu_item_id: menuItemId,
+            name: currentItem.name,
+            price: currentItem.price,
+            qty: nextQuantity,
+            notes: nextItem?.notes || null,
+          })
+        }
+
+        if (removedQuantity > 0) {
+          returnedItems.push({
+            menu_item_id: menuItemId,
+            name: currentItem.name,
+            price: currentItem.price,
+            qty: removedQuantity,
+          })
+        }
+      }
+
+      if (returnedItems.length === 0) {
+        return NextResponse.json({ error: 'No hay cambios para guardar' }, { status: 400 })
+      }
+
+      const previousSubtotal = Number(existingOrder.subtotal || 0)
+      const previousTax = Number(existingOrder.tax || 0)
+      const inferredTaxRate = previousSubtotal > 0 ? (previousTax / previousSubtotal) * 100 : 0
+      const totals = calculateOrderTotals({
+        items: editedItems,
+        taxRate: inferredTaxRate,
+        deliveryType: existingOrder.delivery_type,
+        deliveryFee: Number(existingOrder.delivery_fee || 0),
+      })
+
+      editTotals = {
+        subtotal: totals.subtotal,
+        tax: totals.tax,
+        deliveryFee: totals.deliveryFee,
+        total: totals.total,
+      }
+    }
 
     if (payment_status === 'paid' && existingOrder.payment_status !== 'paid') {
       try {
@@ -84,6 +184,21 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     if (status) updateData.status = status
     if (payment_status) updateData.payment_status = payment_status
     if (payment_method) updateData.payment_method = payment_method
+    if (editedItems && editTotals) {
+      const timestamp = new Date().toISOString()
+      const reason = typeof edit_reason === 'string' && edit_reason.trim()
+        ? edit_reason.trim()
+        : 'Edicion de venta cobrada'
+      const auditNote = `Editado ${timestamp}: ${reason}`
+      updateData.items = editedItems
+      updateData.subtotal = editTotals.subtotal
+      updateData.tax = editTotals.tax
+      updateData.delivery_fee = editTotals.deliveryFee
+      updateData.total = editTotals.total
+      updateData.notes = existingOrder.notes
+        ? `${existingOrder.notes}\n${auditNote}`
+        : auditNote
+    }
     if (status === 'cancelled') {
       const timestamp = new Date().toISOString()
       const reason = typeof cancel_reason === 'string' && cancel_reason.trim()
@@ -104,6 +219,40 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 })
+    }
+
+    if (editedItems && returnedItems.length > 0 && existingOrder.payment_status === 'paid') {
+      try {
+        await returnRecipeStockForItems(
+          supabase,
+          existingOrder,
+          returnedItems,
+          typeof edit_reason === 'string' && edit_reason.trim()
+            ? `Devolucion por edicion de ${existingOrder.order_number || orderId}: ${edit_reason.trim()}`
+            : `Devolucion por edicion de ${existingOrder.order_number || orderId}`
+        )
+      } catch (stockError) {
+        console.error('[orders PATCH] partial stock return error:', stockError)
+      }
+
+      await writeAuditLog(supabase, {
+        tenantId: order.tenant_id,
+        actor: access,
+        action: 'sale.edited',
+        entityType: 'order',
+        entityId: orderId,
+        reason: typeof edit_reason === 'string' && edit_reason.trim() ? edit_reason.trim() : 'Edicion de venta cobrada',
+        metadata: {
+          order_number: order.order_number || existingOrder.order_number,
+          previous_total: Number(existingOrder.total || 0),
+          new_total: Number(order.total || 0),
+          returned_items: returnedItems.map((item) => ({
+            menu_item_id: item.menu_item_id,
+            name: item.name,
+            qty: item.qty,
+          })),
+        },
+      })
     }
 
     if (status === 'cancelled' && existingOrder.payment_status === 'paid') {

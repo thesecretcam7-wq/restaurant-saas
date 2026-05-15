@@ -3,6 +3,8 @@
 import { useState } from 'react';
 import { X, Check, AlertCircle } from 'lucide-react';
 import { getCurrencyByCountry, formatPriceWithCurrency } from '@/lib/currency';
+import { useTouchDevice } from '@/lib/hooks/useTouchDevice';
+import { NumericKeyboard } from './NumericKeyboard';
 
 interface CashClosingData {
   cashSales: number;
@@ -41,6 +43,8 @@ export function CashClosingModal({
   const [actualCash, setActualCash] = useState<string>('');
   const [notes, setNotes] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showCashKeyboard, setShowCashKeyboard] = useState(false);
+  const isTouchDevice = useTouchDevice();
 
   const currencyInfo = getCurrencyByCountry(country);
   const expectedTotal = data.cashSales;
@@ -171,8 +175,18 @@ export function CashClosingModal({
               </span>
               <input
                 type="number"
+                inputMode={isTouchDevice ? 'none' : 'decimal'}
                 step="0.01"
                 value={actualCash}
+                readOnly={isTouchDevice}
+                onPointerDown={(e) => {
+                  if (!isTouchDevice) return;
+                  e.preventDefault();
+                  setShowCashKeyboard(true);
+                }}
+                onFocus={() => {
+                  if (isTouchDevice) setShowCashKeyboard(true);
+                }}
                 onChange={(e) => setActualCash(e.target.value)}
                 placeholder="0.00"
                 disabled={isBusy}
@@ -250,6 +264,18 @@ export function CashClosingModal({
           </button>
         </div>
       </div>
+
+      <NumericKeyboard
+        isOpen={showCashKeyboard}
+        title="Efectivo contado"
+        initialValue={actualCash ? Number(actualCash) : 0}
+        onConfirm={(value) => {
+          setActualCash(value.toString());
+          setShowCashKeyboard(false);
+        }}
+        onCancel={() => setShowCashKeyboard(false)}
+        allowDecimal
+      />
     </div>
   );
 }
