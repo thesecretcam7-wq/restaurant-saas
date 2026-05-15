@@ -224,26 +224,40 @@ export async function POST(request: NextRequest) {
       : `${process.env.NEXT_PUBLIC_APP_URL || request.nextUrl.origin}/${tenant.slug || tenantSlug || tenant.id}`
     const amountInCents = Math.round(Number(totals.total || 0) * 100)
     const currency = 'COP'
+    const wompiPrivateKey = decryptServerSecret(settings.wompi_private_key)
+    const wompiIntegrityKey = decryptServerSecret(settings.wompi_integrity_key)
+
+    if (!wompiPrivateKey || !wompiIntegrityKey) {
+      await supabase.from('orders').delete().eq('id', order.id)
+      return NextResponse.json({ error: 'Las llaves privadas de Wompi no se pudieron leer en el servidor. Vuelve a guardar las credenciales Wompi.' }, { status: 500 })
+    }
+
     const signature = createWompiIntegritySignature({
       reference: orderNumber,
       amountInCents,
       currency,
-      integrityKey: decryptServerSecret(settings.wompi_integrity_key),
+      integrityKey: wompiIntegrityKey,
     })
 
-    const wompiPrivateKey = decryptServerSecret(settings.wompi_private_key)
     const merchantResponse = await fetch(`${getWompiApiBase(settings?.wompi_environment)}/merchants/${settings.wompi_public_key}`, {
       cache: 'no-store',
     })
 
     if (!merchantResponse.ok) {
+      const merchantError = await merchantResponse.json().catch(() => null)
+      console.error('[wompi/checkout] merchant error:', merchantError)
       await supabase.from('orders').delete().eq('id', order.id)
-      return NextResponse.json({ error: 'No pude preparar Wompi Nequi' }, { status: 502 })
+      return NextResponse.json({ error: 'No pude preparar Wompi Nequi. Revisa la llave publica.' }, { status: 502 })
     }
 
     const merchantPayload = await merchantResponse.json()
     const acceptanceToken = merchantPayload?.data?.presigned_acceptance?.acceptance_token
     const personalDataToken = merchantPayload?.data?.presigned_personal_data_auth?.acceptance_token
+
+    if (!acceptanceToken || !personalDataToken) {
+      await supabase.from('orders').delete().eq('id', order.id)
+      return NextResponse.json({ error: 'Wompi no entrego tokens de aceptacion para este comercio.' }, { status: 502 })
+    }
 
     const transactionResponse = await fetch(`${getWompiApiBase(settings?.wompi_environment)}/transactions`, {
       method: 'POST',
@@ -271,7 +285,13 @@ export async function POST(request: NextRequest) {
     if (!transactionResponse.ok || !transactionPayload?.data?.id) {
       console.error('[wompi/checkout] nequi transaction error:', transactionPayload)
       await supabase.from('orders').delete().eq('id', order.id)
-      return NextResponse.json({ error: transactionPayload?.error?.messages?.join?.(', ') || 'No se pudo enviar el pago a Nequi' }, { status: 502 })
+      const rawMessages = transactionPayload?.error?.messages
+      const message = Array.isArray(rawMessages)
+        ? rawMessages.join(', ')
+        : typeof rawMessages === 'object' && rawMessages
+          ? Object.entries(rawMessages).map(([field, value]) => `${field}: ${Array.isArray(value) ? value.join(', ') : String(value)}`).join(', ')
+          : transactionPayload?.error?.reason || transactionPayload?.error?.type || transactionPayload?.message
+      return NextResponse.json({ error: message || 'No se pudo enviar el pago a Nequi' }, { status: 502 })
     }
 
     const transactionId = String(transactionPayload.data.id)
