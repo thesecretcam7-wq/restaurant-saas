@@ -231,7 +231,7 @@ export async function POST(request: NextRequest) {
     url.searchParams.set('currency', currency)
     url.searchParams.set('amount-in-cents', String(amountInCents))
     url.searchParams.set('reference', orderNumber)
-    url.searchParams.set('signature:integrity', signature)
+    url.searchParams.set('integrity', signature)
     url.searchParams.set('redirect-url', `${domain}/gracias?order=${order.id}&provider=wompi&reference=${encodeURIComponent(orderNumber)}`)
     url.searchParams.set('customer-data:email', customerEmail)
     if (customerInfo?.name) url.searchParams.set('customer-data:full-name', customerInfo.name)
