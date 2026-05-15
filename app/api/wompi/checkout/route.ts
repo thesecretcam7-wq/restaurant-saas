@@ -240,9 +240,7 @@ export async function POST(request: NextRequest) {
       url.searchParams.set('customer-data:phone-number-prefix', '+57')
     }
 
-    const checkoutUrl = url.toString().replace('signature%3Aintegrity=', 'signature:integrity=')
-
-    return NextResponse.json({ url: checkoutUrl, orderId: order.id, orderNumber })
+    return NextResponse.json({ url: url.toString(), orderId: order.id, orderNumber })
   } catch (error) {
     console.error('[wompi/checkout] error:', error)
     return NextResponse.json({ error: 'Error al crear pago con Wompi' }, { status: 500 })
