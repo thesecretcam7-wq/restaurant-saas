@@ -123,7 +123,7 @@ function AppHeader({
         </div>
       </div>
       <div className="flex flex-shrink-0 items-center gap-3 md:gap-4">
-        <LanguageSwitcher compact iconColor={headerAccentColor} className="border-white/20 bg-white/90 text-[#171717]" />
+        <LanguageSwitcher compact iconColor={headerAccentColor} className="border-white/18 bg-black/35 text-white shadow-inner shadow-white/5 backdrop-blur-md" />
         {cartCount !== undefined && cartCount > 0 && (
           <div className="flex items-center gap-2 rounded-full px-3 py-2 md:px-4" style={{ backgroundColor: `${textColor}22`, color: textColor }}>
             <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>
@@ -1153,7 +1153,16 @@ export default function KioskoClient({
   const activeAdBanner = banners.length > 0 ? banners[adBannerIndex % banners.length] : null
 
   return (
-    <div className="ecco-premium-app h-screen flex flex-col overflow-hidden" style={{ fontFamily: 'Inter, system-ui, sans-serif', backgroundColor, color: pageTextColor }}>
+    <div
+      className="ecco-premium-app h-screen flex flex-col overflow-hidden"
+      style={{
+        fontFamily: 'Inter, system-ui, sans-serif',
+        backgroundColor,
+        background:
+          `linear-gradient(135deg, ${surfaceColor} 0%, ${backgroundColor} 44%, #050403 100%)`,
+        color: pageTextColor,
+      }}
+    >
 
       {/* Fullscreen prompt overlay */}
       {showFsPrompt && !isFullscreen && (
@@ -1251,44 +1260,81 @@ export default function KioskoClient({
           </div>
         </aside>
 
-        <div className="flex-1 overflow-hidden p-3 md:p-7">
+        <div className="flex-1 overflow-hidden bg-[linear-gradient(180deg,rgba(255,255,255,0.035),rgba(0,0,0,0.28))] p-3 md:p-5 xl:p-7">
           {activeAdBanner ? (
             <section className="h-full">
               <button
                 key={activeAdBanner.id}
                 onClick={() => handleBannerClick(activeAdBanner)}
-                className="relative h-full min-h-[360px] w-full overflow-hidden rounded-[1.6rem] border text-left shadow-2xl transition-transform active:scale-[0.99] md:min-h-0 md:rounded-[2.4rem]"
-                style={{ backgroundColor: surfaceColor, borderColor }}
+                className="relative h-full min-h-[360px] w-full overflow-hidden rounded-[1.6rem] border text-left shadow-[0_28px_80px_rgba(0,0,0,0.48)] transition-transform active:scale-[0.99] md:min-h-0 md:rounded-[2.4rem]"
+                style={{
+                  backgroundColor: surfaceColor,
+                  borderColor: `${primaryColor}55`,
+                  boxShadow: `0 28px 80px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.09), 0 0 0 1px ${primaryColor}18`,
+                }}
               >
                 <img
                   src={activeAdBanner.image_url}
                   alt={activeAdBanner.title}
-                  className="absolute inset-0 h-full w-full object-cover"
+                  className="absolute inset-0 h-full w-full scale-[1.04] object-cover object-center"
                 />
-                <div className="absolute inset-0 bg-black/10" />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/82 via-black/22 to-black/8" />
+                <div
+                  className="absolute inset-0"
+                  style={{
+                    background:
+                      'linear-gradient(180deg, rgba(0,0,0,0.18) 0%, rgba(0,0,0,0.03) 38%, rgba(0,0,0,0.72) 100%)',
+                  }}
+                />
+                <div
+                  className="absolute inset-x-0 bottom-0 h-[48%]"
+                  style={{
+                    background:
+                      `linear-gradient(180deg, transparent 0%, ${surfaceColor}CC 58%, ${surfaceColor}F7 100%)`,
+                  }}
+                />
+                <div className="absolute inset-0 rounded-[inherit] ring-1 ring-inset ring-white/10" />
 
-                <div className="relative z-10 flex h-full flex-col justify-end p-5 text-white md:p-10 xl:p-12">
+                <div className="absolute left-4 right-4 top-4 z-10 flex items-center justify-between gap-3 md:left-6 md:right-6 md:top-6">
                   <span
-                    className="mb-4 w-fit rounded-full px-4 py-2 text-xs font-black uppercase tracking-[0.24em] md:text-sm"
-                    style={{ backgroundColor: primaryColor, color: primaryTextColor }}
+                    className="rounded-full border px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.22em] shadow-lg backdrop-blur-md md:px-4 md:py-2 md:text-xs"
+                    style={{
+                      backgroundColor: `${surfaceColor}CC`,
+                      borderColor: `${primaryColor}55`,
+                      color: primaryColor,
+                    }}
                   >
                     Publicidad
                   </span>
-                  <p className="max-w-4xl text-4xl font-black leading-none drop-shadow md:text-7xl xl:text-8xl">
+                  <span
+                    className="rounded-full px-4 py-2 text-xs font-black uppercase tracking-[0.18em] shadow-lg md:text-sm"
+                    style={{ backgroundColor: buttonPrimaryColor, color: buttonTextColor }}
+                  >
+                    Ordenar
+                  </span>
+                </div>
+
+                <div className="relative z-10 flex h-full flex-col justify-end p-5 text-white md:p-10 xl:p-12">
+                  <p className="max-w-4xl text-5xl font-black leading-[0.92] drop-shadow-[0_8px_30px_rgba(0,0,0,0.55)] md:text-7xl xl:text-8xl">
                     {activeAdBanner.title}
                   </p>
-                  <p className="mt-5 text-sm font-black uppercase tracking-[0.24em] text-white/82 md:text-base">
-                    Toca la imagen para ordenar
-                  </p>
+                  <div className="mt-5 flex flex-wrap items-center gap-3">
+                    <p className="text-sm font-black uppercase tracking-[0.24em] text-white/82 md:text-base">
+                      Toca la imagen para ordenar
+                    </p>
+                    <span className="hidden h-px w-16 bg-white/24 md:block" />
+                    <p className="text-sm font-bold text-white/68 md:text-base">
+                      Promocion destacada del kiosko
+                    </p>
+                  </div>
                 </div>
 
                 {banners.length > 1 && (
-                  <div className="absolute bottom-5 left-1/2 z-20 flex -translate-x-1/2 items-center gap-2 rounded-full bg-black/28 px-3 py-2 backdrop-blur-md">
+                  <div className="absolute bottom-5 left-1/2 z-20 flex -translate-x-1/2 items-center gap-2 rounded-full border border-white/12 bg-black/42 px-3 py-2 shadow-xl backdrop-blur-md">
                     {banners.map((banner, idx) => (
                       <span
                         key={banner.id}
-                        className={`h-2 rounded-full transition-all ${idx === adBannerIndex % banners.length ? 'w-9 bg-white' : 'w-2 bg-white/45'}`}
+                        className={`h-2 rounded-full transition-all ${idx === adBannerIndex % banners.length ? 'w-9' : 'w-2 bg-white/45'}`}
+                        style={idx === adBannerIndex % banners.length ? { backgroundColor: primaryColor } : undefined}
                       />
                     ))}
                   </div>
