@@ -29,25 +29,21 @@ export default function StoreLoadingCard({ color, logoUrl, appName }: StoreLoadi
   const primary = color || storedBranding?.primaryColor || 'var(--button-primary-color, var(--primary-color, #15130f))'
   const resolvedLogo = logoUrl || storedBranding?.logoUrl || null
   const storeName = appName || storedBranding?.appName || 'Restaurante'
+  const displayName = storeName
+    .replace(/[-_]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .replace(/\b\w/g, letter => letter.toUpperCase())
   const fallbackLetter = storeName.trim().slice(0, 1).toUpperCase() || 'R'
 
   return (
-    <div className="w-full max-w-[430px] overflow-hidden rounded-[32px] border border-[#d9a441]/28 bg-[linear-gradient(180deg,rgba(255,255,255,0.10),rgba(255,255,255,0.035)),rgba(17,16,13,0.94)] p-8 text-[#fff4d8] shadow-[0_30px_100px_rgba(0,0,0,0.48),0_0_70px_rgba(184,92,31,0.20)] backdrop-blur-xl">
+    <div className="w-full max-w-[360px] overflow-hidden rounded-[28px] border border-white/10 bg-[#0d0c09]/92 p-7 text-[#fff4d8] shadow-[0_26px_90px_rgba(0,0,0,0.42)] backdrop-blur-xl">
       <div className="flex flex-col items-center text-center">
         <div
-          className={`relative grid place-items-center text-4xl font-black text-[#080808] ${resolvedLogo ? 'h-32 w-40' : 'size-28 rounded-[30px] shadow-[0_22px_60px_rgba(217,164,65,0.18)]'}`}
-          style={resolvedLogo ? undefined : { background: `linear-gradient(135deg, ${primary}, #f2cf82)` }}
+          className={`relative grid place-items-center text-4xl font-black ${resolvedLogo ? 'h-28 w-40' : 'size-24 rounded-[26px] border border-white/10 bg-white/8 text-[#fff4d8]'}`}
+          style={resolvedLogo ? undefined : { boxShadow: `0 18px 50px color-mix(in srgb, ${primary} 18%, transparent)` }}
           aria-hidden="true"
         >
-          {!resolvedLogo && (
-            <span
-              className="absolute inset-0 rounded-2xl"
-              style={{
-                background: `linear-gradient(135deg, ${primary}, #f2cf82)`,
-                animation: 'storeLoaderGlow 1.35s ease-in-out infinite',
-              }}
-            />
-          )}
           {resolvedLogo ? (
             <img
               src={resolvedLogo}
@@ -62,29 +58,17 @@ export default function StoreLoadingCard({ color, logoUrl, appName }: StoreLoadi
           )}
         </div>
 
-        <p className="mt-6 max-w-full truncate text-lg font-black text-[#fff4d8]">{storeName}</p>
-        <div className="mt-7 flex items-center justify-center gap-0.5 text-3xl font-black tracking-wide">
-          {tr('common.loading').split('').map((letter, index) => (
-            <span
-              key={`${letter}-${index}`}
-              className="inline-block"
-              style={{
-                color: primary,
-                animation: 'storeLoadingText 1.15s ease-in-out infinite',
-                animationDelay: `${index * 65}ms`,
-              }}
-            >
-              {letter}
-            </span>
-          ))}
-        </div>
+        <p className="mt-5 max-w-full truncate text-xl font-black text-[#fff4d8]">{displayName}</p>
+        <p className="mt-2 text-xs font-bold uppercase tracking-[0.22em] text-white/45">
+          Preparando tu tienda
+        </p>
       </div>
 
-      <div className="mt-8 h-2.5 overflow-hidden rounded-full bg-white/10">
+      <div className="mt-8 h-1.5 overflow-hidden rounded-full bg-white/10">
         <div
           className="h-full rounded-full"
           style={{
-            background: `linear-gradient(90deg, ${primary}, #f2cf82)`,
+            background: primary,
             animation: 'storeLoaderBar 1.15s ease-in-out infinite',
           }}
         />

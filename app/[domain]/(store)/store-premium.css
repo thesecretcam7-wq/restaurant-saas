@@ -96,9 +96,25 @@
 .ecco-store-premium button[style*="background-color"],
 .ecco-store-premium a[style*="background-color"] {
   background:
-    linear-gradient(135deg, #ffcf64 0%, #c88612 48%, #ff6a1a 100%) !important;
+    linear-gradient(135deg, var(--button-primary-color, var(--store-gold)) 0%, var(--primary-color, var(--store-gold)) 100%) !important;
   color: #0a0805 !important;
-  box-shadow: 0 16px 38px rgba(231, 180, 63, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.36) !important;
+  box-shadow: 0 16px 38px color-mix(in srgb, var(--button-primary-color, var(--store-gold)) 28%, transparent), inset 0 1px 0 rgba(255, 255, 255, 0.36) !important;
+}
+
+.ecco-store-premium .store-action-card {
+  background:
+    linear-gradient(145deg, rgba(255, 255, 255, 0.075), rgba(255, 255, 255, 0.025)),
+    var(--store-panel) !important;
+  color: var(--store-ink) !important;
+  border-color: var(--store-border) !important;
+  box-shadow: 0 22px 70px rgba(0, 0, 0, 0.36), inset 0 1px 0 rgba(255, 255, 255, 0.06) !important;
+}
+
+.ecco-store-light .store-action-card {
+  background:
+    linear-gradient(145deg, rgba(255, 255, 255, 0.96), rgba(255, 248, 235, 0.72)),
+    var(--store-panel) !important;
+  box-shadow: 0 22px 70px rgba(60, 45, 17, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.95) !important;
 }
 
 .ecco-store-premium .menu-rise,

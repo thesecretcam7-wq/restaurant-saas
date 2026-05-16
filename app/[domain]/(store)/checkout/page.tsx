@@ -173,6 +173,9 @@ export default function CheckoutPage({ params }: Props) {
     setPaymentRedirectUrl(url)
     window.dispatchEvent(new Event('store:navigation-start'))
     window.location.assign(url)
+    window.setTimeout(() => {
+      if (document.visibilityState === 'visible') window.location.href = url
+    }, 450)
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -190,6 +193,7 @@ export default function CheckoutPage({ params }: Props) {
     }
 
     setLoading(true)
+    let redirectingToPayment = false
 
     try {
       const validated = checkoutSchema.parse(form)
@@ -209,6 +213,7 @@ export default function CheckoutPage({ params }: Props) {
         const data = await res.json()
         if (data.url) {
           clearCart()
+          redirectingToPayment = true
           redirectToPaymentPortal(data.url)
         }
         else { toast.error(data.error || 'Error al procesar') }
@@ -221,6 +226,7 @@ export default function CheckoutPage({ params }: Props) {
         const data = await res.json()
         if (data.url) {
           clearCart()
+          redirectingToPayment = true
           redirectToPaymentPortal(data.url)
         } else {
           toast.error(data.error || 'Error al abrir Wompi')
@@ -256,7 +262,7 @@ export default function CheckoutPage({ params }: Props) {
         toast.error('Error al procesar el pedido')
       }
     } finally {
-      setLoading(false)
+      if (!redirectingToPayment) setLoading(false)
     }
   }
 

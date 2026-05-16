@@ -1,5 +1,6 @@
 import RouteAwarePageLoader from '@/components/RouteAwarePageLoader';
 import { headers } from 'next/headers';
+import { getTenantContext } from '@/lib/tenant';
 
 function titleFromHost(host: string) {
   return (host.split('.')[0] || 'Restaurante')
@@ -25,11 +26,19 @@ export default async function Loading() {
   const isCustomStore = isCustomDomainHost(host);
   const isStore = isCustomStore || routeKind === 'store';
   const fallbackName = isCustomStore ? titleFromHost(host) : tenantSlug || 'Restaurante';
+  const context = isStore && tenantSlug ? await getTenantContext(tenantSlug) : null;
+  const tenant = context?.tenant;
+  const branding = context?.branding;
+  const appName = branding?.app_name || tenant?.organization_name || fallbackName;
+  const logoUrl = tenant?.logo_url || branding?.logo_url || null;
+  const primaryColor = branding?.button_primary_color || branding?.primary_color || undefined;
 
   return (
     <RouteAwarePageLoader
       initialIsStore={isStore}
-      initialFallbackName={fallbackName}
+      initialFallbackName={appName}
+      initialLogoUrl={logoUrl}
+      initialPrimaryColor={primaryColor}
     />
   );
 }

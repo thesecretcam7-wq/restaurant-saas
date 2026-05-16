@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { usePathname } from 'next/navigation';
-import EccofoodLogo from '@/components/EccofoodLogo';
+import EccofoodPageLoader from '@/components/EccofoodPageLoader';
 
 const APP_SECTIONS = new Set([
   'acceso',
@@ -146,23 +146,11 @@ export default function GlobalNavigationLoader() {
   if (!visible) return null;
 
   return (
-    <div className="ecco-global-loader">
-      <div className="ecco-global-loader-progress">
-        <div className="ecco-global-loader-progress-bar" />
-      </div>
-
-      <div className="ecco-global-loader-card">
-        <div className="ecco-global-loader-logo">
-          <EccofoodLogo size="md" showText={false} />
-        </div>
-        <p className="ecco-global-loader-brand">Eccofood</p>
-        <h2 className="ecco-global-loader-title">{label}</h2>
-        <div className="ecco-global-loader-dots">
-          <span />
-          <span />
-          <span />
-        </div>
-      </div>
+    <div className="fixed inset-0 z-[10000]">
+      <EccofoodPageLoader
+        label={label}
+        detail="Preparando una experiencia rapida y segura."
+      />
     </div>
   );
 }

@@ -1,9 +1,19 @@
-import StoreLoadingCard from '@/components/store/StoreLoadingCard'
+import StoreLoadingScreen from '@/components/store/StoreLoadingScreen'
+import { headers } from 'next/headers'
+import { getTenantContext } from '@/lib/tenant'
 
-export default function TenantLoading() {
+export default async function TenantLoading() {
+  const headersList = await headers()
+  const tenantSlug = headersList.get('x-eccofood-tenant-slug') || ''
+  const context = tenantSlug ? await getTenantContext(tenantSlug) : null
+  const tenant = context?.tenant
+  const branding = context?.branding
+
   return (
-    <div className="grid min-h-screen place-items-center bg-[radial-gradient(circle_at_50%_18%,rgba(217,164,65,0.14),transparent_34%),linear-gradient(180deg,#100d08,#040404_56%,#020202)] px-5">
-      <StoreLoadingCard />
-    </div>
+    <StoreLoadingScreen
+      appName={branding?.app_name || tenant?.organization_name || tenantSlug || null}
+      logoUrl={tenant?.logo_url || branding?.logo_url || null}
+      color={branding?.button_primary_color || branding?.primary_color || undefined}
+    />
   )
 }

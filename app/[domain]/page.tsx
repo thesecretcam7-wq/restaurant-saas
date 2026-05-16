@@ -138,12 +138,12 @@ export default async function HomePage({ params }: HomePageProps) {
     textSecondary: branding?.text_secondary_color,
     border: branding?.border_color,
   })
-  const primary = '#e7b43f'
-  const secondary = '#191612'
-  const accent = '#ffcf64'
-  const buttonPrimary = '#e7b43f'
-  const background = '#050505'
-  const sectionSurface = '#151410'
+  const primary = branding?.primary_color || palette.primary
+  const secondary = branding?.secondary_color || palette.secondary
+  const accent = branding?.accent_color || palette.accent
+  const buttonPrimary = branding?.button_primary_color || palette.buttonPrimary
+  const background = branding?.background_color || palette.background
+  const sectionSurface = (branding as any)?.section_background_color || palette.surface
   const appName = branding?.app_name || tenant.organization_name
   const tagline = branding?.tagline || settings?.description || ''
   const heroImage = hero.image_url || (branding as any)?.hero_image_url || (branding as any)?.hero?.image_url

@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import EccofoodPageLoader from '@/components/EccofoodPageLoader'
-import StoreLoadingCard from '@/components/store/StoreLoadingCard'
+import StoreLoadingScreen from '@/components/store/StoreLoadingScreen'
 
 const APP_SECTIONS = new Set([
   'acceso',
@@ -80,11 +80,19 @@ function getFallbackStoreName(host: string, pathname: string) {
 export default function RouteAwarePageLoader({
   initialIsStore = false,
   initialFallbackName = 'Restaurante',
+  initialLogoUrl = null,
+  initialPrimaryColor,
 }: {
   initialIsStore?: boolean
   initialFallbackName?: string
+  initialLogoUrl?: string | null
+  initialPrimaryColor?: string
 }) {
-  const [storeBrand, setStoreBrand] = useState<StoreBrand | null>(null)
+  const [storeBrand, setStoreBrand] = useState<StoreBrand | null>(
+    initialLogoUrl || initialPrimaryColor
+      ? { appName: initialFallbackName, logoUrl: initialLogoUrl, primaryColor: initialPrimaryColor || '#D9A441' }
+      : null
+  )
   const routeInfo = useMemo(() => {
     if (typeof window === 'undefined') return { isStore: initialIsStore, fallbackName: initialFallbackName }
     const host = window.location.hostname
@@ -104,14 +112,10 @@ export default function RouteAwarePageLoader({
   }, [routeInfo.isStore])
 
   if (routeInfo.isStore) {
-    const primary = storeBrand?.primaryColor || 'var(--primary-color, #E4002B)'
+    const primary = storeBrand?.primaryColor || initialPrimaryColor || 'var(--primary-color, #D9A441)'
     const appName = storeBrand?.appName || routeInfo.fallbackName
 
-    return (
-      <main className="grid min-h-screen place-items-center bg-[radial-gradient(circle_at_50%_18%,rgba(217,164,65,0.14),transparent_34%),linear-gradient(180deg,#100d08,#040404_56%,#020202)] px-5">
-        <StoreLoadingCard color={primary} logoUrl={storeBrand?.logoUrl || null} appName={appName} />
-      </main>
-    )
+    return <StoreLoadingScreen color={primary} logoUrl={storeBrand?.logoUrl || null} appName={appName} />
   }
 
   return <EccofoodPageLoader />
