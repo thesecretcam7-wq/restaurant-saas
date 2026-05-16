@@ -15,6 +15,7 @@ interface Order {
   customer_phone: string;
   total: number;
   payment_status: string;
+  payment_method?: string | null;
   status: string;
   items: { name: string; qty?: number; quantity?: number; price: number }[];
   created_at: string;
@@ -131,6 +132,11 @@ export function POSOrderLookup({ domain, country = 'CO', onOrderSelected, onVoid
     }
   };
 
+  const isOnlinePaymentOrder = (order: Order) => {
+    const method = String(order.payment_method || '').toLowerCase();
+    return ['wompi', 'stripe', 'online', 'card'].includes(method);
+  };
+
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
     return date.toLocaleDateString('es-CO', {
@@ -232,11 +238,21 @@ export function POSOrderLookup({ domain, country = 'CO', onOrderSelected, onVoid
 
         {results.length > 0 && (
           <div className="p-3 space-y-2">
-            {results.map((order) => (
+            {results.map((order) => {
+              const canLoadForPayment =
+                order.status !== 'cancelled' &&
+                order.payment_status !== 'paid' &&
+                !isOnlinePaymentOrder(order);
+
+              return (
               <div
                 key={order.id}
-                onClick={() => onOrderSelected(order)}
-                className="bg-gray-800/50 border border-gray-700 hover:border-blue-600 hover:bg-gray-800 rounded-lg p-3 cursor-pointer transition-all active:scale-95"
+                onClick={() => {
+                  if (canLoadForPayment) onOrderSelected(order);
+                }}
+                className={`bg-gray-800/50 border border-gray-700 hover:border-blue-600 hover:bg-gray-800 rounded-lg p-3 transition-all active:scale-95 ${
+                  canLoadForPayment ? 'cursor-pointer' : 'cursor-default'
+                }`}
               >
                 <div className="flex items-start justify-between gap-2 mb-2">
                   <div className="flex-1 min-w-0">
@@ -306,6 +322,10 @@ export function POSOrderLookup({ domain, country = 'CO', onOrderSelected, onVoid
                       {voidingOrderId === order.id ? 'Anulando...' : 'Anular venta'}
                     </button>
                   </div>
+                ) : isOnlinePaymentOrder(order) ? (
+                  <div className="w-full mt-2 rounded-lg bg-amber-500/15 border border-amber-400/35 py-2 text-center text-amber-100 font-semibold text-xs">
+                    Pago Wompi en verificacion
+                  </div>
                 ) : (
                   <button
                     onClick={(e) => {
@@ -318,7 +338,8 @@ export function POSOrderLookup({ domain, country = 'CO', onOrderSelected, onVoid
                   </button>
                 )}
               </div>
-            ))}
+            );
+            })}
           </div>
         )}
 

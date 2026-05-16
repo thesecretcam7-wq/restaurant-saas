@@ -67,6 +67,7 @@ interface IncomingOrder {
   total: number;
   status: string;
   payment_status?: string | null;
+  payment_method?: string | null;
   items: { name: string; qty?: number; quantity?: number; price: number }[];
   created_at: string;
 }
@@ -114,6 +115,19 @@ function getOrderItemQty(item: { qty?: number; quantity?: number }) {
 
 function getOrderItemsTotal(items: Array<{ price: number; qty?: number; quantity?: number }> = []) {
   return items.reduce((sum, item) => sum + Number(item.price || 0) * getOrderItemQty(item), 0);
+}
+
+function isOnlinePaymentMethod(paymentMethod?: string | null) {
+  const method = String(paymentMethod || '').toLowerCase();
+  return ['wompi', 'stripe', 'online', 'card'].includes(method);
+}
+
+function shouldShowIncomingOrder(order: Pick<IncomingOrder, 'delivery_type' | 'status' | 'payment_status' | 'payment_method'>) {
+  const isStoreOrder = order.delivery_type === 'delivery' || order.delivery_type === 'pickup';
+  if (!isStoreOrder) return false;
+  if (order.status === 'delivered' || order.status === 'cancelled') return false;
+  if (isOnlinePaymentMethod(order.payment_method)) return order.payment_status === 'paid';
+  return true;
 }
 
 async function fetchPendingCashClosingStats(tenantId: string): Promise<CashClosingStats | null> {
@@ -287,6 +301,8 @@ function IncomingOrderCard({
   const isDelivery = order.delivery_type === 'delivery';
   const statusBadge = ORDER_STATUS_BADGE[order.status] ?? ORDER_STATUS_BADGE.pending;
   const isDone = order.status === 'delivered';
+  const isOnlinePayment = isOnlinePaymentMethod(order.payment_method);
+  const isPaid = order.payment_status === 'paid';
   const [updating, setUpdating] = useState(false);
   const [loading, setLoading] = useState(false);
 
@@ -321,7 +337,7 @@ function IncomingOrderCard({
     actionBtn = { label: '✅ Recogido', status: 'delivered', cls: 'bg-green-600 hover:bg-green-700' };
   }
 
-  const showPaymentButton = order.status === 'pending';
+  const showPaymentButton = order.status === 'pending' && !isOnlinePayment && !isPaid;
 
   return (
     <div className={`pos-card border-2 rounded-xl p-3 flex flex-col gap-2 transition-all ${isDone ? 'border-white/10 opacity-60' : getUrgencyBorder(minutes)} text-xs`}>
@@ -378,6 +394,16 @@ function IncomingOrderCard({
         </a>
         <span className="font-bold text-green-400">{formatPriceWithCurrency(order.total, currencyInfo.code, currencyInfo.locale)}</span>
       </div>
+
+      {isOnlinePayment && (
+        <div className={`w-full rounded-lg border px-3 py-2 text-center text-xs font-bold ${
+          isPaid
+            ? 'border-emerald-400/35 bg-emerald-500/15 text-emerald-100'
+            : 'border-amber-400/35 bg-amber-500/15 text-amber-100'
+        }`}>
+          {isPaid ? 'Pago Wompi confirmado' : 'Pago Wompi en verificacion'}
+        </div>
+      )}
 
       {showPaymentButton && (
         <button
@@ -1065,6 +1091,7 @@ export function POSTerminal({
         async (payload) => {
           const newOrder = payload.new as any;
           if (newOrder.delivery_type === 'delivery' || newOrder.delivery_type === 'pickup') {
+            if (!shouldShowIncomingOrder(newOrder)) return;
             const isNewOrder = !knownOrderIds.current.has(newOrder.id);
             if (isNewOrder) {
               playNewOrderSound();
@@ -1098,7 +1125,14 @@ export function POSTerminal({
         async (payload) => {
           const updated = payload.new as any;
           if (updated.delivery_type === 'delivery' || updated.delivery_type === 'pickup') {
+            const shouldShow = shouldShowIncomingOrder(updated);
+            const isNewOrder = shouldShow && !knownOrderIds.current.has(updated.id);
             await fetchIncomingOrders();
+            if (isNewOrder) {
+              playNewOrderSound();
+              knownOrderIds.current.add(updated.id);
+              setShowIncomingPanel(true);
+            }
           }
         }
       )
@@ -1133,19 +1167,18 @@ export function POSTerminal({
     try {
       const { data, error } = await supabase
         .from('orders')
-        .select('id, order_number, customer_name, customer_phone, delivery_type, delivery_address, total, status, payment_status, items, created_at')
+        .select('id, order_number, customer_name, customer_phone, delivery_type, delivery_address, total, status, payment_status, payment_method, items, created_at')
         .eq('tenant_id', tenantId)
         .or(`delivery_type.eq.delivery,delivery_type.eq.pickup`)
         .not('status', 'in', '("delivered","cancelled")')
-        .or('payment_status.is.null,payment_status.neq.paid')
         .order('created_at', { ascending: false })
-        .limit(20);
+        .limit(50);
 
       if (!error && data) {
         const mapped = data.map((o: any) => ({
           ...o,
           items: Array.isArray(o.items) ? o.items : [],
-        }));
+        })).filter(shouldShowIncomingOrder);
         setIncomingOrders(mapped);
         mapped.forEach((order: IncomingOrder) => knownOrderIds.current.add(order.id));
       }

@@ -45,7 +45,7 @@ export async function GET(request: NextRequest) {
 
       let query = supabase
         .from('orders')
-        .select('id, order_number, customer_name, customer_phone, total, payment_status, status, items, created_at, delivery_type, table_number')
+        .select('id, order_number, customer_name, customer_phone, total, payment_status, payment_method, status, items, created_at, delivery_type, table_number')
         .eq('tenant_id', tenantId)
         .order('created_at', { ascending: false })
         .limit(limit)
