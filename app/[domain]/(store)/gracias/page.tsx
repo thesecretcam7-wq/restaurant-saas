@@ -69,9 +69,15 @@ export default async function GraciasPage({ params, searchParams }: Props) {
       <h1 className="text-2xl font-extrabold text-gray-900 mb-1 text-center">
         {order?.customer_name ? `¡Gracias, ${order.customer_name.split(' ')[0]}!` : '¡Pedido recibido!'}
       </h1>
+      {order?.payment_method === 'wompi' ? (
+        <p className="text-muted-foreground text-sm text-center mb-6 max-w-xs">
+          Estamos verificando tu pago con Wompi. El pedido se confirma cuando el pago sea aprobado.
+        </p>
+      ) : (
       <p className="text-muted-foreground text-sm text-center mb-6 max-w-xs">
         Tu pedido está confirmado y pronto lo estaremos preparando con todo el amor 🍽️
       </p>
+      )}
 
       {search.provider === 'wompi' && (
         <WompiReturnVerifier
@@ -100,7 +106,7 @@ export default async function GraciasPage({ params, searchParams }: Props) {
             <div className="flex justify-between items-center">
               <span className="text-sm text-muted-foreground">Estado</span>
               <span className="px-2.5 py-1 rounded-full text-xs font-bold" style={{ backgroundColor: `${primary}15`, color: primary }}>
-                En preparación
+                {order.payment_method === 'wompi' ? 'Verificando pago' : 'En preparacion'}
               </span>
             </div>
           </div>
