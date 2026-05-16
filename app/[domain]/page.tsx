@@ -220,8 +220,8 @@ export default async function HomePage({ params }: HomePageProps) {
   const formatMoney = (value: number) => formatPriceWithCurrency(Number(value || 0), currencyInfo.code, currencyInfo.locale)
 
   return (
-    <div className={`ecco-store-premium ${isLightTheme ? 'ecco-store-light' : 'ecco-store-dark'} store-surface min-h-screen overflow-hidden pb-[calc(6.5rem+env(safe-area-inset-bottom))] pt-[calc(4rem+env(safe-area-inset-top))]`} style={pageBackgroundStyle}>
-      <header className="fixed left-0 right-0 top-0 z-50 border-b border-[#e7b43f]/20 backdrop-blur-xl" style={{ paddingTop: 'env(safe-area-inset-top)', backgroundColor: themeColors.header }}>
+    <div className={`ecco-store-premium ${isLightTheme ? 'ecco-store-light' : 'ecco-store-dark'} store-surface min-h-screen overflow-hidden pb-[calc(6.5rem+env(safe-area-inset-bottom))] pt-16`} style={pageBackgroundStyle}>
+      <header className="fixed left-0 right-0 top-0 z-50 border-b border-[#e7b43f]/20 backdrop-blur-xl" style={{ position: 'fixed', backgroundColor: themeColors.header }}>
         <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
           <Link href={tenantHomePath} className="flex min-w-0 items-center gap-3">
             {tenant.logo_url ? (
@@ -244,8 +244,8 @@ export default async function HomePage({ params }: HomePageProps) {
         </div>
       </header>
 
-      <section className="relative mx-auto max-w-7xl px-4 pb-6 pt-6 sm:px-6 lg:px-8">
-        <div className="store-hero-invert relative overflow-hidden rounded-[28px] border border-[#e7b43f]/22 shadow-[0_24px_80px_rgba(0,0,0,.16),inset_0_1px_0_rgba(255,255,255,.16)]" style={{ minHeight: heroMinHeight, backgroundColor: themeColors.heroPanel }}>
+      <section className="relative mx-auto max-w-7xl px-4 pb-5 pt-3 sm:px-6 sm:pt-5 lg:px-8">
+        <div className="store-hero-invert relative overflow-hidden rounded-[28px] border border-[#e7b43f]/22 shadow-[0_24px_80px_rgba(0,0,0,.16),inset_0_1px_0_rgba(255,255,255,.16)]" style={{ minHeight: `min(${heroMinHeight}, 500px)`, backgroundColor: themeColors.heroPanel }}>
         <div className="absolute inset-0">
           {heroImage ? (
             <img src={heroImage} alt={appName} className="h-full w-full object-cover" />
@@ -257,7 +257,7 @@ export default async function HomePage({ params }: HomePageProps) {
           <div className="absolute inset-x-0 bottom-0 h-48" style={{ background: `linear-gradient(to top, ${themeColors.background}, transparent)` }} />
         </div>
 
-        <div className="relative z-10 grid gap-8 px-5 py-8 sm:px-8 sm:py-10 lg:grid-cols-[minmax(0,1fr)_360px] lg:p-10">
+        <div className="relative z-10 grid gap-6 px-5 py-6 sm:px-8 sm:py-9 lg:grid-cols-[minmax(0,1fr)_360px] lg:p-10">
           <div className="max-w-3xl">
             <div className="mb-4 inline-flex rounded-full border border-[#e7b43f]/28 bg-[#e7b43f]/12 px-4 py-2 text-xs font-black uppercase text-[#ffcf64] backdrop-blur-md">
               Carta digital premium
@@ -277,6 +277,9 @@ export default async function HomePage({ params }: HomePageProps) {
             )}
             {hero.show_info_pills && <InfoPills settings={settings} primary={primary} />}
             <div className="mt-6 flex flex-col gap-3 sm:flex-row">
+              <Link href={`${tenantBasePath}/menu`} className="inline-flex h-14 items-center justify-center rounded-2xl px-7 text-sm font-black text-[#15130f] shadow-[0_18px_48px_rgba(231,180,63,.28)] transition hover:-translate-y-0.5" style={{ background: `linear-gradient(135deg, ${buttonPrimary}, ${accent})` }}>
+                {hero.cta_primary_text || tr('store.viewMenu')}
+              </Link>
               {settings?.reservations_enabled && (
                 <Link href={`${tenantBasePath}/reservas`} className="inline-flex h-14 items-center justify-center rounded-2xl border border-[#e7b43f]/35 bg-white/10 px-7 text-sm font-black text-[#fff7df] backdrop-blur-md transition hover:bg-white/16">
                   {hero.cta_secondary_text || tr('store.reserve')}

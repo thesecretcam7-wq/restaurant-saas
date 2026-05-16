@@ -5,8 +5,19 @@ import { formatPriceWithCurrency, getCurrencyByCountry } from '@/lib/currency'
 import { useCartStore } from '@/lib/store/cart'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
+import AddToCartButton from '@/components/store/AddToCartButton'
 
 interface Props { params: Promise<{ domain: string }> }
+interface RecommendedProduct {
+  id: string
+  name: string
+  description?: string | null
+  price: number
+  image_url?: string | null
+  featured?: boolean
+  available?: boolean
+  variants?: { show_in_upsell?: boolean; requires_kitchen?: boolean } | null
+}
 
 export default function CarritoPage({ params }: Props) {
   const { domain: tenantSlug } = use(params)
@@ -21,6 +32,8 @@ export default function CarritoPage({ params }: Props) {
   const muted = 'var(--brand-muted-color, rgba(21, 19, 15, 0.62))'
   const [mounted, setMounted] = useState(false)
   const [currencyInfo, setCurrencyInfo] = useState(() => getCurrencyByCountry('ES'))
+  const [tenantId, setTenantId] = useState(tenantSlug)
+  const [recommended, setRecommended] = useState<RecommendedProduct[]>([])
   const money = (amount: number) => formatPriceWithCurrency(Number(amount || 0), currencyInfo.code, currencyInfo.locale)
 
   useEffect(() => {
@@ -34,9 +47,37 @@ export default function CarritoPage({ params }: Props) {
         if (settings?.country || settings?.country_code) {
           setCurrencyInfo(getCurrencyByCountry(settings.country_code || settings.country))
         }
+        if (settings?.tenant_id) setTenantId(settings.tenant_id)
       })
       .catch(() => {})
   }, [tenantSlug])
+
+  useEffect(() => {
+    fetch(`/api/products?domain=${encodeURIComponent(tenantSlug)}`, { cache: 'no-store' })
+      .then(res => res.ok ? res.json() : null)
+      .then(data => {
+        const products = Array.isArray(data?.items) ? data.items : []
+        const cartItemIds = new Set(items.map(item => item.item_id))
+        const smallItemKeywords = ['gaseosa', 'soda', 'bebida', 'agua', 'jugo', 'cerveza', 'papas', 'papita', 'salsa', 'topping', 'extra', 'combo']
+        const explicitlySelected = products.filter((product: RecommendedProduct) =>
+          product.available !== false &&
+          product.variants?.show_in_upsell === true &&
+          !cartItemIds.has(product.id)
+        )
+        const smallFallback = products.filter((product: RecommendedProduct) => {
+          if (product.available === false || cartItemIds.has(product.id)) return false
+          const haystack = `${product.name} ${product.description || ''}`.toLowerCase()
+          return smallItemKeywords.some(keyword => haystack.includes(keyword))
+        })
+        const upsellPool = explicitlySelected.length > 0 ? explicitlySelected : smallFallback
+        setRecommended(
+          upsellPool
+            .sort((a: RecommendedProduct, b: RecommendedProduct) => Number(Boolean(b.featured)) - Number(Boolean(a.featured)))
+            .slice(0, 12)
+        )
+      })
+      .catch(() => {})
+  }, [tenantSlug, items])
 
   if (!mounted) {
     return <div className="min-h-screen" style={{ backgroundColor: pageBg }} />
@@ -151,6 +192,18 @@ export default function CarritoPage({ params }: Props) {
           </div>
         </div>
 
+        <CartUpsell
+          products={recommended.filter(product => !items.some(item => item.item_id === product.id)).slice(0, 8)}
+          tenantId={tenantId}
+          money={money}
+          primary={primary}
+          price={price}
+          surface={surface}
+          text={text}
+          muted={muted}
+          currencyInfo={currencyInfo}
+        />
+
         <Link
           href={`${storeBasePath}/checkout`}
           className="flex items-center justify-between w-full px-5 py-4 rounded-2xl text-white font-bold shadow-xl active:scale-95 transition-transform"
@@ -163,5 +216,84 @@ export default function CarritoPage({ params }: Props) {
         </Link>
       </main>
     </div>
+  )
+}
+
+function CartUpsell({
+  products,
+  tenantId,
+  money,
+  primary,
+  price,
+  surface,
+  text,
+  muted,
+  currencyInfo,
+}: {
+  products: RecommendedProduct[]
+  tenantId: string
+  money: (amount: number) => string
+  primary: string
+  price: string
+  surface: string
+  text: string
+  muted: string
+  currencyInfo: { code: string; locale: string }
+}) {
+  if (products.length === 0) return null
+
+  return (
+    <section className="relative overflow-hidden rounded-2xl border border-gray-100 p-4 shadow-sm" style={{ backgroundColor: surface }}>
+      <div className="mb-3 flex items-center justify-between gap-3">
+        <div>
+          <p className="text-[11px] font-black uppercase tracking-wide" style={{ color: price }}>Sugeridos</p>
+          <h2 className="text-base font-black" style={{ color: text }}>Completa tu pedido</h2>
+        </div>
+        {products.length > 1 && (
+          <span className="rounded-full border px-3 py-1 text-[11px] font-black" style={{ borderColor: 'rgba(255,255,255,.16)', color: muted }}>
+            Desliza →
+          </span>
+        )}
+      </div>
+
+      <div className="-mx-1 overflow-x-auto px-1 pb-1 scrollbar-hide">
+        <div className="flex w-max gap-3">
+          {products.map(product => (
+            <article
+              key={product.id}
+              className="w-[min(68vw,13rem)] shrink-0 overflow-hidden rounded-2xl border shadow-sm"
+              style={{ borderColor: 'rgba(231,180,63,.22)', backgroundColor: 'rgba(255,247,223,.055)' }}
+            >
+              <div className="relative h-28 overflow-hidden bg-black/10">
+                {product.image_url ? (
+                  <img src={product.image_url} alt={product.name} className="h-full w-full object-cover" />
+                ) : (
+                  <div className="grid h-full place-items-center text-3xl">🍽️</div>
+                )}
+                <span className="absolute bottom-2 left-2 rounded-full bg-white/92 px-2.5 py-1 text-xs font-black shadow" style={{ color: price }}>
+                  {money(product.price)}
+                </span>
+              </div>
+              <div className="flex min-h-[7rem] flex-col p-3">
+                <p className="line-clamp-2 text-sm font-black leading-5" style={{ color: text }}>{product.name}</p>
+                {product.description && (
+                  <p className="mt-1 line-clamp-2 text-xs font-semibold" style={{ color: muted }}>{product.description}</p>
+                )}
+                <div className="mt-auto flex items-center justify-between pt-3">
+                  <span className="text-xs font-black" style={{ color: price }}>{money(product.price)}</span>
+                  <AddToCartButton
+                    item={product}
+                    tenantId={tenantId}
+                    color={primary}
+                    small
+                    currencyInfo={currencyInfo}
+                  />
+                </div>
+              </div>
+            </article>
+          ))}
+        </div>
+      </div>
+    </section>
   )
 }

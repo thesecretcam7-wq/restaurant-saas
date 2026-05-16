@@ -28,6 +28,7 @@ export default function CheckoutPage({ params }: Props) {
   const [mounted, setMounted] = useState(false)
   const [profileLookup, setProfileLookup] = useState<'idle' | 'searching' | 'found' | 'none'>('idle')
   const [errors, setErrors] = useState<Array<{ field: string; message: string }>>([])
+  const [cashReceived, setCashReceived] = useState('')
   const [form, setForm] = useState({
     name: '', phone: '', email: '',
     delivery_type: 'pickup', delivery_address: '',
@@ -156,6 +157,9 @@ export default function CheckoutPage({ params }: Props) {
   const formatMoney = (amount: number) => formatPriceWithCurrency(amount, currencyInfo.code, currencyInfo.locale)
   const deliveryMinOrder = Number(settings?.delivery_min_order || 0)
   const deliveryBelowMinimum = form.delivery_type === 'delivery' && deliveryMinOrder > 0 && subtotal < deliveryMinOrder
+  const needsCashChangeInfo = form.delivery_type === 'delivery' && form.payment_method === 'cash'
+  const cashReceivedAmount = Number(onlyDigits(cashReceived))
+  const cashChangeAmount = cashReceivedAmount - finalTotal
 
   const saveCustomerProfile = (validated: CheckoutInput) => {
     try {
@@ -197,6 +201,28 @@ export default function CheckoutPage({ params }: Props) {
 
     try {
       const validated = checkoutSchema.parse(form)
+      const needsCashChange = validated.delivery_type === 'delivery' && form.payment_method === 'cash'
+      const parsedCashReceived = Number(onlyDigits(cashReceived))
+      if (needsCashChange) {
+        if (!parsedCashReceived) {
+          toast.error('Indica con cuanto paga el cliente para enviar cambio.')
+          setLoading(false)
+          return
+        }
+        if (parsedCashReceived < finalTotal) {
+          toast.error(`El monto recibido debe ser minimo ${formatMoney(finalTotal)}.`)
+          setLoading(false)
+          return
+        }
+      }
+
+      const notesWithCash = needsCashChange
+        ? [
+            validated.notes?.trim(),
+            `Pago efectivo a domicilio: paga con ${formatMoney(parsedCashReceived)}. Cambio aprox ${formatMoney(parsedCashReceived - finalTotal)}.`,
+          ].filter(Boolean).join('\n')
+        : validated.notes
+
       saveCustomerProfile(validated)
       const orderItems = items.map(item => ({
         ...item,
@@ -235,7 +261,7 @@ export default function CheckoutPage({ params }: Props) {
         const res = await fetch('/api/orders', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'x-csrf-token': csrfToken },
-          body: JSON.stringify({ tenantId, tenantSlug, items: orderItems, customerInfo: { name: validated.name, phone: validated.phone, email: validated.email }, deliveryType: validated.delivery_type, deliveryAddress: validated.delivery_address, notes: validated.notes, paymentMethod: 'cash', source: 'store' }),
+          body: JSON.stringify({ tenantId, tenantSlug, items: orderItems, customerInfo: { name: validated.name, phone: validated.phone, email: validated.email }, deliveryType: validated.delivery_type, deliveryAddress: validated.delivery_address, notes: notesWithCash, paymentMethod: 'cash', source: 'store' }),
         })
         const data = await res.json()
         if (data.orderId) {
@@ -337,15 +363,17 @@ export default function CheckoutPage({ params }: Props) {
                 {[
                   { value: 'pickup', label: 'Para recoger', icon: '🏠', sub: 'En el local' },
                   { value: 'delivery', label: 'A domicilio', icon: '🚗', sub: settings.delivery_fee > 0 ? `+${formatMoney(Number(settings.delivery_fee))}` : 'Gratis' },
-                ].map(opt => (
+                ].map(opt => {
+                  const selected = form.delivery_type === opt.value
+                  return (
                   <button key={opt.value} type="button" onClick={() => setForm(f => ({...f, delivery_type: opt.value}))}
-                    className={`p-3.5 rounded-xl border-2 text-left transition-all ${form.delivery_type === opt.value ? 'border-current bg-opacity-5' : 'border-gray-200 hover:border-gray-300'}`}
-                    style={form.delivery_type === opt.value ? { borderColor: primary, backgroundColor: `color-mix(in srgb, ${primary} 8%, white)` } : {}}>
+                    className={`p-3.5 rounded-xl border-2 text-left transition-all ${selected ? 'border-current bg-opacity-5' : 'border-gray-200 hover:border-gray-300'}`}
+                    style={selected ? { borderColor: primary, backgroundColor: `color-mix(in srgb, ${primary} 14%, transparent)` } : {}}>
                     <span className="block text-xl mb-1">{opt.icon}</span>
-                    <span className="block text-sm font-bold text-gray-900">{opt.label}</span>
-                    <span className="block text-xs text-muted-foreground mt-0.5">{opt.sub}</span>
+                    <span className="block text-sm font-bold" style={{ color: selected ? primary : text }}>{opt.label}</span>
+                    <span className="block text-xs mt-0.5" style={{ color: muted }}>{opt.sub}</span>
                   </button>
-                ))}
+                )})}
               </div>
               {form.delivery_type === 'delivery' && (
                 <div>
@@ -375,16 +403,39 @@ export default function CheckoutPage({ params }: Props) {
                     ? [{ value: 'stripe', label: 'Tarjeta', icon: '💳', sub: 'Visa, Mastercard' }]
                     : []),
                 ...(settings?.cash_payment_enabled ? [{ value: 'cash', label: 'Efectivo', icon: '💵', sub: 'Al entregar' }] : []),
-              ].map(opt => (
+              ].map(opt => {
+                const selected = form.payment_method === opt.value
+                return (
                 <button key={opt.value} type="button" onClick={() => setForm(f => ({...f, payment_method: opt.value}))}
-                  className={`p-3.5 rounded-xl border-2 text-left transition-all ${form.payment_method === opt.value ? 'border-current' : 'border-gray-200 hover:border-gray-300'}`}
-                  style={form.payment_method === opt.value ? { borderColor: primary, backgroundColor: `color-mix(in srgb, ${primary} 8%, white)` } : {}}>
+                  className={`p-3.5 rounded-xl border-2 text-left transition-all ${selected ? 'border-current' : 'border-gray-200 hover:border-gray-300'}`}
+                  style={selected ? { borderColor: primary, backgroundColor: `color-mix(in srgb, ${primary} 14%, transparent)` } : {}}>
                   <span className="block text-xl mb-1">{opt.icon}</span>
-                  <span className="block text-sm font-bold text-gray-900">{opt.label}</span>
-                  <span className="block text-xs text-muted-foreground mt-0.5">{opt.sub}</span>
+                  <span className="block text-sm font-bold" style={{ color: selected ? primary : text }}>{opt.label}</span>
+                  <span className="block text-xs mt-0.5" style={{ color: muted }}>{opt.sub}</span>
                 </button>
-              ))}
+              )})}
             </div>
+            {needsCashChangeInfo && (
+              <div className="rounded-xl border p-3.5" style={{ borderColor: `color-mix(in srgb, ${primary} 28%, transparent)`, backgroundColor: `color-mix(in srgb, ${primary} 7%, transparent)` }}>
+                <label className="block text-xs font-black uppercase" style={{ color: muted }}>
+                  Paga con cuanto
+                </label>
+                <input
+                  required
+                  value={cashReceived}
+                  onChange={e => setCashReceived(onlyDigits(e.target.value))}
+                  className={inputCls + ' mt-2'}
+                  placeholder={`Ej: ${formatMoney(Math.ceil(finalTotal / 1000) * 1000)}`}
+                  inputMode="numeric"
+                  autoComplete="off"
+                />
+                <p className="mt-2 text-xs font-bold" style={{ color: cashReceivedAmount >= finalTotal ? primary : muted }}>
+                  {cashReceivedAmount >= finalTotal
+                    ? `Cambio aproximado: ${formatMoney(cashChangeAmount)}`
+                    : `Total a pagar: ${formatMoney(finalTotal)}`}
+                </p>
+              </div>
+            )}
           </div>
 
           {/* Notes */}

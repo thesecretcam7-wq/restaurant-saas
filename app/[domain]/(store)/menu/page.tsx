@@ -130,10 +130,21 @@ export default async function MenuPage({ params }: MenuProps) {
   const baseBackgroundImage = useGradient
     ? `linear-gradient(${gradientDir}, ${gradientStart}, ${gradientEnd})`
     : undefined
+  const pageConfig = getPageConfig((context.tenant as any)?.metadata?.page_config || branding?.page_config)
+  const themeMode = pageConfig.appearance.theme_mode
+  const isLightTheme = themeMode === 'light'
   const backgroundStyle = useGradient
     ? { backgroundImage: sectionBackgroundImage ? `${baseBackgroundImage}, url(${sectionBackgroundImage})` : baseBackgroundImage, backgroundBlendMode: sectionBackgroundImage ? 'normal, soft-light' : undefined, backgroundSize: sectionBackgroundImage ? 'auto, cover' : undefined, backgroundPosition: sectionBackgroundImage ? 'center, center' : undefined }
     : sectionBackgroundImage
-      ? { backgroundColor: palette.background, backgroundImage: `linear-gradient(rgba(255,255,255,.78), rgba(255,255,255,.78)), url(${sectionBackgroundImage})`, backgroundSize: 'cover', backgroundPosition: 'center', backgroundAttachment: 'fixed' }
+      ? {
+          backgroundColor: palette.background,
+          backgroundImage: isLightTheme
+            ? `linear-gradient(rgba(255,255,255,.78), rgba(255,255,255,.78)), url(${sectionBackgroundImage})`
+            : `linear-gradient(rgba(5,5,5,.82), rgba(5,5,5,.92)), url(${sectionBackgroundImage})`,
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
+          backgroundAttachment: 'fixed',
+        }
       : { backgroundColor: palette.background }
 
   // Get currency from settings or detect from country
@@ -145,16 +156,19 @@ export default async function MenuPage({ params }: MenuProps) {
       }
     : getCurrencyByCountry(settings?.country_code || settings?.country || (context.tenant as any)?.country || 'ES')
 
-  const pageConfig = getPageConfig((context.tenant as any)?.metadata?.page_config || branding?.page_config)
-  const themeMode = pageConfig.appearance.theme_mode
   const layout = pageConfig.appearance.menu_layout
   const br = getBorderRadius(pageConfig.appearance.border_radius)
   const cardCls = getCardClasses(pageConfig.appearance.card_style)
   const btnCls = getButtonClasses(pageConfig.appearance.button_style)
   const featuredCarousel = featured.length > 1 ? featured : items.slice(0, 8)
+  const sectionSurface = isLightTheme ? '#ffffff' : 'rgba(255, 247, 223, 0.07)'
+  const cardSurface = isLightTheme ? '#ffffff' : 'rgba(255, 247, 223, 0.055)'
+  const sectionBorder = isLightTheme ? 'rgba(21, 19, 15, 0.10)' : 'rgba(231, 180, 63, 0.26)'
+  const softSurface = isLightTheme ? 'rgba(21, 19, 15, 0.045)' : 'rgba(231, 180, 63, 0.10)'
+  const countTextColor = isLightTheme ? 'rgba(21, 19, 15, 0.56)' : 'rgba(255, 247, 223, 0.68)'
 
   return (
-    <div className={`store-surface min-h-screen overflow-x-hidden ${themeMode === 'light' ? 'ecco-store-light' : 'ecco-store-dark'}`} style={{ fontFamily, ...backgroundStyle }}>
+    <div className={`store-surface min-h-screen overflow-x-hidden ${isLightTheme ? 'ecco-store-light' : 'ecco-store-dark'}`} style={{ fontFamily, ...backgroundStyle }}>
       <style>{`
         @keyframes menuRise {
           from { opacity: 0; transform: translateY(18px) scale(.985); }
@@ -226,34 +240,35 @@ export default async function MenuPage({ params }: MenuProps) {
       </header>
 
       <main id="top" className="mx-auto max-w-7xl space-y-5 px-3 pb-32 pt-[122px] sm:space-y-8 sm:px-6 sm:pb-36 sm:pt-[132px] lg:px-8">
-        <section className="menu-rise overflow-hidden rounded-[22px] border border-black/8 bg-white p-4 shadow-xl shadow-black/[0.04] sm:rounded-[28px] sm:p-7">
-          <p className="text-xs font-black uppercase text-black/42">Carta digital</p>
+        <section className="menu-rise overflow-hidden rounded-[22px] border p-4 shadow-xl shadow-black/[0.08] sm:rounded-[28px] sm:p-7" style={{ backgroundColor: sectionSurface, borderColor: sectionBorder }}>
+          <p className="text-xs font-black uppercase" style={{ color: priceColor }}>Carta digital</p>
           <div className="mt-2 flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
             <div className="min-w-0">
-              <h1 className="text-2xl font-black leading-tight text-[#15130f] sm:text-4xl">Elige tu pedido</h1>
-              <p className="mt-2 max-w-2xl break-words text-sm font-bold leading-6 text-black/58">Explora los productos del restaurante y agrega tus favoritos al carrito.</p>
+              <h1 className="text-2xl font-black leading-tight sm:text-4xl" style={{ color: menuTextColor }}>Elige tu pedido</h1>
+              <p className="mt-2 max-w-2xl break-words text-sm font-bold leading-6" style={{ color: menuMutedTextColor }}>Explora los productos del restaurante y agrega tus favoritos al carrito.</p>
               {featuredText && (
                 <div className="mt-4 max-w-2xl rounded-2xl border px-4 py-3 text-sm font-black leading-6" style={{ borderColor: `${priceColor}33`, backgroundColor: `${priceColor}12`, color: priceColor }}>
                   {featuredText}
                 </div>
               )}
             </div>
-            <Link href={storeHomePath} className="inline-flex h-11 w-full items-center justify-center rounded-full border border-black/10 px-5 text-sm font-black transition hover:bg-black/[0.04] sm:w-auto" style={{ color: buttonColor }}>
+            <Link href={storeHomePath} className="inline-flex h-11 w-full items-center justify-center rounded-full border px-5 text-sm font-black transition hover:bg-white/10 sm:w-auto" style={{ color: buttonColor, borderColor: `${buttonColor}40`, backgroundColor: softSurface }}>
               Volver al inicio
             </Link>
           </div>
         </section>
         {/* Featured - Professional */}
         {featuredCarousel.length > 0 && (
-          <section className="menu-rise scroll-mt-28 rounded-[22px] border border-black/8 bg-white p-4 shadow-xl shadow-black/[0.04] sm:rounded-[28px] sm:p-7" data-featured style={{ animationDelay: '80ms' }}>
+          <section className="menu-rise relative scroll-mt-28 rounded-[22px] border p-4 shadow-xl shadow-black/[0.08] sm:rounded-[28px] sm:p-7" data-featured style={{ animationDelay: '80ms', backgroundColor: sectionSurface, borderColor: sectionBorder }}>
             <div className="flex items-center gap-2 mb-3 sm:mb-4">
               <div className="w-1 h-5 sm:h-6 rounded-full" style={{ backgroundColor: buttonColor }} />
               <h2
-                className="text-base sm:text-lg text-gray-900"
-                style={{
-                  fontWeight: headingFontWeight,
-                  letterSpacing: `${letterSpacing}em`,
-                  textTransform: textTransform as any,
+                  className="text-base sm:text-lg"
+                  style={{
+                   color: menuTextColor,
+                   fontWeight: headingFontWeight,
+                   letterSpacing: `${letterSpacing}em`,
+                   textTransform: textTransform as any,
                   lineHeight: lineHeight,
                 }}
               >
@@ -265,9 +280,11 @@ export default async function MenuPage({ params }: MenuProps) {
                 {featuredCarousel.map((item, index) => (
                 <div
                   key={item.id}
-                  className={`menu-rise group flex flex-col overflow-hidden border border-black/8 bg-white shadow-sm transition hover:-translate-y-0.5 hover:shadow-xl ${cardCls}`}
+                  className={`menu-rise group flex flex-col overflow-hidden border shadow-sm transition hover:-translate-y-0.5 hover:shadow-xl ${cardCls}`}
                   style={{
                     borderRadius: br,
+                    backgroundColor: cardSurface,
+                    borderColor: sectionBorder,
                     animationDelay: `${120 + (index % Math.max(featuredCarousel.length, 1)) * 45}ms`,
                     backgroundImage: `linear-gradient(135deg, ${primary}12, transparent 60%)`,
                   }}
@@ -284,8 +301,8 @@ export default async function MenuPage({ params }: MenuProps) {
                     <div className="h-32 flex items-center justify-center text-4xl" style={{ background: `linear-gradient(135deg, ${primary}22, ${priceColor}18)` }}>🍽️</div>
                   )}
                   <div className="flex flex-1 flex-col p-3">
-                    <p className="line-clamp-2 min-h-10 text-sm font-black leading-5 text-[#15130f]">{item.name}</p>
-                    {item.description && <p className="mt-1 line-clamp-2 flex-1 text-xs font-semibold text-black/48">{item.description}</p>}
+                    <p className="line-clamp-2 min-h-10 text-sm font-black leading-5" style={{ color: menuTextColor }}>{item.name}</p>
+                    {item.description && <p className="mt-1 line-clamp-2 flex-1 text-xs font-semibold" style={{ color: menuMutedTextColor }}>{item.description}</p>}
                     <div className="mt-2 flex items-center justify-between gap-2">
                       <p className={`text-base font-black ${item.image_url ? 'sr-only' : ''}`} style={{ color: priceColor }}>{formatPriceWithCurrency(item.price, currencyInfo.code, currencyInfo.locale)}</p>
                       <AddToCartButton item={item} tenantId={tenantId} color={buttonColor} small toppings={toppingsByItem[item.id] || []} currencyInfo={currencyInfo} freeToppingsLabel={freeToppingsLabel} />
@@ -295,6 +312,12 @@ export default async function MenuPage({ params }: MenuProps) {
                 ))}
               </div>
             </div>
+            {featuredCarousel.length > 1 && (
+              <div className="pointer-events-none absolute right-5 top-[50%] z-10 flex items-center gap-2 rounded-full border border-white/30 bg-black/62 px-3 py-2 text-xs font-black text-white shadow-2xl backdrop-blur-md sm:right-7">
+                <span>Desliza</span>
+                <span className="text-lg leading-none" aria-hidden="true">→</span>
+              </div>
+            )}
           </section>
         )}
 
@@ -303,10 +326,11 @@ export default async function MenuPage({ params }: MenuProps) {
           const catItems = itemsByCategory[cat.id] || []
           if (catItems.length === 0) return null
           return (
-            <section key={cat.id} id={`cat-${cat.id}`} data-category={cat.id} className="menu-rise scroll-mt-28 rounded-[22px] border border-black/8 bg-white p-4 shadow-xl shadow-black/[0.04] sm:rounded-[28px] sm:p-7" style={{ animationDelay: `${120 + catIndex * 55}ms` }}>
+            <section key={cat.id} id={`cat-${cat.id}`} data-category={cat.id} className="menu-rise scroll-mt-28 rounded-[22px] border p-4 shadow-xl shadow-black/[0.08] sm:rounded-[28px] sm:p-7" style={{ animationDelay: `${120 + catIndex * 55}ms`, backgroundColor: sectionSurface, borderColor: sectionBorder }}>
               <h2
-                className="text-base text-gray-900 mb-3 flex items-center justify-between"
+                className="mb-3 flex items-center justify-between text-base"
                 style={{
+                  color: menuTextColor,
                   fontWeight: headingFontWeight,
                   letterSpacing: `${letterSpacing}em`,
                   textTransform: textTransform as any,
@@ -314,7 +338,7 @@ export default async function MenuPage({ params }: MenuProps) {
                 }}
               >
                 {cat.name}
-                <span className="rounded-full bg-black/[0.06] px-3 py-1 text-xs font-black text-black/50">{catItems.length}</span>
+                <span className="rounded-full px-3 py-1 text-xs font-black" style={{ backgroundColor: softSurface, color: countTextColor }}>{catItems.length}</span>
               </h2>
               {layout === 'grid' ? (
                 <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -341,10 +365,11 @@ export default async function MenuPage({ params }: MenuProps) {
 
         {/* Uncategorized */}
         {uncategorized.length > 0 && (
-          <section className="menu-rise scroll-mt-28 rounded-[22px] border border-black/8 bg-white p-4 shadow-xl shadow-black/[0.04] sm:rounded-[28px] sm:p-7">
+          <section className="menu-rise scroll-mt-28 rounded-[22px] border p-4 shadow-xl shadow-black/[0.08] sm:rounded-[28px] sm:p-7" style={{ backgroundColor: sectionSurface, borderColor: sectionBorder }}>
             <h2
-              className="text-base text-gray-900 mb-3"
+              className="mb-3 text-base"
               style={{
+                color: menuTextColor,
                 fontWeight: headingFontWeight,
                 letterSpacing: `${letterSpacing}em`,
                 textTransform: textTransform as any,

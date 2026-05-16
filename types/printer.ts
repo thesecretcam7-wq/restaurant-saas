@@ -75,6 +75,7 @@ export interface ReceiptData {
   timestamp?: string;
   waiterName?: string;
   tableNumber?: number;
+  notes?: string | null;
   openCashDrawer?: boolean;
 }
 

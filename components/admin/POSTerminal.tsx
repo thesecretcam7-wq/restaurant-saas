@@ -69,6 +69,7 @@ interface IncomingOrder {
   status: string;
   payment_status?: string | null;
   payment_method?: string | null;
+  notes?: string | null;
   items: { menu_item_id?: string | null; item_id?: string | null; id?: string | null; name: string; qty?: number; quantity?: number; price: number }[];
   created_at: string;
 }
@@ -405,6 +406,12 @@ function IncomingOrderCard({
 
       {isDelivery && order.delivery_address && (
         <p className="text-muted-foreground text-xs truncate">📍 {order.delivery_address}</p>
+      )}
+
+      {order.notes && (
+        <div className="rounded-lg border border-amber-400/25 bg-amber-400/10 px-3 py-2 text-xs font-bold leading-5 text-amber-100 whitespace-pre-line">
+          {order.notes}
+        </div>
       )}
 
       {order.items && order.items.length > 0 && (
@@ -1222,7 +1229,7 @@ export function POSTerminal({
     try {
       const { data, error } = await supabase
         .from('orders')
-        .select('id, order_number, customer_name, customer_phone, delivery_type, delivery_address, delivery_fee, total, status, payment_status, payment_method, items, created_at')
+        .select('id, order_number, customer_name, customer_phone, delivery_type, delivery_address, delivery_fee, total, status, payment_status, payment_method, notes, items, created_at')
         .eq('tenant_id', tenantId)
         .or(`delivery_type.eq.delivery,delivery_type.eq.pickup`)
         .not('status', 'in', '("delivered","cancelled")')
@@ -1470,6 +1477,7 @@ export function POSTerminal({
         amountPaid: orderTotal,
         change: 0,
         paymentMethod: order.payment_method || (order.payment_status === 'paid' ? 'online' : 'cash'),
+        notes: order.notes || undefined,
         currencyInfo,
         openCashDrawer: false,
       });

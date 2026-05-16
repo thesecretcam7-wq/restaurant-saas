@@ -30,7 +30,7 @@ export default function FeaturedSection({ tenantId, items, primary, buttonColor 
   }
 
   return (
-    <section className="rounded-[28px] border border-black/8 bg-white p-5 shadow-xl shadow-black/[0.04] sm:p-7">
+    <section className="relative rounded-[28px] border border-black/8 bg-white p-5 shadow-xl shadow-black/[0.04] sm:p-7">
       <div className="mb-5 flex items-end justify-between gap-4">
         <div>
           <p className="text-xs font-black uppercase text-black/42">Recomendados</p>
@@ -75,6 +75,12 @@ export default function FeaturedSection({ tenantId, items, primary, buttonColor 
         ))}
         </div>
       </div>
+      {items.length > 1 && (
+        <div className="pointer-events-none absolute right-5 top-[48%] z-10 flex items-center gap-2 rounded-full border border-white/30 bg-black/62 px-3 py-2 text-xs font-black text-white shadow-2xl backdrop-blur-md sm:right-7">
+          <span>Desliza</span>
+          <span className="text-lg leading-none" aria-hidden="true">→</span>
+        </div>
+      )}
     </section>
   )
 }

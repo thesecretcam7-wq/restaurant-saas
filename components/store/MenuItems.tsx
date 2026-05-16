@@ -66,12 +66,17 @@ export function MenuListItem({
   const [imageLoaded, setImageLoaded] = useState(!item.image_url)
   const hasToppings = toppings.length > 0
   const hasOnlyFreeToppings = hasToppings && toppings.every(topping => Number(topping.price || 0) === 0)
+  const isLightCard = textColor === '#15130f'
+  const cardSurface = isLightCard ? '#ffffff' : 'rgba(255, 247, 223, 0.055)'
+  const cardBorder = isLightCard ? 'rgba(21, 19, 15, 0.10)' : 'rgba(231, 180, 63, 0.24)'
 
   return (
     <div
       className={`menu-rise flex items-center gap-3 overflow-hidden border border-black/8 bg-white p-2.5 shadow-sm transition active:scale-[0.99] sm:p-3 sm:hover:-translate-y-0.5 sm:hover:shadow-xl ${cardCls}`}
       style={{
         borderRadius: br,
+        backgroundColor: cardSurface,
+        borderColor: cardBorder,
         animationDelay: `${index * 45}ms`,
         backgroundImage: `linear-gradient(135deg, ${primary}12, transparent 58%)`,
       }}
@@ -126,12 +131,17 @@ export function MenuGridItem({
   const [imageLoaded, setImageLoaded] = useState(!item.image_url)
   const hasToppings = toppings.length > 0
   const hasOnlyFreeToppings = hasToppings && toppings.every(topping => Number(topping.price || 0) === 0)
+  const isLightCard = textColor === '#15130f'
+  const cardSurface = isLightCard ? '#ffffff' : 'rgba(255, 247, 223, 0.055)'
+  const cardBorder = isLightCard ? 'rgba(21, 19, 15, 0.10)' : 'rgba(231, 180, 63, 0.24)'
 
   return (
     <div
       className={`menu-rise group flex flex-col overflow-hidden border border-black/8 bg-white shadow-sm transition active:scale-[0.99] sm:hover:-translate-y-0.5 sm:hover:shadow-xl ${cardCls}`}
       style={{
         borderRadius: br,
+        backgroundColor: cardSurface,
+        borderColor: cardBorder,
         animationDelay: `${index * 45}ms`,
         backgroundImage: `linear-gradient(135deg, ${primary}12, transparent 60%)`,
       }}

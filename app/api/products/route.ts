@@ -36,6 +36,7 @@ export async function GET(request: NextRequest) {
         category_id,
         available,
         featured,
+        variants,
         image_url,
         created_at,
         menu_categories(name)
