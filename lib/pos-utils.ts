@@ -13,41 +13,29 @@ export function calculateChange(total: number, amountPaid: number): number {
  * Retorna billetes sugeridos para pagar
  * Ejemplo: total 23.50 → [24, 25, 30, 50]
  */
-export function getSuggestedBillAmounts(total: number, currency: string = 'EUR'): number[] {
-  const normalizedTotal = Math.max(0, Number(total) || 0);
-  const currencyCode = currency.toUpperCase();
-  const cashStepsByCurrency: Record<string, number[]> = {
-    COP: [5000, 10000, 20000, 50000],
+export function getSuggestedBillAmounts(total: number, currencyCode: string = 'COP'): number[] {
+  const denominationsByCurrency: Record<string, number[]> = {
+    COP: [5000, 10000, 20000, 50000, 100000],
     CLP: [1000, 2000, 5000, 10000, 20000],
-    MXN: [10, 20, 50, 100, 200, 500, 1000],
-    ARS: [100, 200, 500, 1000, 2000, 10000],
-    PEN: [1, 2, 5, 10, 20, 50, 100, 200],
+    MXN: [20, 50, 100, 200, 500, 1000],
+    EUR: [5, 10, 20, 50, 100, 200],
     USD: [1, 5, 10, 20, 50, 100],
-    EUR: [1, 2, 5, 10, 20, 50, 100, 200, 500],
   };
-  const steps = cashStepsByCurrency[currencyCode] || cashStepsByCurrency.EUR;
+  const billDenominations =
+    denominationsByCurrency[currencyCode.toUpperCase()] || denominationsByCurrency.USD;
+  if (total <= 0) return billDenominations.slice(0, 4);
 
-  if (currencyCode === 'COP') {
-    const realBills = steps.filter((bill) => bill >= normalizedTotal);
-    return realBills.length > 0 ? realBills.slice(0, 4) : [normalizedTotal];
+  const exactOrNextBill = billDenominations.find((bill) => bill >= total);
+  if (exactOrNextBill) {
+    const suggested = [exactOrNextBill];
+    const nextBill = billDenominations.find((bill) => bill > exactOrNextBill);
+    if (nextBill) suggested.push(nextBill);
+    return suggested;
   }
 
-  const suggestions = new Set<number>();
-  const roundUpTo = (step: number) => Math.ceil(normalizedTotal / step) * step;
-
-  for (const step of steps) {
-    const rounded = roundUpTo(step);
-    if (rounded >= normalizedTotal && rounded > 0) suggestions.add(Number(rounded.toFixed(2)));
-    if (suggestions.size >= 4) break;
-  }
-
-  for (const bill of steps) {
-    if (bill >= normalizedTotal) suggestions.add(bill);
-    if (suggestions.size >= 4) break;
-  }
-
-  const sortedSuggestions = Array.from(suggestions).sort((a, b) => a - b).slice(0, 4);
-  return sortedSuggestions.length > 0 ? sortedSuggestions : [normalizedTotal];
+  const largestBill = billDenominations[billDenominations.length - 1];
+  const multiplier = Math.ceil(total / largestBill);
+  return [largestBill * multiplier];
 }
 
 /**

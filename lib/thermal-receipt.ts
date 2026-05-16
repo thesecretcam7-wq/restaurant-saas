@@ -237,10 +237,12 @@ export function generateCashClosingReceiptESCPOS(
   push(BOLD_ON);
   line('RESUMEN DE VENTAS');
   push(BOLD_OFF);
-  row('Efectivo:', money(data.cashSales));
-  row('Tarjeta:', money(data.cardSales));
-  row('Otros:', money(data.otherSales));
-  row('Impuestos:', money(data.totalTax));
+    row('Efectivo:', money(data.cashSales));
+    row('Tarjeta:', money(data.cardSales));
+    row('Otros:', money(data.otherSales));
+    row('Domicilios:', money(data.totalDeliveryFees || 0));
+    row('Pedidos dom.:', String(data.deliveryOrderCount || 0));
+    row('Impuestos:', money(data.totalTax));
   if (data.totalDiscount > 0) row('Descuentos:', money(data.totalDiscount));
   sep();
   push(BOLD_ON);

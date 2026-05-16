@@ -11,19 +11,6 @@ export async function GET(request: NextRequest) {
 
   try {
     const supabase = createServiceClient();
-    const settingsPromise = supabase
-      .from('restaurant_settings')
-      .select('tax_rate, display_name, phone, delivery_enabled, delivery_fee, delivery_zones, country, kds_enabled')
-      .eq('tenant_id', tenantId)
-      .maybeSingle()
-      .then(async (result) => {
-        if (!result.error || (result.error.code !== '42703' && !result.error.message?.includes('schema cache'))) return result;
-        return supabase
-          .from('restaurant_settings')
-          .select('tax_rate, display_name, phone, delivery_enabled, delivery_fee, country')
-          .eq('tenant_id', tenantId)
-          .maybeSingle();
-      });
 
     const [categoriesRes, menuRes, tenantRes, settingsRes, tablesRes] = await Promise.all([
       supabase
@@ -43,7 +30,11 @@ export async function GET(request: NextRequest) {
         .select('organization_name, logo_url, country')
         .eq('id', tenantId)
         .maybeSingle(),
-      settingsPromise,
+      supabase
+        .from('restaurant_settings')
+        .select('tax_rate, display_name, phone, delivery_enabled, delivery_fee, delivery_zones, country')
+        .eq('tenant_id', tenantId)
+        .maybeSingle(),
       supabase
         .from('tables')
         .select('id, table_number, seats, location')
@@ -63,9 +54,6 @@ export async function GET(request: NextRequest) {
       settings: {
         ...(settingsRes.data || {}),
         country: settingsRes.data?.country || tenantRes.data?.country || 'ES',
-        delivery_zones: Array.isArray((settingsRes.data as any)?.delivery_zones)
-          ? (settingsRes.data as any).delivery_zones
-          : [],
       },
       tables: tablesRes.data || [],
     });

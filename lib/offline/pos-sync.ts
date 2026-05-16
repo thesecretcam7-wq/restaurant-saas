@@ -18,6 +18,9 @@ export type POSOfflineOrderInput = {
   total: number
   paymentMethod: 'cash' | 'stripe'
   deliveryType: 'takeaway' | 'pickup' | 'delivery' | 'dine-in'
+  deliveryFee?: number | null
+  deliveryZoneId?: string | null
+  deliveryZoneName?: string | null
   waiter_id?: string | null
   waiterName?: string | null
   table_id?: string | null
@@ -73,6 +76,9 @@ export async function saveOfflinePOSOrder(input: POSOfflineOrderInput) {
     total: input.total,
     paymentMethod: input.paymentMethod,
     deliveryType: input.deliveryType,
+    deliveryFee: input.deliveryFee ?? null,
+    deliveryZoneId: input.deliveryZoneId || null,
+    deliveryZoneName: input.deliveryZoneName || null,
     waiter_id: input.waiter_id || null,
     waiterName: input.waiterName || null,
     table_id: input.table_id || null,
@@ -132,6 +138,9 @@ export async function syncOfflinePOSOrders(tenantId: string, csrfToken?: string)
           })),
           paymentMethod: offlineOrder.paymentMethod === 'stripe' ? 'cash' : offlineOrder.paymentMethod,
           deliveryType: offlineOrder.deliveryType || 'takeaway',
+          deliveryFee: offlineOrder.deliveryFee ?? null,
+          deliveryZoneId: offlineOrder.deliveryZoneId || null,
+          deliveryZoneName: offlineOrder.deliveryZoneName || null,
           waiter_id: offlineOrder.waiter_id || null,
           waiterName: offlineOrder.waiterName || null,
           table_id: offlineOrder.table_id || null,

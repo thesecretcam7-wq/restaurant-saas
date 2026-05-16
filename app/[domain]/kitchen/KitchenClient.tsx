@@ -393,21 +393,21 @@ export function KitchenClient({ tenantId, tenantSlug, tenantName, country, brand
   }
 
   const CartPanel = ({ isMobile = false }: { isMobile?: boolean }) => (
-    <div className={`flex h-full flex-col bg-[linear-gradient(180deg,rgba(255,255,255,0.08),rgba(255,255,255,0.025)),#101010] text-[#fff7df] ${isMobile ? '' : 'border-l border-[#f6b92f]/18'}`}>
-      <div className="border-b border-[#f6b92f]/14 p-4">
+    <div className={`flex h-full min-h-0 flex-col bg-[linear-gradient(180deg,rgba(255,255,255,0.08),rgba(255,255,255,0.025)),#101010] text-[#fff7df] ${isMobile ? '' : 'border-l border-[#f6b92f]/18'}`}>
+      <div className={`flex-shrink-0 border-b border-[#f6b92f]/14 ${isMobile ? 'p-3' : 'p-4'}`}>
         <div className="flex items-center justify-between">
-          <div>
+          <div className="min-w-0">
             <p className="text-xs font-black uppercase tracking-[0.16em] text-[#f6b92f]">Pedido actual</p>
-            <h2 className="text-xl font-black text-[#fff7df]">{tableNumber ? `${tr('kitchen.table')} ${tableNumber}` : tr('kitchen.selectTable')}</h2>
+            <h2 className={`${isMobile ? 'text-lg' : 'text-xl'} truncate font-black text-[#fff7df]`}>{tableNumber ? `${tr('kitchen.table')} ${tableNumber}` : tr('kitchen.selectTable')}</h2>
           </div>
           {isMobile && (
-            <button onClick={() => setCartOpen(false)} className="grid h-10 w-10 place-items-center rounded-2xl border border-white/10 bg-white/[0.08] text-[#fff7df]">
+            <button onClick={() => setCartOpen(false)} className="grid h-10 w-10 flex-shrink-0 place-items-center rounded-2xl border border-white/10 bg-white/[0.08] text-[#fff7df]">
               <X className="h-5 w-5" />
             </button>
           )}
         </div>
 
-        <div className="mt-4">
+        <div className={isMobile ? 'mt-3' : 'mt-4'}>
           <div className="mb-2 flex items-center justify-between">
             <span className="text-xs font-black uppercase tracking-[0.14em] text-[#f8f5ec]/58">Mesas</span>
             {tableNumber && <button onClick={() => setTableNumber('')} className="text-xs font-black text-red-500">Quitar</button>}
@@ -415,14 +415,14 @@ export function KitchenClient({ tenantId, tenantSlug, tenantName, country, brand
           {tables.length === 0 ? (
             <p className="rounded-2xl border border-[#f6b92f]/14 bg-white/[0.06] px-3 py-3 text-center text-xs font-bold text-[#f8f5ec]/64">Sin mesas configuradas</p>
           ) : (
-            <div className="grid grid-cols-4 gap-2">
+            <div className={`grid gap-2 ${isMobile ? 'grid-cols-5' : 'grid-cols-4'}`}>
               {tables.map(table => {
                 const active = tableNumber === String(table.table_number);
                 return (
                   <button
                     key={table.id}
                     onClick={() => setTableNumber(String(table.table_number))}
-                    className="h-11 rounded-2xl border text-sm font-black transition active:scale-95"
+                    className={`${isMobile ? 'h-10 rounded-xl' : 'h-11 rounded-2xl'} border text-sm font-black transition active:scale-95`}
                     style={active ? { borderColor: '#f6b92f', backgroundColor: '#f6b92f', color: '#15130f', boxShadow: '0 12px 30px rgba(246,185,47,0.28)' } : { borderColor: 'rgba(246,185,47,0.16)', backgroundColor: 'rgba(255,255,255,0.07)', color: '#f8f5ec' }}
                   >
                     {table.table_number}
@@ -434,7 +434,7 @@ export function KitchenClient({ tenantId, tenantSlug, tenantName, country, brand
         </div>
       </div>
 
-      <div className="flex-1 space-y-3 overflow-y-auto p-3">
+      <div className={`min-h-0 flex-1 space-y-3 overflow-y-auto ${isMobile ? 'p-3' : 'p-3'}`}>
         {cart.length === 0 ? (
           <div className="grid h-full min-h-56 place-items-center rounded-[1.5rem] border border-dashed border-[#f6b92f]/18 bg-white/[0.055] p-6 text-center">
             <div>
@@ -509,7 +509,7 @@ export function KitchenClient({ tenantId, tenantSlug, tenantName, country, brand
         )}
       </div>
 
-      <div className="border-t border-[#f6b92f]/14 bg-black/24 p-4">
+      <div className={`flex-shrink-0 border-t border-[#f6b92f]/14 bg-black/40 ${isMobile ? 'p-3' : 'p-4'}`}>
         <div className="mb-3 space-y-2 rounded-2xl border border-[#f6b92f]/14 bg-[#f6b92f]/8 p-3">
           <div className="flex items-center justify-between text-xs font-bold text-[#f8f5ec]/62">
             <span>{cartCount} productos</span>
@@ -847,9 +847,9 @@ export function KitchenClient({ tenantId, tenantSlug, tenantName, country, brand
       )}
 
       {cartOpen && (
-        <div className="fixed inset-0 z-40 flex flex-col justify-end md:hidden">
-          <div className="absolute inset-0 bg-black/45" onClick={() => setCartOpen(false)} />
-          <div className="relative max-h-[92vh] overflow-hidden rounded-t-[2rem] bg-white shadow-2xl">
+        <div className="fixed inset-0 z-40 flex flex-col justify-end bg-black/50 md:hidden">
+          <div className="absolute inset-0" onClick={() => setCartOpen(false)} />
+          <div className="relative flex h-[92dvh] min-h-0 overflow-hidden rounded-t-[2rem] border border-[#f6b92f]/18 bg-[#101010] shadow-2xl shadow-black/50">
             <CartPanel isMobile />
           </div>
         </div>

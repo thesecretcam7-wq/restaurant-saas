@@ -89,9 +89,11 @@ export interface CashClosingReceiptData {
   periodEnd: string;
   cashSales: number;
   cardSales: number;
-  otherSales: number;
-  totalSales: number;
-  totalTax: number;
+    otherSales: number;
+    totalSales: number;
+    totalDeliveryFees?: number;
+    deliveryOrderCount?: number;
+    totalTax: number;
   totalDiscount: number;
   expectedCash: number;
   actualCash: number;

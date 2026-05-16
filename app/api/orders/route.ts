@@ -10,25 +10,6 @@ import { calculateOrderTotals } from '@/lib/order-totals'
 import { syncCustomerFromOrder } from '@/lib/customer-sync'
 import { deriveBrandPalette } from '@/lib/brand-colors'
 
-type DeliveryZone = {
-  id: string
-  name: string
-  fee: number
-  min_order?: number
-}
-
-function normalizeDeliveryZones(value: unknown): DeliveryZone[] {
-  if (!Array.isArray(value)) return []
-  return value
-    .map((zone: any) => ({
-      id: String(zone?.id || '').trim(),
-      name: String(zone?.name || '').trim(),
-      fee: Number(zone?.fee || 0),
-      min_order: Number(zone?.min_order || 0),
-    }))
-    .filter(zone => zone.id && zone.name && Number.isFinite(zone.fee) && zone.fee >= 0)
-}
-
 export async function GET(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams
@@ -94,7 +75,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { tenantId: tenantParam, tenantSlug, items, customerInfo, deliveryType, deliveryAddress, deliveryZone, notes, paymentMethod, tableNumber, waiterName, amountPaid, source } = body
+    const { tenantId: tenantParam, tenantSlug, items, customerInfo, deliveryType, deliveryAddress, notes, paymentMethod, tableNumber, waiterName, amountPaid, source, deliveryFee: requestedDeliveryFee, deliveryZoneId } = body
 
     if (!tenantParam) {
       return NextResponse.json({ error: 'tenantId is required' }, { status: 400 })
@@ -150,6 +131,7 @@ export async function POST(request: NextRequest) {
 
     const protectedSourceRoles: Record<string, string[]> = {
       pos: ['admin', 'cajero'],
+      'pos-offline': ['admin', 'cajero'],
       comandero: ['admin', 'camarero'],
       kiosk: ['admin', 'cajero', 'camarero', 'cocinero'],
     }
@@ -209,25 +191,33 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: orderCheck.reason, limitReached: true, used: orderCheck.used, limit: orderCheck.limit }, { status: 403 })
     }
 
-    const settingsResult = await supabase
+    const { data: settings } = await supabase
       .from('restaurant_settings')
-      .select('tax_rate, delivery_fee, delivery_min_order, delivery_zones, delivery_enabled, cash_payment_enabled, kds_enabled')
+      .select('tax_rate, delivery_fee, delivery_zones, delivery_min_order, delivery_enabled, cash_payment_enabled, kds_enabled')
       .eq('tenant_id', tenantId)
       .single()
-    const fallbackSettingsResult = settingsResult.error?.code === '42703'
-      ? await supabase
-        .from('restaurant_settings')
-        .select('tax_rate, delivery_fee, delivery_min_order, delivery_enabled, cash_payment_enabled, kds_enabled')
-        .eq('tenant_id', tenantId)
-        .single()
-      : null
-    const settings = fallbackSettingsResult?.data || settingsResult.data
 
     const subtotal = sanitizedItems.reduce((sum: number, i: any) => sum + i.price * i.qty, 0)
-    const deliveryZones = normalizeDeliveryZones((settings as any)?.delivery_zones)
-    let selectedDeliveryZone: DeliveryZone | null = null
-    let selectedDeliveryFee = Number(settings?.delivery_fee || 0)
-    let selectedMinOrder = Number(settings?.delivery_min_order || 0)
+    const deliveryZones = Array.isArray(settings?.delivery_zones) ? settings.delivery_zones : []
+    const selectedDeliveryZone = deliveryZoneId
+      ? deliveryZones.find((zone: any) => String(zone.id) === String(deliveryZoneId))
+      : null
+    const submittedDeliveryFee = Number(requestedDeliveryFee)
+    const allowedDeliveryFees = [
+      Number(settings?.delivery_fee || 0),
+      ...deliveryZones.map((zone: any) => Number(zone.fee || 0)),
+    ]
+    const canUseSubmittedDeliveryFee =
+      ['pos', 'pos-offline'].includes(String(source || '')) &&
+      Number.isFinite(submittedDeliveryFee) &&
+      allowedDeliveryFees.some((fee) => Math.abs(fee - submittedDeliveryFee) < 0.01)
+    const deliveryFeeForTotals = deliveryType === 'delivery'
+      ? selectedDeliveryZone
+        ? Number(selectedDeliveryZone.fee || 0)
+        : canUseSubmittedDeliveryFee
+          ? submittedDeliveryFee
+          : Number(settings?.delivery_fee || 0)
+      : 0
 
     if (source === 'store' && paymentMethod === 'cash' && settings?.cash_payment_enabled === false) {
       return NextResponse.json({ error: 'Pago en efectivo no esta habilitado para este restaurante' }, { status: 400 })
@@ -238,19 +228,10 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: 'Delivery no esta habilitado para este restaurante' }, { status: 400 })
       }
 
-      if (deliveryZones.length > 0) {
-        const requestedZoneId = String(deliveryZone?.id || '').trim()
-        selectedDeliveryZone = deliveryZones.find(zone => zone.id === requestedZoneId) || null
-        if (!selectedDeliveryZone) {
-          return NextResponse.json({ error: 'Escoge una zona de delivery valida' }, { status: 400 })
-        }
-        selectedDeliveryFee = selectedDeliveryZone.fee
-        selectedMinOrder = Number(selectedDeliveryZone.min_order || 0)
-      }
-
-      if (selectedMinOrder > 0 && subtotal < selectedMinOrder) {
+      const minOrder = Number(selectedDeliveryZone?.min_order || settings?.delivery_min_order || 0)
+      if (minOrder > 0 && subtotal < minOrder) {
         return NextResponse.json(
-          { error: `El pedido minimo para esta zona es ${selectedMinOrder}` },
+          { error: `El pedido minimo para delivery es ${minOrder}` },
           { status: 400 }
         )
       }
@@ -260,7 +241,7 @@ export async function POST(request: NextRequest) {
       items: sanitizedItems,
       taxRate: settings?.tax_rate,
       deliveryType,
-      deliveryFee: selectedDeliveryFee,
+      deliveryFee: deliveryFeeForTotals,
     })
     const tax = totals.tax
     const deliveryFee = totals.deliveryFee
@@ -292,12 +273,10 @@ export async function POST(request: NextRequest) {
       payment_method: paymentMethod,
       payment_status: 'pending',
       delivery_type: deliveryType,
-      delivery_address: selectedDeliveryZone ? `Zona: ${selectedDeliveryZone.name}` : deliveryAddress || null,
+      delivery_address: deliveryAddress || null,
       table_number: tableNumber || null,
       waiter_name: waiterName || null,
-      notes: [notes || null, selectedDeliveryZone ? `Zona delivery: ${selectedDeliveryZone.name}` : null]
-        .filter(Boolean)
-        .join('\n') || null,
+      notes: notes || null,
       status: 'pending',
       display_number: displayNumber,
     }
@@ -324,8 +303,8 @@ export async function POST(request: NextRequest) {
       })
     }
 
-    // Auto-create order_items only when the restaurant uses KDS.
-    // Exception: kiosk cash orders skip this; items may be created when cashier confirms payment.
+    // Auto-create order_items so KDS can display the order in real-time.
+    // Exception: kiosk cash orders skip this — items are created when cashier confirms payment.
     const isKioskCash = source === 'kiosk' && paymentMethod === 'cash'
     const kdsEnabled = settings?.kds_enabled === true
     const kitchenItems = sanitizedItems.filter((item: any) => item.requires_kitchen !== false)

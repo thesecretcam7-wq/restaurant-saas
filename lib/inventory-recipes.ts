@@ -6,6 +6,8 @@ type OrderLike = {
   id: string
   tenant_id: string
   order_number?: string | null
+  stock_reference_id?: string | null
+  stock_notes?: string | null
   items?: Array<{
     menu_item_id?: string | null
     item_id?: string | null
@@ -35,12 +37,13 @@ export async function applyRecipeStockMovement(
 
   const movementType = direction === 'sale' ? 'sale' : 'return'
   const oppositeType = direction === 'sale' ? 'return' : 'sale'
+  const referenceId = order.stock_reference_id || order.id
 
   const { data: existingMovement } = await supabase
     .from('stock_movements')
     .select('id')
     .eq('tenant_id', order.tenant_id)
-    .eq('reference_id', order.id)
+    .eq('reference_id', referenceId)
     .eq('movement_type', movementType)
     .limit(1)
     .maybeSingle()
@@ -154,8 +157,8 @@ export async function applyRecipeStockMovement(
       quantity,
       notes: direction === 'sale'
         ? `Descuento automatico por venta ${order.order_number || order.id}`
-        : `Devolucion automatica por anulacion ${order.order_number || order.id}`,
-      reference_id: order.id,
+        : order.stock_notes || `Devolucion automatica por anulacion ${order.order_number || order.id}`,
+      reference_id: referenceId,
       created_by: 'system',
     })
   }

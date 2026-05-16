@@ -8,6 +8,14 @@ import { getPaymentConfig, selectSettingsWithPaymentFallback } from '@/lib/payme
 async function createKitchenItemsIfNeeded(supabase: any, order: any) {
   if (!Array.isArray(order.items) || order.items.length === 0) return
 
+  const { data: settings } = await supabase
+    .from('restaurant_settings')
+    .select('kds_enabled')
+    .eq('tenant_id', order.tenant_id)
+    .maybeSingle()
+
+  if (settings?.kds_enabled !== true) return
+
   const { count } = await supabase
     .from('order_items')
     .select('*', { count: 'exact', head: true })

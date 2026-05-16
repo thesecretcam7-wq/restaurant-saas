@@ -5,6 +5,8 @@ export interface CashClosingStats {
   cardSales: number;
   otherSales: number;
   totalSales: number;
+  totalDeliveryFees: number;
+  deliveryOrderCount: number;
   totalTax: number;
   totalDiscount: number;
   transactionCount: number;
@@ -31,6 +33,8 @@ function emptyStats(period: CashClosingPeriod): CashClosingStats {
     cardSales: 0,
     otherSales: 0,
     totalSales: 0,
+    totalDeliveryFees: 0,
+    deliveryOrderCount: 0,
     totalTax: 0,
     totalDiscount: 0,
     transactionCount: 0,
@@ -107,6 +111,8 @@ function statsFromOrders(period: CashClosingPeriod, orders: any[] = []): CashClo
     cardSales: 0,
     otherSales: 0,
     totalSales: 0,
+    totalDeliveryFees: 0,
+    deliveryOrderCount: 0,
     totalTax: 0,
     totalDiscount: 0,
     transactionCount: countableOrders.length,
@@ -130,6 +136,7 @@ function statsFromOrders(period: CashClosingPeriod, orders: any[] = []): CashClo
     if (order.payment_status !== 'paid') return;
 
     const total = Number(order.total) || 0;
+    const deliveryFee = Number(order.delivery_fee || 0);
     const tax = Number(order.tax ?? order.tax_amount) || 0;
     const discount = Number(order.discount_amount) || 0;
 
@@ -142,6 +149,10 @@ function statsFromOrders(period: CashClosingPeriod, orders: any[] = []): CashClo
     }
 
     stats.totalSales += total;
+    stats.totalDeliveryFees += deliveryFee;
+    if (deliveryFee > 0 || order.delivery_type === 'delivery') {
+      stats.deliveryOrderCount++;
+    }
     stats.totalTax += tax;
     stats.totalDiscount += discount;
 
@@ -216,6 +227,8 @@ export async function calculateCashClosingStats(
       cardSales: 0,
       otherSales: 0,
       totalSales: 0,
+      totalDeliveryFees: 0,
+      deliveryOrderCount: 0,
       totalTax: 0,
       totalDiscount: 0,
       transactionCount: countableOrders.length,
@@ -239,6 +252,7 @@ export async function calculateCashClosingStats(
       if (order.payment_status !== 'paid') return;
 
       const total = Number(order.total) || 0;
+      const deliveryFee = Number(order.delivery_fee || 0);
       const tax = Number(order.tax ?? order.tax_amount) || 0;
       const discount = Number(order.discount_amount) || 0;
 
@@ -252,6 +266,10 @@ export async function calculateCashClosingStats(
       }
 
       stats.totalSales += total;
+      stats.totalDeliveryFees += deliveryFee;
+      if (deliveryFee > 0 || order.delivery_type === 'delivery') {
+        stats.deliveryOrderCount++;
+      }
       stats.totalTax += tax;
       stats.totalDiscount += discount;
 

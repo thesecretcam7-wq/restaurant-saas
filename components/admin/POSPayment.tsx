@@ -44,6 +44,7 @@ export function POSPayment({
 
   const suggestedAmounts = getSuggestedBillAmounts(totalWithTip, currencyInfo.code);
   const paidAmount = amountPaid ? Number(amountPaid) : 0;
+  const cashAmountForPayment = amountPaid ? paidAmount : totalWithTip;
 
   const handleAmountChange = (value: string) => {
     setAmountPaid(value);
@@ -63,7 +64,7 @@ export function POSPayment({
     setShowNumericKeyboard(false);
   };
 
-  const isValidPayment = paymentMethod === 'stripe' || (paymentMethod === 'cash' && paidAmount >= totalWithTip);
+  const isValidPayment = paymentMethod === 'stripe' || (paymentMethod === 'cash' && cashAmountForPayment >= totalWithTip);
 
   return (
     <div className={compact ? 'space-y-1.5 text-xs' : 'space-y-2'}>
@@ -143,7 +144,7 @@ export function POSPayment({
               onChange={(event) => handleAmountChange(event.target.value)}
               onKeyDown={(event) => {
                 if (event.key === 'Enter' && isValidPayment && !disabled && !loading) {
-                  onProceedPayment(paidAmount);
+                  onProceedPayment(cashAmountForPayment);
                 }
               }}
               placeholder="0.00"
@@ -192,7 +193,7 @@ export function POSPayment({
 
       {/* Botón Pagar */}
       <button
-        onClick={() => onProceedPayment(paymentMethod === 'cash' ? paidAmount : undefined)}
+        onClick={() => onProceedPayment(paymentMethod === 'cash' ? cashAmountForPayment : undefined)}
         disabled={disabled || loading || !isValidPayment}
         className={`w-full ${compact ? 'min-h-[54px] py-3 text-base' : 'py-4 text-lg'} rounded-xl font-black transition border ${
           isValidPayment && !disabled && !loading
@@ -200,7 +201,11 @@ export function POSPayment({
             : 'bg-white/10 text-slate-500 border-white/10 cursor-not-allowed'
         }`}
       >
-        {loading ? 'Procesando...' : `PAGAR ${formatPriceWithCurrency(totalWithTip, currencyInfo.code, currencyInfo.locale)}`}
+        {loading
+          ? 'Procesando...'
+          : paymentMethod === 'cash' && !amountPaid
+            ? `PAGAR EXACTO ${formatPriceWithCurrency(totalWithTip, currencyInfo.code, currencyInfo.locale)}`
+            : `PAGAR ${formatPriceWithCurrency(totalWithTip, currencyInfo.code, currencyInfo.locale)}`}
       </button>
 
       {paymentMethod === 'cash' && paidAmount && change < 0 && (

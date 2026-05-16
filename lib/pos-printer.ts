@@ -517,10 +517,12 @@ function printCashClosingViaBrowserAPI(data: CashClosingReceiptData): void {
               Empleado: ${safe(data.staffName)}
             </div>
             <h2>CIERRE DE CAJA</h2>
-            <div class="line"><span>Efectivo</span><strong>${money(data.cashSales)}</strong></div>
-            <div class="line"><span>Tarjeta</span><strong>${money(data.cardSales)}</strong></div>
-            <div class="line"><span>Otros</span><strong>${money(data.otherSales)}</strong></div>
-            <div class="line"><span>Esperado caja</span><strong>${money(data.expectedCash)}</strong></div>
+              <div class="line"><span>Efectivo</span><strong>${money(data.cashSales)}</strong></div>
+              <div class="line"><span>Tarjeta</span><strong>${money(data.cardSales)}</strong></div>
+              <div class="line"><span>Otros</span><strong>${money(data.otherSales)}</strong></div>
+              <div class="line"><span>Domicilios</span><strong>${money(data.totalDeliveryFees || 0)}</strong></div>
+              <div class="line"><span>Pedidos domicilio</span><strong>${data.deliveryOrderCount || 0}</strong></div>
+              <div class="line"><span>Esperado caja</span><strong>${money(data.expectedCash)}</strong></div>
             <div class="line"><span>Contado</span><strong>${money(data.actualCash)}</strong></div>
             <div class="line"><span>Diferencia</span><strong>${money(data.difference)}</strong></div>
             <div class="line"><span>Transacciones</span><strong>${data.transactionCount}</strong></div>

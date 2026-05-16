@@ -7,11 +7,12 @@ export async function GET(request: NextRequest) {
     const searchParams = request.nextUrl.searchParams
     const domain = searchParams.get('domain')
     const orderNumber = searchParams.get('order_number')
-    const limit = parseInt(searchParams.get('limit') || '200')
+    const todayOnly = searchParams.get('today') === '1'
+    const limit = parseInt(searchParams.get('limit') || '10')
 
-    if (!domain) {
+    if (!domain || (!orderNumber && !todayOnly)) {
       return NextResponse.json(
-        { error: 'Domain is required' },
+        { error: 'Domain and order_number are required' },
         { status: 400 }
       )
     }
@@ -36,24 +37,22 @@ export async function GET(request: NextRequest) {
       const tenantId = tenant.id
       await requireTenantAccess(tenantId, { staffRoles: ['admin', 'cajero'] })
 
-      const rawSearch = orderNumber?.trim() || ''
+      const rawSearch = (orderNumber || '').trim()
       const searchTerm = `%${rawSearch}%`
       const onlyDigits = rawSearch.replace(/\D/g, '')
       const maybeTableNumber = Number(onlyDigits || rawSearch)
-      const todayStart = new Date()
-      todayStart.setHours(0, 0, 0, 0)
 
       let query = supabase
         .from('orders')
-        .select('id, order_number, customer_name, customer_phone, total, payment_status, payment_method, status, items, created_at, delivery_type, table_number')
+        .select('id, order_number, customer_name, customer_phone, subtotal, tax, delivery_fee, total, payment_status, payment_method, status, items, created_at, delivery_type, table_number')
         .eq('tenant_id', tenantId)
         .order('created_at', { ascending: false })
         .limit(limit)
 
-      if (!rawSearch) {
-        query = query
-          .gte('created_at', todayStart.toISOString())
-          .neq('status', 'cancelled')
+      if (todayOnly && !rawSearch) {
+        const todayStart = new Date()
+        todayStart.setHours(0, 0, 0, 0)
+        query = query.gte('created_at', todayStart.toISOString())
       } else if (/mesa/i.test(rawSearch) && Number.isFinite(maybeTableNumber)) {
         query = query.eq('table_number', maybeTableNumber)
       } else {

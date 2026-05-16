@@ -36,6 +36,9 @@ export interface OfflineOrder {
   total: number
   paymentMethod: 'cash' | 'stripe' | 'card'
   deliveryType?: 'delivery' | 'pickup' | 'takeaway' | 'dine-in'
+  deliveryFee?: number | null
+  deliveryZoneId?: string | null
+  deliveryZoneName?: string | null
   deliveryAddress?: string | null
   waiter_id?: string | null
   waiterName?: string | null

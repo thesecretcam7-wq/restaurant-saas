@@ -11,6 +11,8 @@ interface CashClosingData {
   cardSales: number;
   otherSales: number;
   totalSales: number;
+  totalDeliveryFees?: number;
+  deliveryOrderCount?: number;
   totalTax: number;
   totalDiscount: number;
   transactionCount: number;
@@ -48,6 +50,7 @@ export function CashClosingModal({
 
   const currencyInfo = getCurrencyByCountry(country);
   const expectedTotal = data.cashSales;
+  const paymentSalesTotal = data.cashSales + data.cardSales;
   const difference = expectedTotal - Number(actualCash);
   const isBalanced = Math.abs(difference) < 0.01;
   const isDifferenceSignificant = Math.abs(difference) > 5;
@@ -120,6 +123,36 @@ export function CashClosingModal({
                 <p className="mt-2 text-2xl font-black text-[#70f7c2]">
                   {formatPriceWithCurrency(data.cardSales, currencyInfo.code, currencyInfo.locale)}
                 </p>
+              </div>
+              <div className="rounded-2xl border border-[#f6b92f]/42 bg-[#f6b92f]/14 p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_18px_38px_rgba(246,185,47,0.08)] sm:col-span-2">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+                  <div>
+                    <p className="text-sm font-black uppercase tracking-[0.16em] text-[#f6b92f]">
+                      Total efectivo + tarjeta
+                    </p>
+                    <p className="mt-1 text-xs font-bold text-[#f8f5ec]/62">
+                      Suma de las ventas cobradas en caja y por tarjeta
+                    </p>
+                  </div>
+                  <p className="text-3xl font-black text-[#fff7df]">
+                    {formatPriceWithCurrency(paymentSalesTotal, currencyInfo.code, currencyInfo.locale)}
+                  </p>
+                </div>
+              </div>
+              <div className="rounded-2xl border border-[#38bdf8]/32 bg-[#38bdf8]/10 p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] sm:col-span-2">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+                  <div>
+                    <p className="text-sm font-black uppercase tracking-[0.16em] text-[#7dd3fc]">
+                      Domicilios cobrados
+                    </p>
+                    <p className="mt-1 text-xs font-bold text-[#f8f5ec]/62">
+                      {data.deliveryOrderCount || 0} pedido{(data.deliveryOrderCount || 0) === 1 ? '' : 's'} con cobro de domicilio
+                    </p>
+                  </div>
+                  <p className="text-3xl font-black text-[#e0f2fe]">
+                    {formatPriceWithCurrency(data.totalDeliveryFees || 0, currencyInfo.code, currencyInfo.locale)}
+                  </p>
+                </div>
               </div>
               <div className={statCard}>
                 <p className="text-sm font-black text-[#bda7ff]">Impuestos</p>

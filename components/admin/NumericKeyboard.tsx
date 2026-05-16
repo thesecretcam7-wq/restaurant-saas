@@ -1,7 +1,8 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { X, Delete } from 'lucide-react';
+import { createPortal } from 'react-dom';
+import { Check, Delete, X } from 'lucide-react';
 
 interface NumericKeyboardProps {
   isOpen: boolean;
@@ -23,49 +24,15 @@ export function NumericKeyboard({
   maxLength = 10,
 }: NumericKeyboardProps) {
   const [input, setInput] = useState<string>(initialValue.toString());
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   useEffect(() => {
     setInput(initialValue > 0 ? initialValue.toString() : '0');
   }, [initialValue, isOpen]);
-
-  // Handle physical keyboard input
-  useEffect(() => {
-    if (!isOpen) return;
-
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        onCancel();
-        return;
-      }
-
-      if (e.key === 'Enter') {
-        e.preventDefault();
-        handleConfirm();
-        return;
-      }
-
-      if (e.key === 'Backspace') {
-        e.preventDefault();
-        setInput((prev) => prev.slice(0, -1) || '0');
-        return;
-      }
-
-      if (/^\d$/.test(e.key)) {
-        e.preventDefault();
-        handleNumberClick(e.key);
-        return;
-      }
-
-      if (allowDecimal && e.key === '.') {
-        e.preventDefault();
-        handleDecimalClick();
-        return;
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, allowDecimal, onCancel]);
 
   const handleNumberClick = (num: string) => {
     setInput((prev) => {
@@ -97,162 +64,147 @@ export function NumericKeyboard({
     onConfirm(value);
   };
 
-  if (!isOpen) return null;
+  useEffect(() => {
+    if (!isOpen) return;
 
-  return (
-    <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-3xl shadow-2xl w-full max-w-sm overflow-hidden">
-        {/* Header */}
-        <div className="bg-gradient-to-r from-blue-600 via-blue-700 to-indigo-700 text-white px-6 py-6 flex items-center justify-between">
-          <h2 className="text-2xl font-bold">{title}</h2>
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        onCancel();
+        return;
+      }
+
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        handleConfirm();
+        return;
+      }
+
+      if (e.key === 'Backspace') {
+        e.preventDefault();
+        handleBackspace();
+        return;
+      }
+
+      if (/^\d$/.test(e.key)) {
+        e.preventDefault();
+        handleNumberClick(e.key);
+        return;
+      }
+
+      if (allowDecimal && e.key === '.') {
+        e.preventDefault();
+        handleDecimalClick();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, allowDecimal, onCancel]);
+
+  if (!isOpen || !mounted) return null;
+
+  const numberButtonClass =
+    'rounded-2xl border border-[#f6b92f]/22 bg-white/[0.075] py-5 text-4xl font-black tabular-nums text-[#fff7df] shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_10px_22px_rgba(0,0,0,0.18)] transition hover:border-[#f6b92f]/55 hover:bg-[#f6b92f]/12 active:scale-95';
+
+  return createPortal(
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/10 p-4">
+      <div className="w-full max-w-sm overflow-hidden rounded-[1.75rem] border border-[#f6b92f]/30 bg-[linear-gradient(180deg,rgba(255,255,255,0.09),rgba(255,255,255,0.035)),#10100f] text-[#fff7df] shadow-[0_28px_90px_rgba(0,0,0,0.72),0_0_44px_rgba(246,185,47,0.13)]">
+        <div className="flex items-center justify-between border-b border-[#f6b92f]/15 bg-[#10100f]/95 px-6 py-5">
+          <div>
+            <p className="text-xs font-black uppercase tracking-[0.22em] text-[#f6b92f]">Cantidad</p>
+            <h2 className="mt-1 text-2xl font-black text-[#fff7df]">{title}</h2>
+          </div>
           <button
             onClick={onCancel}
-            className="hover:bg-white/20 p-2 rounded-lg transition"
+            className="grid h-11 w-11 place-items-center rounded-2xl border border-white/10 bg-white/[0.06] text-[#f8f5ec]/70 transition hover:border-[#f6b92f]/50 hover:text-[#fff7df]"
             aria-label="Cerrar"
           >
-            <X className="w-6 h-6" />
+            <X className="h-6 w-6" />
           </button>
         </div>
 
-        {/* Display */}
-        <div className="bg-gradient-to-b from-gray-50 to-white px-6 py-6 border-b-2 border-gray-200">
-          <div className="text-center mb-2 text-xs text-gray-500 font-semibold uppercase tracking-wide">Cantidad</div>
-          <div className="w-full overflow-hidden rounded-2xl border-2 border-blue-300 bg-white p-6 text-center text-6xl font-black tabular-nums text-blue-600 shadow-inner">
+        <div className="border-b border-[#f6b92f]/15 bg-[#161410] px-6 py-5">
+          <div className="mb-2 text-center text-xs font-black uppercase tracking-[0.18em] text-[#f6b92f]">
+            Valor
+          </div>
+          <div className="w-full overflow-hidden rounded-2xl border border-[#f6b92f]/45 bg-[#242016] p-5 text-center text-6xl font-black tabular-nums text-[#ffd66b] shadow-[inset_0_1px_12px_rgba(0,0,0,0.38)]">
             {input || '0'}
           </div>
         </div>
 
-        {/* Keypad */}
-        <div className="p-6 space-y-3 bg-gray-50">
-          {/* Row 1: 7 8 9 */}
+        <div className="space-y-3 bg-[#10100f] p-6">
           <div className="grid grid-cols-3 gap-3">
-            <button
-              type="button"
-              onClick={() => handleNumberClick('7')}
-              className="bg-white hover:bg-blue-50 border-2 border-gray-200 hover:border-blue-400 text-5xl font-black text-gray-800 py-6 rounded-xl active:scale-95 transition shadow-sm"
-            >
-              7
-            </button>
-            <button
-              type="button"
-              onClick={() => handleNumberClick('8')}
-              className="bg-white hover:bg-blue-50 border-2 border-gray-200 hover:border-blue-400 text-5xl font-black text-gray-800 py-6 rounded-xl active:scale-95 transition shadow-sm"
-            >
-              8
-            </button>
-            <button
-              type="button"
-              onClick={() => handleNumberClick('9')}
-              className="bg-white hover:bg-blue-50 border-2 border-gray-200 hover:border-blue-400 text-5xl font-black text-gray-800 py-6 rounded-xl active:scale-95 transition shadow-sm"
-            >
-              9
-            </button>
+            {['7', '8', '9'].map((num) => (
+              <button key={num} type="button" onClick={() => handleNumberClick(num)} className={numberButtonClass}>
+                {num}
+              </button>
+            ))}
           </div>
 
-          {/* Row 2: 4 5 6 */}
           <div className="grid grid-cols-3 gap-3">
-            <button
-              type="button"
-              onClick={() => handleNumberClick('4')}
-              className="bg-white hover:bg-blue-50 border-2 border-gray-200 hover:border-blue-400 text-5xl font-black text-gray-800 py-6 rounded-xl active:scale-95 transition shadow-sm"
-            >
-              4
-            </button>
-            <button
-              type="button"
-              onClick={() => handleNumberClick('5')}
-              className="bg-white hover:bg-blue-50 border-2 border-gray-200 hover:border-blue-400 text-5xl font-black text-gray-800 py-6 rounded-xl active:scale-95 transition shadow-sm"
-            >
-              5
-            </button>
-            <button
-              type="button"
-              onClick={() => handleNumberClick('6')}
-              className="bg-white hover:bg-blue-50 border-2 border-gray-200 hover:border-blue-400 text-5xl font-black text-gray-800 py-6 rounded-xl active:scale-95 transition shadow-sm"
-            >
-              6
-            </button>
+            {['4', '5', '6'].map((num) => (
+              <button key={num} type="button" onClick={() => handleNumberClick(num)} className={numberButtonClass}>
+                {num}
+              </button>
+            ))}
           </div>
 
-          {/* Row 3: 1 2 3 */}
           <div className="grid grid-cols-3 gap-3">
-            <button
-              type="button"
-              onClick={() => handleNumberClick('1')}
-              className="bg-white hover:bg-blue-50 border-2 border-gray-200 hover:border-blue-400 text-5xl font-black text-gray-800 py-6 rounded-xl active:scale-95 transition shadow-sm"
-            >
-              1
-            </button>
-            <button
-              type="button"
-              onClick={() => handleNumberClick('2')}
-              className="bg-white hover:bg-blue-50 border-2 border-gray-200 hover:border-blue-400 text-5xl font-black text-gray-800 py-6 rounded-xl active:scale-95 transition shadow-sm"
-            >
-              2
-            </button>
-            <button
-              type="button"
-              onClick={() => handleNumberClick('3')}
-              className="bg-white hover:bg-blue-50 border-2 border-gray-200 hover:border-blue-400 text-5xl font-black text-gray-800 py-6 rounded-xl active:scale-95 transition shadow-sm"
-            >
-              3
-            </button>
+            {['1', '2', '3'].map((num) => (
+              <button key={num} type="button" onClick={() => handleNumberClick(num)} className={numberButtonClass}>
+                {num}
+              </button>
+            ))}
           </div>
 
-          {/* Row 4: 0 . Delete */}
           <div className="grid grid-cols-3 gap-3">
-            <button
-              type="button"
-              onClick={() => handleNumberClick('0')}
-              className="bg-white hover:bg-blue-50 border-2 border-gray-200 hover:border-blue-400 text-5xl font-black text-gray-800 py-6 rounded-xl active:scale-95 transition shadow-sm"
-            >
+            <button type="button" onClick={() => handleNumberClick('0')} className={numberButtonClass}>
               0
             </button>
-            {allowDecimal && (
-              <button
-                type="button"
-                onClick={handleDecimalClick}
-                className="bg-white hover:bg-blue-50 border-2 border-gray-200 hover:border-blue-400 text-5xl font-black text-gray-800 py-6 rounded-xl active:scale-95 transition shadow-sm"
-              >
+            {allowDecimal ? (
+              <button type="button" onClick={handleDecimalClick} className={numberButtonClass}>
                 .
               </button>
+            ) : (
+              <div aria-hidden="true" />
             )}
             <button
               type="button"
               onClick={handleBackspace}
-              className="bg-red-50 hover:bg-red-100 border-2 border-red-300 hover:border-red-500 text-red-600 font-bold py-6 rounded-xl active:scale-95 transition shadow-sm flex items-center justify-center"
+              className="flex items-center justify-center rounded-2xl border border-[#ff8f8f]/40 bg-[#ff6b6b]/10 py-5 font-bold text-[#ff8f8f] shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_10px_22px_rgba(0,0,0,0.18)] transition hover:border-[#ff8f8f]/75 hover:bg-[#ff6b6b]/18 active:scale-95"
             >
-              <Delete className="w-8 h-8" />
+              <Delete className="h-8 w-8" />
             </button>
           </div>
 
-          {/* Action Buttons */}
-          <div className="grid grid-cols-2 gap-3 pt-2 border-t-2 border-gray-200">
+          <div className="grid grid-cols-2 gap-3 border-t border-[#f6b92f]/15 pt-3">
             <button
               type="button"
               onClick={handleClear}
-              className="bg-orange-500 hover:bg-orange-600 text-white font-bold text-lg py-4 rounded-xl active:scale-95 transition shadow-md"
+              className="rounded-2xl border border-[#f6b92f]/25 bg-white/[0.06] py-4 text-lg font-black text-[#fff7df] transition hover:border-[#f6b92f]/55 hover:bg-white/[0.09] active:scale-95"
             >
               Limpiar
             </button>
             <button
               type="button"
               onClick={handleConfirm}
-              className="bg-green-600 hover:bg-green-700 text-white font-bold text-lg py-4 rounded-xl active:scale-95 transition shadow-md"
+              className="flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-[#c97905] via-[#f6b92f] to-[#ffe08a] py-4 text-lg font-black text-[#11100d] shadow-[0_16px_35px_rgba(246,185,47,0.24)] transition hover:brightness-110 active:scale-95"
             >
-              ✓ Confirmar
+              <Check className="h-5 w-5" />
+              Confirmar
             </button>
           </div>
 
           <button
             type="button"
             onClick={onCancel}
-            className="w-full bg-gray-400 hover:bg-gray-500 text-white font-bold text-lg py-4 rounded-xl active:scale-95 transition shadow-md"
+            className="w-full rounded-2xl border border-white/10 bg-white/[0.05] py-4 text-lg font-black text-[#f8f5ec]/82 transition hover:border-white/20 hover:bg-white/[0.08] active:scale-95"
           >
             Cancelar
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

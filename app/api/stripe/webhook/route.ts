@@ -139,8 +139,14 @@ export async function POST(request: NextRequest) {
 
         if (error) { console.error('Error updating order:', error); break }
 
+        const { data: settings } = await supabase
+          .from('restaurant_settings')
+          .select('kds_enabled')
+          .eq('tenant_id', tenant_id)
+          .maybeSingle()
+
         // Create order_items so KDS receives the order immediately on payment.
-        if (updatedOrder && Array.isArray(updatedOrder.items) && updatedOrder.items.length > 0) {
+        if (settings?.kds_enabled === true && updatedOrder && Array.isArray(updatedOrder.items) && updatedOrder.items.length > 0) {
           const { count } = await supabase
             .from('order_items')
             .select('*', { count: 'exact', head: true })
