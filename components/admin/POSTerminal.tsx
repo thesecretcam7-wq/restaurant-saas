@@ -64,11 +64,12 @@ interface IncomingOrder {
   customer_phone: string;
   delivery_type: 'delivery' | 'pickup';
   delivery_address?: string;
+  delivery_fee?: number | null;
   total: number;
   status: string;
   payment_status?: string | null;
   payment_method?: string | null;
-  items: { name: string; qty?: number; quantity?: number; price: number }[];
+  items: { menu_item_id?: string | null; item_id?: string | null; id?: string | null; name: string; qty?: number; quantity?: number; price: number }[];
   created_at: string;
 }
 
@@ -122,10 +123,14 @@ function isOnlinePaymentMethod(paymentMethod?: string | null) {
   return ['wompi', 'stripe', 'online', 'card'].includes(method);
 }
 
-function shouldShowIncomingOrder(order: Pick<IncomingOrder, 'delivery_type' | 'status' | 'payment_status' | 'payment_method'>) {
+function shouldShowIncomingOrder(
+  order: Pick<IncomingOrder, 'delivery_type' | 'status' | 'payment_status' | 'payment_method'>,
+  options?: { kdsEnabled?: boolean }
+) {
   const isStoreOrder = order.delivery_type === 'delivery' || order.delivery_type === 'pickup';
   if (!isStoreOrder) return false;
   if (order.status === 'delivered' || order.status === 'cancelled') return false;
+  if (options?.kdsEnabled === false && ['preparing', 'ready', 'on_the_way'].includes(order.status)) return false;
   if (isOnlinePaymentMethod(order.payment_method)) return order.payment_status === 'paid';
   return true;
 }
@@ -286,15 +291,25 @@ function IncomingOrderCard({
   order,
   onUpdateStatus,
   onLoadForPayment,
+  onPrintReceipt,
+  onClearFromIncoming,
   onCancelOrder,
   cancelling,
+  clearing,
+  printing,
+  kdsEnabled,
   currencyInfo,
 }: {
   order: IncomingOrder;
   onUpdateStatus: (orderId: string, status: string) => Promise<void>;
   onLoadForPayment?: (order: IncomingOrder) => Promise<void>;
+  onPrintReceipt?: (order: IncomingOrder) => Promise<void>;
+  onClearFromIncoming?: (order: IncomingOrder) => Promise<void>;
   onCancelOrder?: (order: IncomingOrder) => Promise<void>;
   cancelling?: boolean;
+  clearing?: boolean;
+  printing?: boolean;
+  kdsEnabled: boolean;
   currencyInfo: ReturnType<typeof getCurrencyByCountry>;
 }) {
   const minutes = useElapsedMinutes(order.created_at);
@@ -322,6 +337,16 @@ function IncomingOrderCard({
     }
   }
 
+  async function handlePrintReceipt() {
+    if (!onPrintReceipt) return;
+    await onPrintReceipt(order);
+  }
+
+  async function handleClearFromIncoming() {
+    if (!onClearFromIncoming) return;
+    await onClearFromIncoming(order);
+  }
+
   async function handleCancelOrder() {
     if (!onCancelOrder) return;
     await onCancelOrder(order);
@@ -338,9 +363,10 @@ function IncomingOrderCard({
   }
 
   const showPaymentButton = order.status === 'pending' && !isOnlinePayment && !isPaid;
+  const showKitchenTimer = kdsEnabled;
 
   return (
-    <div className={`pos-card border-2 rounded-xl p-3 flex flex-col gap-2 transition-all ${isDone ? 'border-white/10 opacity-60' : getUrgencyBorder(minutes)} text-xs`}>
+    <div className={`pos-card border-2 rounded-xl p-3 flex flex-col gap-2 transition-all ${isDone ? 'border-white/10 opacity-60' : showKitchenTimer ? getUrgencyBorder(minutes) : 'border-amber-400/25'} text-xs`}>
       <div className="flex items-start justify-between gap-2">
         <div className="flex-1 min-w-0">
           <p className="font-black text-white text-sm">{order.order_number}</p>
@@ -350,10 +376,16 @@ function IncomingOrderCard({
           <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${statusBadge.cls}`}>
             {statusBadge.label}
           </span>
-          <div className={`flex items-center gap-1 font-bold ${getTimerColor(minutes)}`}>
-            <Clock className="w-3 h-3" />
-            <span>{minutes}m</span>
-          </div>
+          {showKitchenTimer ? (
+            <div className={`flex items-center gap-1 font-bold ${getTimerColor(minutes)}`}>
+              <Clock className="w-3 h-3" />
+              <span>{minutes}m</span>
+            </div>
+          ) : (
+            <div className="rounded-full border border-amber-400/25 bg-amber-400/10 px-2 py-0.5 text-[10px] font-bold text-amber-100">
+              Manual
+            </div>
+          )}
         </div>
       </div>
 
@@ -415,6 +447,26 @@ function IncomingOrderCard({
         </button>
       )}
 
+      {isPaid && (
+        <div className="grid grid-cols-2 gap-2">
+          <button
+            onClick={handlePrintReceipt}
+            disabled={printing || clearing}
+            className="py-2 rounded-lg bg-amber-500/18 hover:bg-amber-500/28 border border-amber-400/30 disabled:opacity-50 text-amber-100 font-bold text-xs transition-all active:scale-95 flex items-center justify-center gap-1.5"
+          >
+            <Printer className="w-3.5 h-3.5" />
+            {printing ? '...' : 'Imprimir'}
+          </button>
+          <button
+            onClick={handleClearFromIncoming}
+            disabled={printing || clearing}
+            className="py-2 rounded-lg bg-blue-500/18 hover:bg-blue-500/28 border border-blue-400/30 disabled:opacity-50 text-blue-100 font-bold text-xs transition-all active:scale-95"
+          >
+            {clearing ? '...' : 'Preparar'}
+          </button>
+        </div>
+      )}
+
       {onCancelOrder && !isDone && (
         <button
           onClick={handleCancelOrder}
@@ -467,6 +519,7 @@ export function POSTerminal({
   const [deliveryFee, setDeliveryFee] = useState(0);
   const [deliveryZones, setDeliveryZones] = useState<DeliveryZone[]>([]);
   const [selectedDeliveryZoneId, setSelectedDeliveryZoneId] = useState('');
+  const [kdsEnabled, setKdsEnabled] = useState(true);
   const [restaurantName, setRestaurantName] = useState('Restaurante');
   const [restaurantPhone, setRestaurantPhone] = useState<string | null>(null);
   const [restaurantLogo, setRestaurantLogo] = useState<string | undefined>();
@@ -502,6 +555,8 @@ export function POSTerminal({
   const [incomingOrders, setIncomingOrders] = useState<IncomingOrder[]>([]);
   const [showIncomingPanel, setShowIncomingPanel] = useState(false);
   const [cancellingOrderId, setCancellingOrderId] = useState<string | null>(null);
+  const [printingIncomingOrderId, setPrintingIncomingOrderId] = useState<string | null>(null);
+  const [clearingIncomingOrderId, setClearingIncomingOrderId] = useState<string | null>(null);
   const [soundEnabled, setSoundEnabled] = useState(true);
   // Dine-in orders from comandero
   const [dineInOrders, setDineInOrders] = useState<DineInOrder[]>([]);
@@ -1091,7 +1146,7 @@ export function POSTerminal({
         async (payload) => {
           const newOrder = payload.new as any;
           if (newOrder.delivery_type === 'delivery' || newOrder.delivery_type === 'pickup') {
-            if (!shouldShowIncomingOrder(newOrder)) return;
+            if (!shouldShowIncomingOrder(newOrder, { kdsEnabled })) return;
             const isNewOrder = !knownOrderIds.current.has(newOrder.id);
             if (isNewOrder) {
               playNewOrderSound();
@@ -1125,7 +1180,7 @@ export function POSTerminal({
         async (payload) => {
           const updated = payload.new as any;
           if (updated.delivery_type === 'delivery' || updated.delivery_type === 'pickup') {
-            const shouldShow = shouldShowIncomingOrder(updated);
+            const shouldShow = shouldShowIncomingOrder(updated, { kdsEnabled });
             const isNewOrder = shouldShow && !knownOrderIds.current.has(updated.id);
             await fetchIncomingOrders();
             if (isNewOrder) {
@@ -1161,13 +1216,13 @@ export function POSTerminal({
       window.removeEventListener('focus', refreshWhenVisible);
       subscription.unsubscribe();
     };
-  }, [tenantId, playNewOrderSound]);
+  }, [tenantId, playNewOrderSound, kdsEnabled]);
 
   async function fetchIncomingOrders() {
     try {
       const { data, error } = await supabase
         .from('orders')
-        .select('id, order_number, customer_name, customer_phone, delivery_type, delivery_address, total, status, payment_status, payment_method, items, created_at')
+        .select('id, order_number, customer_name, customer_phone, delivery_type, delivery_address, delivery_fee, total, status, payment_status, payment_method, items, created_at')
         .eq('tenant_id', tenantId)
         .or(`delivery_type.eq.delivery,delivery_type.eq.pickup`)
         .not('status', 'in', '("delivered","cancelled")')
@@ -1178,7 +1233,7 @@ export function POSTerminal({
         const mapped = data.map((o: any) => ({
           ...o,
           items: Array.isArray(o.items) ? o.items : [],
-        })).filter(shouldShowIncomingOrder);
+        })).filter((order: IncomingOrder) => shouldShowIncomingOrder(order, { kdsEnabled }));
         setIncomingOrders(mapped);
         mapped.forEach((order: IncomingOrder) => knownOrderIds.current.add(order.id));
       }
@@ -1353,6 +1408,7 @@ export function POSTerminal({
         setTaxRate(Number(data.settings.tax_rate || 0));
         setDeliveryEnabled(data.settings.delivery_enabled === true);
         setDeliveryFee(Number(data.settings.delivery_fee || 0));
+        setKdsEnabled(data.settings.kds_enabled === true);
         const zones = Array.isArray(data.settings.delivery_zones)
           ? data.settings.delivery_zones
             .map((zone: any) => ({
@@ -1372,6 +1428,82 @@ export function POSTerminal({
       console.error('Error fetching menu:', error);
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function printIncomingOrderReceipt(order: IncomingOrder) {
+    setPrintingIncomingOrderId(order.id);
+    try {
+      const { data: settings, error } = await supabase
+        .from('restaurant_settings')
+        .select('default_receipt_printer_id, display_name, phone')
+        .eq('tenant_id', tenantId)
+        .maybeSingle();
+
+      if (error) throw new Error(error.message);
+      if (!settings?.default_receipt_printer_id) {
+        throw new Error('No hay impresora de recibos configurada');
+      }
+
+      const receiptItems = (order.items || []).map((item, index) => ({
+        menu_item_id: item.menu_item_id || item.item_id || item.id || `${order.id}-${index}`,
+        name: item.name,
+        price: Number(item.price || 0),
+        quantity: getOrderItemQty(item),
+      }));
+      const itemsSubtotal = getOrderItemsTotal(order.items || []);
+      const orderTotal = Number(order.total || 0);
+      const orderDeliveryFee = Math.max(0, Number(order.delivery_fee || orderTotal - itemsSubtotal || 0));
+
+      await printReceipt(tenantId, settings.default_receipt_printer_id, {
+        orderId: order.id,
+        orderNumber: order.order_number,
+        restaurantName: settings.display_name || restaurantName,
+        restaurantPhone: settings.phone || restaurantPhone,
+        items: receiptItems,
+        subtotal: Math.max(0, itemsSubtotal),
+        discount: 0,
+        tax: 0,
+        taxRate: 0,
+        deliveryFee: orderDeliveryFee,
+        total: orderTotal,
+        amountPaid: orderTotal,
+        change: 0,
+        paymentMethod: order.payment_method || (order.payment_status === 'paid' ? 'online' : 'cash'),
+        currencyInfo,
+        openCashDrawer: false,
+      });
+
+      await clearIncomingOrder(order);
+      setToast({ message: `Recibo ${order.order_number} impreso y enviado a preparacion`, type: 'success' });
+    } catch (error) {
+      setToast({ message: error instanceof Error ? error.message : 'No se pudo imprimir el recibo', type: 'error' });
+    } finally {
+      setPrintingIncomingOrderId(null);
+    }
+  }
+
+  async function clearIncomingOrder(order: IncomingOrder) {
+    setClearingIncomingOrderId(order.id);
+    try {
+      const response = await fetch(`/api/orders/${order.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'preparing' }),
+      });
+
+      if (!response.ok) {
+        const payload = await response.json().catch(() => ({}));
+        throw new Error(payload.error || 'Recibo impreso, pero no se pudo limpiar de Entregas');
+      }
+
+      setIncomingOrders((orders) => orders.filter((item) => item.id !== order.id));
+      await fetchIncomingOrders();
+      setToast({ message: `Pedido ${order.order_number} enviado a preparacion`, type: 'success' });
+    } catch (error) {
+      setToast({ message: error instanceof Error ? error.message : 'No se pudo limpiar Entregas', type: 'error' });
+    } finally {
+      setClearingIncomingOrderId(null);
     }
   }
 
@@ -2766,8 +2898,13 @@ export function POSTerminal({
                         await fetchIncomingOrders();
                       }}
                       onLoadForPayment={handleOrderSelected}
+                      onPrintReceipt={printIncomingOrderReceipt}
+                      onClearFromIncoming={clearIncomingOrder}
                       onCancelOrder={(order) => cancelIncomingOrder(order.id, order.order_number)}
                       cancelling={cancellingOrderId === order.id}
+                      clearing={clearingIncomingOrderId === order.id}
+                      printing={printingIncomingOrderId === order.id}
+                      kdsEnabled={kdsEnabled}
                       currencyInfo={currencyInfo}
                     />
                   ))}

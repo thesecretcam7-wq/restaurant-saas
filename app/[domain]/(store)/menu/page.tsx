@@ -160,16 +160,10 @@ export default async function MenuPage({ params }: MenuProps) {
           from { opacity: 0; transform: translateY(18px) scale(.985); }
           to { opacity: 1; transform: translateY(0) scale(1); }
         }
-        @keyframes featuredAutoSlide {
-          from { transform: translate3d(0, 0, 0); }
-          to { transform: translate3d(-50%, 0, 0); }
-        }
         .menu-rise { animation: menuRise .52s cubic-bezier(.2,.8,.2,1) both; }
         .store-featured-track {
           display: flex;
           width: max-content;
-          will-change: transform;
-          animation: featuredAutoSlide ${Math.max(featuredCarousel.length * 2.5, 12)}s linear infinite;
         }
         .store-featured-track > * {
           flex: 0 0 min(82vw, 24rem);
@@ -179,12 +173,6 @@ export default async function MenuPage({ params }: MenuProps) {
         }
         @media (min-width: 1024px) {
           .store-featured-track > * { flex-basis: 18rem; }
-        }
-        .store-featured-carousel:hover .store-featured-track {
-          animation-play-state: paused;
-        }
-        @media (prefers-reduced-motion: reduce) {
-          .store-featured-track { animation: none; width: auto; overflow-x: auto; }
         }
       `}</style>
       {/* Header - Professional */}
@@ -272,11 +260,11 @@ export default async function MenuPage({ params }: MenuProps) {
                 ⭐ Lo más pedido
               </h2>
             </div>
-            <div className="store-featured-carousel -mx-2 overflow-hidden px-2">
+            <div className="store-featured-carousel -mx-2 overflow-x-auto px-2 pb-2 scrollbar-hide">
               <div className="store-featured-track flex gap-4">
-                {[...featuredCarousel, ...featuredCarousel].map((item, index) => (
+                {featuredCarousel.map((item, index) => (
                 <div
-                  key={`${item.id}-${index}`}
+                  key={item.id}
                   className={`menu-rise group flex flex-col overflow-hidden border border-black/8 bg-white shadow-sm transition hover:-translate-y-0.5 hover:shadow-xl ${cardCls}`}
                   style={{
                     borderRadius: br,

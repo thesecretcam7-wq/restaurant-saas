@@ -69,10 +69,14 @@ export function TableMap({ tenantId, occupiedTableNumbers, selectedTableNumber, 
     <div className="p-2 space-y-3">
       {/* Leyenda */}
       <div className="flex flex-wrap gap-2 text-xs">
-        {[['Libre', 'bg-emerald-500'], ['Ocupada', 'bg-red-500'], ['Reservada', 'bg-yellow-500']].map(([label, color]) => (
+        {[
+          { label: 'Libre', color: '#22c55e', text: 'text-emerald-300' },
+          { label: 'Ocupada', color: '#ef4444', text: 'text-red-300' },
+          { label: 'Reservada', color: '#f97316', text: 'text-orange-300' },
+        ].map(({ label, color, text }) => (
           <div key={label} className="flex items-center gap-1">
-            <span className={`w-2.5 h-2.5 rounded-full ${color}`} />
-            <span className="text-gray-400">{label}</span>
+            <span className="w-2.5 h-2.5 rounded-full shadow-[0_0_10px_rgba(34,197,94,0.45)]" style={{ backgroundColor: color }} />
+            <span className={text}>{label}</span>
           </div>
         ))}
       </div>

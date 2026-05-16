@@ -13,11 +13,11 @@ export async function GET(request: NextRequest) {
     const supabase = createServiceClient();
     const settingsPromise = supabase
       .from('restaurant_settings')
-      .select('tax_rate, display_name, phone, delivery_enabled, delivery_fee, delivery_zones, country')
+      .select('tax_rate, display_name, phone, delivery_enabled, delivery_fee, delivery_zones, country, kds_enabled')
       .eq('tenant_id', tenantId)
       .maybeSingle()
       .then(async (result) => {
-        if (!result.error || result.error.code !== '42703') return result;
+        if (!result.error || (result.error.code !== '42703' && !result.error.message?.includes('schema cache'))) return result;
         return supabase
           .from('restaurant_settings')
           .select('tax_rate, display_name, phone, delivery_enabled, delivery_fee, country')

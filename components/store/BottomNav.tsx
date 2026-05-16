@@ -67,11 +67,18 @@ export default function BottomNav({
   const inactiveColor = isLight ? 'rgba(21,19,15,.62)' : 'rgba(255,247,223,.72)'
   const pathBase = basePath ?? `/${tenantId}`
   const homePath = pathBase || '/'
+  const normalizedPath = pathname.replace(/\/+$/, '') || '/'
+  const normalizedBase = pathBase.replace(/\/+$/, '') || '/'
+  const relativePath = normalizedPath === normalizedBase
+    ? '/'
+    : normalizedPath.startsWith(`${normalizedBase}/`)
+      ? normalizedPath.slice(normalizedBase.length) || '/'
+      : normalizedPath
 
-  const isHome = pathname === homePath || pathname === `${homePath}/`
-  const isMenu = pathname.startsWith(`${pathBase}/menu`) || pathname.startsWith(`${pathBase}/categoria`)
-  const isCart = pathname.startsWith(`${pathBase}/carrito`) || pathname.startsWith(`${pathBase}/checkout`)
-  const isOrders = pathname.startsWith(`${pathBase}/mis-pedidos`)
+  const isHome = relativePath === '/'
+  const isMenu = relativePath === '/menu' || relativePath.startsWith('/menu/') || relativePath === '/categoria' || relativePath.startsWith('/categoria/')
+  const isCart = relativePath === '/carrito' || relativePath.startsWith('/carrito/') || relativePath === '/checkout' || relativePath.startsWith('/checkout/')
+  const isOrders = relativePath === '/mis-pedidos' || relativePath.startsWith('/mis-pedidos/')
 
   const tabs = [
     { href: homePath, label: 'Inicio', Icon: HomeIcon, active: isHome },
@@ -117,9 +124,10 @@ export default function BottomNav({
                   background: isLight
                     ? `linear-gradient(180deg, ${color}24, ${color}12)`
                     : `linear-gradient(180deg, ${color}30, ${color}16)`,
+                  border: `1px solid ${color}`,
                   boxShadow: `0 0 28px color-mix(in srgb, ${color} 24%, transparent), inset 0 0 0 1px color-mix(in srgb, ${color} 62%, transparent)`,
                 }
-              : undefined}
+              : { border: '1px solid transparent' }}
           >
             {active && (
               <span
