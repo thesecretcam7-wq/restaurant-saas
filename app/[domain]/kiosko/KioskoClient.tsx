@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { formatPriceWithCurrency } from '@/lib/currency'
 import LanguageSwitcher, { useI18n } from '@/components/LanguageSwitcher'
+import { useWakeLock } from '@/lib/hooks/useWakeLock'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -444,6 +445,7 @@ export default function KioskoClient({
   const [adBannerIndex, setAdBannerIndex] = useState(0)
   const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const categoryScrollRef = useRef<HTMLDivElement | null>(null)
+  const { activateWakeLock } = useWakeLock()
 
   const {
     primaryColor,
@@ -479,13 +481,32 @@ export default function KioskoClient({
   }, [banners.length, step])
   const accentTextColor = readableText(accentColor)
 
+  useEffect(() => {
+    void activateWakeLock()
+
+    const keepAwake = () => {
+      void activateWakeLock()
+    }
+
+    window.addEventListener('pointerdown', keepAwake, { passive: true })
+    window.addEventListener('touchstart', keepAwake, { passive: true })
+    window.addEventListener('keydown', keepAwake)
+
+    return () => {
+      window.removeEventListener('pointerdown', keepAwake)
+      window.removeEventListener('touchstart', keepAwake)
+      window.removeEventListener('keydown', keepAwake)
+    }
+  }, [activateWakeLock])
+
   const toggleFullscreen = useCallback(() => {
+    void activateWakeLock()
     if (!document.fullscreenElement) {
       document.documentElement.requestFullscreen().catch(() => {})
     } else {
       document.exitFullscreen().catch(() => {})
     }
-  }, [])
+  }, [activateWakeLock])
 
   useEffect(() => {
     const onChange = () => {
