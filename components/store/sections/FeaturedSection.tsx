@@ -19,7 +19,6 @@ interface Props {
 export default function FeaturedSection({ tenantId, items, primary, buttonColor = primary, priceColor = primary, title, borderRadius, cardClasses, animations, currencyInfo, basePath }: Props) {
   const money = (value: number) => formatPriceWithCurrency(Number(value || 0), currencyInfo?.code || 'EUR', currencyInfo?.locale || 'es-ES')
   const pathBase = basePath ?? `/${tenantId}`
-  const carouselItems = items.length > 1 ? [...items, ...items] : items
 
   if (!items?.length) {
     return (
@@ -32,33 +31,6 @@ export default function FeaturedSection({ tenantId, items, primary, buttonColor 
 
   return (
     <section className="rounded-[28px] border border-black/8 bg-white p-5 shadow-xl shadow-black/[0.04] sm:p-7">
-      <style>{`
-        @keyframes homeFeaturedAutoSlide {
-          from { transform: translate3d(0, 0, 0); }
-          to { transform: translate3d(-50%, 0, 0); }
-        }
-        .home-featured-track {
-          display: flex;
-          width: max-content;
-          will-change: transform;
-          animation: homeFeaturedAutoSlide ${Math.max(items.length * 2.5, 12)}s linear infinite;
-        }
-        .home-featured-track > * {
-          flex: 0 0 min(82vw, 24rem);
-        }
-        @media (min-width: 640px) {
-          .home-featured-track > * { flex-basis: 22rem; }
-        }
-        @media (min-width: 1024px) {
-          .home-featured-track > * { flex-basis: 18rem; }
-        }
-        .home-featured-carousel:hover .home-featured-track {
-          animation-play-state: paused;
-        }
-        @media (prefers-reduced-motion: reduce) {
-          .home-featured-track { animation: none; width: auto; }
-        }
-      `}</style>
       <div className="mb-5 flex items-end justify-between gap-4">
         <div>
           <p className="text-xs font-black uppercase text-black/42">Recomendados</p>
@@ -68,16 +40,16 @@ export default function FeaturedSection({ tenantId, items, primary, buttonColor 
           Ver todo
         </Link>
       </div>
-      <div className="home-featured-carousel -mx-2 overflow-hidden px-2">
-        <div className="home-featured-track flex gap-4">
-        {carouselItems.map((item, i) => (
+      <div className="-mx-2 overflow-x-auto px-2 pb-2 scrollbar-hide">
+        <div className="flex w-max gap-4">
+        {items.map((item, i) => (
           <Link
-            key={`${item.id}-${i}`}
+            key={item.id}
             href={`${pathBase}/menu`}
-            className={`group overflow-hidden border border-black/8 bg-white shadow-sm transition hover:-translate-y-0.5 hover:shadow-xl ${cardClasses}`}
+            className={`group w-[min(82vw,24rem)] shrink-0 overflow-hidden border border-black/8 bg-white shadow-sm transition hover:-translate-y-0.5 hover:shadow-xl sm:w-[22rem] lg:w-[18rem] ${cardClasses}`}
             style={{
               borderRadius,
-              animationDelay: animations ? `${(i % items.length) * 60}ms` : undefined,
+              animationDelay: animations ? `${i * 60}ms` : undefined,
               backgroundImage: `linear-gradient(135deg, ${primary}12, transparent 58%)`,
             }}
           >

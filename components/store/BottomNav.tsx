@@ -106,14 +106,26 @@ export default function BottomNav({
             key={href}
             href={href}
             aria-label={label}
+            aria-current={active ? 'page' : undefined}
             className={`relative flex h-[58px] flex-1 touch-manipulation flex-col items-center justify-center gap-1 rounded-[22px] transition-all duration-200 active:scale-[0.96] ${
               active
-                ? 'bg-[#e7b43f]/18 shadow-[0_0_24px_rgba(231,180,63,.18),inset_0_0_0_1px_rgba(231,180,63,0.42)]'
+                ? 'shadow-[0_0_28px_rgba(231,180,63,.22),inset_0_1px_0_rgba(255,255,255,.14)]'
                 : 'hover:bg-white/8'
             }`}
+            style={active
+              ? {
+                  background: isLight
+                    ? `linear-gradient(180deg, ${color}24, ${color}12)`
+                    : `linear-gradient(180deg, ${color}30, ${color}16)`,
+                  boxShadow: `0 0 28px color-mix(in srgb, ${color} 24%, transparent), inset 0 0 0 1px color-mix(in srgb, ${color} 62%, transparent)`,
+                }
+              : undefined}
           >
             {active && (
-              <span className="absolute -top-1 h-1 w-8 rounded-full bg-[#ffcf64] shadow-[0_0_18px_rgba(255,207,100,.85)]" />
+              <span
+                className="absolute -top-2 h-1.5 w-10 rounded-full shadow-[0_0_20px_rgba(255,207,100,.85)]"
+                style={{ backgroundColor: color }}
+              />
             )}
             <div className="relative">
               {active && (
