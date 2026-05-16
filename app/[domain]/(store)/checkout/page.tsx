@@ -24,6 +24,7 @@ export default function CheckoutPage({ params }: Props) {
   const [storeBranding, setStoreBranding] = useState<{ appName?: string; logoUrl?: string | null; primaryColor?: string } | null>(null)
   const [csrfToken, setCsrfToken] = useState('')
   const [loading, setLoading] = useState(false)
+  const [paymentRedirectUrl, setPaymentRedirectUrl] = useState('')
   const [mounted, setMounted] = useState(false)
   const [profileLookup, setProfileLookup] = useState<'idle' | 'searching' | 'found' | 'none'>('idle')
   const [errors, setErrors] = useState<Array<{ field: string; message: string }>>([])
@@ -168,6 +169,12 @@ export default function CheckoutPage({ params }: Props) {
     } catch {}
   }
 
+  const redirectToPaymentPortal = (url: string) => {
+    setPaymentRedirectUrl(url)
+    window.dispatchEvent(new Event('store:navigation-start'))
+    window.location.assign(url)
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setErrors([])
@@ -202,8 +209,7 @@ export default function CheckoutPage({ params }: Props) {
         const data = await res.json()
         if (data.url) {
           clearCart()
-          window.dispatchEvent(new Event('store:navigation-start'))
-          window.location.href = data.url
+          redirectToPaymentPortal(data.url)
         }
         else { toast.error(data.error || 'Error al procesar') }
       } else if (form.payment_method === 'wompi') {
@@ -215,8 +221,7 @@ export default function CheckoutPage({ params }: Props) {
         const data = await res.json()
         if (data.url) {
           clearCart()
-          window.dispatchEvent(new Event('store:navigation-start'))
-          window.location.href = data.url
+          redirectToPaymentPortal(data.url)
         } else {
           toast.error(data.error || 'Error al abrir Wompi')
         }
@@ -273,6 +278,7 @@ export default function CheckoutPage({ params }: Props) {
           logoUrl={storeBranding?.logoUrl}
           appName={storeBranding?.appName}
           primaryColor={storeBranding?.primaryColor}
+          paymentUrl={paymentRedirectUrl}
         />
       )}
       <header className="border-b backdrop-blur-lg" style={{ backgroundColor: surface }}>
@@ -430,10 +436,12 @@ function CheckoutStoreLoader({
   logoUrl,
   appName,
   primaryColor,
+  paymentUrl,
 }: {
   logoUrl?: string | null
   appName?: string
   primaryColor?: string
+  paymentUrl?: string
 }) {
   const primary = primaryColor || 'var(--button-primary-color, var(--primary-color, #15130f))'
 
@@ -474,7 +482,18 @@ function CheckoutStoreLoader({
           ))}
         </div>
 
-        <p className="mt-3 text-sm font-bold text-black/45">Confirmando tu pedido</p>
+        <p className="mt-3 text-sm font-bold text-black/45">
+          {paymentUrl ? 'Abriendo pago seguro' : 'Confirmando tu pedido'}
+        </p>
+        {paymentUrl && (
+          <a
+            href={paymentUrl}
+            className="mt-5 inline-flex w-full items-center justify-center rounded-2xl px-5 py-4 text-sm font-extrabold text-white shadow-lg"
+            style={{ backgroundColor: primary }}
+          >
+            Abrir Wompi
+          </a>
+        )}
         <div className="mt-8 h-2.5 overflow-hidden rounded-full bg-black/8">
           <div
             className="h-full rounded-full"
