@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { PLAN_PRICES } from '@/lib/subscription-pricing'
 
 interface ChangePlanModalProps {
   currentPlan: string
@@ -11,12 +12,7 @@ interface ChangePlanModalProps {
   onClose: () => void
 }
 
-const planPrices: Record<string, number> = {
-  trial: 0,
-  basic: 29.99,
-  pro: 79.99,
-  premium: 149.99,
-}
+const planPrices: Record<string, number> = PLAN_PRICES
 
 const planNames: Record<string, string> = {
   trial: 'Período de Prueba',

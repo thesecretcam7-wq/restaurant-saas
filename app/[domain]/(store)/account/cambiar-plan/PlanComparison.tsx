@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import ChangePlanModal from './ChangePlanModal'
+import { PLAN_PRICES } from '@/lib/subscription-pricing'
 
 interface Tenant {
   id: string
@@ -15,30 +16,31 @@ interface Tenant {
 const plans = [
   {
     id: 'basic',
-    name: 'Básico',
-    price: 29.99,
-    description: 'Perfecto para pequeños restaurantes',
+    name: 'Basico',
+    price: PLAN_PRICES.basic,
+    description: 'Carta QR, TPV, comandero y KDS para operar caja, sala y cocina',
     features: [
-      'Hasta 50 productos',
-      '1 usuario admin',
-      'Ordenes ilimitadas',
-      'Chat soporte por email',
-      'Reporte de ventas básico',
+      'Carta QR incluida',
+      'TPV / POS completo',
+      'Comandero para meseros',
+      'KDS cocina incluido',
+      'Hasta 1.000 pedidos/mes',
+      'Soporte por email',
     ],
     cta: 'Elegir Plan',
   },
   {
     id: 'pro',
     name: 'Pro',
-    price: 79.99,
-    description: 'Para restaurantes en crecimiento',
+    price: PLAN_PRICES.pro,
+    description: 'Operacion completa con pagina web y kiosko',
     features: [
-      'Hasta 500 productos',
-      '5 usuarios',
-      'Análisis avanzado',
-      'Chat soporte prioritario',
-      'Integraciones básicas',
-      'Descuentos personalizados',
+      'Todo en Basico',
+      'Pagina web del restaurante',
+      'Kiosko autoservicio',
+      'Pedidos ilimitados',
+      'Reservas y delivery',
+      'Analytics avanzado',
     ],
     cta: 'Elegir Plan',
     popular: true,
@@ -46,16 +48,16 @@ const plans = [
   {
     id: 'premium',
     name: 'Premium',
-    price: 149.99,
-    description: 'Para grandes restaurantes',
+    price: PLAN_PRICES.premium,
+    description: 'Todas las funciones con disenos exclusivos',
     features: [
-      'Productos ilimitados',
-      '20 usuarios',
-      'Analytics completo',
-      'Soporte 24/7',
+      'Todo en Pro',
+      'Disenos exclusivos para cada cliente',
+      'Dominio personalizado',
+      'Multiples sucursales',
       'Integraciones personalizadas',
       'API access',
-      'Manager dedicado',
+      'Soporte 24/7 dedicado',
     ],
     cta: 'Elegir Plan',
   },
@@ -105,7 +107,7 @@ export default function PlanComparison({ tenant, domain }: { tenant: Tenant; dom
 
                 <div className="mb-6">
                   <div className="text-4xl font-bold text-gray-900">
-                    ${plan.price}
+                    EUR {plan.price}
                     <span className="text-lg font-normal text-gray-600">/mes</span>
                   </div>
                 </div>
@@ -164,52 +166,52 @@ export default function PlanComparison({ tenant, domain }: { tenant: Tenant; dom
             </thead>
             <tbody className="divide-y divide-gray-200">
               <tr>
-                <td className="px-6 py-4 font-semibold text-gray-900">Productos</td>
-                <td className="px-6 py-4 text-center">50</td>
-                <td className="px-6 py-4 text-center">500</td>
-                <td className="px-6 py-4 text-center">Ilimitado</td>
+                <td className="px-6 py-4 font-semibold text-gray-900">TPV / POS</td>
+                <td className="px-6 py-4 text-center">Si</td>
+                <td className="px-6 py-4 text-center">Si</td>
+                <td className="px-6 py-4 text-center">Si</td>
               </tr>
               <tr className="bg-gray-50">
-                <td className="px-6 py-4 font-semibold text-gray-900">Usuarios</td>
-                <td className="px-6 py-4 text-center">1</td>
-                <td className="px-6 py-4 text-center">5</td>
-                <td className="px-6 py-4 text-center">20</td>
+                <td className="px-6 py-4 font-semibold text-gray-900">Carta QR</td>
+                <td className="px-6 py-4 text-center">Si</td>
+                <td className="px-6 py-4 text-center">Si</td>
+                <td className="px-6 py-4 text-center">Si</td>
               </tr>
               <tr>
-                <td className="px-6 py-4 font-semibold text-gray-900">Ordenes</td>
-                <td className="px-6 py-4 text-center">✓</td>
-                <td className="px-6 py-4 text-center">✓</td>
-                <td className="px-6 py-4 text-center">✓</td>
+                <td className="px-6 py-4 font-semibold text-gray-900">Comandero</td>
+                <td className="px-6 py-4 text-center">Si</td>
+                <td className="px-6 py-4 text-center">Si</td>
+                <td className="px-6 py-4 text-center">Si</td>
               </tr>
               <tr className="bg-gray-50">
-                <td className="px-6 py-4 font-semibold text-gray-900">Reportes</td>
-                <td className="px-6 py-4 text-center">Básico</td>
-                <td className="px-6 py-4 text-center">Avanzado</td>
-                <td className="px-6 py-4 text-center">Completo</td>
+                <td className="px-6 py-4 font-semibold text-gray-900">KDS cocina</td>
+                <td className="px-6 py-4 text-center">Si</td>
+                <td className="px-6 py-4 text-center">Si</td>
+                <td className="px-6 py-4 text-center">Si</td>
               </tr>
               <tr>
+                <td className="px-6 py-4 font-semibold text-gray-900">Pagina web</td>
+                <td className="px-6 py-4 text-center">-</td>
+                <td className="px-6 py-4 text-center">Si</td>
+                <td className="px-6 py-4 text-center">Si</td>
+              </tr>
+              <tr className="bg-gray-50">
+                <td className="px-6 py-4 font-semibold text-gray-900">Kiosko autoservicio</td>
+                <td className="px-6 py-4 text-center">-</td>
+                <td className="px-6 py-4 text-center">Si</td>
+                <td className="px-6 py-4 text-center">Si</td>
+              </tr>
+              <tr>
+                <td className="px-6 py-4 font-semibold text-gray-900">Disenos exclusivos</td>
+                <td className="px-6 py-4 text-center">-</td>
+                <td className="px-6 py-4 text-center">-</td>
+                <td className="px-6 py-4 text-center">Si</td>
+              </tr>
+              <tr className="bg-gray-50">
                 <td className="px-6 py-4 font-semibold text-gray-900">Soporte</td>
                 <td className="px-6 py-4 text-center">Email</td>
                 <td className="px-6 py-4 text-center">Prioritario</td>
-                <td className="px-6 py-4 text-center">24/7</td>
-              </tr>
-              <tr className="bg-gray-50">
-                <td className="px-6 py-4 font-semibold text-gray-900">Integraciones</td>
-                <td className="px-6 py-4 text-center">-</td>
-                <td className="px-6 py-4 text-center">Básicas</td>
-                <td className="px-6 py-4 text-center">Personalizadas</td>
-              </tr>
-              <tr>
-                <td className="px-6 py-4 font-semibold text-gray-900">API Access</td>
-                <td className="px-6 py-4 text-center">-</td>
-                <td className="px-6 py-4 text-center">-</td>
-                <td className="px-6 py-4 text-center">✓</td>
-              </tr>
-              <tr className="bg-gray-50">
-                <td className="px-6 py-4 font-semibold text-gray-900">Manager Dedicado</td>
-                <td className="px-6 py-4 text-center">-</td>
-                <td className="px-6 py-4 text-center">-</td>
-                <td className="px-6 py-4 text-center">✓</td>
+                <td className="px-6 py-4 text-center">24/7 dedicado</td>
               </tr>
             </tbody>
           </table>
@@ -229,3 +231,4 @@ export default function PlanComparison({ tenant, domain }: { tenant: Tenant; dom
     </div>
   )
 }
+

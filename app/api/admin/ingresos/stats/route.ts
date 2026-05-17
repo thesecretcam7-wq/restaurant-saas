@@ -1,8 +1,8 @@
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 import { NextRequest, NextResponse } from 'next/server'
-
-const ownerEmails = ['thesecretcam7@gmail.com']
+import { getPlanMonthlyPrice } from '@/lib/subscription-pricing'
+import { isOwnerEmail } from '@/lib/owner-auth'
 
 interface RevenueStats {
   totalRevenue: number
@@ -31,13 +31,6 @@ interface RevenueStats {
   }>
 }
 
-const planPricing: Record<string, number> = {
-  basic: 29.99,
-  pro: 79.99,
-  premium: 149.99,
-  free: 0,
-}
-
 export async function GET(request: NextRequest) {
   try {
     const cookieStore = await cookies()
@@ -58,7 +51,7 @@ export async function GET(request: NextRequest) {
     const { data: { user } } = await supabase.auth.getUser()
 
     // Verify ownership
-    if (!user || !user.email || !ownerEmails.includes(user.email)) {
+    if (!isOwnerEmail(user?.email)) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
@@ -100,7 +93,7 @@ export async function GET(request: NextRequest) {
 
     tenants.forEach(tenant => {
       if (tenant.subscription_plan && tenant.subscription_plan !== 'free') {
-        const price = planPricing[tenant.subscription_plan] || 0
+        const price = getPlanMonthlyPrice(tenant.subscription_plan)
         totalRevenue += price
 
         const expiresAt = new Date(tenant.subscription_expires_at || now)
@@ -143,7 +136,7 @@ export async function GET(request: NextRequest) {
     const revenueByPlanMap = new Map<string, { count: number; revenue: number }>()
     tenants.forEach(tenant => {
       if (tenant.subscription_plan && tenant.subscription_plan !== 'free') {
-        const price = planPricing[tenant.subscription_plan] || 0
+        const price = getPlanMonthlyPrice(tenant.subscription_plan)
         const existing = revenueByPlanMap.get(tenant.subscription_plan) || { count: 0, revenue: 0 }
         existing.count += 1
         existing.revenue += price
@@ -171,7 +164,7 @@ export async function GET(request: NextRequest) {
           const createdAt = new Date(tenant.created_at)
 
           if (createdAt.getFullYear() === date.getFullYear() && createdAt.getMonth() === date.getMonth()) {
-            const price = planPricing[tenant.subscription_plan] || 0
+            const price = getPlanMonthlyPrice(tenant.subscription_plan)
             monthRevenue += price
             if (expiresAt > now) activeCount += 1
           }

@@ -1,6 +1,7 @@
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 import { NextRequest, NextResponse } from 'next/server'
+import { getPlanMonthlyPrice } from '@/lib/subscription-pricing'
 
 export async function GET(request: NextRequest) {
   try {
@@ -39,13 +40,7 @@ export async function GET(request: NextRequest) {
     // Generate mock invoices based on tenant's subscription history
     // In production, this would fetch from Stripe API or your billing database
     const invoices = []
-    const planPrices: Record<string, number> = {
-      basic: 29.99,
-      pro: 79.99,
-      premium: 149.99,
-    }
-
-    const price = planPrices[tenant.subscription_plan || 'basic'] || 29.99
+    const price = getPlanMonthlyPrice(tenant.subscription_plan || 'basic') || 49.99
 
     // Generate invoices for the last 6 months
     const today = new Date()

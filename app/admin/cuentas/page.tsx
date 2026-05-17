@@ -17,7 +17,7 @@ export default async function AccountsPage() {
 
   const { data: tenants, error } = await supabase
     .from('tenants')
-    .select('id, organization_name, owner_name, owner_email, status, subscription_plan, trial_ends_at, created_at, stripe_account_status')
+    .select('id, organization_name, owner_name, owner_email, status, subscription_plan, subscription_expires_at, trial_ends_at, created_at, stripe_account_status, metadata')
     .order('created_at', { ascending: false })
 
   if (error) {

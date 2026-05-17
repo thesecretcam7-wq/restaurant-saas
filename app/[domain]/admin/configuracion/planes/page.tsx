@@ -23,37 +23,40 @@ interface SystemFeature {
 
 const SYSTEM_FEATURES: SystemFeature[] = [
   { name: 'POS', icon: 'POS', description: 'Sistema de Punto de Venta' },
+  { name: 'Carta QR', icon: 'QR', description: 'Menu digital con codigo QR' },
   { name: 'Comandera', icon: 'CMD', description: 'Control de Meseros' },
   { name: 'KDS', icon: 'KDS', description: 'Pantalla de Cocina' },
+  { name: 'Pagina Web', icon: 'WEB', description: 'Pagina web del restaurante' },
   { name: 'Kiosko', icon: 'KIO', description: 'Autoservicio en tienda' }
 ]
 
 const planHighlights: { [key: string]: string[] } = {
   basic: [
-    '✓ POS completo',
-    '✓ KDS cocina incluido',
-    '✓ Hasta 100 productos',
-    '✓ Reportes básicos',
-    '✓ Soporte por email',
-    '✓ Integración Stripe'
+    'TPV / POS completo',
+    'Carta QR incluida',
+    'Comandero para meseros',
+    'KDS cocina incluido',
+    'Hasta 1.000 pedidos/mes',
+    'Soporte por email',
+    'Integracion Stripe'
   ],
   pro: [
-    '✓ POS y Comandera',
-    '✓ Kiosko autoservicio',
-    '✓ Hasta 500 productos',
-    '✓ Analytics avanzados',
-    '✓ Soporte prioritario',
-    '✓ Custom domain',
-    '✓ API access'
+    'Todo en Basic',
+    'Pagina web del restaurante',
+    'Kiosko autoservicio',
+    'Pedidos ilimitados',
+    'Reservas y delivery',
+    'Analytics avanzados',
+    'Soporte prioritario'
   ],
   premium: [
-    '✓ Sistema completo POS + Comandera + KDS + Kiosko',
-    '✓ Productos ilimitados',
-    '✓ Analytics avanzados + IA',
-    '✓ Soporte 24/7 dedicado',
-    '✓ Custom domain',
-    '✓ API access + webhooks',
-    '✓ Integración multi-sucursal'
+    'Todas las funciones del Pro',
+    'Disenos exclusivos para cada cliente',
+    'Dominio personalizado',
+    'Multi-sucursal',
+    'API access + webhooks',
+    'Integraciones personalizadas',
+    'Soporte 24/7 dedicado'
   ]
 }
 
@@ -107,9 +110,9 @@ export default function PlanesPage({ params }: Props) {
   }
 
   const planDescriptions: { [key: string]: string } = {
-    basic: 'POS completo con KDS para empezar con caja y cocina conectadas.',
-    pro: 'Solución integral con Comandera y Kiosko. Para restaurantes con operaciones en crecimiento',
-    premium: 'Ecosistema completo: POS + Comandera + KDS + Kiosko. Máximo control y eficiencia operacional'
+    basic: 'TPV, comandero y KDS para operar caja, sala y cocina desde el primer dia.',
+    pro: 'Todo el flujo operativo mas pagina web y kiosko para vender mejor.',
+    premium: 'Todas las funciones, con disenos exclusivos adaptados a cada cliente.'
   }
 
   const planSubtitles: { [key: string]: string } = {
@@ -119,9 +122,9 @@ export default function PlanesPage({ params }: Props) {
   }
 
   const systemsIncluded: { [key: string]: string[] } = {
-    basic: ['POS', 'KDS'],
-    pro: ['POS', 'Comandera', 'KDS', 'Kiosko'],
-    premium: ['POS', 'Comandera', 'KDS', 'Kiosko']
+    basic: ['POS', 'Carta QR', 'Comandera', 'KDS'],
+    pro: ['POS', 'Carta QR', 'Comandera', 'KDS', 'Pagina Web', 'Kiosko'],
+    premium: ['POS', 'Carta QR', 'Comandera', 'KDS', 'Pagina Web', 'Kiosko']
   }
 
   const formatSubscriptionPrice = (amount: number) => {
@@ -152,16 +155,24 @@ export default function PlanesPage({ params }: Props) {
   }
 
   const featureLabels: { [key: string]: string } = {
-    max_products: 'Productos en menú',
-    orders_per_month: 'Órdenes mensuales',
-    categories: 'Categorías de menú',
+    max_products: 'Productos en menu',
+    orders_per_month: 'Ordenes mensuales',
+    categories: 'Categorias de menu',
     support: 'Soporte',
+    qr_menu: 'Carta QR',
+    pos: 'TPV / POS',
+    comandero: 'Comandero',
+    kds: 'KDS cocina',
+    website: 'Pagina web',
+    kiosk: 'Kiosko autoservicio',
+    kiosko: 'Kiosko autoservicio',
     delivery: 'Entrega a domicilio',
     reservations: 'Sistema de reservas',
     custom_domain: 'Dominio personalizado',
     analytics: 'Analytics avanzados',
     api_access: 'Acceso API',
-    dedicated_support: 'Soporte dedicado'
+    dedicated_support: 'Soporte dedicado',
+    exclusive_design: 'Disenos exclusivos'
   }
 
   const featureValues: { [key: string]: (value: any) => string } = {
@@ -174,7 +185,13 @@ export default function PlanesPage({ params }: Props) {
       return map[value] || String(value)
     },
     delivery: (value) => value === true ? 'Incluido' : 'No incluido',
+    qr_menu: (value) => value === true ? 'Incluido' : 'No incluido',
     reservations: (value) => value === true ? 'Incluido' : 'No incluido',
+    pos: (value) => value === true ? 'Incluido' : 'No incluido',
+    comandero: (value) => value === true ? 'Incluido' : 'No incluido',
+    kds: (value) => value === true ? 'Incluido' : 'No incluido',
+    website: (value) => value === true ? 'Incluido' : 'No incluido',
+    kiosk: (value) => value === true ? 'Incluido' : 'No incluido',
     custom_domain: (value) => value === true ? 'Sí' : 'No',
     analytics: (value) => value === true ? 'Sí' : 'No',
     api_access: (value) => value === true ? 'Sí' : 'No',

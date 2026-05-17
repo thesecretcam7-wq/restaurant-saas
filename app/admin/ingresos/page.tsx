@@ -3,16 +3,15 @@ import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import RevenueContent from './RevenueContent'
 import EccofoodLogo from '@/components/EccofoodLogo'
+import { isOwnerEmail } from '@/lib/owner-auth'
 
 export const dynamic = 'force-dynamic'
-
-const ownerEmails = ['thesecretcam7@gmail.com']
 
 export default async function IngresosDashboardPage() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
-  if (!user || !user.email || !ownerEmails.includes(user.email)) {
+  if (!isOwnerEmail(user?.email)) {
     redirect('/login')
   }
 

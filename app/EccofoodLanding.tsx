@@ -119,9 +119,9 @@ const testimonials = [
 ]
 
 const pricingPlans = [
-  { name: 'Basic', monthly: 39, annual: 421.20, discount: 'Ahorra 46.80 EUR', features: ['POS completo', 'Carta QR', 'KDS cocina'] },
-  { name: 'Pro', monthly: 99, annual: 1069.20, discount: 'Ahorra 118.80 EUR', features: ['Kiosko autoservicio', 'Inventario', 'Reportes avanzados'], popular: true },
-  { name: 'Premium', monthly: 299, annual: 3229.20, discount: 'Ahorra 358.80 EUR', features: ['Multi sucursal', 'IA Insights', 'Soporte prioritario'] },
+  { name: 'Basic', monthly: 49.99, annual: 539.89, discount: 'Ahorra 60.00 EUR', features: ['Carta QR', 'TPV / POS', 'Comandero', 'KDS cocina'] },
+  { name: 'Pro', monthly: 99.99, annual: 1079.89, discount: 'Ahorra 120.00 EUR', features: ['Pagina web', 'Kiosko autoservicio', 'Reservas y delivery'], popular: true },
+  { name: 'Premium', monthly: 299.99, annual: 3239.89, discount: 'Ahorra 360.00 EUR', features: ['Todas las funciones', 'Disenos exclusivos', 'Acompanamiento premium'] },
 ]
 
 const before = ['Pedidos por llamada', 'Comandas en papel', 'Errores en cocina', 'Caja desconectada', 'Reportes manuales']
@@ -263,6 +263,11 @@ export function EccofoodLanding() {
     { label: tr('landing.nav.demo'), href: '#demo' },
     { label: tr('landing.nav.cases'), href: '#casos-de-exito' },
   ]
+  const footerHref = (link: string) => {
+    if (link === 'Soporte' || link === 'Contacto') return '/soporte'
+    if (link === 'Demo') return '#demo'
+    return '#'
+  }
 
   return (
     <main className="ecco-landing-premium min-h-screen overflow-x-hidden text-white">
@@ -580,7 +585,7 @@ export function EccofoodLanding() {
               <p className="font-black">{String(title)}</p>
               <div className="mt-4 space-y-3">
                 {(links as string[]).map(link => (
-                  <a key={link} href="#" className="block text-sm font-bold text-black/45 transition hover:text-black">{link}</a>
+                  <a key={link} href={footerHref(link)} className="block text-sm font-bold text-black/45 transition hover:text-black">{link}</a>
                 ))}
               </div>
             </div>

@@ -1,23 +1,24 @@
-import { createClient } from '@/lib/supabase/server'
+import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import AccountsContent from './AccountsContent'
 import EccofoodLogo from '@/components/EccofoodLogo'
+import { isOwnerEmail } from '@/lib/owner-auth'
 
-export const revalidate = 60
+export const dynamic = 'force-dynamic'
 
 export default async function GestionarCuentasPage() {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const authClient = await createClient()
+  const { data: { user } } = await authClient.auth.getUser()
 
-  const ownerEmails = ['thesecretcam7@gmail.com', 'johang.musica@gmail.com']
-  if (!user || !user.email || !ownerEmails.includes(user.email)) {
+  if (!isOwnerEmail(user?.email)) {
     redirect('/login')
   }
 
+  const supabase = createServiceClient()
   const { data: tenants, error } = await supabase
     .from('tenants')
-    .select('id, organization_name, owner_name, owner_email, status, subscription_plan, trial_ends_at, subscription_expires_at, created_at, stripe_account_status')
+    .select('id, organization_name, owner_name, owner_email, status, subscription_plan, trial_ends_at, subscription_expires_at, created_at, stripe_account_status, metadata')
     .order('created_at', { ascending: false })
 
   if (error) {
