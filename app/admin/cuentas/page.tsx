@@ -1,20 +1,22 @@
-import { createServiceClient } from '@/lib/supabase/server'
+import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import AccountsContent from './AccountsContent'
 import EccofoodLogo from '@/components/EccofoodLogo'
+import { isOwnerEmail } from '@/lib/owner-auth'
 
 export const dynamic = 'force-dynamic'
 
 export default async function AccountsPage() {
-  const supabase = createServiceClient()
+  const authClient = await createClient()
 
-  const { data: { user } } = await supabase.auth.getUser()
+  const { data: { user } } = await authClient.auth.getUser()
 
-  if (!user) {
-    redirect('/login')
+  if (!isOwnerEmail(user?.email)) {
+    redirect('/owner-login')
   }
 
+  const supabase = createServiceClient()
   const { data: tenants, error } = await supabase
     .from('tenants')
     .select('id, organization_name, owner_name, owner_email, status, subscription_plan, subscription_expires_at, trial_ends_at, created_at, stripe_account_status, metadata')

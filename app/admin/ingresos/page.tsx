@@ -12,7 +12,7 @@ export default async function IngresosDashboardPage() {
   const { data: { user } } = await supabase.auth.getUser()
 
   if (!isOwnerEmail(user?.email)) {
-    redirect('/login')
+    redirect('/owner-login')
   }
 
   return (

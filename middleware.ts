@@ -6,15 +6,14 @@ import { Redis } from '@upstash/redis'
 
 const BASE_DOMAIN = process.env.NEXT_PUBLIC_BASE_DOMAIN || 'eccofoodapp.com'
 const SLUG_PATH_REGEX = /^\/([a-zA-Z0-9-]+)(?:\/|$)/
+const OWNER_EMAILS = ['thesecretcam7@gmail.com', 'johang.musica@gmail.com']
 const PUBLIC_PATHS = new Set([
   '/',
   '/login',
   '/register',
   '/planes',
   '/owner-login',
-  '/owner-dashboard',
   '/eccofood-admin',
-  '/gestionar-cuentas',
   '/soporte',
   '/unauthorized',
   '/manifest.webmanifest',
@@ -97,6 +96,15 @@ function isTenantPwaIdentityPath(pathname: string) {
   return TENANT_PWA_IDENTITY_PATHS.has(pathname)
 }
 
+function isOwnerProtectedPath(pathname: string) {
+  return (
+    pathname === '/owner-dashboard' ||
+    pathname === '/gestionar-cuentas' ||
+    pathname === '/admin' ||
+    pathname.startsWith('/admin/')
+  )
+}
+
 function getOperationalAccess(pathname: string) {
   const slugMatch = pathname.match(SLUG_PATH_REGEX)
   const slug = slugMatch?.[1] || ''
@@ -171,6 +179,36 @@ export async function middleware(request: NextRequest) {
       url.pathname = `/${tenant.slug}${pathname}`
       return NextResponse.rewrite(url, { request: { headers: withStoreHeaders(request, tenant.slug) } })
     }
+  }
+
+  if (!isAssetPath && isOwnerProtectedPath(pathname)) {
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+    const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+
+    if (!supabaseUrl || !supabaseAnonKey) {
+      return NextResponse.redirect(new URL('/owner-login', request.url))
+    }
+
+    let response = NextResponse.next({ request })
+    const supabase = createServerClient(supabaseUrl, supabaseAnonKey, {
+      cookies: {
+        getAll() { return request.cookies.getAll() },
+        setAll(cookiesToSet) {
+          cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value))
+          response = NextResponse.next({ request })
+          cookiesToSet.forEach(({ name, value, options }) =>
+            response.cookies.set(name, value, options)
+          )
+        },
+      },
+    })
+
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user?.email || !OWNER_EMAILS.includes(user.email)) {
+      return NextResponse.redirect(new URL('/owner-login', request.url))
+    }
+
+    return response
   }
 
   if (

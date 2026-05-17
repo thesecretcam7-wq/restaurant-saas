@@ -3,6 +3,7 @@ import { cookies } from 'next/headers'
 import { NextRequest, NextResponse } from 'next/server'
 import { getPlanMonthlyPrice } from '@/lib/subscription-pricing'
 import { isOwnerEmail } from '@/lib/owner-auth'
+import { createServiceClient } from '@/lib/supabase/server'
 
 interface RevenueStats {
   totalRevenue: number
@@ -34,9 +35,9 @@ interface RevenueStats {
 export async function GET(request: NextRequest) {
   try {
     const cookieStore = await cookies()
-    const supabase = createServerClient(
+    const authClient = createServerClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
       {
         cookies: {
           getAll() { return cookieStore.getAll() },
@@ -48,12 +49,14 @@ export async function GET(request: NextRequest) {
     )
 
     // Get current user
-    const { data: { user } } = await supabase.auth.getUser()
+    const { data: { user } } = await authClient.auth.getUser()
 
     // Verify ownership
     if (!isOwnerEmail(user?.email)) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
+
+    const supabase = createServiceClient()
 
     // Fetch all active/paid subscriptions
     const { data: tenants } = await supabase

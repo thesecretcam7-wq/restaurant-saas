@@ -59,7 +59,7 @@ export default async function OwnerDashboard() {
   const { data: { user } } = await authClient.auth.getUser()
 
   if (!isOwnerEmail(user?.email)) {
-    redirect('/login')
+    redirect('/owner-login')
   }
 
   const supabase = createServiceClient()

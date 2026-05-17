@@ -6,13 +6,6 @@ import { isOwnerEmail } from '@/lib/owner-auth'
 
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json()
-    const { tenantId, daysToAdd = 30, action = 'extend_trial', plan = 'basic', deleteConfirmation = '' } = body
-
-    if (!['basic', 'pro', 'premium'].includes(plan)) {
-      return NextResponse.json({ error: 'Plan invalido' }, { status: 400 })
-    }
-
     const cookieStore = await cookies()
     const authClient = createServerClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -30,6 +23,13 @@ export async function POST(request: NextRequest) {
     const { data: { user } } = await authClient.auth.getUser()
     if (!isOwnerEmail(user?.email)) {
       return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
+    }
+
+    const body = await request.json()
+    const { tenantId, daysToAdd = 30, action = 'extend_trial', plan = 'basic', deleteConfirmation = '' } = body
+
+    if (!['basic', 'pro', 'premium'].includes(plan)) {
+      return NextResponse.json({ error: 'Plan invalido' }, { status: 400 })
     }
 
     const supabase = createServiceClient()
