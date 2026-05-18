@@ -6,33 +6,33 @@ import { deriveBrandPalette } from '@/lib/brand-colors'
 
 interface Props {
   params: Promise<{ domain: string }>
-  searchParams: Promise<{ nuevo?: string; demo?: string }>
+  searchParams: Promise<{ nuevo?: string }>
 }
 
-const demoAccess = [
+const defaultAccess = [
   {
-    title: 'Admin demo',
+    title: 'Admin',
     role: 'Administrador',
     pin: '000000',
     href: 'admin',
     icon: Store,
   },
   {
-    title: 'Caja demo',
+    title: 'Caja',
     role: 'Cajero',
     pin: '999999',
     href: 'pos',
     icon: ShoppingBag,
   },
   {
-    title: 'Mesero demo',
+    title: 'Mesero',
     role: 'Camarero',
     pin: '123456',
     href: 'portal/camarero',
     icon: UserRound,
   },
   {
-    title: 'Cocina demo',
+    title: 'Cocina',
     role: 'Cocinero',
     pin: '567890',
     href: 'kds',
@@ -42,7 +42,7 @@ const demoAccess = [
 
 export default async function BienvenidaPage({ params, searchParams }: Props) {
   const { domain } = await params
-  const { demo } = await searchParams
+  await searchParams
   const authSupabase = await createClient()
   const { data: { user } } = await authSupabase.auth.getUser()
 
@@ -86,7 +86,6 @@ export default async function BienvenidaPage({ params, searchParams }: Props) {
   })
   const appName = branding?.app_name || tenant.organization_name
   const logoUrl = branding?.logo_url || tenant.logo_url
-  const demoSlug = demo || `demo-${tenant.id.substring(0, 8)}`
 
   return (
     <main
@@ -127,14 +126,14 @@ export default async function BienvenidaPage({ params, searchParams }: Props) {
               Tu restaurante ya esta listo para probar Eccofood.
             </h1>
             <p className="mt-5 max-w-2xl text-base font-semibold leading-7" style={{ color: palette.mutedText }}>
-              Te dejamos un restaurante demo con usuarios preparados para que pruebes panel, caja, mesero y cocina sin tocar la configuracion real.
+              Estos son los usuarios y PINs que se crean por defecto para que puedas entrar rapido como admin, caja, mesero y cocina.
             </p>
             <div className="mt-8 flex flex-col gap-3 sm:flex-row">
               <Link href={`/${tenant.slug}/admin/dashboard`} className="inline-flex h-13 items-center justify-center rounded-2xl px-6 text-sm font-black shadow-2xl transition hover:-translate-y-0.5" style={{ backgroundColor: palette.buttonPrimary, color: '#15130f' }}>
                 Entrar a mi panel real
               </Link>
-              <Link href={`/${demoSlug}/acceso`} className="inline-flex h-13 items-center justify-center rounded-2xl border border-white/14 bg-white/8 px-6 text-sm font-black text-white transition hover:bg-white/12">
-                Probar restaurante demo
+              <Link href={`/${tenant.slug}/acceso`} className="inline-flex h-13 items-center justify-center rounded-2xl border border-white/14 bg-white/8 px-6 text-sm font-black text-white transition hover:bg-white/12">
+                Ver accesos del restaurante
               </Link>
             </div>
           </div>
@@ -142,19 +141,19 @@ export default async function BienvenidaPage({ params, searchParams }: Props) {
           <div className="rounded-[2rem] border border-white/10 bg-white/[0.07] p-5 shadow-2xl shadow-black/25 backdrop-blur-xl sm:p-6">
             <div className="mb-5 flex items-start justify-between gap-4">
               <div>
-                <p className="text-xs font-black uppercase tracking-[0.2em]" style={{ color: palette.accent }}>Usuarios demo</p>
+                <p className="text-xs font-black uppercase tracking-[0.2em]" style={{ color: palette.accent }}>Usuarios por defecto</p>
                 <h2 className="mt-2 text-2xl font-black">PINs para probar</h2>
               </div>
               <MonitorPlay className="size-7" style={{ color: palette.accent }} />
             </div>
 
             <div className="grid gap-3 sm:grid-cols-2">
-              {demoAccess.map(item => {
+              {defaultAccess.map(item => {
                 const Icon = item.icon
                 return (
                   <Link
                     key={item.title}
-                    href={`/${demoSlug}/acceso/login/${item.href}`}
+                    href={`/${tenant.slug}/acceso/login/${item.href}`}
                     className="rounded-2xl border border-white/10 bg-black/20 p-4 transition hover:-translate-y-0.5 hover:bg-black/28"
                   >
                     <div className="flex items-center gap-3">
@@ -179,7 +178,7 @@ export default async function BienvenidaPage({ params, searchParams }: Props) {
               <div className="flex items-start gap-3">
                 <ClipboardList className="mt-1 size-5 flex-shrink-0" style={{ color: palette.accent }} />
                 <p className="text-sm font-semibold leading-6" style={{ color: palette.mutedText }}>
-                  Esta pantalla aparece justo despues del registro para que puedas probar la app rapido. Tu restaurante real queda separado del demo.
+                  Esta pantalla aparece justo despues del registro para que tengas a mano los accesos iniciales. Luego puedes cambiarlos desde el panel.
                 </p>
               </div>
             </div>
