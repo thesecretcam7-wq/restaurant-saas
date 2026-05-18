@@ -132,9 +132,6 @@ export default async function BienvenidaPage({ params, searchParams }: Props) {
               <Link href={`/${tenant.slug}/acceso`} className="inline-flex h-13 items-center justify-center rounded-2xl px-6 text-sm font-black shadow-2xl transition hover:-translate-y-0.5" style={{ backgroundColor: palette.buttonPrimary, color: '#15130f' }}>
                 Entrar con un rol
               </Link>
-              <Link href={`/${tenant.slug}/admin/login`} className="inline-flex h-13 items-center justify-center rounded-2xl border border-white/14 bg-white/8 px-6 text-sm font-black text-white transition hover:bg-white/12">
-                Login administrador
-              </Link>
             </div>
           </div>
 
