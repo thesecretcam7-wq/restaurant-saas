@@ -4,6 +4,7 @@ import { useState, useEffect, use } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { useTenantResolver } from '@/lib/hooks/useTenantResolver'
+import { uploadTenantMedia } from '@/lib/upload-client'
 import toast from 'react-hot-toast'
 import ToppingsManager from '@/components/admin/ToppingsManager'
 
@@ -125,15 +126,12 @@ export default function EditProductoPage({ params }: Props) {
       return
     }
     setUploadingImage(true)
-    const fd = new FormData()
-    fd.append('file', file)
-    fd.append('bucket', 'product-images')
-    fd.append('tenantId', tenantId)
     try {
-      const res = await fetch('/api/upload', { method: 'POST', body: fd })
-      const data = await res.json()
-      if (data.url) setForm(f => ({ ...f, image_url: data.url }))
-    } catch { toast.error('Error al subir imagen') }
+      const url = await uploadTenantMedia({ file, bucket: 'product-images', tenantId })
+      setForm(f => ({ ...f, image_url: url }))
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Error al subir imagen')
+    }
     finally { setUploadingImage(false) }
   }
 

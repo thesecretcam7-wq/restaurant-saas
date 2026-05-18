@@ -3,6 +3,7 @@
 import { useState, useEffect, use } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useTenantResolver } from '@/lib/hooks/useTenantResolver'
+import { uploadTenantMedia } from '@/lib/upload-client'
 import Link from 'next/link'
 import toast from 'react-hot-toast'
 
@@ -19,6 +20,18 @@ interface Banner {
 
 interface MenuOption { id: string; name: string }
 type TargetType = 'none' | 'product' | 'category' | 'url'
+
+function isVideoMedia(url: string) {
+  return /\.(mp4|webm|ogg|mov)(\?|#|$)/i.test(url)
+}
+
+function BannerPreview({ src, title, className }: { src: string; title?: string; className: string }) {
+  if (isVideoMedia(src)) {
+    return <video src={src} muted playsInline loop className={className} aria-label={title || 'Video banner'} />
+  }
+
+  return <img src={src} alt={title || 'preview'} className={className} />
+}
 
 export default function BannersPage({ params }: Props) {
   const { domain: slug } = use(params)
@@ -74,17 +87,11 @@ export default function BannersPage({ params }: Props) {
     if (!file) return
 
     setUploading(true)
-    const formData = new FormData()
-    formData.append('file', file)
-    formData.append('bucket', 'images')
-    formData.append('tenantId', tenantId || '')
 
     try {
-      const res = await fetch('/api/upload', { method: 'POST', body: formData })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error)
-      setForm(f => ({ ...f, image_url: data.url }))
-      setPreview(data.url)
+      const url = await uploadTenantMedia({ file, bucket: 'images', tenantId: tenantId || '' })
+      setForm(f => ({ ...f, image_url: url }))
+      setPreview(url)
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Error al subir imagen')
     } finally {
@@ -180,7 +187,7 @@ export default function BannersPage({ params }: Props) {
           <label className="block text-sm font-medium text-gray-700 mb-2">Imagen *</label>
           {preview && (
             <div className="mb-3 relative">
-              <img src={preview} alt="preview" className="w-full h-48 object-cover rounded-lg" />
+              <BannerPreview src={preview} className="w-full h-48 object-cover rounded-lg" />
               <button
                 type="button"
                 onClick={() => { setForm(f => ({ ...f, image_url: '' })); setPreview('') }}
@@ -284,7 +291,7 @@ export default function BannersPage({ params }: Props) {
         ) : (
           banners.map(banner => (
             <div key={banner.id} className="bg-white rounded-lg border p-4 flex gap-4 items-start">
-              <img src={banner.image_url} alt={banner.title} className="w-24 h-24 object-cover rounded" />
+              <BannerPreview src={banner.image_url} title={banner.title} className="w-24 h-24 object-cover rounded" />
               <div className="flex-1 min-w-0">
                 <p className="font-semibold text-gray-900">{banner.title}</p>
                 {banner.link_url && <p className="text-xs text-blue-600 truncate">{banner.link_url}</p>}

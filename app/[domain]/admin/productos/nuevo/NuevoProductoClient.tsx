@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { productSchema } from '@/lib/validations/forms'
 import { getFieldError, parseValidationError } from '@/lib/validations/utils'
+import { uploadTenantMedia } from '@/lib/upload-client'
 import toast from 'react-hot-toast'
 
 interface Category { id: string; name: string }
@@ -35,15 +36,12 @@ export default function NuevoProductoClient({ domain, tenantId, categories }: Pr
     const file = e.target.files?.[0]
     if (!file) return
     setUploadingImage(true)
-    const fd = new FormData()
-    fd.append('file', file)
-    fd.append('bucket', 'product-images')
-    fd.append('tenantId', tenantId)
     try {
-      const res = await fetch('/api/upload', { method: 'POST', body: fd })
-      const data = await res.json()
-      if (data.url) setForm(f => ({ ...f, image_url: data.url }))
-    } catch { toast.error('Error al subir imagen') }
+      const url = await uploadTenantMedia({ file, bucket: 'product-images', tenantId })
+      setForm(f => ({ ...f, image_url: url }))
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Error al subir imagen')
+    }
     finally { setUploadingImage(false) }
   }
 

@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
+import { uploadTenantMedia } from '@/lib/upload-client'
 
 export default function NuevaCategoriaClient({
   domain,
@@ -23,17 +24,11 @@ export default function NuevaCategoriaClient({
     if (!file) return
 
     setUploading(true)
-    const formData = new FormData()
-    formData.append('file', file)
-    formData.append('bucket', 'images')
-    formData.append('tenantId', tenantId)
 
     try {
-      const res = await fetch('/api/upload', { method: 'POST', body: formData })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error)
-      setForm(f => ({ ...f, image_url: data.url }))
-      setPreview(data.url)
+      const url = await uploadTenantMedia({ file, bucket: 'images', tenantId })
+      setForm(f => ({ ...f, image_url: url }))
+      setPreview(url)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error al subir imagen')
     } finally {

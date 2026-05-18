@@ -5,6 +5,7 @@ import { useParams } from 'next/navigation'
 import Link from 'next/link'
 import toast from 'react-hot-toast'
 import { useTenantResolver } from '@/lib/hooks/useTenantResolver'
+import { uploadTenantMedia } from '@/lib/upload-client'
 import {
   ArrowDown,
   ArrowUp,
@@ -183,16 +184,10 @@ export default function PageBuilderPage() {
 
   const uploadImage = async (file: File, key: string): Promise<string | null> => {
     setUploadingImage(key)
-    const formData = new FormData()
-    formData.append('file', file)
-    formData.append('bucket', 'images')
-    formData.append('tenantId', tenantId || '')
     try {
-      const res = await fetch('/api/upload', { method: 'POST', body: formData })
-      const data = await res.json()
-      return data.url || null
-    } catch {
-      toast.error('No se pudo subir la imagen')
+      return await uploadTenantMedia({ file, bucket: 'images', tenantId: tenantId || '' })
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'No se pudo subir la imagen')
       return null
     } finally {
       setUploadingImage(null)
