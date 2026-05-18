@@ -17,11 +17,13 @@ interface Banner {
   link_url: string | null
   sort_order: number
   active: boolean
+  placement?: BannerPlacement | null
 }
 
 interface MenuOption { id: string; name: string }
 type TargetType = 'none' | 'product' | 'category' | 'url'
 type PanelTab = 'store' | 'kiosk'
+type BannerPlacement = 'top' | 'bottom' | 'both'
 
 function isVideoMedia(url: string) {
   return /\.(mp4|webm|ogg|mov)(\?|#|$)/i.test(url)
@@ -46,7 +48,7 @@ export default function BannersPage({ params }: Props) {
   const [categories, setCategories] = useState<MenuOption[]>([])
   const [loading, setLoading] = useState(true)
   const [editingId, setEditingId] = useState<string | null>(null)
-  const [form, setForm] = useState({ title: '', image_url: '', link_url: '', sort_order: '0' })
+  const [form, setForm] = useState({ title: '', image_url: '', link_url: '', sort_order: '0', placement: 'both' as BannerPlacement })
   const [targetType, setTargetType] = useState<TargetType>('none')
   const [targetId, setTargetId] = useState('')
   const [uploading, setUploading] = useState(false)
@@ -138,7 +140,7 @@ export default function BannersPage({ params }: Props) {
   }
 
   const resetForm = () => {
-    setForm({ title: '', image_url: '', link_url: '', sort_order: '0' })
+    setForm({ title: '', image_url: '', link_url: '', sort_order: '0', placement: 'both' })
     setTargetType('none')
     setTargetId('')
     setPreview('')
@@ -158,6 +160,7 @@ export default function BannersPage({ params }: Props) {
         image_url: form.image_url,
         link_url: buildLinkUrl(),
         sort_order: parseInt(form.sort_order),
+        placement: form.placement,
       }
 
       if (editingId) {
@@ -183,6 +186,7 @@ export default function BannersPage({ params }: Props) {
       image_url: banner.image_url,
       link_url: parsed.url,
       sort_order: String(banner.sort_order),
+      placement: banner.placement || 'both',
     })
     setTargetType(parsed.type)
     setTargetId(parsed.id)
@@ -372,6 +376,19 @@ export default function BannersPage({ params }: Props) {
               </select>
             </label>
 
+            <label className="block">
+              <span className="mb-1 block text-sm font-medium text-gray-700">Donde se muestra</span>
+              <select
+                value={form.placement}
+                onChange={e => setForm(f => ({ ...f, placement: e.target.value as BannerPlacement }))}
+                className="w-full rounded-lg border px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="top">Banner de arriba</option>
+                <option value="bottom">Banner de abajo</option>
+                <option value="both">Arriba y abajo</option>
+              </select>
+            </label>
+
             {targetType === 'product' && (
               <label className="block">
                 <span className="mb-1 block text-sm font-medium text-gray-700">Producto</span>
@@ -444,7 +461,15 @@ export default function BannersPage({ params }: Props) {
                   <BannerPreview src={banner.image_url} title={banner.title} className="h-24 w-24 rounded object-cover" />
                   <div className="min-w-0 flex-1">
                     <p className="font-semibold text-gray-900">{banner.title}</p>
-                    <p className="mt-1 text-xs font-semibold text-gray-500">{isVideoMedia(banner.image_url) ? 'Video kiosko' : 'Imagen kiosko'}</p>
+                    <p className="mt-1 text-xs font-semibold text-gray-500">
+                      {isVideoMedia(banner.image_url) ? 'Video kiosko' : 'Imagen kiosko'} · {
+                        banner.placement === 'top'
+                          ? 'Arriba'
+                          : banner.placement === 'bottom'
+                            ? 'Abajo'
+                            : 'Arriba y abajo'
+                      }
+                    </p>
                     {banner.link_url && <p className="truncate text-xs text-blue-600">{banner.link_url}</p>}
                     <p className="mt-1 text-xs text-gray-500">Orden: {banner.sort_order}</p>
                   </div>

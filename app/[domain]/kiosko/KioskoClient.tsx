@@ -13,7 +13,14 @@ interface MenuItem {
   price: number; image_url: string | null; available: boolean
   category_id: string | null; featured: boolean; variants?: { show_in_upsell?: boolean } | null
 }
-interface Banner { id: string; title: string; image_url: string; link_url: string | null; sort_order: number }
+interface Banner {
+  id: string
+  title: string
+  image_url: string
+  link_url: string | null
+  sort_order: number
+  placement?: 'top' | 'bottom' | 'both' | null
+}
 interface Topping { id: string; menu_item_id: string; name: string; price: number; is_required?: boolean; sort_order?: number }
 interface CartItem { lineId: string; menu_item_id: string; name: string; price: number; qty: number; toppings?: Topping[]; notes?: string }
 type Step = 'menu' | 'cart' | 'checkout' | 'confirmed'
@@ -496,13 +503,6 @@ export default function KioskoClient({
   const surfaceTextColor = '#FFF4D8'
   const surfaceMutedTextColor = textSecondaryColor || '#B9A989'
 
-  useEffect(() => {
-    if (step !== 'menu' || banners.length <= 1) return
-    const interval = setInterval(() => {
-      setAdBannerIndex(prev => (prev + 1) % banners.length)
-    }, 5000)
-    return () => clearInterval(interval)
-  }, [banners.length, step])
   const accentTextColor = readableText(accentColor)
 
   useEffect(() => {
@@ -730,6 +730,20 @@ export default function KioskoClient({
       events.forEach(event => window.removeEventListener(event, armAttraction))
     }
   }, [cart.length, step])
+
+  const topBanners = banners.filter(banner => (banner.placement || 'both') !== 'bottom')
+  const bottomBanners = banners.filter(banner => (banner.placement || 'both') !== 'top')
+  const rotationLength = Math.max(topBanners.length, bottomBanners.length, banners.length)
+  const activeAdBanner = topBanners.length > 0 ? topBanners[adBannerIndex % topBanners.length] : null
+  const secondaryAdBanner = bottomBanners.length > 0 ? bottomBanners[adBannerIndex % bottomBanners.length] : null
+
+  useEffect(() => {
+    if (step !== 'menu' || rotationLength <= 1) return
+    const interval = setInterval(() => {
+      setAdBannerIndex(prev => (prev + 1) % rotationLength)
+    }, 5000)
+    return () => clearInterval(interval)
+  }, [rotationLength, step])
 
   const getQtyInCart = (id: string) => cart.filter(c => c.menu_item_id === id).reduce((sum, c) => sum + c.qty, 0)
   const toppingsForSelectedItem = selectedItem ? toppings.filter(t => t.menu_item_id === selectedItem.id) : []
@@ -1179,8 +1193,6 @@ export default function KioskoClient({
   const visibleItems = activeCategory
     ? menuItems.filter(i => i.category_id === activeCategory)
     : menuItems
-  const activeAdBanner = banners.length > 0 ? banners[adBannerIndex % banners.length] : null
-  const secondaryAdBanner = banners.length > 1 ? banners[(adBannerIndex + 1) % banners.length] : null
 
   const renderAdPanel = (banner: Banner, label: string, compact = false) => (
     <button
@@ -1253,13 +1265,13 @@ export default function KioskoClient({
         </div>
       </div>
 
-      {!compact && banners.length > 1 && (
+      {!compact && topBanners.length > 1 && (
         <div className="absolute bottom-5 left-1/2 z-20 flex -translate-x-1/2 items-center gap-2 rounded-full border border-white/12 bg-black/42 px-3 py-2 shadow-xl backdrop-blur-md">
-          {banners.map((item, idx) => (
+          {topBanners.map((item, idx) => (
             <span
               key={item.id}
-              className={`h-2 rounded-full transition-all ${idx === adBannerIndex % banners.length ? 'w-9' : 'w-2 bg-white/45'}`}
-              style={idx === adBannerIndex % banners.length ? { backgroundColor: primaryColor } : undefined}
+              className={`h-2 rounded-full transition-all ${idx === adBannerIndex % topBanners.length ? 'w-9' : 'w-2 bg-white/45'}`}
+              style={idx === adBannerIndex % topBanners.length ? { backgroundColor: primaryColor } : undefined}
             />
           ))}
         </div>
@@ -1368,13 +1380,13 @@ export default function KioskoClient({
               </div>
             </div>
 
-            {banners.length > 1 && (
+            {topBanners.length > 1 && (
               <div className="flex items-center justify-center gap-2">
-                {banners.map((item, idx) => (
+                {topBanners.map((item, idx) => (
                   <span
                     key={item.id}
-                    className={`h-2 rounded-full transition-all ${idx === adBannerIndex % banners.length ? 'w-12' : 'w-2 bg-white/45'}`}
-                    style={idx === adBannerIndex % banners.length ? { backgroundColor: primaryColor } : undefined}
+                    className={`h-2 rounded-full transition-all ${idx === adBannerIndex % topBanners.length ? 'w-12' : 'w-2 bg-white/45'}`}
+                    style={idx === adBannerIndex % topBanners.length ? { backgroundColor: primaryColor } : undefined}
                   />
                 ))}
               </div>
@@ -1454,9 +1466,19 @@ export default function KioskoClient({
         </aside>
 
         <div className="flex-1 overflow-hidden bg-[linear-gradient(180deg,rgba(255,255,255,0.035),rgba(0,0,0,0.28))] p-3 md:p-5 xl:p-7">
-          {activeAdBanner ? (
+          {activeAdBanner || secondaryAdBanner ? (
             <section className="grid h-full grid-rows-[minmax(0,1.1fr)_minmax(170px,0.9fr)] gap-3 md:gap-5">
-              {renderAdPanel(activeAdBanner, 'Publicidad')}
+              {activeAdBanner ? (
+                renderAdPanel(activeAdBanner, 'Publicidad')
+              ) : (
+                <div
+                  className="flex h-full flex-col justify-center rounded-[1.6rem] border p-6 text-center shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] md:rounded-[2.4rem] md:p-10"
+                  style={{ backgroundColor: surfaceColor, borderColor: `${primaryColor}42`, color: surfaceTextColor }}
+                >
+                  <p className="text-xs font-black uppercase tracking-[0.24em]" style={{ color: primaryColor }}>Banner de arriba</p>
+                  <p className="mt-3 text-3xl font-black leading-none md:text-5xl">Asigna un banner para la parte superior</p>
+                </div>
+              )}
               {secondaryAdBanner ? (
                 renderAdPanel(secondaryAdBanner, 'Promocion', true)
               ) : (
