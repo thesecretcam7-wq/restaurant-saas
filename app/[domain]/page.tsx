@@ -159,7 +159,7 @@ export default async function HomePage({ params }: HomePageProps) {
   const isLightTheme = themeMode === 'light'
   const lightPrimary = '#ff5a00'
   const lightAccent = '#ff1f1f'
-  const lightSecondary = '#b6ff00'
+  const lightSecondary = '#fff3e8'
   const themeColors = isLightTheme
     ? {
         background: '#ffffff',
@@ -349,7 +349,7 @@ export default async function HomePage({ params }: HomePageProps) {
             case 'banner':
               return <PremiumBand key={section.id} surfaceColor={themeColors.surface}><BannerSection banner={banner} borderRadius={br} /></PremiumBand>
             case 'featured':
-              return <FeaturedSection key={section.id} tenantId={tenant.slug} items={featured || []} primary={primary} buttonColor={buttonPrimary} priceColor={accent} title={sTitle || tr('store.mostOrdered')} borderRadius={br} cardClasses={cardCls} animations={anim} currencyInfo={currencyInfo} basePath={tenantBasePath} />
+              return <FeaturedSection key={section.id} tenantId={tenant.slug} items={featured || []} primary={isLightTheme ? lightPrimary : primary} buttonColor={isLightTheme ? lightPrimary : buttonPrimary} priceColor={isLightTheme ? lightAccent : accent} title={sTitle || tr('store.mostOrdered')} borderRadius={br} cardClasses={cardCls} animations={anim} currencyInfo={currencyInfo} basePath={tenantBasePath} />
             case 'about':
               return <PremiumBand key={section.id} surfaceColor={themeColors.surface}><AboutSection about={about} borderRadius={br} cardClasses={cardCls} /></PremiumBand>
             case 'info':

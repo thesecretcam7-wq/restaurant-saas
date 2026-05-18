@@ -134,12 +134,12 @@ export default async function MenuPage({ params }: MenuProps) {
   const themeMode = pageConfig.appearance.theme_mode
   const isLightTheme = themeMode === 'light'
   if (isLightTheme) {
-    primary = '#00e5ff'
-    buttonColor = '#00e5ff'
-    priceColor = '#ff00e5'
+    primary = '#ff5a00'
+    buttonColor = '#ff5a00'
+    priceColor = '#ff1f1f'
     menuTextColor = '#07111f'
     menuMutedTextColor = 'rgba(7, 17, 31, 0.72)'
-    categoryInactiveColor = '#b6ff00'
+    categoryInactiveColor = '#fff3e8'
   }
   const backgroundStyle = useGradient
     ? { backgroundImage: sectionBackgroundImage ? `${baseBackgroundImage}, url(${sectionBackgroundImage})` : baseBackgroundImage, backgroundBlendMode: sectionBackgroundImage ? 'normal, soft-light' : undefined, backgroundSize: sectionBackgroundImage ? 'auto, cover' : undefined, backgroundPosition: sectionBackgroundImage ? 'center, center' : undefined }
@@ -171,11 +171,11 @@ export default async function MenuPage({ params }: MenuProps) {
   const featuredCarousel = featured.length > 1 ? featured : items.slice(0, 8)
   const sectionSurface = isLightTheme ? '#ffffff' : 'rgba(255, 247, 223, 0.07)'
   const cardSurface = isLightTheme ? '#ffffff' : 'rgba(255, 247, 223, 0.055)'
-  const sectionBorder = isLightTheme ? 'rgba(0, 229, 255, 0.26)' : 'rgba(231, 180, 63, 0.26)'
-  const softSurface = isLightTheme ? 'rgba(0, 229, 255, 0.10)' : 'rgba(231, 180, 63, 0.10)'
-  const countTextColor = isLightTheme ? 'rgba(7, 17, 31, 0.72)' : 'rgba(255, 247, 223, 0.68)'
+  const sectionBorder = isLightTheme ? 'rgba(255, 90, 0, 0.24)' : 'rgba(231, 180, 63, 0.26)'
+  const softSurface = isLightTheme ? 'rgba(255, 90, 0, 0.12)' : 'rgba(231, 180, 63, 0.10)'
+  const countTextColor = isLightTheme ? '#ff5a00' : 'rgba(255, 247, 223, 0.68)'
   const headerClass = isLightTheme
-    ? 'fixed inset-x-0 top-0 z-[60] border-b border-cyan-300/50 bg-white/95 shadow-lg shadow-cyan-500/10 backdrop-blur-xl'
+    ? 'fixed inset-x-0 top-0 z-[60] border-b border-orange-200/70 bg-white/95 shadow-lg shadow-orange-500/10 backdrop-blur-xl'
     : 'fixed inset-x-0 top-0 z-[60] border-b border-[#e7b43f]/20 bg-[#0b0a08]/95 shadow-lg shadow-black/20 backdrop-blur-xl'
   const headerTextColor = isLightTheme ? '#07111f' : '#fff7df'
 
@@ -232,8 +232,8 @@ export default async function MenuPage({ params }: MenuProps) {
               <p className="text-xs text-gray-500 font-medium">Menú</p>
             </div>
           </div>
-          <Link href={`${storeBasePath}/carrito`} className="relative flex-shrink-0 rounded-xl border p-2 transition-all hover:bg-white/14 active:bg-white/20 sm:p-2.5" style={{ borderColor: isLightTheme ? 'rgba(0,229,255,.32)' : 'rgba(231,180,63,.25)', backgroundColor: isLightTheme ? 'rgba(0,229,255,.10)' : 'rgba(255,255,255,.08)' }} title="Carrito">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={buttonColor} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="sm:w-5 sm:h-5">
+          <Link href={`${storeBasePath}/carrito`} className="relative flex-shrink-0 rounded-xl border p-2 transition-all hover:bg-white/14 active:bg-white/20 sm:p-2.5" style={{ borderColor: isLightTheme ? 'rgba(255,90,0,.32)' : 'rgba(231,180,63,.25)', backgroundColor: isLightTheme ? 'rgba(255,90,0,.10)' : 'rgba(255,255,255,.08)' }} title="Carrito">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={isLightTheme ? '#07111f' : buttonColor} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="sm:w-5 sm:h-5">
               <path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/>
               <line x1="3" y1="6" x2="21" y2="6"/>
               <path d="M16 10a4 4 0 0 1-8 0"/>
@@ -326,7 +326,7 @@ export default async function MenuPage({ params }: MenuProps) {
               </div>
             </div>
             {featuredCarousel.length > 1 && (
-              <div className="pointer-events-none absolute right-5 top-[50%] z-10 flex items-center gap-2 rounded-full border px-3 py-2 text-xs font-black shadow-2xl backdrop-blur-md sm:right-7" style={{ borderColor: isLightTheme ? 'rgba(236,72,153,.22)' : 'rgba(255,255,255,.30)', background: isLightTheme ? 'linear-gradient(135deg, rgba(255,255,255,.92), rgba(236,253,245,.82))' : 'rgba(0,0,0,.62)', color: isLightTheme ? '#221106' : '#ffffff' }}>
+              <div className="pointer-events-none absolute right-5 top-[50%] z-10 flex items-center gap-2 rounded-full border px-3 py-2 text-xs font-black shadow-2xl backdrop-blur-md sm:right-7" style={{ borderColor: isLightTheme ? 'rgba(255,31,31,.24)' : 'rgba(255,255,255,.30)', background: isLightTheme ? 'linear-gradient(135deg, rgba(255,255,255,.92), rgba(236,253,245,.82))' : 'rgba(0,0,0,.62)', color: isLightTheme ? '#221106' : '#ffffff' }}>
                 <span>Desliza</span>
                 <span className="text-lg leading-none" aria-hidden="true">→</span>
               </div>
