@@ -50,7 +50,7 @@ export default function FeaturedSection({ tenantId, items, primary, buttonColor 
             style={{
               borderRadius,
               animationDelay: animations ? `${i * 60}ms` : undefined,
-              backgroundImage: `linear-gradient(135deg, ${primary}12, transparent 58%)`,
+              backgroundImage: 'none',
             }}
           >
             {item.image_url ? (

@@ -147,39 +147,34 @@
   --store-dim: rgba(7, 17, 31, 0.52);
   --store-panel: #ffffff;
   --store-panel-2: #ffffff;
-  --store-border: rgba(0, 229, 255, 0.26);
-  --store-blue: #00e5ff;
-  --store-pink: #ff00e5;
+  --store-border: rgba(7, 17, 31, 0.10);
+  --store-blue: #ff5a00;
+  --store-pink: #ff1f1f;
   --store-green: #b6ff00;
   background: #ffffff !important;
   color: var(--store-ink);
 }
 
 .ecco-store-light::before {
-  background-image:
-    linear-gradient(rgba(0, 229, 255, 0.032) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255, 0, 229, 0.022) 1px, transparent 1px);
-  opacity: 0.38;
+  display: none;
 }
 
 .ecco-store-light header {
   background: rgba(255, 255, 255, 0.96) !important;
   border-color: var(--store-border) !important;
-  box-shadow: 0 18px 60px rgba(0, 229, 255, 0.13) !important;
+  box-shadow: 0 18px 60px rgba(7, 17, 31, 0.08) !important;
 }
 
 .ecco-store-light .bg-white,
 .ecco-store-light .bg-gray-50,
 .ecco-store-light .bg-gray-100 {
-  background:
-    linear-gradient(145deg, rgba(255, 255, 255, 0.99), rgba(248, 251, 255, 0.82)),
-    var(--store-panel) !important;
+  background: #ffffff !important;
 }
 
 .ecco-store-light .shadow-sm,
 .ecco-store-light .shadow-lg,
 .ecco-store-light .shadow-xl {
-  box-shadow: 0 22px 70px rgba(0, 229, 255, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.98) !important;
+  box-shadow: 0 18px 48px rgba(7, 17, 31, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.98) !important;
 }
 
 .ecco-store-light .text-white,
@@ -209,7 +204,7 @@
 .ecco-store-light textarea,
 .ecco-store-light select {
   background: rgba(255, 255, 255, 0.94) !important;
-  border-color: rgba(0, 229, 255, 0.28) !important;
+  border-color: var(--store-border) !important;
   color: var(--store-ink) !important;
 }
 
@@ -219,30 +214,33 @@
 }
 
 .ecco-store-light .menu-rise {
-  background:
-    radial-gradient(circle at 18% 0%, rgba(0, 229, 255, 0.11), transparent 15rem),
-    radial-gradient(circle at 82% 8%, rgba(255, 0, 229, 0.08), transparent 16rem),
-    linear-gradient(145deg, rgba(255, 255, 255, 0.99), rgba(248, 251, 255, 0.86)),
-    var(--store-panel-2) !important;
+  background: #ffffff !important;
 }
 
 .ecco-store-light nav {
   background: rgba(255, 255, 255, 0.96) !important;
   border-color: var(--store-border) !important;
-  box-shadow: 0 -18px 60px rgba(0, 229, 255, 0.14) !important;
+  box-shadow: 0 -18px 52px rgba(7, 17, 31, 0.10) !important;
 }
 
 .ecco-store-light .store-action-card {
-  border-color: rgba(0, 229, 255, 0.24) !important;
+  border-color: var(--store-border) !important;
 }
 
 .ecco-store-light .bg-\[\#151410\]\/92,
 .ecco-store-light .bg-\[\#0b0a08\]\/95,
 .ecco-store-light .bg-\[\#0d0c09\]\/92,
 .ecco-store-light .bg-black\/62 {
-  background:
-    linear-gradient(145deg, rgba(255, 255, 255, 0.98), rgba(248, 251, 255, 0.88)) !important;
+  background: #ffffff !important;
   color: var(--store-ink) !important;
+}
+
+.ecco-store-light main,
+.ecco-store-light section:not(.store-hero-invert),
+.ecco-store-light .store-action-card {
+  background-color: #ffffff !important;
+  background-image: none !important;
+  border-color: var(--store-border) !important;
 }
 
 .ecco-store-light .text-\[\#fff7df\],
@@ -252,13 +250,21 @@
 
 .ecco-store-light button[style*="background-color"],
 .ecco-store-light a[style*="background-color"] {
-  background: linear-gradient(135deg, var(--store-blue) 0%, var(--store-green) 48%, var(--store-pink) 100%) !important;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.58) 0%, rgba(255, 255, 255, 0.18) 38%, rgba(255, 255, 255, 0) 54%),
+    var(--store-blue) !important;
   color: #07111f !important;
-  box-shadow: 0 16px 38px rgba(0, 229, 255, 0.22), inset 0 1px 0 rgba(255, 255, 255, 0.28) !important;
+  box-shadow:
+    0 14px 0 rgba(7, 17, 31, 0.16),
+    0 22px 36px rgba(7, 17, 31, 0.24),
+    inset 0 2px 0 rgba(255, 255, 255, 0.72),
+    inset 0 -3px 0 rgba(120, 37, 0, 0.24) !important;
 }
 
 .ecco-store-light button[style*="background:"],
 .ecco-store-light a[style*="background:"] {
-  background: linear-gradient(135deg, var(--store-blue) 0%, var(--store-green) 48%, var(--store-pink) 100%) !important;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.58) 0%, rgba(255, 255, 255, 0.18) 38%, rgba(255, 255, 255, 0) 54%),
+    var(--store-blue) !important;
   color: #07111f !important;
 }

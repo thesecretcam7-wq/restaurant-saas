@@ -157,8 +157,8 @@ export default async function HomePage({ params }: HomePageProps) {
   const featuredText = (branding as any)?.featured_text?.trim()
   const sectionBackgroundImage = (branding as any)?.section_background_image_url || ''
   const isLightTheme = themeMode === 'light'
-  const lightPrimary = '#00e5ff'
-  const lightAccent = '#ff00e5'
+  const lightPrimary = '#ff5a00'
+  const lightAccent = '#ff1f1f'
   const lightSecondary = '#b6ff00'
   const themeColors = isLightTheme
     ? {
@@ -241,22 +241,7 @@ export default async function HomePage({ params }: HomePageProps) {
   return (
     <div className={`ecco-store-premium ${isLightTheme ? 'ecco-store-light' : 'ecco-store-dark'} store-surface min-h-screen overflow-hidden pb-[calc(6.5rem+env(safe-area-inset-bottom))] pt-16`} style={pageBackgroundStyle}>
       <header className="fixed left-0 right-0 top-0 z-50 border-b backdrop-blur-xl" style={{ position: 'fixed', backgroundColor: themeColors.header, borderColor: isLightTheme ? 'rgba(0, 229, 255, 0.28)' : 'rgba(231, 180, 63, 0.20)' }}>
-        <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
-          <Link href={tenantHomePath} className="flex min-w-0 items-center gap-3">
-            {tenant.logo_url ? (
-              <span className="flex h-11 w-20 flex-shrink-0 items-center justify-center overflow-hidden rounded-xl bg-white">
-                <img src={tenant.logo_url} alt={appName} className="max-h-full max-w-full object-contain drop-shadow-sm" />
-              </span>
-            ) : (
-              <span className="grid size-11 flex-shrink-0 place-items-center rounded-2xl border text-lg font-black" style={{ borderColor: isLightTheme ? 'rgba(0,229,255,.35)' : 'rgba(231,180,63,.28)', backgroundColor: isLightTheme ? lightPrimary : 'rgba(231,180,63,.15)', color: isLightTheme ? '#07111f' : '#ffcf64' }}>
-                {appName.slice(0, 1).toUpperCase()}
-              </span>
-            )}
-            <span className="min-w-0">
-              <span className="block truncate text-sm font-black sm:text-base" style={{ color: themeColors.text }}>{appName}</span>
-              <span className="block truncate text-[11px] font-black uppercase tracking-[0.16em]" style={{ color: isLightTheme ? lightPrimary : '#e7b43f' }}>{tr('store.onlineOrder')}</span>
-            </span>
-          </Link>
+        <div className="mx-auto flex h-16 max-w-7xl items-center justify-end px-4 sm:px-6 lg:px-8">
           <div className="flex items-center gap-2">
             <LanguageSwitcher compact className="border-[#e7b43f]/25 bg-white/8 [&_select]:text-current" reloadOnChange />
           </div>
@@ -276,7 +261,23 @@ export default async function HomePage({ params }: HomePageProps) {
           <div className="absolute inset-x-0 bottom-0 h-48" style={{ background: `linear-gradient(to top, ${themeColors.background}, transparent)` }} />
         </div>
 
-        <div className="relative z-10 grid gap-6 px-5 py-6 sm:px-8 sm:py-9 lg:grid-cols-[minmax(0,1fr)_360px] lg:p-10">
+        <Link
+          href={tenantHomePath}
+          className="absolute left-5 top-5 z-20 flex items-center justify-center sm:left-8 sm:top-7"
+          aria-label={appName}
+        >
+          {tenant.logo_url ? (
+            <span className="flex h-24 w-28 flex-shrink-0 items-center justify-center overflow-visible sm:h-28 sm:w-32">
+              <img src={tenant.logo_url} alt={appName} className="max-h-full max-w-full object-contain drop-shadow-[0_12px_28px_rgba(0,0,0,.32)]" />
+            </span>
+          ) : (
+            <span className="grid size-20 flex-shrink-0 place-items-center rounded-2xl border text-3xl font-black sm:size-24 sm:text-4xl" style={{ borderColor: isLightTheme ? 'rgba(0,229,255,.35)' : 'rgba(231,180,63,.28)', backgroundColor: isLightTheme ? lightPrimary : 'rgba(231,180,63,.15)', color: isLightTheme ? '#07111f' : '#ffcf64' }}>
+              {appName.slice(0, 1).toUpperCase()}
+            </span>
+          )}
+        </Link>
+
+        <div className="relative z-10 grid gap-6 px-5 pb-6 pt-32 sm:px-8 sm:pb-9 sm:pt-36 lg:grid-cols-[minmax(0,1fr)_360px] lg:p-10 lg:pt-40">
           <div className="max-w-3xl">
             <div className="mb-4 inline-flex rounded-full border px-4 py-2 text-xs font-black uppercase backdrop-blur-md" style={{ borderColor: isLightTheme && !heroImage ? 'rgba(34,17,6,.18)' : 'rgba(231,180,63,.28)', backgroundColor: isLightTheme && !heroImage ? 'rgba(255,255,255,.54)' : 'rgba(231,180,63,.12)', color: isLightTheme && !heroImage ? '#9a3412' : '#ffcf64' }}>
               Carta digital premium
@@ -296,7 +297,15 @@ export default async function HomePage({ params }: HomePageProps) {
             )}
             {hero.show_info_pills && <InfoPills settings={settings} primary={primary} />}
             <div className="mt-6 flex flex-col gap-3 sm:flex-row">
-              <Link href={`${tenantBasePath}/menu`} className="inline-flex h-14 items-center justify-center rounded-2xl px-7 text-sm font-black text-[#15130f] shadow-[0_18px_48px_rgba(231,180,63,.28)] transition hover:-translate-y-0.5" style={{ background: `linear-gradient(135deg, ${buttonPrimary}, ${accent})` }}>
+              <Link
+                href={`${tenantBasePath}/menu`}
+                className="inline-flex h-14 items-center justify-center rounded-2xl px-7 text-sm font-black transition hover:-translate-y-0.5"
+                style={{
+                  background: isLightTheme ? lightPrimary : `linear-gradient(135deg, ${buttonPrimary}, ${accent})`,
+                  color: isLightTheme ? '#07111f' : '#15130f',
+                  boxShadow: isLightTheme ? '0 18px 42px rgba(7,17,31,.14)' : '0 18px 48px rgba(231,180,63,.28)',
+                }}
+              >
                 {hero.cta_primary_text || tr('store.viewMenu')}
               </Link>
               {settings?.reservations_enabled && (
@@ -338,23 +347,23 @@ export default async function HomePage({ params }: HomePageProps) {
           const sTitle = section.title || ''
           switch (section.type) {
             case 'banner':
-              return <PremiumBand key={section.id} surfaceColor={sectionSurface}><BannerSection banner={banner} borderRadius={br} /></PremiumBand>
+              return <PremiumBand key={section.id} surfaceColor={themeColors.surface}><BannerSection banner={banner} borderRadius={br} /></PremiumBand>
             case 'featured':
               return <FeaturedSection key={section.id} tenantId={tenant.slug} items={featured || []} primary={primary} buttonColor={buttonPrimary} priceColor={accent} title={sTitle || tr('store.mostOrdered')} borderRadius={br} cardClasses={cardCls} animations={anim} currencyInfo={currencyInfo} basePath={tenantBasePath} />
             case 'about':
-              return <PremiumBand key={section.id} surfaceColor={sectionSurface}><AboutSection about={about} borderRadius={br} cardClasses={cardCls} /></PremiumBand>
+              return <PremiumBand key={section.id} surfaceColor={themeColors.surface}><AboutSection about={about} borderRadius={br} cardClasses={cardCls} /></PremiumBand>
             case 'info':
-              return settings ? <PremiumBand key={section.id} surfaceColor={sectionSurface}><InfoSection settings={settings} primary={primary} borderRadius={br} cardClasses={cardCls} /></PremiumBand> : null
+              return settings ? <PremiumBand key={section.id} surfaceColor={themeColors.surface}><InfoSection settings={settings} primary={primary} borderRadius={br} cardClasses={cardCls} /></PremiumBand> : null
             case 'gallery':
-              return <PremiumBand key={section.id} surfaceColor={sectionSurface}><GallerySection gallery={gallery} title={sTitle || tr('store.gallery')} borderRadius={br} /></PremiumBand>
+              return <PremiumBand key={section.id} surfaceColor={themeColors.surface}><GallerySection gallery={gallery} title={sTitle || tr('store.gallery')} borderRadius={br} /></PremiumBand>
             case 'hours':
-              return settings ? <PremiumBand key={section.id} surfaceColor={sectionSurface}><HoursSection settings={settings} primary={primary} title={sTitle || tr('store.hours')} borderRadius={br} cardClasses={cardCls} /></PremiumBand> : null
+              return settings ? <PremiumBand key={section.id} surfaceColor={themeColors.surface}><HoursSection settings={settings} primary={primary} title={sTitle || tr('store.hours')} borderRadius={br} cardClasses={cardCls} /></PremiumBand> : null
             case 'testimonials':
-              return <PremiumBand key={section.id} surfaceColor={sectionSurface}><TestimonialsSection testimonials={testimonials} primary={primary} title={sTitle || tr('store.reviews')} borderRadius={br} cardClasses={cardCls} /></PremiumBand>
+              return <PremiumBand key={section.id} surfaceColor={themeColors.surface}><TestimonialsSection testimonials={testimonials} primary={primary} title={sTitle || tr('store.reviews')} borderRadius={br} cardClasses={cardCls} /></PremiumBand>
             case 'actions':
               return settings ? <ActionsSection key={section.id} tenantId={tenant.slug} settings={settings} primary={primary} borderRadius={br} basePath={tenantBasePath} /> : null
             case 'social':
-              return <PremiumBand key={section.id} surfaceColor={sectionSurface}><SocialSection social={mergedSocial} primary={primary} title={sTitle || 'Siguenos'} borderRadius={br} /></PremiumBand>
+              return <PremiumBand key={section.id} surfaceColor={themeColors.surface}><SocialSection social={mergedSocial} primary={primary} title={sTitle || 'Siguenos'} borderRadius={br} /></PremiumBand>
             default:
               return null
           }
@@ -370,7 +379,7 @@ export default async function HomePage({ params }: HomePageProps) {
         </div>
       </footer>
 
-      <BottomNav tenantId={tenant.slug} primaryColor={buttonPrimary} basePath={tenantBasePath} themeMode={themeMode} />
+      <BottomNav tenantId={tenant.slug} primaryColor={isLightTheme ? lightPrimary : buttonPrimary} basePath={tenantBasePath} themeMode={themeMode} />
       <WhatsAppFloat whatsapp={whatsappLink} restaurantName={appName} primaryColor="#25D366" />
     </div>
   )
@@ -378,7 +387,7 @@ export default async function HomePage({ params }: HomePageProps) {
 
 function PremiumBand({ children, surfaceColor = '#ffffff' }: { children: React.ReactNode; surfaceColor?: string }) {
   return (
-    <section className="overflow-hidden rounded-[28px] border border-black/8 shadow-xl shadow-black/[0.04]" style={{ backgroundColor: `${surfaceColor}e0` }}>
+    <section className="overflow-hidden rounded-[28px] border border-black/8 bg-white shadow-xl shadow-black/[0.04]" style={{ backgroundColor: surfaceColor, backgroundImage: 'none' }}>
       {children}
     </section>
   )

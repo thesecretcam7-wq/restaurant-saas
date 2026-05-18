@@ -64,7 +64,11 @@ export default function BottomNav({
   const cartCount = mounted ? items.reduce((s, i) => s + i.qty, 0) : 0
   const color = primaryColor || '#4F46E5'
   const isLight = themeMode === 'light'
-  const inactiveColor = isLight ? 'rgba(21,19,15,.62)' : 'rgba(255,247,223,.72)'
+  const inactiveColor = isLight ? 'rgba(7,17,31,.62)' : 'rgba(255,247,223,.72)'
+  const navBorderColor = isLight ? 'rgba(7,17,31,.12)' : 'rgba(231,180,63,.24)'
+  const activeGlow = isLight ? 'rgba(255,90,0,.34)' : 'rgba(231,180,63,.22)'
+  const activeTopGlow = isLight ? 'rgba(255,90,0,.9)' : 'rgba(255,207,100,.85)'
+  const activeTextColor = isLight ? '#07111f' : color
   const pathBase = basePath ?? `/${tenantId}`
   const homePath = pathBase || '/'
   const normalizedPath = pathname.replace(/\/+$/, '') || '/'
@@ -99,7 +103,7 @@ export default function BottomNav({
         inset: 'auto 0 0 0',
         paddingBottom: 'calc(env(safe-area-inset-bottom) + 0.75rem)',
         background: isLight
-          ? 'linear-gradient(to top, rgba(248,245,238,.96), rgba(248,245,238,.84) 68%, rgba(248,245,238,0))'
+          ? 'linear-gradient(to top, rgba(255,255,255,.98), rgba(255,255,255,.92) 68%, rgba(255,255,255,0))'
           : 'linear-gradient(to top, rgba(0,0,0,.94), rgba(0,0,0,.72) 68%, rgba(0,0,0,0))',
         transform: 'translate3d(0, 0, 0)',
         WebkitTransform: 'translate3d(0, 0, 0)',
@@ -107,7 +111,16 @@ export default function BottomNav({
       }}
       aria-label="Navegacion de tienda"
     >
-      <div className="mx-auto flex h-[72px] max-w-md items-center gap-1 rounded-[28px] border border-[#e7b43f]/24 px-2 backdrop-blur-2xl" style={{ backgroundColor: isLight ? 'rgba(255,255,255,.9)' : 'rgba(8,8,7,.88)', boxShadow: isLight ? '0 -18px 52px rgba(21,19,15,.12), inset 0 1px 0 rgba(255,255,255,.9)' : '0 -18px 52px rgba(0,0,0,.54), inset 0 1px 0 rgba(255,255,255,.08)' }}>
+      <div
+        className="mx-auto flex h-[72px] max-w-md items-center gap-1 rounded-[28px] border px-2 backdrop-blur-2xl"
+        style={{
+          backgroundColor: isLight ? 'rgba(255,255,255,.92)' : 'rgba(8,8,7,.88)',
+          borderColor: navBorderColor,
+          boxShadow: isLight
+            ? '0 -18px 52px rgba(7,17,31,.10), inset 0 1px 0 rgba(255,255,255,.92)'
+            : '0 -18px 52px rgba(0,0,0,.54), inset 0 1px 0 rgba(255,255,255,.08)',
+        }}
+      >
         {tabs.map(({ href, label, Icon, active, badge }) => (
           <Link
             key={href}
@@ -116,40 +129,47 @@ export default function BottomNav({
             aria-current={active ? 'page' : undefined}
             className={`relative flex h-[58px] flex-1 touch-manipulation flex-col items-center justify-center gap-1 rounded-[22px] transition-all duration-200 active:scale-[0.96] ${
               active
-                ? 'shadow-[0_0_28px_rgba(231,180,63,.22),inset_0_1px_0_rgba(255,255,255,.14)]'
+                ? ''
                 : 'hover:bg-white/8'
             }`}
             style={active
               ? {
                   background: isLight
-                    ? `linear-gradient(180deg, ${color}24, ${color}12)`
+                    ? `linear-gradient(180deg, rgba(255,255,255,.58) 0%, rgba(255,255,255,.16) 42%, rgba(255,255,255,0) 58%), ${color}`
                     : `linear-gradient(180deg, ${color}30, ${color}16)`,
                   border: `1px solid ${color}`,
-                  boxShadow: `0 0 28px color-mix(in srgb, ${color} 24%, transparent), inset 0 0 0 1px color-mix(in srgb, ${color} 62%, transparent)`,
+                  boxShadow: isLight
+                    ? `0 9px 0 rgba(7,17,31,.16), 0 18px 30px rgba(7,17,31,.22), 0 0 28px ${activeGlow}, inset 0 2px 0 rgba(255,255,255,.7), inset 0 -2px 0 rgba(120,37,0,.24)`
+                    : `0 0 28px ${activeGlow}, inset 0 0 0 1px color-mix(in srgb, ${color} 62%, transparent)`,
                 }
               : { border: '1px solid transparent' }}
           >
             {active && (
               <span
-                className="absolute -top-2 h-1.5 w-10 rounded-full shadow-[0_0_20px_rgba(255,207,100,.85)]"
-                style={{ backgroundColor: color }}
+                className="absolute -top-2 h-1.5 w-10 rounded-full"
+                style={{ backgroundColor: color, boxShadow: `0 0 20px ${activeTopGlow}` }}
               />
             )}
             <div className="relative">
               {active && (
                 <span className="absolute inset-0 scale-150 rounded-full opacity-20 blur-sm" style={{ backgroundColor: color }} />
               )}
-              <Icon active={active} color={color} inactiveColor={inactiveColor} />
+              <Icon active={active} color={activeTextColor} inactiveColor={inactiveColor} />
               {badge ? (
                 <span
-                  className="absolute -right-2 -top-2 flex h-[19px] min-w-[19px] items-center justify-center rounded-full px-1 text-[9px] font-black text-[#080704] shadow-[0_0_18px_rgba(255,207,100,.55)]"
-                  style={{ background: 'linear-gradient(135deg, #ffcf64, #ff8a1a)' }}
+                  className="absolute -right-2 -top-2 flex h-[19px] min-w-[19px] items-center justify-center rounded-full px-1 text-[9px] font-black text-[#080704]"
+                  style={{
+                    background: isLight
+                      ? `linear-gradient(180deg, rgba(255,255,255,.55), rgba(255,255,255,0) 56%), ${color}`
+                      : 'linear-gradient(135deg, #ffcf64, #ff8a1a)',
+                    boxShadow: isLight ? '0 5px 0 rgba(7,17,31,.16), 0 0 18px rgba(255,90,0,.52)' : '0 0 18px rgba(255,207,100,.55)',
+                  }}
                 >
                   {badge > 9 ? '9+' : badge}
                 </span>
               ) : null}
             </div>
-            <span className="text-[11px] font-black leading-none tracking-wide" style={{ color: active ? color : inactiveColor }}>
+            <span className="text-[11px] font-black leading-none tracking-wide" style={{ color: active ? activeTextColor : inactiveColor }}>
               {label}
             </span>
           </Link>

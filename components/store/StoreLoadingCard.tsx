@@ -29,7 +29,7 @@ export default function StoreLoadingCard({ color, logoUrl, appName, themeMode }:
   }, [])
 
   const primary = color || storedBranding?.primaryColor || 'var(--button-primary-color, var(--primary-color, #15130f))'
-  const lightPrimary = '#00e5ff'
+  const lightPrimary = '#ff5a00'
   const resolvedLogo = logoUrl || storedBranding?.logoUrl || null
   const storeName = appName || storedBranding?.appName || 'Restaurante'
   const isLight = (themeMode || storedBranding?.themeMode) === 'light'
@@ -72,11 +72,11 @@ export default function StoreLoadingCard({ color, logoUrl, appName, themeMode }:
         </p>
       </div>
 
-      <div className={`mt-8 h-1.5 overflow-hidden rounded-full ${isLight ? 'bg-cyan-100' : 'bg-white/10'}`}>
+      <div className={`mt-8 h-1.5 overflow-hidden rounded-full ${isLight ? 'bg-orange-100' : 'bg-white/10'}`}>
         <div
           className="h-full rounded-full"
           style={{
-            background: isLight ? 'linear-gradient(90deg, #00e5ff, #b6ff00, #ff00e5)' : primary,
+            background: isLight ? lightPrimary : primary,
             animation: 'storeLoaderBar 1.15s ease-in-out infinite',
           }}
         />
@@ -88,8 +88,8 @@ export default function StoreLoadingCard({ color, logoUrl, appName, themeMode }:
             key={index}
             className="block size-2.5 rounded-full"
             style={{
-              backgroundColor: primary,
-              boxShadow: isLight ? '0 0 18px rgba(0,229,255,.45)' : undefined,
+              backgroundColor: isLight ? lightPrimary : primary,
+              boxShadow: isLight ? '0 0 18px rgba(255,90,0,.45)' : undefined,
               animation: 'storeLoadingDot 900ms ease-in-out infinite',
               animationDelay: `${index * 140}ms`,
             }}

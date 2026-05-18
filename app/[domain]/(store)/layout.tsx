@@ -37,11 +37,11 @@ export default async function StoreLayout({ children, params }: Props) {
   const isLightTheme = themeMode === 'light'
   const themeVars = isLightTheme
     ? {
-        primary: '#00e5ff',
+        primary: '#ff5a00',
         secondary: '#b6ff00',
-        buttonPrimary: '#00e5ff',
-        buttonSecondary: '#ff00e5',
-        price: '#ff00e5',
+        buttonPrimary: '#ff5a00',
+        buttonSecondary: '#ff1f1f',
+        price: '#ff1f1f',
         background: '#ffffff',
         surface: '#ffffff',
         soft: 'rgba(0, 229, 255, 0.10)',
@@ -91,10 +91,10 @@ export default async function StoreLayout({ children, params }: Props) {
       <StoreBrandingMemory
         appName={restaurantName}
         logoUrl={storeLogoUrl}
-        primaryColor={isLightTheme ? '#00e5ff' : branding?.primary_color}
+        primaryColor={isLightTheme ? '#ff5a00' : branding?.primary_color}
       />
       {children}
-      <BottomNav tenantId={tenantSlug} primaryColor={isLightTheme ? '#00e5ff' : palette.buttonPrimary} themeMode={themeMode} />
+      <BottomNav tenantId={tenantSlug} primaryColor={isLightTheme ? '#ff5a00' : palette.buttonPrimary} themeMode={themeMode} />
       <WhatsAppFloat whatsapp={whatsappLink} restaurantName={restaurantName} primaryColor="#25D366" />
     </div>
   )
