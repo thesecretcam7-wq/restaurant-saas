@@ -137,15 +137,15 @@ export default async function MenuPage({ params }: MenuProps) {
     ? { backgroundImage: sectionBackgroundImage ? `${baseBackgroundImage}, url(${sectionBackgroundImage})` : baseBackgroundImage, backgroundBlendMode: sectionBackgroundImage ? 'normal, soft-light' : undefined, backgroundSize: sectionBackgroundImage ? 'auto, cover' : undefined, backgroundPosition: sectionBackgroundImage ? 'center, center' : undefined }
     : sectionBackgroundImage
       ? {
-          backgroundColor: isLightTheme ? '#fff7e8' : palette.background,
+          backgroundColor: isLightTheme ? '#fff7ed' : palette.background,
           backgroundImage: isLightTheme
-            ? `linear-gradient(rgba(255,247,232,.90), rgba(255,251,241,.94)), url(${sectionBackgroundImage})`
+            ? `linear-gradient(rgba(255,247,237,.90), rgba(236,254,255,.94)), url(${sectionBackgroundImage})`
             : `linear-gradient(rgba(5,5,5,.82), rgba(5,5,5,.92)), url(${sectionBackgroundImage})`,
           backgroundSize: 'cover',
           backgroundPosition: 'center',
           backgroundAttachment: 'fixed',
         }
-      : { backgroundColor: isLightTheme ? '#fff7e8' : palette.background }
+      : { backgroundColor: isLightTheme ? '#fff7ed' : palette.background }
 
   // Get currency from settings or detect from country
   const currencyInfo = settings?.currency
@@ -161,13 +161,13 @@ export default async function MenuPage({ params }: MenuProps) {
   const cardCls = getCardClasses(pageConfig.appearance.card_style)
   const btnCls = getButtonClasses(pageConfig.appearance.button_style)
   const featuredCarousel = featured.length > 1 ? featured : items.slice(0, 8)
-  const sectionSurface = isLightTheme ? '#fffdf8' : 'rgba(255, 247, 223, 0.07)'
+  const sectionSurface = isLightTheme ? '#fffdfb' : 'rgba(255, 247, 223, 0.07)'
   const cardSurface = isLightTheme ? '#ffffff' : 'rgba(255, 247, 223, 0.055)'
-  const sectionBorder = isLightTheme ? 'rgba(249, 115, 22, 0.20)' : 'rgba(231, 180, 63, 0.26)'
-  const softSurface = isLightTheme ? 'rgba(249, 115, 22, 0.10)' : 'rgba(231, 180, 63, 0.10)'
+  const sectionBorder = isLightTheme ? 'rgba(236, 72, 153, 0.22)' : 'rgba(231, 180, 63, 0.26)'
+  const softSurface = isLightTheme ? 'rgba(236, 72, 153, 0.10)' : 'rgba(231, 180, 63, 0.10)'
   const countTextColor = isLightTheme ? 'rgba(31, 19, 8, 0.74)' : 'rgba(255, 247, 223, 0.68)'
   const headerClass = isLightTheme
-    ? 'fixed inset-x-0 top-0 z-[60] border-b border-orange-200/70 bg-[#fffbf1]/95 shadow-lg shadow-orange-900/10 backdrop-blur-xl'
+    ? 'fixed inset-x-0 top-0 z-[60] border-b border-pink-200/70 bg-[#fffdf7]/95 shadow-lg shadow-pink-900/10 backdrop-blur-xl'
     : 'fixed inset-x-0 top-0 z-[60] border-b border-[#e7b43f]/20 bg-[#0b0a08]/95 shadow-lg shadow-black/20 backdrop-blur-xl'
   const headerTextColor = isLightTheme ? '#1f1308' : '#fff7df'
 
@@ -318,7 +318,7 @@ export default async function MenuPage({ params }: MenuProps) {
               </div>
             </div>
             {featuredCarousel.length > 1 && (
-              <div className="pointer-events-none absolute right-5 top-[50%] z-10 flex items-center gap-2 rounded-full border border-white/30 bg-black/62 px-3 py-2 text-xs font-black text-white shadow-2xl backdrop-blur-md sm:right-7">
+              <div className="pointer-events-none absolute right-5 top-[50%] z-10 flex items-center gap-2 rounded-full border px-3 py-2 text-xs font-black shadow-2xl backdrop-blur-md sm:right-7" style={{ borderColor: isLightTheme ? 'rgba(236,72,153,.22)' : 'rgba(255,255,255,.30)', background: isLightTheme ? 'linear-gradient(135deg, rgba(255,255,255,.92), rgba(236,253,245,.82))' : 'rgba(0,0,0,.62)', color: isLightTheme ? '#221106' : '#ffffff' }}>
                 <span>Desliza</span>
                 <span className="text-lg leading-none" aria-hidden="true">→</span>
               </div>

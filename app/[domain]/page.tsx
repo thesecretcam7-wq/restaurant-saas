@@ -159,13 +159,13 @@ export default async function HomePage({ params }: HomePageProps) {
   const isLightTheme = themeMode === 'light'
   const themeColors = isLightTheme
     ? {
-        background: '#fff7e8',
+        background: '#fff8ec',
         surface: '#ffffff',
-        soft: 'rgba(234, 88, 12, 0.10)',
-        text: '#1f1308',
+        soft: 'rgba(236, 72, 153, 0.10)',
+        text: '#221106',
         muted: 'rgba(31, 19, 8, 0.76)',
-        header: 'rgba(255, 251, 241, 0.96)',
-        heroPanel: '#fff4dc',
+        header: 'rgba(255, 253, 247, 0.96)',
+        heroPanel: '#fff1c8',
         heroText: '#fff7df',
         footerText: 'rgba(31, 19, 8, 0.72)',
       }
@@ -213,6 +213,22 @@ export default async function HomePage({ params }: HomePageProps) {
   const whatsappLink = mergedSocial.whatsapp || null
   const heroMinHeight = hero.height === 'small' ? '420px' : hero.height === 'medium' ? '480px' : '540px'
   const heroOverlay = Math.min(Math.max(hero.overlay_opacity || 45, 26), 78) / 100
+  const heroFallbackBackground = isLightTheme
+    ? 'radial-gradient(circle at 18% 18%, rgba(236,72,153,.35), transparent 18rem), radial-gradient(circle at 78% 8%, rgba(20,184,166,.28), transparent 18rem), linear-gradient(135deg, #fff1a8 0%, #ff8a3d 46%, #ff4f8b 100%)'
+    : `linear-gradient(135deg, ${primary}, ${secondary}, #111111)`
+  const heroShade = isLightTheme
+    ? heroImage
+      ? 'linear-gradient(90deg, rgba(20,9,2,.56) 0%, rgba(20,9,2,.34) 48%, rgba(20,9,2,.12) 100%)'
+      : 'linear-gradient(90deg, rgba(255,255,255,.42) 0%, rgba(255,255,255,.20) 48%, rgba(255,255,255,.08) 100%)'
+    : `linear-gradient(90deg, rgba(0,0,0,${Math.min(heroOverlay + 0.25, 0.86)}) 0%, rgba(0,0,0,${heroOverlay}) 48%, rgba(0,0,0,0.22) 100%)`
+  const heroTextColor = isLightTheme && !heroImage ? '#221106' : '#ffffff'
+  const heroMutedColor = isLightTheme && !heroImage ? 'rgba(34, 17, 6, 0.78)' : 'rgba(255,255,255,.84)'
+  const heroFeaturePanelClass = isLightTheme
+    ? 'hidden self-stretch rounded-[28px] border border-white/80 bg-white/78 p-3 shadow-2xl shadow-orange-900/10 backdrop-blur-xl lg:block'
+    : 'hidden self-stretch rounded-[28px] border border-[#e7b43f]/22 bg-white/10 p-3 shadow-2xl backdrop-blur-xl lg:block'
+  const heroFeatureInnerClass = isLightTheme
+    ? 'rounded-[22px] border border-orange-200/80 bg-white/92 p-4'
+    : 'rounded-[22px] border border-[#e7b43f]/18 bg-[#151410]/92 p-4'
   const countryCurrency = getCurrencyByCountry(settings?.country_code || settings?.country || (tenant as any)?.country || 'ES')
   const currencyInfo = settings?.currency
     ? { ...countryCurrency, code: settings.currency, symbol: settings.currency_symbol || countryCurrency.symbol }
@@ -250,23 +266,23 @@ export default async function HomePage({ params }: HomePageProps) {
           {heroImage ? (
             <img src={heroImage} alt={appName} className="h-full w-full object-cover" />
           ) : (
-            <div className="h-full w-full" style={{ background: `linear-gradient(135deg, ${primary}, ${secondary}, #111111)` }} />
+            <div className="h-full w-full" style={{ background: heroFallbackBackground }} />
           )}
-          <div className="absolute inset-0" style={{ background: `linear-gradient(90deg, rgba(0,0,0,${Math.min(heroOverlay + 0.25, 0.86)}) 0%, rgba(0,0,0,${heroOverlay}) 48%, rgba(0,0,0,0.22) 100%)` }} />
+          <div className="absolute inset-0" style={{ background: heroShade }} />
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_18%_16%,rgba(231,180,63,.2),transparent_24rem),radial-gradient(circle_at_92%_6%,rgba(255,106,26,.16),transparent_24rem)]" />
           <div className="absolute inset-x-0 bottom-0 h-48" style={{ background: `linear-gradient(to top, ${themeColors.background}, transparent)` }} />
         </div>
 
         <div className="relative z-10 grid gap-6 px-5 py-6 sm:px-8 sm:py-9 lg:grid-cols-[minmax(0,1fr)_360px] lg:p-10">
           <div className="max-w-3xl">
-            <div className="mb-4 inline-flex rounded-full border border-[#e7b43f]/28 bg-[#e7b43f]/12 px-4 py-2 text-xs font-black uppercase text-[#ffcf64] backdrop-blur-md">
+            <div className="mb-4 inline-flex rounded-full border px-4 py-2 text-xs font-black uppercase backdrop-blur-md" style={{ borderColor: isLightTheme && !heroImage ? 'rgba(34,17,6,.18)' : 'rgba(231,180,63,.28)', backgroundColor: isLightTheme && !heroImage ? 'rgba(255,255,255,.54)' : 'rgba(231,180,63,.12)', color: isLightTheme && !heroImage ? '#9a3412' : '#ffcf64' }}>
               Carta digital premium
             </div>
-            <h1 className="max-w-3xl text-4xl font-black leading-[0.92] text-white drop-shadow-xl sm:text-5xl lg:text-6xl">
+            <h1 className="max-w-3xl text-4xl font-black leading-[0.92] drop-shadow-xl sm:text-5xl lg:text-6xl" style={{ color: heroTextColor }}>
               {heroTitle}
             </h1>
             {heroSubtitle && (
-              <p className="mt-5 max-w-2xl text-base font-semibold leading-7 text-white/84 sm:text-lg">
+              <p className="mt-5 max-w-2xl text-base font-semibold leading-7 sm:text-lg" style={{ color: heroMutedColor }}>
                 {heroSubtitle}
               </p>
             )}
@@ -289,19 +305,19 @@ export default async function HomePage({ params }: HomePageProps) {
           </div>
 
           {featured.length > 0 && (
-            <div className="hidden self-stretch rounded-[28px] border border-[#e7b43f]/22 bg-white/10 p-3 shadow-2xl backdrop-blur-xl lg:block">
-              <div className="rounded-[22px] border border-[#e7b43f]/18 bg-[#151410]/92 p-4">
-                <p className="text-xs font-black uppercase text-[#e7b43f]">{tr('store.favorites')}</p>
+            <div className={heroFeaturePanelClass}>
+              <div className={heroFeatureInnerClass}>
+                <p className="text-xs font-black uppercase" style={{ color: isLightTheme ? '#db2777' : '#e7b43f' }}>{tr('store.favorites')}</p>
                 <div className="mt-4 space-y-3">
                   {featured.slice(0, 3).map((item: any) => (
-                    <Link key={item.id} href={`${tenantBasePath}/menu`} className="flex items-center gap-3 rounded-2xl border border-[#e7b43f]/14 p-2 transition hover:border-[#e7b43f]/30 hover:bg-white/[0.04]">
+                    <Link key={item.id} href={`${tenantBasePath}/menu`} className="flex items-center gap-3 rounded-2xl border p-2 transition hover:-translate-y-0.5" style={{ borderColor: isLightTheme ? 'rgba(249,115,22,.18)' : 'rgba(231,180,63,.14)', backgroundColor: isLightTheme ? 'rgba(255,247,232,.72)' : undefined }}>
                       {item.image_url ? (
                         <img src={item.image_url} alt={item.name} className="size-16 rounded-xl object-cover" />
                       ) : (
                         <span className="size-16 rounded-xl" style={{ backgroundColor: `${primary}20` }} />
                       )}
                       <span className="min-w-0 flex-1">
-                        <span className="block truncate text-sm font-black text-[#fff7df]">{item.name}</span>
+                        <span className="block truncate text-sm font-black" style={{ color: isLightTheme ? themeColors.text : '#fff7df' }}>{item.name}</span>
                         <span className="mt-1 block text-sm font-black" style={{ color: accent }}>{formatMoney(item.price)}</span>
                       </span>
                     </Link>
