@@ -142,44 +142,47 @@
 }
 
 .ecco-store-light {
-  --store-ink: #15130f;
-  --store-muted: rgba(21, 19, 15, 0.64);
-  --store-dim: rgba(21, 19, 15, 0.42);
-  --store-panel: rgba(255, 255, 255, 0.92);
-  --store-panel-2: rgba(255, 252, 246, 0.96);
-  --store-border: rgba(151, 111, 31, 0.2);
+  --store-ink: #1f1308;
+  --store-muted: rgba(31, 19, 8, 0.76);
+  --store-dim: rgba(31, 19, 8, 0.56);
+  --store-panel: rgba(255, 255, 255, 0.96);
+  --store-panel-2: rgba(255, 251, 241, 0.98);
+  --store-border: rgba(234, 88, 12, 0.24);
+  --store-coral: #f97316;
+  --store-teal: #0f766e;
   background:
-    radial-gradient(circle at 12% -10%, rgba(231, 180, 63, 0.18), transparent 24rem),
-    radial-gradient(circle at 90% 4%, rgba(255, 207, 100, 0.15), transparent 24rem),
-    linear-gradient(135deg, #fffdf8 0%, #f8f5ee 52%, #efe7d8 100%) !important;
+    radial-gradient(circle at 10% -12%, rgba(249, 115, 22, 0.24), transparent 24rem),
+    radial-gradient(circle at 90% 2%, rgba(20, 184, 166, 0.16), transparent 24rem),
+    radial-gradient(circle at 50% 110%, rgba(250, 204, 21, 0.18), transparent 26rem),
+    linear-gradient(135deg, #fffaf0 0%, #fff7e8 48%, #ffe8c2 100%) !important;
   color: var(--store-ink);
 }
 
 .ecco-store-light::before {
   background-image:
-    linear-gradient(rgba(21, 19, 15, 0.035) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(21, 19, 15, 0.03) 1px, transparent 1px);
-  opacity: 0.55;
+    linear-gradient(rgba(249, 115, 22, 0.045) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(15, 118, 110, 0.035) 1px, transparent 1px);
+  opacity: 0.5;
 }
 
 .ecco-store-light header {
-  background: rgba(255, 252, 246, 0.92) !important;
+  background: rgba(255, 251, 241, 0.96) !important;
   border-color: var(--store-border) !important;
-  box-shadow: 0 18px 60px rgba(60, 45, 17, 0.1) !important;
+  box-shadow: 0 18px 60px rgba(154, 72, 18, 0.14) !important;
 }
 
 .ecco-store-light .bg-white,
 .ecco-store-light .bg-gray-50,
 .ecco-store-light .bg-gray-100 {
   background:
-    linear-gradient(145deg, rgba(255, 255, 255, 0.94), rgba(255, 248, 235, 0.72)),
+    linear-gradient(145deg, rgba(255, 255, 255, 0.98), rgba(255, 244, 220, 0.82)),
     var(--store-panel) !important;
 }
 
 .ecco-store-light .shadow-sm,
 .ecco-store-light .shadow-lg,
 .ecco-store-light .shadow-xl {
-  box-shadow: 0 22px 70px rgba(60, 45, 17, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.95) !important;
+  box-shadow: 0 22px 70px rgba(154, 72, 18, 0.13), inset 0 1px 0 rgba(255, 255, 255, 0.98) !important;
 }
 
 .ecco-store-light .text-white,
@@ -205,28 +208,39 @@
   color: var(--store-muted) !important;
 }
 
+.ecco-store-light .text-\[\#e7b43f\],
+.ecco-store-light .text-yellow-500,
+.ecco-store-light .text-amber-500 {
+  color: var(--store-coral) !important;
+}
+
 .ecco-store-light input,
 .ecco-store-light textarea,
 .ecco-store-light select {
-  background: rgba(255, 255, 255, 0.88) !important;
-  border-color: rgba(151, 111, 31, 0.2) !important;
+  background: rgba(255, 255, 255, 0.94) !important;
+  border-color: rgba(234, 88, 12, 0.24) !important;
   color: var(--store-ink) !important;
 }
 
 .ecco-store-light input::placeholder,
 .ecco-store-light textarea::placeholder {
-  color: rgba(21, 19, 15, 0.38) !important;
+  color: rgba(31, 19, 8, 0.5) !important;
 }
 
 .ecco-store-light .menu-rise {
   background:
-    radial-gradient(circle at 18% 0%, rgba(231, 180, 63, 0.08), transparent 15rem),
-    linear-gradient(145deg, rgba(255, 255, 255, 0.96), rgba(255, 248, 235, 0.74)),
+    radial-gradient(circle at 18% 0%, rgba(249, 115, 22, 0.14), transparent 15rem),
+    radial-gradient(circle at 82% 8%, rgba(20, 184, 166, 0.08), transparent 16rem),
+    linear-gradient(145deg, rgba(255, 255, 255, 0.98), rgba(255, 244, 220, 0.82)),
     var(--store-panel-2) !important;
 }
 
 .ecco-store-light nav {
-  background: rgba(255, 252, 246, 0.92) !important;
+  background: rgba(255, 251, 241, 0.96) !important;
   border-color: var(--store-border) !important;
-  box-shadow: 0 -18px 60px rgba(60, 45, 17, 0.14) !important;
+  box-shadow: 0 -18px 60px rgba(154, 72, 18, 0.16) !important;
+}
+
+.ecco-store-light .store-action-card {
+  border-color: rgba(249, 115, 22, 0.2) !important;
 }

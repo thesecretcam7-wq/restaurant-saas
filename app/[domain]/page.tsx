@@ -159,15 +159,15 @@ export default async function HomePage({ params }: HomePageProps) {
   const isLightTheme = themeMode === 'light'
   const themeColors = isLightTheme
     ? {
-        background: '#f8f5ee',
+        background: '#fff7e8',
         surface: '#ffffff',
-        soft: 'rgba(21, 19, 15, 0.06)',
-        text: '#15130f',
-        muted: 'rgba(21, 19, 15, 0.64)',
-        header: 'rgba(255, 252, 246, 0.94)',
-        heroPanel: '#fffaf0',
+        soft: 'rgba(234, 88, 12, 0.10)',
+        text: '#1f1308',
+        muted: 'rgba(31, 19, 8, 0.76)',
+        header: 'rgba(255, 251, 241, 0.96)',
+        heroPanel: '#fff4dc',
         heroText: '#fff7df',
-        footerText: 'rgba(21, 19, 15, 0.62)',
+        footerText: 'rgba(31, 19, 8, 0.72)',
       }
     : {
         background,
@@ -184,7 +184,7 @@ export default async function HomePage({ params }: HomePageProps) {
     '--primary-color': primary,
     '--secondary-color': secondary,
     '--button-primary-color': buttonPrimary,
-    '--button-secondary-color': '#28231a',
+    '--button-secondary-color': isLightTheme ? '#0f766e' : '#28231a',
     '--price-color': accent,
     '--brand-background-color': themeColors.background,
     '--brand-surface-color': themeColors.surface,
@@ -195,7 +195,7 @@ export default async function HomePage({ params }: HomePageProps) {
     ...(sectionBackgroundImage
       ? {
           backgroundImage: isLightTheme
-            ? `linear-gradient(rgba(248,245,238,.88), rgba(248,245,238,.94)), url(${sectionBackgroundImage})`
+            ? `linear-gradient(rgba(255,247,232,.90), rgba(255,251,241,.95)), url(${sectionBackgroundImage})`
             : `linear-gradient(rgba(5,5,5,.84), rgba(5,5,5,.94)), url(${sectionBackgroundImage})`,
           backgroundSize: 'cover',
           backgroundPosition: 'center',

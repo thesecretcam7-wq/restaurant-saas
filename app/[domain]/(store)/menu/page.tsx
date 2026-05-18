@@ -137,15 +137,15 @@ export default async function MenuPage({ params }: MenuProps) {
     ? { backgroundImage: sectionBackgroundImage ? `${baseBackgroundImage}, url(${sectionBackgroundImage})` : baseBackgroundImage, backgroundBlendMode: sectionBackgroundImage ? 'normal, soft-light' : undefined, backgroundSize: sectionBackgroundImage ? 'auto, cover' : undefined, backgroundPosition: sectionBackgroundImage ? 'center, center' : undefined }
     : sectionBackgroundImage
       ? {
-          backgroundColor: palette.background,
+          backgroundColor: isLightTheme ? '#fff7e8' : palette.background,
           backgroundImage: isLightTheme
-            ? `linear-gradient(rgba(255,255,255,.78), rgba(255,255,255,.78)), url(${sectionBackgroundImage})`
+            ? `linear-gradient(rgba(255,247,232,.90), rgba(255,251,241,.94)), url(${sectionBackgroundImage})`
             : `linear-gradient(rgba(5,5,5,.82), rgba(5,5,5,.92)), url(${sectionBackgroundImage})`,
           backgroundSize: 'cover',
           backgroundPosition: 'center',
           backgroundAttachment: 'fixed',
         }
-      : { backgroundColor: palette.background }
+      : { backgroundColor: isLightTheme ? '#fff7e8' : palette.background }
 
   // Get currency from settings or detect from country
   const currencyInfo = settings?.currency
@@ -161,11 +161,15 @@ export default async function MenuPage({ params }: MenuProps) {
   const cardCls = getCardClasses(pageConfig.appearance.card_style)
   const btnCls = getButtonClasses(pageConfig.appearance.button_style)
   const featuredCarousel = featured.length > 1 ? featured : items.slice(0, 8)
-  const sectionSurface = isLightTheme ? '#ffffff' : 'rgba(255, 247, 223, 0.07)'
+  const sectionSurface = isLightTheme ? '#fffdf8' : 'rgba(255, 247, 223, 0.07)'
   const cardSurface = isLightTheme ? '#ffffff' : 'rgba(255, 247, 223, 0.055)'
-  const sectionBorder = isLightTheme ? 'rgba(21, 19, 15, 0.10)' : 'rgba(231, 180, 63, 0.26)'
-  const softSurface = isLightTheme ? 'rgba(21, 19, 15, 0.045)' : 'rgba(231, 180, 63, 0.10)'
-  const countTextColor = isLightTheme ? 'rgba(21, 19, 15, 0.56)' : 'rgba(255, 247, 223, 0.68)'
+  const sectionBorder = isLightTheme ? 'rgba(249, 115, 22, 0.20)' : 'rgba(231, 180, 63, 0.26)'
+  const softSurface = isLightTheme ? 'rgba(249, 115, 22, 0.10)' : 'rgba(231, 180, 63, 0.10)'
+  const countTextColor = isLightTheme ? 'rgba(31, 19, 8, 0.74)' : 'rgba(255, 247, 223, 0.68)'
+  const headerClass = isLightTheme
+    ? 'fixed inset-x-0 top-0 z-[60] border-b border-orange-200/70 bg-[#fffbf1]/95 shadow-lg shadow-orange-900/10 backdrop-blur-xl'
+    : 'fixed inset-x-0 top-0 z-[60] border-b border-[#e7b43f]/20 bg-[#0b0a08]/95 shadow-lg shadow-black/20 backdrop-blur-xl'
+  const headerTextColor = isLightTheme ? '#1f1308' : '#fff7df'
 
   return (
     <div className={`store-surface min-h-screen overflow-x-hidden ${isLightTheme ? 'ecco-store-light' : 'ecco-store-dark'}`} style={{ fontFamily, ...backgroundStyle }}>
@@ -190,7 +194,7 @@ export default async function MenuPage({ params }: MenuProps) {
         }
       `}</style>
       {/* Header - Professional */}
-      <header className="fixed inset-x-0 top-0 z-[60] border-b border-[#e7b43f]/20 bg-[#0b0a08]/95 shadow-lg shadow-black/20 backdrop-blur-xl" style={{ paddingTop: 'env(safe-area-inset-top)' }}>
+      <header className={headerClass} style={{ paddingTop: 'env(safe-area-inset-top)' }}>
         <div className="mx-auto flex h-14 max-w-7xl items-center justify-between px-3 sm:h-16 sm:px-6 lg:px-8">
           <div className="flex items-center gap-2 sm:gap-3 min-w-0">
             {context.tenant?.logo_url && (
@@ -206,8 +210,9 @@ export default async function MenuPage({ params }: MenuProps) {
             )}
             <div className="min-w-0">
               <h1
-                className="truncate text-sm text-[#fff7df] sm:text-base"
+                className="truncate text-sm sm:text-base"
                 style={{
+                  color: headerTextColor,
                   fontWeight: headingFontWeight,
                   letterSpacing: `${letterSpacing}em`,
                   textTransform: textTransform as any,
