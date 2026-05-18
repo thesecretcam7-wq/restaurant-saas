@@ -108,18 +108,18 @@ export default async function CartaPage({ params }: CartaProps) {
   const pageConfig = getPageConfig((tenant as any)?.metadata?.page_config || branding?.page_config)
   const isLightTheme = pageConfig.appearance.theme_mode === 'light'
   if (isLightTheme) {
-    primary = '#00e5ff'
+    primary = '#ff5a00'
     secondary = '#ffffff'
-    accent = '#ff00e5'
+    accent = '#ff1f1f'
     background = '#ffffff'
     cardSurface = '#ffffff'
-    neutralSoft = 'rgba(0, 229, 255, 0.10)'
-    buttonPrimary = '#00e5ff'
+    neutralSoft = 'rgba(255, 90, 0, 0.10)'
+    buttonPrimary = '#ff5a00'
     buttonPrimaryText = '#07111f'
     buttonSecondary = '#ffffff'
     surfaceText = '#07111f'
     mutedText = 'rgba(7, 17, 31, 0.70)'
-    border = 'rgba(0, 229, 255, 0.26)'
+    border = 'rgba(7, 17, 31, 0.12)'
   }
   const headerText = readableTextColor(primary)
   const headerMutedText = `${headerText}b3`
@@ -145,7 +145,7 @@ export default async function CartaPage({ params }: CartaProps) {
       ? `linear-gradient(rgba(255,255,255,.92), rgba(255,255,255,.97)), url(${sectionBackgroundImage})`
       : `linear-gradient(${background}e8, ${background}e8), url(${sectionBackgroundImage})`
     : isLightTheme
-      ? `radial-gradient(circle at top left, rgba(0,229,255,.14), transparent 32rem), radial-gradient(circle at top right, rgba(255,0,229,.10), transparent 28rem), radial-gradient(circle at bottom center, rgba(182,255,0,.12), transparent 26rem)`
+      ? `linear-gradient(180deg, #ffffff 0%, #f4f4f5 58%, #e5e7eb 100%)`
       : `radial-gradient(circle at top left, ${primary}18, transparent 32rem), radial-gradient(circle at top right, ${secondary}14, transparent 28rem)`
 
   return (
@@ -187,7 +187,7 @@ export default async function CartaPage({ params }: CartaProps) {
             <p className="truncate text-base font-black" style={{ color: isLightTheme ? surfaceText : headerText }}>{restaurantName}</p>
             <p className="text-xs font-black uppercase tracking-[0.18em]" style={{ color: isLightTheme ? primary : headerMutedText }}>{tr('qr.digitalMenu')}</p>
           </div>
-          <LanguageSwitcher compact reloadOnChange className={isLightTheme ? 'border-cyan-300/50 bg-white text-gray-900' : 'border-white/20 bg-white/90'} />
+          <LanguageSwitcher compact reloadOnChange className={isLightTheme ? 'border-black/10 bg-white text-gray-900' : 'border-white/20 bg-white/90'} />
         </div>
 
         {categories.length > 0 && (

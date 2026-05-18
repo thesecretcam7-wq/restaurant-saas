@@ -44,7 +44,7 @@ export default async function StoreLayout({ children, params }: Props) {
         price: '#ff1f1f',
         background: '#ffffff',
         surface: '#ffffff',
-        soft: 'rgba(0, 229, 255, 0.10)',
+        soft: 'rgba(255, 90, 0, 0.10)',
         text: '#111827',
         muted: 'rgba(17, 24, 39, 0.70)',
       }

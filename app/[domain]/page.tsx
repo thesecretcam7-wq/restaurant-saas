@@ -164,7 +164,7 @@ export default async function HomePage({ params }: HomePageProps) {
     ? {
         background: '#ffffff',
         surface: '#ffffff',
-        soft: 'rgba(0, 229, 255, 0.10)',
+        soft: 'rgba(255, 90, 0, 0.10)',
         text: '#07111f',
         muted: 'rgba(7, 17, 31, 0.72)',
         header: 'rgba(255, 255, 255, 0.96)',
@@ -217,7 +217,7 @@ export default async function HomePage({ params }: HomePageProps) {
   const heroMinHeight = hero.height === 'small' ? '420px' : hero.height === 'medium' ? '480px' : '540px'
   const heroOverlay = Math.min(Math.max(hero.overlay_opacity || 45, 26), 78) / 100
   const heroFallbackBackground = isLightTheme
-    ? 'radial-gradient(circle at 14% 20%, rgba(0,229,255,.24), transparent 18rem), radial-gradient(circle at 88% 12%, rgba(255,0,229,.18), transparent 18rem), radial-gradient(circle at 76% 82%, rgba(182,255,0,.18), transparent 16rem), linear-gradient(135deg, #ffffff 0%, #ffffff 62%, #f7fcff 100%)'
+    ? 'linear-gradient(180deg, #ffffff 0%, #f4f4f5 58%, #e5e7eb 100%)'
     : `linear-gradient(135deg, ${primary}, ${secondary}, #111111)`
   const heroShade = isLightTheme
     ? heroImage
@@ -227,10 +227,10 @@ export default async function HomePage({ params }: HomePageProps) {
   const heroTextColor = isLightTheme && !heroImage ? '#07111f' : '#ffffff'
   const heroMutedColor = isLightTheme && !heroImage ? 'rgba(7, 17, 31, 0.76)' : 'rgba(255,255,255,.84)'
   const heroFeaturePanelClass = isLightTheme
-    ? 'hidden self-stretch rounded-[28px] border border-cyan-300/50 bg-white/90 p-3 shadow-2xl shadow-cyan-500/10 backdrop-blur-xl lg:block'
+    ? 'hidden self-stretch rounded-[28px] border border-orange-300/50 bg-white/90 p-3 shadow-2xl shadow-orange-500/10 backdrop-blur-xl lg:block'
     : 'hidden self-stretch rounded-[28px] border border-[#e7b43f]/22 bg-white/10 p-3 shadow-2xl backdrop-blur-xl lg:block'
   const heroFeatureInnerClass = isLightTheme
-    ? 'rounded-[22px] border border-cyan-300/50 bg-white p-4'
+    ? 'rounded-[22px] border border-orange-300/50 bg-white p-4'
     : 'rounded-[22px] border border-[#e7b43f]/18 bg-[#151410]/92 p-4'
   const countryCurrency = getCurrencyByCountry(settings?.country_code || settings?.country || (tenant as any)?.country || 'ES')
   const currencyInfo = settings?.currency
@@ -240,7 +240,7 @@ export default async function HomePage({ params }: HomePageProps) {
 
   return (
     <div className={`ecco-store-premium ${isLightTheme ? 'ecco-store-light' : 'ecco-store-dark'} store-surface min-h-screen overflow-hidden pb-[calc(6.5rem+env(safe-area-inset-bottom))] pt-16`} style={pageBackgroundStyle}>
-      <header className="fixed left-0 right-0 top-0 z-50 border-b backdrop-blur-xl" style={{ position: 'fixed', backgroundColor: themeColors.header, borderColor: isLightTheme ? 'rgba(0, 229, 255, 0.28)' : 'rgba(231, 180, 63, 0.20)' }}>
+      <header className="fixed left-0 right-0 top-0 z-50 border-b backdrop-blur-xl" style={{ position: 'fixed', backgroundColor: themeColors.header, borderColor: isLightTheme ? 'rgba(7, 17, 31, 0.12)' : 'rgba(231, 180, 63, 0.20)' }}>
         <div className="mx-auto flex h-16 max-w-7xl items-center justify-end px-4 sm:px-6 lg:px-8">
           <div className="flex items-center gap-2">
             <LanguageSwitcher compact className="border-[#e7b43f]/25 bg-white/8 [&_select]:text-current" reloadOnChange />
@@ -271,7 +271,7 @@ export default async function HomePage({ params }: HomePageProps) {
               <img src={tenant.logo_url} alt={appName} className="max-h-full max-w-full object-contain drop-shadow-[0_12px_28px_rgba(0,0,0,.32)]" />
             </span>
           ) : (
-            <span className="grid size-20 flex-shrink-0 place-items-center rounded-2xl border text-3xl font-black sm:size-24 sm:text-4xl" style={{ borderColor: isLightTheme ? 'rgba(0,229,255,.35)' : 'rgba(231,180,63,.28)', backgroundColor: isLightTheme ? lightPrimary : 'rgba(231,180,63,.15)', color: isLightTheme ? '#07111f' : '#ffcf64' }}>
+            <span className="grid size-20 flex-shrink-0 place-items-center rounded-2xl border text-3xl font-black sm:size-24 sm:text-4xl" style={{ borderColor: isLightTheme ? 'rgba(255,90,0,.35)' : 'rgba(231,180,63,.28)', backgroundColor: isLightTheme ? lightPrimary : 'rgba(231,180,63,.15)', color: isLightTheme ? '#07111f' : '#ffcf64' }}>
               {appName.slice(0, 1).toUpperCase()}
             </span>
           )}

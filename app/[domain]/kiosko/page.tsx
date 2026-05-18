@@ -81,15 +81,15 @@ export default async function KioskoPage({ params, searchParams }: Props) {
 
   const branding = {
     appName: contextBranding.app_name || tenant.organization_name,
-    primaryColor: isLightTheme ? '#00e5ff' : palette.primary,
-    secondaryColor: isLightTheme ? '#b6ff00' : palette.secondary,
-    accentColor: isLightTheme ? '#ff00e5' : palette.accent,
+    primaryColor: isLightTheme ? '#ff5a00' : palette.primary,
+    secondaryColor: isLightTheme ? '#ffffff' : palette.secondary,
+    accentColor: isLightTheme ? '#ff1f1f' : palette.accent,
     backgroundColor: isLightTheme ? '#ffffff' : palette.background,
-    buttonPrimaryColor: isLightTheme ? '#00e5ff' : palette.buttonPrimary,
-    buttonSecondaryColor: isLightTheme ? '#ff00e5' : palette.buttonSecondary,
+    buttonPrimaryColor: isLightTheme ? '#ff5a00' : palette.buttonPrimary,
+    buttonSecondaryColor: isLightTheme ? '#ff1f1f' : palette.buttonSecondary,
     textPrimaryColor: isLightTheme ? '#07111f' : palette.pageText,
     textSecondaryColor: isLightTheme ? 'rgba(7, 17, 31, 0.70)' : palette.mutedText,
-    borderColor: isLightTheme ? 'rgba(0, 229, 255, 0.26)' : palette.border,
+    borderColor: isLightTheme ? 'rgba(7, 17, 31, 0.12)' : palette.border,
     isLightTheme,
     logoUrl:
       tenant.logo_url ||

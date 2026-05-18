@@ -11,6 +11,16 @@ async function resolveTenantId(supabase: SupabaseClient, slugOrId: string): Prom
   return data?.id ?? null
 }
 
+async function getTenantName(supabase: SupabaseClient, tenantId: string): Promise<string | null> {
+  const { data } = await supabase
+    .from('tenants')
+    .select('organization_name')
+    .eq('id', tenantId)
+    .maybeSingle()
+
+  return data?.organization_name ?? null
+}
+
 export async function PUT(request: NextRequest) {
   try {
     const body = await request.json()
@@ -33,10 +43,20 @@ export async function PUT(request: NextRequest) {
     if (!tenantId) return NextResponse.json({ error: 'Restaurante no encontrado' }, { status: 404 })
     await requireTenantAccess(tenantId, { staffRoles: ['admin'] })
 
+    const [{ data: existingSettings }, tenantName] = await Promise.all([
+      supabase
+        .from('restaurant_settings')
+        .select('display_name')
+        .eq('tenant_id', tenantId)
+        .maybeSingle(),
+      getTenantName(supabase, tenantId),
+    ])
+
     const { data: updated, error } = await supabase
       .from('restaurant_settings')
       .upsert({
         tenant_id: tenantId,
+        display_name: existingSettings?.display_name || tenantName || 'Restaurante',
         reservations_enabled: data.reservations_enabled,
         total_tables: Number(data.total_tables) || 10,
         seats_per_table: Number(data.seats_per_table) || 4,
@@ -48,7 +68,7 @@ export async function PUT(request: NextRequest) {
 
     if (error) {
       console.error('Error updating reservations settings:', error)
-      return NextResponse.json({ error: 'Error al guardar los cambios' }, { status: 500 })
+      return NextResponse.json({ error: `Error al guardar los cambios: ${error.message}` }, { status: 500 })
     }
 
     return NextResponse.json({ success: true, data: updated, message: 'Configuración de reservas actualizada' })
@@ -74,7 +94,7 @@ export async function GET(request: NextRequest) {
       .from('restaurant_settings')
       .select('reservations_enabled, total_tables, seats_per_table, reservation_advance_hours')
       .eq('tenant_id', tenantId)
-      .single()
+      .maybeSingle()
 
     if (error) return NextResponse.json({ error: 'Error al obtener la configuración' }, { status: 500 })
     return NextResponse.json({

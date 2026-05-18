@@ -43,12 +43,12 @@ export default function StoreLoadingCard({ color, logoUrl, appName, themeMode }:
   return (
     <div className={`w-full max-w-[360px] overflow-hidden rounded-[28px] border p-7 shadow-[0_26px_90px_rgba(0,0,0,0.18)] backdrop-blur-xl ${
       isLight
-        ? 'border-cyan-300/60 bg-white/94 text-[#07111f] shadow-[0_26px_90px_rgba(0,229,255,0.18)]'
+        ? 'border-orange-300/60 bg-white/94 text-[#07111f] shadow-[0_26px_90px_rgba(255,90,0,0.18)]'
         : 'border-white/10 bg-[#0d0c09]/92 text-[#fff4d8] shadow-[0_26px_90px_rgba(0,0,0,0.42)]'
     }`}>
       <div className="flex flex-col items-center text-center">
         <div
-          className={`relative grid place-items-center text-4xl font-black ${resolvedLogo ? 'h-28 w-40' : `size-24 rounded-[26px] border ${isLight ? 'border-cyan-300/70 bg-cyan-50 text-[#07111f]' : 'border-white/10 bg-white/8 text-[#fff4d8]'}`}`}
+          className={`relative grid place-items-center text-4xl font-black ${resolvedLogo ? 'h-28 w-40' : `size-24 rounded-[26px] border ${isLight ? 'border-orange-300/70 bg-orange-50 text-[#07111f]' : 'border-white/10 bg-white/8 text-[#fff4d8]'}`}`}
           style={resolvedLogo ? undefined : { boxShadow: `0 18px 50px color-mix(in srgb, ${isLight ? lightPrimary : primary} 22%, transparent)` }}
           aria-hidden="true"
         >
@@ -67,7 +67,7 @@ export default function StoreLoadingCard({ color, logoUrl, appName, themeMode }:
         </div>
 
         <p className={`mt-5 max-w-full truncate text-xl font-black ${isLight ? 'text-[#07111f]' : 'text-[#fff4d8]'}`}>{displayName}</p>
-        <p className={`mt-2 text-xs font-bold uppercase tracking-[0.22em] ${isLight ? 'text-cyan-700' : 'text-white/45'}`}>
+        <p className={`mt-2 text-xs font-bold uppercase tracking-[0.22em] ${isLight ? 'text-orange-700' : 'text-white/45'}`}>
           Preparando tu tienda
         </p>
       </div>

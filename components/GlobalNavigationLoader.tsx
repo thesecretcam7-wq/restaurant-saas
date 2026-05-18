@@ -132,12 +132,12 @@ export default function GlobalNavigationLoader() {
     }
 
     document.addEventListener('click', handleClick, true);
-    document.addEventListener('submit', handleSubmit, true);
+    document.addEventListener('submit', handleSubmit);
     window.addEventListener('beforeunload', handleBeforeUnload);
 
     return () => {
       document.removeEventListener('click', handleClick, true);
-      document.removeEventListener('submit', handleSubmit, true);
+      document.removeEventListener('submit', handleSubmit);
       window.removeEventListener('beforeunload', handleBeforeUnload);
       if (timeoutRef.current) clearTimeout(timeoutRef.current);
     };

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useEffect, useState } from 'react'
 
 interface Props { tenantId: string }
 
@@ -14,6 +14,7 @@ export default function ReservasForm({ tenantId }: Props) {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState('')
+  const [messageType, setMessageType] = useState<'success' | 'error' | null>(null)
 
   useEffect(() => {
     fetch(`/api/tenant/reservas?tenantId=${tenantId}`, { credentials: 'include' })
@@ -36,6 +37,8 @@ export default function ReservasForm({ tenantId }: Props) {
     e.preventDefault()
     setSaving(true)
     setMessage('')
+    setMessageType(null)
+
     try {
       const res = await fetch('/api/tenant/reservas', {
         method: 'PUT',
@@ -44,32 +47,62 @@ export default function ReservasForm({ tenantId }: Props) {
         body: JSON.stringify({ tenantId, ...form }),
       })
       const data = await res.json()
-      if (!res.ok) { setMessage(`❌ ${data.error}`); return }
-      setMessage('✅ Configuración guardada')
-      setTimeout(() => setMessage(''), 3000)
-    } catch { setMessage('❌ Error al guardar') }
-    finally { setSaving(false) }
+
+      if (!res.ok) {
+        setMessage(data.error || 'No se pudieron guardar los cambios')
+        setMessageType('error')
+        return
+      }
+
+      setMessage('Configuracion guardada correctamente')
+      setMessageType('success')
+      setTimeout(() => {
+        setMessage('')
+        setMessageType(null)
+      }, 6000)
+    } catch {
+      setMessage('Error al guardar. Revisa la conexion e intenta otra vez.')
+      setMessageType('error')
+    } finally {
+      setSaving(false)
+    }
   }
 
-  if (loading) return <div className="flex items-center justify-center h-48"><div className="w-7 h-7 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin" /></div>
+  if (loading) {
+    return (
+      <div className="flex h-48 items-center justify-center">
+        <div className="h-7 w-7 animate-spin rounded-full border-4 border-blue-200 border-t-blue-600" />
+      </div>
+    )
+  }
 
   const capacity = Number(form.total_tables) * Number(form.seats_per_table)
 
   return (
-    <div className="bg-white rounded-xl border">
+    <div className="rounded-xl border bg-white">
       {message && (
-        <div className={`p-4 border-b rounded-t-xl text-sm font-medium ${message.startsWith('✅') ? 'bg-green-50 text-green-800' : 'bg-red-50 text-red-800'}`}>
-          {message}
+        <div
+          className={`rounded-t-xl border-b p-4 text-sm font-bold ${
+            messageType === 'success'
+              ? 'border-green-100 bg-green-50 text-green-800'
+              : 'border-red-100 bg-red-50 text-red-800'
+          }`}
+          role="status"
+          aria-live="polite"
+        >
+          {messageType === 'success' ? 'Guardado: ' : 'Error: '}{message}
         </div>
       )}
-      <form onSubmit={handleSave} className="p-6 space-y-6">
-
+      <form onSubmit={handleSave} className="space-y-6 p-6">
         <div className="border-b pb-6">
-          <h2 className="font-semibold text-gray-900 mb-4">📅 Sistema de Reservas</h2>
-          <label className="flex items-center gap-3 cursor-pointer">
-            <input type="checkbox" checked={form.reservations_enabled}
+          <h2 className="mb-4 font-semibold text-gray-900">Sistema de Reservas</h2>
+          <label className="flex cursor-pointer items-center gap-3">
+            <input
+              type="checkbox"
+              checked={form.reservations_enabled}
               onChange={e => setForm(f => ({ ...f, reservations_enabled: e.target.checked }))}
-              className="w-4 h-4 rounded border-gray-300 text-blue-600" />
+              className="h-4 w-4 rounded border-gray-300 text-blue-600"
+            />
             <span className="font-medium text-gray-700">Habilitar reservas de mesas</span>
           </label>
         </div>
@@ -77,42 +110,63 @@ export default function ReservasForm({ tenantId }: Props) {
         {form.reservations_enabled && (
           <>
             <div className="border-b pb-6">
-              <h2 className="font-semibold text-gray-900 mb-4">🪑 Capacidad</h2>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <h2 className="mb-4 font-semibold text-gray-900">Capacidad</h2>
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Número de mesas</label>
-                  <input type="number" min="1" value={form.total_tables}
+                  <label className="mb-1 block text-sm font-medium text-gray-700">Numero de mesas</label>
+                  <input
+                    type="number"
+                    min="1"
+                    value={form.total_tables}
                     onChange={e => setForm(f => ({ ...f, total_tables: e.target.value }))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm" />
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500"
+                  />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Asientos por mesa</label>
-                  <input type="number" min="1" value={form.seats_per_table}
+                  <label className="mb-1 block text-sm font-medium text-gray-700">Asientos por mesa</label>
+                  <input
+                    type="number"
+                    min="1"
+                    value={form.seats_per_table}
                     onChange={e => setForm(f => ({ ...f, seats_per_table: e.target.value }))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm" />
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500"
+                  />
                 </div>
               </div>
               {capacity > 0 && (
-                <p className="text-sm text-gray-500 mt-3">Capacidad total: <strong className="text-gray-800">{capacity} personas</strong></p>
+                <p className="mt-3 text-sm text-gray-500">
+                  Capacidad total: <strong className="text-gray-800">{capacity} personas</strong>
+                </p>
               )}
             </div>
 
             <div>
-              <h2 className="font-semibold text-gray-900 mb-4">⏰ Política</h2>
+              <h2 className="mb-4 font-semibold text-gray-900">Politica</h2>
               <div className="max-w-xs">
-                <label className="block text-sm font-medium text-gray-700 mb-1">Anticipación mínima para reservar (horas)</label>
-                <input type="number" min="0" value={form.reservation_advance_hours}
+                <label className="mb-1 block text-sm font-medium text-gray-700">
+                  Anticipacion minima para reservar (horas)
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  value={form.reservation_advance_hours}
                   onChange={e => setForm(f => ({ ...f, reservation_advance_hours: e.target.value }))}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm" />
-                <p className="text-xs text-gray-400 mt-1">Ej: 24 = reservar con al menos 1 día de anticipación</p>
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500"
+                />
+                <p className="mt-1 text-xs text-gray-400">
+                  Ej: 24 = reservar con al menos 1 dia de anticipacion
+                </p>
               </div>
             </div>
           </>
         )}
 
-        <div className="flex justify-end gap-3 pt-4 border-t">
-          <button type="submit" disabled={saving}
-            className="px-6 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 disabled:opacity-50 text-sm">
+        <div className="flex justify-end gap-3 border-t pt-4">
+          <button
+            type="submit"
+            disabled={saving}
+            className="rounded-lg bg-blue-600 px-6 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+          >
             {saving ? 'Guardando...' : 'Guardar cambios'}
           </button>
         </div>

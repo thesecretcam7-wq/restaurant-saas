@@ -135,7 +135,7 @@ function AppHeader({
   return (
     <header
       className="flex flex-shrink-0 items-center justify-between border-b px-4 py-3 shadow-lg shadow-black/[0.08] sm:px-5 md:px-6"
-      style={{ backgroundColor: primaryColor, borderColor: isLightTheme ? 'rgba(0,229,255,.28)' : `${textColor}24` }}
+      style={{ backgroundColor: primaryColor, borderColor: isLightTheme ? 'rgba(7,17,31,.12)' : `${textColor}24` }}
     >
       <div className="flex min-w-0 items-center gap-3">
         {onBack && (
@@ -158,8 +158,8 @@ function AppHeader({
       <div className="flex flex-shrink-0 items-center gap-3 md:gap-4">
         <LanguageSwitcher
           compact
-          iconColor={isLightTheme ? '#00e5ff' : headerAccentColor}
-          className={isLightTheme ? 'border-cyan-300/50 bg-white text-gray-900 shadow-sm backdrop-blur-md' : 'border-white/18 bg-black/35 text-white shadow-inner shadow-white/5 backdrop-blur-md'}
+          iconColor={isLightTheme ? headerAccentColor : headerAccentColor}
+          className={isLightTheme ? 'border-black/10 bg-white text-gray-900 shadow-sm backdrop-blur-md' : 'border-white/18 bg-black/35 text-white shadow-inner shadow-white/5 backdrop-blur-md'}
         />
         {cartCount !== undefined && cartCount > 0 && (
           <div className="flex items-center gap-2 rounded-full px-3 py-2 md:px-4" style={{ backgroundColor: `${textColor}22`, color: textColor }}>
@@ -513,12 +513,12 @@ export default function KioskoClient({
   const surfaceTextColor = isLightTheme ? '#07111f' : '#FFF4D8'
   const surfaceMutedTextColor = isLightTheme ? 'rgba(7, 17, 31, 0.68)' : textSecondaryColor || '#B9A989'
   const menuShellBackground = isLightTheme
-    ? 'radial-gradient(circle at 12% 0%, rgba(0,229,255,.16), transparent 22rem), radial-gradient(circle at 92% 10%, rgba(255,0,229,.10), transparent 24rem), linear-gradient(135deg, #ffffff 0%, #ffffff 54%, #f7fcff 100%)'
+    ? 'linear-gradient(180deg, #ffffff 0%, #f4f4f5 58%, #e5e7eb 100%)'
     : `linear-gradient(135deg, ${surfaceColor} 0%, ${backgroundColor} 44%, #050403 100%)`
   const mainPanelBackground = isLightTheme
-    ? 'linear-gradient(180deg, rgba(0,229,255,0.055), rgba(255,0,229,0.035))'
+    ? '#ffffff'
     : 'linear-gradient(180deg,rgba(255,255,255,0.035),rgba(0,0,0,0.28))'
-  const placeholderImageBg = isLightTheme ? '#f3f7ff' : '#17130D'
+  const placeholderImageBg = isLightTheme ? '#f4f4f5' : '#17130D'
 
   const accentTextColor = readableText(accentColor)
 
@@ -1319,7 +1319,7 @@ export default function KioskoClient({
             zIndex: 9999,
             background:
               isLightTheme
-            ? `radial-gradient(circle at 50% 18%, rgba(0,229,255,.24) 0%, transparent 34%), radial-gradient(circle at 70% 88%, rgba(182,255,0,.16), transparent 24%), linear-gradient(180deg, #ffffff 0%, #f7fcff 58%, #ffffff 100%)`
+            ? 'linear-gradient(180deg, #ffffff 0%, #f4f4f5 58%, #e5e7eb 100%)'
                 : `radial-gradient(circle at 50% 18%, ${primaryColor}33 0%, transparent 34%), linear-gradient(180deg, ${primaryColor}, #050505 58%, #020202 100%)`,
           }}
           onClick={() => { toggleFullscreen(); setShowFsPrompt(false) }}
@@ -1348,7 +1348,7 @@ export default function KioskoClient({
           style={{
             background:
               isLightTheme
-                ? `radial-gradient(circle at 24% 18%, rgba(0,229,255,.22) 0%, transparent 32%), radial-gradient(circle at 80% 82%, rgba(255,0,229,.14), transparent 28%), linear-gradient(135deg, #ffffff 0%, #f7fcff 52%, #ffffff 100%)`
+                ? 'linear-gradient(180deg, #ffffff 0%, #f4f4f5 58%, #e5e7eb 100%)'
                 : `radial-gradient(circle at 24% 18%, ${primaryColor}44 0%, transparent 32%), linear-gradient(135deg, #050403 0%, ${surfaceColor} 48%, #050403 100%)`,
           }}
         >
