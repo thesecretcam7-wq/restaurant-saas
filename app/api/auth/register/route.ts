@@ -5,6 +5,53 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getAuthLimiter, getClientIp, applyRateLimit } from '@/lib/rate-limit'
 import { getLockedTenantBrandingColors } from '@/lib/brand-colors'
 
+async function insertTenantBranding(
+  supabase: any,
+  payload: Record<string, any>
+) {
+  let safePayload = { ...payload }
+
+  for (let attempt = 0; attempt < 8; attempt++) {
+    const { error } = await supabase.from('tenant_branding').insert(safePayload)
+    if (!error) return null
+
+    const missingColumn = error.message.match(/'([^']+)' column of 'tenant_branding'/)?.[1]
+    if (!missingColumn || !(missingColumn in safePayload)) return error
+
+    delete safePayload[missingColumn]
+  }
+
+  return new Error('No se pudo crear branding despues de quitar columnas no disponibles')
+}
+
+function buildBaseSlug(name: string) {
+  return name
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/\s+/g, '')
+    .replace(/[^a-z0-9]/g, '')
+}
+
+async function createUniqueSlug(supabase: any, baseSlug: string) {
+  const { data, error } = await supabase
+    .from('tenants')
+    .select('slug')
+    .or(`slug.eq.${baseSlug},slug.like.${baseSlug}%`)
+
+  if (error) throw error
+
+  const existing = new Set((data || []).map((row: { slug: string }) => row.slug))
+  if (!existing.has(baseSlug)) return baseSlug
+
+  for (let index = 2; index < 1000; index++) {
+    const candidate = `${baseSlug}${index}`
+    if (!existing.has(candidate)) return candidate
+  }
+
+  return `${baseSlug}${Date.now().toString().slice(-6)}`
+}
+
 export async function POST(request: NextRequest) {
   try {
     // Límite estricto en registro (3 por IP por minuto) — previene creación masiva de cuentas
@@ -29,6 +76,7 @@ export async function POST(request: NextRequest) {
       country,
       timezone,
     } = body
+    const normalizedEmail = String(email || '').trim().toLowerCase()
 
     const headerCountry =
       request.headers.get('x-vercel-ip-country') ||
@@ -38,7 +86,7 @@ export async function POST(request: NextRequest) {
     const restaurantTimezone = timezone || (restaurantCountry === 'ES' ? 'Europe/Madrid' : 'America/Bogota')
 
 
-    if (!email || !password || !restaurantName) {
+    if (!normalizedEmail || !password || !restaurantName) {
       console.error('❌ [Register] Missing required fields')
       return NextResponse.json(
         { error: 'Campos requeridos: email, contraseña, nombre del restaurante' },
@@ -76,7 +124,7 @@ export async function POST(request: NextRequest) {
 
     // Create auth user
     const { data: authData, error: authError } = await supabase.auth.admin.createUser({
-      email,
+      email: normalizedEmail,
       password,
       email_confirm: true,
     })
@@ -91,14 +139,11 @@ export async function POST(request: NextRequest) {
 
 
     // Create tenant
-    let slug = restaurantName
-      .toLowerCase()
-      .replace(/\s+/g, '')
-      .replace(/[^a-z0-9]/g, '')
+    const baseSlug = buildBaseSlug(restaurantName)
 
 
     // Validate slug is not empty
-    if (!slug || slug.length === 0) {
+    if (!baseSlug || baseSlug.length === 0) {
       console.error('❌ [Register] Slug is empty')
       await supabase.auth.admin.deleteUser(authData.user.id)
       return NextResponse.json(
@@ -107,6 +152,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    const slug = await createUniqueSlug(supabase, baseSlug)
     const trialEndsAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
 
     const { data: tenantData, error: tenantError } = await supabase
@@ -115,7 +161,7 @@ export async function POST(request: NextRequest) {
         organization_name: restaurantName,
         slug,
         owner_id: authData.user.id,
-        owner_email: email,
+        owner_email: normalizedEmail,
         owner_name: ownerName || '',
         country: restaurantCountry,
         status: 'trial',
@@ -138,15 +184,13 @@ export async function POST(request: NextRequest) {
     const lockedBrandingColors = getLockedTenantBrandingColors()
 
     // Create default branding
-    const { error: brandingError } = await supabase
-      .from('tenant_branding')
-      .insert({
-        tenant_id: tenantData.id,
-        ...lockedBrandingColors,
-        font_family: 'Inter',
-        app_name: restaurantName,
-        tagline: 'Bienvenido',
-      })
+    const brandingError = await insertTenantBranding(supabase, {
+      tenant_id: tenantData.id,
+      ...lockedBrandingColors,
+      font_family: 'Inter',
+      app_name: restaurantName,
+      tagline: 'Bienvenido',
+    })
 
     if (brandingError) {
       await supabase.auth.admin.deleteUser(authData.user.id)
@@ -198,7 +242,7 @@ export async function POST(request: NextRequest) {
     )
 
     const { data: sessionData, error: sessionError } = await authClient.auth.signInWithPassword({
-      email,
+      email: normalizedEmail,
       password,
     })
 
@@ -217,7 +261,7 @@ export async function POST(request: NextRequest) {
         organization_name: `Demo - ${restaurantName}`,
         slug: demoSlug,
         owner_id: authData.user.id,
-        owner_email: email,
+        owner_email: normalizedEmail,
         owner_name: ownerName || '',
         country: restaurantCountry,
         status: 'trial',
@@ -231,15 +275,13 @@ export async function POST(request: NextRequest) {
     } else {
 
       // Create demo branding
-      await supabase
-        .from('tenant_branding')
-        .insert({
-          tenant_id: demoTenantData.id,
-          ...lockedBrandingColors,
-          font_family: 'Inter',
-          app_name: 'Demo - ' + restaurantName,
-          tagline: 'Restaurante Demo',
-        })
+      await insertTenantBranding(supabase, {
+        tenant_id: demoTenantData.id,
+        ...lockedBrandingColors,
+        font_family: 'Inter',
+        app_name: 'Demo - ' + restaurantName,
+        tagline: 'Restaurante Demo',
+      })
 
       // Create demo restaurant settings
       await supabase
@@ -276,7 +318,7 @@ export async function POST(request: NextRequest) {
 
     // Check if this is the software owner (system admin)
     const ownerEmails = ['thesecretcam7@gmail.com']
-    const isOwner = ownerEmails.includes(email)
+    const isOwner = ownerEmails.includes(normalizedEmail)
     const redirectUrl = isOwner ? '/owner-dashboard' : `/${tenantData.slug}/acceso`
 
     return NextResponse.json({
