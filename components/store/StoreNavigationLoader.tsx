@@ -24,9 +24,11 @@ function isStorePath(pathname: string) {
 export default function StoreNavigationLoader({
   color,
   logoUrl,
+  themeMode,
 }: {
   color?: string
   logoUrl?: string | null
+  themeMode?: 'dark' | 'light'
 }) {
   const pathname = usePathname()
   const [loading, setLoading] = useState(false)
@@ -82,7 +84,7 @@ export default function StoreNavigationLoader({
 
   return (
     <div className="pointer-events-none fixed inset-0 z-[9990]">
-      <StoreLoadingScreen color={color} logoUrl={logoUrl} />
+      <StoreLoadingScreen color={color} logoUrl={logoUrl} themeMode={themeMode} />
     </div>
   )
 }

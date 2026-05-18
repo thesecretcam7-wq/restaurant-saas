@@ -6,10 +6,12 @@ export default function StoreBrandingMemory({
   appName,
   logoUrl,
   primaryColor,
+  themeMode,
 }: {
   appName?: string | null
   logoUrl?: string | null
   primaryColor?: string | null
+  themeMode?: 'dark' | 'light'
 }) {
   useEffect(() => {
     try {
@@ -19,10 +21,11 @@ export default function StoreBrandingMemory({
           appName: appName || 'Restaurante',
           logoUrl: logoUrl || null,
           primaryColor: primaryColor || '#15130f',
+          themeMode: themeMode || 'dark',
         })
       )
     } catch {}
-  }, [appName, logoUrl, primaryColor])
+  }, [appName, logoUrl, primaryColor, themeMode])
 
   return null
 }

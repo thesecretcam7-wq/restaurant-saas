@@ -5,6 +5,7 @@ import StoreBrandingMemory from '@/components/store/StoreBrandingMemory'
 import TenantAccessGuard from '@/components/TenantAccessGuard'
 import { getTenantAccessInfo } from '@/lib/tenant-access'
 import { deriveBrandPalette } from '@/lib/brand-colors'
+import { getPageConfig } from '@/lib/pageConfig'
 import type { Metadata } from 'next'
 import './(store)/store-premium.css'
 
@@ -156,6 +157,8 @@ export default async function TenantLayout({
   const fontFamily = branding?.font_family || 'system-ui, -apple-system, sans-serif'
   const logoUrl = branding?.logo_url || context.tenant?.logo_url || null
   const restaurantName = getRestaurantDisplayName(context)
+  const pageConfig = getPageConfig((context.tenant as any)?.metadata?.page_config || branding?.page_config)
+  const themeMode = pageConfig.appearance.theme_mode
 
   return (
     <>
@@ -195,8 +198,8 @@ export default async function TenantLayout({
         >
           {children}
         </TenantAccessGuard>
-        <StoreBrandingMemory appName={restaurantName} logoUrl={logoUrl} primaryColor={primaryColor} />
-        <StoreNavigationLoader color={primaryColor} logoUrl={logoUrl} />
+        <StoreBrandingMemory appName={restaurantName} logoUrl={logoUrl} primaryColor={primaryColor} themeMode={themeMode} />
+        <StoreNavigationLoader color={primaryColor} logoUrl={logoUrl} themeMode={themeMode} />
         <Toaster position="bottom-right" />
       </div>
     </>

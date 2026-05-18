@@ -29,6 +29,7 @@ type StoreBrand = {
   appName: string
   logoUrl: string | null
   primaryColor: string
+  themeMode?: 'dark' | 'light'
 }
 
 function isTenantSubdomainHost(host: string) {
@@ -115,7 +116,7 @@ export default function RouteAwarePageLoader({
     const primary = storeBrand?.primaryColor || initialPrimaryColor || 'var(--primary-color, #D9A441)'
     const appName = storeBrand?.appName || routeInfo.fallbackName
 
-    return <StoreLoadingScreen color={primary} logoUrl={storeBrand?.logoUrl || null} appName={appName} />
+    return <StoreLoadingScreen color={primary} logoUrl={storeBrand?.logoUrl || null} appName={appName} themeMode={storeBrand?.themeMode} />
   }
 
   return <EccofoodPageLoader />
