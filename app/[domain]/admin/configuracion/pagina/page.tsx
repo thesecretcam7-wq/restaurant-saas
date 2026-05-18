@@ -150,6 +150,12 @@ export default function PageBuilderPage() {
   const publicBaseDomain = process.env.NEXT_PUBLIC_BASE_DOMAIN || 'eccofoodapp.com'
   const storeUrl = `https://${tenantSlug}.${publicBaseDomain}`
 
+  const openSectionEditor = (sectionType: string) => {
+    const section = config.sections.find(item => item.type === sectionType)
+    if (section) setSelectedSectionId(section.id)
+    setTab('sections')
+  }
+
   const markDirty = () => {
     setDirty(true)
     setSaveStatus('pending')
@@ -243,6 +249,16 @@ export default function PageBuilderPage() {
 
   const updateAbout = (key: string, value: any) => {
     setConfig(c => ({ ...c, about: { ...c.about, [key]: value } }))
+    markDirty()
+  }
+
+  const updateGallery = (key: string, value: any) => {
+    setConfig(c => ({ ...c, gallery: { ...c.gallery, [key]: value } }))
+    markDirty()
+  }
+
+  const updateSocial = (key: string, value: string) => {
+    setConfig(c => ({ ...c, social: { ...c.social, [key]: value } }))
     markDirty()
   }
 
@@ -440,6 +456,7 @@ export default function PageBuilderPage() {
               <Panel title="¿Qué quieres cambiar?" desc="Elige una acción rápida. Todo queda guardado solo cuando presionas Guardar.">
                 <div className="grid gap-3 md:grid-cols-2">
                   <QuickButton title="Cambiar foto principal" desc="Imagen grande de entrada" onClick={() => setTab('hero')} />
+                  <QuickButton title="Subir fotos" desc="Galeria del local y platos" onClick={() => openSectionEditor('gallery')} />
                   <QuickButton title="Ordenar secciones" desc="Mostrar u ocultar bloques" onClick={() => setTab('sections')} />
                   <QuickButton title="Cambiar estilo" desc="Tarjetas, botones y menu" onClick={() => setTab('style')} />
                   <QuickButton title="Conectar redes" desc="Instagram, WhatsApp y links" onClick={() => setTab('social')} />
@@ -530,6 +547,7 @@ export default function PageBuilderPage() {
                   updateSectionConfig={updateSectionConfig}
                   updateBanner={updateBanner}
                   updateAbout={updateAbout}
+                  updateGallery={updateGallery}
                   addGalleryImage={addGalleryImage}
                   removeGalleryImage={removeGalleryImage}
                   addTestimonial={addTestimonial}
@@ -555,30 +573,20 @@ export default function PageBuilderPage() {
           )}
 
           {tab === 'social' && (
-            <Panel title="Redes y enlaces" desc="Aqui decides como se muestran. Los links se editan en Contenido y contacto para no duplicar datos.">
+            <Panel title="Redes y enlaces" desc="Agrega aqui los enlaces que quieres mostrar en la tienda publica.">
               <div className="space-y-4">
-                <div className="rounded-xl border border-blue-100 bg-blue-50 px-4 py-3 text-sm font-bold leading-6 text-blue-950">
-                  Las URLs de Instagram, Facebook, WhatsApp y web se gestionan en una sola parte: Contenido y contacto. En esta pantalla puedes activar, ocultar u ordenar la seccion "Redes sociales" desde la pestaña Secciones.
+                <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-bold leading-6 text-amber-950">
+                  <span className="block text-sm leading-6">Si un campo aparece vacio, la tienda lo muestra como "Sin configurar". Al llenar estos datos y guardar, se publican en la seccion de redes sociales.</span>
                 </div>
 
                 <div className="grid gap-3 sm:grid-cols-2">
-                  {[
-                    { label: 'Instagram', value: brandFallbacks.instagram },
-                    { label: 'Facebook', value: brandFallbacks.facebook },
-                    { label: 'WhatsApp', value: brandFallbacks.whatsapp },
-                    { label: 'Sitio web', value: brandFallbacks.website },
-                  ].map(item => (
-                    <div key={item.label} className="rounded-xl border border-black/10 bg-white px-4 py-3">
-                      <p className="text-xs font-black uppercase tracking-[0.12em] text-black/45">{item.label}</p>
-                      <p className="mt-1 truncate text-sm font-black text-[#15130f]">{item.value || 'Sin configurar'}</p>
-                    </div>
-                  ))}
+                  <Field label="Instagram" value={config.social.instagram || brandFallbacks.instagram} placeholder="https://instagram.com/tu_restaurante" onChange={v => updateSocial('instagram', v)} />
+                  <Field label="Facebook" value={config.social.facebook || brandFallbacks.facebook} placeholder="https://facebook.com/tu_restaurante" onChange={v => updateSocial('facebook', v)} />
+                  <Field label="WhatsApp" value={config.social.whatsapp || brandFallbacks.whatsapp} placeholder="https://wa.me/34600000000" onChange={v => updateSocial('whatsapp', v)} />
+                  <Field label="Sitio web" value={config.social.website || brandFallbacks.website} placeholder="https://turestaurante.com" onChange={v => updateSocial('website', v)} />
                 </div>
 
                 <div className="flex flex-col gap-2 sm:flex-row">
-                  <Link href={`/${tenantSlug}/admin/configuracion/personalizacion`} className="inline-flex h-11 items-center justify-center rounded-lg bg-[#15130f] px-4 text-sm font-black text-white transition hover:bg-black">
-                    Editar links en Contenido y contacto
-                  </Link>
                   <button onClick={() => setTab('sections')} className="inline-flex h-11 items-center justify-center rounded-lg border border-black/10 bg-white px-4 text-sm font-black text-[#15130f] transition hover:bg-black/[0.04]">
                     Mostrar u ordenar la seccion
                   </button>
@@ -630,10 +638,15 @@ export default function PageBuilderPage() {
             </div>
             <div className="space-y-2 p-4">
               {sortedSections.filter(s => s.enabled).slice(0, 5).map(section => (
-                <div key={section.id} className="flex items-center justify-between rounded-lg bg-black/[0.035] px-3 py-2">
+                <button
+                  key={section.id}
+                  type="button"
+                  onClick={() => openSectionEditor(section.type)}
+                  className="flex w-full items-center justify-between rounded-lg bg-black/[0.035] px-3 py-2 text-left transition hover:bg-[#e43d30]/10"
+                >
                   <span className="text-sm font-black text-[#15130f]">{sectionInfo(section.type).label}</span>
                   <span className="size-2 rounded-full bg-[#e43d30]" />
-                </div>
+                </button>
               ))}
             </div>
           </div>
@@ -651,6 +664,7 @@ function SectionEditor(props: {
   updateSectionConfig: (id: string, key: string, value: any) => void
   updateBanner: (key: string, value: any) => void
   updateAbout: (key: string, value: any) => void
+  updateGallery: (key: string, value: any) => void
   addGalleryImage: (file: File) => void
   removeGalleryImage: (index: number) => void
   addTestimonial: () => void
@@ -708,7 +722,7 @@ function SectionEditor(props: {
               { id: 'carousel', label: 'Carrusel' },
               { id: 'masonry', label: 'Mosaico' },
             ]}
-            onChange={v => props.updateSectionConfig(section.id, 'style', v)}
+            onChange={v => props.updateGallery('style', v)}
           />
           <div className="grid grid-cols-3 gap-2">
             {config.gallery.images.map((image, index) => (
@@ -885,6 +899,7 @@ function ChoiceGrid({ label, value, options, onChange }: {
         {options.map(option => (
           <button
             key={option.id}
+            type="button"
             onClick={() => onChange(option.id)}
             className={`rounded-lg border px-3 py-2 text-sm font-black transition ${
               value === option.id ? 'border-[#e43d30] bg-[#15130f] text-white' : 'border-black/12 bg-white text-[#15130f] hover:border-black/25'

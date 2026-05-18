@@ -5,6 +5,9 @@ import { formatPriceWithCurrency } from '@/lib/currency'
 import LanguageSwitcher, { useI18n } from '@/components/LanguageSwitcher'
 import { useWakeLock } from '@/lib/hooks/useWakeLock'
 
+const KIOSK_BANNER_ROTATION_MS = 10000
+const KIOSK_ATTRACT_MODE_DELAY_MS = 90000
+
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 interface MenuCategory { id: string; name: string; sort_order: number; image_url?: string | null }
@@ -188,7 +191,7 @@ function BannerCarouselFullscreen({ banners }: { banners: Banner[] }) {
   useEffect(() => {
     const interval = setInterval(() => {
       setBannerIdx(prev => (prev + 1) % banners.length)
-    }, 6000)
+    }, KIOSK_BANNER_ROTATION_MS)
     return () => clearInterval(interval)
   }, [banners.length])
 
@@ -267,7 +270,7 @@ function HorizontalBannerCarousel({
   useEffect(() => {
     const interval = setInterval(() => {
       setBannerIdx(prev => (prev + 1) % (banners.length || 1))
-    }, 6000)
+    }, KIOSK_BANNER_ROTATION_MS)
     return () => clearInterval(interval)
   }, [banners.length])
 
@@ -511,12 +514,13 @@ export default function KioskoClient({
   const secondaryButtonTextColor = readableText(buttonSecondaryColor)
   const surfaceColor = isLightTheme ? '#ffffff' : '#11100D'
   const surfaceTextColor = isLightTheme ? '#07111f' : '#FFF4D8'
+  const modalTextColor = isLightTheme ? '#000000' : surfaceTextColor
   const surfaceMutedTextColor = isLightTheme ? 'rgba(7, 17, 31, 0.68)' : textSecondaryColor || '#B9A989'
   const menuShellBackground = isLightTheme
     ? 'linear-gradient(180deg, #ffffff 0%, #f4f4f5 58%, #e5e7eb 100%)'
     : `linear-gradient(135deg, ${surfaceColor} 0%, ${backgroundColor} 44%, #050403 100%)`
   const mainPanelBackground = isLightTheme
-    ? '#ffffff'
+    ? 'linear-gradient(180deg, #ffffff 0%, #f4f4f5 58%, #e5e7eb 100%)'
     : 'linear-gradient(180deg,rgba(255,255,255,0.035),rgba(0,0,0,0.28))'
   const placeholderImageBg = isLightTheme ? '#f4f4f5' : '#17130D'
 
@@ -735,7 +739,7 @@ export default function KioskoClient({
         setIsCategoryModalOpen(false)
         setStep('menu')
         setIsAttractMode(true)
-      }, 30000)
+      }, KIOSK_ATTRACT_MODE_DELAY_MS)
     }
 
     const events = ['pointerdown', 'keydown', 'touchstart']
@@ -758,7 +762,7 @@ export default function KioskoClient({
     if (step !== 'menu' || rotationLength <= 1) return
     const interval = setInterval(() => {
       setAdBannerIndex(prev => (prev + 1) % rotationLength)
-    }, 5000)
+    }, KIOSK_BANNER_ROTATION_MS)
     return () => clearInterval(interval)
   }, [rotationLength, step])
 
@@ -1422,9 +1426,9 @@ export default function KioskoClient({
         <aside
           ref={categoryScrollRef}
           className="w-full flex-shrink-0 overflow-x-auto border-b p-3 pt-0 hide-scrollbar md:w-[24rem] md:overflow-y-auto md:border-b-0 md:border-r md:p-5 md:pt-0 xl:w-[28rem]"
-          style={{ WebkitOverflowScrolling: 'touch', backgroundColor: surfaceColor, borderColor }}
+          style={{ WebkitOverflowScrolling: 'touch', background: mainPanelBackground, borderColor }}
         >
-          <div className="hidden sticky top-0 z-10 -mx-5 mb-3 border-b px-5 pb-4 pt-5 md:block" style={{ backgroundColor: surfaceColor, borderColor }}>
+          <div className="hidden sticky top-0 z-10 -mx-5 mb-3 border-b px-5 pb-4 pt-5 md:block" style={{ background: mainPanelBackground, borderColor }}>
             <p className="text-xs font-black uppercase tracking-[0.25em]" style={{ color: surfaceMutedTextColor }}>Menu</p>
             <p className="text-3xl font-black leading-none mt-1" style={{ color: surfaceTextColor }}>Categorias</p>
           </div>
@@ -1621,7 +1625,16 @@ export default function KioskoClient({
             )}
             <div className="p-6">
               <div className="flex items-start justify-between mb-1 gap-4">
-                <h3 className="text-2xl font-black leading-tight" style={{ color: surfaceTextColor }}>{selectedItem.name}</h3>
+                <h3
+                  className={`text-2xl font-black leading-tight ${isLightTheme ? '!text-black' : ''}`}
+                  style={{
+                    color: modalTextColor,
+                    WebkitTextFillColor: modalTextColor,
+                    textShadow: 'none',
+                  }}
+                >
+                  {selectedItem.name}
+                </h3>
                 <p className="text-2xl font-black flex-shrink-0" style={{ color: accentColor }}>
                   {fmt(selectedItem.price, currencyCode, currencyLocale)}
                 </p>
@@ -1668,7 +1681,7 @@ export default function KioskoClient({
                             {checked ? 'OK' : '+'}
                           </span>
                           <span className="flex-1 min-w-0">
-                            <span className="block font-black leading-tight" style={{ color: surfaceTextColor }}>{topping.name}</span>
+                            <span className="block font-black leading-tight" style={{ color: modalTextColor }}>{topping.name}</span>
                             {topping.price > 0 && (
                               <span className="block text-xs mt-0.5" style={{ color: accentColor }}>+ {fmt(topping.price, currencyCode, currencyLocale)}</span>
                             )}
@@ -1689,7 +1702,7 @@ export default function KioskoClient({
                   className="w-14 h-14 rounded-full text-3xl font-bold flex items-center justify-center transition-colors"
                   style={{ backgroundColor: `${buttonSecondaryColor}22`, color: secondaryButtonTextColor }}
                 >−</button>
-                <span className="text-4xl font-black w-12 text-center tabular-nums" style={{ color: surfaceTextColor }}>{itemQty}</span>
+                <span className="text-4xl font-black w-12 text-center tabular-nums" style={{ color: modalTextColor }}>{itemQty}</span>
                 <button
                   onClick={() => setItemQty(q => q + 1)}
                   className="w-14 h-14 rounded-full text-3xl font-bold flex items-center justify-center transition-colors shadow-md"
