@@ -18,7 +18,7 @@ export default async function GestionarCuentasPage() {
   const supabase = createServiceClient()
   const { data: tenants, error } = await supabase
     .from('tenants')
-    .select('id, organization_name, owner_name, owner_email, status, subscription_plan, trial_ends_at, subscription_expires_at, created_at, stripe_account_status, metadata')
+    .select('id, organization_name, owner_name, owner_email, status, subscription_plan, trial_ends_at, subscription_expires_at, created_at, stripe_account_status, metadata, slug')
     .order('created_at', { ascending: false })
 
   if (error) {
@@ -52,7 +52,7 @@ export default async function GestionarCuentasPage() {
           <p className="text-muted-foreground mt-1">Administra todas las cuentas de clientes</p>
         </div>
 
-        <AccountsContent initialTenants={tenants || []} />
+        <AccountsContent initialTenants={(tenants || []).filter(tenant => !tenant.slug?.startsWith('demo-'))} />
       </div>
     </div>
   )

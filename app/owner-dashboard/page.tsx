@@ -77,7 +77,7 @@ export default async function OwnerDashboard() {
     .order('created_at', { ascending: false })
     .limit(5)
 
-  const allTenants = (tenants || []) as TenantRow[]
+  const allTenants = ((tenants || []) as TenantRow[]).filter(tenant => !tenant.slug?.startsWith('demo-'))
   const now = new Date()
   const activeClients = allTenants.filter(tenant => tenant.status === 'active').length
   const trialClients = allTenants.filter(tenant => tenant.status === 'trial').length

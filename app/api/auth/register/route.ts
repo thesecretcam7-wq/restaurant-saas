@@ -222,6 +222,27 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    const defaultStaffMembers = [
+      { name: 'Admin', role: 'admin', pin: '000000' },
+      { name: 'Caja', role: 'cajero', pin: '999999' },
+      { name: 'Mesero', role: 'camarero', pin: '123456' },
+      { name: 'Cocina', role: 'cocinero', pin: '567890' },
+    ]
+
+    const { error: staffError } = await supabase
+      .from('staff_members')
+      .insert(defaultStaffMembers.map(staff => ({
+        tenant_id: tenantData.id,
+        name: staff.name,
+        role: staff.role,
+        pin: staff.pin,
+        is_active: true,
+      })))
+
+    if (staffError) {
+      console.error('Default staff creation failed:', staffError.message)
+    }
+
     // Now create authenticated session with SSR client
     const cookieStore = await cookies()
     const authClient = createServerClient(
@@ -251,75 +272,10 @@ export async function POST(request: NextRequest) {
       // Don't fail here - user exists, just no session in response
       // Frontend will need to login
     }
-
-    // Create demo tenant automatically
-    const demoSlug = `demo-${tenantData.id.substring(0, 8)}`
-
-    const { data: demoTenantData, error: demoTenantError } = await supabase
-      .from('tenants')
-      .insert({
-        organization_name: `Demo - ${restaurantName}`,
-        slug: demoSlug,
-        owner_id: authData.user.id,
-        owner_email: normalizedEmail,
-        owner_name: ownerName || '',
-        country: restaurantCountry,
-        status: 'trial',
-        trial_ends_at: trialEndsAt,
-      })
-      .select()
-      .single()
-
-    if (demoTenantError) {
-      console.error('⚠️ [Register] Demo tenant creation failed:', demoTenantError.message)
-    } else {
-
-      // Create demo branding
-      await insertTenantBranding(supabase, {
-        tenant_id: demoTenantData.id,
-        ...lockedBrandingColors,
-        font_family: 'Inter',
-        app_name: 'Demo - ' + restaurantName,
-        tagline: 'Restaurante Demo',
-      })
-
-      // Create demo restaurant settings
-      await supabase
-        .from('restaurant_settings')
-        .insert({
-          tenant_id: demoTenantData.id,
-          display_name: 'Restaurante Demo',
-          country: restaurantCountry,
-          timezone: restaurantTimezone,
-          online_payment_provider: restaurantCountry === 'CO' ? 'wompi' : 'stripe',
-          waiter_pin: '1234',
-          kitchen_pin: '5678',
-        })
-
-      // Create demo staff members
-      const demoStaffRoles = [
-        { name: 'Juan Camarero Demo', role: 'camarero', pin: '123456' },
-        { name: 'Miguel Cocinero Demo', role: 'cocinero', pin: '567890' },
-        { name: 'Carlos Cajero Demo', role: 'cajero', pin: '999999' },
-        { name: 'Admin Demo', role: 'admin', pin: '000000' },
-      ]
-
-      for (const staff of demoStaffRoles) {
-        await supabase.from('staff_members').insert({
-          tenant_id: demoTenantData.id,
-          name: staff.name,
-          role: staff.role,
-          pin: staff.pin,
-          is_active: true,
-        })
-      }
-
-    }
-
     // Check if this is the software owner (system admin)
     const ownerEmails = ['thesecretcam7@gmail.com']
     const isOwner = ownerEmails.includes(normalizedEmail)
-    const redirectUrl = isOwner ? '/owner-dashboard' : `/${tenantData.slug}/bienvenida?nuevo=1&demo=${demoSlug}`
+    const redirectUrl = isOwner ? '/owner-dashboard' : `/${tenantData.slug}/bienvenida?nuevo=1`
 
     return NextResponse.json({
       success: true,
