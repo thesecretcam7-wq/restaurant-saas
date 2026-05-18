@@ -129,11 +129,11 @@ export default async function BienvenidaPage({ params, searchParams }: Props) {
               Estos son los usuarios y PINs que se crean por defecto para que puedas entrar rapido como admin, caja, mesero y cocina.
             </p>
             <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-              <Link href={`/${tenant.slug}/admin/dashboard`} className="inline-flex h-13 items-center justify-center rounded-2xl px-6 text-sm font-black shadow-2xl transition hover:-translate-y-0.5" style={{ backgroundColor: palette.buttonPrimary, color: '#15130f' }}>
-                Entrar a mi panel real
+              <Link href={`/${tenant.slug}/acceso`} className="inline-flex h-13 items-center justify-center rounded-2xl px-6 text-sm font-black shadow-2xl transition hover:-translate-y-0.5" style={{ backgroundColor: palette.buttonPrimary, color: '#15130f' }}>
+                Entrar con un rol
               </Link>
-              <Link href={`/${tenant.slug}/acceso`} className="inline-flex h-13 items-center justify-center rounded-2xl border border-white/14 bg-white/8 px-6 text-sm font-black text-white transition hover:bg-white/12">
-                Ver accesos del restaurante
+              <Link href={`/${tenant.slug}/admin/login`} className="inline-flex h-13 items-center justify-center rounded-2xl border border-white/14 bg-white/8 px-6 text-sm font-black text-white transition hover:bg-white/12">
+                Login administrador
               </Link>
             </div>
           </div>
