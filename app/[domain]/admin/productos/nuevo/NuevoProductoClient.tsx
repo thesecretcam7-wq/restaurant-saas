@@ -38,6 +38,7 @@ export default function NuevoProductoClient({ domain, tenantId, categories }: Pr
     const fd = new FormData()
     fd.append('file', file)
     fd.append('bucket', 'product-images')
+    fd.append('tenantId', tenantId)
     try {
       const res = await fetch('/api/upload', { method: 'POST', body: fd })
       const data = await res.json()

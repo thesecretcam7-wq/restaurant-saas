@@ -119,9 +119,9 @@ const testimonials = [
 ]
 
 const pricingPlans = [
-  { name: 'Basic', monthly: 49.99, annual: 539.89, discount: 'Ahorra 60.00 EUR', features: ['Carta QR', 'TPV / POS', 'Comandero', 'KDS cocina'] },
-  { name: 'Pro', monthly: 99.99, annual: 1079.89, discount: 'Ahorra 120.00 EUR', features: ['Pagina web', 'Kiosko autoservicio', 'Reservas y delivery'], popular: true },
-  { name: 'Premium', monthly: 299.99, annual: 3239.89, discount: 'Ahorra 360.00 EUR', features: ['Todas las funciones', 'Disenos exclusivos', 'Acompanamiento premium'] },
+  { name: 'Basic', monthly: 49.99, annual: 539.89, discount: 'Ahorra 60.00 EUR', features: ['Carta QR incluida', 'TPV / POS', 'Comandero', 'KDS cocina'] },
+  { name: 'Pro', monthly: 99.99, annual: 1079.89, discount: 'Ahorra 120.00 EUR', features: ['Carta QR incluida', 'TPV / POS + Comandero + KDS', 'Pagina web', 'Kiosko autoservicio'], popular: true },
+  { name: 'Premium', monthly: 299.99, annual: 3239.89, discount: 'Ahorra 360.00 EUR', features: ['Carta QR incluida', 'Todas las funciones', 'Disenos exclusivos por cliente', 'Acompanamiento premium'] },
 ]
 
 const before = ['Pedidos por llamada', 'Comandas en papel', 'Errores en cocina', 'Caja desconectada', 'Reportes manuales']

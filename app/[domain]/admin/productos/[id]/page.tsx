@@ -120,10 +120,15 @@ export default function EditProductoPage({ params }: Props) {
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
+    if (!tenantId) {
+      toast.error('Espera a que cargue el restaurante')
+      return
+    }
     setUploadingImage(true)
     const fd = new FormData()
     fd.append('file', file)
     fd.append('bucket', 'product-images')
+    fd.append('tenantId', tenantId)
     try {
       const res = await fetch('/api/upload', { method: 'POST', body: fd })
       const data = await res.json()

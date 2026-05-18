@@ -109,6 +109,34 @@ export interface CashClosingReceiptData {
   };
 }
 
+export interface MonthlyClosingReceiptData {
+  closingId?: string;
+  restaurantName?: string;
+  restaurantPhone?: string | null;
+  staffName: string;
+  closedAt?: string;
+  monthLabel: string;
+  periodStart: string;
+  periodEnd: string;
+  cashSales: number;
+  cardSales: number;
+  otherSales: number;
+  totalSales: number;
+  totalDeliveryFees?: number;
+  deliveryOrderCount?: number;
+  totalTax: number;
+  totalDiscount: number;
+  transactionCount: number;
+  ordersCompleted: number;
+  ordersCancelled: number;
+  notes?: string | null;
+  currencyInfo: {
+    code: string;
+    symbol: string;
+    locale: string;
+  };
+}
+
 export interface KitchenTicketData {
   orderId?: string | null;
   orderNumber: string;

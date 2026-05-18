@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
-import { ArrowRight, CircleDollarSign, Headphones, Store, UserRoundCheck } from 'lucide-react'
+import { AlertTriangle, ArrowRight, CircleDollarSign, Headphones, Store, UserRoundCheck } from 'lucide-react'
 import EccofoodLogo from '@/components/EccofoodLogo'
 import { isOwnerEmail } from '@/lib/owner-auth'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
@@ -18,6 +18,8 @@ type TenantRow = {
   trial_ends_at: string | null
   created_at: string
   slug: string
+  payment_failure_count?: number | null
+  last_payment_failure_at?: string | null
   metadata?: Record<string, unknown> | null
 }
 
@@ -66,7 +68,7 @@ export default async function OwnerDashboard() {
 
   const { data: tenants } = await supabase
     .from('tenants')
-    .select('id, organization_name, owner_email, owner_name, status, subscription_plan, subscription_expires_at, trial_ends_at, created_at, slug, metadata')
+    .select('id, organization_name, owner_email, owner_name, status, subscription_plan, subscription_expires_at, trial_ends_at, created_at, slug, payment_failure_count, last_payment_failure_at, metadata')
     .order('created_at', { ascending: false })
 
   const { data: supportRequests, error: supportError } = await supabase
@@ -80,6 +82,8 @@ export default async function OwnerDashboard() {
   const activeClients = allTenants.filter(tenant => tenant.status === 'active').length
   const trialClients = allTenants.filter(tenant => tenant.status === 'trial').length
   const manualClients = allTenants.filter(tenant => tenant.metadata?.billing_source === 'manual').length
+  const suspendedClients = allTenants.filter(tenant => tenant.status === 'suspended').length
+  const paymentFailures = allTenants.filter(tenant => Number(tenant.payment_failure_count || 0) > 0).length
   const expiredTrials = allTenants.filter(tenant => {
     if (tenant.status !== 'trial' || !tenant.trial_ends_at) return false
     return new Date(tenant.trial_ends_at) < now
@@ -251,6 +255,27 @@ export default async function OwnerDashboard() {
             <p className="text-sm font-bold text-muted-foreground">Cuentas manuales</p>
             <p className="mt-2 text-3xl font-black text-foreground">{manualClients}</p>
           </div>
+        </div>
+
+        <div className="mt-4 grid gap-4 md:grid-cols-2">
+          <Link href="/gestionar-cuentas?estado=suspended" className="rounded-2xl border border-amber-200 bg-amber-50 p-5 transition hover:border-amber-300">
+            <div className="flex items-center gap-3">
+              <span className="rounded-xl bg-amber-100 p-3 text-amber-700"><AlertTriangle className="size-5" /></span>
+              <div>
+                <p className="text-sm font-bold text-amber-800">Cuentas suspendidas</p>
+                <p className="mt-1 text-3xl font-black text-amber-950">{suspendedClients}</p>
+              </div>
+            </div>
+          </Link>
+          <Link href="/admin/ingresos" className="rounded-2xl border border-red-200 bg-red-50 p-5 transition hover:border-red-300">
+            <div className="flex items-center gap-3">
+              <span className="rounded-xl bg-red-100 p-3 text-red-700"><AlertTriangle className="size-5" /></span>
+              <div>
+                <p className="text-sm font-bold text-red-800">Pagos fallidos</p>
+                <p className="mt-1 text-3xl font-black text-red-950">{paymentFailures}</p>
+              </div>
+            </div>
+          </Link>
         </div>
       </div>
     </div>

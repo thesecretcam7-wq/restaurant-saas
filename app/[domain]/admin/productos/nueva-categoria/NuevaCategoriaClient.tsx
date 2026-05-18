@@ -26,6 +26,7 @@ export default function NuevaCategoriaClient({
     const formData = new FormData()
     formData.append('file', file)
     formData.append('bucket', 'images')
+    formData.append('tenantId', tenantId)
 
     try {
       const res = await fetch('/api/upload', { method: 'POST', body: formData })

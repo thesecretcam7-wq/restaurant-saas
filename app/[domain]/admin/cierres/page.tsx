@@ -4,9 +4,9 @@ import { useParams } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useTenantResolver } from '@/lib/hooks/useTenantResolver'
-import { AlertCircle, Check, Eye, Printer, WalletCards } from 'lucide-react'
+import { AlertCircle, CalendarDays, Check, Eye, Printer, RefreshCw, WalletCards } from 'lucide-react'
 import { formatPriceWithCurrency, getCurrencyByCountry } from '@/lib/currency'
-import { printCashClosingReceipt } from '@/lib/pos-printer'
+import { printCashClosingReceipt, printMonthlyClosingReceipt } from '@/lib/pos-printer'
 
 interface CashClosing {
   id: string
@@ -29,6 +29,52 @@ interface CashClosing {
   notes?: string
 }
 
+interface MonthlyStats {
+  periodYear: number
+  periodMonth: number
+  monthLabel: string
+  periodStart: string
+  periodEnd: string
+  cashSales: number
+  cardSales: number
+  otherSales: number
+  totalSales: number
+  totalDeliveryFees: number
+  deliveryOrderCount: number
+  totalTax: number
+  totalDiscount: number
+  transactionCount: number
+  ordersCompleted: number
+  ordersCancelled: number
+}
+
+interface MonthlyClosing {
+  id: string
+  period_year: number
+  period_month: number
+  period_start: string
+  period_end: string
+  staff_name: string
+  cash_sales: number
+  card_sales: number
+  other_sales: number
+  total_sales: number
+  total_delivery_fees?: number | null
+  delivery_order_count?: number | null
+  total_tax: number
+  total_discount: number
+  transaction_count: number
+  orders_completed: number
+  orders_cancelled: number
+  notes?: string | null
+  closed_at: string
+}
+
+function getCurrentMonthInput() {
+  const now = new Date()
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
+}
+
 export default function CashClosingsPage() {
   const params = useParams()
   const slug = params.domain as string
@@ -36,6 +82,18 @@ export default function CashClosingsPage() {
   const [closings, setClosings] = useState<CashClosing[]>([])
   const [loading, setLoading] = useState(true)
   const [selectedClosing, setSelectedClosing] = useState<CashClosing | null>(null)
+  const [monthInput, setMonthInput] = useState(getCurrentMonthInput)
+  const [monthlyStats, setMonthlyStats] = useState<MonthlyStats | null>(null)
+  const [monthlyClosings, setMonthlyClosings] = useState<MonthlyClosing[]>([])
+  const [monthlyRestaurant, setMonthlyRestaurant] = useState<{
+    displayName: string
+    phone: string | null
+    defaultReceiptPrinterId: string | null
+  } | null>(null)
+  const [monthlyLoading, setMonthlyLoading] = useState(false)
+  const [monthlySaving, setMonthlySaving] = useState(false)
+  const [printingMonthly, setPrintingMonthly] = useState(false)
+  const [monthlyNeedsMigration, setMonthlyNeedsMigration] = useState(false)
   const [printingClosingId, setPrintingClosingId] = useState<string | null>(null)
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
 
@@ -82,6 +140,11 @@ export default function CashClosingsPage() {
     loadData()
   }, [tenantId])
 
+  useEffect(() => {
+    if (!tenantId) return
+    loadMonthlyData()
+  }, [tenantId, monthInput])
+
   if (loading) return <div className="admin-empty">Cargando cierres de caja...</div>
 
   const currencyInfo = getCurrencyByCountry(country)
@@ -93,6 +156,125 @@ export default function CashClosingsPage() {
     if (!value) return fallback
     const parsed = new Date(value.trim())
     return Number.isNaN(parsed.getTime()) ? fallback : parsed.toISOString()
+  }
+
+  async function loadMonthlyData() {
+    if (!tenantId) return
+    setMonthlyLoading(true)
+    try {
+      const response = await fetch(`/api/pos/monthly-closing?tenantId=${encodeURIComponent(tenantId)}&month=${encodeURIComponent(monthInput)}`)
+      const payload = await response.json()
+      if (!response.ok) throw new Error(payload?.error || 'No se pudo calcular el cierre mensual.')
+      setMonthlyStats(payload.stats || null)
+      setMonthlyClosings(payload.closings || [])
+      setMonthlyRestaurant(payload.restaurant || null)
+      setMonthlyNeedsMigration(Boolean(payload.needsMigration))
+    } catch (error) {
+      setMessage({
+        type: 'error',
+        text: `No se pudo cargar el cierre mensual: ${error instanceof Error ? error.message : String(error)}`,
+      })
+    } finally {
+      setMonthlyLoading(false)
+    }
+  }
+
+  function monthlyClosingToStats(closing: MonthlyClosing): MonthlyStats {
+    const monthDate = new Date(Date.UTC(closing.period_year, closing.period_month - 1, 1, 12, 0, 0))
+    return {
+      periodYear: closing.period_year,
+      periodMonth: closing.period_month,
+      monthLabel: monthDate.toLocaleDateString(currencyInfo.locale, { month: 'long', year: 'numeric' }),
+      periodStart: closing.period_start,
+      periodEnd: closing.period_end,
+      cashSales: Number(closing.cash_sales) || 0,
+      cardSales: Number(closing.card_sales) || 0,
+      otherSales: Number(closing.other_sales) || 0,
+      totalSales: Number(closing.total_sales) || 0,
+      totalDeliveryFees: Number(closing.total_delivery_fees) || 0,
+      deliveryOrderCount: Number(closing.delivery_order_count) || 0,
+      totalTax: Number(closing.total_tax) || 0,
+      totalDiscount: Number(closing.total_discount) || 0,
+      transactionCount: Number(closing.transaction_count) || 0,
+      ordersCompleted: Number(closing.orders_completed) || 0,
+      ordersCancelled: Number(closing.orders_cancelled) || 0,
+    }
+  }
+
+  async function handleSaveMonthlyClosing() {
+    if (!tenantId || !monthlyStats) return
+    setMonthlySaving(true)
+    setMessage(null)
+
+    try {
+      const response = await fetch('/api/pos/monthly-closing', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          tenantId,
+          month: monthInput,
+          staffName: 'Administrador',
+          notes: `Cierre mensual de ${monthlyStats.monthLabel}`,
+        }),
+      })
+      const payload = await response.json()
+      if (!response.ok) throw new Error(payload?.error || 'No se pudo cerrar el mes.')
+      setMessage({ type: 'success', text: 'Cierre mensual guardado. Ya puedes imprimir el ticket.' })
+      await loadMonthlyData()
+    } catch (error) {
+      setMessage({
+        type: 'error',
+        text: `No se pudo guardar el cierre mensual: ${error instanceof Error ? error.message : String(error)}`,
+      })
+    } finally {
+      setMonthlySaving(false)
+    }
+  }
+
+  async function handlePrintMonthlyClosing(stats: MonthlyStats, closing?: MonthlyClosing) {
+    if (!tenantId) return
+    setPrintingMonthly(true)
+    setMessage(null)
+
+    try {
+      const printerId = monthlyRestaurant?.defaultReceiptPrinterId
+      if (!printerId) {
+        throw new Error('No hay impresora de recibos configurada.')
+      }
+
+      await printMonthlyClosingReceipt(tenantId, printerId, {
+        closingId: closing?.id,
+        restaurantName: monthlyRestaurant?.displayName || 'Restaurante',
+        restaurantPhone: monthlyRestaurant?.phone || null,
+        staffName: closing?.staff_name || 'Administrador',
+        closedAt: closing?.closed_at || new Date().toISOString(),
+        monthLabel: stats.monthLabel,
+        periodStart: stats.periodStart,
+        periodEnd: stats.periodEnd,
+        cashSales: stats.cashSales,
+        cardSales: stats.cardSales,
+        otherSales: stats.otherSales,
+        totalSales: stats.totalSales,
+        totalDeliveryFees: stats.totalDeliveryFees,
+        deliveryOrderCount: stats.deliveryOrderCount,
+        totalTax: stats.totalTax,
+        totalDiscount: stats.totalDiscount,
+        transactionCount: stats.transactionCount,
+        ordersCompleted: stats.ordersCompleted,
+        ordersCancelled: stats.ordersCancelled,
+        notes: closing?.notes || null,
+        currencyInfo,
+      })
+
+      setMessage({ type: 'success', text: 'Ticket de cierre mensual enviado a imprimir.' })
+    } catch (error) {
+      setMessage({
+        type: 'error',
+        text: `No se pudo imprimir el cierre mensual: ${error instanceof Error ? error.message : String(error)}`,
+      })
+    } finally {
+      setPrintingMonthly(false)
+    }
   }
 
   async function handlePrintClosing(closing: CashClosing) {
@@ -181,6 +363,145 @@ export default function CashClosingsPage() {
           ))}
         </div>
       )}
+
+      <section className="admin-panel mb-5 overflow-hidden">
+        <div className="border-b border-black/8 p-5">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+            <div>
+              <p className="admin-eyebrow">Cierre de mes</p>
+              <h2 className="text-2xl font-black text-[#15130f]">Cierre mensual</h2>
+              <p className="mt-1 text-sm font-semibold text-black/55">Calcula las ventas pagadas del mes, guarda el cierre e imprime el ticket.</p>
+            </div>
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+              <label className="flex items-center gap-2 rounded-xl border border-black/10 bg-white px-3 py-2 text-sm font-black text-[#15130f]">
+                <CalendarDays className="size-4 text-[#e43d30]" />
+                <input
+                  type="month"
+                  value={monthInput}
+                  onChange={(event) => setMonthInput(event.target.value)}
+                  className="bg-transparent outline-none"
+                />
+              </label>
+              <button
+                onClick={loadMonthlyData}
+                disabled={monthlyLoading}
+                className="admin-button-secondary inline-flex items-center justify-center gap-2 disabled:opacity-50"
+              >
+                <RefreshCw className={`size-4 ${monthlyLoading ? 'animate-spin' : ''}`} />
+                Recalcular
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {monthlyNeedsMigration && (
+          <div className="m-5 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-black text-amber-800">
+            Falta aplicar la tabla de cierres mensuales en Supabase. Puedes calcular el mes, pero para guardar el cierre hay que ejecutar la migracion nueva.
+          </div>
+        )}
+
+        {monthlyStats ? (
+          <div className="p-5">
+            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+              {[
+                ['Mes', monthlyStats.monthLabel],
+                ['Total ventas', formatPriceWithCurrency(monthlyStats.totalSales, currencyInfo.code, currencyInfo.locale)],
+                ['Transacciones', monthlyStats.transactionCount.toString()],
+                ['Domicilios', formatPriceWithCurrency(monthlyStats.totalDeliveryFees, currencyInfo.code, currencyInfo.locale)],
+              ].map(([label, value]) => (
+                <article key={label} className="rounded-xl border border-black/10 bg-white/70 p-4">
+                  <p className="text-xs font-black uppercase text-black/42">{label}</p>
+                  <p className="mt-3 text-xl font-black text-[#15130f]">{value}</p>
+                </article>
+              ))}
+            </div>
+
+            <div className="mt-4 grid gap-4 lg:grid-cols-[1.2fr_0.8fr]">
+              <div className="rounded-xl border border-black/10 bg-white/70 p-4">
+                <h3 className="font-black text-[#15130f]">Detalle del mes</h3>
+                <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                  {[
+                    ['Efectivo', formatPriceWithCurrency(monthlyStats.cashSales, currencyInfo.code, currencyInfo.locale)],
+                    ['Tarjeta', formatPriceWithCurrency(monthlyStats.cardSales, currencyInfo.code, currencyInfo.locale)],
+                    ['Otros', formatPriceWithCurrency(monthlyStats.otherSales, currencyInfo.code, currencyInfo.locale)],
+                    ['Impuestos', formatPriceWithCurrency(monthlyStats.totalTax, currencyInfo.code, currencyInfo.locale)],
+                    ['Pedidos completados', monthlyStats.ordersCompleted.toString()],
+                    ['Pedidos domicilio', monthlyStats.deliveryOrderCount.toString()],
+                  ].map(([label, value]) => (
+                    <div key={label} className="flex items-center justify-between gap-3 border-b border-black/8 py-2 text-sm">
+                      <span className="font-bold text-black/55">{label}</span>
+                      <strong className="text-right text-[#15130f]">{value}</strong>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="rounded-xl border border-black/10 bg-white/70 p-4">
+                <h3 className="font-black text-[#15130f]">Acciones</h3>
+                <p className="mt-2 text-sm font-semibold text-black/55">
+                  Al cerrar el mes se guarda una foto fija de estas ventas para consultarla e imprimirla despues.
+                </p>
+                <div className="mt-4 grid gap-3">
+                  <button
+                    onClick={handleSaveMonthlyClosing}
+                    disabled={monthlySaving || monthlyNeedsMigration}
+                    className="admin-button-primary w-full disabled:opacity-50"
+                  >
+                    {monthlySaving ? 'Guardando...' : 'Cerrar mes'}
+                  </button>
+                  <button
+                    onClick={() => handlePrintMonthlyClosing(monthlyStats)}
+                    disabled={printingMonthly}
+                    className="admin-button-secondary inline-flex w-full items-center justify-center gap-2 disabled:opacity-50"
+                  >
+                    <Printer className="size-4" />
+                    {printingMonthly ? 'Imprimiendo...' : 'Imprimir ticket'}
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {monthlyClosings.length > 0 && (
+              <div className="mt-5 overflow-x-auto rounded-xl border border-black/10 bg-white/70">
+                <table className="w-full text-sm">
+                  <thead className="bg-white/70">
+                    <tr>
+                      <th className="px-4 py-3 text-left">Mes cerrado</th>
+                      <th className="px-4 py-3 text-left">Responsable</th>
+                      <th className="px-4 py-3 text-right">Total</th>
+                      <th className="px-4 py-3 text-right">Accion</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-black/8">
+                    {monthlyClosings.map(closing => {
+                      const stats = monthlyClosingToStats(closing)
+                      return (
+                        <tr key={closing.id}>
+                          <td className="px-4 py-3 font-black text-[#15130f]">{stats.monthLabel}</td>
+                          <td className="px-4 py-3 font-bold text-black/58">{closing.staff_name}</td>
+                          <td className="px-4 py-3 text-right font-black text-[#15130f]">{formatPriceWithCurrency(Number(closing.total_sales) || 0, currencyInfo.code, currencyInfo.locale)}</td>
+                          <td className="px-4 py-3 text-right">
+                            <button
+                              onClick={() => handlePrintMonthlyClosing(stats, closing)}
+                              disabled={printingMonthly}
+                              className="inline-flex items-center gap-1.5 text-sm font-black text-[#b87805] disabled:opacity-50"
+                            >
+                              <Printer className="size-4" />
+                              Imprimir
+                            </button>
+                          </td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        ) : (
+          <div className="admin-empty m-5">Elige un mes para calcular el cierre mensual.</div>
+        )}
+      </section>
 
       <section className="admin-panel overflow-hidden">
         {message && (

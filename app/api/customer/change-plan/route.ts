@@ -2,6 +2,7 @@ import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 import { NextRequest, NextResponse } from 'next/server'
 import { getPlanMonthlyPrice } from '@/lib/subscription-pricing'
+import { requireTenantAccess, tenantAuthErrorResponse } from '@/lib/tenant-api-auth'
 
 export async function POST(request: NextRequest) {
   try {
@@ -11,6 +12,8 @@ export async function POST(request: NextRequest) {
     if (!tenantId || !newPlan) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
     }
+
+    await requireTenantAccess(tenantId, { staffRoles: [] })
 
     const cookieStore = await cookies()
     const supabase = createServerClient(
@@ -75,6 +78,9 @@ export async function POST(request: NextRequest) {
       subscriptionExpiresAt: subscriptionExpiresAt.toISOString(),
     })
   } catch (error) {
+    if (error instanceof Error && ['Unauthorized', 'Forbidden'].includes(error.message)) {
+      return tenantAuthErrorResponse(error)
+    }
     console.error('Change plan error:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }

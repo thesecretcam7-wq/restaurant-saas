@@ -281,9 +281,19 @@ export async function POST(request: NextRequest) {
           .single()
 
         if (tenant) {
+          const { data: currentTenant } = await supabase
+            .from('tenants')
+            .select('payment_failure_count')
+            .eq('id', tenant.id)
+            .maybeSingle()
+
           const { error } = await supabase
             .from('tenants')
-            .update({ status: 'suspended' })
+            .update({
+              status: 'suspended',
+              payment_failure_count: Number(currentTenant?.payment_failure_count || 0) + 1,
+              last_payment_failure_at: new Date().toISOString(),
+            })
             .eq('id', tenant.id)
           if (error) console.error('Error updating tenant status on invoice failure:', error)
         }
@@ -308,6 +318,9 @@ export async function POST(request: NextRequest) {
             .update({
               status: 'active',
               subscription_expires_at: getSubscriptionExpiry(subscription, subscription.metadata?.billing_interval),
+              payment_failure_count: 0,
+              last_payment_failure_at: null,
+              subscription_expiration_notified: false,
             })
             .eq('id', tenant.id)
           if (error) console.error('Error updating tenant status on invoice success:', error)

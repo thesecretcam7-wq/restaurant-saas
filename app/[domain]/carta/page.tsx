@@ -108,6 +108,8 @@ export default async function CartaPage({ params }: CartaProps) {
 
   const restaurantName = branding?.app_name || tenant?.organization_name || 'Restaurante'
   const logoUrl = branding?.logo_url || tenant?.logo_url
+  const pageConfig = ((branding as any)?.page_config || {}) as any
+  const heroImageUrl = pageConfig?.hero?.image_url || (branding as any)?.hero_image_url || pageConfig?.hero_image_url || ''
   const visibleProducts = items.length
   const visibleCategories = categories.length + (featured.length > 0 ? 1 : 0) + (uncategorized.length > 0 ? 1 : 0)
   const sectionBackgroundImage = (branding as any)?.section_background_image_url || ''
@@ -126,6 +128,19 @@ export default async function CartaPage({ params }: CartaProps) {
         backgroundPosition: sectionBackgroundImage ? 'center, center, top left, top right' : undefined,
       }}
     >
+      <style>{`
+        .qr-featured-track {
+          display: flex;
+          width: max-content;
+        }
+        .qr-featured-track > * {
+          flex: 0 0 min(82vw, 23rem);
+          scroll-snap-align: start;
+        }
+        @media (min-width: 640px) {
+          .qr-featured-track > * { flex-basis: 22rem; }
+        }
+      `}</style>
       <header className="fixed inset-x-0 top-0 z-40 border-b shadow-lg shadow-black/[0.08] backdrop-blur-xl" style={{ backgroundColor: primary, borderColor: `${headerText}24` }}>
         <div className="mx-auto flex h-16 max-w-3xl items-center gap-3 px-4">
           {logoUrl ? (
@@ -161,9 +176,9 @@ export default async function CartaPage({ params }: CartaProps) {
       <section className="mx-auto max-w-3xl px-4 pb-5 pt-[7.25rem]">
         <div className="overflow-hidden rounded-[2rem] border shadow-2xl shadow-black/10" style={{ backgroundColor: secondary, borderColor: `${primary}33` }}>
           <div className="relative min-h-[220px] p-5 sm:p-7">
-            {branding?.hero_image_url && (
+            {heroImageUrl && (
               <Image
-                src={branding.hero_image_url}
+                src={heroImageUrl}
                 alt=""
                 fill
                 sizes="100vw"
@@ -204,7 +219,7 @@ export default async function CartaPage({ params }: CartaProps) {
 
       <div className="mx-auto max-w-3xl space-y-5 px-4 pb-12">
         {featured.length > 0 && (
-          <section id="destacados" className="scroll-mt-36 rounded-[1.75rem] border p-4 shadow-xl shadow-black/[0.05] sm:p-5" style={{ backgroundColor: cardSurface, borderColor: border }}>
+          <section id="destacados" className="relative scroll-mt-36 rounded-[1.75rem] border p-4 shadow-xl shadow-black/[0.05] sm:p-5" style={{ backgroundColor: cardSurface, borderColor: border }}>
             <div className="mb-4 flex items-center justify-between gap-3">
               <div>
                 <p className="text-xs font-black uppercase tracking-[0.16em]" style={{ color: mutedText }}>{tr('qr.recommended')}</p>
@@ -212,17 +227,24 @@ export default async function CartaPage({ params }: CartaProps) {
               </div>
               <span className="h-3 w-3 rounded-full" style={{ backgroundColor: accent }} />
             </div>
-            <div className="grid gap-3">
-              {featured.map(item => (
-                <CartaItem
-                  key={item.id}
-                  item={item}
-                  toppings={toppingsByItem.get(item.id) || []}
-                  colors={{ primary, accent, surface: neutralSoft, cardSurface, surfaceText, mutedText, border, buttonPrimary, buttonPrimaryText }}
-                  currencyInfo={currencyInfo}
-                />
-              ))}
+            <div className="-mx-2 overflow-x-auto scroll-smooth px-2 pb-2 scrollbar-hide">
+              <div className="qr-featured-track snap-x gap-3">
+                {featured.map(item => (
+                  <CartaItem
+                    key={item.id}
+                    item={item}
+                    toppings={toppingsByItem.get(item.id) || []}
+                    colors={{ primary, accent, surface: neutralSoft, cardSurface, surfaceText, mutedText, border, buttonPrimary, buttonPrimaryText }}
+                    currencyInfo={currencyInfo}
+                  />
+                ))}
+              </div>
             </div>
+            {featured.length > 1 && (
+              <div className="pointer-events-none absolute right-5 top-[50%] z-10 rounded-full border border-white/25 bg-black/62 px-3 py-2 text-xs font-black text-white shadow-2xl backdrop-blur-md">
+                Desliza
+              </div>
+            )}
           </section>
         )}
 

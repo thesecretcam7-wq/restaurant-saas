@@ -77,10 +77,13 @@ export default function PlanesPage({ params }: Props) {
           fetch(`/api/subscription-plans`),
           fetch('/api/currency-rates'),
         ])
+        const statusRes = await fetch(`/api/subscription-status?domain=${encodeURIComponent(tenantId)}`)
         const plansData = await plansRes.json()
         const currencyData = await currencyRes.json()
+        const statusData = await statusRes.json()
         setPlans(plansData)
         if (!currencyData.error) setCurrency(currencyData)
+        if (!statusData.error) setCurrentPlan(statusData.plan || null)
         setLoading(false)
       } catch (error) {
         console.error('Error fetching data:', error)

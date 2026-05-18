@@ -3,7 +3,7 @@
  * Supports 58mm and 80mm paper widths.
  */
 
-import type { CashClosingReceiptData, KitchenTicketData, ReceiptData } from '@/types/printer';
+import type { CashClosingReceiptData, KitchenTicketData, MonthlyClosingReceiptData, ReceiptData } from '@/types/printer';
 import { formatPriceWithCurrency } from '@/lib/currency';
 
 interface ReceiptOptions {
@@ -270,6 +270,88 @@ export function generateCashClosingReceiptESCPOS(
   push(ALIGN_CENTER);
   line('');
   line('Cierre guardado en Eccofood');
+  line('');
+  line('');
+  push(cutCommands());
+  push(ALIGN_LEFT, SIZE_NORMAL);
+
+  const receipt = bytes.join('');
+  const copies = Array(Math.max(1, options.copies)).fill(receipt).join('');
+  return new TextEncoder().encode(copies);
+}
+
+export function generateMonthlyClosingReceiptESCPOS(
+  data: MonthlyClosingReceiptData,
+  options: ReceiptOptions
+): Uint8Array {
+  const cols = options.paperWidth === 80 ? 48 : 32;
+  const bytes: string[] = [];
+  const push = (...s: string[]) => bytes.push(...s);
+  const line = (s = '') => bytes.push(s + '\n');
+  const sep = () => {
+    push(SIZE_NORMAL);
+    line('-'.repeat(cols));
+  };
+  const money = (amount: number) =>
+    formatPriceWithCurrency(amount, data.currencyInfo.code, data.currencyInfo.locale);
+  const row = (label: string, value: string) => {
+    const cleanLabel = label.substring(0, Math.max(1, cols - value.length - 1));
+    line(padR(cleanLabel, cols - value.length) + value);
+  };
+  const ts = data.closedAt ? new Date(data.closedAt) : new Date();
+  const periodStart = new Date(data.periodStart);
+  const periodEnd = new Date(data.periodEnd);
+
+  push(INIT);
+  push(ALIGN_CENTER, SIZE_2X, BOLD_ON);
+  line(data.restaurantName ?? 'Restaurante');
+  push(BOLD_OFF, SIZE_NORMAL);
+  if (data.restaurantPhone) line(`Tel: ${data.restaurantPhone}`);
+  line('');
+  push(BOLD_ON, SIZE_WIDE);
+  line('CIERRE MENSUAL');
+  push(BOLD_OFF, SIZE_NORMAL);
+  if (data.closingId) line(`ID: ${data.closingId.slice(0, 8)}`);
+  line(data.monthLabel);
+  line(`Fecha: ${ts.toLocaleDateString(data.currencyInfo.locale)}`);
+  line(`Hora: ${ts.toLocaleTimeString(data.currencyInfo.locale, { hour: '2-digit', minute: '2-digit' })}`);
+  line(`Responsable: ${data.staffName}`);
+  line('');
+  line('Periodo');
+  line(periodStart.toLocaleString(data.currencyInfo.locale));
+  line(periodEnd.toLocaleString(data.currencyInfo.locale));
+  push(ALIGN_LEFT);
+
+  sep();
+  push(BOLD_ON);
+  line('RESUMEN DEL MES');
+  push(BOLD_OFF);
+  row('Efectivo:', money(data.cashSales));
+  row('Tarjeta:', money(data.cardSales));
+  row('Otros:', money(data.otherSales));
+  row('Domicilios:', money(data.totalDeliveryFees || 0));
+  row('Pedidos dom.:', String(data.deliveryOrderCount || 0));
+  row('Impuestos:', money(data.totalTax));
+  if (data.totalDiscount > 0) row('Descuentos:', money(data.totalDiscount));
+  row('Transacciones:', String(data.transactionCount));
+  row('Completadas:', String(data.ordersCompleted));
+  row('Canceladas:', String(data.ordersCancelled));
+  sep();
+  push(BOLD_ON, SIZE_WIDE);
+  row('TOTAL MES:', money(data.totalSales));
+  push(BOLD_OFF, SIZE_NORMAL);
+
+  if (data.notes) {
+    sep();
+    line('Notas:');
+    line(data.notes.substring(0, cols * 4));
+  }
+
+  sep();
+  push(ALIGN_CENTER);
+  line('');
+  line('Cierre mensual guardado');
+  line('en Eccofood');
   line('');
   line('');
   push(cutCommands());

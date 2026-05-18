@@ -73,6 +73,29 @@ function readableText(background: string, preferred?: string, fallbackDark = '#1
   return isDark(background) ? fallbackLight : fallbackDark
 }
 
+function isVideoMedia(url?: string | null) {
+  if (!url) return false
+  return /\.(mp4|webm|mov|m4v)(\?|#|$)/i.test(url) || url.includes('/video/upload/')
+}
+
+function BannerMedia({ banner, className }: { banner: Banner; className: string }) {
+  if (isVideoMedia(banner.image_url)) {
+    return (
+      <video
+        src={banner.image_url}
+        className={className}
+        autoPlay
+        muted
+        loop
+        playsInline
+        preload="metadata"
+      />
+    )
+  }
+
+  return <img src={banner.image_url} alt={banner.title} className={className} />
+}
+
 // ─── App Header Component ─────────────────────────────────────────────────
 function AppHeader({
   primaryColor,
@@ -442,6 +465,7 @@ export default function KioskoClient({
   const [time, setTime] = useState<Date | null>(null)
   const [isFullscreen, setIsFullscreen] = useState(false)
   const [showFsPrompt, setShowFsPrompt] = useState(true)
+  const [isAttractMode, setIsAttractMode] = useState(false)
   const [adBannerIndex, setAdBannerIndex] = useState(0)
   const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const categoryScrollRef = useRef<HTMLDivElement | null>(null)
@@ -679,16 +703,21 @@ export default function KioskoClient({
   }, [cart, menuItems])
 
   useEffect(() => {
-    if (cart.length > 0 || step === 'confirmed') return
+    if (cart.length > 0 || step === 'confirmed') {
+      setIsAttractMode(false)
+      return
+    }
 
     let timeout: ReturnType<typeof setTimeout>
     const armAttraction = () => {
+      setIsAttractMode(false)
       clearTimeout(timeout)
       timeout = setTimeout(() => {
         setSelectedItem(null)
         setSelectedToppings([])
         setIsCategoryModalOpen(false)
         setStep('menu')
+        setIsAttractMode(true)
       }, 30000)
     }
 
@@ -1166,9 +1195,8 @@ export default function KioskoClient({
         boxShadow: `0 24px 70px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.09), 0 0 0 1px ${primaryColor}18`,
       }}
     >
-      <img
-        src={banner.image_url}
-        alt={banner.title}
+      <BannerMedia
+        banner={banner}
         className="absolute inset-0 h-full w-full scale-[1.04] object-cover object-center"
       />
       <div
@@ -1275,6 +1303,84 @@ export default function KioskoClient({
             <p className="text-2xl font-semibold opacity-85">{appName}</p>
           </div>
         </div>
+      )}
+
+      {isAttractMode && !showFsPrompt && (
+        <button
+          type="button"
+          className="ecco-fixed-layer fixed inset-0 z-[9998] h-[100dvh] w-screen overflow-hidden text-left"
+          onClick={() => {
+            setIsAttractMode(false)
+            void activateWakeLock()
+            if (!document.fullscreenElement) {
+              document.documentElement.requestFullscreen().catch(() => {})
+            }
+          }}
+          style={{
+            background:
+              `radial-gradient(circle at 24% 18%, ${primaryColor}44 0%, transparent 32%), ` +
+              `linear-gradient(135deg, #050403 0%, ${surfaceColor} 48%, #050403 100%)`,
+          }}
+        >
+          {activeAdBanner ? (
+            <BannerMedia
+              banner={activeAdBanner}
+              className="absolute inset-0 h-full w-full scale-[1.03] object-cover object-center"
+            />
+          ) : (
+            <div className="absolute inset-0" style={{ background: `linear-gradient(135deg, ${primaryColor}, ${secondaryColor}, #050403)` }} />
+          )}
+          <div className="absolute inset-0 bg-gradient-to-t from-black/86 via-black/28 to-black/20" />
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_72%_18%,rgba(255,255,255,0.16),transparent_22rem)]" />
+
+          <div className="relative z-10 flex h-full flex-col justify-between p-8 text-white md:p-12 xl:p-16">
+            <div className="flex items-center justify-between gap-6">
+              <div className="flex min-w-0 items-center gap-5">
+                {logoUrl ? (
+                  <img src={logoUrl} alt={appName} className="h-20 max-w-[14rem] object-contain drop-shadow-2xl md:h-28" />
+                ) : (
+                  <span className="grid size-20 place-items-center rounded-[1.7rem] text-4xl font-black shadow-2xl md:size-28" style={{ backgroundColor: primaryColor, color: primaryTextColor }}>
+                    {appName.charAt(0)}
+                  </span>
+                )}
+                <div className="min-w-0">
+                  <p className="truncate text-3xl font-black drop-shadow md:text-5xl">{appName}</p>
+                  <p className="mt-2 text-sm font-black uppercase tracking-[0.28em] text-white/72 md:text-base">Kiosko de autoservicio</p>
+                </div>
+              </div>
+              <div className="hidden rounded-full border border-white/20 bg-black/42 px-6 py-3 text-xl font-black shadow-xl backdrop-blur-md md:block">
+                {time?.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }) ?? ''}
+              </div>
+            </div>
+
+            <div className="max-w-5xl">
+              <span className="inline-flex rounded-full border border-white/18 bg-black/42 px-5 py-3 text-sm font-black uppercase tracking-[0.26em] shadow-xl backdrop-blur-md">
+                {activeAdBanner ? 'Promocion' : 'Bienvenido'}
+              </span>
+              <h1 className="mt-6 max-w-5xl text-6xl font-black leading-[0.9] drop-shadow-[0_12px_45px_rgba(0,0,0,0.72)] md:text-8xl xl:text-9xl">
+                {activeAdBanner?.title || 'Toca para ordenar'}
+              </h1>
+              <div className="mt-8 flex flex-wrap items-center gap-4">
+                <span className="rounded-full px-8 py-5 text-2xl font-black shadow-2xl md:text-3xl" style={{ backgroundColor: buttonPrimaryColor, color: buttonTextColor }}>
+                  Toca la pantalla
+                </span>
+                <span className="text-lg font-bold text-white/76 md:text-2xl">Empieza tu pedido en segundos</span>
+              </div>
+            </div>
+
+            {banners.length > 1 && (
+              <div className="flex items-center justify-center gap-2">
+                {banners.map((item, idx) => (
+                  <span
+                    key={item.id}
+                    className={`h-2 rounded-full transition-all ${idx === adBannerIndex % banners.length ? 'w-12' : 'w-2 bg-white/45'}`}
+                    style={idx === adBannerIndex % banners.length ? { backgroundColor: primaryColor } : undefined}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
+        </button>
       )}
 
       <AppHeader primaryColor={appHeaderColor} accentColor={primaryColor} textColor={appHeaderTextColor} appName={appName} logoUrl={logoUrl} time={time} cartCount={cartCount} />

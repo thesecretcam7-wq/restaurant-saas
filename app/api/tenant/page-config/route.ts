@@ -1,6 +1,7 @@
 import { createServiceClient } from '@/lib/supabase/server'
 import { NextRequest, NextResponse } from 'next/server'
 import { revalidatePath, revalidateTag } from 'next/cache'
+import { requireTenantAccess, tenantAuthErrorResponse } from '@/lib/tenant-api-auth'
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
@@ -41,6 +42,8 @@ export async function PUT(request: NextRequest) {
     const tenantId = await resolveTenantId(supabase, raw)
     if (!tenantId) return NextResponse.json({ error: 'Tenant no encontrado' }, { status: 404 })
 
+    await requireTenantAccess(tenantId, { staffRoles: ['admin'], requireAdminPermission: true })
+
     // Get current metadata to preserve other fields
     const { data: currentTenant } = await supabase
       .from('tenants')
@@ -70,6 +73,9 @@ export async function PUT(request: NextRequest) {
 
     return NextResponse.json({ ok: true })
   } catch (err) {
+    if (err instanceof Error && ['Unauthorized', 'Forbidden'].includes(err.message)) {
+      return tenantAuthErrorResponse(err)
+    }
     console.error('[page-config PUT] exception:', err)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }

@@ -2,6 +2,7 @@ import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 import { NextRequest, NextResponse } from 'next/server'
 import Stripe from 'stripe'
+import { requireTenantAccess, tenantAuthErrorResponse } from '@/lib/tenant-api-auth'
 
 const getStripe = () => new Stripe(process.env.STRIPE_SECRET_KEY!)
 
@@ -58,6 +59,8 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    await requireTenantAccess(tenant.id, { staffRoles: [] })
+
     // Get subscription plan details
     const { data: plan, error: planError } = await supabase
       .from('subscription_plans')
@@ -109,6 +112,13 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    const trialEndsAt = tenant.status === 'trial' && tenant.trial_ends_at
+      ? new Date(tenant.trial_ends_at)
+      : null
+    const trialEndTimestamp = trialEndsAt && trialEndsAt.getTime() > Date.now() + 5 * 60 * 1000
+      ? Math.floor(trialEndsAt.getTime() / 1000)
+      : null
+
     // Create checkout session for subscription
     const session = await stripe.checkout.sessions.create({
       mode: 'subscription',
@@ -126,6 +136,7 @@ export async function POST(request: NextRequest) {
           plan_name: planName,
           billing_interval: billingInterval,
         },
+        ...(trialEndTimestamp ? { trial_end: trialEndTimestamp } : {}),
       },
       success_url: `${baseUrl}/${tenant.slug}/admin/dashboard`,
       cancel_url: `${baseUrl}/${tenant.slug}/admin/configuracion/planes`,
@@ -142,6 +153,9 @@ export async function POST(request: NextRequest) {
       url: session.url,
     })
   } catch (error) {
+    if (error instanceof Error && ['Unauthorized', 'Forbidden'].includes(error.message)) {
+      return tenantAuthErrorResponse(error)
+    }
     console.error('Subscription error:', error)
     return NextResponse.json(
       { error: error instanceof Error ? error.message : 'Internal server error' },

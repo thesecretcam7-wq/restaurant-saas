@@ -77,6 +77,7 @@ export default function BannersPage({ params }: Props) {
     const formData = new FormData()
     formData.append('file', file)
     formData.append('bucket', 'images')
+    formData.append('tenantId', tenantId || '')
 
     try {
       const res = await fetch('/api/upload', { method: 'POST', body: formData })
@@ -191,7 +192,7 @@ export default function BannersPage({ params }: Props) {
           )}
           <input
             type="file"
-            accept="image/*"
+            accept="image/*,video/*"
             onChange={handleImageUpload}
             disabled={uploading}
             className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
