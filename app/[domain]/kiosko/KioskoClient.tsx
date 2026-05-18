@@ -510,8 +510,14 @@ export default function KioskoClient({
   const appHeaderColor = isLightTheme ? '#ffffff' : secondaryColor || backgroundColor || buttonSecondaryColor || '#0B0B0B'
   const appHeaderTextColor = isLightTheme ? '#07111f' : readableText(appHeaderColor, textPrimaryColor)
   const freeToppingsLabel = domain === 'parrillaburgers' ? 'Barra libre' : 'Ingredientes gratis'
-  const buttonTextColor = readableText(buttonPrimaryColor)
-  const secondaryButtonTextColor = readableText(buttonSecondaryColor)
+  const actionButtonColor = isLightTheme ? '#ff5a00' : buttonPrimaryColor
+  const actionButtonTextColor = isLightTheme ? '#07111f' : readableText(buttonPrimaryColor)
+  const secondaryActionButtonColor = isLightTheme ? '#ffffff' : buttonSecondaryColor
+  const secondaryActionButtonTextColor = isLightTheme ? '#07111f' : readableText(buttonSecondaryColor)
+  const buttonTextColor = actionButtonTextColor
+  const secondaryButtonTextColor = secondaryActionButtonTextColor
+  const kioskAccentColor = isLightTheme ? '#ff1f1f' : accentColor
+  const kioskBackgroundColor = isLightTheme ? '#f8fafc' : backgroundColor
   const surfaceColor = isLightTheme ? '#ffffff' : '#11100D'
   const surfaceTextColor = isLightTheme ? '#07111f' : '#FFF4D8'
   const modalTextColor = isLightTheme ? '#000000' : surfaceTextColor
@@ -918,7 +924,7 @@ export default function KioskoClient({
   // ── Confirmed screen ────────────────────────────────────────────────────────
   if (step === 'confirmed' && confirmed) {
     return (
-      <div className="h-screen flex flex-col" style={{ fontFamily: 'Inter, system-ui, sans-serif', backgroundColor, color: pageTextColor }}>
+      <div className="h-screen flex flex-col" style={{ fontFamily: 'Inter, system-ui, sans-serif', backgroundColor: kioskBackgroundColor, color: pageTextColor }}>
         <AppHeader primaryColor={appHeaderColor} accentColor={primaryColor} textColor={appHeaderTextColor} appName={appName} logoUrl={logoUrl} time={time} isLightTheme={isLightTheme} />
         <div className="flex-1 flex flex-col items-center justify-center px-8">
           <div className="text-center w-full max-w-2xl">
@@ -958,7 +964,7 @@ export default function KioskoClient({
             <button
               onClick={reset}
               className="px-10 py-4 rounded-2xl font-bold text-lg transition-opacity hover:opacity-90"
-              style={{ backgroundColor: buttonPrimaryColor, color: buttonTextColor }}
+              style={{ backgroundColor: actionButtonColor, color: actionButtonTextColor }}
             >
               Hacer otro pedido
             </button>
@@ -971,7 +977,7 @@ export default function KioskoClient({
   // ── Checkout screen ─────────────────────────────────────────────────────────
   if (step === 'checkout') {
     return (
-      <div className="h-screen flex flex-col" style={{ fontFamily: 'Inter, system-ui, sans-serif', backgroundColor, color: pageTextColor }}>
+      <div className="h-screen flex flex-col" style={{ fontFamily: 'Inter, system-ui, sans-serif', backgroundColor: kioskBackgroundColor, color: pageTextColor }}>
         <AppHeader primaryColor={appHeaderColor} accentColor={primaryColor} textColor={appHeaderTextColor} appName={appName} logoUrl={logoUrl} time={time} backLabel={tr('kitchen.viewOrder')} onBack={() => setStep('cart')} isLightTheme={isLightTheme} />
         <div className="flex-1 overflow-y-auto">
           <div className="max-w-lg mx-auto p-6">
@@ -990,24 +996,24 @@ export default function KioskoClient({
                       </span>
                     )}
                   </span>
-                  <span className="font-semibold" style={{ color: accentColor }}>{fmt(item.price * item.qty, currencyCode, currencyLocale)}</span>
+                  <span className="font-semibold" style={{ color: kioskAccentColor }}>{fmt(item.price * item.qty, currencyCode, currencyLocale)}</span>
                 </div>
               ))}
-              <div className="mt-3 space-y-2 rounded-2xl p-4" style={{ backgroundColor }}>
+              <div className="mt-3 space-y-2 rounded-2xl p-4" style={{ backgroundColor: isLightTheme ? '#f8fafc' : backgroundColor }}>
                 <div className="flex justify-between text-sm font-bold" style={{ color: surfaceMutedTextColor }}>
                   <span>{tr('kitchen.subtotal')}</span>
-                  <span style={{ color: accentColor }}>{fmt(cartTotal, currencyCode, currencyLocale)}</span>
+                  <span style={{ color: kioskAccentColor }}>{fmt(cartTotal, currencyCode, currencyLocale)}</span>
                 </div>
                 {taxRate > 0 && (
                   <div className="flex justify-between text-base font-black" style={{ color: surfaceTextColor }}>
                     <span>{tr('kitchen.tax')} {taxRate}%</span>
-                    <span style={{ color: accentColor }}>{fmt(tax, currencyCode, currencyLocale)}</span>
+                    <span style={{ color: kioskAccentColor }}>{fmt(tax, currencyCode, currencyLocale)}</span>
                   </div>
                 )}
               </div>
               <div className="flex justify-between pt-4 border-t mt-4 font-black text-2xl" style={{ borderColor }}>
                 <span style={{ color: surfaceTextColor }}>{tr('kitchen.total')}</span>
-                <span style={{ color: accentColor }}>{fmt(grandTotal, currencyCode, currencyLocale)}</span>
+                <span style={{ color: kioskAccentColor }}>{fmt(grandTotal, currencyCode, currencyLocale)}</span>
               </div>
             </div>
 
@@ -1056,7 +1062,7 @@ export default function KioskoClient({
                 onClick={placeOrderCash}
                 disabled={loading}
                 className="w-full py-5 rounded-2xl font-black text-xl flex items-center justify-center gap-3 shadow-lg transition-all active:scale-98 disabled:opacity-50"
-                style={{ backgroundColor: buttonPrimaryColor, color: buttonTextColor }}
+                style={{ backgroundColor: actionButtonColor, color: actionButtonTextColor }}
               >
                 {tr('pos.cash')}
               </button>
@@ -1065,7 +1071,7 @@ export default function KioskoClient({
                   onClick={placeOrderStripe}
                   disabled={loading}
                   className="w-full py-5 rounded-2xl font-black text-xl flex items-center justify-center gap-3 shadow-lg transition-all active:scale-98 disabled:opacity-50"
-                  style={{ backgroundColor: buttonSecondaryColor, color: secondaryButtonTextColor }}
+                  style={{ backgroundColor: secondaryActionButtonColor, color: secondaryActionButtonTextColor, border: isLightTheme ? `2px solid ${actionButtonColor}` : undefined }}
                 >
                   {tr('pos.card')}
                 </button>
@@ -1086,7 +1092,7 @@ export default function KioskoClient({
   // ── Cart screen ─────────────────────────────────────────────────────────────
   if (step === 'cart') {
     return (
-      <div className="h-screen flex flex-col" style={{ fontFamily: 'Inter, system-ui, sans-serif', backgroundColor, color: pageTextColor }}>
+      <div className="h-screen flex flex-col" style={{ fontFamily: 'Inter, system-ui, sans-serif', backgroundColor: kioskBackgroundColor, color: pageTextColor }}>
         <AppHeader primaryColor={appHeaderColor} accentColor={primaryColor} textColor={appHeaderTextColor} appName={appName} logoUrl={logoUrl} time={time} backLabel="Seguir pidiendo" onBack={() => setStep('menu')} isLightTheme={isLightTheme} />
         <div className="flex-1 overflow-y-auto">
           <div className="max-w-lg mx-auto p-6 pb-40">
@@ -1108,23 +1114,23 @@ export default function KioskoClient({
                           {item.toppings.map(t => t.name).join(', ')}
                         </p>
                       )}
-                      <p className="text-sm mt-0.5" style={{ color: accentColor }}>{fmt(item.price, currencyCode, currencyLocale)} c/u</p>
+                      <p className="text-sm mt-0.5" style={{ color: kioskAccentColor }}>{fmt(item.price, currencyCode, currencyLocale)} c/u</p>
                     </div>
                     <div className="flex items-center gap-2">
                       <button
                         onClick={() => updateQty(item.lineId, -1)}
                         className="w-10 h-10 rounded-full font-bold text-xl flex items-center justify-center transition-colors"
-                        style={{ backgroundColor: `${buttonSecondaryColor}22`, color: secondaryButtonTextColor }}
+                        style={{ backgroundColor: isLightTheme ? '#fff3e8' : `${buttonSecondaryColor}22`, color: secondaryActionButtonTextColor }}
                       >−</button>
                       <span className="font-black w-6 text-center tabular-nums text-lg" style={{ color: surfaceTextColor }}>{item.qty}</span>
                       <button
                         onClick={() => updateQty(item.lineId, 1)}
                         className="w-10 h-10 rounded-full font-bold text-xl flex items-center justify-center transition-colors"
-                        style={{ backgroundColor: buttonPrimaryColor, color: buttonTextColor }}
+                        style={{ backgroundColor: actionButtonColor, color: actionButtonTextColor }}
                       >+</button>
                     </div>
                     <div className="text-right min-w-[80px]">
-                      <p className="font-black" style={{ color: accentColor }}>{fmt(item.price * item.qty, currencyCode, currencyLocale)}</p>
+                      <p className="font-black" style={{ color: kioskAccentColor }}>{fmt(item.price * item.qty, currencyCode, currencyLocale)}</p>
                       <button onClick={() => removeFromCart(item.lineId)} className="text-xs text-red-400 mt-0.5">
                         Eliminar
                       </button>
@@ -1150,7 +1156,7 @@ export default function KioskoClient({
                           key={item.id}
                           onClick={() => addToCart(item, 1)}
                           className="rounded-2xl border overflow-hidden text-left active:scale-[0.98] transition-transform"
-                          style={{ borderColor, backgroundColor }}
+                          style={{ borderColor, backgroundColor: isLightTheme ? '#ffffff' : backgroundColor }}
                         >
                           <div className="h-24 bg-white overflow-hidden">
                             {item.image_url ? (
@@ -1162,8 +1168,8 @@ export default function KioskoClient({
                           <div className="p-3">
                             <p className="font-black text-sm leading-tight line-clamp-2 min-h-[2.25rem]" style={{ color: surfaceTextColor }}>{item.name}</p>
                             <div className="flex items-center justify-between mt-2">
-                              <span className="font-black" style={{ color: accentColor }}>{fmt(item.price, currencyCode, currencyLocale)}</span>
-                              <span className="rounded-full px-3 py-1 text-xs font-black" style={{ backgroundColor: buttonPrimaryColor, color: buttonTextColor }}>
+                              <span className="font-black" style={{ color: kioskAccentColor }}>{fmt(item.price, currencyCode, currencyLocale)}</span>
+                              <span className="rounded-full px-3 py-1 text-xs font-black" style={{ backgroundColor: actionButtonColor, color: actionButtonTextColor }}>
                                 {tr('cart.add')}
                               </span>
                             </div>
@@ -1177,10 +1183,10 @@ export default function KioskoClient({
                 {taxRate > 0 && (
                   <div className="rounded-2xl shadow-sm border p-4 space-y-2" style={{ backgroundColor: surfaceColor, borderColor }}>
                     <div className="flex justify-between text-sm" style={{ color: surfaceMutedTextColor }}>
-                      <span>{tr('kitchen.subtotal')}</span><span style={{ color: accentColor }}>{fmt(cartTotal, currencyCode, currencyLocale)}</span>
+                      <span>{tr('kitchen.subtotal')}</span><span style={{ color: kioskAccentColor }}>{fmt(cartTotal, currencyCode, currencyLocale)}</span>
                     </div>
                     <div className="flex justify-between text-sm" style={{ color: surfaceMutedTextColor }}>
-                      <span>{tr('kitchen.tax')} {taxRate}%</span><span style={{ color: accentColor }}>{fmt(tax, currencyCode, currencyLocale)}</span>
+                      <span>{tr('kitchen.tax')} {taxRate}%</span><span style={{ color: kioskAccentColor }}>{fmt(tax, currencyCode, currencyLocale)}</span>
                     </div>
                   </div>
                 )}
@@ -1194,12 +1200,12 @@ export default function KioskoClient({
             <div className="max-w-lg mx-auto">
               <div className="flex items-center justify-between mb-3 px-1">
                 <span className="font-medium" style={{ color: surfaceMutedTextColor }}>{tr('checkout.totalToPay')}</span>
-                <span className="text-2xl font-black" style={{ color: accentColor }}>{fmt(grandTotal, currencyCode, currencyLocale)}</span>
+                <span className="text-2xl font-black" style={{ color: kioskAccentColor }}>{fmt(grandTotal, currencyCode, currencyLocale)}</span>
               </div>
               <button
                 onClick={() => setStep('checkout')}
                 className="w-full py-4 rounded-2xl font-black text-xl shadow-lg transition-all active:scale-98"
-                style={{ backgroundColor: buttonPrimaryColor, color: buttonTextColor }}
+                style={{ backgroundColor: actionButtonColor, color: actionButtonTextColor }}
               >
                 Continuar con el pago →
               </button>
@@ -1261,7 +1267,7 @@ export default function KioskoClient({
         </span>
         <span
           className="rounded-full px-4 py-2 text-xs font-black uppercase tracking-[0.18em] shadow-lg md:text-sm"
-          style={{ backgroundColor: buttonPrimaryColor, color: buttonTextColor }}
+          style={{ backgroundColor: actionButtonColor, color: actionButtonTextColor }}
         >
           Ordenar
         </span>
@@ -1546,7 +1552,7 @@ export default function KioskoClient({
           <div className="mx-auto flex max-w-5xl items-center gap-3 md:gap-4">
             <div
               className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-2xl text-xl font-black shadow-lg md:h-16 md:w-16 md:text-2xl"
-              style={{ backgroundColor: `${buttonPrimaryColor}18`, color: primaryColor }}
+              style={{ backgroundColor: isLightTheme ? '#fff3e8' : `${buttonPrimaryColor}18`, color: isLightTheme ? actionButtonColor : primaryColor }}
             >
               {cartCount}
             </div>
@@ -1560,17 +1566,17 @@ export default function KioskoClient({
             </div>
             <div className="hidden text-right sm:block">
               <p className="text-xs font-bold uppercase tracking-widest" style={{ color: surfaceMutedTextColor }}>{tr('kitchen.total')}</p>
-              <p className="text-3xl font-black leading-none" style={{ color: accentColor }}>{fmt(grandTotal, currencyCode, currencyLocale)}</p>
+              <p className="text-3xl font-black leading-none" style={{ color: kioskAccentColor }}>{fmt(grandTotal, currencyCode, currencyLocale)}</p>
               {taxRate > 0 && (
                 <p className="mt-1 text-xs font-semibold" style={{ color: surfaceMutedTextColor }}>
-                  Incluye IVA {taxRate}%: <span style={{ color: accentColor }}>{fmt(tax, currencyCode, currencyLocale)}</span>
+                  Incluye IVA {taxRate}%: <span style={{ color: kioskAccentColor }}>{fmt(tax, currencyCode, currencyLocale)}</span>
                 </p>
               )}
             </div>
             <button
               onClick={() => setStep('cart')}
               className="flex min-w-0 flex-shrink-0 items-center justify-between gap-3 rounded-2xl px-4 py-4 text-sm font-black shadow-xl transition-transform active:scale-[0.98] md:min-w-[260px] md:gap-5 md:px-6 md:py-5 md:text-xl"
-              style={{ backgroundColor: buttonPrimaryColor, color: buttonTextColor }}
+              style={{ backgroundColor: actionButtonColor, color: actionButtonTextColor }}
             >
               <span>{tr('kitchen.viewOrder')}</span>
               <span className="rounded-full px-4 py-2 text-base" style={{ backgroundColor: `${buttonTextColor}24` }}>
@@ -1635,7 +1641,7 @@ export default function KioskoClient({
                 >
                   {selectedItem.name}
                 </h3>
-                <p className="text-2xl font-black flex-shrink-0" style={{ color: accentColor }}>
+                <p className="text-2xl font-black flex-shrink-0" style={{ color: kioskAccentColor }}>
                   {fmt(selectedItem.price, currencyCode, currencyLocale)}
                 </p>
               </div>
@@ -1666,16 +1672,16 @@ export default function KioskoClient({
                           onClick={() => toggleTopping(topping)}
                           className="w-full rounded-2xl border p-4 flex items-center gap-3 text-left transition-transform active:scale-[0.99]"
                           style={{
-                            backgroundColor: checked ? `${buttonPrimaryColor}18` : backgroundColor,
-                            borderColor: checked ? buttonPrimaryColor : borderColor,
+                            backgroundColor: checked ? `${actionButtonColor}18` : (isLightTheme ? '#ffffff' : backgroundColor),
+                            borderColor: checked ? actionButtonColor : borderColor,
                           }}
                         >
                           <span
                             className="w-7 h-7 rounded-full border-2 flex items-center justify-center font-black text-sm flex-shrink-0"
                             style={{
-                              borderColor: checked ? buttonPrimaryColor : borderColor,
-                              backgroundColor: checked ? buttonPrimaryColor : surfaceColor,
-                              color: checked ? buttonTextColor : surfaceMutedTextColor,
+                              borderColor: checked ? actionButtonColor : borderColor,
+                              backgroundColor: checked ? actionButtonColor : surfaceColor,
+                              color: checked ? actionButtonTextColor : surfaceMutedTextColor,
                             }}
                           >
                             {checked ? 'OK' : '+'}
@@ -1683,10 +1689,10 @@ export default function KioskoClient({
                           <span className="flex-1 min-w-0">
                             <span className="block font-black leading-tight" style={{ color: modalTextColor }}>{topping.name}</span>
                             {topping.price > 0 && (
-                              <span className="block text-xs mt-0.5" style={{ color: accentColor }}>+ {fmt(topping.price, currencyCode, currencyLocale)}</span>
+                              <span className="block text-xs mt-0.5" style={{ color: kioskAccentColor }}>+ {fmt(topping.price, currencyCode, currencyLocale)}</span>
                             )}
                             {topping.price <= 0 && selectedItemHasOnlyFreeToppings && (
-                              <span className="block text-xs mt-0.5" style={{ color: accentColor }}>Gratis</span>
+                              <span className="block text-xs mt-0.5" style={{ color: kioskAccentColor }}>Gratis</span>
                             )}
                           </span>
                         </button>
@@ -1696,24 +1702,24 @@ export default function KioskoClient({
                 </div>
               )}
 
-              <div className="flex items-center justify-center gap-6 mb-6 py-4 rounded-2xl" style={{ backgroundColor, border: `1px solid ${borderColor}` }}>
+              <div className="flex items-center justify-center gap-6 mb-6 py-4 rounded-2xl" style={{ backgroundColor: isLightTheme ? '#f8fafc' : backgroundColor, border: `1px solid ${borderColor}` }}>
                 <button
                   onClick={() => setItemQty(q => Math.max(1, q - 1))}
                   className="w-14 h-14 rounded-full text-3xl font-bold flex items-center justify-center transition-colors"
-                  style={{ backgroundColor: `${buttonSecondaryColor}22`, color: secondaryButtonTextColor }}
+                  style={{ backgroundColor: isLightTheme ? '#fff3e8' : `${buttonSecondaryColor}22`, color: secondaryButtonTextColor }}
                 >−</button>
                 <span className="text-4xl font-black w-12 text-center tabular-nums" style={{ color: modalTextColor }}>{itemQty}</span>
                 <button
                   onClick={() => setItemQty(q => q + 1)}
                   className="w-14 h-14 rounded-full text-3xl font-bold flex items-center justify-center transition-colors shadow-md"
-                  style={{ backgroundColor: buttonPrimaryColor, color: buttonTextColor }}
+                  style={{ backgroundColor: actionButtonColor, color: actionButtonTextColor }}
                 >+</button>
               </div>
 
               <button
                 onClick={() => { addToCart(selectedItem, itemQty, selectedToppings); setSelectedItem(null) }}
                 className="w-full py-5 rounded-2xl font-black text-xl transition-all active:scale-98 shadow-lg"
-                style={{ backgroundColor: buttonPrimaryColor, color: buttonTextColor }}
+                style={{ backgroundColor: actionButtonColor, color: actionButtonTextColor }}
               >
                 Agregar - {fmt(selectedUnitPrice * itemQty, currencyCode, currencyLocale)}
               </button>
