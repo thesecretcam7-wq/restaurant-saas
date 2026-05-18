@@ -65,6 +65,11 @@ function RegisterForm() {
 
     setLoading(true)
     try {
+      await fetch('/api/auth/logout', {
+        method: 'POST',
+        redirect: 'manual',
+      }).catch(() => {})
+
       const res = await fetch('/api/auth/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

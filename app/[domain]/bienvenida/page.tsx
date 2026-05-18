@@ -66,7 +66,7 @@ export default async function BienvenidaPage({ params, searchParams }: Props) {
     )
   }
 
-  if (tenant.owner_id !== user.id) redirect(`/${domain}/unauthorized`)
+  if (tenant.owner_id !== user.id) redirect('/unauthorized')
 
   const { data: branding } = await supabase
     .from('tenant_branding')
