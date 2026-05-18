@@ -81,15 +81,15 @@ export default async function KioskoPage({ params, searchParams }: Props) {
 
   const branding = {
     appName: contextBranding.app_name || tenant.organization_name,
-    primaryColor: isLightTheme ? '#0066ff' : palette.primary,
-    secondaryColor: isLightTheme ? '#00b894' : palette.secondary,
-    accentColor: isLightTheme ? '#ff2d55' : palette.accent,
+    primaryColor: isLightTheme ? '#00e5ff' : palette.primary,
+    secondaryColor: isLightTheme ? '#b6ff00' : palette.secondary,
+    accentColor: isLightTheme ? '#ff00e5' : palette.accent,
     backgroundColor: isLightTheme ? '#ffffff' : palette.background,
-    buttonPrimaryColor: isLightTheme ? '#0066ff' : palette.buttonPrimary,
-    buttonSecondaryColor: isLightTheme ? '#ff2d55' : palette.buttonSecondary,
-    textPrimaryColor: isLightTheme ? '#111827' : palette.pageText,
-    textSecondaryColor: isLightTheme ? 'rgba(17, 24, 39, 0.70)' : palette.mutedText,
-    borderColor: isLightTheme ? 'rgba(0, 102, 255, 0.18)' : palette.border,
+    buttonPrimaryColor: isLightTheme ? '#00e5ff' : palette.buttonPrimary,
+    buttonSecondaryColor: isLightTheme ? '#ff00e5' : palette.buttonSecondary,
+    textPrimaryColor: isLightTheme ? '#07111f' : palette.pageText,
+    textSecondaryColor: isLightTheme ? 'rgba(7, 17, 31, 0.70)' : palette.mutedText,
+    borderColor: isLightTheme ? 'rgba(0, 229, 255, 0.26)' : palette.border,
     isLightTheme,
     logoUrl:
       tenant.logo_url ||
