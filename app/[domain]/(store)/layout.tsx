@@ -37,16 +37,16 @@ export default async function StoreLayout({ children, params }: Props) {
   const isLightTheme = themeMode === 'light'
   const themeVars = isLightTheme
     ? {
-        primary: palette.primary,
-        secondary: '#f1eadc',
-        buttonPrimary: palette.buttonPrimary,
-        buttonSecondary: '#ffffff',
-        price: palette.accent,
-        background: '#f8f5ee',
+        primary: '#0066ff',
+        secondary: '#00b894',
+        buttonPrimary: '#0066ff',
+        buttonSecondary: '#ff2d55',
+        price: '#ff2d55',
+        background: '#ffffff',
         surface: '#ffffff',
-        soft: 'rgba(21, 19, 15, 0.06)',
-        text: '#15130f',
-        muted: 'rgba(21, 19, 15, 0.64)',
+        soft: 'rgba(0, 102, 255, 0.08)',
+        text: '#111827',
+        muted: 'rgba(17, 24, 39, 0.70)',
       }
     : {
         primary: '#e7b43f',
@@ -91,10 +91,10 @@ export default async function StoreLayout({ children, params }: Props) {
       <StoreBrandingMemory
         appName={restaurantName}
         logoUrl={storeLogoUrl}
-        primaryColor={branding?.primary_color}
+        primaryColor={isLightTheme ? '#0066ff' : branding?.primary_color}
       />
       {children}
-      <BottomNav tenantId={tenantSlug} primaryColor={palette.buttonPrimary} themeMode={themeMode} />
+      <BottomNav tenantId={tenantSlug} primaryColor={isLightTheme ? '#0066ff' : palette.buttonPrimary} themeMode={themeMode} />
       <WhatsAppFloat whatsapp={whatsappLink} restaurantName={restaurantName} primaryColor="#25D366" />
     </div>
   )

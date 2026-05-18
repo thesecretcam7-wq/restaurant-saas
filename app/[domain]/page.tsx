@@ -157,17 +157,20 @@ export default async function HomePage({ params }: HomePageProps) {
   const featuredText = (branding as any)?.featured_text?.trim()
   const sectionBackgroundImage = (branding as any)?.section_background_image_url || ''
   const isLightTheme = themeMode === 'light'
+  const lightPrimary = '#0066ff'
+  const lightAccent = '#ff2d55'
+  const lightSecondary = '#00b894'
   const themeColors = isLightTheme
     ? {
-        background: '#fff8ec',
+        background: '#ffffff',
         surface: '#ffffff',
-        soft: 'rgba(236, 72, 153, 0.10)',
-        text: '#221106',
-        muted: 'rgba(31, 19, 8, 0.76)',
-        header: 'rgba(255, 253, 247, 0.96)',
-        heroPanel: '#fff1c8',
-        heroText: '#fff7df',
-        footerText: 'rgba(31, 19, 8, 0.72)',
+        soft: 'rgba(0, 102, 255, 0.08)',
+        text: '#111827',
+        muted: 'rgba(17, 24, 39, 0.72)',
+        header: 'rgba(255, 255, 255, 0.96)',
+        heroPanel: '#ffffff',
+        heroText: '#111827',
+        footerText: 'rgba(17, 24, 39, 0.68)',
       }
     : {
         background,
@@ -181,11 +184,11 @@ export default async function HomePage({ params }: HomePageProps) {
         footerText: 'rgba(255, 247, 223, 0.62)',
       }
   const pageBackgroundStyle = {
-    '--primary-color': primary,
-    '--secondary-color': secondary,
-    '--button-primary-color': buttonPrimary,
-    '--button-secondary-color': isLightTheme ? '#0f766e' : '#28231a',
-    '--price-color': accent,
+    '--primary-color': isLightTheme ? lightPrimary : primary,
+    '--secondary-color': isLightTheme ? lightAccent : secondary,
+    '--button-primary-color': isLightTheme ? lightPrimary : buttonPrimary,
+    '--button-secondary-color': isLightTheme ? lightSecondary : '#28231a',
+    '--price-color': isLightTheme ? lightAccent : accent,
     '--brand-background-color': themeColors.background,
     '--brand-surface-color': themeColors.surface,
     '--brand-soft-color': themeColors.soft,
@@ -195,7 +198,7 @@ export default async function HomePage({ params }: HomePageProps) {
     ...(sectionBackgroundImage
       ? {
           backgroundImage: isLightTheme
-            ? `linear-gradient(rgba(255,247,232,.90), rgba(255,251,241,.95)), url(${sectionBackgroundImage})`
+            ? `linear-gradient(rgba(255,255,255,.92), rgba(255,255,255,.97)), url(${sectionBackgroundImage})`
             : `linear-gradient(rgba(5,5,5,.84), rgba(5,5,5,.94)), url(${sectionBackgroundImage})`,
           backgroundSize: 'cover',
           backgroundPosition: 'center',
@@ -214,20 +217,20 @@ export default async function HomePage({ params }: HomePageProps) {
   const heroMinHeight = hero.height === 'small' ? '420px' : hero.height === 'medium' ? '480px' : '540px'
   const heroOverlay = Math.min(Math.max(hero.overlay_opacity || 45, 26), 78) / 100
   const heroFallbackBackground = isLightTheme
-    ? 'radial-gradient(circle at 18% 18%, rgba(236,72,153,.35), transparent 18rem), radial-gradient(circle at 78% 8%, rgba(20,184,166,.28), transparent 18rem), linear-gradient(135deg, #fff1a8 0%, #ff8a3d 46%, #ff4f8b 100%)'
+    ? 'radial-gradient(circle at 14% 20%, rgba(0,102,255,.18), transparent 18rem), radial-gradient(circle at 88% 12%, rgba(255,45,85,.18), transparent 18rem), radial-gradient(circle at 76% 82%, rgba(0,184,148,.16), transparent 16rem), linear-gradient(135deg, #ffffff 0%, #ffffff 62%, #f8fbff 100%)'
     : `linear-gradient(135deg, ${primary}, ${secondary}, #111111)`
   const heroShade = isLightTheme
     ? heroImage
       ? 'linear-gradient(90deg, rgba(20,9,2,.56) 0%, rgba(20,9,2,.34) 48%, rgba(20,9,2,.12) 100%)'
       : 'linear-gradient(90deg, rgba(255,255,255,.42) 0%, rgba(255,255,255,.20) 48%, rgba(255,255,255,.08) 100%)'
     : `linear-gradient(90deg, rgba(0,0,0,${Math.min(heroOverlay + 0.25, 0.86)}) 0%, rgba(0,0,0,${heroOverlay}) 48%, rgba(0,0,0,0.22) 100%)`
-  const heroTextColor = isLightTheme && !heroImage ? '#221106' : '#ffffff'
-  const heroMutedColor = isLightTheme && !heroImage ? 'rgba(34, 17, 6, 0.78)' : 'rgba(255,255,255,.84)'
+  const heroTextColor = isLightTheme && !heroImage ? '#111827' : '#ffffff'
+  const heroMutedColor = isLightTheme && !heroImage ? 'rgba(17, 24, 39, 0.76)' : 'rgba(255,255,255,.84)'
   const heroFeaturePanelClass = isLightTheme
-    ? 'hidden self-stretch rounded-[28px] border border-white/80 bg-white/78 p-3 shadow-2xl shadow-orange-900/10 backdrop-blur-xl lg:block'
+    ? 'hidden self-stretch rounded-[28px] border border-blue-500/15 bg-white/90 p-3 shadow-2xl shadow-blue-900/10 backdrop-blur-xl lg:block'
     : 'hidden self-stretch rounded-[28px] border border-[#e7b43f]/22 bg-white/10 p-3 shadow-2xl backdrop-blur-xl lg:block'
   const heroFeatureInnerClass = isLightTheme
-    ? 'rounded-[22px] border border-orange-200/80 bg-white/92 p-4'
+    ? 'rounded-[22px] border border-blue-500/15 bg-white p-4'
     : 'rounded-[22px] border border-[#e7b43f]/18 bg-[#151410]/92 p-4'
   const countryCurrency = getCurrencyByCountry(settings?.country_code || settings?.country || (tenant as any)?.country || 'ES')
   const currencyInfo = settings?.currency
@@ -237,21 +240,21 @@ export default async function HomePage({ params }: HomePageProps) {
 
   return (
     <div className={`ecco-store-premium ${isLightTheme ? 'ecco-store-light' : 'ecco-store-dark'} store-surface min-h-screen overflow-hidden pb-[calc(6.5rem+env(safe-area-inset-bottom))] pt-16`} style={pageBackgroundStyle}>
-      <header className="fixed left-0 right-0 top-0 z-50 border-b border-[#e7b43f]/20 backdrop-blur-xl" style={{ position: 'fixed', backgroundColor: themeColors.header }}>
+      <header className="fixed left-0 right-0 top-0 z-50 border-b backdrop-blur-xl" style={{ position: 'fixed', backgroundColor: themeColors.header, borderColor: isLightTheme ? 'rgba(0, 102, 255, 0.16)' : 'rgba(231, 180, 63, 0.20)' }}>
         <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
           <Link href={tenantHomePath} className="flex min-w-0 items-center gap-3">
             {tenant.logo_url ? (
-              <span className="flex h-11 w-20 flex-shrink-0 items-center justify-center overflow-visible">
-                <img src={tenant.logo_url} alt={appName} className="max-h-full max-w-full scale-150 object-contain drop-shadow-xl" />
+              <span className="flex h-11 w-20 flex-shrink-0 items-center justify-center overflow-hidden rounded-xl bg-white">
+                <img src={tenant.logo_url} alt={appName} className="max-h-full max-w-full object-contain drop-shadow-sm" />
               </span>
             ) : (
-              <span className="grid size-11 flex-shrink-0 place-items-center rounded-2xl border border-[#e7b43f]/28 bg-[#e7b43f]/15 text-lg font-black text-[#ffcf64]">
+              <span className="grid size-11 flex-shrink-0 place-items-center rounded-2xl border text-lg font-black" style={{ borderColor: isLightTheme ? 'rgba(0,102,255,.22)' : 'rgba(231,180,63,.28)', backgroundColor: isLightTheme ? lightPrimary : 'rgba(231,180,63,.15)', color: isLightTheme ? '#ffffff' : '#ffcf64' }}>
                 {appName.slice(0, 1).toUpperCase()}
               </span>
             )}
             <span className="min-w-0">
               <span className="block truncate text-sm font-black sm:text-base" style={{ color: themeColors.text }}>{appName}</span>
-              <span className="block truncate text-[11px] font-black uppercase tracking-[0.16em] text-[#e7b43f]">{tr('store.onlineOrder')}</span>
+              <span className="block truncate text-[11px] font-black uppercase tracking-[0.16em]" style={{ color: isLightTheme ? lightPrimary : '#e7b43f' }}>{tr('store.onlineOrder')}</span>
             </span>
           </Link>
           <div className="flex items-center gap-2">

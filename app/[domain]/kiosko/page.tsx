@@ -2,6 +2,7 @@ import { createServiceClient } from '@/lib/supabase/server'
 import { getCurrencyByCountry } from '@/lib/currency'
 import { getTenantContext } from '@/lib/tenant'
 import { deriveBrandPalette } from '@/lib/brand-colors'
+import { getPageConfig } from '@/lib/pageConfig'
 import KioskoClient from './KioskoClient'
 
 export const dynamic = 'force-dynamic'
@@ -63,19 +64,33 @@ export default async function KioskoPage({ params, searchParams }: Props) {
   ])
 
   const contextBranding = (context.branding || {}) as Record<string, any>
-  const palette = deriveBrandPalette()
+  const pageConfig = getPageConfig((context.tenant as any)?.metadata?.page_config || contextBranding.page_config)
+  const isLightTheme = pageConfig.appearance.theme_mode === 'light'
+  const palette = deriveBrandPalette({
+    primary: contextBranding.primary_color,
+    secondary: contextBranding.secondary_color,
+    accent: contextBranding.accent_color,
+    background: contextBranding.background_color,
+    surface: contextBranding.section_background_color,
+    buttonPrimary: contextBranding.button_primary_color,
+    buttonSecondary: contextBranding.button_secondary_color,
+    textPrimary: contextBranding.text_primary_color,
+    textSecondary: contextBranding.text_secondary_color,
+    border: contextBranding.border_color,
+  })
 
   const branding = {
     appName: contextBranding.app_name || tenant.organization_name,
-    primaryColor: palette.primary,
-    secondaryColor: palette.secondary,
-    accentColor: palette.accent,
-    backgroundColor: palette.background,
-    buttonPrimaryColor: palette.buttonPrimary,
-    buttonSecondaryColor: palette.buttonSecondary,
-    textPrimaryColor: palette.pageText,
-    textSecondaryColor: palette.mutedText,
-    borderColor: palette.border,
+    primaryColor: isLightTheme ? '#0066ff' : palette.primary,
+    secondaryColor: isLightTheme ? '#00b894' : palette.secondary,
+    accentColor: isLightTheme ? '#ff2d55' : palette.accent,
+    backgroundColor: isLightTheme ? '#ffffff' : palette.background,
+    buttonPrimaryColor: isLightTheme ? '#0066ff' : palette.buttonPrimary,
+    buttonSecondaryColor: isLightTheme ? '#ff2d55' : palette.buttonSecondary,
+    textPrimaryColor: isLightTheme ? '#111827' : palette.pageText,
+    textSecondaryColor: isLightTheme ? 'rgba(17, 24, 39, 0.70)' : palette.mutedText,
+    borderColor: isLightTheme ? 'rgba(0, 102, 255, 0.18)' : palette.border,
+    isLightTheme,
     logoUrl:
       tenant.logo_url ||
       contextBranding.logo_url ||

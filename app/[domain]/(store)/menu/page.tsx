@@ -103,12 +103,12 @@ export default async function MenuPage({ params }: MenuProps) {
     textSecondary: branding?.text_secondary_color,
     border: branding?.border_color,
   })
-  const primary = palette.primary
-  const buttonColor = palette.buttonPrimary
-  const priceColor = palette.accent
-  const menuTextColor = palette.text
-  const menuMutedTextColor = palette.mutedText
-  const categoryInactiveColor = palette.buttonSecondary
+  let primary = palette.primary
+  let buttonColor = palette.buttonPrimary
+  let priceColor = palette.accent
+  let menuTextColor = palette.text
+  let menuMutedTextColor = palette.mutedText
+  let categoryInactiveColor = palette.buttonSecondary
 
   // Typography settings from branding
   const headingFontWeight = branding?.heading_font_weight ? parseInt(branding.heading_font_weight as string) : 700
@@ -133,19 +133,27 @@ export default async function MenuPage({ params }: MenuProps) {
   const pageConfig = getPageConfig((context.tenant as any)?.metadata?.page_config || branding?.page_config)
   const themeMode = pageConfig.appearance.theme_mode
   const isLightTheme = themeMode === 'light'
+  if (isLightTheme) {
+    primary = '#0066ff'
+    buttonColor = '#0066ff'
+    priceColor = '#ff2d55'
+    menuTextColor = '#111827'
+    menuMutedTextColor = 'rgba(17, 24, 39, 0.72)'
+    categoryInactiveColor = '#00b894'
+  }
   const backgroundStyle = useGradient
     ? { backgroundImage: sectionBackgroundImage ? `${baseBackgroundImage}, url(${sectionBackgroundImage})` : baseBackgroundImage, backgroundBlendMode: sectionBackgroundImage ? 'normal, soft-light' : undefined, backgroundSize: sectionBackgroundImage ? 'auto, cover' : undefined, backgroundPosition: sectionBackgroundImage ? 'center, center' : undefined }
     : sectionBackgroundImage
       ? {
-          backgroundColor: isLightTheme ? '#fff7ed' : palette.background,
+          backgroundColor: isLightTheme ? '#ffffff' : palette.background,
           backgroundImage: isLightTheme
-            ? `linear-gradient(rgba(255,247,237,.90), rgba(236,254,255,.94)), url(${sectionBackgroundImage})`
+            ? `linear-gradient(rgba(255,255,255,.92), rgba(255,255,255,.97)), url(${sectionBackgroundImage})`
             : `linear-gradient(rgba(5,5,5,.82), rgba(5,5,5,.92)), url(${sectionBackgroundImage})`,
           backgroundSize: 'cover',
           backgroundPosition: 'center',
           backgroundAttachment: 'fixed',
         }
-      : { backgroundColor: isLightTheme ? '#fff7ed' : palette.background }
+      : { backgroundColor: isLightTheme ? '#ffffff' : palette.background }
 
   // Get currency from settings or detect from country
   const currencyInfo = settings?.currency
@@ -161,15 +169,15 @@ export default async function MenuPage({ params }: MenuProps) {
   const cardCls = getCardClasses(pageConfig.appearance.card_style)
   const btnCls = getButtonClasses(pageConfig.appearance.button_style)
   const featuredCarousel = featured.length > 1 ? featured : items.slice(0, 8)
-  const sectionSurface = isLightTheme ? '#fffdfb' : 'rgba(255, 247, 223, 0.07)'
+  const sectionSurface = isLightTheme ? '#ffffff' : 'rgba(255, 247, 223, 0.07)'
   const cardSurface = isLightTheme ? '#ffffff' : 'rgba(255, 247, 223, 0.055)'
-  const sectionBorder = isLightTheme ? 'rgba(236, 72, 153, 0.22)' : 'rgba(231, 180, 63, 0.26)'
-  const softSurface = isLightTheme ? 'rgba(236, 72, 153, 0.10)' : 'rgba(231, 180, 63, 0.10)'
-  const countTextColor = isLightTheme ? 'rgba(31, 19, 8, 0.74)' : 'rgba(255, 247, 223, 0.68)'
+  const sectionBorder = isLightTheme ? 'rgba(0, 102, 255, 0.20)' : 'rgba(231, 180, 63, 0.26)'
+  const softSurface = isLightTheme ? 'rgba(0, 102, 255, 0.08)' : 'rgba(231, 180, 63, 0.10)'
+  const countTextColor = isLightTheme ? 'rgba(17, 24, 39, 0.72)' : 'rgba(255, 247, 223, 0.68)'
   const headerClass = isLightTheme
-    ? 'fixed inset-x-0 top-0 z-[60] border-b border-pink-200/70 bg-[#fffdf7]/95 shadow-lg shadow-pink-900/10 backdrop-blur-xl'
+    ? 'fixed inset-x-0 top-0 z-[60] border-b border-blue-500/20 bg-white/95 shadow-lg shadow-blue-900/10 backdrop-blur-xl'
     : 'fixed inset-x-0 top-0 z-[60] border-b border-[#e7b43f]/20 bg-[#0b0a08]/95 shadow-lg shadow-black/20 backdrop-blur-xl'
-  const headerTextColor = isLightTheme ? '#1f1308' : '#fff7df'
+  const headerTextColor = isLightTheme ? '#111827' : '#fff7df'
 
   return (
     <div className={`store-surface min-h-screen overflow-x-hidden ${isLightTheme ? 'ecco-store-light' : 'ecco-store-dark'}`} style={{ fontFamily, ...backgroundStyle }}>
@@ -198,13 +206,13 @@ export default async function MenuPage({ params }: MenuProps) {
         <div className="mx-auto flex h-14 max-w-7xl items-center justify-between px-3 sm:h-16 sm:px-6 lg:px-8">
           <div className="flex items-center gap-2 sm:gap-3 min-w-0">
             {context.tenant?.logo_url && (
-              <div className="relative flex h-10 w-16 flex-shrink-0 items-center justify-center overflow-visible sm:h-12 sm:w-20">
+              <div className="relative flex h-10 w-16 flex-shrink-0 items-center justify-center overflow-hidden rounded-xl bg-white sm:h-12 sm:w-20">
                 <Image
                   src={context.tenant.logo_url}
                   alt=""
                   width={96}
                   height={64}
-                  className="relative max-h-full max-w-full scale-125 object-contain drop-shadow-md sm:scale-150"
+                  className="relative max-h-full max-w-full object-contain drop-shadow-sm"
                 />
               </div>
             )}
@@ -224,7 +232,7 @@ export default async function MenuPage({ params }: MenuProps) {
               <p className="text-xs text-gray-500 font-medium">Menú</p>
             </div>
           </div>
-          <Link href={`${storeBasePath}/carrito`} className="relative flex-shrink-0 rounded-xl border border-[#e7b43f]/25 bg-white/8 p-2 transition-all hover:bg-white/14 active:bg-white/20 sm:p-2.5" title="Carrito">
+          <Link href={`${storeBasePath}/carrito`} className="relative flex-shrink-0 rounded-xl border p-2 transition-all hover:bg-white/14 active:bg-white/20 sm:p-2.5" style={{ borderColor: isLightTheme ? 'rgba(0,102,255,.22)' : 'rgba(231,180,63,.25)', backgroundColor: isLightTheme ? 'rgba(0,102,255,.08)' : 'rgba(255,255,255,.08)' }} title="Carrito">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={buttonColor} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="sm:w-5 sm:h-5">
               <path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/>
               <line x1="3" y1="6" x2="21" y2="6"/>

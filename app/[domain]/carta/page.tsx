@@ -8,6 +8,7 @@ import type { MenuCategory, MenuItem } from '@/lib/types'
 import LanguageSwitcher from '@/components/LanguageSwitcher'
 import QrCategoryNav from '@/components/store/QrCategoryNav'
 import { normalizeLocale, translate } from '@/lib/i18n'
+import { getPageConfig } from '@/lib/pageConfig'
 
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
@@ -92,7 +93,34 @@ export default async function CartaPage({ params }: CartaProps) {
     textSecondary: branding?.text_secondary_color,
     border: branding?.border_color,
   })
-  const { primary, secondary, accent, background, cardSurface, neutralSoft, buttonPrimary, buttonPrimaryText, buttonSecondary, text: surfaceText, mutedText, border } = palette
+  let primary = palette.primary
+  let secondary = palette.secondary
+  let accent = palette.accent
+  let background = palette.background
+  let cardSurface = palette.cardSurface
+  let neutralSoft = palette.neutralSoft
+  let buttonPrimary = palette.buttonPrimary
+  let buttonPrimaryText = palette.buttonPrimaryText
+  let buttonSecondary = palette.buttonSecondary
+  let surfaceText = palette.text
+  let mutedText = palette.mutedText
+  let border = palette.border
+  const pageConfig = getPageConfig((tenant as any)?.metadata?.page_config || branding?.page_config)
+  const isLightTheme = pageConfig.appearance.theme_mode === 'light'
+  if (isLightTheme) {
+    primary = '#0066ff'
+    secondary = '#ffffff'
+    accent = '#ff2d55'
+    background = '#ffffff'
+    cardSurface = '#ffffff'
+    neutralSoft = 'rgba(0, 102, 255, 0.08)'
+    buttonPrimary = '#0066ff'
+    buttonPrimaryText = '#ffffff'
+    buttonSecondary = '#ffffff'
+    surfaceText = '#111827'
+    mutedText = 'rgba(17, 24, 39, 0.70)'
+    border = 'rgba(0, 102, 255, 0.18)'
+  }
   const headerText = readableTextColor(primary)
   const headerMutedText = `${headerText}b3`
   const chipInactiveText = readableTextColor(buttonSecondary, surfaceText)
@@ -108,14 +136,17 @@ export default async function CartaPage({ params }: CartaProps) {
 
   const restaurantName = branding?.app_name || tenant?.organization_name || 'Restaurante'
   const logoUrl = branding?.logo_url || tenant?.logo_url
-  const pageConfig = ((branding as any)?.page_config || {}) as any
-  const heroImageUrl = pageConfig?.hero?.image_url || (branding as any)?.hero_image_url || pageConfig?.hero_image_url || ''
+  const heroImageUrl = pageConfig?.hero?.image_url || (branding as any)?.hero_image_url || (pageConfig as any)?.hero_image_url || ''
   const visibleProducts = items.length
   const visibleCategories = categories.length + (featured.length > 0 ? 1 : 0) + (uncategorized.length > 0 ? 1 : 0)
   const sectionBackgroundImage = (branding as any)?.section_background_image_url || ''
   const pageBackgroundImage = sectionBackgroundImage
-    ? `linear-gradient(${background}e8, ${background}e8), url(${sectionBackgroundImage})`
-    : `radial-gradient(circle at top left, ${primary}18, transparent 32rem), radial-gradient(circle at top right, ${secondary}14, transparent 28rem)`
+    ? isLightTheme
+      ? `linear-gradient(rgba(255,255,255,.92), rgba(255,255,255,.97)), url(${sectionBackgroundImage})`
+      : `linear-gradient(${background}e8, ${background}e8), url(${sectionBackgroundImage})`
+    : isLightTheme
+      ? `radial-gradient(circle at top left, rgba(0,102,255,.10), transparent 32rem), radial-gradient(circle at top right, rgba(255,45,85,.09), transparent 28rem)`
+      : `radial-gradient(circle at top left, ${primary}18, transparent 32rem), radial-gradient(circle at top right, ${secondary}14, transparent 28rem)`
 
   return (
     <main
@@ -141,11 +172,11 @@ export default async function CartaPage({ params }: CartaProps) {
           .qr-featured-track > * { flex-basis: 22rem; }
         }
       `}</style>
-      <header className="fixed inset-x-0 top-0 z-40 border-b shadow-lg shadow-black/[0.08] backdrop-blur-xl" style={{ backgroundColor: primary, borderColor: `${headerText}24` }}>
+      <header className="fixed inset-x-0 top-0 z-40 border-b shadow-lg shadow-black/[0.08] backdrop-blur-xl" style={{ backgroundColor: isLightTheme ? 'rgba(255,255,255,.96)' : primary, borderColor: isLightTheme ? border : `${headerText}24` }}>
         <div className="mx-auto flex h-16 max-w-3xl items-center gap-3 px-4">
           {logoUrl ? (
-            <div className="relative h-16 w-24 flex-shrink-0">
-              <Image src={logoUrl} alt={restaurantName} fill sizes="96px" className="object-contain drop-shadow-xl" priority />
+            <div className="relative h-12 w-24 flex-shrink-0 overflow-hidden rounded-xl bg-white">
+              <Image src={logoUrl} alt={restaurantName} fill sizes="96px" className="object-contain drop-shadow-sm" priority />
             </div>
           ) : (
             <div className="grid h-12 w-12 flex-shrink-0 place-items-center rounded-2xl text-lg font-black" style={{ backgroundColor: primary, color: readableTextColor(primary) }}>
@@ -153,10 +184,10 @@ export default async function CartaPage({ params }: CartaProps) {
             </div>
           )}
           <div className="min-w-0 flex-1">
-            <p className="truncate text-base font-black" style={{ color: headerText }}>{restaurantName}</p>
-            <p className="text-xs font-black uppercase tracking-[0.18em]" style={{ color: headerMutedText }}>{tr('qr.digitalMenu')}</p>
+            <p className="truncate text-base font-black" style={{ color: isLightTheme ? surfaceText : headerText }}>{restaurantName}</p>
+            <p className="text-xs font-black uppercase tracking-[0.18em]" style={{ color: isLightTheme ? primary : headerMutedText }}>{tr('qr.digitalMenu')}</p>
           </div>
-          <LanguageSwitcher compact reloadOnChange className="border-white/20 bg-white/90" />
+          <LanguageSwitcher compact reloadOnChange className={isLightTheme ? 'border-blue-500/20 bg-white text-gray-900' : 'border-white/20 bg-white/90'} />
         </div>
 
         {categories.length > 0 && (

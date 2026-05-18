@@ -39,6 +39,7 @@ interface Props {
     textPrimaryColor: string
     textSecondaryColor: string
     borderColor: string
+    isLightTheme?: boolean
     logoUrl: string | null
   }
   categories: MenuCategory[]
@@ -114,6 +115,7 @@ function AppHeader({
   backLabel,
   onBack,
   cartCount,
+  isLightTheme = false,
 }: {
   primaryColor: string
   accentColor?: string
@@ -124,6 +126,7 @@ function AppHeader({
   backLabel?: string
   onBack?: () => void
   cartCount?: number
+  isLightTheme?: boolean
 }) {
   const initial = appName.trim().charAt(0).toUpperCase() || 'E'
   const mutedHeaderText = `${textColor}b3`
@@ -132,7 +135,7 @@ function AppHeader({
   return (
     <header
       className="flex flex-shrink-0 items-center justify-between border-b px-4 py-3 shadow-lg shadow-black/[0.08] sm:px-5 md:px-6"
-      style={{ backgroundColor: primaryColor, borderColor: `${textColor}24` }}
+      style={{ backgroundColor: primaryColor, borderColor: isLightTheme ? 'rgba(0,102,255,.18)' : `${textColor}24` }}
     >
       <div className="flex min-w-0 items-center gap-3">
         {onBack && (
@@ -153,7 +156,11 @@ function AppHeader({
         </div>
       </div>
       <div className="flex flex-shrink-0 items-center gap-3 md:gap-4">
-        <LanguageSwitcher compact iconColor={headerAccentColor} className="border-white/18 bg-black/35 text-white shadow-inner shadow-white/5 backdrop-blur-md" />
+        <LanguageSwitcher
+          compact
+          iconColor={isLightTheme ? '#0066ff' : headerAccentColor}
+          className={isLightTheme ? 'border-blue-500/20 bg-white text-gray-900 shadow-sm backdrop-blur-md' : 'border-white/18 bg-black/35 text-white shadow-inner shadow-white/5 backdrop-blur-md'}
+        />
         {cartCount !== undefined && cartCount > 0 && (
           <div className="flex items-center gap-2 rounded-full px-3 py-2 md:px-4" style={{ backgroundColor: `${textColor}22`, color: textColor }}>
             <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>
@@ -324,6 +331,7 @@ function CategoryProductModal({
   mutedTextColor,
   borderColor,
   headerTextColor,
+  placeholderImageBg,
   freeToppingsLabel,
   toppings,
   onClose,
@@ -342,6 +350,7 @@ function CategoryProductModal({
   mutedTextColor: string
   borderColor: string
   headerTextColor: string
+  placeholderImageBg: string
   freeToppingsLabel: string
   toppings: Topping[]
   onClose: () => void
@@ -405,7 +414,7 @@ function CategoryProductModal({
                       {item.image_url ? (
                         <img src={item.image_url} alt={item.name} className="w-full h-44 object-cover group-hover:scale-105 transition-transform duration-300" />
                       ) : (
-                        <div className="w-full h-44 flex items-center justify-center text-6xl" style={{ backgroundColor: '#17130D' }}>
+                        <div className="w-full h-44 flex items-center justify-center text-6xl" style={{ backgroundColor: placeholderImageBg }}>
                           🍽️
                         </div>
                       )}
@@ -488,20 +497,28 @@ export default function KioskoClient({
     textPrimaryColor,
     textSecondaryColor,
     borderColor,
+    isLightTheme = false,
     appName,
     logoUrl
   } = branding
   const pageTextColor = readableText(backgroundColor, textPrimaryColor)
   const mutedTextColor = textSecondaryColor || readableText(backgroundColor, undefined, 'rgba(21,19,15,0.62)', 'rgba(255,255,255,0.66)')
   const primaryTextColor = readableText(primaryColor)
-  const appHeaderColor = secondaryColor || backgroundColor || buttonSecondaryColor || '#0B0B0B'
-  const appHeaderTextColor = readableText(appHeaderColor, textPrimaryColor)
+  const appHeaderColor = isLightTheme ? '#ffffff' : secondaryColor || backgroundColor || buttonSecondaryColor || '#0B0B0B'
+  const appHeaderTextColor = isLightTheme ? '#111827' : readableText(appHeaderColor, textPrimaryColor)
   const freeToppingsLabel = domain === 'parrillaburgers' ? 'Barra libre' : 'Ingredientes gratis'
   const buttonTextColor = readableText(buttonPrimaryColor)
   const secondaryButtonTextColor = readableText(buttonSecondaryColor)
-  const surfaceColor = '#11100D'
-  const surfaceTextColor = '#FFF4D8'
-  const surfaceMutedTextColor = textSecondaryColor || '#B9A989'
+  const surfaceColor = isLightTheme ? '#ffffff' : '#11100D'
+  const surfaceTextColor = isLightTheme ? '#111827' : '#FFF4D8'
+  const surfaceMutedTextColor = isLightTheme ? 'rgba(17, 24, 39, 0.68)' : textSecondaryColor || '#B9A989'
+  const menuShellBackground = isLightTheme
+    ? 'linear-gradient(135deg, #ffffff 0%, #ffffff 54%, #f8fbff 100%)'
+    : `linear-gradient(135deg, ${surfaceColor} 0%, ${backgroundColor} 44%, #050403 100%)`
+  const mainPanelBackground = isLightTheme
+    ? 'linear-gradient(180deg, rgba(0,102,255,0.045), rgba(255,45,85,0.035))'
+    : 'linear-gradient(180deg,rgba(255,255,255,0.035),rgba(0,0,0,0.28))'
+  const placeholderImageBg = isLightTheme ? '#f3f7ff' : '#17130D'
 
   const accentTextColor = readableText(accentColor)
 
@@ -898,7 +915,7 @@ export default function KioskoClient({
   if (step === 'confirmed' && confirmed) {
     return (
       <div className="h-screen flex flex-col" style={{ fontFamily: 'Inter, system-ui, sans-serif', backgroundColor, color: pageTextColor }}>
-        <AppHeader primaryColor={appHeaderColor} accentColor={primaryColor} textColor={appHeaderTextColor} appName={appName} logoUrl={logoUrl} time={time} />
+        <AppHeader primaryColor={appHeaderColor} accentColor={primaryColor} textColor={appHeaderTextColor} appName={appName} logoUrl={logoUrl} time={time} isLightTheme={isLightTheme} />
         <div className="flex-1 flex flex-col items-center justify-center px-8">
           <div className="text-center w-full max-w-2xl">
             <div className="mb-6 inline-flex items-center gap-3 rounded-full px-5 py-3 font-black shadow-lg" style={{ backgroundColor: `${primaryColor}18`, color: pageTextColor }}>
@@ -951,7 +968,7 @@ export default function KioskoClient({
   if (step === 'checkout') {
     return (
       <div className="h-screen flex flex-col" style={{ fontFamily: 'Inter, system-ui, sans-serif', backgroundColor, color: pageTextColor }}>
-        <AppHeader primaryColor={appHeaderColor} accentColor={primaryColor} textColor={appHeaderTextColor} appName={appName} logoUrl={logoUrl} time={time} backLabel={tr('kitchen.viewOrder')} onBack={() => setStep('cart')} />
+        <AppHeader primaryColor={appHeaderColor} accentColor={primaryColor} textColor={appHeaderTextColor} appName={appName} logoUrl={logoUrl} time={time} backLabel={tr('kitchen.viewOrder')} onBack={() => setStep('cart')} isLightTheme={isLightTheme} />
         <div className="flex-1 overflow-y-auto">
           <div className="max-w-lg mx-auto p-6">
             <h2 className="text-2xl font-black mb-6" style={{ color: pageTextColor }}>{tr('checkout.finishOrder')}</h2>
@@ -1066,7 +1083,7 @@ export default function KioskoClient({
   if (step === 'cart') {
     return (
       <div className="h-screen flex flex-col" style={{ fontFamily: 'Inter, system-ui, sans-serif', backgroundColor, color: pageTextColor }}>
-        <AppHeader primaryColor={appHeaderColor} accentColor={primaryColor} textColor={appHeaderTextColor} appName={appName} logoUrl={logoUrl} time={time} backLabel="Seguir pidiendo" onBack={() => setStep('menu')} />
+        <AppHeader primaryColor={appHeaderColor} accentColor={primaryColor} textColor={appHeaderTextColor} appName={appName} logoUrl={logoUrl} time={time} backLabel="Seguir pidiendo" onBack={() => setStep('menu')} isLightTheme={isLightTheme} />
         <div className="flex-1 overflow-y-auto">
           <div className="max-w-lg mx-auto p-6 pb-40">
             <h2 className="text-2xl font-black mb-5" style={{ color: pageTextColor }}>{tr('kitchen.viewOrder')}</h2>
@@ -1285,8 +1302,7 @@ export default function KioskoClient({
       style={{
         fontFamily: 'Inter, system-ui, sans-serif',
         backgroundColor,
-        background:
-          `linear-gradient(135deg, ${surfaceColor} 0%, ${backgroundColor} 44%, #050403 100%)`,
+        background: menuShellBackground,
         color: pageTextColor,
       }}
     >
@@ -1302,12 +1318,13 @@ export default function KioskoClient({
             height: '100dvh',
             zIndex: 9999,
             background:
-              `radial-gradient(circle at 50% 18%, ${primaryColor}33 0%, transparent 34%), ` +
-              `linear-gradient(180deg, ${primaryColor}, #050505 58%, #020202 100%)`,
+              isLightTheme
+                ? `radial-gradient(circle at 50% 18%, ${primaryColor}24 0%, transparent 34%), linear-gradient(180deg, #ffffff 0%, #f8fbff 58%, #ffffff 100%)`
+                : `radial-gradient(circle at 50% 18%, ${primaryColor}33 0%, transparent 34%), linear-gradient(180deg, ${primaryColor}, #050505 58%, #020202 100%)`,
           }}
           onClick={() => { toggleFullscreen(); setShowFsPrompt(false) }}
         >
-          <div className="text-center" style={{ color: primaryTextColor }}>
+          <div className="text-center" style={{ color: isLightTheme ? pageTextColor : primaryTextColor }}>
             <p className="mb-8 text-8xl drop-shadow-2xl">🖥️</p>
             <p className="mb-4 text-5xl font-black tracking-tight drop-shadow-[0_8px_28px_rgba(0,0,0,0.45)]">
               Toca para comenzar
@@ -1330,8 +1347,9 @@ export default function KioskoClient({
           }}
           style={{
             background:
-              `radial-gradient(circle at 24% 18%, ${primaryColor}44 0%, transparent 32%), ` +
-              `linear-gradient(135deg, #050403 0%, ${surfaceColor} 48%, #050403 100%)`,
+              isLightTheme
+                ? `radial-gradient(circle at 24% 18%, ${primaryColor}20 0%, transparent 32%), linear-gradient(135deg, #ffffff 0%, #f8fbff 52%, #ffffff 100%)`
+                : `radial-gradient(circle at 24% 18%, ${primaryColor}44 0%, transparent 32%), linear-gradient(135deg, #050403 0%, ${surfaceColor} 48%, #050403 100%)`,
           }}
         >
           {activeAdBanner ? (
@@ -1395,7 +1413,7 @@ export default function KioskoClient({
         </button>
       )}
 
-      <AppHeader primaryColor={appHeaderColor} accentColor={primaryColor} textColor={appHeaderTextColor} appName={appName} logoUrl={logoUrl} time={time} cartCount={cartCount} />
+      <AppHeader primaryColor={appHeaderColor} accentColor={primaryColor} textColor={appHeaderTextColor} appName={appName} logoUrl={logoUrl} time={time} cartCount={cartCount} isLightTheme={isLightTheme} />
 
       {/* Body: sidebar only (products in modal) */}
       <div className="flex flex-1 flex-col overflow-hidden md:flex-row">
@@ -1465,7 +1483,7 @@ export default function KioskoClient({
           </div>
         </aside>
 
-        <div className="flex-1 overflow-hidden bg-[linear-gradient(180deg,rgba(255,255,255,0.035),rgba(0,0,0,0.28))] p-3 md:p-5 xl:p-7">
+            <div className="flex-1 overflow-hidden p-3 md:p-5 xl:p-7" style={{ background: mainPanelBackground }}>
           {activeAdBanner || secondaryAdBanner ? (
             <section className="grid h-full grid-rows-[minmax(0,1.1fr)_minmax(170px,0.9fr)] gap-3 md:gap-5">
               {activeAdBanner ? (
@@ -1575,6 +1593,7 @@ export default function KioskoClient({
           mutedTextColor={surfaceMutedTextColor}
           borderColor={borderColor}
           headerTextColor={primaryTextColor}
+          placeholderImageBg={placeholderImageBg}
           freeToppingsLabel={freeToppingsLabel}
           toppings={toppings}
           onClose={() => setIsCategoryModalOpen(false)}
@@ -1596,7 +1615,7 @@ export default function KioskoClient({
             {selectedItem.image_url ? (
               <img src={selectedItem.image_url} alt={selectedItem.name} className="w-full h-56 object-cover" />
             ) : (
-              <div className="w-full h-44 flex items-center justify-center text-7xl" style={{ backgroundColor: '#17130D' }}>
+              <div className="w-full h-44 flex items-center justify-center text-7xl" style={{ backgroundColor: placeholderImageBg }}>
                 🍽️
               </div>
             )}
