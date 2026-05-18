@@ -37,7 +37,7 @@ export async function POST(request: NextRequest) {
     // Get current tenant info
     const { data: tenant, error: fetchError } = await supabase
       .from('tenants')
-      .select('id, owner_email, organization_name, status, trial_ends_at, metadata')
+      .select('id, owner_id, owner_email, organization_name, status, trial_ends_at, metadata')
       .eq('id', tenantId)
       .single()
 
@@ -53,6 +53,17 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: 'Confirmacion incorrecta' }, { status: 400 })
       }
 
+      const { count: remainingRestaurants, error: remainingError } = await supabase
+        .from('tenants')
+        .select('id', { count: 'exact', head: true })
+        .eq('owner_id', tenant.owner_id)
+        .neq('id', tenantId)
+
+      if (remainingError) {
+        console.error('Error checking remaining restaurants:', remainingError)
+        return NextResponse.json({ error: 'Error al verificar restaurantes del cliente' }, { status: 500 })
+      }
+
       const { error: deleteError } = await supabase
         .from('tenants')
         .delete()
@@ -61,6 +72,17 @@ export async function POST(request: NextRequest) {
       if (deleteError) {
         console.error('Error deleting tenant:', deleteError)
         return NextResponse.json({ error: 'Error al eliminar restaurante' }, { status: 500 })
+      }
+
+      if ((remainingRestaurants || 0) === 0 && tenant.owner_id) {
+        const { error: authDeleteError } = await supabase.auth.admin.deleteUser(tenant.owner_id)
+        if (authDeleteError) {
+          console.error('Error deleting auth user:', authDeleteError)
+          return NextResponse.json(
+            { error: 'Restaurante eliminado, pero no se pudo borrar el usuario de acceso' },
+            { status: 500 }
+          )
+        }
       }
 
       return NextResponse.json({

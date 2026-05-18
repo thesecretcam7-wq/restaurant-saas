@@ -52,6 +52,65 @@ async function createUniqueSlug(supabase: any, baseSlug: string) {
   return `${baseSlug}${Date.now().toString().slice(-6)}`
 }
 
+async function findAuthUserByEmail(supabase: any, email: string) {
+  for (let page = 1; page <= 20; page++) {
+    const { data, error } = await supabase.auth.admin.listUsers({ page, perPage: 1000 })
+    if (error) throw error
+
+    const user = data?.users?.find((authUser: { email?: string }) =>
+      authUser.email?.toLowerCase() === email
+    )
+
+    if (user) return user
+    if (!data?.users || data.users.length < 1000) return null
+  }
+
+  return null
+}
+
+async function createAuthUserWithOrphanRecovery(
+  supabase: any,
+  email: string,
+  password: string
+) {
+  let result = await supabase.auth.admin.createUser({
+    email,
+    password,
+    email_confirm: true,
+  })
+
+  if (!result.error) return result
+
+  const message = result.error.message || ''
+  const emailAlreadyExists =
+    message.toLowerCase().includes('already') ||
+    message.toLowerCase().includes('registered') ||
+    message.toLowerCase().includes('exists')
+
+  if (!emailAlreadyExists) return result
+
+  const { count, error: tenantCountError } = await supabase
+    .from('tenants')
+    .select('id', { count: 'exact', head: true })
+    .eq('owner_email', email)
+
+  if (tenantCountError || (count || 0) > 0) return result
+
+  const orphanUser = await findAuthUserByEmail(supabase, email)
+  if (!orphanUser?.id) return result
+
+  const { error: deleteError } = await supabase.auth.admin.deleteUser(orphanUser.id)
+  if (deleteError) return result
+
+  result = await supabase.auth.admin.createUser({
+    email,
+    password,
+    email_confirm: true,
+  })
+
+  return result
+}
+
 export async function POST(request: NextRequest) {
   try {
     // Límite estricto en registro (3 por IP por minuto) — previene creación masiva de cuentas
@@ -123,11 +182,11 @@ export async function POST(request: NextRequest) {
     )
 
     // Create auth user
-    const { data: authData, error: authError } = await supabase.auth.admin.createUser({
-      email: normalizedEmail,
-      password,
-      email_confirm: true,
-    })
+    const { data: authData, error: authError } = await createAuthUserWithOrphanRecovery(
+      supabase,
+      normalizedEmail,
+      password
+    )
 
     if (authError) {
       console.error('❌ [Register] Auth error:', authError.message)
