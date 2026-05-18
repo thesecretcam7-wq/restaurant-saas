@@ -32,6 +32,7 @@ interface BrandFallbacks {
   appName: string
   tagline: string
   description: string
+  logoUrl: string
   heroImageUrl: string
   instagram: string
   facebook: string
@@ -73,6 +74,7 @@ export default function PageBuilderPage() {
     appName: '',
     tagline: '',
     description: '',
+    logoUrl: '',
     heroImageUrl: '',
     instagram: '',
     facebook: '',
@@ -110,10 +112,12 @@ export default function PageBuilderPage() {
       .then(r => r.json())
       .then(data => {
         const branding = data.branding || {}
+        const tenant = data.tenant || {}
         const fallbacks = {
           appName: branding.app_name || '',
           tagline: branding.tagline || '',
           description: branding.description || '',
+          logoUrl: tenant.logo_url || '',
           heroImageUrl: branding.hero_image_url || '',
           instagram: branding.instagram_url || '',
           facebook: branding.facebook_url || '',
@@ -189,6 +193,33 @@ export default function PageBuilderPage() {
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'No se pudo subir la imagen')
       return null
+    } finally {
+      setUploadingImage(null)
+    }
+  }
+
+  const uploadLogo = async (file: File) => {
+    if (!tenantId) {
+      toast.error('No se pudo identificar el restaurante')
+      return
+    }
+
+    setUploadingImage('logo')
+    try {
+      const logoUrl = await uploadTenantMedia({ file, bucket: 'images', tenantId })
+      const res = await fetch('/api/tenant/logo', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ tenantId, logoUrl }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(data.error || 'No se pudo guardar el logo')
+
+      setBrandFallbacks(current => ({ ...current, logoUrl }))
+      toast.success('Logo actualizado')
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'No se pudo subir el logo')
     } finally {
       setUploadingImage(null)
     }
@@ -384,6 +415,20 @@ export default function PageBuilderPage() {
                 <StatCard label="Portada" value={config.hero.image_url ? 'Con imagen' : 'Sin imagen'} />
                 <StatCard label="Modo" value={labelFor(config.appearance.theme_mode, themeModeOptions)} />
               </div>
+              <Panel title="Logo del restaurante" desc="Este logo se usa en la tienda, carta QR, kiosko, bienvenida y accesos del restaurante.">
+                <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_240px] lg:items-center">
+                  <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-bold leading-6 text-amber-950">
+                    Sube una imagen cuadrada o con fondo transparente para que se vea limpia en todos los accesos.
+                  </div>
+                  <ImageUploader
+                    label="Logo"
+                    imageUrl={brandFallbacks.logoUrl}
+                    loading={uploadingImage === 'logo'}
+                    fit="contain"
+                    onFile={uploadLogo}
+                  />
+                </div>
+              </Panel>
               <Panel title="Modo de tienda" desc="Escoge si esta tienda se muestra con apariencia oscura o clara.">
                 <ChoiceGrid
                   label="Apariencia publica"
@@ -907,18 +952,19 @@ function RangeField({ label, value, min, max, onChange }: {
   )
 }
 
-function ImageUploader({ label, imageUrl, loading, onFile }: {
+function ImageUploader({ label, imageUrl, loading, onFile, fit = 'cover' }: {
   label: string
   imageUrl?: string
   loading: boolean
   onFile: (file: File) => void
+  fit?: 'cover' | 'contain'
 }) {
   return (
     <div>
       <p className="mb-2 text-sm font-black uppercase text-black/65">{label}</p>
       <div className="overflow-hidden rounded-2xl border border-black/10 bg-white">
         {imageUrl ? (
-          <img src={imageUrl} alt="" className="h-48 w-full object-cover" />
+          <img src={imageUrl} alt="" className={`h-48 w-full ${fit === 'contain' ? 'object-contain p-5' : 'object-cover'}`} />
         ) : (
           <div className="flex h-48 items-center justify-center bg-black/[0.045] text-black/55">
             <ImagePlus className="size-10" />
