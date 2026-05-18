@@ -319,7 +319,7 @@ export async function POST(request: NextRequest) {
     // Check if this is the software owner (system admin)
     const ownerEmails = ['thesecretcam7@gmail.com']
     const isOwner = ownerEmails.includes(normalizedEmail)
-    const redirectUrl = isOwner ? '/owner-dashboard' : `/${tenantData.slug}/acceso`
+    const redirectUrl = isOwner ? '/owner-dashboard' : `/${tenantData.slug}/bienvenida?nuevo=1&demo=${demoSlug}`
 
     return NextResponse.json({
       success: true,
