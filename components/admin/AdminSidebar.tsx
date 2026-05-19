@@ -149,7 +149,7 @@ export function AdminSidebar({
                 <img src={logoUrl} alt="" className="max-h-full max-w-full object-contain" />
               </span>
             ) : (
-              <div className="flex h-12 w-16 flex-shrink-0 items-center justify-center rounded-xl bg-white text-sm font-black text-[#15130f]">
+              <div className="flex h-12 w-16 flex-shrink-0 items-center justify-center rounded-xl bg-white text-sm font-black text-[#111827]">
                 {restaurantName.charAt(0)}
               </div>
             )}
@@ -182,7 +182,7 @@ export function AdminSidebar({
                   onClick={() => setOpen(false)}
                   className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-semibold transition ${
                     t.slug === tenantSlug
-                      ? 'bg-white text-[#15130f]'
+                      ? 'bg-white text-[#111827]'
                       : 'text-white/62 hover:bg-white/8 hover:text-white'
                   }`}
                 >
@@ -209,7 +209,7 @@ export function AdminSidebar({
                 onClick={() => setOpen(false)}
                 className={`group flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-bold transition ${
                   isActive
-                    ? 'bg-white text-[#15130f] shadow-sm'
+                    ? 'bg-white text-[#111827] shadow-sm'
                     : 'text-white/64 hover:bg-white/8 hover:text-white'
                 }`}
                 style={isActive ? { boxShadow: `inset 3px 0 0 ${linkColor}` } : undefined}
@@ -252,7 +252,7 @@ export function AdminSidebar({
     ? createPortal(
         <>
           <button
-            className="fixed left-[max(0.85rem,env(safe-area-inset-left))] top-[calc(env(safe-area-inset-top)+0.85rem)] z-[2147483647] inline-flex h-12 items-center gap-2 rounded-2xl border border-[#f2cf82]/55 bg-gradient-to-br from-[#f2cf82] via-[#d9a441] to-[#b85c1f] px-4 text-sm font-black text-[#080704] shadow-[0_18px_60px_rgba(217,164,65,0.42)] active:scale-95 md:hidden"
+            className="fixed left-[max(0.85rem,env(safe-area-inset-left))] top-[calc(env(safe-area-inset-top)+0.85rem)] z-[2147483647] inline-flex h-12 items-center gap-2 rounded-2xl border border-white/15 bg-gradient-to-br from-[#e43d30] to-[#ff5a1f] px-4 text-sm font-black text-white shadow-[0_18px_60px_rgba(228,61,48,0.28)] active:scale-95 md:hidden"
             onPointerDown={(event) => {
               event.preventDefault()
               event.stopPropagation()
@@ -280,7 +280,7 @@ export function AdminSidebar({
           )}
 
           <aside
-            className={`admin-sidebar fixed inset-y-0 left-0 z-[2147483646] flex max-h-dvh w-[min(92vw,22rem)] flex-col bg-[#15130f] shadow-2xl transition-transform duration-200 md:hidden ${
+            className={`admin-sidebar fixed inset-y-0 left-0 z-[2147483646] flex max-h-dvh w-[min(92vw,22rem)] flex-col bg-[#0f172a] shadow-2xl transition-transform duration-200 md:hidden ${
               open ? 'translate-x-0' : '-translate-x-full'
             }`}
           >
@@ -293,16 +293,16 @@ export function AdminSidebar({
 
   return (
     <>
-      <aside className="admin-sidebar hidden md:flex fixed inset-y-0 left-0 z-30 w-64 flex-col border-r border-black/10 bg-[#15130f] shadow-2xl shadow-black/10">
+      <aside className="admin-sidebar hidden md:flex fixed inset-y-0 left-0 z-30 w-64 flex-col border-r border-black/10 bg-[#0f172a] shadow-2xl shadow-black/10">
         {sidebarContent}
       </aside>
 
       {mobileMenuLayer}
 
-      <div className="fixed inset-x-0 top-0 z-[2147483644] flex h-16 items-center justify-end border-b border-[#e7b43f]/20 bg-[#080807]/95 px-3 pl-32 shadow-2xl shadow-black/30 backdrop-blur-xl md:hidden">
+      <div className="fixed inset-x-0 top-0 z-[2147483644] flex h-16 items-center justify-end border-b border-slate-200 bg-white/95 px-3 pl-32 shadow-xl shadow-slate-950/10 backdrop-blur-xl md:hidden">
         <div className="min-w-0 pl-3 text-right">
-          <p className="truncate text-sm font-black text-[#fff7df]">{restaurantName}</p>
-          <p className="text-[11px] font-bold uppercase tracking-wide text-[#e7b43f]">Panel operativo</p>
+          <p className="truncate text-sm font-black text-[#111827]">{restaurantName}</p>
+          <p className="text-[11px] font-bold uppercase tracking-wide text-[#e43d30]">Panel operativo</p>
         </div>
       </div>
     </>

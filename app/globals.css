@@ -882,19 +882,17 @@ body {
 
 .pos-premium {
   min-height: 100%;
-  color: #fff4d8;
+  color: #111827;
   background:
-    radial-gradient(circle at 12% 0%, rgba(217, 164, 65, 0.14) 0%, transparent 30%),
-    radial-gradient(circle at 88% 18%, rgba(184, 92, 31, 0.10) 0%, transparent 28%),
-    linear-gradient(180deg, #100d08 0%, #070604 48%, #020202 100%);
+    radial-gradient(circle at 12% 0%, rgba(230, 95, 26, 0.08) 0%, transparent 30%),
+    radial-gradient(circle at 88% 18%, rgba(15, 23, 42, 0.06) 0%, transparent 28%),
+    linear-gradient(180deg, #ffffff 0%, #f7f4ef 48%, #f2f4f7 100%);
 }
 
 .pos-topbar {
-  border-bottom: 1px solid rgba(255, 255, 255, 0.10);
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.105), rgba(255, 255, 255, 0.052)),
-    rgba(18, 15, 10, 0.90);
-  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.24), inset 0 1px 0 rgba(255, 255, 255, 0.09);
+  border-bottom: 1px solid rgba(15, 23, 42, 0.08);
+  background: rgba(255, 255, 255, 0.88);
+  box-shadow: 0 14px 36px rgba(15, 23, 42, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.82);
   backdrop-filter: blur(20px);
 }
 
@@ -905,13 +903,13 @@ body {
   justify-content: center;
   gap: 0.15rem;
   border-radius: 12px;
-  border: 1px solid rgba(255, 255, 255, 0.105);
-  background: rgba(255, 255, 255, 0.065);
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  background: #ffffff;
   padding: 0.7rem 0.85rem;
 }
 
 .pos-kpi span {
-  color: rgba(255, 244, 216, 0.58);
+  color: #64748b;
   font-size: 0.68rem;
   font-weight: 900;
   text-transform: uppercase;
@@ -919,7 +917,7 @@ body {
 
 .pos-kpi strong {
   overflow: hidden;
-  color: #fff4d8;
+  color: #111827;
   font-size: 0.95rem;
   font-weight: 950;
   line-height: 1.1;
@@ -932,18 +930,18 @@ body {
 }
 
 .pos-premium :where(input, textarea, select) {
-  border-color: rgba(255, 255, 255, 0.135);
-  background: rgba(255, 255, 255, 0.085);
-  color: #fff4d8;
+  border-color: rgba(15, 23, 42, 0.12);
+  background: #ffffff;
+  color: #111827;
 }
 
 .pos-premium :where(input, textarea, select)::placeholder {
-  color: rgba(255, 244, 216, 0.38);
+  color: #94a3b8;
 }
 
 .pos-premium :where(input, textarea, select):focus {
-  border-color: rgba(217, 164, 65, 0.78);
-  box-shadow: 0 0 0 4px rgba(217, 164, 65, 0.12);
+  border-color: rgba(230, 95, 26, 0.72);
+  box-shadow: 0 0 0 4px rgba(230, 95, 26, 0.12);
 }
 
 .pos-premium :where(.cash-closing-field) {
@@ -963,11 +961,9 @@ body {
 }
 
 .pos-panel {
-  border: 1px solid rgba(255, 255, 255, 0.11);
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.10), rgba(255, 255, 255, 0.045)),
-    rgba(18, 15, 10, 0.92);
-  box-shadow: 0 20px 58px rgba(0, 0, 0, 0.32), inset 0 1px 0 rgba(255, 255, 255, 0.09);
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: 0 18px 48px rgba(15, 23, 42, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.82);
   backdrop-filter: blur(20px);
 }
 
@@ -976,16 +972,14 @@ body {
 }
 
 .pos-card {
-  border: 1px solid rgba(255, 255, 255, 0.115);
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.105), rgba(255, 255, 255, 0.042)),
-    rgba(20, 16, 10, 0.92);
-  box-shadow: 0 14px 30px rgba(0, 0, 0, 0.24);
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  background: #ffffff;
+  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.07);
 }
 
 .pos-card:hover {
-  border-color: rgba(217, 164, 65, 0.50);
-  box-shadow: 0 18px 42px rgba(217, 164, 65, 0.13);
+  border-color: rgba(230, 95, 26, 0.30);
+  box-shadow: 0 18px 42px rgba(15, 23, 42, 0.10);
 }
 
 .pos-action,
@@ -996,23 +990,25 @@ body {
   justify-content: center;
   gap: 0.45rem;
   border-radius: 11px;
-  border: 1px solid rgba(255, 255, 255, 0.11);
+  border: 1px solid rgba(15, 23, 42, 0.10);
   min-height: 2.55rem;
   padding: 0.62rem 0.82rem;
   font-size: 0.82rem;
   font-weight: 900;
-  color: #fff4d8;
+  color: #111827;
   transition: 160ms ease;
 }
 
 .pos-action {
-  background: linear-gradient(135deg, #8f5c14, #d9a441, #f2cf82);
-  box-shadow: 0 14px 28px rgba(217, 164, 65, 0.18);
-  color: #080808;
+  background: #e65f1a;
+  box-shadow: 0 14px 28px rgba(230, 95, 26, 0.16);
+  color: #ffffff;
+  border-color: rgba(230, 95, 26, 0.32);
 }
 
 .pos-action-ghost {
-  background: rgba(255, 255, 255, 0.08);
+  background: #ffffff;
+  color: #334155;
 }
 
 .pos-action-danger {
@@ -1025,7 +1021,7 @@ body {
 .pos-action-ghost:hover,
 .pos-action-danger:hover {
   transform: translateY(-1px);
-  border-color: rgba(217, 164, 65, 0.46);
+  border-color: rgba(230, 95, 26, 0.34);
 }
 
 .pos-chip {
@@ -1042,11 +1038,9 @@ body {
 }
 
 .pos-total-band {
-  border: 1px solid rgba(217, 164, 65, 0.30);
-  background:
-    linear-gradient(135deg, rgba(217, 164, 65, 0.18), rgba(184, 92, 31, 0.10)),
-    rgba(18, 15, 10, 0.78);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(230, 95, 26, 0.18);
+  background: rgba(230, 95, 26, 0.08);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.72);
 }
 
 .pos-premium:fullscreen {
@@ -1054,7 +1048,7 @@ body {
   height: 100vh;
   margin: 0;
   padding: 0;
-  background: #020202;
+  background: #f7f4ef;
 }
 
 .brand-studio {
@@ -1190,47 +1184,7 @@ body {
   background: #e43d30;
 }
 
-/* Premium dark/gold Eccofood experience */
-:root {
-  --premium-black: #040404;
-  --premium-panel: rgba(17, 16, 13, 0.84);
-  --premium-panel-strong: rgba(26, 22, 15, 0.94);
-  --premium-border: rgba(217, 164, 65, 0.24);
-  --premium-gold: #d9a441;
-  --premium-gold-soft: #f2cf82;
-  --premium-ember: #b85c1f;
-  --premium-text: #fff4d8;
-  --premium-muted: rgba(255, 244, 216, 0.62);
-}
-
-.ecco-premium-app,
-.ecco-landing-premium,
-.admin-shell,
-.pos-premium {
-  color: var(--premium-text);
-  background:
-    radial-gradient(circle at 12% 0%, rgba(217, 164, 65, 0.16), transparent 34%),
-    radial-gradient(circle at 88% 18%, rgba(184, 92, 31, 0.12), transparent 32%),
-    linear-gradient(180deg, #100d08 0%, #070604 50%, #020202 100%) !important;
-}
-
-.ecco-premium-app::before,
-.admin-shell::before,
-.pos-premium::before,
-.ecco-landing-premium::before {
-  content: '';
-  position: fixed;
-  inset: 0;
-  pointer-events: none;
-  z-index: 0;
-  background:
-    linear-gradient(90deg, rgba(217,164,65,0.035) 1px, transparent 1px),
-    linear-gradient(0deg, rgba(255,244,216,0.018) 1px, transparent 1px);
-  background-size: 42px 42px;
-  mask-image: linear-gradient(to bottom, rgba(0,0,0,0.55), transparent 72%);
-}
-
-.ecco-premium-app > *,
+/* Shared app layering only. Colors live in each current surface theme. */
 .admin-shell > *,
 .pos-premium > *,
 .ecco-landing-premium > * {
@@ -1238,8 +1192,6 @@ body {
   z-index: 1;
 }
 
-.ecco-premium-app > .fixed,
-.ecco-premium-app > .ecco-fixed-layer,
 .admin-shell > .fixed,
 .admin-shell > .ecco-fixed-layer,
 .pos-premium > .fixed,
@@ -1249,7 +1201,6 @@ body {
   position: fixed !important;
 }
 
-.ecco-premium-app > .ecco-fixed-layer,
 .admin-shell > .ecco-fixed-layer,
 .pos-premium > .ecco-fixed-layer,
 .ecco-landing-premium > .ecco-fixed-layer {
@@ -1261,88 +1212,84 @@ body {
 
 .admin-shell {
   background:
-    radial-gradient(circle at 10% 0%, rgba(217,164,65,0.15), transparent 34%),
-    radial-gradient(circle at 86% 22%, rgba(184,92,31,0.10), transparent 28%),
-    linear-gradient(180deg, #0c0905, #040404) !important;
+    linear-gradient(180deg, #ffffff 0%, #f6f7f9 58%, #edf0f4 100%) !important;
 }
 
 .admin-shell h1,
 .admin-shell h2,
 .admin-shell h3,
 .admin-shell :where(.admin-title, .text-gray-900, .text-black, .text-\[\#15130f\]) {
-  color: var(--premium-text) !important;
+  color: #111827 !important;
 }
 
 .admin-shell :where(.admin-subtitle, .text-gray-500, .text-gray-600, .text-black\/42, .text-black\/55, .text-black\/62, .text-black\/65, .text-black\/70) {
-  color: var(--premium-muted) !important;
+  color: #64748b !important;
 }
 
 .admin-eyebrow,
 .admin-shell :where(.text-blue-600, .text-red-600, .text-orange-600) {
-  color: var(--premium-gold) !important;
+  color: #e43d30 !important;
 }
 
 .admin-panel,
 .admin-card,
 .admin-shell :where(.bg-white, .bg-gray-50, .bg-card, .bg-card\/50, .rounded-xl.border, .rounded-2xl.border) {
-  border-color: var(--premium-border) !important;
-  background:
-    linear-gradient(180deg, rgba(255,255,255,0.09), rgba(255,255,255,0.035)),
-    var(--premium-panel) !important;
-  box-shadow: 0 26px 80px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.08) !important;
-  backdrop-filter: blur(22px);
+  border-color: #e5e7eb !important;
+  background: #ffffff !important;
+  box-shadow: 0 18px 48px rgba(15, 23, 42, 0.06) !important;
+  backdrop-filter: none;
 }
 
 .admin-shell :where(table) {
-  color: var(--premium-text);
+  color: #111827;
 }
 
 .admin-shell :where(th) {
-  color: rgba(246, 185, 47, 0.68) !important;
-  border-color: rgba(255,255,255,0.08) !important;
+  color: #64748b !important;
+  border-color: #e5e7eb !important;
 }
 
 .admin-shell :where(td) {
-  color: rgba(248, 245, 236, 0.78) !important;
-  border-color: rgba(255,255,255,0.06) !important;
+  color: #334155 !important;
+  border-color: #eef2f7 !important;
 }
 
 .admin-shell :where(input, textarea, select),
 .brand-studio :where(input:not([type="color"]), textarea, select) {
-  border-color: rgba(255, 194, 71, 0.18) !important;
-  background: rgba(255,255,255,0.08) !important;
-  color: var(--premium-text) !important;
-  box-shadow: inset 0 1px 0 rgba(255,255,255,0.08) !important;
+  border-color: #dbe3ee !important;
+  background: #ffffff !important;
+  color: #111827 !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.7) !important;
 }
 
 .admin-shell :where(input, textarea, select)::placeholder,
 .brand-studio :where(input, textarea)::placeholder {
-  color: rgba(248,245,236,0.36) !important;
+  color: #94a3b8 !important;
 }
 
 .admin-shell :where(input, textarea, select):focus,
 .brand-studio :where(input:not([type="color"]), textarea, select):focus {
-  border-color: var(--premium-gold) !important;
-  box-shadow: 0 0 0 4px rgba(217,164,65,0.14) !important;
+  border-color: #e43d30 !important;
+  box-shadow: 0 0 0 4px rgba(228,61,48,0.12) !important;
 }
 
 .admin-button-primary,
 .admin-shell :where(.bg-blue-600, .bg-red-600, .bg-orange-500, .bg-emerald-500) {
-  background: linear-gradient(135deg, #8f5c14, var(--premium-gold), #f2cf82) !important;
-  color: #080808 !important;
-  box-shadow: 0 18px 42px rgba(217,164,65,0.22) !important;
+  background: linear-gradient(135deg, #e43d30, #ff5a1f) !important;
+  color: #ffffff !important;
+  box-shadow: 0 16px 36px rgba(228,61,48,0.18) !important;
 }
 
 .admin-button-secondary,
 .admin-shell :where(.bg-\[\#15130f\]) {
-  background: linear-gradient(180deg, rgba(255,255,255,0.12), rgba(255,255,255,0.04)) !important;
-  color: var(--premium-text) !important;
-  border: 1px solid var(--premium-border) !important;
+  background: #111827 !important;
+  color: #ffffff !important;
+  border: 1px solid #111827 !important;
 }
 
 .admin-shell aside,
 .admin-shell .admin-page {
-  color: var(--premium-text);
+  color: #111827;
 }
 
 .admin-shell :where(a:hover, button:hover) {
@@ -1351,228 +1298,214 @@ body {
 
 .pos-premium {
   background:
-    radial-gradient(circle at 12% 0%, rgba(217,164,65,0.16), transparent 34%),
-    radial-gradient(circle at 90% 16%, rgba(184,92,31,0.11), transparent 28%),
-    linear-gradient(180deg, #100d08 0%, #070604 45%, #020202 100%) !important;
+    radial-gradient(circle at 12% 0%, rgba(230,95,26,0.08), transparent 34%),
+    radial-gradient(circle at 90% 16%, rgba(15,23,42,0.06), transparent 28%),
+    linear-gradient(180deg, #ffffff 0%, #f7f4ef 48%, #f2f4f7 100%) !important;
+  color: #111827 !important;
 }
 
 .pos-topbar,
 .pos-panel,
 .pos-card {
-  border-color: var(--premium-border) !important;
-  background:
-    linear-gradient(180deg, rgba(255,255,255,0.10), rgba(255,255,255,0.035)),
-    rgba(18,15,10,0.90) !important;
-  box-shadow: 0 26px 80px rgba(0,0,0,0.42), inset 0 1px 0 rgba(255,255,255,0.08) !important;
+  border-color: rgba(15,23,42,0.08) !important;
+  background: #ffffff !important;
+  box-shadow: 0 18px 48px rgba(15,23,42,0.08), inset 0 1px 0 rgba(255,255,255,0.82) !important;
 }
 
 .pos-card:hover {
-  border-color: rgba(217,164,65,0.58) !important;
-  box-shadow: 0 22px 70px rgba(217,164,65,0.14) !important;
+  border-color: rgba(230,95,26,0.30) !important;
+  box-shadow: 0 20px 54px rgba(15,23,42,0.12) !important;
 }
 
 .pos-kpi {
-  border-color: var(--premium-border) !important;
-  background: rgba(255,255,255,0.06) !important;
+  border-color: rgba(15,23,42,0.08) !important;
+  background: #ffffff !important;
 }
 
 .pos-kpi span,
 .pos-premium :where([class*="text-cyan-100/"], [class*="text-slate-400"], [class*="text-slate-500"]) {
-  color: rgba(248,245,236,0.55) !important;
+  color: #64748b !important;
 }
 
 .pos-kpi strong,
 .pos-premium :where(.text-white) {
-  color: var(--premium-text) !important;
+  color: #111827 !important;
+}
+
+.pos-premium :where([class*="text-white/"], .text-slate-200, .text-slate-300, .text-slate-400, .text-slate-500) {
+  color: #64748b !important;
+}
+
+.pos-premium :where(.pos-card .text-white, .pos-total-band .text-white, h1.text-white, p.text-white, span.text-white) {
+  color: #111827 !important;
 }
 
 .pos-premium :where([class*="text-cyan-"], [class*="text-emerald-"], [class*="text-amber-"]) {
-  color: var(--premium-gold-soft) !important;
+  color: #b74710 !important;
 }
 
-.pos-premium :where([class*="border-cyan-"], [class*="border-emerald-"], [class*="border-amber-"]) {
-  border-color: rgba(217,164,65,0.46) !important;
+.pos-premium :where(.text-red-100, .text-red-200, .text-red-300) {
+  color: #b42318 !important;
+}
+
+.pos-premium :where([class*="bg-black/"]) {
+  background-color: rgba(15, 23, 42, 0.04) !important;
+}
+
+.pos-premium :where([class*="bg-white/5"], [class*="bg-white/10"], [class*="bg-white/15"], [class*="bg-white/16"]) {
+  background-color: #ffffff !important;
 }
 
 .pos-premium :where([class*="bg-cyan-"], [class*="bg-emerald-"], [class*="bg-amber-"]) {
-  background-color: rgba(217,164,65,0.18) !important;
+  color: #111827 !important;
+}
+
+.pos-premium :where(.bg-red-500, .bg-emerald-500, .bg-cyan-400, .bg-amber-400) {
+  color: #ffffff !important;
+}
+
+.pos-premium :where([class*="border-cyan-"], [class*="border-emerald-"], [class*="border-amber-"]) {
+  border-color: rgba(230,95,26,0.22) !important;
+}
+
+.pos-premium :where([class*="bg-cyan-"], [class*="bg-emerald-"], [class*="bg-amber-"]) {
+  background-color: rgba(230,95,26,0.08) !important;
 }
 
 .pos-action {
-  background: linear-gradient(135deg, #8f5c14, var(--premium-gold), #f2cf82) !important;
-  color: #090909 !important;
-  border-color: rgba(242,207,130,0.48) !important;
-  box-shadow: 0 18px 42px rgba(217,164,65,0.24) !important;
+  background: #e65f1a !important;
+  color: #ffffff !important;
+  border-color: rgba(230,95,26,0.34) !important;
+  box-shadow: 0 16px 36px rgba(230,95,26,0.18) !important;
 }
 
 .pos-action-ghost,
 .pos-chip {
-  border-color: rgba(255,194,71,0.18) !important;
-  background: rgba(255,255,255,0.075) !important;
-  color: rgba(248,245,236,0.72) !important;
+  border-color: rgba(15,23,42,0.10) !important;
+  background: #ffffff !important;
+  color: #334155 !important;
 }
 
 .pos-action-danger {
-  border-color: rgba(184,92,31,0.42) !important;
-  background: rgba(184,92,31,0.15) !important;
-  color: #ffd5bc !important;
+  border-color: rgba(228,61,48,0.24) !important;
+  background: rgba(228,61,48,0.08) !important;
+  color: #b42318 !important;
 }
 
 .pos-premium :where(input, textarea, select) {
-  border-color: rgba(255,194,71,0.18) !important;
-  background: rgba(255,255,255,0.075) !important;
+  border-color: rgba(15,23,42,0.12) !important;
+  background: #ffffff !important;
+  color: #111827 !important;
 }
 
 .pos-premium :where(input, textarea, select):focus {
-  border-color: var(--premium-gold) !important;
-  box-shadow: 0 0 0 4px rgba(217,164,65,0.14) !important;
+  border-color: #e65f1a !important;
+  box-shadow: 0 0 0 4px rgba(230,95,26,0.12) !important;
 }
 
 .store-surface,
 .ecco-landing-premium {
-  color: var(--premium-text) !important;
+  color: #111827 !important;
   background:
-    radial-gradient(circle at 16% 0%, rgba(217,164,65,0.14), transparent 30%),
-    radial-gradient(circle at 88% 14%, rgba(184,92,31,0.10), transparent 30%),
-    linear-gradient(180deg, #100d08, #040404) !important;
+    radial-gradient(circle at 16% 0%, rgba(230, 95, 26, 0.08), transparent 30%),
+    radial-gradient(circle at 88% 14%, rgba(17, 24, 39, 0.05), transparent 30%),
+    linear-gradient(180deg, #ffffff 0%, #f7f4ef 48%, #f2f4f7 100%) !important;
 }
 
 .ecco-landing-premium :where(nav) {
-  border-color: rgba(255,194,71,0.14) !important;
-  background: rgba(8,8,8,0.76) !important;
-  color: var(--premium-text) !important;
+  border-color: rgba(17,24,39,0.08) !important;
+  background: rgba(255,255,255,0.86) !important;
+  color: #111827 !important;
 }
 
 .ecco-landing-premium :where(.bg-white, .bg-white\/82, .bg-white\/88, .bg-\[\#f8f7f3\]) {
-  border-color: rgba(255,194,71,0.16) !important;
-  background:
-    linear-gradient(180deg, rgba(255,255,255,0.10), rgba(255,255,255,0.035)),
-    rgba(16,16,16,0.84) !important;
-  color: var(--premium-text) !important;
-  box-shadow: 0 24px 80px rgba(0,0,0,0.38) !important;
+  border-color: rgba(17,24,39,0.08) !important;
+  background: rgba(255,255,255,0.92) !important;
+  color: #111827 !important;
+  box-shadow: 0 22px 70px rgba(15,23,42,0.08) !important;
 }
 
 .ecco-landing-premium :where(.text-\[\#101010\], .text-black, .text-gray-900) {
-  color: var(--premium-text) !important;
+  color: #111827 !important;
 }
 
 .ecco-landing-premium :where(.text-black\/38, .text-black\/45, .text-black\/54, .text-black\/58, .text-gray-600) {
-  color: var(--premium-muted) !important;
+  color: #64748b !important;
 }
 
-.ecco-landing-premium :where(.bg-\[\#101010\], .bg-\[\#ff6b1a\]) {
-  background: linear-gradient(135deg, #8f5c14, var(--premium-gold), #f2cf82) !important;
-  color: #080808 !important;
+.ecco-landing-premium :where(.bg-\[\#101010\]) {
+  background: #111827 !important;
+  color: #ffffff !important;
+}
+
+.ecco-landing-premium :where(.bg-\[\#ff6b1a\]) {
+  background: #e65f1a !important;
+  color: #ffffff !important;
 }
 
 .ecco-landing-premium .landing-feature-card {
-  border-color: rgba(255, 194, 71, 0.20) !important;
-  background:
-    linear-gradient(135deg, rgba(255,255,255,0.11), rgba(255,255,255,0.04)),
-    radial-gradient(circle at 18% 10%, rgba(217,164,65,0.17), transparent 34%),
-    rgba(18,15,10,0.92) !important;
-  color: var(--premium-text) !important;
+  border-color: rgba(17,24,39,0.08) !important;
+  background: #ffffff !important;
+  color: #111827 !important;
   box-shadow:
-    0 28px 90px rgba(0,0,0,0.48),
-    inset 0 1px 0 rgba(255,255,255,0.10) !important;
+    0 24px 70px rgba(15,23,42,0.08),
+    inset 0 1px 0 rgba(255,255,255,0.82) !important;
 }
 
 .ecco-landing-premium .landing-feature-card h3 {
-  color: #fff4d8 !important;
-  text-shadow: 0 0 22px rgba(217,164,65,0.24);
+  color: #111827 !important;
+  text-shadow: none;
 }
 
 .ecco-landing-premium .landing-feature-card p {
-  color: rgba(248,245,236,0.84) !important;
+  color: #64748b !important;
 }
 
 .ecco-landing-premium .landing-feature-card p:first-of-type {
-  color: #f2cf82 !important;
-  background: rgba(184,92,31,0.16) !important;
-  border: 1px solid rgba(242,207,130,0.22);
+  color: #b74710 !important;
+  background: rgba(230,95,26,0.09) !important;
+  border: 1px solid rgba(230,95,26,0.14);
 }
 
 .ecco-landing-premium .landing-pricing-card {
-  border-color: rgba(255, 194, 71, 0.18) !important;
-  background:
-    linear-gradient(180deg, rgba(255,255,255,0.10), rgba(255,255,255,0.035)),
-    rgba(18,15,10,0.90) !important;
-  color: var(--premium-text) !important;
-  box-shadow: 0 24px 80px rgba(0,0,0,0.42) !important;
+  border-color: rgba(17,24,39,0.08) !important;
+  background: #ffffff !important;
+  color: #111827 !important;
+  box-shadow: 0 24px 70px rgba(15,23,42,0.08) !important;
 }
 
 .ecco-landing-premium .landing-pricing-card-popular {
-  border-color: rgba(217, 164, 65, 0.68) !important;
+  border-color: rgba(230,95,26,0.34) !important;
   box-shadow:
-    0 26px 90px rgba(217,164,65,0.18),
-    inset 0 1px 0 rgba(255,255,255,0.10) !important;
+    0 26px 90px rgba(230,95,26,0.12),
+    inset 0 1px 0 rgba(255,255,255,0.82) !important;
 }
 
 .ecco-landing-premium .landing-pricing-card :where(p, div) {
-  color: var(--premium-text) !important;
+  color: #111827 !important;
 }
 
 .ecco-landing-premium .landing-pricing-card [class*="text-black/"] {
-  color: rgba(248,245,236,0.68) !important;
+  color: #64748b !important;
 }
 
 .ecco-landing-premium .landing-pricing-card .text-5xl,
 .ecco-landing-premium .landing-pricing-card .text-xl {
-  color: #f2cf82 !important;
-  text-shadow: 0 0 22px rgba(217,164,65,0.32);
+  color: #111827 !important;
+  text-shadow: none;
 }
 
 .ecco-landing-premium .landing-pricing-saving {
-  border-color: rgba(255, 194, 71, 0.20) !important;
-  background: rgba(255,255,255,0.075) !important;
+  border-color: rgba(230,95,26,0.16) !important;
+  background: rgba(230,95,26,0.06) !important;
 }
 
 .ecco-landing-premium .landing-pricing-saving p:first-child {
-  color: #d9a441 !important;
+  color: #b74710 !important;
 }
 
 .ecco-landing-premium .landing-pricing-saving p:nth-child(2) {
-  color: #c8ffd9 !important;
-}
-
-.ecco-premium-app :where(.rounded-3xl, .rounded-\[2rem\], .rounded-\[1\.6rem\]) {
-  border-radius: 24px;
-}
-
-.ecco-premium-app :where(.bg-white\/\[0\.09\], .bg-white\/\[0\.075\], .bg-white\/\[0\.06\]) {
-  border-color: rgba(255,194,71,0.16) !important;
-  background:
-    linear-gradient(180deg, rgba(255,255,255,0.10), rgba(255,255,255,0.035)),
-    rgba(17,16,13,0.84) !important;
-}
-
-.ecco-premium-app :where(.text-white\/45, .text-white\/52, .text-white\/58, .text-white\/62) {
-  color: var(--premium-muted) !important;
-}
-
-.ecco-premium-app :where([class*="text-black/"], [class*="text-gray-"], [class*="text-slate-"], [class*="text-zinc-"]),
-.ecco-landing-premium :where([class*="text-black/"], [class*="text-gray-"], [class*="text-slate-"], [class*="text-zinc-"]),
-.admin-shell :where([class*="text-black/"], [class*="text-gray-"], [class*="text-slate-"], [class*="text-zinc-"]),
-.pos-premium :where([class*="text-black/"], [class*="text-gray-"], [class*="text-slate-"], [class*="text-zinc-"]) {
-  color: rgba(248, 245, 236, 0.78) !important;
-}
-
-.ecco-premium-app :where([class*="text-white/"]),
-.ecco-landing-premium :where([class*="text-white/"]),
-.admin-shell :where([class*="text-white/"]),
-.pos-premium :where([class*="text-white/"]) {
-  color: rgba(248, 245, 236, 0.82) !important;
-}
-
-.ecco-premium-app :where(h1, h2, h3, h4, strong, label),
-.ecco-landing-premium :where(h1, h2, h3, h4, strong, label),
-.admin-shell :where(h1, h2, h3, h4, strong, label),
-.pos-premium :where(h1, h2, h3, h4, strong, label) {
-  color: var(--premium-text) !important;
-}
-
-.ecco-premium-app :where([style*="color"]) {
-  filter: saturate(1.05);
+  color: #111827 !important;
 }
 
 .brand-page-builder :where(.border-blue-500) {
@@ -1584,18 +1517,18 @@ body {
 }
 
 .admin-app-shell {
-  --admin-premium-bg: #040404;
-  --admin-premium-panel: rgba(17, 16, 13, 0.88);
-  --admin-premium-panel-soft: rgba(255, 255, 255, 0.065);
-  --admin-premium-border: rgba(217, 164, 65, 0.24);
-  --admin-premium-gold: #d9a441;
-  --admin-premium-orange: #b85c1f;
-  --admin-premium-text: #fff4d8;
-  --admin-premium-muted: rgba(255, 244, 216, 0.66);
+  --admin-app-bg: #f6f7f9;
+  --admin-app-panel: #ffffff;
+  --admin-app-panel-soft: #f8fafc;
+  --admin-app-border: #e5e7eb;
+  --admin-app-primary: #e43d30;
+  --admin-app-primary-2: #ff5a1f;
+  --admin-app-sidebar: #0f172a;
+  --admin-app-sidebar-soft: #111827;
+  --admin-app-text: #111827;
+  --admin-app-muted: #64748b;
   background:
-    radial-gradient(circle at 22% 0%, rgba(217,164,65,0.16), transparent 28%),
-    radial-gradient(circle at 84% 12%, rgba(184,92,31,0.12), transparent 26%),
-    linear-gradient(180deg, #100d08 0%, #070604 48%, #020202 100%) !important;
+    linear-gradient(180deg, #ffffff 0%, var(--admin-app-bg) 58%, #edf0f4 100%) !important;
   height: 100vh;
   min-height: 100vh;
   overflow: hidden;
@@ -1610,16 +1543,16 @@ body:has(.admin-app-shell) {
 }
 
 .admin-app-shell .admin-sidebar {
-  border-right-color: rgba(255, 194, 71, 0.16) !important;
+  border-right-color: rgba(255,255,255,0.08) !important;
   background:
-    radial-gradient(circle at 35% 4%, rgba(217,164,65,0.13), transparent 22%),
-    linear-gradient(180deg, rgba(22,18,12,0.98), rgba(6,5,3,0.98)) !important;
-  box-shadow: 28px 0 90px rgba(0,0,0,0.42) !important;
+    radial-gradient(circle at 22% 0%, rgba(228,61,48,0.14), transparent 28%),
+    linear-gradient(180deg, var(--admin-app-sidebar), #080d18) !important;
+  box-shadow: 24px 0 70px rgba(15,23,42,0.18) !important;
 }
 
 .admin-app-shell .admin-sidebar-brand p:first-of-type {
-  color: var(--admin-premium-gold) !important;
-  text-shadow: 0 0 20px rgba(217,164,65,0.30);
+  color: #ffffff !important;
+  text-shadow: none;
 }
 
 .admin-app-shell .admin-sidebar nav a {
@@ -1628,29 +1561,26 @@ body:has(.admin-app-shell) {
 
 .admin-app-shell .admin-sidebar nav a.bg-white,
 .admin-app-shell .admin-sidebar nav a[class*="bg-white"] {
-  border-color: rgba(217,164,65,0.58) !important;
-  background:
-    linear-gradient(135deg, rgba(143,92,20,0.95), rgba(217,164,65,0.95), rgba(242,207,130,0.86)) !important;
-  color: #080808 !important;
-  box-shadow: 0 14px 36px rgba(217,164,65,0.18), inset 0 1px 0 rgba(255,255,255,0.28) !important;
+  border-color: rgba(255,255,255,0.18) !important;
+  background: #ffffff !important;
+  color: #111827 !important;
+  box-shadow: 0 14px 34px rgba(0,0,0,0.18) !important;
 }
 
 .admin-app-shell .admin-sidebar nav a:not(.bg-white):hover,
 .admin-app-shell .admin-sidebar a:hover,
 .admin-app-shell .admin-sidebar button:hover {
-  border-color: rgba(217,164,65,0.22);
-  background: rgba(255,255,255,0.075) !important;
+  border-color: rgba(255,255,255,0.12);
+  background: rgba(255,255,255,0.08) !important;
 }
 
 .admin-app-shell .admin-shell {
   background:
-    radial-gradient(circle at 22% 0%, rgba(217,164,65,0.18), transparent 28%),
-    radial-gradient(circle at 84% 18%, rgba(184,92,31,0.14), transparent 26%),
-    linear-gradient(180deg, #100d08 0%, #070604 48%, #020202 100%) !important;
+    linear-gradient(180deg, #ffffff 0%, var(--admin-app-bg) 58%, #edf0f4 100%) !important;
 }
 
 .admin-app-shell .admin-page {
-  color: var(--admin-premium-text) !important;
+  color: var(--admin-app-text) !important;
   width: 100%;
   max-width: none;
 }
@@ -1659,103 +1589,232 @@ body:has(.admin-app-shell) {
 .admin-app-shell .admin-page h1,
 .admin-app-shell .admin-page h2,
 .admin-app-shell .admin-page h3 {
-  color: var(--admin-premium-text) !important;
-  text-shadow: 0 0 26px rgba(217,164,65,0.14);
+  color: var(--admin-app-text) !important;
+  text-shadow: none;
 }
 
 .admin-app-shell .admin-eyebrow {
-  color: var(--admin-premium-gold) !important;
+  color: var(--admin-app-primary) !important;
   letter-spacing: 0.08em;
 }
 
 .admin-app-shell .admin-subtitle,
 .admin-app-shell .admin-page :where(.text-black\/42, .text-black\/45, .text-black\/48, .text-black\/50, .text-black\/52, .text-black\/55, .text-black\/56, .text-black\/58, .text-black\/62) {
-  color: var(--admin-premium-muted) !important;
+  color: var(--admin-app-muted) !important;
 }
 
 .admin-app-shell .admin-panel,
 .admin-app-shell .admin-card,
 .admin-app-shell .admin-page :where(.rounded-2xl.border, .rounded-xl.border) {
-  border-color: var(--admin-premium-border) !important;
-  background:
-    linear-gradient(180deg, rgba(255,255,255,0.10), rgba(255,255,255,0.035)),
-    var(--admin-premium-panel) !important;
+  border-color: var(--admin-app-border) !important;
+  background: var(--admin-app-panel) !important;
   box-shadow:
-    0 26px 80px rgba(0,0,0,0.38),
-    inset 0 1px 0 rgba(255,255,255,0.08) !important;
-  backdrop-filter: blur(18px);
+    0 18px 48px rgba(15,23,42,0.06),
+    inset 0 1px 0 rgba(255,255,255,0.82) !important;
+  backdrop-filter: none;
 }
 
 .admin-app-shell .admin-card p:last-child,
 .admin-app-shell .admin-page :where(.text-\[\#15130f\], .text-black) {
-  color: var(--admin-premium-text) !important;
+  color: var(--admin-app-text) !important;
 }
 
 .admin-app-shell .admin-page :where(.bg-white, .bg-white\/55, .bg-white\/60, .bg-white\/70, .bg-black\/\[0\.035\], .bg-black\/5, .bg-black\/8) {
-  background:
-    linear-gradient(180deg, rgba(255,255,255,0.09), rgba(255,255,255,0.035)),
-    rgba(255,255,255,0.055) !important;
+  background: #ffffff !important;
 }
 
 .admin-app-shell select {
-  color: #fff4d8 !important;
-  background-color: #2a261e !important;
-  border-color: rgba(217,164,65,0.36) !important;
+  color: var(--admin-app-text) !important;
+  background-color: #ffffff !important;
+  border-color: #dbe3ee !important;
 }
 
 .admin-app-shell select option {
-  color: #15130f !important;
-  background-color: #fff8e8 !important;
+  color: var(--admin-app-text) !important;
+  background-color: #ffffff !important;
   font-weight: 800;
 }
 
 .admin-app-shell select option:checked {
-  color: #080704 !important;
-  background-color: #d9a441 !important;
+  color: #ffffff !important;
+  background-color: var(--admin-app-primary) !important;
 }
 
 .admin-app-shell .admin-page :where(.bg-\[\#15130f\]) {
-  border-color: rgba(255,194,71,0.20) !important;
-  background:
-    radial-gradient(circle at 20% 0%, rgba(217,164,65,0.16), transparent 32%),
-    linear-gradient(180deg, rgba(22,18,12,0.96), rgba(7,6,4,0.96)) !important;
+  border-color: #111827 !important;
+  background: #111827 !important;
 }
 
 .admin-app-shell .admin-page :where(.text-\[\#e43d30\], .text-\[\#c47a16\], .text-\[\#f4b860\]) {
-  color: var(--admin-premium-gold) !important;
+  color: var(--admin-app-primary) !important;
 }
 
 .admin-app-shell .admin-page :where(.bg-\[\#e43d30\], .bg-\[\#1c8b5f\]) {
-  background: linear-gradient(135deg, #8f5c14, var(--admin-premium-gold), #f2cf82) !important;
+  background: linear-gradient(135deg, var(--admin-app-primary), var(--admin-app-primary-2)) !important;
 }
 
 .admin-app-shell .admin-button-ghost,
 .admin-app-shell .admin-chip {
-  border-color: rgba(217,164,65,0.24) !important;
-  background: rgba(217,164,65,0.10) !important;
-  color: var(--admin-premium-gold) !important;
+  border-color: #dbe3ee !important;
+  background: #ffffff !important;
+  color: var(--admin-app-text) !important;
 }
 
 .admin-app-shell .admin-trial-banner {
-  border-color: rgba(217,164,65,0.24) !important;
+  border-color: #fecaca !important;
   background:
-    radial-gradient(circle at 14% 0%, rgba(217,164,65,0.18), transparent 34%),
-    linear-gradient(180deg, rgba(255,255,255,0.10), rgba(255,255,255,0.035)),
-    rgba(17,16,13,0.88) !important;
-  color: var(--admin-premium-text) !important;
-  box-shadow: 0 22px 70px rgba(0,0,0,0.34), inset 0 1px 0 rgba(255,255,255,0.08);
+    linear-gradient(135deg, rgba(228,61,48,0.08), rgba(255,90,31,0.07)),
+    #ffffff !important;
+  color: var(--admin-app-text) !important;
+  box-shadow: 0 18px 48px rgba(15,23,42,0.07), inset 0 1px 0 rgba(255,255,255,0.82);
 }
 
 .admin-app-shell .admin-trial-banner :where(h3, p) {
-  color: var(--admin-premium-text) !important;
+  color: var(--admin-app-text) !important;
 }
 
 .admin-app-shell .admin-trial-banner a {
-  background: linear-gradient(135deg, #8f5c14, var(--admin-premium-gold), #f2cf82) !important;
-  color: #080808 !important;
-  box-shadow: 0 14px 34px rgba(217,164,65,0.18);
+  background: linear-gradient(135deg, var(--admin-app-primary), var(--admin-app-primary-2)) !important;
+  color: #ffffff !important;
+  box-shadow: 0 14px 34px rgba(228,61,48,0.18);
 }
 
 .admin-app-shell .admin-trial-banner .bg-gray-200 {
-  background: rgba(255,255,255,0.12) !important;
+  background: #e5e7eb !important;
+}
+
+.admin-app-shell .admin-dark-insight {
+  border-color: rgba(15, 23, 42, 0.18) !important;
+  background:
+    radial-gradient(circle at 82% 0%, rgba(228, 61, 48, 0.18), transparent 34%),
+    linear-gradient(135deg, #111827, #15130f) !important;
+  color: #ffffff !important;
+}
+
+.admin-app-shell .admin-dark-insight :where(h1, h2, h3, h4, strong, label) {
+  color: #ffffff !important;
+}
+
+.admin-app-shell .admin-dark-insight :where(.rounded-2xl.border, .rounded-xl.border, .bg-white\/\[0\.04\], .bg-white\/\[0\.07\], .bg-white\/10, .bg-black\/18, .bg-black\/24) {
+  border-color: rgba(255, 255, 255, 0.12) !important;
+  background: rgba(255, 255, 255, 0.075) !important;
+  box-shadow: none !important;
+}
+
+.admin-app-shell .admin-dark-insight :where(.bg-black\/18, .bg-black\/24) {
+  background: rgba(0, 0, 0, 0.24) !important;
+}
+
+.admin-app-shell .admin-dark-insight :where(.text-white, [class*="text-white/"]) {
+  color: rgba(255, 255, 255, 0.88) !important;
+}
+
+.admin-app-shell .admin-dark-insight :where(.text-\[\#f4b860\], .text-amber-200) {
+  color: #fbbf24 !important;
+}
+
+.admin-app-shell .admin-dark-insight :where(.text-emerald-200) {
+  color: #86efac !important;
+}
+
+.admin-app-shell .admin-dark-insight :where(.text-red-200) {
+  color: #fecaca !important;
+}
+
+.admin-app-shell .admin-dark-insight :where(.bg-white) {
+  background: #ffffff !important;
+}
+
+.admin-app-shell .admin-dark-insight :where(.text-\[\#15130f\]) {
+  color: #111827 !important;
+}
+
+/* Final POS light-theme contrast pass. Keep this near the end so old dark-theme
+   utility classes from the TPV cannot wash out text on the lighter surface. */
+.pos-premium {
+  color: #111827 !important;
+}
+
+.pos-premium [class*="text-white"],
+.pos-premium [class*="text-cyan"],
+.pos-premium [class*="text-amber"] {
+  color: #111827 !important;
+}
+
+.pos-premium [class*="text-slate"],
+.pos-premium [class*="text-gray"] {
+  color: #475569 !important;
+}
+
+.pos-premium [class*="text-emerald"],
+.pos-premium .pos-card [class*="text-emerald"] {
+  color: #b74710 !important;
+}
+
+.pos-premium [class*="text-red"] {
+  color: #b42318 !important;
+}
+
+.pos-premium [class*="bg-black/"] {
+  background-color: rgba(15, 23, 42, 0.045) !important;
+}
+
+.pos-premium [class*="bg-white/"] {
+  background-color: #ffffff !important;
+}
+
+.pos-premium [class*="bg-cyan"],
+.pos-premium [class*="bg-emerald"],
+.pos-premium [class*="bg-amber"] {
+  background-color: rgba(230, 95, 26, 0.09) !important;
+}
+
+.pos-premium .pos-action {
+  background: #e65f1a !important;
+  color: #ffffff !important;
+}
+
+.pos-premium .pos-total-band {
+  background: rgba(230, 95, 26, 0.08) !important;
+  border-color: rgba(230, 95, 26, 0.22) !important;
+}
+
+/* Product editor contrast pass. The admin shell has broad theme overrides, so
+   this keeps product forms readable on the light operational interface. */
+.admin-app-shell .product-edit-page {
+  color: #111827 !important;
+  background: #f8fafc !important;
+}
+
+.admin-app-shell .product-edit-page :where(h1, h2, h3, h4, strong, label, .font-bold, .font-black, .text-gray-900) {
+  color: #111827 !important;
+}
+
+.admin-app-shell .product-edit-page :where(p, span, .text-gray-400, .text-gray-500, .text-gray-600, .text-slate-400, .text-slate-500, .text-slate-600) {
+  color: #475569 !important;
+}
+
+.admin-app-shell .product-edit-page :where(input, textarea, select) {
+  color: #111827 !important;
+  background: #ffffff !important;
+}
+
+.admin-app-shell .product-edit-page :where(input, textarea)::placeholder {
+  color: #94a3b8 !important;
+}
+
+.admin-app-shell .product-edit-page :where(.bg-white, .bg-gray-50, .rounded-xl, .rounded-2xl) {
+  border-color: #e5e7eb !important;
+}
+
+.admin-app-shell .product-edit-page :where(.text-red-500, .text-red-600, .text-red-700) {
+  color: #b42318 !important;
+}
+
+.admin-app-shell .product-edit-page :where(.text-emerald-600, .text-emerald-700) {
+  color: #047857 !important;
+}
+
+.admin-app-shell .product-edit-page :where(.bg-blue-600, .bg-emerald-600) {
+  color: #ffffff !important;
 }

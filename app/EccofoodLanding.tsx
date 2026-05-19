@@ -127,6 +127,52 @@ const pricingPlans = [
 const before = ['Pedidos por llamada', 'Comandas en papel', 'Errores en cocina', 'Caja desconectada', 'Reportes manuales']
 const after = ['QR y tienda online', 'KDS sincronizado', 'Estados en tiempo real', 'TPV conectado', 'Analiticas automaticas']
 
+const sellPoints = [
+  {
+    icon: QrCode,
+    title: 'El cliente pide sin esperar',
+    text: 'Carta QR, tienda online y kiosko reducen friccion: el cliente ve fotos, elige, agrega extras y manda el pedido.',
+  },
+  {
+    icon: CreditCard,
+    title: 'Mas pedidos por canales propios',
+    text: 'El restaurante puede vender directo desde su web, QR, mesa, mostrador o kiosko sin depender solo de apps externas.',
+  },
+  {
+    icon: ChefHat,
+    title: 'La cocina recibe ordenado',
+    text: 'Comandero y KDS hacen que cada pedido llegue claro, con estados, tiempos y menos errores en horas fuertes.',
+  },
+  {
+    icon: BarChart3,
+    title: 'El dueno ve que esta pasando',
+    text: 'Ventas, productos mas pedidos, caja, inventario y cierres quedan conectados para tomar decisiones con datos.',
+  },
+]
+
+const salesProcess = [
+  {
+    step: '01',
+    title: 'Mostramos el problema',
+    text: 'Pedidos dispersos, carta vieja, errores en cocina, poca visibilidad y dependencia de terceros.',
+  },
+  {
+    step: '02',
+    title: 'Ensenamos la solucion funcionando',
+    text: 'Demo real con tienda, QR, TPV, comandero, KDS y kiosko para que el dueno vea el flujo completo.',
+  },
+  {
+    step: '03',
+    title: 'Activamos su restaurante',
+    text: 'El cliente crea su cuenta, carga productos, logo, colores, horarios, banners y empieza con 30 dias gratis.',
+  },
+  {
+    step: '04',
+    title: 'Vendemos crecimiento',
+    text: 'No vendemos botones: vendemos mas control, mas pedidos directos, menos errores y una marca mas profesional.',
+  },
+]
+
 function fadeUp(delay = 0) {
   return {
     initial: { opacity: 0, y: 22 },
@@ -230,25 +276,111 @@ function MockupDashboard() {
 }
 
 function FeatureVisual({ type }: { type: string }) {
+  const data: Record<string, {
+    eyebrow: string
+    title: string
+    subtitle: string
+    side: string
+    rows: string[]
+    metric: string
+    accent?: string
+  }> = {
+    pos: {
+      eyebrow: 'TPV EN CAJA',
+      title: 'Pedido #184',
+      subtitle: 'Mesa 08 · pagado',
+      side: 'Total',
+      rows: ['Burger doble', 'Papas fritas', 'Bebida'],
+      metric: '24.80 EUR',
+    },
+    qr: {
+      eyebrow: 'CARTA QR',
+      title: 'Mesa 12',
+      subtitle: 'El cliente pide desde su movil',
+      side: 'QR',
+      rows: ['Escanea', 'Elige extras', 'Envia a cocina'],
+      metric: 'sin esperar',
+    },
+    kds: {
+      eyebrow: 'KDS COCINA',
+      title: '3 comandas activas',
+      subtitle: 'Ordenadas por prioridad',
+      side: 'Listo',
+      rows: ['Preparando · Burger', 'Pendiente · Ensalada', 'Listo · Mesa 04'],
+      metric: 'menos errores',
+    },
+    delivery: {
+      eyebrow: 'VENTA DIRECTA',
+      title: 'Pedido delivery',
+      subtitle: 'Canal propio del restaurante',
+      side: 'Web',
+      rows: ['Cliente confirma', 'Pago registrado', 'Reparto asignado'],
+      metric: '0% comision',
+    },
+    reservas: {
+      eyebrow: 'RESERVAS',
+      title: 'Viernes 21:00',
+      subtitle: 'Mesas y horarios controlados',
+      side: '6 pax',
+      rows: ['Mesa disponible', 'Cliente confirmado', 'Recordatorio listo'],
+      metric: '24/7',
+    },
+    analytics: {
+      eyebrow: 'REPORTES',
+      title: 'Ventas en vivo',
+      subtitle: 'Datos para decidir hoy',
+      side: '+32%',
+      rows: ['Producto top', 'Ticket medio', 'Hora pico'],
+      metric: 'dashboard',
+    },
+    multi: {
+      eyebrow: 'CRECIMIENTO',
+      title: 'Multi sucursal',
+      subtitle: 'Marcas, equipos y permisos',
+      side: 'SaaS',
+      rows: ['Sucursal centro', 'Sucursal norte', 'Nuevo local'],
+      metric: 'escala lista',
+    },
+  }
+  const visual = data[type] || data.pos
+
   return (
-    <div className="relative min-h-[280px] overflow-hidden rounded-[1.6rem] border border-black/8 bg-[#111111] p-4 shadow-[0_24px_80px_rgba(17,17,17,0.16)]">
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_20%,rgba(255,107,26,0.28),transparent_32%),radial-gradient(circle_at_80%_0%,rgba(255,205,138,0.22),transparent_30%)]" />
-      <div className="relative flex h-full flex-col justify-between">
+    <div className="relative min-h-[300px] overflow-hidden rounded-[1.6rem] border border-slate-900/10 bg-[#111827] p-4 text-white shadow-[0_24px_80px_rgba(15,23,42,0.18)]">
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_18%_0%,rgba(230,95,26,0.18),transparent_34%),radial-gradient(circle_at_100%_100%,rgba(255,255,255,0.10),transparent_34%)]" />
+      <div className="relative flex h-full flex-col">
         <div className="flex items-center justify-between">
-          <span className="rounded-full bg-white/10 px-3 py-1 text-xs font-black uppercase text-white/55">{type}</span>
-          <Sparkles className="size-5 text-[#ffb366]" />
+          <span className="rounded-full bg-white/10 px-3 py-1 text-xs font-black uppercase text-white/64">{visual.eyebrow}</span>
+          <span className="rounded-full bg-[#e65f1a] px-3 py-1 text-xs font-black text-white">{visual.side}</span>
         </div>
-        <div className="mt-10 grid gap-3">
-          {[0, 1, 2].map(index => (
-            <motion.div
-              key={index}
-              whileHover={{ x: 4 }}
-              className="rounded-2xl border border-white/10 bg-white/[0.08] p-4 backdrop-blur"
-            >
-              <div className="mb-3 h-2 w-20 rounded-full bg-white/18" />
-              <div className="h-2 rounded-full bg-gradient-to-r from-[#ff6b1a] to-[#ffd28a]" style={{ width: `${55 + index * 16}%` }} />
-            </motion.div>
-          ))}
+
+        <div className="mt-7 grid flex-1 gap-4 sm:grid-cols-[1fr_0.78fr]">
+          <div className="rounded-[1.35rem] border border-white/10 bg-white/[0.08] p-5">
+            <p className="text-sm font-black text-white/55">{visual.subtitle}</p>
+            <h4 className="mt-2 text-3xl font-black leading-none tracking-tight text-white">{visual.title}</h4>
+            <div className="mt-6 space-y-3">
+              {visual.rows.map((row, index) => (
+                <motion.div
+                  key={row}
+                  whileHover={{ x: 4 }}
+                  className="flex items-center justify-between rounded-2xl bg-black/18 px-4 py-3"
+                >
+                  <span className="text-sm font-bold text-white/80">{row}</span>
+                  <span className={`size-2.5 rounded-full ${index === 2 ? 'bg-emerald-300' : 'bg-[#f59e0b]'}`} />
+                </motion.div>
+              ))}
+            </div>
+          </div>
+
+          <div className="grid gap-3">
+            <div className="rounded-[1.35rem] border border-white/10 bg-white p-4 text-[#111827]">
+              <p className="text-xs font-black uppercase text-slate-400">Resultado</p>
+              <p className="mt-2 text-2xl font-black leading-tight">{visual.metric}</p>
+            </div>
+            <div className="rounded-[1.35rem] border border-white/10 bg-[#e65f1a] p-4 text-white">
+              <p className="text-xs font-black uppercase text-white/70">Accion</p>
+              <p className="mt-2 text-lg font-black leading-tight">Listo para operar</p>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -376,6 +508,78 @@ export function EccofoodLanding() {
               <p className="mt-2 text-sm font-semibold leading-6 text-black/50">{metric.detail}</p>
             </motion.article>
           ))}
+        </div>
+      </section>
+
+      <section className="bg-white px-4 py-18 sm:px-6 lg:py-24">
+        <div className="mx-auto max-w-7xl">
+          <motion.div {...fadeUp()} className="grid gap-8 lg:grid-cols-[0.88fr_1.12fr] lg:items-end">
+            <div>
+              <p className="text-sm font-black uppercase text-[#ff6b1a]">Como vende Eccofood</p>
+              <h2 className="mt-4 text-4xl font-black leading-tight tracking-tight sm:text-5xl">
+                La landing debe vender una promesa simple: mas pedidos, menos caos y mas control.
+              </h2>
+            </div>
+            <p className="text-base font-semibold leading-7 text-black/55">
+              El restaurante no compra una pantalla bonita. Compra una forma de vender directo, atender mas rapido, reducir errores y tener una operacion que se siente profesional.
+            </p>
+          </motion.div>
+
+          <div className="mt-10 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+            {sellPoints.map((point, index) => {
+              const Icon = point.icon
+              return (
+                <motion.article key={point.title} {...fadeUp(index * 0.06)} className="rounded-[1.6rem] border border-black/8 bg-[#faf9f6] p-6 shadow-sm">
+                  <div className="grid size-12 place-items-center rounded-2xl bg-[#101010] text-white">
+                    <Icon className="size-5" />
+                  </div>
+                  <h3 className="mt-6 text-xl font-black leading-tight">{point.title}</h3>
+                  <p className="mt-3 text-sm font-semibold leading-6 text-black/55">{point.text}</p>
+                </motion.article>
+              )
+            })}
+          </div>
+
+          <motion.div {...fadeUp(0.08)} className="mt-12 overflow-hidden rounded-[2rem] border border-black/8 bg-[#101010] text-white shadow-[0_35px_100px_rgba(17,17,17,0.20)]">
+            <div className="grid gap-0 lg:grid-cols-[0.92fr_1.08fr]">
+              <div className="p-8 sm:p-10">
+                <p className="text-sm font-black uppercase text-[#ffb366]">Como lo vendemos nosotros</p>
+                <h3 className="mt-4 text-4xl font-black leading-tight tracking-tight">
+                  No hablamos de software. Hablamos de dinero, tiempo y control.
+                </h3>
+                <p className="mt-5 text-base font-semibold leading-7 text-white/58">
+                  El mensaje comercial de Eccofood debe ser directo: instalamos una operacion digital completa para que el restaurante venda por QR, web, TPV y kiosko sin perder el control de cocina, caja e inventario.
+                </p>
+                <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+                  <Link href="/register" className="inline-flex h-13 items-center justify-center gap-2 rounded-2xl bg-[#ff6b1a] px-6 text-sm font-black text-white shadow-xl shadow-orange-950/24 transition hover:-translate-y-0.5">
+                    Crear restaurante gratis
+                    <ArrowRight className="size-4" />
+                  </Link>
+                  <Link href="/planes" className="inline-flex h-13 items-center justify-center rounded-2xl border border-white/12 bg-white/8 px-6 text-sm font-black text-white transition hover:bg-white/12">
+                    Ver planes
+                  </Link>
+                </div>
+              </div>
+
+              <div className="border-t border-white/10 bg-white/[0.04] p-5 sm:p-6 lg:border-l lg:border-t-0">
+                <div className="grid gap-3">
+                  {salesProcess.map(item => (
+                    <div key={item.step} className="rounded-2xl border border-white/10 bg-white/[0.07] p-5">
+                      <div className="flex items-start gap-4">
+                        <span className="grid size-11 flex-shrink-0 place-items-center rounded-2xl bg-white text-sm font-black text-[#101010]">
+                          {item.step}
+                        </span>
+                        <div>
+                          <h4 className="text-lg font-black">{item.title}</h4>
+                          <p className="mt-2 text-sm font-semibold leading-6 text-white/58">{item.text}</p>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </motion.div>
         </div>
       </section>
 

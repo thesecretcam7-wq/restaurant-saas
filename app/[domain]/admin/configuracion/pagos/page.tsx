@@ -23,9 +23,9 @@ type PaymentSettings = {
 }
 
 function providerStatus(active: boolean, connected: boolean) {
-  if (active && connected) return { label: 'Activo', className: 'bg-emerald-400/15 text-emerald-200 border-emerald-300/30' }
-  if (connected) return { label: 'Conectado', className: 'bg-[#d9a441]/15 text-[#f2cf82] border-[#d9a441]/35' }
-  return { label: 'Pendiente', className: 'bg-white/10 text-[#fff4d8]/70 border-white/15' }
+  if (active && connected) return { label: 'Activo', className: 'bg-emerald-50 text-emerald-700 border-emerald-200' }
+  if (connected) return { label: 'Conectado', className: 'bg-orange-50 text-orange-700 border-orange-200' }
+  return { label: 'Pendiente', className: 'bg-slate-50 text-slate-600 border-slate-200' }
 }
 
 export default async function PagosOnlinePage({ params }: Props) {
@@ -98,12 +98,12 @@ export default async function PagosOnlinePage({ params }: Props) {
       <section className="admin-panel p-5">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-start gap-3">
-            <span className="grid size-11 flex-shrink-0 place-items-center rounded-xl bg-[#d9a441]/20 text-[#f2cf82]">
+            <span className="grid size-11 flex-shrink-0 place-items-center rounded-xl bg-orange-50 text-orange-600">
               <MapPin className="size-5" />
             </span>
             <div>
-              <h2 className="text-lg font-black text-[#fff4d8]">{tenant?.organization_name || 'Restaurante'}</h2>
-              <p className="mt-1 text-sm font-semibold text-[#fff4d8]/65">
+              <h2 className="text-lg font-black text-slate-950">{tenant?.organization_name || 'Restaurante'}</h2>
+              <p className="mt-1 text-sm font-semibold text-slate-600">
                 Pais configurado: <strong>{country}</strong> · Moneda: <strong>{currency.code}</strong>
               </p>
             </div>
@@ -115,22 +115,22 @@ export default async function PagosOnlinePage({ params }: Props) {
         {providers.map(({ name, countryLabel, description, href, Icon, status, available, cta }) => (
           <article key={name} className={`admin-panel p-5 ${available ? '' : 'opacity-70'}`}>
             <div className="flex items-start justify-between gap-4">
-              <span className="grid size-12 place-items-center rounded-2xl bg-[#d9a441]/18 text-[#f2cf82]">
+              <span className="grid size-12 place-items-center rounded-2xl bg-orange-50 text-orange-600">
                 <Icon className="size-6" />
               </span>
               <span className={`rounded-full border px-3 py-1 text-xs font-black ${status.className}`}>
                 {available ? status.label : 'No disponible'}
               </span>
             </div>
-            <p className="mt-5 text-xs font-black uppercase tracking-[0.18em] text-[#d9a441]">{countryLabel}</p>
-            <h2 className="mt-2 text-2xl font-black text-[#fff4d8]">{name}</h2>
-            <p className="mt-2 text-sm font-semibold leading-6 text-[#fff4d8]/62">{description}</p>
+            <p className="mt-5 text-xs font-black uppercase tracking-[0.18em] text-orange-600">{countryLabel}</p>
+            <h2 className="mt-2 text-2xl font-black text-slate-950">{name}</h2>
+            <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">{description}</p>
             <Link
               href={href}
               className={`mt-5 inline-flex h-11 items-center justify-center gap-2 rounded-xl px-4 text-sm font-black transition ${
                 available
-                  ? 'bg-gradient-to-br from-[#f2cf82] via-[#d9a441] to-[#b85c1f] text-[#080704] shadow-lg shadow-[#d9a441]/20'
-                  : 'border border-white/15 bg-white/8 text-[#fff4d8]/65'
+                  ? 'bg-orange-500 text-white shadow-lg shadow-orange-500/20 hover:bg-orange-600'
+                  : 'border border-slate-200 bg-slate-50 text-slate-500'
               }`}
             >
               <WalletCards className="size-4" />
@@ -142,12 +142,12 @@ export default async function PagosOnlinePage({ params }: Props) {
 
       <section className="admin-panel p-5">
         <div className="flex gap-3">
-          <span className="grid size-10 flex-shrink-0 place-items-center rounded-xl bg-emerald-400/15 text-emerald-200">
+          <span className="grid size-10 flex-shrink-0 place-items-center rounded-xl bg-emerald-50 text-emerald-700">
             <ShieldCheck className="size-5" />
           </span>
           <div>
-            <h2 className="font-black text-[#fff4d8]">Regla de seguridad</h2>
-            <p className="mt-1 text-sm font-semibold leading-6 text-[#fff4d8]/60">
+            <h2 className="font-black text-slate-950">Regla de seguridad</h2>
+            <p className="mt-1 text-sm font-semibold leading-6 text-slate-600">
               Wompi solo se activa cuando el restaurante esta configurado en Colombia. Stripe queda disponible para paises internacionales.
             </p>
           </div>

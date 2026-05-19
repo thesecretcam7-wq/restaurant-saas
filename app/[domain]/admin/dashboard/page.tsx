@@ -354,7 +354,7 @@ export default async function DashboardPage({ params }: DashboardProps) {
         ))}
       </div>
 
-      <section className="mt-5 overflow-hidden rounded-[1.4rem] border border-black/10 bg-[#15130f] text-white shadow-2xl shadow-black/10">
+      <section className="admin-dark-insight mt-5 overflow-hidden rounded-[1.4rem] border border-black/10 bg-[#15130f] text-white shadow-2xl shadow-black/10">
         <div className="grid gap-0 xl:grid-cols-[1.1fr_0.9fr]">
           <div className="relative p-5 sm:p-7">
             <div className="absolute right-0 top-0 h-48 w-48 rounded-full bg-[#e43d30]/20 blur-3xl" />

@@ -83,26 +83,26 @@ function RoleAccessLoader({
 }) {
   return (
     <div
-      className="ecco-fixed-layer fixed inset-0 z-50 grid h-[100dvh] w-screen place-items-center bg-[#050505]/75 px-5 backdrop-blur-xl"
+      className="ecco-fixed-layer fixed inset-0 z-50 grid h-[100dvh] w-screen place-items-center bg-white/72 px-5 backdrop-blur-xl"
       style={{ position: 'fixed', inset: 0, width: '100vw', height: '100dvh' }}
     >
-      <div className="w-full max-w-sm rounded-[2rem] border border-[#ffc247]/28 bg-[linear-gradient(180deg,rgba(255,255,255,0.10),rgba(255,255,255,0.035)),rgba(15,15,15,0.94)] p-7 text-center text-[#f8f5ec] shadow-[0_30px_100px_rgba(0,0,0,0.46),0_0_70px_rgba(246,185,47,0.18)]">
+      <div className="w-full max-w-sm rounded-[2rem] border border-orange-200 bg-white p-7 text-center text-slate-950 shadow-[0_26px_80px_rgba(15,23,42,0.16)]">
         <div className="relative mx-auto mb-5 grid h-28 w-36 place-items-center">
           <div className="relative grid h-28 w-36 place-items-center">
             {logoUrl ? (
               <img src={logoUrl} alt={appName} className="h-full w-full object-contain drop-shadow-2xl" />
             ) : (
-              <span className="grid h-20 w-20 place-items-center rounded-[1.75rem] bg-[#111111] text-3xl font-black text-white shadow-2xl">E</span>
+              <span className="grid h-20 w-20 place-items-center rounded-[1.75rem] bg-slate-950 text-3xl font-black text-white shadow-2xl">E</span>
             )}
           </div>
         </div>
-        <p className="text-xs font-black uppercase tracking-[0.24em]" style={{ color: primary }}>
+        <p className="text-xs font-black uppercase tracking-[0.24em] text-orange-600">
           {tool}
         </p>
-        <h2 className="mt-2 text-2xl font-black tracking-tight text-[#fff7df]">{message}</h2>
-        <p className="mt-2 text-sm font-semibold text-[#f8f5ec]/64">Preparando tu sesion operativa.</p>
-        <div className="mt-6 h-2 overflow-hidden rounded-full bg-white/10">
-          <div className="h-full w-1/2 animate-[eccoGlobalLoaderBar_1.05s_ease-in-out_infinite] rounded-full" style={{ backgroundColor: primary }} />
+        <h2 className="mt-2 text-2xl font-black tracking-tight text-slate-950">{message}</h2>
+        <p className="mt-2 text-sm font-semibold text-slate-500">Preparando tu sesion operativa.</p>
+        <div className="mt-6 h-2 overflow-hidden rounded-full bg-slate-100">
+          <div className="h-full w-1/2 animate-[eccoGlobalLoaderBar_1.05s_ease-in-out_infinite] rounded-full bg-orange-500" />
         </div>
       </div>
     </div>
@@ -130,10 +130,10 @@ export function RoleLoginClient({
   const config = ROLE_CONFIG[role];
   const RoleIcon = config.icon;
 
-  const premiumGold = '#f6b92f';
-  const premiumGoldSoft = '#ffd66b';
+  const premiumGold = '#f97316';
+  const premiumGoldSoft = '#fed7aa';
   const premiumEmber = '#ff6b1a';
-  const pageBg = '#050505';
+  const pageBg = '#ffffff';
   const highlight = premiumGold;
   const secondaryHighlight = premiumEmber;
   const primaryText = readableText(highlight);
@@ -250,6 +250,15 @@ export function RoleLoginClient({
     if (next.length === 6) validatePin(next);
   }
 
+  function submitPin() {
+    if (loading) return;
+    if (pin.length < 4) {
+      resetPinWithError('El PIN debe tener minimo 4 digitos.');
+      return;
+    }
+    validatePin(pin);
+  }
+
   function handlePinInput(value: string) {
     if (loading) return;
     const next = value.replace(/\D/g, '').slice(0, 6);
@@ -294,6 +303,12 @@ export function RoleLoginClient({
         return;
       }
 
+      if (event.key === 'Enter') {
+        event.preventDefault();
+        submitPin();
+        return;
+      }
+
       if (event.key === 'Escape') {
         event.preventDefault();
         goBack();
@@ -306,12 +321,12 @@ export function RoleLoginClient({
 
   return (
     <main
-      className="ecco-premium-app min-h-screen overflow-hidden text-white"
+      className="min-h-screen overflow-hidden text-slate-950"
       style={{
         background:
-          `radial-gradient(circle at 18% 18%, ${highlight}22 0%, transparent 34%), ` +
-          `radial-gradient(circle at 82% 18%, ${premiumEmber}18 0%, transparent 34%), ` +
-          `linear-gradient(135deg, ${pageBg}, #0b0b0b 48%, #020202 100%)`,
+          `radial-gradient(circle at 18% 18%, ${highlight}14 0%, transparent 34%), ` +
+          `radial-gradient(circle at 82% 18%, ${premiumEmber}10 0%, transparent 34%), ` +
+          `linear-gradient(135deg, ${pageBg}, #fff7ed 48%, #f8fafc 100%)`,
         }}
     >
       {loading && (
@@ -327,7 +342,7 @@ export function RoleLoginClient({
       {phase === 'select' ? (
         <a
           href={accessPath}
-          className="pointer-events-auto fixed left-3 top-3 z-[10010] grid h-10 w-10 place-items-center rounded-2xl border border-[#ffc247]/18 bg-white/[0.07] text-[#f8f5ec]/70 transition hover:border-[#ffc247]/34 hover:bg-white/[0.12] hover:text-[#ffd66b] sm:left-6 sm:top-6 sm:h-12 sm:w-12"
+          className="pointer-events-auto fixed left-3 top-3 z-[10010] grid h-10 w-10 place-items-center rounded-2xl border border-orange-200 bg-white text-slate-700 shadow-sm transition hover:border-orange-300 hover:bg-orange-50 hover:text-orange-700 sm:left-6 sm:top-6 sm:h-12 sm:w-12"
           title="Volver"
           aria-label="Volver"
         >
@@ -337,7 +352,7 @@ export function RoleLoginClient({
         <button
           type="button"
           onClick={goBack}
-          className="pointer-events-auto fixed left-3 top-3 z-[10010] grid h-10 w-10 place-items-center rounded-2xl border border-[#ffc247]/18 bg-white/[0.07] text-[#f8f5ec]/70 transition hover:border-[#ffc247]/34 hover:bg-white/[0.12] hover:text-[#ffd66b] sm:left-6 sm:top-6 sm:h-12 sm:w-12"
+          className="pointer-events-auto fixed left-3 top-3 z-[10010] grid h-10 w-10 place-items-center rounded-2xl border border-orange-200 bg-white text-slate-700 shadow-sm transition hover:border-orange-300 hover:bg-orange-50 hover:text-orange-700 sm:left-6 sm:top-6 sm:h-12 sm:w-12"
           title="Volver"
           aria-label="Volver"
         >
@@ -346,7 +361,7 @@ export function RoleLoginClient({
       )}
 
       <div className="grid min-h-screen grid-cols-1 lg:grid-cols-[0.92fr_1.08fr]">
-        <section className="flex flex-col justify-between border-[#ffc247]/14 px-4 pb-3 pt-14 sm:px-10 sm:py-9 sm:pl-24 lg:border-r">
+        <section className="flex flex-col justify-between border-orange-100 bg-white/72 px-4 pb-3 pt-14 shadow-[inset_-1px_0_0_rgba(249,115,22,0.08)] sm:px-10 sm:py-9 sm:pl-24 lg:border-r">
           <div className="flex items-center gap-3 sm:gap-4">
             <div className="grid h-20 w-28 place-items-center sm:h-24 sm:w-32">
               {logoUrl ? (
@@ -356,31 +371,31 @@ export function RoleLoginClient({
               )}
             </div>
             <div>
-              <p className="text-xs font-black uppercase tracking-[0.22em] text-white/45">Acceso personal</p>
-              <h1 className="text-lg font-black tracking-tight sm:text-2xl">{appName}</h1>
+              <p className="text-xs font-black uppercase tracking-[0.22em] text-orange-600">Acceso personal</p>
+              <h1 className="text-lg font-black tracking-tight text-slate-950 sm:text-2xl">{appName}</h1>
             </div>
           </div>
 
           <div className="hidden lg:block">
-            <p className="mb-5 inline-flex rounded-full border border-[#ffc247]/22 bg-[#ffc247]/10 px-4 py-2 text-sm font-black uppercase tracking-[0.16em] text-[#ffd66b]">
+            <p className="mb-5 inline-flex rounded-full border border-orange-200 bg-orange-50 px-4 py-2 text-sm font-black uppercase tracking-[0.16em] text-orange-700">
               {config.tool}
             </p>
-            <h2 className="max-w-lg text-6xl font-black leading-[0.94] tracking-tight text-[#fff7df]">
+            <h2 className="max-w-lg text-6xl font-black leading-[0.94] tracking-tight text-slate-950">
               Acceso de {config.label}
             </h2>
-            <p className="mt-6 max-w-md text-lg font-semibold leading-relaxed text-[#f8f5ec]/72">
+            <p className="mt-6 max-w-md text-lg font-semibold leading-relaxed text-slate-600">
               Selecciona tu usuario y confirma tu PIN para continuar al entorno operativo.
             </p>
           </div>
 
-          <div className="flex items-center gap-3 rounded-2xl border border-[#ffc247]/16 bg-white/[0.065] px-4 py-3">
+          <div className="flex items-center gap-3 rounded-2xl border border-orange-200 bg-white px-4 py-3 shadow-sm">
             <ShieldCheck className="h-5 w-5" style={{ color: highlight }} />
-            <p className="text-sm font-semibold text-[#f8f5ec]/68">Sesion protegida por perfil y PIN</p>
+            <p className="text-sm font-semibold text-slate-600">Sesion protegida por perfil y PIN</p>
           </div>
         </section>
 
-        <section className="flex min-h-0 items-start justify-center bg-[radial-gradient(circle_at_50%_20%,rgba(246,185,47,0.08),transparent_38%)] px-3 pb-3 pt-1 sm:p-10 sm:pt-6 lg:items-center">
-          <div className="w-full max-w-md rounded-[1.5rem] border border-[#ffc247]/18 bg-[linear-gradient(180deg,rgba(255,255,255,0.10),rgba(255,255,255,0.035)),rgba(15,15,15,0.88)] p-4 shadow-[0_26px_90px_rgba(0,0,0,0.42)] backdrop-blur-xl sm:rounded-[2rem] sm:p-7">
+        <section className="flex min-h-0 items-start justify-center bg-[radial-gradient(circle_at_50%_20%,rgba(249,115,22,0.08),transparent_38%)] px-3 pb-3 pt-1 sm:p-10 sm:pt-6 lg:items-center">
+          <div className="w-full max-w-md rounded-[1.5rem] border border-orange-200 bg-white p-4 shadow-[0_26px_90px_rgba(15,23,42,0.12)] backdrop-blur-xl sm:rounded-[2rem] sm:p-7">
             <div className="mb-4 flex items-center gap-3 sm:mb-7 sm:gap-4">
               <div
                 className="grid h-12 w-12 place-items-center rounded-2xl border sm:h-16 sm:w-16"
@@ -393,21 +408,21 @@ export function RoleLoginClient({
                 <RoleIcon className="h-6 w-6 sm:h-8 sm:w-8" />
               </div>
               <div>
-                <p className="text-xs font-black uppercase tracking-[0.16em] text-[#ff8a2a] sm:text-sm">
+                <p className="text-xs font-black uppercase tracking-[0.16em] text-orange-600 sm:text-sm">
                   {config.label}
                 </p>
-                <p className="text-base font-black text-white sm:text-lg">{phase === 'select' ? 'Selecciona tu nombre' : staffName}</p>
+                <p className="text-base font-black text-slate-950 sm:text-lg">{phase === 'select' ? 'Selecciona tu nombre' : staffName}</p>
               </div>
             </div>
 
             {phase === 'select' ? (
               <div className="space-y-4">
-                <label className="block text-sm font-bold text-[#f8f5ec]/70">Empleado</label>
+                <label className="block text-sm font-bold text-slate-600">Empleado</label>
                 <select
                   value={staffId}
                   onChange={(event) => handleStaffSelect(event.target.value)}
                   autoFocus
-                  className="w-full rounded-2xl border border-[#ffc247]/18 bg-white/[0.075] px-4 py-4 text-lg font-bold text-[#fff7df] outline-none transition focus:border-[#f6b92f] focus:ring-4 focus:ring-[#f6b92f]/14"
+                  className="w-full rounded-2xl border border-orange-200 bg-white px-4 py-4 text-lg font-bold text-slate-950 outline-none transition focus:border-orange-400 focus:ring-4 focus:ring-orange-100"
                 >
                   <option value="">Elige tu nombre</option>
                   {staffMembers.map((staff) => (
@@ -418,12 +433,12 @@ export function RoleLoginClient({
                 </select>
 
                 {staffMembers.length === 0 && (
-                  <p className="rounded-2xl border border-red-400/25 bg-red-500/10 px-4 py-3 text-center text-sm font-bold text-red-100">
+                  <p className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-center text-sm font-bold text-red-700">
                     No hay empleados registrados para este rol.
                   </p>
                 )}
                 {error && (
-                  <p className="rounded-2xl border border-red-400/25 bg-red-500/10 px-4 py-3 text-center text-sm font-bold text-red-100">
+                  <p className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-center text-sm font-bold text-red-700">
                     {error}
                   </p>
                 )}
@@ -437,7 +452,7 @@ export function RoleLoginClient({
                       className="grid h-8 w-8 place-items-center rounded-full border-2 transition-colors sm:h-11 sm:w-11"
                       style={{
                         backgroundColor: index < pin.length ? highlight : 'rgba(255,255,255,0.08)',
-                        borderColor: index < pin.length ? highlight : 'rgba(255,255,255,0.14)',
+                        borderColor: index < pin.length ? highlight : 'rgba(249,115,22,0.18)',
                       }}
                     >
                       {index < pin.length && <div className="h-2.5 w-2.5 rounded-full sm:h-3 sm:w-3" style={{ backgroundColor: primaryText }} />}
@@ -446,7 +461,7 @@ export function RoleLoginClient({
                 </div>
 
                 <label className="mb-4 block">
-                  <span className="mb-2 block text-center text-xs font-black uppercase tracking-[0.16em] text-white/40">
+                  <span className="mb-2 block text-center text-xs font-black uppercase tracking-[0.16em] text-slate-400">
                     Escribe tu PIN
                   </span>
                   <input
@@ -458,17 +473,17 @@ export function RoleLoginClient({
                     value={pin}
                     onChange={(event) => handlePinInput(event.target.value)}
                     disabled={loading}
-                    className="w-full rounded-2xl border border-[#ffc247]/18 bg-white/[0.075] px-4 py-3 text-center text-2xl font-black tracking-[0.55em] text-[#fff7df] outline-none transition placeholder:tracking-normal placeholder:text-white/25 focus:border-[#f6b92f] focus:ring-4 focus:ring-[#f6b92f]/14 disabled:opacity-50"
+                    className="w-full rounded-2xl border border-orange-200 bg-white px-4 py-3 text-center text-2xl font-black tracking-[0.55em] text-slate-950 outline-none transition placeholder:tracking-normal placeholder:text-slate-300 focus:border-orange-400 focus:ring-4 focus:ring-orange-100 disabled:opacity-50"
                     placeholder="PIN"
                   />
                 </label>
 
                 {error && (
-                  <p className="mb-4 rounded-2xl border border-red-400/25 bg-red-500/10 px-4 py-3 text-center text-sm font-bold text-red-100">
+                  <p className="mb-4 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-center text-sm font-bold text-red-700">
                     {error}
                   </p>
                 )}
-                {loading && <p className="mb-4 text-center text-sm font-bold text-white/58">{loadingMessage}...</p>}
+                {loading && <p className="mb-4 text-center text-sm font-bold text-slate-500">{loadingMessage}...</p>}
 
                 <div className="grid grid-cols-3 gap-2 sm:gap-3">
                   {['1', '2', '3', '4', '5', '6', '7', '8', '9', '', '0', 'del'].map((key) => {
@@ -482,9 +497,9 @@ export function RoleLoginClient({
                         disabled={loading}
                         className="grid h-[52px] place-items-center rounded-2xl border text-xl font-black transition active:scale-95 disabled:opacity-50 sm:h-16 sm:text-2xl"
                         style={{
-                          backgroundColor: isDelete ? `${secondaryHighlight}38` : 'rgba(255,255,255,0.09)',
-                          borderColor: isDelete ? `${secondaryHighlight}aa` : 'rgba(255,194,71,0.16)',
-                          color: isDelete ? secondaryText : '#ffffff',
+                          backgroundColor: isDelete ? `${secondaryHighlight}18` : '#ffffff',
+                          borderColor: isDelete ? `${secondaryHighlight}66` : 'rgba(249,115,22,0.18)',
+                          color: isDelete ? '#9a3412' : '#0f172a',
                         }}
                       >
                         {key === 'del' ? <Delete className="h-5 w-5" /> : key}
@@ -493,8 +508,17 @@ export function RoleLoginClient({
                   })}
                 </div>
 
-                <p className="mt-3 text-center text-[10px] font-bold uppercase tracking-[0.18em] text-white/35 sm:mt-7 sm:text-xs">
-                  PIN de 6 digitos
+                <button
+                  type="button"
+                  onClick={submitPin}
+                  disabled={loading || pin.length < 4}
+                  className="mt-4 h-14 w-full rounded-2xl bg-orange-500 text-base font-black text-white shadow-[0_16px_34px_rgba(249,115,22,0.24)] transition hover:bg-orange-600 active:scale-[0.98] disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-400 disabled:shadow-none"
+                >
+                  Entrar
+                </button>
+
+                <p className="mt-3 text-center text-[10px] font-bold uppercase tracking-[0.18em] text-slate-400 sm:mt-5 sm:text-xs">
+                  PIN de 4 a 6 digitos
                 </p>
               </>
             )}

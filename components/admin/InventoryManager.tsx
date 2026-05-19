@@ -737,24 +737,24 @@ export function InventoryManager({ tenantId }: { tenantId: string }) {
         )}
 
         {/* Inventory Table */}
-        <div className="admin-panel overflow-hidden border-[#d9a441]/28 bg-[#15120d]/92">
-          <div className="border-b border-[#d9a441]/18 bg-white/[0.04] p-4">
+        <div className="admin-panel overflow-hidden border-slate-200 bg-white">
+          <div className="border-b border-slate-200 bg-slate-50 p-4">
             <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
               <div>
-                <h3 className="text-sm font-black text-[#fff4d8]">Inventario</h3>
-                <p className="text-xs font-semibold text-[#fff4d8]/58">
+                <h3 className="text-sm font-black text-slate-950">Inventario</h3>
+                <p className="text-xs font-semibold text-slate-600">
                   {filteredInventory.length} de {inventory.length} insumo{inventory.length === 1 ? '' : 's'}
                 </p>
               </div>
               <div className="flex w-full flex-col gap-2 sm:flex-row lg:max-w-xl">
                 <div className="relative flex-1">
-                  <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-[#f2cf82]/70" />
+                  <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-slate-400" />
                   <input
                     type="search"
                     value={searchTerm}
                     onChange={(event) => setSearchTerm(event.target.value)}
                     placeholder="Buscar por nombre o codigo de barras"
-                    className="admin-input border-[#d9a441]/25 bg-white/[0.08] pl-10 text-[#fff4d8] placeholder:text-[#fff4d8]/45"
+                    className="admin-input border-slate-200 bg-white pl-10 text-slate-950 placeholder:text-slate-400"
                   />
                 </div>
                 {searchTerm && (
@@ -771,27 +771,27 @@ export function InventoryManager({ tenantId }: { tenantId: string }) {
           </div>
           <div className="overflow-x-auto">
           <table className="w-full min-w-[760px]">
-            <thead className="border-b border-[#d9a441]/18 bg-[#080704]/70">
+            <thead className="border-b border-slate-200 bg-slate-50">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-black uppercase tracking-[0.12em] text-[#f2cf82]">Producto</th>
-                <th className="px-6 py-3 text-left text-xs font-black uppercase tracking-[0.12em] text-[#f2cf82]">Stock Actual</th>
-                <th className="px-6 py-3 text-left text-xs font-black uppercase tracking-[0.12em] text-[#f2cf82]">Min - Max</th>
-                <th className="px-6 py-3 text-left text-xs font-black uppercase tracking-[0.12em] text-[#f2cf82]">Estado</th>
-                <th className="px-6 py-3 text-left text-xs font-black uppercase tracking-[0.12em] text-[#f2cf82]">Costo Unit.</th>
-                <th className="px-6 py-3 text-left text-xs font-black uppercase tracking-[0.12em] text-[#f2cf82]">Acciones</th>
+                <th className="px-6 py-3 text-left text-xs font-black uppercase tracking-[0.12em] text-slate-600">Producto</th>
+                <th className="px-6 py-3 text-left text-xs font-black uppercase tracking-[0.12em] text-slate-600">Stock Actual</th>
+                <th className="px-6 py-3 text-left text-xs font-black uppercase tracking-[0.12em] text-slate-600">Min - Max</th>
+                <th className="px-6 py-3 text-left text-xs font-black uppercase tracking-[0.12em] text-slate-600">Estado</th>
+                <th className="px-6 py-3 text-left text-xs font-black uppercase tracking-[0.12em] text-slate-600">Costo Unit.</th>
+                <th className="px-6 py-3 text-left text-xs font-black uppercase tracking-[0.12em] text-slate-600">Acciones</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-[#d9a441]/12">
+            <tbody className="divide-y divide-slate-100">
               {filteredInventory.map((item) => {
                 const stockStatus = getStockStatus(item.current_stock, item.min_stock, item.max_stock);
                 return (
-                  <tr key={item.id} className="transition hover:bg-[#d9a441]/8">
+                  <tr key={item.id} className="transition hover:bg-orange-50/60">
                     <td className="px-6 py-4">
-                      <p className="font-black text-[#fff4d8]">{item.product_name}</p>
-                      {item.sku && <p className="text-sm font-semibold text-[#fff4d8]/52">SKU: {item.sku}</p>}
+                      <p className="font-black text-slate-950">{item.product_name}</p>
+                      {item.sku && <p className="text-sm font-semibold text-slate-500">SKU: {item.sku}</p>}
                     </td>
-                    <td className="px-6 py-4 font-black text-[#fff4d8]">{item.current_stock}</td>
-                    <td className="px-6 py-4 font-semibold text-[#fff4d8]/65">
+                    <td className="px-6 py-4 font-black text-slate-950">{item.current_stock}</td>
+                    <td className="px-6 py-4 font-semibold text-slate-600">
                       {item.min_stock} - {item.max_stock}
                     </td>
                     <td className="px-6 py-4">
@@ -799,11 +799,11 @@ export function InventoryManager({ tenantId }: { tenantId: string }) {
                         {stockStatus.status}
                       </span>
                     </td>
-                    <td className="px-6 py-4 font-black text-[#f2cf82]">${item.cost_per_unit.toFixed(2)}</td>
+                    <td className="px-6 py-4 font-black text-orange-700">${item.cost_per_unit.toFixed(2)}</td>
                     <td className="px-6 py-4 flex gap-2">
                       <button
                         onClick={() => setEditingItem(item)}
-                        className="flex items-center gap-1 rounded border border-[#d9a441]/25 bg-white/[0.08] px-3 py-1 text-sm font-black text-[#fff4d8] transition hover:bg-white/[0.14]"
+                        className="flex items-center gap-1 rounded border border-slate-200 bg-white px-3 py-1 text-sm font-black text-slate-700 transition hover:bg-slate-50"
                       >
                         <Pencil className="w-4 h-4" /> Editar
                       </button>
@@ -838,10 +838,10 @@ export function InventoryManager({ tenantId }: { tenantId: string }) {
             </tbody>
           </table>
           {filteredInventory.length === 0 && (
-            <div className="m-5 rounded-2xl border border-[#d9a441]/18 bg-white/[0.04] p-10 text-center">
-              <Search className="mx-auto mb-3 size-8 text-[#f2cf82]/70" />
-              <p className="font-black text-[#fff4d8]">No se encontraron insumos</p>
-              <p className="mt-1 text-sm font-semibold text-[#fff4d8]/55">Prueba con otro nombre, SKU o codigo de barras.</p>
+            <div className="m-5 rounded-2xl border border-slate-200 bg-slate-50 p-10 text-center">
+              <Search className="mx-auto mb-3 size-8 text-slate-400" />
+              <p className="font-black text-slate-950">No se encontraron insumos</p>
+              <p className="mt-1 text-sm font-semibold text-slate-600">Prueba con otro nombre, SKU o codigo de barras.</p>
             </div>
           )}
           </div>

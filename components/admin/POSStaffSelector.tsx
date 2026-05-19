@@ -64,25 +64,25 @@ export function POSStaffSelector({
 
   if (loading) {
     return (
-      <div className="rounded-xl border border-[#f6b92f]/22 bg-[#161410] p-2">
-        <label className="mb-1 flex items-center gap-1 text-xs font-black text-[#fff7df]">
-          <Users className="h-3.5 w-3.5 text-[#f6b92f]" />
+      <div className="rounded-xl border border-slate-200 bg-white p-2">
+        <label className="mb-1 flex items-center gap-1 text-xs font-black text-slate-950">
+          <Users className="h-3.5 w-3.5 text-orange-600" />
           {label}
         </label>
-        <div className="text-xs font-semibold text-[#f8f5ec]/62">Cargando camareros...</div>
+        <div className="text-xs font-semibold text-slate-500">Cargando camareros...</div>
       </div>
     );
   }
 
   return (
-    <div className="rounded-xl border border-[#f6b92f]/22 bg-[#161410] p-2">
-      <label className="mb-1 flex items-center gap-1 text-xs font-black text-[#fff7df]">
-        <Users className="h-4 w-4 text-[#f6b92f]" />
+    <div className="rounded-xl border border-slate-200 bg-white p-2">
+      <label className="mb-1 flex items-center gap-1 text-xs font-black text-slate-950">
+        <Users className="h-4 w-4 text-orange-600" />
         {label}
       </label>
 
       {staff.length === 0 ? (
-        <div className="text-xs font-semibold text-[#f8f5ec]/62">No hay camareros disponibles</div>
+        <div className="text-xs font-semibold text-slate-500">No hay camareros disponibles</div>
       ) : (
         <select
           value={selectedStaffId || ''}
@@ -90,13 +90,13 @@ export function POSStaffSelector({
             const selected = staff.find((member) => member.id === e.target.value);
             if (selected) onStaffSelect(selected.id, selected.name);
           }}
-          className="w-full rounded-lg border border-[#f6b92f]/28 bg-[#242016] px-2 py-2 text-xs font-bold text-[#fff7df] outline-none transition focus:border-[#f6b92f] focus:ring-2 focus:ring-[#f6b92f]/18"
+          className="w-full rounded-lg border border-slate-200 bg-white px-2 py-2 text-xs font-bold text-slate-950 outline-none transition focus:border-orange-500 focus:ring-2 focus:ring-orange-100"
         >
-          <option className="bg-[#161410] text-[#fff7df]" value="">
+          <option className="bg-white text-slate-950" value="">
             Seleccionar camarero...
           </option>
           {staff.map((member) => (
-            <option className="bg-[#161410] text-[#fff7df]" key={member.id} value={member.id}>
+            <option className="bg-white text-slate-950" key={member.id} value={member.id}>
               {member.name} ({member.role})
             </option>
           ))}
@@ -104,7 +104,7 @@ export function POSStaffSelector({
       )}
 
       {selectedStaffId && selectedStaffStillAllowed && (
-        <div className="mt-1 text-xs font-bold text-[#70f7c2]">Camarero seleccionado</div>
+        <div className="mt-1 text-xs font-bold text-emerald-700">Camarero seleccionado</div>
       )}
     </div>
   );

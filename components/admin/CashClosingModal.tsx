@@ -57,9 +57,9 @@ export function CashClosingModal({
   const isBusy = isSubmitting || isLoading;
 
   const statCard =
-    'rounded-2xl border border-[#f6b92f]/16 bg-white/[0.055] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]';
+    'rounded-2xl border border-slate-200 bg-white p-4 shadow-[0_10px_24px_rgba(15,23,42,0.06)]';
   const fieldClass =
-    'w-full rounded-2xl border border-[#f6b92f]/18 bg-white/[0.075] py-3 text-lg font-black text-[#fff7df] outline-none placeholder:text-[#f8f5ec]/32 focus:border-[#f6b92f] focus:ring-4 focus:ring-[#f6b92f]/14 disabled:opacity-50';
+    'w-full rounded-2xl border border-slate-200 bg-white py-3 text-lg font-black text-slate-950 outline-none placeholder:text-slate-400 focus:border-orange-500 focus:ring-4 focus:ring-orange-100 disabled:opacity-50';
 
   const handleConfirm = async () => {
     if (!actualCash) {
@@ -78,17 +78,17 @@ export function CashClosingModal({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/72 p-4 backdrop-blur-md">
-      <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-[1.75rem] border border-[#f6b92f]/25 bg-[linear-gradient(180deg,rgba(255,255,255,0.09),rgba(255,255,255,0.035)),#10100f] text-[#fff7df] shadow-[0_28px_90px_rgba(0,0,0,0.72),0_0_44px_rgba(246,185,47,0.12)]">
-        <div className="sticky top-0 z-10 flex items-center justify-between border-b border-[#f6b92f]/15 bg-[#10100f]/95 p-6 backdrop-blur-xl">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/45 p-4 backdrop-blur-md">
+      <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-[1.75rem] border border-slate-200 bg-white text-slate-950 shadow-[0_28px_90px_rgba(15,23,42,0.22)]">
+        <div className="sticky top-0 z-10 flex items-center justify-between border-b border-slate-200 bg-white p-6 backdrop-blur-xl">
           <div>
-            <p className="text-xs font-black uppercase tracking-[0.24em] text-[#f6b92f]">Caja</p>
-            <h2 className="mt-1 text-2xl font-black text-[#fff7df]">Cierre de Caja</h2>
+            <p className="text-xs font-black uppercase tracking-[0.24em] text-orange-600">Caja</p>
+            <h2 className="mt-1 text-2xl font-black text-slate-950">Cierre de Caja</h2>
           </div>
           <button
             onClick={onClose}
             disabled={isBusy}
-            className="grid h-11 w-11 place-items-center rounded-2xl border border-white/10 bg-white/[0.06] text-[#f8f5ec]/70 transition hover:border-[#f6b92f]/50 hover:text-[#fff7df] disabled:opacity-50"
+            className="grid h-11 w-11 place-items-center rounded-2xl border border-slate-200 bg-white text-slate-600 transition hover:border-orange-300 hover:text-orange-700 disabled:opacity-50"
             aria-label="Cerrar"
           >
             <X className="h-5 w-5" />
@@ -96,25 +96,25 @@ export function CashClosingModal({
         </div>
 
         <div className="space-y-6 p-6">
-          <div className="rounded-2xl border border-[#f6b92f]/35 bg-[#f6b92f]/10 p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]">
-            <p className="text-xs font-black uppercase tracking-[0.2em] text-[#f6b92f]">Dia operativo</p>
-            <p className="mt-2 text-lg font-black capitalize text-[#fff7df]">{data.businessDateLabel}</p>
-            <p className="mt-2 text-sm font-semibold text-[#f8f5ec]/78">
+          <div className="rounded-2xl border border-orange-200 bg-orange-50 p-4">
+            <p className="text-xs font-black uppercase tracking-[0.2em] text-orange-700">Dia operativo</p>
+            <p className="mt-2 text-lg font-black capitalize text-slate-950">{data.businessDateLabel}</p>
+            <p className="mt-2 text-sm font-semibold text-slate-600">
               Cuenta ventas desde{' '}
               {new Date(data.periodStart).toLocaleString('es-ES', { dateStyle: 'short', timeStyle: 'short' })}{' '}
               hasta {new Date(data.periodEnd).toLocaleString('es-ES', { dateStyle: 'short', timeStyle: 'short' })}
             </p>
-            <p className="mt-1 text-xs font-bold uppercase tracking-[0.16em] text-[#f6b92f]/82">
+            <p className="mt-1 text-xs font-bold uppercase tracking-[0.16em] text-orange-700">
               Corte operativo: {data.operationalCloseTime === 'manual' ? 'manual' : data.operationalCloseTime}
             </p>
           </div>
 
           <section>
-            <h3 className="mb-4 text-lg font-black text-[#fff7df]">Resumen de Ventas</h3>
+            <h3 className="mb-4 text-lg font-black text-slate-950">Resumen de Ventas</h3>
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div className={statCard}>
                 <p className="text-sm font-black text-[#ff6b35]">Ventas en Efectivo</p>
-                <p className="mt-2 text-2xl font-black text-[#ffd66b]">
+                <p className="mt-2 text-2xl font-black text-orange-700">
                   {formatPriceWithCurrency(data.cashSales, currencyInfo.code, currencyInfo.locale)}
                 </p>
               </div>
@@ -124,17 +124,17 @@ export function CashClosingModal({
                   {formatPriceWithCurrency(data.cardSales, currencyInfo.code, currencyInfo.locale)}
                 </p>
               </div>
-              <div className="rounded-2xl border border-[#f6b92f]/42 bg-[#f6b92f]/14 p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_18px_38px_rgba(246,185,47,0.08)] sm:col-span-2">
+              <div className="rounded-2xl border border-orange-200 bg-orange-50 p-4 sm:col-span-2">
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
                   <div>
-                    <p className="text-sm font-black uppercase tracking-[0.16em] text-[#f6b92f]">
+                    <p className="text-sm font-black uppercase tracking-[0.16em] text-orange-700">
                       Total efectivo + tarjeta
                     </p>
-                    <p className="mt-1 text-xs font-bold text-[#f8f5ec]/62">
+                    <p className="mt-1 text-xs font-bold text-slate-600">
                       Suma de las ventas cobradas en caja y por tarjeta
                     </p>
                   </div>
-                  <p className="text-3xl font-black text-[#fff7df]">
+                  <p className="text-3xl font-black text-slate-950">
                     {formatPriceWithCurrency(paymentSalesTotal, currencyInfo.code, currencyInfo.locale)}
                   </p>
                 </div>
@@ -145,7 +145,7 @@ export function CashClosingModal({
                     <p className="text-sm font-black uppercase tracking-[0.16em] text-[#7dd3fc]">
                       Domicilios cobrados
                     </p>
-                    <p className="mt-1 text-xs font-bold text-[#f8f5ec]/62">
+                    <p className="mt-1 text-xs font-bold text-slate-600">
                       {data.deliveryOrderCount || 0} pedido{(data.deliveryOrderCount || 0) === 1 ? '' : 's'} con cobro de domicilio
                     </p>
                   </div>
@@ -169,41 +169,41 @@ export function CashClosingModal({
             </div>
           </section>
 
-          <section className="rounded-2xl border border-white/10 bg-white/[0.045] p-4">
-            <h4 className="font-black text-[#fff7df]">Detalles de Transacciones</h4>
+          <section className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+            <h4 className="font-black text-slate-950">Detalles de Transacciones</h4>
             <div className="mt-4 grid grid-cols-1 gap-4 text-sm sm:grid-cols-2">
               <div>
-                <p className="font-semibold text-[#f8f5ec]/56">Total de transacciones</p>
-                <p className="mt-1 text-lg font-black text-[#fff7df]">{data.transactionCount}</p>
+                <p className="font-semibold text-slate-600">Total de transacciones</p>
+                <p className="mt-1 text-lg font-black text-slate-950">{data.transactionCount}</p>
               </div>
               <div>
-                <p className="font-semibold text-[#f8f5ec]/56">Ordenes completadas</p>
-                <p className="mt-1 text-lg font-black text-[#fff7df]">{data.ordersCompleted}</p>
+                <p className="font-semibold text-slate-600">Ordenes completadas</p>
+                <p className="mt-1 text-lg font-black text-slate-950">{data.ordersCompleted}</p>
               </div>
               <div>
-                <p className="font-semibold text-[#f8f5ec]/56">Ordenes canceladas</p>
-                <p className="mt-1 text-lg font-black text-[#fff7df]">{data.ordersCancelled}</p>
+                <p className="font-semibold text-slate-600">Ordenes canceladas</p>
+                <p className="mt-1 text-lg font-black text-slate-950">{data.ordersCancelled}</p>
               </div>
               <div>
-                <p className="font-semibold text-[#f8f5ec]/56">Personal</p>
-                <p className="mt-1 text-lg font-black text-[#fff7df]">{data.staffName}</p>
+                <p className="font-semibold text-slate-600">Personal</p>
+                <p className="mt-1 text-lg font-black text-slate-950">{data.staffName}</p>
               </div>
             </div>
           </section>
 
-          <section className="rounded-2xl border border-[#f6b92f]/35 bg-[#f6b92f]/12 p-4">
-            <p className="text-sm font-black uppercase tracking-[0.16em] text-[#f6b92f]">Monto esperado en efectivo</p>
-            <p className="mt-2 text-3xl font-black text-[#fff7df]">
+          <section className="rounded-2xl border border-orange-200 bg-orange-50 p-4">
+            <p className="text-sm font-black uppercase tracking-[0.16em] text-orange-700">Monto esperado en efectivo</p>
+            <p className="mt-2 text-3xl font-black text-slate-950">
               {formatPriceWithCurrency(expectedTotal, currencyInfo.code, currencyInfo.locale)}
             </p>
           </section>
 
           <section>
-            <label className="mb-2 block text-sm font-black uppercase tracking-[0.14em] text-[#f6b92f]">
+            <label className="mb-2 block text-sm font-black uppercase tracking-[0.14em] text-orange-700">
               Monto real contado en caja
             </label>
             <div className="relative">
-              <span className="absolute left-4 top-1/2 -translate-y-1/2 text-lg font-black text-[#f6b92f]">
+              <span className="absolute left-4 top-1/2 -translate-y-1/2 text-lg font-black text-orange-700">
                 {currencyInfo.symbol}
               </span>
               <input
@@ -235,7 +235,7 @@ export function CashClosingModal({
                   ? 'border-[#70f7c2]/35 bg-[#70f7c2]/10'
                   : isDifferenceSignificant
                     ? 'border-[#ff6b6b]/35 bg-[#ff6b6b]/10'
-                    : 'border-[#f6b92f]/35 bg-[#f6b92f]/10'
+                    : 'border-orange-200 bg-orange-50'
               }`}
             >
               <div className="flex items-start gap-3">
@@ -255,7 +255,7 @@ export function CashClosingModal({
                       : `Diferencia: ${formatPriceWithCurrency(Math.abs(difference), currencyInfo.code, currencyInfo.locale)}`}
                   </p>
                   {!isBalanced && (
-                    <p className="mt-1 text-xs font-semibold text-[#f8f5ec]/70">
+                    <p className="mt-1 text-xs font-semibold text-slate-600">
                       {difference > 0 ? 'Faltante' : 'Sobrante'} de{' '}
                       {formatPriceWithCurrency(Math.abs(difference), currencyInfo.code, currencyInfo.locale)}
                     </p>
@@ -266,7 +266,7 @@ export function CashClosingModal({
           )}
 
           <section>
-            <label className="mb-2 block text-sm font-black uppercase tracking-[0.14em] text-[#f6b92f]">
+            <label className="mb-2 block text-sm font-black uppercase tracking-[0.14em] text-orange-700">
               Notas opcionales
             </label>
             <textarea
@@ -280,18 +280,18 @@ export function CashClosingModal({
           </section>
         </div>
 
-        <div className="sticky bottom-0 flex gap-3 border-t border-[#f6b92f]/15 bg-[#10100f]/95 p-6 backdrop-blur-xl">
+        <div className="sticky bottom-0 flex gap-3 border-t border-slate-200 bg-white p-6 backdrop-blur-xl">
           <button
             onClick={onClose}
             disabled={isBusy}
-            className="flex-1 rounded-2xl border border-white/12 bg-white/[0.06] px-4 py-3 font-black text-[#fff7df] transition hover:border-white/25 hover:bg-white/[0.09] disabled:opacity-50"
+            className="flex-1 rounded-2xl border border-slate-200 bg-white px-4 py-3 font-black text-slate-700 transition hover:border-slate-300 hover:bg-slate-50 disabled:opacity-50"
           >
             Cancelar
           </button>
           <button
             onClick={handleConfirm}
             disabled={isBusy || !actualCash}
-            className="flex-1 rounded-2xl bg-gradient-to-r from-[#c97905] via-[#f6b92f] to-[#ffe08a] px-4 py-3 font-black text-[#11100d] shadow-[0_16px_35px_rgba(246,185,47,0.24)] transition hover:brightness-110 disabled:opacity-50"
+            className="flex-1 rounded-2xl bg-orange-500 px-4 py-3 font-black text-white shadow-[0_16px_35px_rgba(249,115,22,0.24)] transition hover:bg-orange-600 disabled:opacity-50"
           >
             {isSubmitting ? 'Guardando...' : 'Confirmar cierre'}
           </button>

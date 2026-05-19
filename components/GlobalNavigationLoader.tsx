@@ -17,11 +17,14 @@ const APP_SECTIONS = new Set([
 
 const ROOT_APP_ROUTES = new Set([
   '',
+  'admin',
   'login',
   'register',
   'planes',
   'gestionar-cuentas',
   'owner-dashboard',
+  'owner-login',
+  'soporte',
   'unauthorized',
 ]);
 
@@ -99,7 +102,7 @@ export default function GlobalNavigationLoader() {
 
   useEffect(() => {
     function show(nextPathname: string, fallbackLabel = 'Procesando solicitud') {
-      if (isStoreRoute(window.location.pathname)) return;
+      if (isStoreRoute(window.location.pathname) || (nextPathname && isStoreRoute(nextPathname))) return;
       setLabel(nextPathname ? getLoadingLabel(nextPathname) : fallbackLabel);
       setVisible(true);
       if (timeoutRef.current) clearTimeout(timeoutRef.current);
@@ -146,7 +149,7 @@ export default function GlobalNavigationLoader() {
   if (!visible) return null;
 
   return (
-    <div className="fixed inset-0 z-[10000]">
+    <div className="pointer-events-none fixed left-1/2 top-[calc(env(safe-area-inset-top)+1rem)] z-[10000] w-full max-w-[380px] -translate-x-1/2">
       <EccofoodPageLoader
         label={label}
         detail="Preparando una experiencia rapida y segura."

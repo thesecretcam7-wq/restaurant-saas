@@ -2554,6 +2554,20 @@ export function POSTerminal({
                     <button
                       key={table.id}
                       onClick={() => {
+                        if (isSelected) {
+                          if (billingOrderIds.length > 0) {
+                            setCart([]);
+                            setBillingOrderIds([]);
+                          }
+                          setSelectedTableId(null);
+                          setSelectedTableNumber(null);
+                          setSelectedStaffId(null);
+                          setSelectedStaffName('');
+                          setLoadedOrderId(null);
+                          setLoadedOrderContext(null);
+                          setPosMode('simple');
+                          return;
+                        }
                         selectTableForCurrentCart(table.id, table.table_number);
                       }}
                       className={`shrink-0 flex flex-col items-center justify-center rounded-xl px-3 py-2 min-w-[58px] border-2 transition-all duration-200 active:scale-95 ${
