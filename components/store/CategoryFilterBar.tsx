@@ -14,6 +14,8 @@ interface CategoryFilterBarProps {
   inactiveTextColor?: string
   borderColor?: string
   inactiveColor?: string
+  activeColor?: string
+  buttonShadow?: string
   btnCls: string
 }
 
@@ -24,6 +26,8 @@ export default function CategoryFilterBar({
   inactiveTextColor,
   borderColor,
   inactiveColor = '#f3f4f6',
+  activeColor,
+  buttonShadow,
   btnCls,
 }: CategoryFilterBarProps) {
   const [activeCatId, setActiveCatId] = useState<string | null>(null)
@@ -53,14 +57,16 @@ export default function CategoryFilterBar({
   }, [])
 
   return (
-    <div className="mx-auto flex max-w-7xl snap-x gap-2 overflow-x-auto border-t border-[#e7b43f]/15 bg-[#0b0a08]/95 px-3 py-2.5 scrollbar-hide sm:px-6 sm:py-3 lg:px-8">
+    <div className="mx-auto flex max-w-7xl snap-x gap-2 overflow-x-auto border-t px-3 py-2.5 scrollbar-hide sm:px-6 sm:py-3 lg:px-8" style={{ background: 'rgba(4, 4, 4, 0.96)', borderColor: borderColor || `${primary}26` }}>
       <button
         onClick={handleShowAll}
         className={`h-10 snap-start whitespace-nowrap border px-4 text-xs font-black shadow-sm transition active:scale-[0.98] sm:px-5 sm:hover:-translate-y-0.5 ${btnCls}`}
         style={{
           backgroundColor: activeCatId === null ? primary : inactiveColor,
+          ...(activeCatId === null && activeColor ? { backgroundColor: activeColor } : {}),
           color: activeCatId === null ? activeTextColor : inactiveTextColor || primary,
-          borderColor: activeCatId === null ? primary : borderColor || `${primary}40`,
+          borderColor: activeCatId === null ? borderColor || primary : borderColor || `${primary}40`,
+          boxShadow: buttonShadow,
         }}
       >
         Todo
@@ -72,8 +78,10 @@ export default function CategoryFilterBar({
           className={`h-10 snap-start whitespace-nowrap border px-4 text-xs font-black shadow-sm transition active:scale-[0.98] sm:px-5 sm:hover:-translate-y-0.5 ${btnCls}`}
           style={{
             backgroundColor: activeCatId === cat.id ? primary : inactiveColor,
+            ...(activeCatId === cat.id && activeColor ? { backgroundColor: activeColor } : {}),
             color: activeCatId === cat.id ? activeTextColor : inactiveTextColor || primary,
-            borderColor: activeCatId === cat.id ? primary : borderColor || `${primary}40`,
+            borderColor: activeCatId === cat.id ? borderColor || primary : borderColor || `${primary}40`,
+            boxShadow: buttonShadow,
           }}
         >
           {cat.name}

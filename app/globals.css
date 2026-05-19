@@ -1407,6 +1407,102 @@ body {
     linear-gradient(180deg, #ffffff 0%, #f7f4ef 48%, #f2f4f7 100%) !important;
 }
 
+.ecco-store-dark.store-surface {
+  color: #f8f3e8 !important;
+  background:
+    radial-gradient(circle at 18% 0%, rgba(212, 175, 55, 0.14), transparent 30rem),
+    radial-gradient(circle at 85% 10%, rgba(255, 255, 255, 0.07), transparent 28rem),
+    linear-gradient(180deg, #030303 0%, #080808 48%, #020202 100%) !important;
+  scroll-behavior: smooth;
+}
+
+.ecco-store-dark .store-app-icon-button {
+  display: inline-flex;
+  height: 3rem;
+  width: 3rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  border: 1px solid rgba(212, 175, 55, 0.18);
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 250, 240, 0.88);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  backdrop-filter: blur(18px);
+  transition: transform 160ms ease, border-color 160ms ease, background 160ms ease;
+}
+
+.ecco-store-dark .store-app-icon-button:active,
+.ecco-store-dark .store-app-primary-button:active,
+.ecco-store-dark .store-app-play-button:active,
+.ecco-store-dark .store-app-glass-card:active {
+  transform: scale(0.97);
+}
+
+.ecco-store-dark .store-app-display {
+  font-family: Georgia, 'Times New Roman', serif;
+  font-weight: 500;
+  letter-spacing: -0.02em;
+}
+
+.ecco-store-dark .store-app-hero {
+  min-height: min(78vh, 720px) !important;
+}
+
+.ecco-store-dark .store-app-glass-card,
+.ecco-store-dark .premium-band {
+  border-color: rgba(212, 175, 55, 0.14) !important;
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.075), rgba(255, 255, 255, 0.025)) !important;
+  box-shadow: 0 22px 70px rgba(0, 0, 0, 0.32), inset 0 1px 0 rgba(255, 255, 255, 0.07) !important;
+  backdrop-filter: blur(18px);
+}
+
+.ecco-store-dark .premium-band :where(h1, h2, h3, h4, .text-gray-900, .text-\[\#15130f\]) {
+  color: #fffaf0 !important;
+}
+
+.ecco-store-dark .premium-band :where(p, span, .text-gray-400, .text-gray-500, .text-gray-600, .text-muted-foreground, .text-black\/42, .text-black\/45) {
+  color: rgba(248, 243, 232, 0.66) !important;
+}
+
+.ecco-store-dark .premium-band :where(.bg-white, .bg-gray-50, [class*="bg-white"]) {
+  background-color: rgba(255, 255, 255, 0.06) !important;
+}
+
+.ecco-store-dark .premium-band :where(.border-black\/8, .border-black\/10, .border-gray-50, .divide-gray-50 > *) {
+  border-color: rgba(212, 175, 55, 0.12) !important;
+}
+
+.ecco-store-dark .premium-band :where(a, button) {
+  touch-action: manipulation;
+}
+
+.ecco-store-dark .premium-band :where(a:hover, button:hover) {
+  filter: brightness(1.05);
+}
+
+.ecco-store-dark .premium-band :where(img) {
+  filter: saturate(1.04) contrast(1.04);
+}
+
+.ecco-store-dark .premium-band .scrollbar-hide {
+  scroll-snap-type: x proximity;
+}
+
+.ecco-store-dark .premium-band .scrollbar-hide > div > * {
+  scroll-snap-align: start;
+}
+
+.ecco-store-dark footer {
+  border-color: rgba(212, 175, 55, 0.12) !important;
+}
+
+@media (max-width: 640px) {
+  .ecco-store-dark .store-app-hero {
+    min-height: calc(100svh - 7.5rem) !important;
+  }
+}
+
 .brand-page-builder :where(.border-blue-500) {
   border-color: #e43d30;
 }

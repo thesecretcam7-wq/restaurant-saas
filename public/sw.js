@@ -1,7 +1,5 @@
-const CACHE_NAME = 'eccofood-v12';
+const CACHE_NAME = 'eccofood-v13';
 const STATIC_ASSETS = [
-  '/',
-  '/planes',
   '/favicon.ico',
   '/icons/icon.svg',
 ];
@@ -109,6 +107,13 @@ self.addEventListener('fetch', (event) => {
 
   if (isPwaIdentityAsset) {
     event.respondWith(fetch(request));
+    return;
+  }
+
+  // Restaurant pages are dynamic and must not be cached. Otherwise design,
+  // menu, pricing and status changes can stay visually stale for customers.
+  if (request.mode === 'navigate') {
+    event.respondWith(fetch(request).catch(() => offlinePage()));
     return;
   }
 

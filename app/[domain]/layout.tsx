@@ -4,7 +4,6 @@ import StoreNavigationLoader from '@/components/store/StoreNavigationLoader'
 import StoreBrandingMemory from '@/components/store/StoreBrandingMemory'
 import TenantAccessGuard from '@/components/TenantAccessGuard'
 import { getTenantAccessInfo } from '@/lib/tenant-access'
-import { deriveBrandPalette } from '@/lib/brand-colors'
 import { getPageConfig } from '@/lib/pageConfig'
 import type { Metadata } from 'next'
 import './(store)/store-premium.css'
@@ -138,27 +137,19 @@ export default async function TenantLayout({
   const branding = context.branding
   const access = getTenantAccessInfo(context.tenant)
 
-  const palette = deriveBrandPalette({
-    primary: branding?.primary_color,
-    secondary: branding?.secondary_color,
-    accent: branding?.accent_color,
-    background: branding?.background_color,
-    surface: branding?.section_background_color,
-    buttonPrimary: branding?.button_primary_color,
-    buttonSecondary: branding?.button_secondary_color,
-    textPrimary: branding?.text_primary_color,
-    textSecondary: branding?.text_secondary_color,
-    border: branding?.border_color,
-  })
-  const primaryColor = palette.primary
-  const secondaryColor = palette.secondary
-  const accentColor = palette.accent
-  const backgroundColor = palette.background
   const fontFamily = branding?.font_family || 'system-ui, -apple-system, sans-serif'
   const logoUrl = branding?.logo_url || context.tenant?.logo_url || null
   const restaurantName = getRestaurantDisplayName(context)
   const pageConfig = getPageConfig((context.tenant as any)?.metadata?.page_config || branding?.page_config)
   const themeMode = pageConfig.appearance.theme_mode
+  const isLightTheme = themeMode === 'light'
+  const primaryColor = isLightTheme ? '#ff5a00' : '#D4AF37'
+  const secondaryColor = isLightTheme ? '#ff1f1f' : '#F4D58D'
+  const accentColor = isLightTheme ? '#ff1f1f' : '#D4AF37'
+  const backgroundColor = isLightTheme ? '#ffffff' : '#030303'
+  const surfaceColor = isLightTheme ? '#ffffff' : 'rgba(10, 10, 10, 0.86)'
+  const textColor = isLightTheme ? '#07111f' : '#fffaf0'
+  const mutedTextColor = isLightTheme ? 'rgba(7, 17, 31, 0.72)' : 'rgba(248, 243, 232, 0.68)'
 
   return (
     <>
@@ -170,12 +161,12 @@ export default async function TenantLayout({
           --secondary-color: ${secondaryColor};
           --accent-color: ${accentColor};
           --background-color: ${backgroundColor};
-          --button-primary-color: ${palette.buttonPrimary};
-          --button-secondary-color: ${palette.buttonSecondary};
-          --price-color: ${palette.accent};
-          --brand-surface-color: ${palette.surface};
-          --brand-text-color: ${palette.text};
-          --brand-muted-color: ${palette.mutedText};
+          --button-primary-color: ${primaryColor};
+          --button-secondary-color: ${isLightTheme ? '#fff3e8' : 'rgba(255, 255, 255, 0.08)'};
+          --price-color: ${accentColor};
+          --brand-surface-color: ${surfaceColor};
+          --brand-text-color: ${textColor};
+          --brand-muted-color: ${mutedTextColor};
           --font-family: ${fontFamily};
 
           /* Admin pages always use Eccofood brand (no tenant override) */

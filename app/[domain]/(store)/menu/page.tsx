@@ -133,6 +133,7 @@ export default async function MenuPage({ params }: MenuProps) {
   const pageConfig = getPageConfig((context.tenant as any)?.metadata?.page_config || branding?.page_config)
   const themeMode = pageConfig.appearance.theme_mode
   const isLightTheme = themeMode === 'light'
+  const darkGold = '#D4AF37'
   if (isLightTheme) {
     primary = '#ff5a00'
     buttonColor = '#ff5a00'
@@ -140,12 +141,19 @@ export default async function MenuPage({ params }: MenuProps) {
     menuTextColor = '#07111f'
     menuMutedTextColor = 'rgba(7, 17, 31, 0.72)'
     categoryInactiveColor = '#fff3e8'
+  } else {
+    primary = darkGold
+    buttonColor = darkGold
+    priceColor = darkGold
+    menuTextColor = '#fffaf0'
+    menuMutedTextColor = 'rgba(248, 243, 232, 0.68)'
+    categoryInactiveColor = 'rgba(255, 255, 255, 0.08)'
   }
   const backgroundStyle = useGradient
     ? { backgroundImage: sectionBackgroundImage ? `${baseBackgroundImage}, url(${sectionBackgroundImage})` : baseBackgroundImage, backgroundBlendMode: sectionBackgroundImage ? 'normal, soft-light' : undefined, backgroundSize: sectionBackgroundImage ? 'auto, cover' : undefined, backgroundPosition: sectionBackgroundImage ? 'center, center' : undefined }
     : sectionBackgroundImage
       ? {
-          backgroundColor: isLightTheme ? '#ffffff' : palette.background,
+          backgroundColor: isLightTheme ? '#ffffff' : '#030303',
           backgroundImage: isLightTheme
             ? `linear-gradient(rgba(255,255,255,.92), rgba(255,255,255,.97)), url(${sectionBackgroundImage})`
             : `linear-gradient(rgba(5,5,5,.82), rgba(5,5,5,.92)), url(${sectionBackgroundImage})`,
@@ -153,7 +161,7 @@ export default async function MenuPage({ params }: MenuProps) {
           backgroundPosition: 'center',
           backgroundAttachment: 'fixed',
         }
-      : { backgroundColor: isLightTheme ? '#ffffff' : palette.background }
+      : { backgroundColor: isLightTheme ? '#ffffff' : '#030303' }
 
   // Get currency from settings or detect from country
   const currencyInfo = settings?.currency
@@ -169,11 +177,21 @@ export default async function MenuPage({ params }: MenuProps) {
   const cardCls = getCardClasses(pageConfig.appearance.card_style)
   const btnCls = getButtonClasses(pageConfig.appearance.button_style)
   const featuredCarousel = featured.length > 1 ? featured : items.slice(0, 8)
-  const sectionSurface = isLightTheme ? '#ffffff' : 'rgba(255, 247, 223, 0.07)'
-  const cardSurface = isLightTheme ? '#ffffff' : 'rgba(255, 247, 223, 0.055)'
-  const sectionBorder = isLightTheme ? 'rgba(255, 90, 0, 0.24)' : 'rgba(231, 180, 63, 0.26)'
-  const softSurface = isLightTheme ? 'rgba(255, 90, 0, 0.12)' : 'rgba(231, 180, 63, 0.10)'
-  const countTextColor = isLightTheme ? '#ff5a00' : 'rgba(255, 247, 223, 0.68)'
+  const sectionSurface = isLightTheme ? '#ffffff' : 'rgba(10, 10, 10, 0.86)'
+  const cardSurface = isLightTheme ? '#ffffff' : 'rgba(12, 12, 12, 0.88)'
+  const sectionBorder = isLightTheme ? 'rgba(255, 90, 0, 0.24)' : 'rgba(212, 175, 55, 0.24)'
+  const softSurface = isLightTheme ? 'rgba(255, 90, 0, 0.12)' : 'rgba(255, 255, 255, 0.06)'
+  const countTextColor = isLightTheme ? '#ff5a00' : darkGold
+  const darkPanelBackground = 'linear-gradient(145deg, rgba(36, 32, 23, 0.94) 0%, rgba(17, 16, 13, 0.96) 52%, rgba(7, 7, 7, 0.98) 100%)'
+  const darkButtonSurface = 'linear-gradient(180deg, rgba(255,255,255,.075) 0%, rgba(255,255,255,.035) 100%)'
+  const darkRaisedShadow = '0 16px 34px rgba(0,0,0,.42), 0 5px 0 rgba(0,0,0,.45), inset 0 1px 0 rgba(255,255,255,.12)'
+  const menuPanelStyle = {
+    background: isLightTheme ? sectionSurface : darkPanelBackground,
+    borderColor: sectionBorder,
+    boxShadow: isLightTheme
+      ? '0 18px 42px rgba(15, 23, 42, 0.08)'
+      : '0 26px 70px rgba(0,0,0,.48), inset 0 1px 0 rgba(255,255,255,.08)',
+  }
   const headerClass = isLightTheme
     ? 'fixed inset-x-0 top-0 z-[60] border-b border-orange-200/70 bg-white/95 shadow-lg shadow-orange-500/10 backdrop-blur-xl'
     : 'fixed inset-x-0 top-0 z-[60] border-b border-[#e7b43f]/20 bg-[#0b0a08]/95 shadow-lg shadow-black/20 backdrop-blur-xl'
@@ -244,35 +262,37 @@ export default async function MenuPage({ params }: MenuProps) {
         <CategoryFilterBar
           categories={categories}
           primary={buttonColor}
-          activeTextColor={palette.buttonPrimaryText}
-          inactiveTextColor={menuTextColor}
-          borderColor={palette.border}
+          activeTextColor={isLightTheme ? '#07111f' : darkGold}
+          inactiveTextColor={isLightTheme ? menuTextColor : 'rgba(248, 243, 232, 0.78)'}
+          borderColor={sectionBorder}
           inactiveColor={categoryInactiveColor}
+          activeColor={isLightTheme ? undefined : 'rgba(212, 175, 55, 0.15)'}
+          buttonShadow={isLightTheme ? undefined : darkRaisedShadow}
           btnCls={btnCls}
         />
       </header>
 
       <main id="top" className="mx-auto max-w-7xl space-y-5 px-3 pb-32 pt-[122px] sm:space-y-8 sm:px-6 sm:pb-36 sm:pt-[132px] lg:px-8">
-        <section className="menu-rise overflow-hidden rounded-[22px] border p-4 shadow-xl shadow-black/[0.08] sm:rounded-[28px] sm:p-7" style={{ backgroundColor: sectionSurface, borderColor: sectionBorder }}>
+        <section className="menu-rise overflow-hidden rounded-[22px] border p-4 sm:rounded-[28px] sm:p-7" style={menuPanelStyle}>
           <p className="text-xs font-black uppercase" style={{ color: priceColor }}>Carta digital</p>
           <div className="mt-2 flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
             <div className="min-w-0">
               <h1 className="text-2xl font-black leading-tight sm:text-4xl" style={{ color: menuTextColor }}>Elige tu pedido</h1>
               <p className="mt-2 max-w-2xl break-words text-sm font-bold leading-6" style={{ color: menuMutedTextColor }}>Explora los productos del restaurante y agrega tus favoritos al carrito.</p>
               {featuredText && (
-                <div className="mt-4 max-w-2xl rounded-2xl border px-4 py-3 text-sm font-black leading-6" style={{ borderColor: `${priceColor}33`, backgroundColor: `${priceColor}12`, color: priceColor }}>
+                <div className="mt-4 max-w-2xl rounded-2xl border px-4 py-3 text-sm font-black leading-6" style={{ borderColor: `${priceColor}33`, backgroundColor: isLightTheme ? `${priceColor}12` : 'rgba(255,255,255,.045)', color: priceColor }}>
                   {featuredText}
                 </div>
               )}
             </div>
-            <Link href={storeHomePath} className="inline-flex h-11 w-full items-center justify-center rounded-full border px-5 text-sm font-black transition hover:bg-white/10 sm:w-auto" style={{ color: buttonColor, borderColor: `${buttonColor}40`, backgroundColor: softSurface }}>
+            <Link href={storeHomePath} className="inline-flex h-11 w-full items-center justify-center rounded-full border px-5 text-sm font-black transition hover:-translate-y-0.5 active:translate-y-0.5 sm:w-auto" style={{ color: buttonColor, borderColor: `${buttonColor}40`, background: isLightTheme ? softSurface : darkButtonSurface, boxShadow: isLightTheme ? undefined : darkRaisedShadow }}>
               Volver al inicio
             </Link>
           </div>
         </section>
         {/* Featured - Professional */}
         {featuredCarousel.length > 0 && (
-          <section className="menu-rise relative scroll-mt-28 rounded-[22px] border p-4 shadow-xl shadow-black/[0.08] sm:rounded-[28px] sm:p-7" data-featured style={{ animationDelay: '80ms', backgroundColor: sectionSurface, borderColor: sectionBorder }}>
+          <section className="menu-rise relative scroll-mt-28 rounded-[22px] border p-4 sm:rounded-[28px] sm:p-7" data-featured style={{ ...menuPanelStyle, animationDelay: '80ms' }}>
             <div className="flex items-center gap-2 mb-3 sm:mb-4">
               <div className="w-1 h-5 sm:h-6 rounded-full" style={{ backgroundColor: buttonColor }} />
               <h2
@@ -299,7 +319,8 @@ export default async function MenuPage({ params }: MenuProps) {
                     backgroundColor: cardSurface,
                     borderColor: sectionBorder,
                     animationDelay: `${120 + (index % Math.max(featuredCarousel.length, 1)) * 45}ms`,
-                    backgroundImage: `linear-gradient(135deg, ${primary}12, transparent 60%)`,
+                    backgroundImage: isLightTheme ? `linear-gradient(135deg, ${primary}12, transparent 60%)` : 'linear-gradient(145deg, rgba(36,32,23,.88), rgba(9,9,9,.96))',
+                    boxShadow: isLightTheme ? undefined : '0 18px 40px rgba(0,0,0,.42), inset 0 1px 0 rgba(255,255,255,.08)',
                   }}
                 >
                   {item.image_url ? (
@@ -326,7 +347,7 @@ export default async function MenuPage({ params }: MenuProps) {
               </div>
             </div>
             {featuredCarousel.length > 1 && (
-              <div className="pointer-events-none absolute right-5 top-[50%] z-10 flex items-center gap-2 rounded-full border px-3 py-2 text-xs font-black shadow-2xl backdrop-blur-md sm:right-7" style={{ borderColor: isLightTheme ? 'rgba(255,31,31,.24)' : 'rgba(255,255,255,.30)', background: isLightTheme ? 'linear-gradient(135deg, rgba(255,255,255,.92), rgba(236,253,245,.82))' : 'rgba(0,0,0,.62)', color: isLightTheme ? '#221106' : '#ffffff' }}>
+              <div className="pointer-events-none absolute right-5 top-[50%] z-10 flex items-center gap-2 rounded-full border px-3 py-2 text-xs font-black backdrop-blur-md sm:right-7" style={{ borderColor: isLightTheme ? 'rgba(255,31,31,.24)' : `${buttonColor}55`, background: isLightTheme ? 'linear-gradient(135deg, rgba(255,255,255,.92), rgba(236,253,245,.82))' : darkButtonSurface, color: isLightTheme ? '#221106' : buttonColor, boxShadow: isLightTheme ? undefined : darkRaisedShadow }}>
                 <span>Desliza</span>
                 <span className="text-lg leading-none" aria-hidden="true">→</span>
               </div>
@@ -339,7 +360,7 @@ export default async function MenuPage({ params }: MenuProps) {
           const catItems = itemsByCategory[cat.id] || []
           if (catItems.length === 0) return null
           return (
-            <section key={cat.id} id={`cat-${cat.id}`} data-category={cat.id} className="menu-rise scroll-mt-28 rounded-[22px] border p-4 shadow-xl shadow-black/[0.08] sm:rounded-[28px] sm:p-7" style={{ animationDelay: `${120 + catIndex * 55}ms`, backgroundColor: sectionSurface, borderColor: sectionBorder }}>
+            <section key={cat.id} id={`cat-${cat.id}`} data-category={cat.id} className="menu-rise scroll-mt-28 rounded-[22px] border p-4 sm:rounded-[28px] sm:p-7" style={{ ...menuPanelStyle, animationDelay: `${120 + catIndex * 55}ms` }}>
               <h2
                 className="mb-3 flex items-center justify-between text-base"
                 style={{
@@ -351,7 +372,7 @@ export default async function MenuPage({ params }: MenuProps) {
                 }}
               >
                 {cat.name}
-                <span className="rounded-full px-3 py-1 text-xs font-black" style={{ backgroundColor: softSurface, color: countTextColor }}>{catItems.length}</span>
+                <span className="rounded-full border px-3 py-1 text-xs font-black" style={{ backgroundColor: softSurface, borderColor: isLightTheme ? 'transparent' : `${primary}40`, color: countTextColor }}>{catItems.length}</span>
               </h2>
               {layout === 'grid' ? (
                 <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -378,7 +399,7 @@ export default async function MenuPage({ params }: MenuProps) {
 
         {/* Uncategorized */}
         {uncategorized.length > 0 && (
-          <section className="menu-rise scroll-mt-28 rounded-[22px] border p-4 shadow-xl shadow-black/[0.08] sm:rounded-[28px] sm:p-7" style={{ backgroundColor: sectionSurface, borderColor: sectionBorder }}>
+          <section className="menu-rise scroll-mt-28 rounded-[22px] border p-4 sm:rounded-[28px] sm:p-7" style={menuPanelStyle}>
             <h2
               className="mb-3 text-base"
               style={{
@@ -408,7 +429,7 @@ export default async function MenuPage({ params }: MenuProps) {
         )}
       </main>
 
-      <CartBar tenantId={slug} primaryColor={primary} currencyInfo={currencyInfo} basePath={storeBasePath} />
+      <CartBar tenantId={slug} primaryColor={buttonColor} currencyInfo={currencyInfo} basePath={storeBasePath} themeMode={themeMode} />
     </div>
   )
   } catch (error) {

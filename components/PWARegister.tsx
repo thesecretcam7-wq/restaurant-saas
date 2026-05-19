@@ -18,14 +18,25 @@ export default function PWARegister() {
       process.env.NODE_ENV === 'development'
 
     if (isLocalDev) {
-      navigator.serviceWorker.getRegistrations()
-        .then((registrations) => {
-          registrations.forEach((registration) => registration.unregister())
-        })
-        .catch(() => {})
-      caches.keys()
-        .then((keys) => Promise.all(keys.map((key) => caches.delete(key))))
-        .catch(() => {})
+      const clearLocalPwaCache = async () => {
+        try {
+          const registrations = await navigator.serviceWorker.getRegistrations()
+          await Promise.all(registrations.map((registration) => registration.unregister()))
+          const keys = 'caches' in window ? await caches.keys() : []
+          await Promise.all(keys.map((key) => caches.delete(key)))
+
+          const hadLocalCache = registrations.length > 0 || keys.length > 0
+          const alreadyReloaded = sessionStorage.getItem('eccofood-local-cache-cleared') === '1'
+          if (hadLocalCache && !alreadyReloaded) {
+            sessionStorage.setItem('eccofood-local-cache-cleared', '1')
+            window.location.reload()
+          }
+        } catch {
+          // Local development should never be blocked by PWA cleanup.
+        }
+      }
+
+      clearLocalPwaCache()
       return
     }
 
