@@ -2541,8 +2541,8 @@ export function POSTerminal({
 
           {/* Tables Bottom Strip */}
           {allTables.length > 0 && (
-            <div className="pos-panel border-x-0 border-b-0 px-3 py-2 shrink-0">
-              <p className="text-cyan-100/42 text-xs font-black mb-2 uppercase">Mesas</p>
+            <div className="pos-panel border-x-0 border-b-0 px-3 py-2 shrink-0 bg-white/95">
+              <p className="text-slate-800 text-xs font-black mb-2 uppercase">Mesas</p>
               <div className="flex gap-2 overflow-x-auto scrollbar-none pb-1">
                 {allTables.map(table => {
                   const group = tableGroups.find(g => g.tableNumber === table.table_number);
@@ -2570,31 +2570,31 @@ export function POSTerminal({
                         }
                         selectTableForCurrentCart(table.id, table.table_number);
                       }}
-                      className={`shrink-0 flex flex-col items-center justify-center rounded-xl px-3 py-2 min-w-[58px] border-2 transition-all duration-200 active:scale-95 ${
+                      className={`shrink-0 flex flex-col items-center justify-center rounded-xl px-3 py-2 min-w-[58px] border-2 shadow-[0_8px_18px_rgba(15,23,42,0.10)] transition-all duration-200 active:scale-95 ${
                         group
                           ? isSelected
-                            ? 'border-cyan-300 bg-cyan-300/16'
-                            : `${getUrgencyBorder(minutes)} bg-white/10 hover:bg-white/15`
+                            ? 'border-orange-500 bg-orange-50 shadow-[0_10px_24px_rgba(249,115,22,0.22)]'
+                            : `${getUrgencyBorder(minutes)} bg-white hover:bg-orange-50`
                           : isSelected
-                          ? 'border-cyan-300 bg-cyan-300/16'
-                          : 'border-white/10 bg-white/5 hover:bg-white/10'
+                          ? 'border-orange-500 bg-orange-50 shadow-[0_10px_24px_rgba(249,115,22,0.22)]'
+                          : 'border-slate-300 bg-white hover:border-orange-300 hover:bg-orange-50'
                       }`}
                     >
-                      <span className={`font-black text-sm leading-tight ${isSelected ? 'text-cyan-200' : group ? 'text-white' : 'text-slate-400'}`}>
+                      <span className={`font-black text-sm leading-tight ${isSelected ? 'text-orange-700' : group ? 'text-slate-950' : 'text-slate-700'}`}>
                         {table.table_number}
                       </span>
                       {group ? (
                         <>
-                          <span className={`text-xs font-bold ${isSelected ? 'text-cyan-300' : getTimerColor(minutes)}`}>
+                          <span className={`text-xs font-bold ${isSelected ? 'text-orange-700' : 'text-slate-600'}`}>
                             {isSelected ? 'Sel.' : `${minutes}m`}
                           </span>
-                          <span className="text-xs text-emerald-400 font-bold tabular-nums leading-tight">
+                          <span className="text-xs text-emerald-700 font-bold tabular-nums leading-tight">
                             {formatPriceWithCurrency(group.totalAmount, currencyInfo.code, currencyInfo.locale)}
                           </span>
                         </>
                       ) : (
-                        <span className={`text-xs mt-0.5 ${isSelected ? 'text-cyan-300' : 'text-slate-500'}`}>
-                          {isSelected ? '✓ Sel.' : 'Libre'}
+                        <span className={`text-xs mt-0.5 ${isSelected ? 'text-orange-700' : 'text-slate-500'}`}>
+                          {isSelected ? 'Sel.' : 'Libre'}
                         </span>
                       )}
                     </button>
