@@ -148,8 +148,16 @@ export default function GlobalNavigationLoader() {
 
   if (!visible) return null;
 
+  const isAdminArea = pathname.includes('/admin');
+
   return (
-    <div className="pointer-events-none fixed left-1/2 top-[calc(env(safe-area-inset-top)+1rem)] z-[10000] w-full max-w-[380px] -translate-x-1/2">
+    <div
+      className={`pointer-events-none fixed z-[10000] w-full max-w-[380px] ${
+        isAdminArea
+          ? 'left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 md:left-[calc(16rem+(100vw-16rem)/2)]'
+          : 'left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2'
+      }`}
+    >
       <EccofoodPageLoader
         label={label}
         detail="Preparando una experiencia rapida y segura."

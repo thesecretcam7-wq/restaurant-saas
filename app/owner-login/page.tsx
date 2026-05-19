@@ -46,7 +46,7 @@ export default function OwnerLoginPage() {
   }
 
   return (
-    <main className="min-h-screen bg-[linear-gradient(180deg,#ffffff_0%,#f7f4ef_48%,#f2f4f7_100%)] text-[#111827]">
+    <main className="ecco-platform-page min-h-screen text-white">
       <nav className="border-b border-black/[0.06] bg-white/86 backdrop-blur-xl">
         <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4 sm:px-6">
           <Link href="/" className="flex items-center gap-3">
@@ -73,7 +73,7 @@ export default function OwnerLoginPage() {
         <div className="flex items-center justify-center">
           <div className="w-full max-w-md">
             <div className="mb-8">
-              <p className="text-sm font-black uppercase text-[#b74710]">Eccofood interno</p>
+              <p className="text-sm font-black uppercase text-[#D4AF37]">Eccofood interno</p>
               <h2 className="mt-3 text-4xl font-black tracking-tight">Entrar como dueno</h2>
               <p className="mt-3 text-sm font-semibold leading-6 text-slate-600">
                 Usa tu correo autorizado para abrir el panel separado de las tiendas.
@@ -97,7 +97,7 @@ export default function OwnerLoginPage() {
                       required
                       value={form.email}
                       onChange={event => setForm(prev => ({ ...prev, email: event.target.value }))}
-                      className="h-12 w-full rounded-xl border border-slate-200 bg-[#fbfaf7] pl-10 pr-4 text-sm font-bold text-[#111827] outline-none placeholder:text-slate-400 focus:border-[#e65f1a] focus:bg-white focus:ring-4 focus:ring-orange-500/10"
+                      className="h-12 w-full rounded-xl border border-slate-200 bg-[#0B0E14] pl-10 pr-4 text-sm font-bold text-[#111827] outline-none placeholder:text-slate-400 focus:border-[#D35A37] focus:bg-white focus:ring-4 focus:ring-[#D4AF37]/10"
                       placeholder="tu@email.com"
                     />
                   </span>
@@ -112,7 +112,7 @@ export default function OwnerLoginPage() {
                       required
                       value={form.password}
                       onChange={event => setForm(prev => ({ ...prev, password: event.target.value }))}
-                      className="h-12 w-full rounded-xl border border-slate-200 bg-[#fbfaf7] pl-10 pr-11 text-sm font-bold text-[#111827] outline-none placeholder:text-slate-400 focus:border-[#e65f1a] focus:bg-white focus:ring-4 focus:ring-orange-500/10"
+                      className="h-12 w-full rounded-xl border border-slate-200 bg-[#0B0E14] pl-10 pr-11 text-sm font-bold text-[#111827] outline-none placeholder:text-slate-400 focus:border-[#D35A37] focus:bg-white focus:ring-4 focus:ring-[#D4AF37]/10"
                       placeholder="Tu contrasena"
                     />
                     <button
@@ -129,7 +129,7 @@ export default function OwnerLoginPage() {
                 <button
                   type="submit"
                   disabled={loading}
-                  className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-[#e65f1a] text-sm font-black text-white shadow-[0_18px_42px_rgba(230,95,26,0.18)] transition hover:-translate-y-0.5 hover:bg-[#cc4f12] disabled:opacity-60"
+                  className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-[#D35A37] text-sm font-black text-white shadow-[0_18px_42px_rgba(230,95,26,0.18)] transition hover:-translate-y-0.5 hover:bg-[#bd4d31] disabled:opacity-60"
                 >
                   {loading ? 'Entrando...' : 'Entrar al panel privado'}
                   {!loading && <ArrowRight className="size-4" />}

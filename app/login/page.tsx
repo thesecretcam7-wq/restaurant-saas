@@ -40,13 +40,13 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="min-h-screen overflow-hidden bg-[linear-gradient(180deg,#ffffff_0%,#f7f4ef_48%,#f2f4f7_100%)] text-[#111827]">
+    <main className="ecco-platform-page min-h-screen overflow-hidden text-white">
       <nav className="border-b border-black/[0.06] bg-white/86 backdrop-blur-2xl">
         <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4 sm:px-6">
           <Link href="/" className="flex items-center gap-3">
             <EccofoodLogo size="sm" textClassName="text-lg font-black tracking-tight" />
           </Link>
-          <Link href="/register" className="rounded-full border border-black/10 bg-white px-4 py-2 text-sm font-black text-[#111827] shadow-sm transition hover:border-[#e65f1a]/30 hover:text-[#b74710]">
+          <Link href="/register" className="rounded-full border border-black/10 bg-white px-4 py-2 text-sm font-black text-[#111827] shadow-sm transition hover:border-[#D35A37]/30 hover:text-[#D4AF37]">
             Crear cuenta
           </Link>
         </div>
@@ -77,7 +77,7 @@ export default function LoginPage() {
         <div className="flex items-center justify-center">
           <div className="w-full max-w-md">
             <div className="mb-8">
-              <p className="text-sm font-black uppercase text-[#b74710]">Panel de administracion</p>
+              <p className="text-sm font-black uppercase text-[#D4AF37]">Panel de administracion</p>
               <h2 className="mt-3 text-4xl font-black tracking-tight text-[#111827]">Inicia sesion</h2>
               <p className="mt-3 text-sm font-semibold leading-6 text-slate-600">Accede al restaurante y continua donde lo dejaste.</p>
             </div>
@@ -99,7 +99,7 @@ export default function LoginPage() {
                       required
                       value={form.email}
                       onChange={e => setForm(f => ({ ...f, email: e.target.value }))}
-                      className="h-12 w-full rounded-xl border border-slate-200 bg-[#fbfaf7] pl-10 pr-4 text-sm font-bold text-[#111827] outline-none transition placeholder:text-slate-400 focus:border-[#e65f1a] focus:bg-white focus:ring-4 focus:ring-orange-500/10"
+                      className="h-12 w-full rounded-xl border border-slate-200 bg-[#0B0E14] pl-10 pr-4 text-sm font-bold text-[#111827] outline-none transition placeholder:text-slate-400 focus:border-[#D35A37] focus:bg-white focus:ring-4 focus:ring-[#D4AF37]/10"
                       placeholder="tu@restaurante.com"
                     />
                   </span>
@@ -114,7 +114,7 @@ export default function LoginPage() {
                       required
                       value={form.password}
                       onChange={e => setForm(f => ({ ...f, password: e.target.value }))}
-                      className="h-12 w-full rounded-xl border border-slate-200 bg-[#fbfaf7] pl-10 pr-11 text-sm font-bold text-[#111827] outline-none transition placeholder:text-slate-400 focus:border-[#e65f1a] focus:bg-white focus:ring-4 focus:ring-orange-500/10"
+                      className="h-12 w-full rounded-xl border border-slate-200 bg-[#0B0E14] pl-10 pr-11 text-sm font-bold text-[#111827] outline-none transition placeholder:text-slate-400 focus:border-[#D35A37] focus:bg-white focus:ring-4 focus:ring-[#D4AF37]/10"
                       placeholder="Tu contrasena"
                     />
                     <button type="button" onClick={() => setShowPass(v => !v)} className="absolute right-3 top-1/2 -translate-y-1/2 rounded-md p-1 text-slate-400 transition hover:bg-black/5 hover:text-[#111827]" aria-label={showPass ? 'Ocultar contrasena' : 'Mostrar contrasena'}>
@@ -126,7 +126,7 @@ export default function LoginPage() {
                 <button
                   type="submit"
                   disabled={loading}
-                  className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-[#e65f1a] text-sm font-black text-white shadow-[0_18px_42px_rgba(230,95,26,0.18)] transition hover:-translate-y-0.5 hover:bg-[#cc4f12] disabled:cursor-not-allowed disabled:opacity-60"
+                  className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-[#D35A37] text-sm font-black text-white shadow-[0_18px_42px_rgba(230,95,26,0.18)] transition hover:-translate-y-0.5 hover:bg-[#bd4d31] disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {loading ? 'Entrando...' : 'Entrar al panel'}
                   {!loading && <ArrowRight className="size-4" />}
@@ -136,7 +136,7 @@ export default function LoginPage() {
 
             <p className="mt-6 text-center text-sm font-semibold text-slate-600">
               No tienes cuenta?{' '}
-              <Link href="/register" className="font-black text-[#b74710] hover:text-[#e65f1a]">
+              <Link href="/register" className="font-black text-[#D4AF37] hover:text-[#D35A37]">
                 Crea tu restaurante gratis
               </Link>
             </p>

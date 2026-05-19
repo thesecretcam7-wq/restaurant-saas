@@ -159,7 +159,7 @@ export default async function HomePage({ params }: HomePageProps) {
   const isLightTheme = themeMode === 'light'
   const lightPrimary = '#ff5a00'
   const lightAccent = '#ff1f1f'
-  const lightSecondary = '#fff3e8'
+  const lightSecondary = '#f3f4f6'
   const themeColors = isLightTheme
     ? {
         background: '#ffffff',

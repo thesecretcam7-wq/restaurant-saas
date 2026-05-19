@@ -73,7 +73,7 @@ export function POSPayment({
         <span className="text-slate-400 text-xs flex-1">Propina</span>
         <button
           onClick={() => setShowTipKeyboard(true)}
-          className="text-amber-300 font-black text-sm hover:text-amber-200 transition"
+          className="text-[#D4AF37] font-black text-sm hover:text-white transition"
         >
           {tip > 0 ? formatPriceWithCurrency(tip, currencyInfo.code, currencyInfo.locale) : '+ Agregar'}
         </button>
@@ -100,7 +100,7 @@ export function POSPayment({
           disabled={disabled}
           className={`${compact ? 'py-1.5 text-xs' : 'py-2 text-sm'} rounded-xl font-black flex items-center justify-center gap-1 transition border ${
             paymentMethod === 'cash'
-              ? 'bg-emerald-400/18 border-emerald-300/35 text-emerald-50'
+              ? 'bg-[#D4AF37]/16 border-[#D4AF37]/38 text-white'
               : 'bg-white/10 border-white/10 text-slate-400 hover:text-white'
           } ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
         >
@@ -112,7 +112,7 @@ export function POSPayment({
           disabled={disabled}
           className={`${compact ? 'py-1.5 text-xs' : 'py-2 text-sm'} rounded-xl font-black flex items-center justify-center gap-1 transition border ${
             paymentMethod === 'stripe'
-              ? 'bg-cyan-300/18 border-cyan-300/35 text-cyan-50'
+              ? 'bg-[#D4AF37]/16 border-[#D4AF37]/38 text-white'
               : 'bg-white/10 border-white/10 text-slate-400 hover:text-white'
           } ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
         >
@@ -148,7 +148,7 @@ export function POSPayment({
                 }
               }}
               placeholder="0.00"
-              className={`min-w-0 flex-1 rounded-xl border-2 border-emerald-300/35 bg-emerald-400/10 px-3 text-center font-black text-emerald-200 outline-none transition placeholder:text-emerald-200/38 focus:border-emerald-200 focus:bg-emerald-400/16 ${compact ? 'py-1.5 text-base' : 'py-2 text-lg'}`}
+              className={`min-w-0 flex-1 rounded-xl border-2 border-[#D4AF37]/30 bg-[#0B0E14]/55 px-3 text-center font-black text-white outline-none transition placeholder:text-[#8b97a8] focus:border-[#D4AF37] focus:bg-[#0B0E14]/72 ${compact ? 'py-1.5 text-base' : 'py-2 text-lg'}`}
               title={isTouchDevice ? 'Usa el teclado interno de Eccofood' : 'Puedes escribir el dinero recibido con teclado'}
             />
             <button
@@ -170,7 +170,7 @@ export function POSPayment({
                   type="button"
                   key={amount}
                   onClick={() => handleSuggestedAmount(amount)}
-                  className={`${compact ? 'min-h-10 px-2 py-2 text-sm' : 'min-h-11 px-3 py-2 text-sm'} rounded-xl border border-emerald-300/35 bg-emerald-400/18 font-black text-emerald-50 shadow-sm shadow-emerald-950/20 transition hover:bg-emerald-400/28 active:scale-95`}
+                  className={`${compact ? 'min-h-10 px-2 py-2 text-sm' : 'min-h-11 px-3 py-2 text-sm'} rounded-xl border border-[#D4AF37]/30 bg-[#D4AF37]/12 font-black text-white shadow-sm shadow-black/20 transition hover:bg-[#D4AF37]/20 active:scale-95`}
                 >
                   {formatPriceWithCurrency(amount, currencyInfo.code, currencyInfo.locale)}
                 </button>
@@ -197,7 +197,7 @@ export function POSPayment({
         disabled={disabled || loading || !isValidPayment}
         className={`w-full ${compact ? 'min-h-[54px] py-3 text-base' : 'py-4 text-lg'} rounded-xl font-black transition border ${
           isValidPayment && !disabled && !loading
-            ? 'bg-gradient-to-r from-emerald-500 to-cyan-500 hover:from-emerald-400 hover:to-cyan-400 text-slate-950 border-white/20 shadow-lg shadow-cyan-900/20'
+            ? 'bg-[#D35A37] hover:bg-[#bd4d31] text-white border-[#D35A37]/40 shadow-lg shadow-black/24'
             : 'bg-white/10 text-slate-500 border-white/10 cursor-not-allowed'
         }`}
       >

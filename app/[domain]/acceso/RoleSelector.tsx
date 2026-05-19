@@ -49,9 +49,9 @@ export function RoleSelector({ tenantName, tenantSlug, logoUrl, branding }: Prop
   const [selectedRole, setSelectedRole] = useState<string | null>(null);
   const { tr } = useI18n();
 
-  const premiumGold = '#e65f1a';
-  const premiumGoldSoft = '#f59e0b';
-  const premiumEmber = '#e65f1a';
+  const premiumGold = '#D35A37';
+  const premiumGoldSoft = '#D4AF37';
+  const premiumEmber = '#D35A37';
   const highlight = premiumGold;
   const secondaryHighlight = premiumGoldSoft;
   const primaryText = readableText(highlight);
@@ -117,10 +117,10 @@ export function RoleSelector({ tenantName, tenantSlug, logoUrl, branding }: Prop
 
   return (
     <main
-      className="min-h-screen overflow-x-hidden bg-[linear-gradient(180deg,#ffffff_0%,#f7f4ef_48%,#f2f4f7_100%)] text-[#111827]"
+      className="min-h-screen overflow-x-hidden bg-[radial-gradient(circle_at_18%_0%,rgba(212,175,55,0.16),transparent_34%),radial-gradient(circle_at_86%_12%,rgba(211,90,55,0.10),transparent_30%),linear-gradient(180deg,#0B0E14_0%,#101622_48%,#0B0E14_100%)] text-white"
     >
       <div className="flex min-h-screen flex-col lg:flex-row">
-        <section className="flex flex-col justify-between border-b border-black/8 bg-[#111827] px-5 py-6 text-white shadow-[0_28px_80px_rgba(15,23,42,0.18)] sm:px-8 lg:w-[42%] lg:min-w-[380px] lg:border-b-0 lg:border-r lg:px-10 lg:py-9">
+        <section className="flex flex-col justify-between border-b border-[#D4AF37]/16 bg-[#0B0E14]/78 px-5 py-6 text-white shadow-[0_34px_110px_rgba(0,0,0,0.28)] backdrop-blur-2xl sm:px-8 lg:w-[42%] lg:min-w-[380px] lg:border-b-0 lg:border-r lg:px-10 lg:py-9">
           <div className="flex items-center gap-4">
             <div className="grid h-20 w-28 place-items-center sm:h-24 sm:w-32">
               {logoUrl ? (
@@ -150,13 +150,13 @@ export function RoleSelector({ tenantName, tenantSlug, logoUrl, branding }: Prop
             </p>
           </div>
 
-          <div className="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.07] px-4 py-3">
+          <div className="flex items-center gap-3 rounded-2xl border border-[#D4AF37]/20 bg-[#1A1F2C]/70 px-4 py-3">
             <ShieldCheck className="h-5 w-5" style={{ color: highlight }} />
-            <p className="text-sm font-semibold text-white/62">{tr('access.securePin')}</p>
+            <p className="text-sm font-semibold text-[#8b97a8]">{tr('access.securePin')}</p>
           </div>
         </section>
 
-        <section className="flex flex-1 items-center justify-center bg-[radial-gradient(circle_at_50%_12%,rgba(230,95,26,0.08),transparent_38%)] p-4 sm:p-8 lg:p-10">
+        <section className="flex flex-1 items-center justify-center bg-[radial-gradient(circle_at_50%_12%,rgba(212,175,55,0.10),transparent_38%)] p-4 sm:p-8 lg:p-10">
           <div className="w-full max-w-4xl space-y-4">
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               {deviceLinks.map((item) => {
@@ -165,7 +165,7 @@ export function RoleSelector({ tenantName, tenantSlug, logoUrl, branding }: Prop
                   <a
                     key={item.label}
                     href={item.href}
-                    className="group flex items-center gap-4 rounded-3xl border border-black/8 bg-white p-4 text-left shadow-[0_22px_70px_rgba(15,23,42,0.08)] transition-all active:scale-[0.98] hover:-translate-y-0.5 hover:border-[#e65f1a]/28 hover:shadow-[0_26px_80px_rgba(15,23,42,0.12)]"
+                    className="group flex items-center gap-4 rounded-3xl border border-[#D4AF37]/16 bg-[#1A1F2C]/78 p-4 text-left shadow-[0_24px_90px_rgba(0,0,0,0.22)] transition-all active:scale-[0.98] hover:-translate-y-0.5 hover:border-[#D4AF37]/38 hover:bg-[#20283a]"
                   >
                     <div
                       className="grid h-14 w-14 flex-shrink-0 place-items-center rounded-2xl border"
@@ -174,13 +174,13 @@ export function RoleSelector({ tenantName, tenantSlug, logoUrl, branding }: Prop
                       <Icon className="h-6 w-6" />
                     </div>
                     <div className="min-w-0 flex-1">
-                      <p className="text-xs font-black uppercase tracking-[0.16em] text-[#b74710]">
+                      <p className="text-xs font-black uppercase tracking-[0.16em] text-[#D4AF37]">
                         {tr('access.quick')}
                       </p>
-                      <h3 className="mt-1 text-xl font-black text-[#111827]">{item.label}</h3>
-                      <p className="text-sm font-semibold text-slate-500">{item.desc}</p>
+                      <h3 className="mt-1 text-xl font-black text-white">{item.label}</h3>
+                      <p className="text-sm font-semibold text-[#8b97a8]">{item.desc}</p>
                     </div>
-                    <LogIn className="h-5 w-5 text-slate-300 transition group-hover:text-[#e65f1a]" />
+                    <LogIn className="h-5 w-5 text-[#8b97a8] transition group-hover:text-[#D35A37]" />
                   </a>
                 );
               })}
@@ -197,15 +197,15 @@ export function RoleSelector({ tenantName, tenantSlug, logoUrl, branding }: Prop
                     key={role.id}
                     onClick={() => handleSelect(role.id)}
                     disabled={disabled}
-                    className={`group min-h-[138px] rounded-3xl border bg-white p-4 text-left shadow-[0_22px_70px_rgba(15,23,42,0.08)] transition-all duration-200 active:scale-[0.98] sm:min-h-[170px] sm:p-5 lg:min-h-[190px] lg:p-6 ${
-                      disabled ? 'cursor-not-allowed opacity-55' : 'hover:-translate-y-1 hover:border-[#e65f1a]/28 hover:shadow-[0_26px_80px_rgba(15,23,42,0.12)]'
+                    className={`group min-h-[138px] rounded-3xl border p-4 text-left shadow-[0_24px_90px_rgba(0,0,0,0.22)] transition-all duration-200 active:scale-[0.98] sm:min-h-[170px] sm:p-5 lg:min-h-[190px] lg:p-6 ${
+                      disabled ? 'cursor-not-allowed opacity-55' : 'hover:-translate-y-1 hover:border-[#D4AF37]/38 hover:bg-[#20283a]'
                     }`}
                     style={{
                       background: selected
-                        ? `linear-gradient(180deg, ${highlight}12, #ffffff)`
-                        : '#ffffff',
-                      borderColor: selected ? highlight : 'rgba(17,24,39,0.08)',
-                      boxShadow: selected ? `0 24px 70px ${highlight}18` : undefined,
+                        ? `linear-gradient(180deg, ${highlight}26, rgba(26,31,44,0.92))`
+                        : 'rgba(26,31,44,0.78)',
+                      borderColor: selected ? highlight : 'rgba(212,175,55,0.16)',
+                      boxShadow: selected ? `0 26px 90px ${highlight}24` : undefined,
                     }}
                   >
                     <div className="flex h-full flex-col justify-between">
@@ -220,15 +220,15 @@ export function RoleSelector({ tenantName, tenantSlug, logoUrl, branding }: Prop
                         >
                           <Icon className="h-6 w-6 lg:h-8 lg:w-8" />
                         </div>
-                        <LogIn className="h-5 w-5 text-slate-300 transition group-hover:text-[#e65f1a]" />
+                        <LogIn className="h-5 w-5 text-[#8b97a8] transition group-hover:text-[#D35A37]" />
                       </div>
 
                       <div>
-                        <p className="text-xs font-black uppercase tracking-[0.14em] text-[#b74710] sm:text-sm sm:tracking-[0.16em]">
+                        <p className="text-xs font-black uppercase tracking-[0.14em] text-[#D4AF37] sm:text-sm sm:tracking-[0.16em]">
                           {role.desc}
                         </p>
-                        <h3 className="mt-1 text-2xl font-black text-[#111827] sm:mt-2 lg:text-3xl">{role.label}</h3>
-                        <p className="mt-2 text-sm font-semibold text-slate-500">{role.hint}</p>
+                        <h3 className="mt-1 text-2xl font-black text-white sm:mt-2 lg:text-3xl">{role.label}</h3>
+                        <p className="mt-2 text-sm font-semibold text-[#8b97a8]">{role.hint}</p>
                       </div>
                     </div>
                   </button>

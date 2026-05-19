@@ -76,7 +76,7 @@ export default function SupportForm() {
             value={form.contactName}
             onChange={(event) => updateField('contactName', event.target.value)}
             required
-            className="h-12 w-full rounded-xl border border-black/10 px-4 text-sm font-semibold outline-none focus:border-[#ff6b1a]"
+            className="h-12 w-full rounded-xl border border-black/10 px-4 text-sm font-semibold outline-none focus:border-[#D4AF37]"
           />
         </label>
         <label className="space-y-2">
@@ -86,7 +86,7 @@ export default function SupportForm() {
             value={form.contactEmail}
             onChange={(event) => updateField('contactEmail', event.target.value)}
             required
-            className="h-12 w-full rounded-xl border border-black/10 px-4 text-sm font-semibold outline-none focus:border-[#ff6b1a]"
+            className="h-12 w-full rounded-xl border border-black/10 px-4 text-sm font-semibold outline-none focus:border-[#D4AF37]"
           />
         </label>
         <label className="space-y-2">
@@ -94,7 +94,7 @@ export default function SupportForm() {
           <input
             value={form.contactPhone}
             onChange={(event) => updateField('contactPhone', event.target.value)}
-            className="h-12 w-full rounded-xl border border-black/10 px-4 text-sm font-semibold outline-none focus:border-[#ff6b1a]"
+            className="h-12 w-full rounded-xl border border-black/10 px-4 text-sm font-semibold outline-none focus:border-[#D4AF37]"
           />
         </label>
         <label className="space-y-2">
@@ -102,7 +102,7 @@ export default function SupportForm() {
           <input
             value={form.restaurantName}
             onChange={(event) => updateField('restaurantName', event.target.value)}
-            className="h-12 w-full rounded-xl border border-black/10 px-4 text-sm font-semibold outline-none focus:border-[#ff6b1a]"
+            className="h-12 w-full rounded-xl border border-black/10 px-4 text-sm font-semibold outline-none focus:border-[#D4AF37]"
           />
         </label>
       </div>
@@ -114,7 +114,7 @@ export default function SupportForm() {
             value={form.subject}
             onChange={(event) => updateField('subject', event.target.value)}
             required
-            className="h-12 w-full rounded-xl border border-black/10 px-4 text-sm font-semibold outline-none focus:border-[#ff6b1a]"
+            className="h-12 w-full rounded-xl border border-black/10 px-4 text-sm font-semibold outline-none focus:border-[#D4AF37]"
           />
         </label>
         <label className="space-y-2">
@@ -122,7 +122,7 @@ export default function SupportForm() {
           <select
             value={form.priority}
             onChange={(event) => updateField('priority', event.target.value)}
-            className="h-12 w-full rounded-xl border border-black/10 px-4 text-sm font-semibold outline-none focus:border-[#ff6b1a]"
+            className="h-12 w-full rounded-xl border border-black/10 px-4 text-sm font-semibold outline-none focus:border-[#D4AF37]"
           >
             <option value="normal">Normal</option>
             <option value="urgent">Urgente</option>
@@ -137,7 +137,7 @@ export default function SupportForm() {
           onChange={(event) => updateField('message', event.target.value)}
           required
           rows={7}
-          className="w-full resize-none rounded-xl border border-black/10 px-4 py-3 text-sm font-semibold leading-6 outline-none focus:border-[#ff6b1a]"
+          className="w-full resize-none rounded-xl border border-black/10 px-4 py-3 text-sm font-semibold leading-6 outline-none focus:border-[#D4AF37]"
         />
       </label>
 
@@ -150,7 +150,7 @@ export default function SupportForm() {
       <button
         type="submit"
         disabled={loading}
-        className="mt-5 inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-[#ff6b1a] px-5 text-sm font-black text-white shadow-lg shadow-orange-900/14 transition hover:bg-[#ed5f12] disabled:opacity-70 sm:w-auto"
+        className="mt-5 inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-[#D35A37] px-5 text-sm font-black text-white shadow-lg shadow-[#D35A37]/20 transition hover:bg-[#bd4d31] disabled:opacity-70 sm:w-auto"
       >
         {loading ? <Loader2 className="size-4 animate-spin" /> : <Send className="size-4" />}
         Enviar mensaje

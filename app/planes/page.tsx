@@ -101,7 +101,7 @@ export default function PlanesPage() {
   }, [])
 
   return (
-    <div className="min-h-screen bg-background text-foreground overflow-x-hidden">
+    <div className="ecco-platform-page min-h-screen overflow-x-hidden text-white">
       {/* Background gradient blobs */}
       <div className="fixed top-[-5%] left-1/2 -translate-x-1/2 w-[600px] h-[400px] bg-gradient-to-b from-primary/15 to-secondary/8 rounded-full blur-3xl pointer-events-none -z-10" />
       <div className="fixed bottom-0 -right-40 w-[400px] h-[400px] bg-accent/8 rounded-full blur-3xl pointer-events-none -z-10" />
