@@ -120,6 +120,19 @@ export default async function CartaPage({ params }: CartaProps) {
     surfaceText = '#07111f'
     mutedText = 'rgba(7, 17, 31, 0.70)'
     border = 'rgba(7, 17, 31, 0.12)'
+  } else {
+    primary = '#D4AF37'
+    secondary = '#1A1F2C'
+    accent = '#D35A37'
+    background = '#0B0E14'
+    cardSurface = '#1A1F2C'
+    neutralSoft = 'rgba(212, 175, 55, 0.12)'
+    buttonPrimary = '#D35A37'
+    buttonPrimaryText = '#ffffff'
+    buttonSecondary = '#1A1F2C'
+    surfaceText = '#ffffff'
+    mutedText = '#8b97a8'
+    border = 'rgba(212, 175, 55, 0.18)'
   }
   const headerText = readableTextColor(primary)
   const headerMutedText = `${headerText}b3`
