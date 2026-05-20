@@ -50,6 +50,8 @@ interface KitchenBranding {
   buttonSecondaryColor: string;
   textPrimaryColor: string;
   textSecondaryColor: string;
+  borderColor?: string;
+  isLightTheme?: boolean;
   logoUrl: string | null;
 }
 
@@ -111,15 +113,19 @@ export function KitchenClient({ tenantId, tenantSlug, tenantName, country, brand
     [currencyInfo]
   );
   const brand = useMemo(() => {
-    const primary = branding.primaryColor || '#15130f';
-    const accent = branding.accentColor || primary;
-    const background = branding.backgroundColor || '#f6f3ed';
-    const surface = branding.surfaceColor || (isDark(background) ? '#111827' : '#ffffff');
-    const button = branding.buttonPrimaryColor || primary;
+    const isLightTheme = branding.isLightTheme === true;
+    const primary = branding.primaryColor || (isLightTheme ? '#ff5a00' : '#D4AF37');
+    const accent = branding.accentColor || (isLightTheme ? '#ff1f1f' : '#D35A37');
+    const background = branding.backgroundColor || (isLightTheme ? '#ffffff' : '#0B0E14');
+    const surface = branding.surfaceColor || (isLightTheme ? '#ffffff' : '#1A1F2C');
+    const button = branding.buttonPrimaryColor || (isLightTheme ? '#ff5a00' : '#D35A37');
     const primaryText = branding.textPrimaryColor || readableText(background);
-    const surfaceText = readableText(surface);
+    const surfaceText = branding.textPrimaryColor || readableText(surface);
+    const border = branding.borderColor || (isLightTheme ? 'rgba(7,17,31,.12)' : 'rgba(212,175,55,.18)');
+    const mutedText = branding.textSecondaryColor || (isLightTheme ? 'rgba(7,17,31,.70)' : '#8b97a8');
     return {
       appName: branding.appName || tenantName,
+      isLightTheme,
       primary,
       secondary: branding.secondaryColor || '#111827',
       accent,
@@ -127,11 +133,11 @@ export function KitchenClient({ tenantId, tenantSlug, tenantName, country, brand
       surface,
       surfaceText,
       soft: `${primary}14`,
-      border: `${primary}22`,
+      border,
       button,
       buttonText: readableText(button),
       primaryText,
-      mutedText: branding.textSecondaryColor || (isDark(background) ? 'rgba(255,255,255,0.68)' : 'rgba(21,19,15,0.58)'),
+      mutedText,
       logoUrl: branding.logoUrl,
     };
   }, [branding, tenantName]);
@@ -392,16 +398,28 @@ export function KitchenClient({ tenantId, tenantSlug, tenantName, country, brand
     );
   }
 
+  const panelBackground = brand.isLightTheme
+    ? 'linear-gradient(180deg, #ffffff 0%, #f8fafc 100%)'
+    : `linear-gradient(180deg, ${brand.surface} 0%, ${brand.background} 100%)`;
+  const panelSoft = brand.isLightTheme ? '#fff3e8' : 'rgba(212,175,55,.10)';
+  const panelSubtle = brand.isLightTheme ? '#f8fafc' : 'rgba(255,255,255,.065)';
+  const panelText = brand.surfaceText;
+  const panelMuted = brand.mutedText;
+  const panelAccent = brand.primary;
+
   const CartPanel = ({ isMobile = false }: { isMobile?: boolean }) => (
-    <div className={`flex h-full min-h-0 flex-col bg-[linear-gradient(180deg,rgba(255,255,255,0.08),rgba(255,255,255,0.025)),#101010] text-[#fff7df] ${isMobile ? '' : 'border-l border-[#f6b92f]/18'}`}>
-      <div className={`flex-shrink-0 border-b border-[#f6b92f]/14 ${isMobile ? 'p-3' : 'p-4'}`}>
+    <div
+      className={`flex h-full min-h-0 flex-col ${isMobile ? '' : 'border-l'}`}
+      style={{ background: panelBackground, borderColor: brand.border, color: panelText }}
+    >
+      <div className={`flex-shrink-0 border-b ${isMobile ? 'p-3' : 'p-4'}`} style={{ borderColor: brand.border }}>
         <div className="flex items-center justify-between">
           <div className="min-w-0">
-            <p className="text-xs font-black uppercase tracking-[0.16em] text-[#f6b92f]">Pedido actual</p>
-            <h2 className={`${isMobile ? 'text-lg' : 'text-xl'} truncate font-black text-[#fff7df]`}>{tableNumber ? `${tr('kitchen.table')} ${tableNumber}` : tr('kitchen.selectTable')}</h2>
+            <p className="text-xs font-black uppercase tracking-[0.16em]" style={{ color: panelAccent }}>Pedido actual</p>
+            <h2 className={`${isMobile ? 'text-lg' : 'text-xl'} truncate font-black`} style={{ color: panelText }}>{tableNumber ? `${tr('kitchen.table')} ${tableNumber}` : tr('kitchen.selectTable')}</h2>
           </div>
           {isMobile && (
-            <button onClick={() => setCartOpen(false)} className="grid h-10 w-10 flex-shrink-0 place-items-center rounded-2xl border border-white/10 bg-white/[0.08] text-[#fff7df]">
+            <button onClick={() => setCartOpen(false)} className="grid h-10 w-10 flex-shrink-0 place-items-center rounded-2xl border" style={{ backgroundColor: panelSubtle, borderColor: brand.border, color: panelText }}>
               <X className="h-5 w-5" />
             </button>
           )}
@@ -409,11 +427,11 @@ export function KitchenClient({ tenantId, tenantSlug, tenantName, country, brand
 
         <div className={isMobile ? 'mt-3' : 'mt-4'}>
           <div className="mb-2 flex items-center justify-between">
-            <span className="text-xs font-black uppercase tracking-[0.14em] text-[#f8f5ec]/58">Mesas</span>
+            <span className="text-xs font-black uppercase tracking-[0.14em]" style={{ color: panelMuted }}>Mesas</span>
             {tableNumber && <button onClick={() => setTableNumber('')} className="text-xs font-black text-red-500">Quitar</button>}
           </div>
           {tables.length === 0 ? (
-            <p className="rounded-2xl border border-[#f6b92f]/14 bg-white/[0.06] px-3 py-3 text-center text-xs font-bold text-[#f8f5ec]/64">Sin mesas configuradas</p>
+            <p className="rounded-2xl border px-3 py-3 text-center text-xs font-bold" style={{ backgroundColor: panelSubtle, borderColor: brand.border, color: panelMuted }}>Sin mesas configuradas</p>
           ) : (
             <div className={`grid gap-2 ${isMobile ? 'grid-cols-5' : 'grid-cols-4'}`}>
               {tables.map(table => {
@@ -423,7 +441,7 @@ export function KitchenClient({ tenantId, tenantSlug, tenantName, country, brand
                     key={table.id}
                     onClick={() => setTableNumber(String(table.table_number))}
                     className={`${isMobile ? 'h-10 rounded-xl' : 'h-11 rounded-2xl'} border text-sm font-black transition active:scale-95`}
-                    style={active ? { borderColor: '#f6b92f', backgroundColor: '#f6b92f', color: '#15130f', boxShadow: '0 12px 30px rgba(246,185,47,0.28)' } : { borderColor: 'rgba(246,185,47,0.16)', backgroundColor: 'rgba(255,255,255,0.07)', color: '#f8f5ec' }}
+                    style={active ? { borderColor: panelAccent, backgroundColor: panelAccent, color: readableText(panelAccent), boxShadow: `0 12px 30px ${panelAccent}33` } : { borderColor: brand.border, backgroundColor: panelSubtle, color: panelText }}
                   >
                     {table.table_number}
                   </button>
@@ -436,11 +454,11 @@ export function KitchenClient({ tenantId, tenantSlug, tenantName, country, brand
 
       <div className={`min-h-0 flex-1 space-y-3 overflow-y-auto ${isMobile ? 'p-3' : 'p-3'}`}>
         {cart.length === 0 ? (
-          <div className="grid h-full min-h-56 place-items-center rounded-[1.5rem] border border-dashed border-[#f6b92f]/18 bg-white/[0.055] p-6 text-center">
+          <div className="grid h-full min-h-56 place-items-center rounded-[1.5rem] border border-dashed p-6 text-center" style={{ backgroundColor: panelSubtle, borderColor: brand.border }}>
             <div>
-              <ShoppingCart className="mx-auto mb-3 h-8 w-8 text-[#f6b92f]/68" />
-              <p className="text-sm font-black text-[#fff7df]">Pedido vacio</p>
-              <p className="mt-1 text-xs font-semibold text-[#f8f5ec]/62">Toca productos para agregarlos.</p>
+              <ShoppingCart className="mx-auto mb-3 h-8 w-8" style={{ color: panelAccent }} />
+              <p className="text-sm font-black" style={{ color: panelText }}>Pedido vacio</p>
+              <p className="mt-1 text-xs font-semibold" style={{ color: panelMuted }}>Toca productos para agregarlos.</p>
             </div>
           </div>
         ) : (
@@ -453,13 +471,13 @@ export function KitchenClient({ tenantId, tenantSlug, tenantName, country, brand
               Limpiar
             </button>
             {cart.map(item => (
-              <div key={item.line_id} className="rounded-[1.35rem] border border-[#f6b92f]/16 bg-white/[0.065] p-3">
+              <div key={item.line_id} className="rounded-[1.35rem] border p-3" style={{ backgroundColor: panelSubtle, borderColor: brand.border }}>
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0">
-                    <p className="line-clamp-2 text-sm font-black leading-5 text-[#fff7df]">{item.name}</p>
-                    <p className="mt-1 text-xs font-black text-[#f8f5ec]/58">{money(item.price)} unidad</p>
+                    <p className="line-clamp-2 text-sm font-black leading-5" style={{ color: panelText }}>{item.name}</p>
+                    <p className="mt-1 text-xs font-black" style={{ color: panelMuted }}>{money(item.price)} unidad</p>
                     {item.toppings && item.toppings.length > 0 && (
-                      <p className="mt-1 line-clamp-2 text-[11px] font-bold text-[#f8f5ec]/58">
+                      <p className="mt-1 line-clamp-2 text-[11px] font-bold" style={{ color: panelMuted }}>
                         {item.toppings.map(t => t.name).join(', ')}
                       </p>
                     )}
@@ -471,15 +489,15 @@ export function KitchenClient({ tenantId, tenantSlug, tenantName, country, brand
 
                 <div className="mt-3 flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <button onClick={() => updateQty(item.line_id, -1)} className="grid h-10 w-10 place-items-center rounded-2xl border border-white/10 bg-white/[0.08] text-[#fff7df] active:scale-95">
+                    <button onClick={() => updateQty(item.line_id, -1)} className="grid h-10 w-10 place-items-center rounded-2xl border active:scale-95" style={{ backgroundColor: panelSubtle, borderColor: brand.border, color: panelText }}>
                       <Minus className="h-4 w-4" />
                     </button>
-                    <span className="w-7 text-center text-lg font-black text-[#fff7df]">{item.quantity}</span>
+                    <span className="w-7 text-center text-lg font-black" style={{ color: panelText }}>{item.quantity}</span>
                     <button onClick={() => updateQty(item.line_id, 1)} className="grid h-10 w-10 place-items-center rounded-2xl active:scale-95" style={{ backgroundColor: brand.button, color: brand.buttonText }}>
                       <Plus className="h-4 w-4" />
                     </button>
                   </div>
-                  <span className="text-base font-black text-[#ffd66b]">{money(item.price * item.quantity)}</span>
+                  <span className="text-base font-black" style={{ color: panelAccent }}>{money(item.price * item.quantity)}</span>
                 </div>
 
                 {editingNote === item.line_id ? (
@@ -498,7 +516,8 @@ export function KitchenClient({ tenantId, tenantSlug, tenantName, country, brand
                 ) : (
                   <button
                     onClick={() => { setEditingNote(item.line_id); setNoteText(item.notes); }}
-                    className="mt-3 rounded-full border border-[#f6b92f]/14 bg-white/[0.07] px-3 py-1.5 text-xs font-black text-[#f8f5ec]/62"
+                    className="mt-3 rounded-full border px-3 py-1.5 text-xs font-black"
+                    style={{ backgroundColor: panelSubtle, borderColor: brand.border, color: panelMuted }}
                   >
                     {item.notes ? item.notes : '+ Nota'}
                   </button>
@@ -509,13 +528,13 @@ export function KitchenClient({ tenantId, tenantSlug, tenantName, country, brand
         )}
       </div>
 
-      <div className={`flex-shrink-0 border-t border-[#f6b92f]/14 bg-black/40 ${isMobile ? 'p-3' : 'p-4'}`}>
-        <div className="mb-3 space-y-2 rounded-2xl border border-[#f6b92f]/14 bg-[#f6b92f]/8 p-3">
-          <div className="flex items-center justify-between text-xs font-bold text-[#f8f5ec]/62">
+      <div className={`flex-shrink-0 border-t ${isMobile ? 'p-3' : 'p-4'}`} style={{ backgroundColor: brand.isLightTheme ? '#ffffff' : 'rgba(0,0,0,.22)', borderColor: brand.border }}>
+        <div className="mb-3 space-y-2 rounded-2xl border p-3" style={{ backgroundColor: panelSoft, borderColor: brand.border }}>
+          <div className="flex items-center justify-between text-xs font-bold" style={{ color: panelMuted }}>
             <span>{cartCount} productos</span>
             <span>Pedido actual</span>
           </div>
-          <div className="space-y-1.5 text-sm font-black text-[#fff7df]">
+          <div className="space-y-1.5 text-sm font-black" style={{ color: panelText }}>
             <div className="flex items-center justify-between">
               <span>{tr('kitchen.subtotal')}:</span>
               <span>{money(subtotal)}</span>
@@ -524,9 +543,9 @@ export function KitchenClient({ tenantId, tenantSlug, tenantName, country, brand
               <span>{tr('kitchen.tax')} {taxRate > 0 ? `${taxRate}%` : '0%'}:</span>
               <span>{money(taxAmount)}</span>
             </div>
-            <div className="flex items-end justify-between border-t border-[#f6b92f]/14 pt-2">
+            <div className="flex items-end justify-between border-t pt-2" style={{ borderColor: brand.border }}>
               <span>{tr('kitchen.total')}:</span>
-              <span className="text-2xl font-black text-[#ffd66b]">{money(total)}</span>
+              <span className="text-2xl font-black" style={{ color: panelAccent }}>{money(total)}</span>
             </div>
           </div>
         </div>
@@ -544,14 +563,23 @@ export function KitchenClient({ tenantId, tenantSlug, tenantName, country, brand
   );
 
   return (
-    <div className="flex h-screen flex-col overflow-hidden" style={{ backgroundColor: brand.background, color: brand.primaryText }}>
-      <header className="border-b border-black/10 px-4 py-3 shadow-2xl shadow-black/20" style={{ backgroundColor: brand.secondary, color: readableText(brand.secondary) }}>
+    <div
+      className="flex h-screen flex-col overflow-hidden"
+      style={{
+        backgroundColor: brand.background,
+        backgroundImage: brand.isLightTheme
+          ? 'linear-gradient(180deg, #ffffff 0%, #f4f4f5 58%, #e5e7eb 100%)'
+          : `linear-gradient(135deg, ${brand.background} 0%, ${brand.surface} 54%, ${brand.background} 100%)`,
+        color: brand.primaryText,
+      }}
+    >
+      <header className="border-b px-4 py-3 shadow-2xl shadow-black/20" style={{ backgroundColor: brand.isLightTheme ? '#ffffff' : brand.secondary, borderColor: brand.border, color: brand.isLightTheme ? brand.surfaceText : readableText(brand.secondary) }}>
         <div className="flex items-center justify-between gap-3">
           <div className="flex min-w-0 items-center gap-3">
             {brand.logoUrl ? (
               <img src={brand.logoUrl} alt={brand.appName} className="h-11 w-11 flex-shrink-0 object-contain" />
             ) : (
-              <div className="grid h-11 w-11 flex-shrink-0 place-items-center rounded-2xl bg-white" style={{ color: brand.primary }}>
+              <div className="grid h-11 w-11 flex-shrink-0 place-items-center rounded-2xl" style={{ backgroundColor: brand.isLightTheme ? '#fff3e8' : '#ffffff', color: brand.primary }}>
                 <ClipboardList className="h-6 w-6" />
               </div>
             )}
@@ -561,13 +589,14 @@ export function KitchenClient({ tenantId, tenantSlug, tenantName, country, brand
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <label className="hidden min-w-0 items-center gap-2 rounded-2xl bg-white/8 px-3 py-2 lg:flex">
-              <UserRound className="h-4 w-4 text-white/50" />
+            <label className="hidden min-w-0 items-center gap-2 rounded-2xl px-3 py-2 lg:flex" style={{ backgroundColor: brand.isLightTheme ? '#f8fafc' : 'rgba(255,255,255,.08)', color: brand.mutedText }}>
+              <UserRound className="h-4 w-4" />
               <input
                 value={waiterName}
                 onChange={e => setWaiterName(e.target.value)}
                 placeholder="Camarero"
-                className="w-32 bg-transparent text-sm font-bold text-white outline-none placeholder:text-white/35"
+                className="w-32 bg-transparent text-sm font-bold outline-none"
+                style={{ color: brand.surfaceText }}
               />
             </label>
             <button
@@ -579,7 +608,7 @@ export function KitchenClient({ tenantId, tenantSlug, tenantName, country, brand
               }}
               title={searchOpen ? 'Cerrar busqueda' : 'Buscar producto'}
               className="grid h-10 w-10 place-items-center rounded-xl border transition active:scale-95"
-              style={{ backgroundColor: searchOpen ? brand.primary : 'rgba(255,255,255,0.08)', borderColor: 'rgba(255,255,255,0.14)', color: searchOpen ? readableText(brand.primary) : readableText(brand.secondary) }}
+              style={{ backgroundColor: searchOpen ? brand.primary : (brand.isLightTheme ? '#f8fafc' : 'rgba(255,255,255,0.08)'), borderColor: brand.border, color: searchOpen ? readableText(brand.primary) : (brand.isLightTheme ? brand.surfaceText : readableText(brand.secondary)) }}
             >
               {searchOpen ? <X className="h-4 w-4" /> : <Search className="h-4 w-4" />}
             </button>
@@ -587,11 +616,11 @@ export function KitchenClient({ tenantId, tenantSlug, tenantName, country, brand
               onClick={openAccountSelector}
               title="Ver cuenta completa"
               className="grid h-10 w-10 place-items-center rounded-xl border transition active:scale-95"
-              style={{ backgroundColor: 'rgba(255,255,255,0.08)', borderColor: 'rgba(255,255,255,0.14)', color: readableText(brand.secondary) }}
+              style={{ backgroundColor: brand.isLightTheme ? '#f8fafc' : 'rgba(255,255,255,0.08)', borderColor: brand.border, color: brand.isLightTheme ? brand.surfaceText : readableText(brand.secondary) }}
             >
               <ReceiptText className="h-4 w-4" />
             </button>
-            <LanguageSwitcher compact className="border-black/10 bg-white/80" />
+            <LanguageSwitcher compact className={brand.isLightTheme ? 'border-black/10 bg-white text-gray-900' : 'border-white/18 bg-black/35 text-white'} />
             <button onClick={() => setCartOpen(true)} className="relative grid h-10 w-10 place-items-center rounded-xl md:hidden" style={{ backgroundColor: brand.button, color: brand.buttonText }}>
               <ShoppingCart className="h-5 w-5" />
               {cartCount > 0 && <span className="absolute -right-1 -top-1 grid h-5 min-w-5 place-items-center rounded-full bg-red-500 px-1 text-[10px] font-black">{cartCount}</span>}
@@ -609,7 +638,7 @@ export function KitchenClient({ tenantId, tenantSlug, tenantName, country, brand
 
       <div className="flex flex-1 overflow-hidden">
         <main className="flex min-w-0 flex-1 flex-col overflow-hidden">
-          <div className="border-b border-black/10 px-2 py-2" style={{ backgroundColor: brand.surface }}>
+          <div className="border-b px-2 py-2" style={{ backgroundColor: brand.surface, borderColor: brand.border }}>
             {searchOpen && (
               <input
                 autoFocus
@@ -669,10 +698,10 @@ export function KitchenClient({ tenantId, tenantSlug, tenantName, country, brand
                           <p className="mt-1 text-sm font-black" style={{ color: brand.accent }}>{money(item.price)}</p>
                         </div>
                       </button>
-                      <div className="flex items-center justify-between border-t border-black/8 p-1.5">
+                      <div className="flex items-center justify-between border-t p-1.5" style={{ borderColor: brand.border }}>
                         {qty > 0 ? (
                           <>
-                            <button onClick={() => updateQty(cart.find(c => c.menu_item_id === item.id)?.line_id || item.id, -1)} className="grid h-9 w-9 place-items-center rounded-xl bg-black/[0.06] active:scale-95"><Minus className="h-4 w-4" /></button>
+                            <button onClick={() => updateQty(cart.find(c => c.menu_item_id === item.id)?.line_id || item.id, -1)} className="grid h-9 w-9 place-items-center rounded-xl active:scale-95" style={{ backgroundColor: brand.soft, color: brand.surfaceText }}><Minus className="h-4 w-4" /></button>
                             <span className="text-base font-black">{qty}</span>
                             <button onClick={() => openProduct(item)} className="grid h-9 w-9 place-items-center rounded-xl active:scale-95" style={{ backgroundColor: brand.button, color: brand.buttonText }}><Plus className="h-4 w-4" /></button>
                           </>
@@ -697,7 +726,7 @@ export function KitchenClient({ tenantId, tenantSlug, tenantName, country, brand
       </div>
 
       {cartCount > 0 && (
-        <div className="fixed inset-x-0 bottom-0 z-20 bg-gradient-to-t from-[#f6f3ed] via-[#f6f3ed]/95 to-transparent p-3 md:hidden">
+        <div className="fixed inset-x-0 bottom-0 z-20 p-3 md:hidden" style={{ background: `linear-gradient(180deg, transparent, ${brand.background} 24%, ${brand.background})` }}>
           <button onClick={() => setCartOpen(true)} className="flex h-16 w-full items-center justify-between rounded-[1.4rem] px-4 font-black shadow-2xl shadow-black/20 active:scale-[0.98]" style={{ backgroundColor: brand.button, color: brand.buttonText }}>
             <span className="grid h-9 min-w-9 place-items-center rounded-full bg-white/15 px-2 text-sm">{cartCount}</span>
             <span className="flex items-center gap-2"><ShoppingCart className="h-5 w-5" /> {tr('kitchen.viewOrder')}</span>
@@ -712,7 +741,7 @@ export function KitchenClient({ tenantId, tenantSlug, tenantName, country, brand
               <span>{tr('kitchen.tax')} {taxRate > 0 ? `${taxRate}%` : '0%'}:</span>
               <span>{money(taxAmount)}</span>
             </div>
-            <div className="mt-1 flex items-center justify-between border-t border-black/10 pt-2" style={{ color: brand.primary }}>
+            <div className="mt-1 flex items-center justify-between border-t pt-2" style={{ color: brand.primary, borderColor: brand.border }}>
               <span>{tr('kitchen.total')}:</span>
               <span>{money(total)}</span>
             </div>
@@ -722,13 +751,16 @@ export function KitchenClient({ tenantId, tenantSlug, tenantName, country, brand
 
       {accountOpen && (
         <div className="fixed inset-0 z-50 bg-black/62 p-3 backdrop-blur-md">
-          <div className="mx-auto flex h-full max-w-lg flex-col overflow-hidden rounded-[1.5rem] border border-[#f6b92f]/22 bg-[linear-gradient(180deg,rgba(255,255,255,0.09),rgba(255,255,255,0.035)),#101010] text-[#fff7df] shadow-[0_28px_90px_rgba(0,0,0,0.58),0_0_60px_rgba(246,185,47,0.12)]">
-            <div className="flex items-center justify-between border-b border-[#f6b92f]/14 p-4">
+          <div
+            className="mx-auto flex h-full max-w-lg flex-col overflow-hidden rounded-[1.5rem] border shadow-[0_28px_90px_rgba(0,0,0,0.38)]"
+            style={{ background: panelBackground, borderColor: brand.border, color: panelText }}
+          >
+            <div className="flex items-center justify-between border-b p-4" style={{ borderColor: brand.border }}>
               <div>
-                <p className="text-xs font-black uppercase tracking-[0.18em] text-[#f6b92f]">{tr('kitchen.fullAccount')}</p>
-                <h3 className="text-xl font-black text-[#fff7df]">{accountTableNumber ? `${tr('kitchen.table')} ${accountTableNumber}` : tr('kitchen.selectTable')}</h3>
+                <p className="text-xs font-black uppercase tracking-[0.18em]" style={{ color: panelAccent }}>{tr('kitchen.fullAccount')}</p>
+                <h3 className="text-xl font-black" style={{ color: panelText }}>{accountTableNumber ? `${tr('kitchen.table')} ${accountTableNumber}` : tr('kitchen.selectTable')}</h3>
               </div>
-              <button onClick={() => setAccountOpen(false)} className="grid h-10 w-10 place-items-center rounded-2xl border border-white/10 bg-white/[0.08] text-[#fff7df] transition active:scale-95">
+              <button onClick={() => setAccountOpen(false)} className="grid h-10 w-10 place-items-center rounded-2xl border transition active:scale-95" style={{ backgroundColor: panelSubtle, borderColor: brand.border, color: panelText }}>
                 <X className="h-5 w-5" />
               </button>
             </div>
@@ -737,11 +769,11 @@ export function KitchenClient({ tenantId, tenantSlug, tenantName, country, brand
               {!accountTableNumber ? (
                 <div className="space-y-4">
                   <div>
-                    <p className="text-sm font-black text-[#fff7df]">Elige la mesa para ver toda la cuenta del servicio</p>
-                    <p className="mt-1 text-xs font-bold leading-relaxed text-[#f8f5ec]/62">Aqui no se envia pedido. Solo consulta el total acumulado de la mesa.</p>
+                    <p className="text-sm font-black" style={{ color: panelText }}>Elige la mesa para ver toda la cuenta del servicio</p>
+                    <p className="mt-1 text-xs font-bold leading-relaxed" style={{ color: panelMuted }}>Aqui no se envia pedido. Solo consulta el total acumulado de la mesa.</p>
                   </div>
                   {tables.length === 0 ? (
-                    <div className="rounded-2xl border border-dashed border-[#f6b92f]/20 bg-white/[0.06] p-6 text-center text-sm font-black text-[#f8f5ec]/64">
+                    <div className="rounded-2xl border border-dashed p-6 text-center text-sm font-black" style={{ backgroundColor: panelSubtle, borderColor: brand.border, color: panelMuted }}>
                       No hay mesas configuradas
                     </div>
                   ) : (
@@ -750,7 +782,8 @@ export function KitchenClient({ tenantId, tenantSlug, tenantName, country, brand
                         <button
                           key={table.id}
                           onClick={() => loadTableAccount(String(table.table_number))}
-                          className="h-14 rounded-2xl border border-[#f6b92f]/18 bg-white/[0.08] text-base font-black text-[#ffd66b] transition hover:border-[#f6b92f]/40 hover:bg-[#f6b92f]/12 active:scale-95"
+                          className="h-14 rounded-2xl border text-base font-black transition active:scale-95"
+                          style={{ backgroundColor: panelSubtle, borderColor: brand.border, color: panelAccent }}
                         >
                           Mesa {table.table_number}
                         </button>
@@ -761,17 +794,18 @@ export function KitchenClient({ tenantId, tenantSlug, tenantName, country, brand
               ) : loadingAccount ? (
                 <div className="grid h-48 place-items-center text-sm font-black text-[#f8f5ec]/62">Cargando cuenta...</div>
               ) : openTableOrders.length === 0 ? (
-                <div className="grid h-48 place-items-center rounded-2xl border border-dashed border-[#f6b92f]/20 bg-white/[0.06] p-5 text-center">
+                <div className="grid h-48 place-items-center rounded-2xl border border-dashed p-5 text-center" style={{ backgroundColor: panelSubtle, borderColor: brand.border }}>
                   <div>
-                    <ReceiptText className="mx-auto mb-3 h-8 w-8 text-[#f6b92f]/72" />
-                    <p className="text-sm font-black text-[#fff7df]">No hay pedidos abiertos en esta mesa</p>
-                    {draftBelongsToAccountTable && <p className="mt-1 text-xs font-bold text-[#f8f5ec]/58">El pedido actual aun no se ha enviado a cocina.</p>}
+                    <ReceiptText className="mx-auto mb-3 h-8 w-8" style={{ color: panelAccent }} />
+                    <p className="text-sm font-black" style={{ color: panelText }}>No hay pedidos abiertos en esta mesa</p>
+                    {draftBelongsToAccountTable && <p className="mt-1 text-xs font-bold" style={{ color: panelMuted }}>El pedido actual aun no se ha enviado a cocina.</p>}
                     <button
                       onClick={() => {
                         setAccountTableNumber('');
                         setOpenTableOrders([]);
                       }}
-                      className="mt-4 rounded-xl border border-[#f6b92f]/22 bg-[#f6b92f]/10 px-4 py-2 text-xs font-black text-[#ffd66b]"
+                      className="mt-4 rounded-xl border px-4 py-2 text-xs font-black"
+                      style={{ backgroundColor: panelSoft, borderColor: brand.border, color: panelAccent }}
                     >
                       Ver otra mesa
                     </button>
@@ -784,24 +818,25 @@ export function KitchenClient({ tenantId, tenantSlug, tenantName, country, brand
                       setAccountTableNumber('');
                       setOpenTableOrders([]);
                     }}
-                    className="rounded-xl border border-[#f6b92f]/22 bg-[#f6b92f]/10 px-4 py-2 text-xs font-black text-[#ffd66b]"
+                    className="rounded-xl border px-4 py-2 text-xs font-black"
+                    style={{ backgroundColor: panelSoft, borderColor: brand.border, color: panelAccent }}
                   >
                     Cambiar mesa
                   </button>
                   {openTableOrders.map((order) => (
-                    <div key={order.id} className="rounded-2xl border border-[#f6b92f]/16 bg-white/[0.07] p-3">
+                    <div key={order.id} className="rounded-2xl border p-3" style={{ backgroundColor: panelSubtle, borderColor: brand.border }}>
                       <div className="mb-2 flex items-center justify-between gap-2">
-                        <p className="text-sm font-black text-[#fff7df]">#{order.order_number}</p>
-                        <p className="text-sm font-black text-[#ffd66b]">{money(getServedOrderTotal(order))}</p>
+                        <p className="text-sm font-black" style={{ color: panelText }}>#{order.order_number}</p>
+                        <p className="text-sm font-black" style={{ color: panelAccent }}>{money(getServedOrderTotal(order))}</p>
                       </div>
-                      {order.waiter_name && <p className="mb-2 text-xs font-bold text-[#f8f5ec]/55">Camarero: {order.waiter_name}</p>}
+                      {order.waiter_name && <p className="mb-2 text-xs font-bold" style={{ color: panelMuted }}>Camarero: {order.waiter_name}</p>}
                       <div className="space-y-1">
                         {(order.items || []).map((item, index) => {
                           const qty = item.qty ?? item.quantity ?? 1;
                           return (
                             <div key={`${order.id}-${index}`} className="flex justify-between gap-2 text-sm">
-                              <span className="min-w-0 truncate font-bold text-[#f8f5ec]/74">{qty}x {item.name}</span>
-                              <span className="font-black text-[#fff7df]">{money(item.price * qty)}</span>
+                              <span className="min-w-0 truncate font-bold" style={{ color: panelMuted }}>{qty}x {item.name}</span>
+                              <span className="font-black" style={{ color: panelText }}>{money(item.price * qty)}</span>
                             </div>
                           );
                         })}
@@ -812,32 +847,32 @@ export function KitchenClient({ tenantId, tenantSlug, tenantName, country, brand
               )}
             </div>
 
-            <div className="border-t border-[#f6b92f]/14 bg-black/24 p-4">
+            <div className="border-t p-4" style={{ backgroundColor: brand.isLightTheme ? '#ffffff' : 'rgba(0,0,0,.22)', borderColor: brand.border }}>
               {accountTableNumber ? (
-                <div className="space-y-1 rounded-2xl border border-[#f6b92f]/14 bg-[#f6b92f]/8 p-3">
-                  <div className="flex justify-between text-sm font-bold text-[#f8f5ec]/62">
+                <div className="space-y-1 rounded-2xl border p-3" style={{ backgroundColor: panelSoft, borderColor: brand.border }}>
+                  <div className="flex justify-between text-sm font-bold" style={{ color: panelMuted }}>
                     <span>Subtotal servido</span>
                     <span>{money(openTableSubtotal)}</span>
                   </div>
                   {taxRate > 0 && (
-                    <div className="flex justify-between text-sm font-bold text-[#f8f5ec]/62">
+                    <div className="flex justify-between text-sm font-bold" style={{ color: panelMuted }}>
                       <span>IVA servido</span>
                       <span>{money(openTableTax)}</span>
                     </div>
                   )}
                   {draftBelongsToAccountTable && (
-                    <div className="flex justify-between text-sm font-bold text-[#f8f5ec]/62">
+                    <div className="flex justify-between text-sm font-bold" style={{ color: panelMuted }}>
                       <span>Pedido sin enviar</span>
                       <span>{money(total)}</span>
                     </div>
                   )}
-                  <div className="flex justify-between pt-2 text-lg font-black text-[#ffd66b]">
+                  <div className="flex justify-between pt-2 text-lg font-black" style={{ color: panelAccent }}>
                     <span>Total cuenta</span>
                     <span>{money(openTableTotal + accountDraftTotal)}</span>
                   </div>
                 </div>
               ) : (
-                <div className="rounded-2xl border border-[#f6b92f]/14 bg-white/[0.07] p-3 text-center text-sm font-black text-[#f8f5ec]/70">
+                <div className="rounded-2xl border p-3 text-center text-sm font-black" style={{ backgroundColor: panelSubtle, borderColor: brand.border, color: panelMuted }}>
                   Selecciona una mesa para ver la cuenta completa.
                 </div>
               )}
@@ -849,7 +884,7 @@ export function KitchenClient({ tenantId, tenantSlug, tenantName, country, brand
       {cartOpen && (
         <div className="fixed inset-0 z-40 flex flex-col justify-end bg-black/50 md:hidden">
           <div className="absolute inset-0" onClick={() => setCartOpen(false)} />
-          <div className="relative flex h-[92dvh] min-h-0 overflow-hidden rounded-t-[2rem] border border-[#f6b92f]/18 bg-[#101010] shadow-2xl shadow-black/50">
+          <div className="relative flex h-[92dvh] min-h-0 overflow-hidden rounded-t-[2rem] border shadow-2xl shadow-black/50" style={{ background: panelBackground, borderColor: brand.border }}>
             <CartPanel isMobile />
           </div>
         </div>
