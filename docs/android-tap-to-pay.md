@@ -105,7 +105,7 @@ Para compilarlo en Android Studio:
 Para probar contra un servidor local desde un telefono fisico, usa la IP local del computador:
 
 ```bash
-./gradlew assembleDebug -PECCOFOOD_BASE_URL=http://192.168.1.50:3000
+./gradlew assembleDebug -PECCOFOOD_BASE_URL=http://192.168.1.50:3000 -PECCOFOOD_START_PATH=/parrillaburgers/acceso
 ```
 
 La version debug usa lector simulado de Tap to Pay. Para pago real, compila release, usa HTTPS, Stripe en modo correcto y un Android compatible.
