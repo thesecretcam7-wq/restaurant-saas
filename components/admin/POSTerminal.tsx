@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import { createClient } from '@/lib/supabase/client';
-import { ShoppingCart, Plus, Minus, Trash2, Search, DollarSign, CreditCard, Maximize2, Minimize2, Lock, Clock, Truck, Store, UtensilsCrossed, Archive, Monitor, Printer, CalendarDays } from 'lucide-react';
+import { ShoppingCart, Plus, Minus, Trash2, Search, DollarSign, CreditCard, Maximize2, Minimize2, Lock, Clock, Truck, Store, UtensilsCrossed, Archive, Monitor, Printer, CalendarDays, Download } from 'lucide-react';
 import { POSStaffSelector } from './POSStaffSelector';
 import { TableMap } from './TableMap';
 import { POSPayment } from './POSPayment';
@@ -747,6 +747,34 @@ export function POSTerminal({
     } catch (error) {
       console.error('Fullscreen error:', error);
     }
+  }
+
+  function downloadPOSShortcut() {
+    const origin = window.location.origin;
+    const posUrl = `${origin}/${tenantSlug || tenantId}/staff/pos`;
+    const safeRestaurantName = restaurantName
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-zA-Z0-9-_ ]/g, '')
+      .trim()
+      .replace(/\s+/g, '-')
+      .slice(0, 42) || 'Restaurante';
+    const shortcut = [
+      '[InternetShortcut]',
+      `URL=${posUrl}`,
+      'IconIndex=0',
+      `IconFile=${origin}/favicon.ico`,
+    ].join('\r\n');
+    const blob = new Blob([shortcut], { type: 'application/internet-shortcut' });
+    const href = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = href;
+    link.download = `TPV-${safeRestaurantName}.url`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(href);
+    setToast({ message: 'Acceso directo del TPV descargado', type: 'success' });
   }
 
   async function handleOpenCashClosing() {
@@ -2263,6 +2291,14 @@ export function POSTerminal({
                 </span>
               )}
             </button>
+            <button
+              onClick={downloadPOSShortcut}
+              className="pos-action-ghost"
+              title="Descargar acceso directo al TPV"
+            >
+              <Download className="w-5 h-5" />
+              <span className="hidden sm:inline">Acceso</span>
+            </button>
             {todayReservations.length > 0 && (
               <div
                 className="pos-action-ghost border-amber-300/55 bg-amber-300/14 text-amber-100 shadow-[0_0_18px_rgba(251,191,36,0.22)]"
@@ -2434,6 +2470,14 @@ export function POSTerminal({
                 >
                   <Monitor className="w-5 h-5" />
                   <span className="hidden sm:inline">Cliente</span>
+                </button>
+                <button
+                  onClick={downloadPOSShortcut}
+                  className="pos-action-ghost"
+                  title="Descargar acceso directo al TPV"
+                >
+                  <Download className="w-5 h-5" />
+                  <span className="hidden sm:inline">Acceso</span>
                 </button>
                 <button
                   onClick={async () => {
