@@ -1366,11 +1366,14 @@ export function POSTerminal({
         .eq('tenant_id', tenantId)
         .eq('delivery_type', 'dine-in')
         .eq('payment_status', 'pending')
+        .not('status', 'in', '("delivered","cancelled")')
         .order('created_at', { ascending: false })
         .limit(20);
 
       if (!error && data) {
-        const mapped = data as DineInOrder[];
+        const mapped = (data as DineInOrder[]).filter((order) =>
+          (order.items || []).some((item) => getOrderItemQty(item) > 0)
+        );
         const newOrders = mapped.filter((order) => !knownDineInOrderIds.current.has(order.id));
 
         setDineInOrders(mapped);
@@ -1450,14 +1453,31 @@ export function POSTerminal({
 
     const updatedItems = order.items.filter((_, i) => i !== itemIndex);
     const newTotal = getOrderItemsTotal(updatedItems);
+    const isEmptyOrder = updatedItems.length === 0;
+
+    const orderUpdate: Record<string, any> = {
+      items: updatedItems,
+      subtotal: newTotal,
+      tax: 0,
+      total: newTotal,
+    };
+    if (isEmptyOrder) {
+      orderUpdate.status = 'cancelled';
+      orderUpdate.cancel_reason = selectedStaffName
+        ? `Comanda vacia anulada desde TPV por ${selectedStaffName}`
+        : 'Comanda vacia anulada desde TPV';
+    }
 
     await supabase
       .from('orders')
-      .update({ items: updatedItems, total: newTotal })
+      .update(orderUpdate)
       .eq('id', orderId);
 
     await fetchDineInOrders();
-    setToast({ message: 'Ítem anulado', type: 'success' });
+    setToast({
+      message: isEmptyOrder ? 'Comanda vacia anulada' : 'Ítem anulado',
+      type: 'success'
+    });
   }
 
   function loadTableToCart(tableOrders: DineInOrder[]) {
@@ -2152,6 +2172,7 @@ export function POSTerminal({
   const tableGroups = useMemo((): TableGroup[] => {
     const groups = new Map<number, DineInOrder[]>();
     dineInOrders.forEach(order => {
+      if (!(order.items || []).some((item) => getOrderItemQty(item) > 0)) return;
       const tableNum = order.table_number ?? 0;
       if (!groups.has(tableNum)) groups.set(tableNum, []);
       groups.get(tableNum)!.push(order);
@@ -2766,8 +2787,8 @@ export function POSTerminal({
             >
               <div className="relative">
                 <UtensilsCrossed className="w-4 h-4" />
-                {dineInOrders.length > 0 && (
-                  <span className="absolute -top-1.5 -right-2 bg-emerald-500 text-white rounded-full w-4 h-4 text-[9px] font-black flex items-center justify-center">{dineInOrders.length}</span>
+                {tableGroups.length > 0 && (
+                  <span className="absolute -top-1.5 -right-2 bg-emerald-500 text-white rounded-full w-4 h-4 text-[9px] font-black flex items-center justify-center">{tableGroups.length}</span>
                 )}
               </div>
               <span className="text-[10px] font-bold">Salón</span>
