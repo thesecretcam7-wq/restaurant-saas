@@ -128,7 +128,6 @@ export function RoleLoginClient({
   const [phase, setPhase] = useState<'select' | 'pin'>('select');
   const [isAndroidTapToPay, setIsAndroidTapToPay] = useState(false);
   const pinInputRef = useRef<HTMLInputElement | null>(null);
-  const staffSelectRef = useRef<HTMLSelectElement | null>(null);
   const config = ROLE_CONFIG[role];
   const RoleIcon = config.icon;
 
@@ -142,7 +141,7 @@ export function RoleLoginClient({
   const secondaryText = readableText(secondaryHighlight);
   const appName = branding.appName || tenantName;
   const accessPath = `/${tenantSlug}/acceso`;
-  const useAndroidWaiterAccess = isAndroidTapToPay && role === 'camarero';
+  const useButtonStaffAccess = role === 'camarero' || isAndroidTapToPay;
 
   async function handleStaffSelect(selectedId: string) {
     const selected = staffMembers.find((staff) => staff.id === selectedId);
@@ -154,11 +153,6 @@ export function RoleLoginClient({
     setStaffName(selected.name);
     setError('');
     setPhase('pin');
-  }
-
-  function continueWithSelectedStaff() {
-    const selectedId = staffSelectRef.current?.value || staffId;
-    handleStaffSelect(selectedId);
   }
 
   useEffect(() => {
@@ -453,14 +447,18 @@ export function RoleLoginClient({
             {phase === 'select' ? (
               <div className="space-y-4">
                 <label className="block text-sm font-bold text-[#8b97a8]">Empleado</label>
-                {useAndroidWaiterAccess ? (
+                {useButtonStaffAccess ? (
                   <div className="grid gap-3">
                     {staffMembers.map((staff) => (
                       <button
                         key={staff.id}
                         type="button"
                         onClick={() => handleStaffSelect(staff.id)}
-                        onPointerUp={(event) => {
+                        onPointerDown={(event) => {
+                          event.preventDefault();
+                          handleStaffSelect(staff.id);
+                        }}
+                        onTouchStart={(event) => {
                           event.preventDefault();
                           handleStaffSelect(staff.id);
                         }}
@@ -472,7 +470,6 @@ export function RoleLoginClient({
                   </div>
                 ) : (
                   <select
-                    ref={staffSelectRef}
                     value={staffId}
                     onChange={(event) => handleStaffSelect(event.target.value)}
                     onInput={(event) => handleStaffSelect(event.currentTarget.value)}
@@ -486,20 +483,6 @@ export function RoleLoginClient({
                       </option>
                     ))}
                   </select>
-                )}
-
-                {!useAndroidWaiterAccess && role === 'camarero' && (
-                  <button
-                    type="button"
-                    onClick={continueWithSelectedStaff}
-                    onPointerUp={(event) => {
-                      event.preventDefault();
-                      continueWithSelectedStaff();
-                    }}
-                    className="h-12 w-full rounded-2xl bg-[#D35A37] text-sm font-black text-white shadow-[0_16px_34px_rgba(211,90,55,0.24)] transition active:scale-[0.98]"
-                  >
-                    Continuar
-                  </button>
                 )}
 
                 {staffMembers.length === 0 && (
