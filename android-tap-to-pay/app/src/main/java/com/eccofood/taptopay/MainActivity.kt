@@ -74,6 +74,8 @@ class MainActivity : AppCompatActivity() {
             override fun onPageFinished(view: WebView, url: String) {
                 super.onPageFinished(view, url)
                 dispatchAndroidReady()
+                view.postDelayed({ dispatchAndroidReady() }, 500)
+                view.postDelayed({ dispatchAndroidReady() }, 1500)
             }
 
             override fun onReceivedError(view: WebView, request: WebResourceRequest, error: WebResourceError) {

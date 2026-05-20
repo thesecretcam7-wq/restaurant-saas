@@ -128,6 +128,7 @@ export function RoleLoginClient({
   const [phase, setPhase] = useState<'select' | 'pin'>('select');
   const [isAndroidTapToPay, setIsAndroidTapToPay] = useState(false);
   const pinInputRef = useRef<HTMLInputElement | null>(null);
+  const staffSelectRef = useRef<HTMLSelectElement | null>(null);
   const config = ROLE_CONFIG[role];
   const RoleIcon = config.icon;
 
@@ -153,6 +154,11 @@ export function RoleLoginClient({
     setStaffName(selected.name);
     setError('');
     setPhase('pin');
+  }
+
+  function continueWithSelectedStaff() {
+    const selectedId = staffSelectRef.current?.value || staffId;
+    handleStaffSelect(selectedId);
   }
 
   useEffect(() => {
@@ -466,8 +472,10 @@ export function RoleLoginClient({
                   </div>
                 ) : (
                   <select
+                    ref={staffSelectRef}
                     value={staffId}
                     onChange={(event) => handleStaffSelect(event.target.value)}
+                    onInput={(event) => handleStaffSelect(event.currentTarget.value)}
                     autoFocus
                     className="w-full rounded-2xl border border-[#D4AF37]/20 bg-[#0B0E14]/70 px-4 py-4 text-lg font-bold text-white outline-none transition focus:border-[#D4AF37] focus:ring-4 focus:ring-[#D4AF37]/10"
                   >
@@ -478,6 +486,20 @@ export function RoleLoginClient({
                       </option>
                     ))}
                   </select>
+                )}
+
+                {!useAndroidWaiterAccess && role === 'camarero' && (
+                  <button
+                    type="button"
+                    onClick={continueWithSelectedStaff}
+                    onPointerUp={(event) => {
+                      event.preventDefault();
+                      continueWithSelectedStaff();
+                    }}
+                    className="h-12 w-full rounded-2xl bg-[#D35A37] text-sm font-black text-white shadow-[0_16px_34px_rgba(211,90,55,0.24)] transition active:scale-[0.98]"
+                  >
+                    Continuar
+                  </button>
                 )}
 
                 {staffMembers.length === 0 && (
