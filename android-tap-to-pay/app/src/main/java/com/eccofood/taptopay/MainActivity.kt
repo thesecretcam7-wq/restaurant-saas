@@ -7,6 +7,7 @@ import android.graphics.Color
 import android.graphics.Typeface
 import android.net.Uri
 import android.os.Bundle
+import android.text.InputType
 import android.view.Gravity
 import android.view.ViewGroup
 import android.webkit.WebResourceError
@@ -18,12 +19,16 @@ import android.webkit.WebViewClient
 import android.widget.Button
 import android.widget.EditText
 import android.widget.LinearLayout
+import android.widget.ScrollView
 import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import org.json.JSONObject
+import java.net.HttpURLConnection
+import java.net.URL
+import java.nio.charset.StandardCharsets
 
 class MainActivity : AppCompatActivity() {
     private lateinit var webView: WebView
@@ -102,9 +107,10 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun loadSavedWaiterAccess() {
+        val configuredWithOwnerLogin = prefs.getBoolean("configured_with_owner_login", false)
         val savedBaseUrl = prefs.getString("base_url", "") ?: ""
         val savedRestaurant = prefs.getString("restaurant", "") ?: ""
-        if (savedBaseUrl.isBlank() || savedRestaurant.isBlank()) {
+        if (!configuredWithOwnerLogin || savedBaseUrl.isBlank() || savedRestaurant.isBlank()) {
             showSetupScreen()
             return
         }
@@ -130,7 +136,7 @@ class MainActivity : AppCompatActivity() {
         }
 
         val detail = TextView(this).apply {
-            text = message ?: "Configura el restaurante para abrir el comandero y cobrar mesas con Tap to Pay."
+            text = message ?: "Inicia con la cuenta del restaurante. La app encontrara el restaurante y abrira solo el acceso de camarero."
             textSize = 15f
             setTextColor(Color.rgb(139, 151, 168))
             gravity = Gravity.CENTER
@@ -144,40 +150,109 @@ class MainActivity : AppCompatActivity() {
             textSize = 16f
         }
 
-        val restaurantInput = EditText(this).apply {
-            hint = "parrillaburgers"
-            setText(prefs.getString("restaurant", "") ?: "")
+        val emailInput = EditText(this).apply {
+            hint = "correo del restaurante"
+            inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS
+            setSingleLine(true)
+            textSize = 16f
+        }
+
+        val passwordInput = EditText(this).apply {
+            hint = "contrasena"
+            inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD
             setSingleLine(true)
             textSize = 16f
         }
 
         val openButton = Button(this).apply {
-            text = "Abrir comandero"
+            text = "Entrar al restaurante"
             setOnClickListener {
                 val baseUrl = normalizeBaseUrl(serverInput.text.toString())
-                val restaurant = cleanRestaurant(restaurantInput.text.toString())
+                val email = emailInput.text.toString().trim()
+                val password = passwordInput.text.toString()
 
-                if (baseUrl.isBlank() || restaurant.isBlank()) {
-                    Toast.makeText(this@MainActivity, "Completa servidor y restaurante", Toast.LENGTH_SHORT).show()
+                if (baseUrl.isBlank() || email.isBlank() || password.isBlank()) {
+                    Toast.makeText(this@MainActivity, "Completa servidor, correo y contrasena", Toast.LENGTH_SHORT).show()
                     return@setOnClickListener
                 }
 
-                prefs.edit()
-                    .putString("base_url", baseUrl)
-                    .putString("restaurant", restaurant)
-                    .apply()
-
-                setContentView(webView)
-                webView.loadUrl(waiterLoginUrl(baseUrl, restaurant))
+                configureWaiterAccess(baseUrl, email, password, this)
             }
         }
 
         container.addView(title)
         container.addView(detail)
         container.addView(serverInput, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
-        container.addView(restaurantInput, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = 18 })
+        container.addView(emailInput, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = 18 })
+        container.addView(passwordInput, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = 18 })
         container.addView(openButton, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = 24 })
-        setContentView(container)
+        setContentView(ScrollView(this).apply { addView(container) })
+    }
+
+    private fun configureWaiterAccess(baseUrl: String, email: String, password: String, button: Button) {
+        button.isEnabled = false
+        button.text = "Buscando restaurante..."
+
+        Thread {
+            try {
+                val loginUrl = URL("${normalizeBaseUrl(baseUrl).trimEnd('/')}/api/auth/login")
+                val connection = (loginUrl.openConnection() as HttpURLConnection).apply {
+                    requestMethod = "POST"
+                    connectTimeout = 12000
+                    readTimeout = 12000
+                    doOutput = true
+                    setRequestProperty("Content-Type", "application/json")
+                    setRequestProperty("Accept", "application/json")
+                }
+                val payload = JSONObject()
+                    .put("email", email)
+                    .put("password", password)
+                    .toString()
+                    .toByteArray(StandardCharsets.UTF_8)
+
+                connection.outputStream.use { it.write(payload) }
+
+                val responseCode = connection.responseCode
+                val stream = if (responseCode in 200..299) connection.inputStream else connection.errorStream
+                val responseBody = stream?.bufferedReader()?.use { it.readText() }.orEmpty()
+                val responseJson = if (responseBody.isBlank()) JSONObject() else JSONObject(responseBody)
+
+                if (responseCode !in 200..299) {
+                    throw IllegalStateException(responseJson.optString("error", "No se pudo validar la cuenta del restaurante."))
+                }
+
+                val restaurant = extractRestaurantSlug(responseJson)
+                if (restaurant.isBlank()) {
+                    throw IllegalStateException("Ese correo no tiene restaurante asociado.")
+                }
+
+                prefs.edit()
+                    .putString("base_url", normalizeBaseUrl(baseUrl))
+                    .putString("restaurant", restaurant)
+                    .putBoolean("configured_with_owner_login", true)
+                    .apply()
+
+                runOnUiThread {
+                    setContentView(webView)
+                    webView.loadUrl(waiterLoginUrl(baseUrl, restaurant))
+                }
+            } catch (error: Exception) {
+                runOnUiThread {
+                    Toast.makeText(this, error.message ?: "No se pudo encontrar el restaurante.", Toast.LENGTH_LONG).show()
+                    button.isEnabled = true
+                    button.text = "Entrar al restaurante"
+                }
+            }
+        }.start()
+    }
+
+    private fun extractRestaurantSlug(response: JSONObject): String {
+        val tenantSlug = response.optJSONObject("tenant")?.optString("slug").orEmpty()
+        if (tenantSlug.isNotBlank()) return cleanRestaurant(tenantSlug)
+
+        val redirectUrl = response.optString("redirectUrl")
+        val match = Regex("^/([^/]+)/").find(redirectUrl)
+        return cleanRestaurant(match?.groupValues?.getOrNull(1).orEmpty())
     }
 
     private fun waiterLoginUrl(baseUrl: String, restaurant: String): String {
