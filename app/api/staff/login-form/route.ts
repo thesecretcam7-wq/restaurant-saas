@@ -55,24 +55,17 @@ export async function POST(request: NextRequest) {
       { auth: { autoRefreshToken: false, persistSession: false } }
     )
 
-    const { data: tenant } = await supabase
-      .from('tenants')
-      .select('slug')
-      .eq('id', tenantId)
-      .maybeSingle()
-    const canonicalTenantSlug = tenant?.slug || tenantSlug
-
     const windowStart = new Date(Date.now() - RATE_LIMIT_WINDOW_MINUTES * 60 * 1000).toISOString()
     const { count } = await supabase
       .from('pin_auth_rate_limits')
       .select('*', { count: 'exact', head: true })
       .eq('ip', clientIP)
-      .eq('domain', canonicalTenantSlug)
+      .eq('domain', tenantSlug)
       .gte('attempted_at', windowStart)
 
     if ((count ?? 0) >= RATE_LIMIT_MAX) {
-      logSecurityEvent('staff_form_auth_rate_limited', { domain: canonicalTenantSlug, ip: clientIP }, 'high')
-      return redirectBack(canonicalTenantSlug, role, staffId, 'pin')
+      logSecurityEvent('staff_form_auth_rate_limited', { domain: tenantSlug, ip: clientIP }, 'high')
+      return redirectBack(tenantSlug, role, staffId, 'pin')
     }
 
     supabase
@@ -95,16 +88,16 @@ export async function POST(request: NextRequest) {
     if (staffError || !staff) {
       await supabase
         .from('pin_auth_rate_limits')
-        .insert({ ip: clientIP, domain: canonicalTenantSlug })
+        .insert({ ip: clientIP, domain: tenantSlug })
 
       logSecurityEvent('staff_form_auth_failed', {
-        domain: canonicalTenantSlug,
+        domain: tenantSlug,
         role,
         staffId,
         ip: clientIP,
       }, 'medium')
 
-      return redirectBack(canonicalTenantSlug, role, staffId, 'pin')
+      return redirectBack(tenantSlug, role, staffId, 'pin')
     }
 
     let permissions: string[] = []
@@ -129,7 +122,7 @@ export async function POST(request: NextRequest) {
       }, { onConflict: 'user_key' })
     }
 
-    const response = redirectTo(ROLE_DESTINATIONS[role]?.(canonicalTenantSlug) || `/${canonicalTenantSlug}/acceso/portal/${role}`)
+    const response = redirectTo(ROLE_DESTINATIONS[role]?.(tenantSlug) || `/${tenantSlug}/acceso/portal/${role}`)
 
     response.cookies.set('staff_session', JSON.stringify({
       tenantId,
@@ -150,7 +143,7 @@ export async function POST(request: NextRequest) {
     response.cookies.delete('staff_auth_proof')
 
     logSecurityEvent('staff_form_auth_success', {
-      domain: canonicalTenantSlug,
+      domain: tenantSlug,
       staffId: staff.id,
       role: staff.role,
       ip: clientIP,

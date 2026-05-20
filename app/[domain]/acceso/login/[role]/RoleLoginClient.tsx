@@ -281,6 +281,8 @@ export function RoleLoginClient({
     setError('');
     setPin(next);
     if (next.length === 6) {
+      setLoading(true);
+      setLoadingMessage(`Abriendo ${config.tool}`);
       window.setTimeout(() => pinFormRef.current?.requestSubmit(), 80);
     }
   }
@@ -467,6 +469,10 @@ export function RoleLoginClient({
                   method="POST"
                   action="/api/staff/login-form"
                   className="space-y-4"
+                  onSubmit={() => {
+                    setLoading(true);
+                    setLoadingMessage(`Abriendo ${config.tool}`);
+                  }}
                 >
                   <input type="hidden" name="tenantId" value={tenantId} />
                   <input type="hidden" name="tenantSlug" value={tenantSlug} />
@@ -492,6 +498,7 @@ export function RoleLoginClient({
                       value={pin}
                       onChange={(event) => handlePinInput(event.target.value)}
                       onInput={(event) => handlePinInput(event.currentTarget.value)}
+                      disabled={loading}
                       className="h-16 w-full rounded-2xl border border-[#D4AF37]/20 bg-[#0B0E14]/70 px-4 text-center text-2xl font-black tracking-[0.45em] text-white outline-none transition placeholder:tracking-normal placeholder:text-[#8b97a8] focus:border-[#D4AF37] focus:ring-4 focus:ring-[#D4AF37]/10 disabled:opacity-50"
                       placeholder="PIN"
                     />
