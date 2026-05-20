@@ -58,12 +58,7 @@ class MainActivity : AppCompatActivity() {
         }
         webView.webChromeClient = WebChromeClient()
         webView.addJavascriptInterface(AndroidTapToPayBridge(controller), "EccofoodAndroidTapToPay")
-        val startPath = if (BuildConfig.ECCOFOOD_START_PATH.startsWith("/")) {
-            BuildConfig.ECCOFOOD_START_PATH
-        } else {
-            "/${BuildConfig.ECCOFOOD_START_PATH}"
-        }
-        webView.loadUrl("${BuildConfig.ECCOFOOD_BASE_URL.trimEnd('/')}$startPath")
+        webView.loadUrl("${BuildConfig.ECCOFOOD_BASE_URL.trimEnd('/')}/login")
     }
 
     override fun onResume() {

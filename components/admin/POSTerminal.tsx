@@ -136,10 +136,6 @@ function getOrderItemsTotal(items: Array<{ price: number; qty?: number; quantity
   return items.reduce((sum, item) => sum + Number(item.price || 0) * getOrderItemQty(item), 0);
 }
 
-function hasBillableItems(order: { items?: Array<{ price: number; qty?: number; quantity?: number }> | null }) {
-  return Array.isArray(order.items) && order.items.some((item) => getOrderItemQty(item) > 0 && Number(item.price || 0) >= 0);
-}
-
 async function fetchPendingCashClosingStats(tenantId: string): Promise<CashClosingStats | null> {
   const response = await fetch(`/api/pos/cash-closing/pending?tenantId=${encodeURIComponent(tenantId)}`, {
     cache: 'no-store',
@@ -1374,7 +1370,7 @@ export function POSTerminal({
         .limit(20);
 
       if (!error && data) {
-        const mapped = (data as DineInOrder[]).filter(hasBillableItems);
+        const mapped = data as DineInOrder[];
         const newOrders = mapped.filter((order) => !knownDineInOrderIds.current.has(order.id));
 
         setDineInOrders(mapped);
@@ -1454,17 +1450,10 @@ export function POSTerminal({
 
     const updatedItems = order.items.filter((_, i) => i !== itemIndex);
     const newTotal = getOrderItemsTotal(updatedItems);
-    const nextStatus = updatedItems.length === 0 ? 'cancelled' : order.status;
 
     await supabase
       .from('orders')
-      .update({
-        items: updatedItems,
-        subtotal: newTotal,
-        total: newTotal,
-        status: nextStatus,
-        updated_at: new Date().toISOString(),
-      })
+      .update({ items: updatedItems, total: newTotal })
       .eq('id', orderId);
 
     await fetchDineInOrders();
@@ -2163,27 +2152,24 @@ export function POSTerminal({
   const tableGroups = useMemo((): TableGroup[] => {
     const groups = new Map<number, DineInOrder[]>();
     dineInOrders.forEach(order => {
-      if (!hasBillableItems(order)) return;
       const tableNum = order.table_number ?? 0;
       if (!groups.has(tableNum)) groups.set(tableNum, []);
       groups.get(tableNum)!.push(order);
     });
-    return Array.from(groups.entries())
-      .map(([tableNumber, orders]) => ({
-        tableNumber,
-        orders,
-        totalAmount: orders.reduce((sum, order) => {
-          const orderSubtotal = getOrderItemsTotal(order.items || []);
-          return sum + orderSubtotal + (taxRate > 0 ? orderSubtotal * (taxRate / 100) : 0);
-        }, 0),
-        itemCount: orders.reduce((sum, order) => sum + (order.items || []).reduce((s, item) => s + getOrderItemQty(item), 0), 0),
-        waiters: [...new Set(orders.map(o => o.waiter_name).filter((w): w is string => Boolean(w)))],
-        oldestOrder: orders.reduce((oldest, o) =>
-          new Date(o.created_at) < new Date(oldest.created_at) ? o : oldest
-        ),
-        allItems: orders.flatMap(o => o.items || []),
-      }))
-      .filter((group) => group.itemCount > 0);
+    return Array.from(groups.entries()).map(([tableNumber, orders]) => ({
+      tableNumber,
+      orders,
+      totalAmount: orders.reduce((sum, order) => {
+        const orderSubtotal = getOrderItemsTotal(order.items || []);
+        return sum + orderSubtotal + (taxRate > 0 ? orderSubtotal * (taxRate / 100) : 0);
+      }, 0),
+      itemCount: orders.reduce((sum, order) => sum + (order.items || []).reduce((s, item) => s + getOrderItemQty(item), 0), 0),
+      waiters: [...new Set(orders.map(o => o.waiter_name).filter((w): w is string => Boolean(w)))],
+      oldestOrder: orders.reduce((oldest, o) =>
+        new Date(o.created_at) < new Date(oldest.created_at) ? o : oldest
+      ),
+      allItems: orders.flatMap(o => o.items || []),
+    }));
   }, [dineInOrders, taxRate]);
 
   const cartQuantityMap = useMemo(() => {
