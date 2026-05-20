@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import { createServiceClient } from '@/lib/supabase/server'
-import { CreditCard, MapPin, ShieldCheck, Smartphone, WalletCards } from 'lucide-react'
+import { CreditCard, Download, MapPin, ShieldCheck, Smartphone, WalletCards } from 'lucide-react'
 import { getCurrencyByCountry } from '@/lib/currency'
 import { getPaymentConfig, selectSettingsWithPaymentFallback } from '@/lib/payment-settings'
 
@@ -151,6 +151,31 @@ export default async function PagosOnlinePage({ params }: Props) {
               Wompi solo se activa cuando el restaurante esta configurado en Colombia. Stripe queda disponible para paises internacionales.
             </p>
           </div>
+        </div>
+      </section>
+
+      <section className="admin-panel p-5">
+        <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
+          <div className="flex gap-3">
+            <span className="grid size-12 flex-shrink-0 place-items-center rounded-2xl bg-emerald-50 text-emerald-700">
+              <Smartphone className="size-6" />
+            </span>
+            <div>
+              <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-700">APK camarero</p>
+              <h2 className="mt-1 text-2xl font-black text-slate-950">Comandero con Tap to Pay</h2>
+              <p className="mt-2 max-w-2xl text-sm font-semibold leading-6 text-slate-600">
+                App Android aislada para meseros. Abre el comandero del restaurante y permite cobrar mesas completas con Tap to Pay sin cambiar el flujo principal del TPV.
+              </p>
+            </div>
+          </div>
+          <a
+            href="/downloads/eccofood-camarero-tap-to-pay.apk"
+            download
+            className="inline-flex h-12 shrink-0 items-center justify-center gap-2 rounded-xl bg-emerald-600 px-5 text-sm font-black text-white shadow-lg shadow-emerald-600/20 transition hover:bg-emerald-700"
+          >
+            <Download className="size-4" />
+            Descargar APK
+          </a>
         </div>
       </section>
     </div>
