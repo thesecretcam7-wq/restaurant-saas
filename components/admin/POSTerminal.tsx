@@ -2472,7 +2472,7 @@ export function POSTerminal({
                 )}
               </div>
               <div className="pos-kpi">
-                <span>Delivery</span>
+                <span>Domicilio</span>
                 <strong>{incomingOrders.length}</strong>
               </div>
               <div className="pos-kpi">
@@ -3146,7 +3146,7 @@ export function POSTerminal({
                       title="Pedido por llamada con cobro de domicilio"
                     >
                       <Truck className="h-3.5 w-3.5" />
-                      Delivery {activeDeliveryFee > 0 ? `+ ${formatPriceWithCurrency(activeDeliveryFee, currencyInfo.code, currencyInfo.locale)}` : ''}
+                      Domicilio {activeDeliveryFee > 0 ? `+ ${formatPriceWithCurrency(activeDeliveryFee, currencyInfo.code, currencyInfo.locale)}` : ''}
                     </button>
                     {posOrderType === 'delivery' && deliveryOptions.length > 0 && (
                       <div className="mt-1.5 grid grid-cols-2 gap-1">
