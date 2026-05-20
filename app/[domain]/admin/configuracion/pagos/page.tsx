@@ -150,7 +150,7 @@ export default async function PagosOnlinePage({ params }: Props) {
               <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-700">Android TPV</p>
               <h2 className="mt-1 text-2xl font-black text-slate-950">App para Tap to Pay</h2>
               <p className="mt-2 max-w-2xl text-sm font-semibold leading-6 text-slate-600">
-                Descarga la APK del comandero Android. La app usa el login actual del restaurante y habilita el boton Tap to Pay para cobrar la mesa completa desde un telefono compatible.
+                Descarga la APK del comandero Android. Al abrirla por primera vez se guarda el codigo del restaurante, y luego entra directo al acceso operativo para usar Tap to Pay.
               </p>
             </div>
           </div>
