@@ -110,7 +110,6 @@ export function RoleSelector({ tenantName, tenantSlug, logoUrl, branding }: Prop
 
   function handleSelect(roleId: string) {
     setSelectedRole(roleId);
-    window.location.assign(`/${tenantSlug}/acceso/login/${roleId}`);
   }
 
   return (
@@ -191,12 +190,12 @@ export function RoleSelector({ tenantName, tenantSlug, logoUrl, branding }: Prop
                 const disabled = selectedRole !== null;
 
                 return (
-                  <button
+                  <a
                     key={role.id}
+                    href={`/${tenantSlug}/acceso/login/${role.id}`}
                     onClick={() => handleSelect(role.id)}
-                    disabled={disabled}
                     className={`group min-h-[138px] rounded-3xl border p-4 text-left shadow-[0_24px_90px_rgba(0,0,0,0.22)] transition-all duration-200 active:scale-[0.98] sm:min-h-[170px] sm:p-5 lg:min-h-[190px] lg:p-6 ${
-                      disabled ? 'cursor-not-allowed opacity-55' : 'hover:-translate-y-1 hover:border-[#D4AF37]/38 hover:bg-[#20283a]'
+                      disabled ? 'pointer-events-none cursor-wait opacity-55' : 'hover:-translate-y-1 hover:border-[#D4AF37]/38 hover:bg-[#20283a]'
                     }`}
                     style={{
                       background: selected
@@ -229,7 +228,7 @@ export function RoleSelector({ tenantName, tenantSlug, logoUrl, branding }: Prop
                         <p className="mt-2 text-sm font-semibold text-[#8b97a8]">{role.hint}</p>
                       </div>
                     </div>
-                  </button>
+                  </a>
                 );
               })}
             </div>
