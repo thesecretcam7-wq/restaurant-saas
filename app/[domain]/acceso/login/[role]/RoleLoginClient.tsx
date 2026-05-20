@@ -417,20 +417,22 @@ export function RoleLoginClient({
 
             {phase === 'select' ? (
               <div className="space-y-4">
-                <label className="block text-sm font-bold text-[#8b97a8]">Empleado</label>
-                <select
-                  value={staffId}
-                  onChange={(event) => handleStaffSelect(event.target.value)}
-                  autoFocus
-                  className="w-full rounded-2xl border border-[#D4AF37]/20 bg-[#0B0E14]/70 px-4 py-4 text-lg font-bold text-white outline-none transition focus:border-[#D4AF37] focus:ring-4 focus:ring-[#D4AF37]/10"
-                >
-                  <option value="">Elige tu nombre</option>
+                <p className="block text-sm font-bold text-[#8b97a8]">Empleado</p>
+                <div className="grid gap-2">
                   {staffMembers.map((staff) => (
-                    <option key={staff.id} value={staff.id}>
-                      {staff.name}
-                    </option>
+                    <button
+                      key={staff.id}
+                      type="button"
+                      onClick={() => handleStaffSelect(staff.id)}
+                      className="flex min-h-14 w-full items-center justify-between rounded-2xl border border-[#D4AF37]/20 bg-[#0B0E14]/70 px-4 py-3 text-left text-base font-black text-white transition active:scale-[0.98] hover:border-[#D4AF37]/45 hover:bg-[#121826]"
+                    >
+                      <span className="min-w-0 truncate">{staff.name}</span>
+                      <span className="rounded-full border border-[#D4AF37]/25 px-3 py-1 text-[10px] font-black uppercase tracking-[0.14em] text-[#D4AF37]">
+                        PIN
+                      </span>
+                    </button>
                   ))}
-                </select>
+                </div>
 
                 {staffMembers.length === 0 && (
                   <p className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-center text-sm font-bold text-red-700">
