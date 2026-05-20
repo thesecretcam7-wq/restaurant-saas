@@ -13,13 +13,20 @@ const ROLE_DESTINATIONS: Record<string, (tenantSlug: string) => string> = {
   cajero: (tenantSlug) => `/${tenantSlug}/staff/pos`,
 }
 
-function redirectBack(request: NextRequest, tenantSlug: string, role: string, staffId: string, error: string) {
+function redirectTo(path: string) {
+  return new NextResponse(null, {
+    status: 303,
+    headers: { Location: path },
+  })
+}
+
+function redirectBack(tenantSlug: string, role: string, staffId: string, error: string) {
   const safeSlug = tenantSlug || 'login'
   const safeRole = role || 'camarero'
-  const backUrl = new URL(`/${safeSlug}/acceso/login/${safeRole}`, request.url)
-  if (staffId) backUrl.searchParams.set('staffId', staffId)
-  backUrl.searchParams.set('error', error)
-  return NextResponse.redirect(backUrl, { status: 303 })
+  const params = new URLSearchParams()
+  if (staffId) params.set('staffId', staffId)
+  params.set('error', error)
+  return redirectTo(`/${safeSlug}/acceso/login/${safeRole}?${params.toString()}`)
 }
 
 export async function POST(request: NextRequest) {
@@ -33,7 +40,7 @@ export async function POST(request: NextRequest) {
     const pin = String(formData.get('pin') || '').replace(/\D/g, '').slice(0, 6)
 
     if (!tenantId || !tenantSlug || !role || !staffId || pin.length < 4) {
-      return redirectBack(request, tenantSlug, role, staffId, 'missing')
+      return redirectBack(tenantSlug, role, staffId, 'missing')
     }
 
     const clientIP = (
@@ -58,7 +65,7 @@ export async function POST(request: NextRequest) {
 
     if ((count ?? 0) >= RATE_LIMIT_MAX) {
       logSecurityEvent('staff_form_auth_rate_limited', { domain: tenantSlug, ip: clientIP }, 'high')
-      return redirectBack(request, tenantSlug, role, staffId, 'pin')
+      return redirectBack(tenantSlug, role, staffId, 'pin')
     }
 
     supabase
@@ -90,7 +97,7 @@ export async function POST(request: NextRequest) {
         ip: clientIP,
       }, 'medium')
 
-      return redirectBack(request, tenantSlug, role, staffId, 'pin')
+      return redirectBack(tenantSlug, role, staffId, 'pin')
     }
 
     let permissions: string[] = []
@@ -115,10 +122,7 @@ export async function POST(request: NextRequest) {
       }, { onConflict: 'user_key' })
     }
 
-    const response = NextResponse.redirect(
-      new URL(ROLE_DESTINATIONS[role]?.(tenantSlug) || `/${tenantSlug}/acceso/portal/${role}`, request.url),
-      { status: 303 }
-    )
+    const response = redirectTo(ROLE_DESTINATIONS[role]?.(tenantSlug) || `/${tenantSlug}/acceso/portal/${role}`)
 
     response.cookies.set('staff_session', JSON.stringify({
       tenantId,
@@ -151,6 +155,6 @@ export async function POST(request: NextRequest) {
       error: error instanceof Error ? error.message : 'unknown',
     }, 'high')
 
-    return NextResponse.redirect(new URL('/login?error=session', request.url), { status: 303 })
+    return redirectTo('/login?error=session')
   }
 }
