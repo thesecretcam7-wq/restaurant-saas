@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { ChefHat, CreditCard, Lock, LogIn, Monitor, ShieldCheck, ShoppingBag, UtensilsCrossed } from 'lucide-react';
 import LanguageSwitcher, { useI18n } from '@/components/LanguageSwitcher';
 
@@ -44,6 +45,7 @@ function readableText(background: string, fallbackDark = '#15130f', fallbackLigh
 }
 
 export function RoleSelector({ tenantName, tenantSlug, logoUrl, branding }: Props) {
+  const router = useRouter();
   const [selectedRole, setSelectedRole] = useState<string | null>(null);
   const { tr } = useI18n();
 
@@ -110,7 +112,7 @@ export function RoleSelector({ tenantName, tenantSlug, logoUrl, branding }: Prop
 
   function handleSelect(roleId: string) {
     setSelectedRole(roleId);
-    window.location.assign(`/${tenantSlug}/acceso/login/${roleId}`);
+    router.push(`/${tenantSlug}/acceso/login/${roleId}`);
   }
 
   return (
