@@ -1802,6 +1802,130 @@ body:has(.admin-app-shell) {
   border-color: rgba(212, 175, 55, 0.22) !important;
 }
 
+/* POS landing hierarchy pass: align TPV with the public Eccofood jewel theme. */
+.pos-premium {
+  --pos-bg: #0B0E14;
+  --pos-panel: #1A1F2C;
+  --pos-panel-soft: rgba(26, 31, 44, 0.78);
+  --pos-gold: #D4AF37;
+  --pos-rust: #D35A37;
+  --pos-muted: #8b97a8;
+  --pos-dim: #5E6E82;
+  color: #ffffff !important;
+  background:
+    radial-gradient(circle at 16% 0%, rgba(212, 175, 55, 0.14), transparent 34%),
+    radial-gradient(circle at 88% 14%, rgba(211, 90, 55, 0.10), transparent 30%),
+    linear-gradient(180deg, var(--pos-bg) 0%, #101622 48%, var(--pos-bg) 100%) !important;
+}
+
+.pos-premium .pos-topbar,
+.pos-premium .pos-panel,
+.pos-premium .pos-card {
+  border-color: rgba(212, 175, 55, 0.18) !important;
+  background:
+    linear-gradient(135deg, rgba(26, 31, 44, 0.92), rgba(11, 14, 20, 0.72)) !important;
+  box-shadow: 0 24px 90px rgba(0, 0, 0, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.06) !important;
+}
+
+.pos-premium .pos-card:hover {
+  border-color: rgba(212, 175, 55, 0.38) !important;
+  box-shadow: 0 28px 90px rgba(0, 0, 0, 0.34), inset 0 1px 0 rgba(255, 255, 255, 0.07) !important;
+}
+
+.pos-premium .pos-kpi,
+.pos-premium .pos-chip,
+.pos-premium .pos-action-ghost {
+  border-color: rgba(212, 175, 55, 0.18) !important;
+  background: rgba(26, 31, 44, 0.78) !important;
+  color: #ffffff !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05) !important;
+}
+
+.pos-premium .pos-chip[class*="bg-cyan"],
+.pos-premium .pos-chip[class*="border-cyan"],
+.pos-premium button[class*="bg-cyan"],
+.pos-premium button[class*="border-cyan"],
+.pos-premium button[class*="bg-emerald"],
+.pos-premium button[class*="border-emerald"] {
+  border-color: rgba(212, 175, 55, 0.46) !important;
+  background: rgba(212, 175, 55, 0.13) !important;
+  color: #ffffff !important;
+  box-shadow: 0 0 28px rgba(212, 175, 55, 0.14), inset 0 1px 0 rgba(255, 255, 255, 0.08) !important;
+}
+
+.pos-premium :where([class*="text-cyan"], [class*="text-amber"], [class*="text-emerald"]) {
+  color: var(--pos-gold) !important;
+}
+
+.pos-premium :where([class*="text-slate"], [class*="text-gray"], .text-muted-foreground) {
+  color: var(--pos-muted) !important;
+}
+
+.pos-premium :where(.text-white, h1, h2, h3, strong, .pos-total-band .text-white, .pos-card .text-white) {
+  color: #ffffff !important;
+}
+
+.pos-premium :where([class*="bg-cyan"], [class*="bg-emerald"], [class*="bg-amber"]) {
+  background-color: rgba(212, 175, 55, 0.12) !important;
+}
+
+.pos-premium :where([class*="border-cyan"], [class*="border-emerald"], [class*="border-amber"]) {
+  border-color: rgba(212, 175, 55, 0.28) !important;
+}
+
+.pos-premium :where([class*="bg-red"], [class*="border-red"]) {
+  border-color: rgba(211, 90, 55, 0.35) !important;
+  background-color: rgba(211, 90, 55, 0.14) !important;
+}
+
+.pos-premium :where([class*="text-red"]) {
+  color: #ffb4a2 !important;
+}
+
+.pos-premium .pos-action,
+.pos-premium button[class*="bg-[#D35A37]"],
+.pos-premium button[class*="bg-gradient-to-r"] {
+  border-color: rgba(211, 90, 55, 0.42) !important;
+  background: #D35A37 !important;
+  color: #ffffff !important;
+  box-shadow: 0 18px 46px rgba(211, 90, 55, 0.26), inset 0 1px 0 rgba(255, 255, 255, 0.18) !important;
+}
+
+.pos-premium .pos-action-danger {
+  border-color: rgba(211, 90, 55, 0.30) !important;
+  background: rgba(211, 90, 55, 0.12) !important;
+  color: #ffb4a2 !important;
+}
+
+.pos-premium input,
+.pos-premium textarea,
+.pos-premium select {
+  border-color: rgba(212, 175, 55, 0.18) !important;
+  background: rgba(11, 14, 20, 0.62) !important;
+  color: #ffffff !important;
+}
+
+.pos-premium input::placeholder,
+.pos-premium textarea::placeholder {
+  color: var(--pos-muted) !important;
+}
+
+.pos-premium :where([class*="bg-white"], [class*="bg-gray"], [class*="bg-slate"]) {
+  background-color: rgba(26, 31, 44, 0.78) !important;
+}
+
+.pos-premium .pos-total-band {
+  border: 1px solid rgba(212, 175, 55, 0.24) !important;
+  background:
+    linear-gradient(135deg, rgba(212, 175, 55, 0.16), rgba(26, 31, 44, 0.86)) !important;
+  color: #ffffff !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08) !important;
+}
+
+.pos-premium .pos-total-band :where([class*="text-emerald"], span:last-child, p:last-child) {
+  color: var(--pos-gold) !important;
+}
+
 /* Product editor contrast pass. The admin shell has broad theme overrides, so
    this keeps product forms readable on the light operational interface. */
 .admin-app-shell .product-edit-page {

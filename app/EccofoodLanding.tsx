@@ -126,10 +126,10 @@ export function EccofoodLanding() {
   return (
     <main className="ecco-landing-jewel min-h-screen overflow-x-hidden bg-[#0B0E14] text-white">
       <nav className="sticky top-0 z-50 border-b border-white/8 bg-[#0B0E14]/72 backdrop-blur-2xl">
-        <div className="mx-auto flex h-[76px] max-w-7xl items-center justify-between px-4 sm:px-6">
-          <Link href="/" className="flex items-center gap-3">
+        <div className="mx-auto flex h-[76px] max-w-7xl items-center justify-between gap-2 px-3 sm:px-6">
+          <Link href="/" className="flex min-w-0 items-center gap-2 sm:gap-3">
             <EccofoodLogo size="md" showText={false} />
-            <p className="text-xl font-black tracking-tight text-white">Eccofood</p>
+            <p className="hidden text-xl font-black tracking-tight text-white min-[520px]:block sm:block">Eccofood</p>
           </Link>
 
           <div className="hidden items-center gap-8 text-sm font-bold text-white/58 lg:flex">
@@ -138,12 +138,12 @@ export function EccofoodLanding() {
             <a href="#precios" className="transition hover:text-white">Precios</a>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
             <LanguageSwitcher compact className="hidden border-white/10 bg-white/8 text-white sm:inline-flex" />
-            <Link href="/login" className="hidden rounded-full border border-[#D4AF37]/45 px-5 py-2.5 text-sm font-black uppercase tracking-wide text-[#D4AF37] transition hover:bg-[#D4AF37] hover:text-[#0B0E14] sm:inline-flex">
+            <Link href="/login" className="inline-flex rounded-full border border-[#D4AF37]/45 px-3 py-2.5 text-xs font-black uppercase tracking-wide text-[#D4AF37] transition hover:bg-[#D4AF37] hover:text-[#0B0E14] sm:px-5 sm:text-sm">
               Entrar
             </Link>
-            <Link href="/register" className="inline-flex items-center gap-2 rounded-full border border-[#D4AF37]/55 bg-transparent px-5 py-2.5 text-sm font-black text-[#D4AF37] transition hover:bg-[#D4AF37] hover:text-[#0B0E14]">
+            <Link href="/register" className="inline-flex items-center gap-1.5 rounded-full border border-[#D4AF37]/55 bg-transparent px-3 py-2.5 text-xs font-black text-[#D4AF37] transition hover:bg-[#D4AF37] hover:text-[#0B0E14] sm:gap-2 sm:px-5 sm:text-sm">
               Gratis
               <ArrowRight className="size-4" />
             </Link>

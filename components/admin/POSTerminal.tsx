@@ -2197,6 +2197,8 @@ export function POSTerminal({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [categories, selectedCategory, filteredMenu, cart, paymentMethod, handleShowReceipt]);
 
+  const nextReservationTime = todayReservations[0]?.reservation_time?.slice(0, 5) || null;
+
   if (loading) {
     return (
       <div className="pos-premium flex h-screen items-center justify-center">
@@ -2340,8 +2342,13 @@ export function POSTerminal({
 
             <div className="grid grid-cols-3 gap-2 lg:min-w-[420px]">
               <div className="pos-kpi">
-                <span>Carrito</span>
-                <strong>{cart.length}</strong>
+                <span>Reservas hoy</span>
+                <strong>{todayReservations.length}</strong>
+                {nextReservationTime && (
+                  <small className="mt-0.5 truncate text-[10px] font-black uppercase text-[#D4AF37]">
+                    Prox. {nextReservationTime}
+                  </small>
+                )}
               </div>
               <div className="pos-kpi">
                 <span>Delivery</span>
