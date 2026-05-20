@@ -28,6 +28,8 @@ interface Props {
   staffMembers: StaffMember[]
   initialStaffId: string
   initialStaffName: string
+  initialPin: string
+  autoSubmit: boolean
   branding: Branding
 }
 
@@ -49,18 +51,31 @@ export function ApkWaiterLoginClient({
   staffMembers,
   initialStaffId,
   initialStaffName,
+  initialPin,
+  autoSubmit,
   branding,
 }: Props) {
   const router = useRouter()
   const [staffId, setStaffId] = useState(initialStaffId)
   const [staffName, setStaffName] = useState(initialStaffName)
-  const [pin, setPin] = useState('')
+  const [pin, setPin] = useState(initialPin)
   const [phase, setPhase] = useState<'select' | 'pin'>(initialStaffId ? 'pin' : 'select')
   const [loading, setLoading] = useState(false)
   const [loadingMessage, setLoadingMessage] = useState('Verificando acceso')
   const [error, setError] = useState('')
   const pinInputRef = useRef<HTMLInputElement | null>(null)
+  const autoValidationRef = useRef('')
   const appName = branding.appName || tenantName
+  const apkPath = `/${tenantSlug}/acceso/apk/camarero`
+
+  function pinHref(nextPin: string, submit = false) {
+    const params = new URLSearchParams()
+    if (staffId) params.set('staffId', staffId)
+    if (nextPin) params.set('pin', nextPin.replace(/\D/g, '').slice(0, 6))
+    if (submit) params.set('submit', '1')
+    const query = params.toString()
+    return query ? `${apkPath}?${query}` : apkPath
+  }
 
   function selectStaff(staff: StaffMember) {
     if (loading) return
@@ -75,10 +90,24 @@ export function ApkWaiterLoginClient({
     if (!initialStaffId) return
     setStaffId(initialStaffId)
     setStaffName(initialStaffName)
-    setPin('')
+    setPin(initialPin)
     setError('')
     setPhase('pin')
-  }, [initialStaffId, initialStaffName])
+  }, [initialStaffId, initialStaffName, initialPin])
+
+  useEffect(() => {
+    if (!initialStaffId || phase !== 'pin' || loading) return
+    const shouldValidate = initialPin.length === 6 || autoSubmit
+    if (!shouldValidate) return
+    const validationKey = `${initialStaffId}:${initialPin}:${autoSubmit ? 'submit' : 'auto'}`
+    if (autoValidationRef.current === validationKey) return
+    autoValidationRef.current = validationKey
+    if (initialPin.length < 4) {
+      resetPinWithError('El PIN debe tener minimo 4 digitos.')
+      return
+    }
+    validatePin(initialPin)
+  }, [initialStaffId, initialPin, autoSubmit, phase, loading])
 
   useEffect(() => {
     if (phase === 'pin' && !loading) {
@@ -196,7 +225,7 @@ export function ApkWaiterLoginClient({
       setStaffId('')
       setStaffName('')
       setError('')
-      router.replace(`/${tenantSlug}/acceso/apk/camarero`)
+      router.replace(apkPath)
       return
     }
     router.replace(`/${tenantSlug}/acceso`)
@@ -218,14 +247,17 @@ export function ApkWaiterLoginClient({
         </div>
       )}
 
-      <button
-        type="button"
-        onClick={goBack}
+      <a
+        href={phase === 'pin' ? apkPath : `/${tenantSlug}/acceso`}
+        onClick={(event) => {
+          event.preventDefault()
+          goBack()
+        }}
         className="fixed left-3 top-3 z-20 grid h-11 w-11 place-items-center rounded-2xl border border-[#D4AF37]/28 bg-[#1A1F2C] text-[#D4AF37]"
         aria-label="Volver"
       >
         <ArrowLeft className="h-5 w-5" />
-      </button>
+      </a>
 
       <div className="mx-auto flex min-h-screen w-full max-w-md flex-col justify-center px-4 py-16">
         <div className="mb-6 flex items-center gap-4">
@@ -300,27 +332,35 @@ export function ApkWaiterLoginClient({
               <div className="grid grid-cols-3 gap-3">
                 {['1', '2', '3', '4', '5', '6', '7', '8', '9', '', '0', 'del'].map((key) => {
                   if (!key) return <div key="empty" />
+                  const nextPin = key === 'del' ? pin.slice(0, -1) : `${pin}${key}`.slice(0, 6)
                   return (
-                    <button
+                    <a
                       key={key}
-                      type="button"
-                      onClick={() => pressKey(key)}
+                      href={pinHref(nextPin)}
+                      onClick={(event) => {
+                        event.preventDefault()
+                        pressKey(key)
+                        router.replace(pinHref(nextPin))
+                      }}
                       className="grid h-14 place-items-center rounded-2xl border border-[#D4AF37]/20 bg-[#0B0E14] text-xl font-black active:scale-95"
                     >
                       {key === 'del' ? <Delete className="h-5 w-5 text-[#D4AF37]" /> : key}
-                    </button>
+                    </a>
                   )
                 })}
               </div>
 
-              <button
-                type="button"
-                onClick={submitPin}
-                disabled={loading || pin.length < 4}
-                className="mt-4 h-14 w-full rounded-2xl bg-[#D35A37] text-base font-black text-white disabled:bg-slate-700 disabled:text-slate-400"
+              <a
+                href={pinHref(pin, true)}
+                onClick={(event) => {
+                  event.preventDefault()
+                  submitPin()
+                  router.replace(pinHref(pin, true))
+                }}
+                className={`mt-4 grid h-14 w-full place-items-center rounded-2xl text-base font-black text-white ${loading || pin.length < 4 ? 'bg-slate-700 text-slate-400' : 'bg-[#D35A37]'}`}
               >
                 Entrar
-              </button>
+              </a>
             </div>
           )}
         </section>

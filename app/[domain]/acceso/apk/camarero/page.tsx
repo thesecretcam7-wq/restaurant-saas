@@ -4,12 +4,12 @@ import { ApkWaiterLoginClient } from './ApkWaiterLoginClient'
 
 interface Props {
   params: Promise<{ domain: string }>
-  searchParams: Promise<{ staffId?: string }>
+  searchParams: Promise<{ staffId?: string; pin?: string; submit?: string }>
 }
 
 export default async function ApkWaiterLoginPage({ params, searchParams }: Props) {
   const { domain: slug } = await params
-  const { staffId } = await searchParams
+  const { staffId, pin, submit } = await searchParams
   const supabase = createServiceClient()
   const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(slug)
 
@@ -71,6 +71,8 @@ export default async function ApkWaiterLoginPage({ params, searchParams }: Props
       staffMembers={staffMembers || []}
       initialStaffId={selectedStaff?.id || ''}
       initialStaffName={selectedStaff?.name || ''}
+      initialPin={(pin || '').replace(/\D/g, '').slice(0, 6)}
+      autoSubmit={submit === '1'}
       branding={{
         appName: branding?.app_name || tenant.organization_name,
         primaryColor: palette.primary,
