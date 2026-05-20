@@ -263,7 +263,7 @@ function TableGroupCard({
           className="py-2.5 bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white text-xs font-bold rounded-lg transition-all flex items-center justify-center gap-1.5 shadow-lg shadow-emerald-900/30"
         >
           <DollarSign className="w-3.5 h-3.5" />
-          Cobrar Mesa {group.tableNumber}
+          Pagar mesa completa
         </button>
       </div>
     </div>
@@ -2736,6 +2736,11 @@ export function POSTerminal({
                     tenantId={tenantId}
                     occupiedTableNumbers={tableGroups.map(g => g.tableNumber)}
                     selectedTableNumber={selectedTableNumber}
+                    onBillTable={(tableNumber) => {
+                      const group = tableGroups.find(g => g.tableNumber === tableNumber);
+                      if (!group) return;
+                      loadTableToCart(group.orders);
+                    }}
                     onSelectTable={(tableId, tableNumber) => {
                       const group = tableGroups.find(g => g.tableNumber === tableNumber);
                       if (group && cart.length === 0) {

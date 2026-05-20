@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useMemo } from 'react';
 import { createClient } from '@/lib/supabase/client';
-import { Users } from 'lucide-react';
+import { DollarSign, Users } from 'lucide-react';
 
 interface Table {
   id: string;
@@ -18,6 +18,7 @@ interface TableMapProps {
   /** Número de la mesa seleccionada actualmente en el carrito */
   selectedTableNumber: number | null;
   onSelectTable: (tableId: string, tableNumber: number) => void;
+  onBillTable?: (tableNumber: number) => void;
 }
 
 const STATUS_STYLES: Record<string, string> = {
@@ -34,7 +35,7 @@ const STATUS_LABEL: Record<string, string> = {
   maintenance: 'Mant.',
 };
 
-export function TableMap({ tenantId, occupiedTableNumbers, selectedTableNumber, onSelectTable }: TableMapProps) {
+export function TableMap({ tenantId, occupiedTableNumbers, selectedTableNumber, onSelectTable, onBillTable }: TableMapProps) {
   const [tables, setTables] = useState<Table[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -90,27 +91,44 @@ export function TableMap({ tenantId, occupiedTableNumbers, selectedTableNumber, 
           const isDisabled = effectiveStatus === 'maintenance';
 
           return (
-            <button
+            <div
               key={table.id}
-              disabled={isDisabled}
-              onClick={() => !isDisabled && onSelectTable(table.id, table.table_number)}
               className={`
                 relative flex flex-col items-center justify-center
-                rounded-xl border-2 py-3 px-2 transition-all duration-150 active:scale-95
+                min-h-[116px] rounded-xl border-2 py-3 px-2 transition-all duration-150 active:scale-95
                 ${STATUS_STYLES[effectiveStatus]}
                 ${isSelected ? 'ring-2 ring-white ring-offset-1 ring-offset-gray-900 scale-105' : ''}
               `}
             >
-              <span className="font-black text-lg leading-none">{table.table_number}</span>
-              <div className="flex items-center gap-0.5 mt-1">
-                <Users className="w-2.5 h-2.5 opacity-60" />
-                <span className="text-xs opacity-70">{table.seats}</span>
-              </div>
-              <span className="text-xs opacity-60 mt-0.5">{STATUS_LABEL[effectiveStatus]}</span>
+              <button
+                type="button"
+                disabled={isDisabled}
+                onClick={() => !isDisabled && onSelectTable(table.id, table.table_number)}
+                className="flex w-full flex-1 flex-col items-center justify-center disabled:cursor-not-allowed"
+              >
+                <span className="font-black text-lg leading-none">{table.table_number}</span>
+                <div className="flex items-center gap-0.5 mt-1">
+                  <Users className="w-2.5 h-2.5 opacity-60" />
+                  <span className="text-xs opacity-70">{table.seats}</span>
+                </div>
+                <span className="text-xs opacity-60 mt-0.5">{STATUS_LABEL[effectiveStatus]}</span>
+              </button>
               {hasOrders && (
-                <span className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full border border-gray-900 animate-pulse" />
+                <>
+                  <span className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full border border-gray-900 animate-pulse" />
+                  {onBillTable && (
+                    <button
+                      type="button"
+                      onClick={() => onBillTable(table.table_number)}
+                      className="mt-2 inline-flex w-full items-center justify-center gap-1 rounded-lg border border-emerald-300/35 bg-emerald-500/20 px-2 py-1.5 text-[11px] font-black text-emerald-100 transition hover:bg-emerald-500/30"
+                    >
+                      <DollarSign className="h-3 w-3" />
+                      Pagar completa
+                    </button>
+                  )}
+                </>
               )}
-            </button>
+            </div>
           );
         })}
       </div>
