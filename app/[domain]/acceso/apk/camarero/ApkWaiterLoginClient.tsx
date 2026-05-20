@@ -26,6 +26,8 @@ interface Props {
   tenantSlug: string
   logoUrl: string | null
   staffMembers: StaffMember[]
+  initialStaffId: string
+  initialStaffName: string
   branding: Branding
 }
 
@@ -45,13 +47,15 @@ export function ApkWaiterLoginClient({
   tenantSlug,
   logoUrl,
   staffMembers,
+  initialStaffId,
+  initialStaffName,
   branding,
 }: Props) {
   const router = useRouter()
-  const [staffId, setStaffId] = useState('')
-  const [staffName, setStaffName] = useState('')
+  const [staffId, setStaffId] = useState(initialStaffId)
+  const [staffName, setStaffName] = useState(initialStaffName)
   const [pin, setPin] = useState('')
-  const [phase, setPhase] = useState<'select' | 'pin'>('select')
+  const [phase, setPhase] = useState<'select' | 'pin'>(initialStaffId ? 'pin' : 'select')
   const [loading, setLoading] = useState(false)
   const [loadingMessage, setLoadingMessage] = useState('Verificando acceso')
   const [error, setError] = useState('')
@@ -66,6 +70,15 @@ export function ApkWaiterLoginClient({
     setError('')
     setPhase('pin')
   }
+
+  useEffect(() => {
+    if (!initialStaffId) return
+    setStaffId(initialStaffId)
+    setStaffName(initialStaffName)
+    setPin('')
+    setError('')
+    setPhase('pin')
+  }, [initialStaffId, initialStaffName])
 
   useEffect(() => {
     if (phase === 'pin' && !loading) {
@@ -183,6 +196,7 @@ export function ApkWaiterLoginClient({
       setStaffId('')
       setStaffName('')
       setError('')
+      router.replace(`/${tenantSlug}/acceso/apk/camarero`)
       return
     }
     router.replace(`/${tenantSlug}/acceso`)
@@ -235,18 +249,14 @@ export function ApkWaiterLoginClient({
               {staffMembers.length > 0 ? (
                 <div className="grid gap-3">
                   {staffMembers.map((staff) => (
-                    <button
+                    <a
                       key={staff.id}
-                      type="button"
+                      href={`/${tenantSlug}/acceso/apk/camarero?staffId=${encodeURIComponent(staff.id)}`}
                       onClick={() => selectStaff(staff)}
-                      onTouchStart={(event) => {
-                        event.preventDefault()
-                        selectStaff(staff)
-                      }}
-                      className="min-h-16 w-full rounded-2xl border border-[#D4AF37]/20 bg-[#0B0E14] px-4 text-left text-lg font-black text-white active:scale-[0.98]"
+                      className="flex min-h-16 w-full items-center rounded-2xl border border-[#D4AF37]/20 bg-[#0B0E14] px-4 text-left text-lg font-black text-white active:scale-[0.98]"
                     >
                       {staff.name}
-                    </button>
+                    </a>
                   ))}
                 </div>
               ) : (

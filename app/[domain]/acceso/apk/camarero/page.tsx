@@ -4,10 +4,12 @@ import { ApkWaiterLoginClient } from './ApkWaiterLoginClient'
 
 interface Props {
   params: Promise<{ domain: string }>
+  searchParams: Promise<{ staffId?: string }>
 }
 
-export default async function ApkWaiterLoginPage({ params }: Props) {
+export default async function ApkWaiterLoginPage({ params, searchParams }: Props) {
   const { domain: slug } = await params
+  const { staffId } = await searchParams
   const supabase = createServiceClient()
   const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(slug)
 
@@ -58,6 +60,8 @@ export default async function ApkWaiterLoginPage({ params }: Props) {
     .eq('is_active', true)
     .order('name')
 
+  const selectedStaff = (staffMembers || []).find((staff) => staff.id === staffId) || null
+
   return (
     <ApkWaiterLoginClient
       tenantId={tenant.id}
@@ -65,6 +69,8 @@ export default async function ApkWaiterLoginPage({ params }: Props) {
       tenantSlug={tenant.slug || slug}
       logoUrl={branding?.logo_url || tenant.logo_url}
       staffMembers={staffMembers || []}
+      initialStaffId={selectedStaff?.id || ''}
+      initialStaffName={selectedStaff?.name || ''}
       branding={{
         appName: branding?.app_name || tenant.organization_name,
         primaryColor: palette.primary,
