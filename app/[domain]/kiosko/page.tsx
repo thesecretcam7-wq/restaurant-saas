@@ -1,7 +1,6 @@
 import { createServiceClient } from '@/lib/supabase/server'
 import { getCurrencyByCountry } from '@/lib/currency'
 import { getTenantContext } from '@/lib/tenant'
-import { deriveBrandPalette } from '@/lib/brand-colors'
 import { getPageConfig } from '@/lib/pageConfig'
 import KioskoClient from './KioskoClient'
 
@@ -66,30 +65,18 @@ export default async function KioskoPage({ params, searchParams }: Props) {
   const contextBranding = (context.branding || {}) as Record<string, any>
   const pageConfig = getPageConfig((context.tenant as any)?.metadata?.page_config || contextBranding.page_config)
   const isLightTheme = pageConfig.appearance.theme_mode === 'light'
-  const palette = deriveBrandPalette({
-    primary: contextBranding.primary_color,
-    secondary: contextBranding.secondary_color,
-    accent: contextBranding.accent_color,
-    background: contextBranding.background_color,
-    surface: contextBranding.section_background_color,
-    buttonPrimary: contextBranding.button_primary_color,
-    buttonSecondary: contextBranding.button_secondary_color,
-    textPrimary: contextBranding.text_primary_color,
-    textSecondary: contextBranding.text_secondary_color,
-    border: contextBranding.border_color,
-  })
 
   const branding = {
     appName: contextBranding.app_name || tenant.organization_name,
-    primaryColor: isLightTheme ? '#ff5a00' : palette.primary,
-    secondaryColor: isLightTheme ? '#ffffff' : palette.secondary,
-    accentColor: isLightTheme ? '#ff1f1f' : palette.accent,
-    backgroundColor: isLightTheme ? '#ffffff' : palette.background,
-    buttonPrimaryColor: isLightTheme ? '#ff5a00' : palette.buttonPrimary,
-    buttonSecondaryColor: isLightTheme ? '#ff1f1f' : palette.buttonSecondary,
-    textPrimaryColor: isLightTheme ? '#07111f' : palette.pageText,
-    textSecondaryColor: isLightTheme ? 'rgba(7, 17, 31, 0.70)' : palette.mutedText,
-    borderColor: isLightTheme ? 'rgba(7, 17, 31, 0.12)' : palette.border,
+    primaryColor: isLightTheme ? '#ff5a00' : '#D4AF37',
+    secondaryColor: isLightTheme ? '#ffffff' : '#1A1F2C',
+    accentColor: isLightTheme ? '#ff1f1f' : '#D4AF37',
+    backgroundColor: isLightTheme ? '#ffffff' : '#0B0E14',
+    buttonPrimaryColor: isLightTheme ? '#ff5a00' : '#D35A37',
+    buttonSecondaryColor: isLightTheme ? '#ff1f1f' : '#D4AF37',
+    textPrimaryColor: isLightTheme ? '#07111f' : '#ffffff',
+    textSecondaryColor: isLightTheme ? 'rgba(7, 17, 31, 0.70)' : '#8b97a8',
+    borderColor: isLightTheme ? 'rgba(7, 17, 31, 0.12)' : 'rgba(212, 175, 55, 0.18)',
     isLightTheme,
     logoUrl:
       tenant.logo_url ||

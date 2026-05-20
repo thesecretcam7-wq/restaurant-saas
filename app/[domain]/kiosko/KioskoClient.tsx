@@ -511,24 +511,24 @@ export default function KioskoClient({
   const appHeaderTextColor = isLightTheme ? '#07111f' : readableText(appHeaderColor, textPrimaryColor)
   const freeToppingsLabel = domain === 'parrillaburgers' ? 'Barra libre' : 'Ingredientes gratis'
   const actionButtonColor = isLightTheme ? '#ff5a00' : buttonPrimaryColor
-  const actionButtonTextColor = isLightTheme ? '#07111f' : readableText(buttonPrimaryColor)
+  const actionButtonTextColor = isLightTheme ? '#ffffff' : readableText(buttonPrimaryColor)
   const secondaryActionButtonColor = isLightTheme ? '#ffffff' : buttonSecondaryColor
   const secondaryActionButtonTextColor = isLightTheme ? '#07111f' : readableText(buttonSecondaryColor)
   const buttonTextColor = actionButtonTextColor
   const secondaryButtonTextColor = secondaryActionButtonTextColor
   const kioskAccentColor = isLightTheme ? '#ff1f1f' : accentColor
   const kioskBackgroundColor = isLightTheme ? '#f8fafc' : backgroundColor
-  const surfaceColor = isLightTheme ? '#ffffff' : '#11100D'
-  const surfaceTextColor = isLightTheme ? '#07111f' : '#FFF4D8'
+  const surfaceColor = isLightTheme ? '#ffffff' : secondaryColor || '#1A1F2C'
+  const surfaceTextColor = isLightTheme ? '#07111f' : textPrimaryColor || '#ffffff'
   const modalTextColor = isLightTheme ? '#000000' : surfaceTextColor
-  const surfaceMutedTextColor = isLightTheme ? 'rgba(7, 17, 31, 0.68)' : textSecondaryColor || '#B9A989'
+  const surfaceMutedTextColor = isLightTheme ? 'rgba(7, 17, 31, 0.68)' : textSecondaryColor || '#8b97a8'
   const menuShellBackground = isLightTheme
     ? 'linear-gradient(180deg, #ffffff 0%, #f4f4f5 58%, #e5e7eb 100%)'
-    : `linear-gradient(135deg, ${surfaceColor} 0%, ${backgroundColor} 44%, #050403 100%)`
+    : `linear-gradient(135deg, ${backgroundColor} 0%, ${surfaceColor} 54%, ${backgroundColor} 100%)`
   const mainPanelBackground = isLightTheme
     ? 'linear-gradient(180deg, #ffffff 0%, #f4f4f5 58%, #e5e7eb 100%)'
-    : 'linear-gradient(180deg,rgba(255,255,255,0.035),rgba(0,0,0,0.28))'
-  const placeholderImageBg = isLightTheme ? '#f4f4f5' : '#17130D'
+    : `linear-gradient(180deg, ${surfaceColor} 0%, ${backgroundColor} 100%)`
+  const placeholderImageBg = isLightTheme ? '#f4f4f5' : '#111827'
 
   const accentTextColor = readableText(accentColor)
 
@@ -1330,7 +1330,7 @@ export default function KioskoClient({
             background:
               isLightTheme
             ? 'linear-gradient(180deg, #ffffff 0%, #f4f4f5 58%, #e5e7eb 100%)'
-                : `radial-gradient(circle at 50% 18%, ${primaryColor}33 0%, transparent 34%), linear-gradient(180deg, ${primaryColor}, #050505 58%, #020202 100%)`,
+                : `radial-gradient(circle at 50% 18%, ${primaryColor}33 0%, transparent 34%), linear-gradient(180deg, ${surfaceColor} 0%, ${backgroundColor} 64%, #05070d 100%)`,
           }}
           onClick={() => { toggleFullscreen(); setShowFsPrompt(false) }}
         >
@@ -1359,7 +1359,7 @@ export default function KioskoClient({
             background:
               isLightTheme
                 ? 'linear-gradient(180deg, #ffffff 0%, #f4f4f5 58%, #e5e7eb 100%)'
-                : `radial-gradient(circle at 24% 18%, ${primaryColor}44 0%, transparent 32%), linear-gradient(135deg, #050403 0%, ${surfaceColor} 48%, #050403 100%)`,
+                : `radial-gradient(circle at 24% 18%, ${primaryColor}44 0%, transparent 32%), linear-gradient(135deg, ${backgroundColor} 0%, ${surfaceColor} 48%, ${backgroundColor} 100%)`,
           }}
         >
           {activeAdBanner ? (
@@ -1368,7 +1368,7 @@ export default function KioskoClient({
               className="absolute inset-0 h-full w-full scale-[1.03] object-cover object-center"
             />
           ) : (
-            <div className="absolute inset-0" style={{ background: `linear-gradient(135deg, ${primaryColor}, ${secondaryColor}, #050403)` }} />
+            <div className="absolute inset-0" style={{ background: `linear-gradient(135deg, ${primaryColor}, ${surfaceColor}, ${backgroundColor})` }} />
           )}
           <div className="absolute inset-0 bg-gradient-to-t from-black/86 via-black/28 to-black/20" />
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_72%_18%,rgba(255,255,255,0.16),transparent_22rem)]" />
@@ -1458,7 +1458,7 @@ export default function KioskoClient({
                     boxShadow: isPressed ? `0 22px 55px ${primaryColor}55` : undefined,
                   }}
                 >
-                  <div className="absolute inset-0 flex items-center justify-center bg-neutral-950">
+                  <div className="absolute inset-0 flex items-center justify-center bg-neutral-950" style={{ backgroundColor: placeholderImageBg }}>
                     {cat.image_url ? (
                       <img
                         src={cat.image_url}
