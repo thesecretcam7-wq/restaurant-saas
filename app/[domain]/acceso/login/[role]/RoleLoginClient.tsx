@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { ArrowLeft, ChefHat, CreditCard, Delete, Lock, ShieldCheck, UtensilsCrossed } from 'lucide-react';
 
 interface StaffMember {
@@ -123,6 +123,7 @@ export function RoleLoginClient({
   branding,
 }: Props) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [staffId, setStaffId] = useState(initialStaffId || '');
   const [staffName, setStaffName] = useState(initialStaffName || '');
   const [pin, setPin] = useState('');
@@ -131,6 +132,7 @@ export function RoleLoginClient({
   const [error, setError] = useState('');
   const [phase, setPhase] = useState<'select' | 'pin'>(initialStaffId ? 'pin' : 'select');
   const pinInputRef = useRef<HTMLInputElement | null>(null);
+  const pinFormRef = useRef<HTMLFormElement | null>(null);
   const config = ROLE_CONFIG[role];
   const RoleIcon = config.icon;
 
@@ -144,6 +146,16 @@ export function RoleLoginClient({
   const secondaryText = readableText(secondaryHighlight);
   const appName = branding.appName || tenantName;
   const accessPath = `/${tenantSlug}/acceso`;
+  const queryError = searchParams.get('error');
+  const formError =
+    error ||
+    (queryError === 'pin'
+      ? 'PIN incorrecto. Intenta de nuevo.'
+      : queryError === 'missing'
+        ? 'Faltan datos para iniciar sesion. Vuelve a seleccionar tu nombre.'
+        : queryError === 'session'
+          ? 'No se pudo abrir la sesion. Intenta de nuevo.'
+          : '');
 
   async function handleStaffSelect(selectedId: string) {
     const selected = staffMembers.find((staff) => staff.id === selectedId);
@@ -268,7 +280,9 @@ export function RoleLoginClient({
     const next = value.replace(/\D/g, '').slice(0, 6);
     setError('');
     setPin(next);
-    if (next.length === 6) validatePin(next);
+    if (next.length === 6) {
+      window.setTimeout(() => pinFormRef.current?.requestSubmit(), 80);
+    }
   }
 
   function goBack() {
@@ -290,6 +304,8 @@ export function RoleLoginClient({
 
     function handleKeyboard(event: KeyboardEvent) {
       if (event.defaultPrevented || event.ctrlKey || event.metaKey || event.altKey || loading) return;
+      const target = event.target as HTMLElement | null;
+      if (target?.tagName === 'INPUT' || target?.tagName === 'TEXTAREA') return;
 
       if (/^\d$/.test(event.key)) {
         event.preventDefault();
@@ -446,77 +462,63 @@ export function RoleLoginClient({
               </div>
             ) : (
               <>
-                <div className="mb-4 flex justify-center gap-2 sm:mb-7 sm:gap-3">
-                  {Array.from({ length: 6 }).map((_, index) => (
-                    <div
-                      key={index}
-                      className="grid h-8 w-8 place-items-center rounded-full border-2 transition-colors sm:h-11 sm:w-11"
-                      style={{
-                        backgroundColor: index < pin.length ? highlight : 'rgba(255,255,255,0.08)',
-                        borderColor: index < pin.length ? highlight : 'rgba(212,175,55,0.18)',
-                      }}
-                    >
-                      {index < pin.length && <div className="h-2.5 w-2.5 rounded-full sm:h-3 sm:w-3" style={{ backgroundColor: primaryText }} />}
-                    </div>
-                  ))}
-                </div>
-
-                <label className="mb-4 block">
-                    <span className="mb-2 block text-center text-xs font-black uppercase tracking-[0.16em] text-[#8b97a8]">
-                    Escribe tu PIN
-                  </span>
-                  <input
-                    ref={pinInputRef}
-                    type="password"
-                    inputMode="numeric"
-                    pattern="[0-9]*"
-                    autoComplete="one-time-code"
-                    value={pin}
-                    onChange={(event) => handlePinInput(event.target.value)}
-                    disabled={loading}
-                    className="w-full rounded-2xl border border-[#D4AF37]/20 bg-[#0B0E14]/70 px-4 py-3 text-center text-2xl font-black tracking-[0.55em] text-white outline-none transition placeholder:tracking-normal placeholder:text-[#8b97a8] focus:border-[#D4AF37] focus:ring-4 focus:ring-[#D4AF37]/10 disabled:opacity-50"
-                    placeholder="PIN"
-                  />
-                </label>
-
-                {error && (
-                  <p className="mb-4 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-center text-sm font-bold text-red-700">
-                    {error}
-                  </p>
-                )}
-                {loading && <p className="mb-4 text-center text-sm font-bold text-[#8b97a8]">{loadingMessage}...</p>}
-
-                <div className="grid grid-cols-3 gap-2 sm:gap-3">
-                  {['1', '2', '3', '4', '5', '6', '7', '8', '9', '', '0', 'del'].map((key) => {
-                    if (key === '') return <div key="empty" />;
-                    const isDelete = key === 'del';
-                    return (
-                      <button
-                        type="button"
-                        key={key}
-                        onClick={() => pressKey(key)}
-                        disabled={loading}
-                        className="grid h-[52px] place-items-center rounded-2xl border text-xl font-black transition active:scale-95 disabled:opacity-50 sm:h-16 sm:text-2xl"
-                        style={{
-                          backgroundColor: isDelete ? `${secondaryHighlight}18` : 'rgba(11,14,20,0.70)',
-                          borderColor: isDelete ? `${secondaryHighlight}66` : 'rgba(212,175,55,0.18)',
-                          color: isDelete ? '#D4AF37' : '#ffffff',
-                        }}
-                      >
-                        {key === 'del' ? <Delete className="h-5 w-5" /> : key}
-                      </button>
-                    );
-                  })}
-                </div>
-
-                <button
-                  type="button"
-                  onClick={submitPin}
-                  disabled={loading || pin.length < 4}
-                  className="mt-4 h-14 w-full rounded-2xl bg-[#D35A37] text-base font-black text-white shadow-[0_16px_34px_rgba(211,90,55,0.24)] transition hover:bg-[#bd4d31] active:scale-[0.98] disabled:cursor-not-allowed disabled:bg-[#334155] disabled:text-[#8b97a8] disabled:shadow-none"
+                <form
+                  ref={pinFormRef}
+                  method="POST"
+                  action="/api/staff/login-form"
+                  className="space-y-4"
                 >
-                  Entrar
-                </button>
+                  <input type="hidden" name="tenantId" value={tenantId} />
+                  <input type="hidden" name="tenantSlug" value={tenantSlug} />
+                  <input type="hidden" name="role" value={role} />
+                  <input type="hidden" name="staffId" value={staffId} />
+                  <input type="hidden" name="staffName" value={staffName} />
+
+                  <label className="block">
+                    <span className="mb-3 block text-center text-xs font-black uppercase tracking-[0.16em] text-[#8b97a8]">
+                      Toca el campo y escribe tu PIN
+                    </span>
+                    <input
+                      ref={pinInputRef}
+                      name="pin"
+                      type="password"
+                      inputMode="numeric"
+                      pattern="[0-9]*"
+                      autoComplete="one-time-code"
+                      minLength={4}
+                      maxLength={6}
+                      required
+                      autoFocus
+                      value={pin}
+                      onChange={(event) => handlePinInput(event.target.value)}
+                      onInput={(event) => handlePinInput(event.currentTarget.value)}
+                      className="h-16 w-full rounded-2xl border border-[#D4AF37]/20 bg-[#0B0E14]/70 px-4 text-center text-2xl font-black tracking-[0.45em] text-white outline-none transition placeholder:tracking-normal placeholder:text-[#8b97a8] focus:border-[#D4AF37] focus:ring-4 focus:ring-[#D4AF37]/10 disabled:opacity-50"
+                      placeholder="PIN"
+                    />
+                  </label>
+
+                  {formError && (
+                    <p className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-center text-sm font-bold text-red-700">
+                      {formError}
+                    </p>
+                  )}
+                  {loading && <p className="text-center text-sm font-bold text-[#8b97a8]">{loadingMessage}...</p>}
+
+                  <button
+                    type="submit"
+                    disabled={loading}
+                    className="h-14 w-full rounded-2xl bg-[#D35A37] text-base font-black text-white shadow-[0_16px_34px_rgba(211,90,55,0.24)] transition hover:bg-[#bd4d31] active:scale-[0.98] disabled:cursor-not-allowed disabled:bg-[#334155] disabled:text-[#8b97a8] disabled:shadow-none"
+                  >
+                    Entrar
+                  </button>
+                </form>
+
+                <a
+                  href={`/${tenantSlug}/acceso/login/${role}`}
+                  className="mt-3 block text-center text-xs font-black uppercase tracking-[0.16em] text-[#D4AF37] sm:mt-5"
+                >
+                  Cambiar empleado
+                </a>
 
                 <p className="mt-3 text-center text-[10px] font-bold uppercase tracking-[0.18em] text-[#8b97a8] sm:mt-5 sm:text-xs">
                   PIN de 4 a 6 digitos
