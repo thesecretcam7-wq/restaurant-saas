@@ -4,10 +4,12 @@ import { RoleLoginClient } from './RoleLoginClient'
 
 interface Props {
   params: Promise<{ domain: string; role: string }>
+  searchParams?: Promise<{ staffId?: string }>
 }
 
-export default async function RoleLoginPage({ params }: Props) {
+export default async function RoleLoginPage({ params, searchParams }: Props) {
   const { domain: slug, role } = await params
+  const query = await searchParams
 
   if (!['cocinero', 'camarero', 'cajero', 'admin'].includes(role)) {
     return (
@@ -69,6 +71,7 @@ export default async function RoleLoginPage({ params }: Props) {
     .eq('role', role)
     .eq('is_active', true)
     .order('name')
+  const selectedStaff = (staffMembers || []).find((staff) => staff.id === query?.staffId) || null
 
   return (
     <RoleLoginClient
@@ -78,6 +81,8 @@ export default async function RoleLoginPage({ params }: Props) {
       logoUrl={branding?.logo_url || tenant.logo_url}
       role={role as 'cocinero' | 'camarero' | 'cajero' | 'admin'}
       staffMembers={staffMembers || []}
+      initialStaffId={selectedStaff?.id || null}
+      initialStaffName={selectedStaff?.name || null}
       branding={{
         appName: branding?.app_name || tenant.organization_name,
         primaryColor: palette.primary,

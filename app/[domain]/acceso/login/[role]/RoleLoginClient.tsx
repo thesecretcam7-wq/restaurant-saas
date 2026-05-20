@@ -27,6 +27,8 @@ interface Props {
   logoUrl: string | null;
   role: 'cocinero' | 'camarero' | 'cajero' | 'admin';
   staffMembers: StaffMember[];
+  initialStaffId?: string | null;
+  initialStaffName?: string | null;
   branding: Branding;
 }
 
@@ -116,16 +118,18 @@ export function RoleLoginClient({
   logoUrl,
   role,
   staffMembers,
+  initialStaffId,
+  initialStaffName,
   branding,
 }: Props) {
   const router = useRouter();
-  const [staffId, setStaffId] = useState('');
-  const [staffName, setStaffName] = useState('');
+  const [staffId, setStaffId] = useState(initialStaffId || '');
+  const [staffName, setStaffName] = useState(initialStaffName || '');
   const [pin, setPin] = useState('');
   const [loading, setLoading] = useState(false);
   const [loadingMessage, setLoadingMessage] = useState('Verificando acceso');
   const [error, setError] = useState('');
-  const [phase, setPhase] = useState<'select' | 'pin'>('select');
+  const [phase, setPhase] = useState<'select' | 'pin'>(initialStaffId ? 'pin' : 'select');
   const pinInputRef = useRef<HTMLInputElement | null>(null);
   const config = ROLE_CONFIG[role];
   const RoleIcon = config.icon;
@@ -270,11 +274,7 @@ export function RoleLoginClient({
   function goBack() {
     if (loading) return;
     if (phase === 'pin') {
-      setPhase('select');
-      setPin('');
-      setError('');
-      setStaffId('');
-      setStaffName('');
+      window.location.href = `/${tenantSlug}/acceso/login/${role}`;
       return;
     }
     router.push(accessPath);
@@ -420,17 +420,16 @@ export function RoleLoginClient({
                 <p className="block text-sm font-bold text-[#8b97a8]">Empleado</p>
                 <div className="grid gap-2">
                   {staffMembers.map((staff) => (
-                    <button
+                    <a
                       key={staff.id}
-                      type="button"
-                      onClick={() => handleStaffSelect(staff.id)}
+                      href={`/${tenantSlug}/acceso/login/${role}?staffId=${encodeURIComponent(staff.id)}`}
                       className="flex min-h-14 w-full items-center justify-between rounded-2xl border border-[#D4AF37]/20 bg-[#0B0E14]/70 px-4 py-3 text-left text-base font-black text-white transition active:scale-[0.98] hover:border-[#D4AF37]/45 hover:bg-[#121826]"
                     >
                       <span className="min-w-0 truncate">{staff.name}</span>
                       <span className="rounded-full border border-[#D4AF37]/25 px-3 py-1 text-[10px] font-black uppercase tracking-[0.14em] text-[#D4AF37]">
                         PIN
                       </span>
-                    </button>
+                    </a>
                   ))}
                 </div>
 
