@@ -161,6 +161,7 @@ export default function GlobalNavigationLoader() {
       <EccofoodPageLoader
         label={label}
         detail="Preparando una experiencia rapida y segura."
+        mode="card"
       />
     </div>
   );

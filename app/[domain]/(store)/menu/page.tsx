@@ -134,6 +134,10 @@ export default async function MenuPage({ params }: MenuProps) {
   const themeMode = pageConfig.appearance.theme_mode
   const isLightTheme = themeMode === 'light'
   const darkGold = '#D4AF37'
+  const darkRust = '#D35A37'
+  const darkNavy = '#0B0E14'
+  const darkPanel = '#1A1F2C'
+  const darkMuted = '#8b97a8'
   if (isLightTheme) {
     primary = '#ff5a00'
     buttonColor = '#ff5a00'
@@ -143,25 +147,25 @@ export default async function MenuPage({ params }: MenuProps) {
     categoryInactiveColor = '#fff3e8'
   } else {
     primary = darkGold
-    buttonColor = darkGold
+    buttonColor = darkRust
     priceColor = darkGold
-    menuTextColor = '#fffaf0'
-    menuMutedTextColor = 'rgba(248, 243, 232, 0.68)'
-    categoryInactiveColor = 'rgba(255, 255, 255, 0.08)'
+    menuTextColor = '#ffffff'
+    menuMutedTextColor = darkMuted
+    categoryInactiveColor = 'rgba(212, 175, 55, 0.10)'
   }
   const backgroundStyle = useGradient
     ? { backgroundImage: sectionBackgroundImage ? `${baseBackgroundImage}, url(${sectionBackgroundImage})` : baseBackgroundImage, backgroundBlendMode: sectionBackgroundImage ? 'normal, soft-light' : undefined, backgroundSize: sectionBackgroundImage ? 'auto, cover' : undefined, backgroundPosition: sectionBackgroundImage ? 'center, center' : undefined }
     : sectionBackgroundImage
       ? {
-          backgroundColor: isLightTheme ? '#ffffff' : '#030303',
+          backgroundColor: isLightTheme ? '#ffffff' : darkNavy,
           backgroundImage: isLightTheme
             ? `linear-gradient(rgba(255,255,255,.92), rgba(255,255,255,.97)), url(${sectionBackgroundImage})`
-            : `linear-gradient(rgba(5,5,5,.82), rgba(5,5,5,.92)), url(${sectionBackgroundImage})`,
+            : `linear-gradient(rgba(11,14,20,.82), rgba(11,14,20,.92)), url(${sectionBackgroundImage})`,
           backgroundSize: 'cover',
           backgroundPosition: 'center',
           backgroundAttachment: 'fixed',
         }
-      : { backgroundColor: isLightTheme ? '#ffffff' : '#030303' }
+      : { backgroundColor: isLightTheme ? '#ffffff' : darkNavy }
 
   // Get currency from settings or detect from country
   const currencyInfo = settings?.currency
@@ -177,14 +181,14 @@ export default async function MenuPage({ params }: MenuProps) {
   const cardCls = getCardClasses(pageConfig.appearance.card_style)
   const btnCls = getButtonClasses(pageConfig.appearance.button_style)
   const featuredCarousel = featured.length > 1 ? featured : items.slice(0, 8)
-  const sectionSurface = isLightTheme ? '#ffffff' : 'rgba(10, 10, 10, 0.86)'
-  const cardSurface = isLightTheme ? '#ffffff' : 'rgba(12, 12, 12, 0.88)'
+  const sectionSurface = isLightTheme ? '#ffffff' : 'rgba(26, 31, 44, 0.78)'
+  const cardSurface = isLightTheme ? '#ffffff' : 'rgba(26, 31, 44, 0.82)'
   const sectionBorder = isLightTheme ? 'rgba(255, 90, 0, 0.24)' : 'rgba(212, 175, 55, 0.24)'
-  const softSurface = isLightTheme ? 'rgba(255, 90, 0, 0.12)' : 'rgba(255, 255, 255, 0.06)'
+  const softSurface = isLightTheme ? 'rgba(255, 90, 0, 0.12)' : 'rgba(212, 175, 55, 0.10)'
   const countTextColor = isLightTheme ? '#ff5a00' : darkGold
-  const darkPanelBackground = 'linear-gradient(145deg, rgba(36, 32, 23, 0.94) 0%, rgba(17, 16, 13, 0.96) 52%, rgba(7, 7, 7, 0.98) 100%)'
-  const darkButtonSurface = 'linear-gradient(180deg, rgba(255,255,255,.075) 0%, rgba(255,255,255,.035) 100%)'
-  const darkRaisedShadow = '0 16px 34px rgba(0,0,0,.42), 0 5px 0 rgba(0,0,0,.45), inset 0 1px 0 rgba(255,255,255,.12)'
+  const darkPanelBackground = 'linear-gradient(145deg, rgba(26,31,44,.94) 0%, rgba(17,23,34,.96) 52%, rgba(11,14,20,.98) 100%)'
+  const darkButtonSurface = 'linear-gradient(180deg, rgba(212,175,55,.13) 0%, rgba(212,175,55,.07) 100%)'
+  const darkRaisedShadow = '0 18px 46px rgba(0,0,0,.34), inset 0 1px 0 rgba(255,255,255,.08)'
   const menuPanelStyle = {
     background: isLightTheme ? sectionSurface : darkPanelBackground,
     borderColor: sectionBorder,
@@ -194,8 +198,8 @@ export default async function MenuPage({ params }: MenuProps) {
   }
   const headerClass = isLightTheme
     ? 'fixed inset-x-0 top-0 z-[60] border-b border-orange-200/70 bg-white/95 shadow-lg shadow-orange-500/10 backdrop-blur-xl'
-    : 'fixed inset-x-0 top-0 z-[60] border-b border-[#e7b43f]/20 bg-[#0b0a08]/95 shadow-lg shadow-black/20 backdrop-blur-xl'
-  const headerTextColor = isLightTheme ? '#07111f' : '#fff7df'
+    : 'fixed inset-x-0 top-0 z-[60] border-b border-[#D4AF37]/20 bg-[#0B0E14]/95 shadow-lg shadow-black/20 backdrop-blur-xl'
+  const headerTextColor = isLightTheme ? '#07111f' : '#ffffff'
 
   return (
     <div className={`store-surface min-h-screen overflow-x-hidden ${isLightTheme ? 'ecco-store-light' : 'ecco-store-dark'}`} style={{ fontFamily, ...backgroundStyle }}>
@@ -262,11 +266,11 @@ export default async function MenuPage({ params }: MenuProps) {
         <CategoryFilterBar
           categories={categories}
           primary={buttonColor}
-          activeTextColor={isLightTheme ? '#07111f' : darkGold}
-          inactiveTextColor={isLightTheme ? menuTextColor : 'rgba(248, 243, 232, 0.78)'}
+          activeTextColor={isLightTheme ? '#07111f' : '#ffffff'}
+          inactiveTextColor={isLightTheme ? menuTextColor : darkMuted}
           borderColor={sectionBorder}
           inactiveColor={categoryInactiveColor}
-          activeColor={isLightTheme ? undefined : 'rgba(212, 175, 55, 0.15)'}
+          activeColor={isLightTheme ? undefined : darkRust}
           buttonShadow={isLightTheme ? undefined : darkRaisedShadow}
           btnCls={btnCls}
         />
@@ -319,7 +323,7 @@ export default async function MenuPage({ params }: MenuProps) {
                     backgroundColor: cardSurface,
                     borderColor: sectionBorder,
                     animationDelay: `${120 + (index % Math.max(featuredCarousel.length, 1)) * 45}ms`,
-                    backgroundImage: isLightTheme ? `linear-gradient(135deg, ${primary}12, transparent 60%)` : 'linear-gradient(145deg, rgba(36,32,23,.88), rgba(9,9,9,.96))',
+                    backgroundImage: isLightTheme ? `linear-gradient(135deg, ${primary}12, transparent 60%)` : 'linear-gradient(145deg, rgba(26,31,44,.90), rgba(11,14,20,.96))',
                     boxShadow: isLightTheme ? undefined : '0 18px 40px rgba(0,0,0,.42), inset 0 1px 0 rgba(255,255,255,.08)',
                   }}
                 >

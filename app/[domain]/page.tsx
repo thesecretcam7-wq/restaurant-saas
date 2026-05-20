@@ -142,10 +142,14 @@ export default async function HomePage({ params }: HomePageProps) {
   const lightAccent = '#ff1f1f'
   const lightSecondary = '#f3f4f6'
   const darkGold = '#D4AF37'
+  const darkRust = '#D35A37'
+  const darkNavy = '#0B0E14'
+  const darkPanel = '#1A1F2C'
+  const darkMuted = '#8b97a8'
   const darkGoldSoft = '#F4D58D'
   const storePrimary = isLightTheme ? lightPrimary : darkGold
-  const storeSecondary = isLightTheme ? lightAccent : darkGoldSoft
-  const storeButton = isLightTheme ? lightPrimary : darkGold
+  const storeSecondary = isLightTheme ? lightAccent : darkRust
+  const storeButton = isLightTheme ? lightPrimary : darkRust
   const storePrice = isLightTheme ? lightAccent : darkGold
   const themeColors = isLightTheme
     ? {
@@ -160,15 +164,15 @@ export default async function HomePage({ params }: HomePageProps) {
         footerText: 'rgba(17, 24, 39, 0.68)',
       }
     : {
-        background: '#030303',
-        surface: 'rgba(12, 12, 12, 0.72)',
+        background: darkNavy,
+        surface: 'rgba(26, 31, 44, 0.78)',
         soft: 'rgba(212, 175, 55, 0.10)',
-        text: '#f8f3e8',
-        muted: 'rgba(248, 243, 232, 0.68)',
-        header: 'rgba(3, 3, 3, 0.72)',
-        heroPanel: 'rgba(10, 10, 10, 0.62)',
-        heroText: '#fffaf0',
-        footerText: 'rgba(248, 243, 232, 0.62)',
+        text: '#ffffff',
+        muted: darkMuted,
+        header: 'rgba(11, 14, 20, 0.72)',
+        heroPanel: 'rgba(26, 31, 44, 0.78)',
+        heroText: '#ffffff',
+        footerText: darkMuted,
       }
   const pageBackgroundStyle = {
     '--primary-color': storePrimary,
@@ -186,7 +190,7 @@ export default async function HomePage({ params }: HomePageProps) {
       ? {
           backgroundImage: isLightTheme
             ? `linear-gradient(rgba(255,255,255,.92), rgba(255,255,255,.97)), url(${sectionBackgroundImage})`
-            : `linear-gradient(rgba(5,5,5,.84), rgba(5,5,5,.94)), url(${sectionBackgroundImage})`,
+            : `linear-gradient(rgba(11,14,20,.84), rgba(11,14,20,.94)), url(${sectionBackgroundImage})`,
           backgroundSize: 'cover',
           backgroundPosition: 'center',
           backgroundAttachment: 'fixed',
@@ -205,7 +209,7 @@ export default async function HomePage({ params }: HomePageProps) {
   const heroOverlay = Math.min(Math.max(hero.overlay_opacity || 45, 26), 78) / 100
   const heroFallbackBackground = isLightTheme
     ? 'linear-gradient(180deg, #ffffff 0%, #f4f4f5 58%, #e5e7eb 100%)'
-    : `radial-gradient(circle at 72% 28%, ${darkGold}55, transparent 28rem), linear-gradient(135deg, #050505 0%, #111111 58%, #030303 100%)`
+    : `radial-gradient(circle at 72% 28%, ${darkGold}44, transparent 28rem), radial-gradient(circle at 18% 10%, rgba(211,90,55,.14), transparent 26rem), linear-gradient(135deg, ${darkNavy} 0%, ${darkPanel} 58%, ${darkNavy} 100%)`
   const heroShade = isLightTheme
     ? heroImage
       ? 'linear-gradient(90deg, rgba(20,9,2,.56) 0%, rgba(20,9,2,.34) 48%, rgba(20,9,2,.12) 100%)'
@@ -215,10 +219,10 @@ export default async function HomePage({ params }: HomePageProps) {
   const heroMutedColor = isLightTheme && !heroImage ? 'rgba(7, 17, 31, 0.76)' : 'rgba(255,255,255,.84)'
   const heroFeaturePanelClass = isLightTheme
     ? 'hidden self-stretch rounded-[28px] border border-orange-300/50 bg-white/90 p-3 shadow-2xl shadow-orange-500/10 backdrop-blur-xl lg:block'
-    : 'hidden self-stretch rounded-[28px] border border-[#e7b43f]/22 bg-white/10 p-3 shadow-2xl backdrop-blur-xl lg:block'
+    : 'hidden self-stretch rounded-[28px] border border-[#D4AF37]/22 bg-[#1A1F2C]/78 p-3 shadow-2xl backdrop-blur-xl lg:block'
   const heroFeatureInnerClass = isLightTheme
     ? 'rounded-[22px] border border-orange-300/50 bg-white p-4'
-    : 'rounded-[22px] border border-[#e7b43f]/18 bg-[#151410]/92 p-4'
+    : 'rounded-[22px] border border-[#D4AF37]/18 bg-[#0B0E14]/55 p-4'
   const countryCurrency = getCurrencyByCountry(settings?.country_code || settings?.country || (tenant as any)?.country || 'ES')
   const currencyInfo = settings?.currency
     ? { ...countryCurrency, code: settings.currency, symbol: settings.currency_symbol || countryCurrency.symbol }
@@ -304,8 +308,8 @@ export default async function HomePage({ params }: HomePageProps) {
                 className="store-app-primary-button inline-flex h-14 items-center justify-center gap-3 rounded-2xl px-7 text-sm font-black uppercase tracking-wide transition hover:-translate-y-0.5 active:scale-[0.98]"
                 style={{
                   background: storeButton,
-                  color: isLightTheme ? '#07111f' : '#15130f',
-                  boxShadow: isLightTheme ? '0 18px 42px rgba(7,17,31,.14)' : '0 20px 54px rgba(212,175,55,.24)',
+                  color: '#ffffff',
+                  boxShadow: isLightTheme ? '0 18px 42px rgba(7,17,31,.14)' : '0 18px 46px rgba(211,90,55,.34)',
                 }}
               >
                 {hero.cta_primary_text || tr('store.viewMenu')}

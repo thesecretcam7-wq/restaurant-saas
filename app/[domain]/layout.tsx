@@ -144,12 +144,13 @@ export default async function TenantLayout({
   const themeMode = pageConfig.appearance.theme_mode
   const isLightTheme = themeMode === 'light'
   const primaryColor = isLightTheme ? '#ff5a00' : '#D4AF37'
-  const secondaryColor = isLightTheme ? '#ff1f1f' : '#F4D58D'
+  const secondaryColor = isLightTheme ? '#ff1f1f' : '#D35A37'
   const accentColor = isLightTheme ? '#ff1f1f' : '#D4AF37'
-  const backgroundColor = isLightTheme ? '#ffffff' : '#030303'
-  const surfaceColor = isLightTheme ? '#ffffff' : 'rgba(10, 10, 10, 0.86)'
-  const textColor = isLightTheme ? '#07111f' : '#fffaf0'
-  const mutedTextColor = isLightTheme ? 'rgba(7, 17, 31, 0.72)' : 'rgba(248, 243, 232, 0.68)'
+  const buttonPrimaryColor = isLightTheme ? primaryColor : '#D35A37'
+  const backgroundColor = isLightTheme ? '#ffffff' : '#0B0E14'
+  const surfaceColor = isLightTheme ? '#ffffff' : '#1A1F2C'
+  const textColor = isLightTheme ? '#07111f' : '#ffffff'
+  const mutedTextColor = isLightTheme ? 'rgba(7, 17, 31, 0.72)' : '#8b97a8'
 
   return (
     <>
@@ -161,8 +162,8 @@ export default async function TenantLayout({
           --secondary-color: ${secondaryColor};
           --accent-color: ${accentColor};
           --background-color: ${backgroundColor};
-          --button-primary-color: ${primaryColor};
-          --button-secondary-color: ${isLightTheme ? '#fff3e8' : 'rgba(255, 255, 255, 0.08)'};
+          --button-primary-color: ${buttonPrimaryColor};
+          --button-secondary-color: ${isLightTheme ? '#fff3e8' : 'rgba(212, 175, 55, 0.12)'};
           --price-color: ${accentColor};
           --brand-surface-color: ${surfaceColor};
           --brand-text-color: ${textColor};

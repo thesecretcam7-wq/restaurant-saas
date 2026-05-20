@@ -24,12 +24,13 @@ export default function CarritoPage({ params }: Props) {
   const pathname = usePathname()
   const { items, removeItem, updateQty, total } = useCartStore()
   const storeBasePath = pathname?.startsWith(`/${tenantSlug}`) ? `/${tenantSlug}` : ''
-  const primary = 'var(--button-primary-color, var(--primary-color, #15130f))'
+  const primary = 'var(--button-primary-color, var(--primary-color, #D35A37))'
   const price = 'var(--price-color, var(--accent-color, #15130f))'
-  const pageBg = 'var(--brand-background-color, #f8f5ef)'
-  const surface = 'var(--brand-surface-color, #ffffff)'
-  const text = 'var(--brand-text-color, #15130f)'
-  const muted = 'var(--brand-muted-color, rgba(21, 19, 15, 0.62))'
+  const pageBg = 'var(--brand-background-color, #0B0E14)'
+  const surface = 'var(--brand-surface-color, #1A1F2C)'
+  const text = 'var(--brand-text-color, #ffffff)'
+  const muted = 'var(--brand-muted-color, #8b97a8)'
+  const border = 'rgba(212,175,55,.18)'
   const [mounted, setMounted] = useState(false)
   const [currencyInfo, setCurrencyInfo] = useState(() => getCurrencyByCountry('ES'))
   const [tenantId, setTenantId] = useState(tenantSlug)
@@ -111,10 +112,10 @@ export default function CarritoPage({ params }: Props) {
   return (
     <div className="min-h-screen" style={{ backgroundColor: pageBg, color: text }}>
       {/* Header - Professional */}
-      <header className="backdrop-blur-lg border-b border-gray-100 shadow-sm sticky top-0 z-10" style={{ backgroundColor: surface }}>
+      <header className="backdrop-blur-lg border-b shadow-sm sticky top-0 z-10" style={{ backgroundColor: surface, borderColor: border }}>
         <div className="max-w-lg mx-auto px-4 h-16 flex items-center gap-3">
-          <Link href={`${storeBasePath}/menu`} className="w-10 h-10 rounded-lg bg-gray-100 hover:bg-gray-200 active:bg-gray-300 flex items-center justify-center transition-colors" title="Volver">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#374151" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+          <Link href={`${storeBasePath}/menu`} className="w-10 h-10 rounded-lg flex items-center justify-center transition-colors" style={{ backgroundColor: 'var(--brand-soft-color, rgba(212,175,55,.10))', color: price }} title="Volver">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
               <path d="M19 12H5M12 19l-7-7 7-7"/>
             </svg>
           </Link>
@@ -127,9 +128,9 @@ export default function CarritoPage({ params }: Props) {
 
       <main className="max-w-lg mx-auto px-4 py-5 space-y-3">
         {/* Items */}
-        <div className="rounded-2xl border border-gray-100 shadow-sm overflow-hidden" style={{ backgroundColor: surface }}>
+        <div className="rounded-2xl border shadow-sm overflow-hidden" style={{ backgroundColor: surface, borderColor: border }}>
           {items.map((item, idx) => (
-            <div key={item.item_id} className={`flex items-center gap-3 p-4 ${idx < items.length - 1 ? 'border-b border-gray-50' : ''}`}>
+            <div key={item.item_id} className={`flex items-center gap-3 p-4 ${idx < items.length - 1 ? 'border-b' : ''}`} style={{ borderColor: idx < items.length - 1 ? border : undefined }}>
               {item.image_url ? (
                 <img src={item.image_url} alt={item.name} className="w-16 h-16 rounded-xl object-cover flex-shrink-0" />
               ) : (
@@ -155,17 +156,19 @@ export default function CarritoPage({ params }: Props) {
                     <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/>
                   </svg>
                 </button>
-                <div className="flex items-center gap-2 bg-gray-50 rounded-full px-2 py-1">
+                <div className="flex items-center gap-2 rounded-full px-2 py-1" style={{ backgroundColor: 'var(--brand-soft-color, rgba(212,175,55,.10))' }}>
                   <button
                     onClick={() => updateQty(item.item_id, item.qty - 1)}
-                    className="w-6 h-6 rounded-full bg-white shadow-sm flex items-center justify-center text-gray-600 font-bold text-sm"
+                    className="w-6 h-6 rounded-full shadow-sm flex items-center justify-center font-bold text-sm"
+                    style={{ backgroundColor: surface, color: text }}
                   >
                     −
                   </button>
                   <span className="w-5 text-center font-extrabold text-sm" style={{ color: text }}>{item.qty}</span>
                   <button
                     onClick={() => updateQty(item.item_id, item.qty + 1)}
-                    className="w-6 h-6 rounded-full bg-white shadow-sm flex items-center justify-center text-gray-600 font-bold text-sm"
+                    className="w-6 h-6 rounded-full shadow-sm flex items-center justify-center font-bold text-sm"
+                    style={{ backgroundColor: surface, color: text }}
                   >
                     +
                   </button>
@@ -176,7 +179,7 @@ export default function CarritoPage({ params }: Props) {
         </div>
 
         {/* Summary */}
-        <div className="rounded-2xl border border-gray-100 shadow-sm p-4 space-y-2" style={{ backgroundColor: surface }}>
+        <div className="rounded-2xl border shadow-sm p-4 space-y-2" style={{ backgroundColor: surface, borderColor: border }}>
           <h3 className="font-bold text-sm mb-3" style={{ color: text }}>Resumen</h3>
           <div className="flex justify-between text-sm" style={{ color: muted }}>
             <span>Subtotal</span>
@@ -186,7 +189,7 @@ export default function CarritoPage({ params }: Props) {
             <span>Envío</span>
             <span className="font-semibold text-muted-foreground">Se calcula al confirmar</span>
           </div>
-          <div className="border-t border-gray-100 pt-2 flex justify-between">
+          <div className="border-t pt-2 flex justify-between" style={{ borderColor: border }}>
             <span className="font-extrabold" style={{ color: text }}>Total estimado</span>
             <span className="font-extrabold text-lg" style={{ color: price }}>{money(total())}</span>
           </div>
@@ -207,7 +210,7 @@ export default function CarritoPage({ params }: Props) {
         <Link
           href={`${storeBasePath}/checkout`}
           className="flex items-center justify-between w-full px-5 py-4 rounded-2xl text-white font-bold shadow-xl active:scale-95 transition-transform"
-          style={{ backgroundColor: primary }}
+          style={{ backgroundColor: primary, boxShadow: '0 18px 46px rgba(211,90,55,.34)' }}
         >
           <span className="text-sm">Continuar con el pedido</span>
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
@@ -243,7 +246,7 @@ function CartUpsell({
   if (products.length === 0) return null
 
   return (
-    <section className="relative overflow-hidden rounded-2xl border border-gray-100 p-4 shadow-sm" style={{ backgroundColor: surface }}>
+    <section className="relative overflow-hidden rounded-2xl border p-4 shadow-sm" style={{ backgroundColor: surface, borderColor: 'rgba(212,175,55,.18)' }}>
       <div className="mb-3 flex items-center justify-between gap-3">
         <div>
           <p className="text-[11px] font-black uppercase tracking-wide" style={{ color: price }}>Sugeridos</p>

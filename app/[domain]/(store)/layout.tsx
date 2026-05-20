@@ -49,16 +49,16 @@ export default async function StoreLayout({ children, params }: Props) {
         muted: 'rgba(17, 24, 39, 0.70)',
       }
     : {
-        primary: '#e7b43f',
-        secondary: '#191612',
-        buttonPrimary: '#e7b43f',
-        buttonSecondary: '#28231a',
-        price: '#ffcf64',
-        background: '#050505',
-        surface: '#151410',
-        soft: 'rgba(255, 247, 223, 0.08)',
-        text: '#fff7df',
-        muted: 'rgba(255, 247, 223, 0.66)',
+        primary: '#D4AF37',
+        secondary: '#D35A37',
+        buttonPrimary: '#D35A37',
+        buttonSecondary: 'rgba(212, 175, 55, 0.12)',
+        price: '#D4AF37',
+        background: '#0B0E14',
+        surface: '#1A1F2C',
+        soft: 'rgba(212, 175, 55, 0.10)',
+        text: '#ffffff',
+        muted: '#8b97a8',
       }
 
   if (tenant && !storeEnabled) {
