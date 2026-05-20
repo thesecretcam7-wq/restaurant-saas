@@ -4,20 +4,10 @@ import android.Manifest
 import android.annotation.SuppressLint
 import android.content.pm.PackageManager
 import android.os.Bundle
-import android.graphics.Color
-import android.net.Uri
-import android.view.Gravity
-import android.view.ViewGroup
-import android.webkit.WebResourceError
-import android.webkit.WebResourceRequest
 import android.webkit.CookieManager
 import android.webkit.WebChromeClient
 import android.webkit.WebView
 import android.webkit.WebViewClient
-import android.widget.Button
-import android.widget.EditText
-import android.widget.LinearLayout
-import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
@@ -27,7 +17,6 @@ import org.json.JSONObject
 class MainActivity : AppCompatActivity() {
     private lateinit var webView: WebView
     private lateinit var controller: TapToPayController
-    private val prefs by lazy { getSharedPreferences("eccofood_android", MODE_PRIVATE) }
 
     private val permissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
@@ -66,17 +55,15 @@ class MainActivity : AppCompatActivity() {
                 super.onPageFinished(view, url)
                 dispatchAndroidReady()
             }
-
-            override fun onReceivedError(view: WebView, request: WebResourceRequest, error: WebResourceError) {
-                super.onReceivedError(view, request, error)
-                if (request.isForMainFrame) {
-                    showConnectionSetup()
-                }
-            }
         }
         webView.webChromeClient = WebChromeClient()
         webView.addJavascriptInterface(AndroidTapToPayBridge(controller), "EccofoodAndroidTapToPay")
-        loadSavedOrDefaultUrl()
+        val startPath = if (BuildConfig.ECCOFOOD_START_PATH.startsWith("/")) {
+            BuildConfig.ECCOFOOD_START_PATH
+        } else {
+            "/${BuildConfig.ECCOFOOD_START_PATH}"
+        }
+        webView.loadUrl("${BuildConfig.ECCOFOOD_BASE_URL.trimEnd('/')}$startPath")
     }
 
     override fun onResume() {
@@ -98,125 +85,6 @@ class MainActivity : AppCompatActivity() {
         if (missing.isNotEmpty()) {
             permissionLauncher.launch(missing.toTypedArray())
         }
-    }
-
-    private fun loadSavedOrDefaultUrl() {
-        val savedBaseUrl = prefs.getString("base_url", null)
-        val savedRestaurant = prefs.getString("restaurant", null)
-
-        if (!savedBaseUrl.isNullOrBlank() && !savedRestaurant.isNullOrBlank()) {
-            webView.loadUrl("${savedBaseUrl.trimEnd('/')}/${cleanRestaurant(savedRestaurant)}/acceso")
-            return
-        }
-
-        val startPath = if (BuildConfig.ECCOFOOD_START_PATH.startsWith("/")) {
-            BuildConfig.ECCOFOOD_START_PATH
-        } else {
-            "/${BuildConfig.ECCOFOOD_START_PATH}"
-        }
-        webView.loadUrl("${BuildConfig.ECCOFOOD_BASE_URL.trimEnd('/')}$startPath")
-    }
-
-    private fun showConnectionSetup() {
-        val container = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            gravity = Gravity.CENTER
-            setPadding(40, 40, 40, 40)
-            setBackgroundColor(Color.rgb(11, 14, 20))
-            layoutParams = ViewGroup.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.MATCH_PARENT
-            )
-        }
-
-        val title = TextView(this).apply {
-            text = "Conectar Eccofood"
-            textSize = 26f
-            setTextColor(Color.WHITE)
-            gravity = Gravity.CENTER
-            setTypeface(typeface, android.graphics.Typeface.BOLD)
-        }
-
-        val detail = TextView(this).apply {
-            text = "No se pudo abrir el servidor. Escribe la IP del computador y el codigo del restaurante."
-            textSize = 15f
-            setTextColor(Color.rgb(139, 151, 168))
-            gravity = Gravity.CENTER
-            setPadding(0, 18, 0, 28)
-        }
-
-        val serverInput = EditText(this).apply {
-            hint = "http://192.168.0.13:3000"
-            setText(prefs.getString("base_url", BuildConfig.ECCOFOOD_BASE_URL) ?: BuildConfig.ECCOFOOD_BASE_URL)
-            setSingleLine(true)
-            textSize = 16f
-        }
-
-        val restaurantInput = EditText(this).apply {
-            hint = "peoplepizza"
-            setText(prefs.getString("restaurant", "") ?: "")
-            setSingleLine(true)
-            textSize = 16f
-        }
-
-        val openButton = Button(this).apply {
-            text = "Entrar al restaurante"
-            setOnClickListener {
-                val baseUrl = normalizeBaseUrl(serverInput.text.toString())
-                val restaurant = cleanRestaurant(restaurantInput.text.toString())
-
-                if (baseUrl.isBlank() || restaurant.isBlank()) {
-                    Toast.makeText(this@MainActivity, "Completa la IP y el restaurante", Toast.LENGTH_SHORT).show()
-                    return@setOnClickListener
-                }
-
-                prefs.edit()
-                    .putString("base_url", baseUrl)
-                    .putString("restaurant", restaurant)
-                    .apply()
-
-                setContentView(webView)
-                webView.loadUrl("${baseUrl.trimEnd('/')}/$restaurant/acceso")
-            }
-        }
-
-        val retryButton = Button(this).apply {
-            text = "Reintentar"
-            setOnClickListener {
-                setContentView(webView)
-                loadSavedOrDefaultUrl()
-            }
-        }
-
-        container.addView(title)
-        container.addView(detail)
-        container.addView(serverInput, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
-        container.addView(restaurantInput, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = 18 })
-        container.addView(openButton, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = 24 })
-        container.addView(retryButton, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = 12 })
-        setContentView(container)
-    }
-
-    private fun normalizeBaseUrl(value: String): String {
-        val trimmed = value.trim().trimEnd('/')
-        if (trimmed.isBlank()) return ""
-        val withScheme = if (trimmed.startsWith("http://") || trimmed.startsWith("https://")) trimmed else "http://$trimmed"
-        return try {
-            val uri = Uri.parse(withScheme)
-            if (uri.host.isNullOrBlank()) "" else withScheme
-        } catch (_: Exception) {
-            ""
-        }
-    }
-
-    private fun cleanRestaurant(value: String): String {
-        return value
-            .trim()
-            .lowercase()
-            .replace(Regex("^https?://"), "")
-            .replace(Regex("/.*$"), "")
-            .replace(".eccofoodapp.com", "")
-            .replace(Regex("[^a-z0-9-]"), "")
     }
 
     private fun dispatchAndroidReady() {
