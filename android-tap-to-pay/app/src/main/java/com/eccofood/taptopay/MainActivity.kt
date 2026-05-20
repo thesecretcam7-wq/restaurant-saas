@@ -14,6 +14,7 @@ import android.webkit.WebResourceError
 import android.webkit.WebResourceRequest
 import android.webkit.CookieManager
 import android.webkit.WebChromeClient
+import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.widget.Button
@@ -67,6 +68,8 @@ class MainActivity : AppCompatActivity() {
         webView.settings.javaScriptEnabled = true
         webView.settings.domStorageEnabled = true
         webView.settings.databaseEnabled = true
+        webView.settings.cacheMode = WebSettings.LOAD_NO_CACHE
+        webView.settings.userAgentString = "${webView.settings.userAgentString} EccofoodTapToPayAndroid"
         webView.webViewClient = object : WebViewClient() {
             override fun onPageFinished(view: WebView, url: String) {
                 super.onPageFinished(view, url)
@@ -256,7 +259,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun waiterLoginUrl(baseUrl: String, restaurant: String): String {
-        return "${normalizeBaseUrl(baseUrl).trimEnd('/')}/${cleanRestaurant(restaurant)}/acceso/login/camarero"
+        return "${normalizeBaseUrl(baseUrl).trimEnd('/')}/${cleanRestaurant(restaurant)}/acceso/login/camarero?ecco_android_ttp=1"
     }
 
     private fun normalizeBaseUrl(value: String): String {
@@ -283,7 +286,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun dispatchAndroidReady() {
         webView.evaluateJavascript(
-            "window.dispatchEvent(new Event('eccofood-android-ready'));",
+            "try { window.localStorage.setItem('eccofood_android_ttp', '1'); } catch(e) {} window.dispatchEvent(new Event('eccofood-android-ready'));",
             null
         )
     }

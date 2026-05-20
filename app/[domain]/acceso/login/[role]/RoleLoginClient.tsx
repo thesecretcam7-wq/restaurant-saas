@@ -126,6 +126,7 @@ export function RoleLoginClient({
   const [loadingMessage, setLoadingMessage] = useState('Verificando acceso');
   const [error, setError] = useState('');
   const [phase, setPhase] = useState<'select' | 'pin'>('select');
+  const [isAndroidTapToPay, setIsAndroidTapToPay] = useState(false);
   const pinInputRef = useRef<HTMLInputElement | null>(null);
   const config = ROLE_CONFIG[role];
   const RoleIcon = config.icon;
@@ -140,6 +141,7 @@ export function RoleLoginClient({
   const secondaryText = readableText(secondaryHighlight);
   const appName = branding.appName || tenantName;
   const accessPath = `/${tenantSlug}/acceso`;
+  const useAndroidWaiterAccess = isAndroidTapToPay && role === 'camarero';
 
   async function handleStaffSelect(selectedId: string) {
     const selected = staffMembers.find((staff) => staff.id === selectedId);
@@ -159,6 +161,33 @@ export function RoleLoginClient({
       return () => window.clearTimeout(focusTimer);
     }
   }, [phase, loading, error]);
+
+  useEffect(() => {
+    function markAndroidTapToPay() {
+      setIsAndroidTapToPay(true);
+      try {
+        window.localStorage.setItem('eccofood_android_ttp', '1');
+      } catch {}
+    }
+
+    const params = new URLSearchParams(window.location.search);
+    const userAgent = window.navigator.userAgent.toLowerCase();
+    const isMarkedUrl = params.get('ecco_android_ttp') === '1';
+    let isMarkedStorage = false;
+    try {
+      isMarkedStorage = window.localStorage.getItem('eccofood_android_ttp') === '1';
+    } catch {}
+    const isNativeBridge = 'EccofoodAndroidTapToPay' in window;
+    const isWaiterWebView = role === 'camarero' && userAgent.includes('; wv');
+    const isWaiterAppUserAgent = userAgent.includes('eccofoodtaptopayandroid');
+
+    if (isMarkedUrl || isMarkedStorage || isNativeBridge || isWaiterWebView || isWaiterAppUserAgent) {
+      markAndroidTapToPay();
+    }
+
+    window.addEventListener('eccofood-android-ready', markAndroidTapToPay);
+    return () => window.removeEventListener('eccofood-android-ready', markAndroidTapToPay);
+  }, []);
 
   function resetPinWithError(message: string) {
     setError(message);
@@ -418,19 +447,38 @@ export function RoleLoginClient({
             {phase === 'select' ? (
               <div className="space-y-4">
                 <label className="block text-sm font-bold text-[#8b97a8]">Empleado</label>
-                <select
-                  value={staffId}
-                  onChange={(event) => handleStaffSelect(event.target.value)}
-                  autoFocus
-                  className="w-full rounded-2xl border border-[#D4AF37]/20 bg-[#0B0E14]/70 px-4 py-4 text-lg font-bold text-white outline-none transition focus:border-[#D4AF37] focus:ring-4 focus:ring-[#D4AF37]/10"
-                >
-                  <option value="">Elige tu nombre</option>
-                  {staffMembers.map((staff) => (
-                    <option key={staff.id} value={staff.id}>
-                      {staff.name}
-                    </option>
-                  ))}
-                </select>
+                {useAndroidWaiterAccess ? (
+                  <div className="grid gap-3">
+                    {staffMembers.map((staff) => (
+                      <button
+                        key={staff.id}
+                        type="button"
+                        onClick={() => handleStaffSelect(staff.id)}
+                        onPointerUp={(event) => {
+                          event.preventDefault();
+                          handleStaffSelect(staff.id);
+                        }}
+                        className="min-h-14 w-full rounded-2xl border border-[#D4AF37]/20 bg-[#0B0E14]/70 px-4 py-4 text-left text-lg font-black text-white transition active:scale-[0.99]"
+                      >
+                        {staff.name}
+                      </button>
+                    ))}
+                  </div>
+                ) : (
+                  <select
+                    value={staffId}
+                    onChange={(event) => handleStaffSelect(event.target.value)}
+                    autoFocus
+                    className="w-full rounded-2xl border border-[#D4AF37]/20 bg-[#0B0E14]/70 px-4 py-4 text-lg font-bold text-white outline-none transition focus:border-[#D4AF37] focus:ring-4 focus:ring-[#D4AF37]/10"
+                  >
+                    <option value="">Elige tu nombre</option>
+                    {staffMembers.map((staff) => (
+                      <option key={staff.id} value={staff.id}>
+                        {staff.name}
+                      </option>
+                    ))}
+                  </select>
+                )}
 
                 {staffMembers.length === 0 && (
                   <p className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-center text-sm font-bold text-red-700">
