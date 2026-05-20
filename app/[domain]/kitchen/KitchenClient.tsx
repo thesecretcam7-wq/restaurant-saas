@@ -79,22 +79,6 @@ function readableText(background: string, dark = '#15130f', light = '#ffffff') {
   return isDark(background) ? light : dark;
 }
 
-async function withTimeout<T>(promise: PromiseLike<T>, fallback: T, timeoutMs = 12000): Promise<T> {
-  let timeoutId: ReturnType<typeof setTimeout> | undefined;
-  try {
-    return await Promise.race([
-      Promise.resolve(promise),
-      new Promise<T>((resolve) => {
-        timeoutId = setTimeout(() => resolve(fallback), timeoutMs);
-      }),
-    ]);
-  } catch {
-    return fallback;
-  } finally {
-    if (timeoutId) clearTimeout(timeoutId);
-  }
-}
-
 export function KitchenClient({ tenantId, tenantSlug, tenantName, country, branding }: Props) {
   const { tr } = useI18n();
   const freeToppingsLabel = tenantSlug === 'parrillaburgers' ? 'Barra libre' : 'Ingredientes gratis';
@@ -191,24 +175,21 @@ export function KitchenClient({ tenantId, tenantSlug, tenantName, country, brand
       .catch(() => {});
 
     async function load() {
-      try {
-        const [{ data: cats }, { data: items }, { data: itemToppings }, { data: tbls }, settingsRes] = await Promise.all([
-          withTimeout(supabase.from('menu_categories').select('id, name, sort_order').eq('tenant_id', tenantId).eq('active', true).order('sort_order'), { data: [] } as any),
-          withTimeout(supabase.from('menu_items').select('id, name, price, category_id, description, image_url').eq('tenant_id', tenantId).eq('available', true), { data: [] } as any),
-          withTimeout(supabase.from('product_toppings').select('id, menu_item_id, name, price, sort_order').eq('tenant_id', tenantId).order('sort_order'), { data: [] } as any),
-          withTimeout(supabase.from('tables').select('id, table_number, seats, status').eq('tenant_id', tenantId).neq('status', 'maintenance').order('table_number'), { data: [] } as any),
-          withTimeout(fetch(`/api/settings/${tenantId}`, { cache: 'no-store' }).then(r => r.ok ? r.json() : null), null),
-        ]);
+      const [{ data: cats }, { data: items }, { data: itemToppings }, { data: tbls }, settingsRes] = await Promise.all([
+        supabase.from('menu_categories').select('id, name, sort_order').eq('tenant_id', tenantId).eq('active', true).order('sort_order'),
+        supabase.from('menu_items').select('id, name, price, category_id, description, image_url').eq('tenant_id', tenantId).eq('available', true),
+        supabase.from('product_toppings').select('id, menu_item_id, name, price, sort_order').eq('tenant_id', tenantId).order('sort_order'),
+        supabase.from('tables').select('id, table_number, seats, status').eq('tenant_id', tenantId).neq('status', 'maintenance').order('table_number'),
+        fetch(`/api/settings/${tenantId}`, { cache: 'no-store' }).then(r => r.ok ? r.json() : null).catch(() => null),
+      ]);
 
-        setCategories(cats || []);
-        setMenuItems(items || []);
-        setToppings((itemToppings || []) as Topping[]);
-        setTables(tbls || []);
-        setTaxRate(Number(settingsRes?.tax_rate || 0));
-        if (cats?.length) setSelectedCategory(cats[0].id);
-      } finally {
-        setLoading(false);
-      }
+      setCategories(cats || []);
+      setMenuItems(items || []);
+      setToppings((itemToppings || []) as Topping[]);
+      setTables(tbls || []);
+      setTaxRate(Number(settingsRes?.tax_rate || 0));
+      if (cats?.length) setSelectedCategory(cats[0].id);
+      setLoading(false);
     }
 
     load();
