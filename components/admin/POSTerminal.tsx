@@ -40,6 +40,14 @@ interface Category {
 type POSMode = 'simple' | 'table';
 type PaymentMethod = 'cash' | 'stripe';
 
+declare global {
+  interface Window {
+    EccofoodAndroidTapToPay?: {
+      payTable: (payload: string) => void;
+    };
+  }
+}
+
 function getLoggedStaffFromBrowser(tenantId: string) {
   if (typeof window === 'undefined') return { staffId: null as string | null, staffName: '' };
   const storedTenant = sessionStorage.getItem('staff_tenant');
@@ -503,6 +511,7 @@ export function POSTerminal({
   const [tip, setTip] = useState(0);
   const [mesasView, setMesasView] = useState<'list' | 'map'>('map');
   const [allTables, setAllTables] = useState<RestaurantTable[]>([]);
+  const [androidTapToPayAvailable, setAndroidTapToPayAvailable] = useState(false);
   const [orderNotification, setOrderNotification] = useState<{
     tableNumber: number | null;
     waiter: string | null;
@@ -678,6 +687,43 @@ export function POSTerminal({
     refreshOfflinePendingCount();
     refreshTodayReservations();
   }, [tenantId, refreshOfflinePendingCount, refreshTodayReservations]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const checkBridge = () => {
+      setAndroidTapToPayAvailable(typeof window.EccofoodAndroidTapToPay?.payTable === 'function');
+    };
+
+    const handleTapToPayResult = (event: Event) => {
+      const detail = (event as CustomEvent<{ success?: boolean; error?: string }>).detail || {};
+      setProcessingPayment(false);
+
+      if (detail.success) {
+        setToast({ message: 'Mesa pagada con Tap to Pay', type: 'success' });
+        setCart([]);
+        setBillingOrderIds([]);
+        setSelectedTableId(null);
+        setSelectedTableNumber(null);
+        setSelectedStaffId(null);
+        setSelectedStaffName('');
+        setPosMode('simple');
+        fetchDineInOrders();
+        return;
+      }
+
+      setToast({ message: detail.error || 'No se pudo cobrar con Tap to Pay', type: 'error' });
+    };
+
+    checkBridge();
+    window.addEventListener('eccofood-android-ready', checkBridge);
+    window.addEventListener('eccofood-tap-to-pay-result', handleTapToPayResult as EventListener);
+
+    return () => {
+      window.removeEventListener('eccofood-android-ready', checkBridge);
+      window.removeEventListener('eccofood-tap-to-pay-result', handleTapToPayResult as EventListener);
+    };
+  }, [tenantId]);
 
   useEffect(() => {
     const interval = window.setInterval(refreshTodayReservations, 60000);
@@ -1443,6 +1489,24 @@ export function POSTerminal({
     setExpandedTable(null);
     setShowDineInPanel(false);
     setShowIncomingPanel(false);
+  }
+
+  function handleAndroidTapToPayTable() {
+    if (!androidTapToPayAvailable || !window.EccofoodAndroidTapToPay) return;
+    if (billingOrderIds.length === 0 || !selectedTableNumber) {
+      setToast({ message: 'Carga una mesa completa antes de cobrar con Tap to Pay', type: 'error' });
+      return;
+    }
+
+    setProcessingPayment(true);
+    window.EccofoodAndroidTapToPay.payTable(JSON.stringify({
+      tenantId,
+      tenantSlug: tenantSlug || null,
+      orderIds: billingOrderIds,
+      tableNumber: selectedTableNumber,
+      amount: paymentBaseTotal + tip,
+      currency: currencyInfo.code,
+    }));
   }
 
 
@@ -2861,6 +2925,16 @@ export function POSTerminal({
                 <p className="text-emerald-300 font-bold text-xs">Cobrando Mesa {selectedTableNumber}</p>
                 <p className="text-emerald-400/70 text-xs">{billingOrderIds.length} ronda{billingOrderIds.length > 1 ? 's' : ''} acumulada{billingOrderIds.length > 1 ? 's' : ''}</p>
               </div>
+              {androidTapToPayAvailable && (
+                <button
+                  type="button"
+                  onClick={handleAndroidTapToPayTable}
+                  disabled={processingPayment}
+                  className="shrink-0 rounded-lg border border-cyan-300/35 bg-cyan-400/15 px-2 py-1 text-xs font-black text-cyan-100 transition hover:bg-cyan-400/25 disabled:opacity-50"
+                >
+                  Tap to Pay
+                </button>
+              )}
               <button
                 onClick={() => {
                   setCart([]);

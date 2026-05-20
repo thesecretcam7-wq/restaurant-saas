@@ -68,6 +68,54 @@ export async function getTenantCurrency(supabase: SupabaseClient, tenant: { id: 
   return getCurrencyByCountry(settings?.country || tenant.country || 'ES')
 }
 
+export async function getOrCreateTerminalLocation(
+  supabase: SupabaseClient,
+  tenant: {
+    id: string
+    slug?: string | null
+    organization_name?: string | null
+    stripe_account_id?: string | null
+    country?: string | null
+  }
+) {
+  const stripe = getStripe()
+  const metadataTenantId = tenant.id
+  const existingLocations = await stripe.terminal.locations.list(
+    { limit: 100 },
+    { stripeAccount: tenant.stripe_account_id! }
+  )
+  const existing = existingLocations.data.find((location) => location.metadata?.tenant_id === metadataTenantId)
+  if (existing) return existing
+
+  const { data: settings } = await supabase
+    .from('restaurant_settings')
+    .select('display_name, address, city, country')
+    .eq('tenant_id', tenant.id)
+    .maybeSingle()
+
+  const country = String(settings?.country || tenant.country || 'ES').toUpperCase()
+  const city = String(settings?.city || (country === 'CO' ? 'Bogota' : 'Madrid')).trim()
+  const line1 = String(settings?.address || 'Direccion del restaurante').trim()
+
+  return stripe.terminal.locations.create(
+    {
+      display_name: settings?.display_name || tenant.organization_name || tenant.slug || 'Eccofood Restaurante',
+      address: {
+        line1,
+        city,
+        country,
+        postal_code: country === 'CO' ? '110111' : '28001',
+      },
+      metadata: {
+        tenant_id: tenant.id,
+        tenant_slug: tenant.slug || '',
+        source: 'eccofood_android_tap_to_pay',
+      },
+    },
+    { stripeAccount: tenant.stripe_account_id! }
+  )
+}
+
 export async function markTerminalOrderPaid({
   supabase,
   order,
@@ -120,4 +168,30 @@ export async function markTerminalOrderPaid({
   })
 
   return updatedOrder
+}
+
+export async function markTerminalOrdersPaid({
+  supabase,
+  orders,
+  paymentIntent,
+  actor,
+}: {
+  supabase: SupabaseClient
+  orders: any[]
+  paymentIntent: Stripe.PaymentIntent
+  actor: TenantAccess
+}) {
+  const updatedOrders = []
+
+  for (const order of orders) {
+    const updatedOrder = await markTerminalOrderPaid({
+      supabase,
+      order,
+      paymentIntent,
+      actor,
+    })
+    updatedOrders.push(updatedOrder)
+  }
+
+  return updatedOrders
 }

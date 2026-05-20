@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
 import { requireTenantAccess, tenantAuthErrorResponse } from '@/lib/tenant-api-auth'
-import { assertTerminalReady, getStripe, resolveTerminalTenant } from '@/lib/terminal-payments'
+import { assertTerminalReady, getOrCreateTerminalLocation, getStripe, resolveTerminalTenant } from '@/lib/terminal-payments'
 
 export async function POST(request: NextRequest) {
   try {
@@ -18,6 +18,7 @@ export async function POST(request: NextRequest) {
     assertTerminalReady(tenant)
 
     const stripe = getStripe()
+    const location = await getOrCreateTerminalLocation(supabase, tenant)
     const token = await stripe.terminal.connectionTokens.create(
       {},
       { stripeAccount: tenant.stripe_account_id! }
@@ -26,6 +27,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       secret: token.secret,
       stripeAccountId: tenant.stripe_account_id,
+      locationId: location.id,
       tenantId: tenant.id,
     })
   } catch (error) {
