@@ -261,7 +261,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun waiterLoginUrl(baseUrl: String, restaurant: String): String {
-        return "${normalizeBaseUrl(baseUrl).trimEnd('/')}/${cleanRestaurant(restaurant)}/acceso/login/camarero?ecco_android_ttp=1"
+        return "${normalizeBaseUrl(baseUrl).trimEnd('/')}/${cleanRestaurant(restaurant)}/acceso/apk/camarero"
     }
 
     private fun normalizeBaseUrl(value: String): String {
