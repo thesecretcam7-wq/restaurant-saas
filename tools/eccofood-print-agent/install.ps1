@@ -72,12 +72,13 @@ $agentPath = Join-Path $installDir "EccofoodPrintAgent.ps1"
 $startupPath = Join-Path $installDir "Start-EccofoodPrintAgent.ps1"
 $startupCommand = "powershell.exe -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File `"$startupPath`" -Port $Port"
 $action = New-ScheduledTaskAction -Execute "powershell.exe" -Argument "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File `"$startupPath`" -Port $Port"
-$trigger = New-ScheduledTaskTrigger -AtLogOn
-$settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -RestartCount 3 -RestartInterval (New-TimeSpan -Minutes 1)
+$logonTrigger = New-ScheduledTaskTrigger -AtLogOn
+$watchdogTrigger = New-ScheduledTaskTrigger -Once -At (Get-Date).AddMinutes(1) -RepetitionInterval (New-TimeSpan -Minutes 1) -RepetitionDuration (New-TimeSpan -Days 3650)
+$settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -RestartCount 3 -RestartInterval (New-TimeSpan -Minutes 1) -ExecutionTimeLimit (New-TimeSpan -Minutes 5) -MultipleInstances IgnoreNew
 
 try {
   Unregister-ScheduledTask -TaskName $taskName -Confirm:$false -ErrorAction SilentlyContinue | Out-Null
-  Register-ScheduledTask -TaskName $taskName -Action $action -Trigger $trigger -Settings $settings -Description "Eccofood local printing and cash drawer agent" -Force | Out-Null
+  Register-ScheduledTask -TaskName $taskName -Action $action -Trigger @($logonTrigger, $watchdogTrigger) -Settings $settings -Description "Eccofood local printing and cash drawer agent" -Force | Out-Null
 } catch {
   Write-Host "Aviso: no pude crear la tarea programada. Se usara el arranque automatico de Windows." -ForegroundColor Yellow
 }
@@ -121,22 +122,21 @@ try {
   Write-Host "Aviso: no pude detener una instancia anterior del agente." -ForegroundColor Yellow
 }
 
-$openAgentBat = Join-Path $installDir "Abrir-EccofoodPrint.bat"
-Start-Process -FilePath $openAgentBat -WorkingDirectory $installDir -WindowStyle Normal
-Start-Sleep -Seconds 3
+Start-Process powershell.exe -WindowStyle Hidden -WorkingDirectory $installDir -ArgumentList "-NoProfile -ExecutionPolicy Bypass -File `"$startupPath`" -Port $Port"
+Start-Sleep -Seconds 2
 
 try {
   $health = Invoke-RestMethod -Uri "http://127.0.0.1:$Port/health" -TimeoutSec 2
   if ($health.ok -eq $true) {
-    Write-Host "Agente abierto y respondiendo correctamente." -ForegroundColor Green
+    Write-Host "Agente activo en segundo plano. Version: $($health.version)" -ForegroundColor Green
   }
 } catch {
-  Write-Host "Aviso: el agente se abrio en una ventana, pero todavia no responde. Deja esa ventana abierta y revisa el mensaje que aparece alli." -ForegroundColor Yellow
+  Write-Host "Aviso: el agente quedo programado, pero todavia no respondio al chequeo inicial. Windows lo reintentara automaticamente." -ForegroundColor Yellow
 }
 
 Write-Host ""
 Write-Host "Eccofood Print Agent instalado correctamente."
 Write-Host "URL local: http://127.0.0.1:$Port"
-Write-Host "La herramienta arrancara sola cuando inicie sesion en Windows."
-Write-Host "Se abrio una ventana de Eccofood Print Agent. Dejala abierta mientras uses el TPV."
+Write-Host "La herramienta arrancara sola con Windows y se revisara automaticamente cada minuto."
+Write-Host "No necesitas dejar PowerShell abierto."
 Write-Host ""

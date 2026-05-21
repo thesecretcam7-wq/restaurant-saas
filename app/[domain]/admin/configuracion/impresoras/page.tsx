@@ -93,10 +93,10 @@ export default function PrintersConfigPage({ params }: Props) {
         throw new Error(payload?.error || 'Puente local sin respuesta');
       }
       setBridgeStatus('online');
-      showToast(`Puente activo${payload.defaultPrinter ? `: ${payload.defaultPrinter}` : ''}`, 'success');
+      showToast(`Puente activo${payload.version ? ` v${payload.version}` : ''}${payload.defaultPrinter ? `: ${payload.defaultPrinter}` : ''}`, 'success');
     } catch {
       setBridgeStatus('offline');
-      showToast('Puente local no detectado. Abre Eccofood Print Agent y deja la ventana abierta.', 'error');
+      showToast('Puente local no detectado. Ejecuta Estado-EccofoodPrint o reinstala el agente como administrador.', 'error');
     } finally {
       window.clearTimeout(timeout);
     }
@@ -481,7 +481,7 @@ export default function PrintersConfigPage({ params }: Props) {
           <li>Ejecuta "Instalar-EccofoodPrint.bat" como administrador para que pueda arrancar solo con Windows.</li>
           <li>Al terminar, quedara un acceso directo "Eccofood Impresora" en el Escritorio del TPV.</li>
           <li>Despues de instalar, pulsa "Comprobar puente activo". Si aparece activo, el TPV puede imprimir sin vista previa.</li>
-          <li>Si algun Windows lo bloquea, abre Abrir-EccofoodPrint.bat y deja esa ventana abierta mientras cobras.</li>
+          <li>Si algun Windows lo bloquea, ejecuta Estado-EccofoodPrint.bat; el agente debe quedar activo en segundo plano.</li>
         </ol>
       </div>
 

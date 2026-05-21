@@ -226,7 +226,7 @@ export function PrinterDeviceCard({
           )}
 
           <p className="text-[11px] leading-relaxed text-gray-500">
-            En modo Windows, el puente local permite imprimir sin vista previa. Si no esta abierto, se usara Chrome como respaldo.
+            En modo Windows, el agente local imprime sin vista previa y abre el cajon en segundo plano.
           </p>
         </div>
       )}

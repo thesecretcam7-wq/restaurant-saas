@@ -4,6 +4,14 @@ param(
 
 $ErrorActionPreference = "Stop"
 
+$AgentVersion = "1.1.0"
+$PrinterCacheTtlSeconds = 30
+$script:DefaultPrinterCache = $null
+$script:DefaultPrinterCacheAt = [datetime]::MinValue
+$script:PrinterListCache = $null
+$script:PrinterListCacheAt = [datetime]::MinValue
+$script:StartedAt = Get-Date
+
 Add-Type -TypeDefinition @"
 using System;
 using System.Runtime.InteropServices;
@@ -56,7 +64,7 @@ public class RawPrinterHelper
         if (StartPagePrinter(hPrinter))
         {
           Int32 written;
-          ok = WritePrinter(hPrinter, bytes, bytes.Length, out written);
+          ok = WritePrinter(hPrinter, bytes, bytes.Length, out written) && written == bytes.Length;
           EndPagePrinter(hPrinter);
         }
         EndDocPrinter(hPrinter);
@@ -93,13 +101,45 @@ function Send-Json {
 }
 
 function Get-DefaultPrinterName {
-  $printer = Get-CimInstance Win32_Printer | Where-Object { $_.Default -eq $true } | Select-Object -First 1
-  if ($printer) { return $printer.Name }
-  return $null
+  param([switch]$Refresh)
+
+  $cacheAge = ((Get-Date) - $script:DefaultPrinterCacheAt).TotalSeconds
+  if (-not $Refresh -and $script:DefaultPrinterCache -and $cacheAge -lt $PrinterCacheTtlSeconds) {
+    return $script:DefaultPrinterCache
+  }
+
+  try {
+    $printer = Get-CimInstance -Query "SELECT Name FROM Win32_Printer WHERE Default = True" | Select-Object -First 1
+    $script:DefaultPrinterCache = if ($printer) { $printer.Name } else { $null }
+    $script:DefaultPrinterCacheAt = Get-Date
+    return $script:DefaultPrinterCache
+  } catch {
+    Write-AgentLog "No se pudo leer impresora predeterminada: $($_.Exception.Message)"
+    return $script:DefaultPrinterCache
+  }
 }
 
 function Get-PrinterList {
-  @(Get-CimInstance Win32_Printer | Select-Object Name, Default, WorkOffline, PrinterStatus)
+  param([switch]$Refresh)
+
+  $cacheAge = ((Get-Date) - $script:PrinterListCacheAt).TotalSeconds
+  if (-not $Refresh -and $script:PrinterListCache -and $cacheAge -lt $PrinterCacheTtlSeconds) {
+    return $script:PrinterListCache
+  }
+
+  try {
+    $script:PrinterListCache = @(Get-CimInstance Win32_Printer | Select-Object Name, Default, WorkOffline, PrinterStatus)
+    $script:PrinterListCacheAt = Get-Date
+    $default = $script:PrinterListCache | Where-Object { $_.Default -eq $true } | Select-Object -First 1
+    if ($default) {
+      $script:DefaultPrinterCache = $default.Name
+      $script:DefaultPrinterCacheAt = Get-Date
+    }
+    return $script:PrinterListCache
+  } catch {
+    Write-AgentLog "No se pudo leer lista de impresoras: $($_.Exception.Message)"
+    return @()
+  }
 }
 
 function Resolve-PrinterName {
@@ -132,8 +172,10 @@ while ($listener.IsListening) {
       Send-Json $context 200 @{
         ok = $true
         app = "Eccofood Print Agent"
-        version = "1.0.0"
+        version = $AgentVersion
         defaultPrinter = Get-DefaultPrinterName
+        pid = $PID
+        uptimeSeconds = [int]((Get-Date) - $script:StartedAt).TotalSeconds
       }
       continue
     }
@@ -141,8 +183,8 @@ while ($listener.IsListening) {
     if ($path -eq "/printers") {
       Send-Json $context 200 @{
         ok = $true
-        defaultPrinter = Get-DefaultPrinterName
-        printers = Get-PrinterList
+        defaultPrinter = Get-DefaultPrinterName -Refresh
+        printers = Get-PrinterList -Refresh
       }
       continue
     }

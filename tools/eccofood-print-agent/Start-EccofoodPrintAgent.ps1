@@ -16,24 +16,52 @@ function Write-StartupLog {
   Add-Content -Path $logPath -Value "[$(Get-Date -Format s)] $Message"
 }
 
-try {
+function Test-AgentHealth {
   try {
     $health = Invoke-RestMethod -Uri "http://127.0.0.1:$Port/health" -TimeoutSec 2
-    if ($health.ok -eq $true) {
-      Write-StartupLog "El agente ya estaba activo en el puerto $Port."
-      exit 0
-    }
+    return $health.ok -eq $true
   } catch {
-    Write-StartupLog "El agente no respondia; se intentara iniciar."
+    return $false
+  }
+}
+
+function Stop-StaleAgents {
+  try {
+    Get-CimInstance Win32_Process |
+      Where-Object { $_.CommandLine -like "*EccofoodPrintAgent.ps1*" } |
+      ForEach-Object { Stop-Process -Id $_.ProcessId -Force }
+  } catch {
+    Write-StartupLog "No se pudo limpiar instancia anterior: $($_.Exception.Message)"
+  }
+}
+
+try {
+  if (Test-AgentHealth) {
+    Write-StartupLog "El agente ya estaba activo en el puerto $Port."
+    exit 0
   }
 
   if (-not (Test-Path $agentPath)) {
     throw "No se encontro $agentPath"
   }
 
-  Write-StartupLog "Iniciando agente en el puerto $Port."
-  & powershell.exe -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File $agentPath -Port $Port
+  Stop-StaleAgents
+
+  Write-StartupLog "Iniciando agente oculto en el puerto $Port."
+  Start-Process powershell.exe `
+    -WindowStyle Hidden `
+    -WorkingDirectory $installDir `
+    -ArgumentList "-NoProfile -ExecutionPolicy Bypass -File `"$agentPath`" -Port $Port"
+
+  Start-Sleep -Seconds 1
+  if (Test-AgentHealth) {
+    Write-StartupLog "Agente activo."
+  } else {
+    Write-StartupLog "Agente iniciado; health pendiente."
+  }
+
+  exit 0
 } catch {
   Write-StartupLog "Error al iniciar: $($_.Exception.Message)"
-  throw
+  exit 1
 }

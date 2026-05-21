@@ -8,6 +8,7 @@ type AgentState = {
   loading: boolean
   message: string
   defaultPrinter?: string | null
+  version?: string | null
 }
 
 export function LocalPrintAgentStatus() {
@@ -34,6 +35,7 @@ export function LocalPrintAgentStatus() {
         loading: false,
         message: 'Agente local activo en este computador',
         defaultPrinter: data?.defaultPrinter || null,
+        version: data?.version || null,
       })
     } catch {
       setState({
@@ -59,7 +61,7 @@ export function LocalPrintAgentStatus() {
           </div>
           <p className="mt-2 text-sm font-semibold text-black/55">
             {state.ok
-              ? `Impresora predeterminada: ${state.defaultPrinter || 'no configurada en Windows'}`
+              ? `Impresora predeterminada: ${state.defaultPrinter || 'no configurada en Windows'}${state.version ? ` - agente v${state.version}` : ''}`
               : 'Instala Eccofood Print Agent en el PC de caja para imprimir sin vista previa y abrir el cajon.'}
           </p>
         </div>

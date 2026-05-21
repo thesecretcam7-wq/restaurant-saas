@@ -1,8 +1,4 @@
 @echo off
-set "AGENT=%ProgramData%\EccofoodPrint\EccofoodPrintAgent.ps1"
-if not exist "%AGENT%" set "AGENT=%~dp0EccofoodPrintAgent.ps1"
-echo Abriendo Eccofood Print Agent...
-echo.
-echo IMPORTANTE: deja esta ventana abierta mientras uses el TPV.
-echo.
-powershell -NoProfile -ExecutionPolicy Bypass -NoExit -File "%AGENT%"
+set "STARTER=%ProgramData%\EccofoodPrint\Start-EccofoodPrintAgent.ps1"
+if not exist "%STARTER%" set "STARTER=%~dp0Start-EccofoodPrintAgent.ps1"
+powershell -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File "%STARTER%"

@@ -1,5 +1,5 @@
 $taskName = "Eccofood Print Agent"
-Stop-ScheduledTask -TaskName $taskName
+Stop-ScheduledTask -TaskName $taskName -ErrorAction SilentlyContinue
 Get-CimInstance Win32_Process |
   Where-Object { $_.CommandLine -like "*EccofoodPrintAgent.ps1*" } |
   ForEach-Object { Stop-Process -Id $_.ProcessId -Force }

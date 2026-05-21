@@ -4,7 +4,6 @@
  */
 
 import type { CashClosingReceiptData, KitchenTicketData, MonthlyClosingReceiptData, ReceiptData } from '@/types/printer';
-import { formatPriceWithCurrency } from '@/lib/currency';
 
 interface ReceiptOptions {
   paperWidth: 58 | 80;
@@ -26,6 +25,39 @@ const FONT_B = `${ESC}M\x01`;
 const ALIGN_CENTER = `${ESC}a\x01`;
 const ALIGN_LEFT = `${ESC}a\x00`;
 const INIT = `${ESC}@`;
+const CODE_PAGE_PC850 = `${ESC}t\x02`;
+
+type ThermalCurrencyInfo = {
+  code: string;
+  symbol?: string;
+  locale: string;
+};
+
+function normalizeThermalText(value: string | number | null | undefined): string {
+  return String(value ?? '')
+    .replace(/[\u00a0\u202f]/g, ' ')
+    .replace(/\u20ac/g, 'EUR')
+    .replace(/\u00a3/g, 'GBP')
+    .replace(/\u00a5/g, 'JPY')
+    .replace(/\u20b1/g, 'PHP')
+    .replace(/\u20b9/g, 'INR')
+    .replace(/\u20ba/g, 'TRY')
+    .replace(/\u20ab/g, 'VND')
+    .replace(/[\u2018\u2019]/g, "'")
+    .replace(/[\u201c\u201d]/g, '"')
+    .replace(/[\u2013\u2014]/g, '-')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^\x09\x0a\x0d\x20-\x7e]/g, '');
+}
+
+function encodeEscPos(raw: string): Uint8Array {
+  const bytes = new Uint8Array(raw.length);
+  for (let i = 0; i < raw.length; i += 1) {
+    bytes[i] = raw.charCodeAt(i) & 0xff;
+  }
+  return bytes;
+}
 
 function cashDrawerPulseCommands(): string {
   return `${ESC}p\x00\x32\xfa${ESC}p\x01\x32\xfa`;
@@ -39,14 +71,14 @@ export function generateReceiptESCPOS(data: ReceiptData, options: ReceiptOptions
   const cols = options.paperWidth === 80 ? 48 : 32;
   const bytes: string[] = [];
   const push = (...s: string[]) => bytes.push(...s);
-  const line = (s = '') => bytes.push(s + '\n');
+  const line = (s = '') => bytes.push(normalizeThermalText(s) + '\n');
 
   const sep = () => {
     push(SIZE_NORMAL);
     line('-'.repeat(cols));
   };
 
-  push(INIT, FONT_B);
+  push(INIT, CODE_PAGE_PC850, FONT_B);
 
   push(ALIGN_CENTER, FONT_A, SIZE_WIDE, BOLD_ON);
   line(data.restaurantName ?? 'Restaurante');
@@ -82,7 +114,7 @@ export function generateReceiptESCPOS(data: ReceiptData, options: ReceiptOptions
   for (const item of data.items) {
     const itemTotal = item.price * item.quantity;
     const priceStr = formatPrice(itemTotal, data);
-    const nameStr = item.name.substring(0, Math.max(1, cols - priceStr.length - 1));
+    const nameStr = normalizeThermalText(item.name).substring(0, Math.max(1, cols - priceStr.length - 1));
     line(padR(nameStr, cols - priceStr.length) + priceStr);
     if (item.quantity > 1) {
       const unitStr = formatPrice(item.price, data);
@@ -92,7 +124,9 @@ export function generateReceiptESCPOS(data: ReceiptData, options: ReceiptOptions
 
   sep();
 
-  if (data.discount > 0 || (data.tax || 0) > 0) {
+  const hasBreakdown = data.discount > 0 || (data.tax || 0) > 0 || (data.deliveryFee || 0) > 0;
+
+  if (hasBreakdown) {
     const subStr = formatPrice(data.subtotal, data);
     line(padR('Subtotal:', cols - subStr.length) + subStr);
     if (data.discount > 0) {
@@ -108,12 +142,9 @@ export function generateReceiptESCPOS(data: ReceiptData, options: ReceiptOptions
       const deliveryStr = formatPrice(data.deliveryFee || 0, data);
       line(padR('Domicilio:', cols - deliveryStr.length) + deliveryStr);
     }
-  } else if ((data.deliveryFee || 0) > 0) {
-    const deliveryStr = formatPrice(data.deliveryFee || 0, data);
-    line(padR('Domicilio:', cols - deliveryStr.length) + deliveryStr);
+    sep();
   }
 
-  sep();
   push(ALIGN_CENTER, FONT_A, SIZE_WIDE, BOLD_ON);
   line('TOTAL');
   line(formatPrice(data.total, data));
@@ -149,11 +180,62 @@ export function generateReceiptESCPOS(data: ReceiptData, options: ReceiptOptions
 
   const receipt = bytes.join('');
   const copies = Array(Math.max(1, options.copies)).fill(receipt).join('');
-  return new TextEncoder().encode(copies);
+  return encodeEscPos(copies);
 }
 
 function formatPrice(amount: number, data: ReceiptData): string {
-  return formatPriceWithCurrency(amount, data.currencyInfo.code, data.currencyInfo.locale);
+  return formatThermalPrice(amount, data.currencyInfo);
+}
+
+function formatThermalPrice(amount: number, currencyInfo: ThermalCurrencyInfo): string {
+  const code = (currencyInfo.code || 'COP').toUpperCase();
+  const zeroDecimalCurrencies = new Set(['COP', 'CLP', 'JPY', 'KRW', 'VND', 'PYG']);
+  const fractionDigits = zeroDecimalCurrencies.has(code) ? 0 : 2;
+  const locale = currencyInfo.locale || 'es-CO';
+  let number: string;
+  try {
+    number = new Intl.NumberFormat(locale, {
+      style: 'decimal',
+      maximumFractionDigits: fractionDigits,
+      minimumFractionDigits: fractionDigits,
+    }).format(amount);
+  } catch {
+    number = new Intl.NumberFormat('en-US', {
+      style: 'decimal',
+      maximumFractionDigits: fractionDigits,
+      minimumFractionDigits: fractionDigits,
+    }).format(amount);
+  }
+
+  return `${getThermalCurrencyPrefix(code, currencyInfo.symbol)} ${normalizeThermalText(number)}`.trim();
+}
+
+function getThermalCurrencyPrefix(code: string, symbol?: string): string {
+  const cleanSymbol = normalizeThermalText(symbol || '').trim();
+  if (cleanSymbol && /^[A-Za-z0-9$/. -]{1,5}$/.test(cleanSymbol)) {
+    return cleanSymbol;
+  }
+
+  const known: Record<string, string> = {
+    COP: '$',
+    USD: '$',
+    CAD: 'C$',
+    MXN: '$',
+    ARS: '$',
+    CLP: '$',
+    PEN: 'S/',
+    EUR: 'EUR',
+    GBP: 'GBP',
+    BRL: 'R$',
+    JPY: 'JPY',
+    CNY: 'CNY',
+    INR: 'INR',
+    PHP: 'PHP',
+    VND: 'VND',
+    TRY: 'TRY',
+  };
+
+  return known[code] || code;
 }
 
 function getPaymentMethodLabel(method?: string | null): string {
@@ -163,11 +245,11 @@ function getPaymentMethodLabel(method?: string | null): string {
 }
 
 function padR(text: string, width: number): string {
-  return text.substring(0, width).padEnd(width, ' ');
+  return normalizeThermalText(text).substring(0, width).padEnd(width, ' ');
 }
 
 function padL(text: string, width: number): string {
-  return text.substring(0, width).padStart(width, ' ');
+  return normalizeThermalText(text).substring(0, width).padStart(width, ' ');
 }
 
 export function generateTestReceiptESCPOS(paperWidth: 58 | 80): Uint8Array {
@@ -199,13 +281,12 @@ export function generateCashClosingReceiptESCPOS(
   const cols = options.paperWidth === 80 ? 48 : 32;
   const bytes: string[] = [];
   const push = (...s: string[]) => bytes.push(...s);
-  const line = (s = '') => bytes.push(s + '\n');
+  const line = (s = '') => bytes.push(normalizeThermalText(s) + '\n');
   const sep = () => {
     push(SIZE_NORMAL);
     line('-'.repeat(cols));
   };
-  const money = (amount: number) =>
-    formatPriceWithCurrency(amount, data.currencyInfo.code, data.currencyInfo.locale);
+  const money = (amount: number) => formatThermalPrice(amount, data.currencyInfo);
   const row = (label: string, value: string) => {
     const cleanLabel = label.substring(0, Math.max(1, cols - value.length - 1));
     line(padR(cleanLabel, cols - value.length) + value);
@@ -214,7 +295,7 @@ export function generateCashClosingReceiptESCPOS(
   const periodStart = new Date(data.periodStart);
   const periodEnd = new Date(data.periodEnd);
 
-  push(INIT);
+  push(INIT, CODE_PAGE_PC850);
   push(ALIGN_CENTER, SIZE_2X, BOLD_ON);
   line(data.restaurantName ?? 'Restaurante');
   push(BOLD_OFF, SIZE_NORMAL);
@@ -277,7 +358,7 @@ export function generateCashClosingReceiptESCPOS(
 
   const receipt = bytes.join('');
   const copies = Array(Math.max(1, options.copies)).fill(receipt).join('');
-  return new TextEncoder().encode(copies);
+  return encodeEscPos(copies);
 }
 
 export function generateMonthlyClosingReceiptESCPOS(
@@ -287,13 +368,12 @@ export function generateMonthlyClosingReceiptESCPOS(
   const cols = options.paperWidth === 80 ? 48 : 32;
   const bytes: string[] = [];
   const push = (...s: string[]) => bytes.push(...s);
-  const line = (s = '') => bytes.push(s + '\n');
+  const line = (s = '') => bytes.push(normalizeThermalText(s) + '\n');
   const sep = () => {
     push(SIZE_NORMAL);
     line('-'.repeat(cols));
   };
-  const money = (amount: number) =>
-    formatPriceWithCurrency(amount, data.currencyInfo.code, data.currencyInfo.locale);
+  const money = (amount: number) => formatThermalPrice(amount, data.currencyInfo);
   const row = (label: string, value: string) => {
     const cleanLabel = label.substring(0, Math.max(1, cols - value.length - 1));
     line(padR(cleanLabel, cols - value.length) + value);
@@ -302,7 +382,7 @@ export function generateMonthlyClosingReceiptESCPOS(
   const periodStart = new Date(data.periodStart);
   const periodEnd = new Date(data.periodEnd);
 
-  push(INIT);
+  push(INIT, CODE_PAGE_PC850);
   push(ALIGN_CENTER, SIZE_2X, BOLD_ON);
   line(data.restaurantName ?? 'Restaurante');
   push(BOLD_OFF, SIZE_NORMAL);
@@ -359,7 +439,7 @@ export function generateMonthlyClosingReceiptESCPOS(
 
   const receipt = bytes.join('');
   const copies = Array(Math.max(1, options.copies)).fill(receipt).join('');
-  return new TextEncoder().encode(copies);
+  return encodeEscPos(copies);
 }
 
 export function generateKitchenTicketESCPOS(
@@ -369,7 +449,7 @@ export function generateKitchenTicketESCPOS(
   const cols = options.paperWidth === 80 ? 48 : 32;
   const bytes: string[] = [];
   const push = (...s: string[]) => bytes.push(...s);
-  const line = (s = '') => bytes.push(s + '\n');
+  const line = (s = '') => bytes.push(normalizeThermalText(s) + '\n');
   const sep = () => {
     push(SIZE_NORMAL);
     line('-'.repeat(cols));
@@ -386,7 +466,7 @@ export function generateKitchenTicketESCPOS(
           ? 'RECOGER'
           : 'PARA LLEVAR';
 
-  push(INIT);
+  push(INIT, CODE_PAGE_PC850);
   push(ALIGN_CENTER, SIZE_2X, BOLD_ON);
   line('COMANDA');
   push(SIZE_WIDE);
@@ -433,5 +513,5 @@ export function generateKitchenTicketESCPOS(
 
   const ticket = bytes.join('');
   const copies = Array(Math.max(1, options.copies)).fill(ticket).join('');
-  return new TextEncoder().encode(copies);
+  return encodeEscPos(copies);
 }

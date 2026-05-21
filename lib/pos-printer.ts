@@ -47,6 +47,8 @@ const getSupabase = () => {
   return _supabase;
 };
 
+const LOCAL_BRIDGE_PRINT_TIMEOUT_MS = 4500;
+
 function getCachedPrinterKey(tenantId: string, printerId: string) {
   return `eccofood-printer-${tenantId}-${printerId}`;
 }
@@ -86,6 +88,51 @@ function getCachedDefaultReceiptPrinter(tenantId: string) {
   }
 }
 
+async function fetchPrinterConfig(tenantId: string, printerId: string): Promise<PrinterDevice | null> {
+  const { data: printer, error } = await getSupabase()
+    .from('printer_devices')
+    .select('*')
+    .eq('id', printerId)
+    .eq('tenant_id', tenantId)
+    .maybeSingle();
+
+  if (error && !printer) {
+    throw new Error('Printer not found or not configured');
+  }
+
+  return (printer as PrinterDevice | null) || null;
+}
+
+async function refreshCachedPrinterConfig(tenantId: string, printerId: string, cacheAsDefault = false) {
+  try {
+    const printer = await fetchPrinterConfig(tenantId, printerId);
+    if (printer) {
+      cachePrinterConfig(tenantId, printerId, printer);
+      if (cacheAsDefault) cacheDefaultReceiptPrinter(tenantId, printerId);
+    }
+  } catch {
+    // Printing should not wait on a background cache refresh.
+  }
+}
+
+async function getPrinterForPrint(tenantId: string, printerId: string, cacheAsDefault = false): Promise<PrinterDevice> {
+  const cached = getCachedPrinterConfig(tenantId, printerId);
+  if (cached) {
+    void refreshCachedPrinterConfig(tenantId, printerId, cacheAsDefault);
+    if (cacheAsDefault) cacheDefaultReceiptPrinter(tenantId, printerId);
+    return cached as PrinterDevice;
+  }
+
+  const printer = await fetchPrinterConfig(tenantId, printerId);
+  if (!printer) {
+    throw new Error('Printer not found or not configured');
+  }
+
+  cachePrinterConfig(tenantId, printerId, printer);
+  if (cacheAsDefault) cacheDefaultReceiptPrinter(tenantId, printerId);
+  return printer;
+}
+
 function isBrowserDriverPrinter(printer: PrinterDevice) {
   return printer.config?.connection_mode === 'browser_driver' || (!printer.vendor_id && !printer.product_id);
 }
@@ -112,18 +159,33 @@ function canUseBrowserPrintFallback(printer: PrinterDevice) {
 }
 
 function getLocalBridgeError(printer: PrinterDevice) {
-  return `No se encontro el puente local de Eccofood en este computador (${getBridgeUrl(printer)}). Abre Eccofood Printer Bridge para imprimir directo y abrir el cajon.`;
+  return `No se encontro el puente local de Eccofood en este computador (${getBridgeUrl(printer)}). Revisa Estado-EccofoodPrint o reinstala el agente como administrador.`;
 }
 
 async function printViaLocalBridge(printer: PrinterDevice, data: Uint8Array): Promise<void> {
-  const response = await fetch(`${getBridgeUrl(printer)}/print`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      printerName: printer.config?.browser_printer_name || 'default',
-      dataBase64: bytesToBase64(data),
-    }),
-  });
+  const controller = new AbortController();
+  const timeout = window.setTimeout(() => controller.abort(), LOCAL_BRIDGE_PRINT_TIMEOUT_MS);
+
+  let response: Response;
+  try {
+    response = await fetch(`${getBridgeUrl(printer)}/print`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      cache: 'no-store',
+      signal: controller.signal,
+      body: JSON.stringify({
+        printerName: printer.config?.browser_printer_name || 'default',
+        dataBase64: bytesToBase64(data),
+      }),
+    });
+  } catch (error) {
+    if (error instanceof DOMException && error.name === 'AbortError') {
+      throw new Error('El puente local no respondio a tiempo. Revisa que el agente este activo y la impresora no este bloqueada en Windows.');
+    }
+    throw error;
+  } finally {
+    window.clearTimeout(timeout);
+  }
 
   const payload = await response.json().catch(() => ({}));
   if (!response.ok || payload?.ok === false) {
@@ -144,33 +206,13 @@ export async function printReceipt(
   data: ReceiptData
 ): Promise<void> {
   try {
-    // 1. Get printer configuration from database
-    let { data: printer, error: printerError } = await getSupabase()
-      .from('printer_devices')
-      .select('*')
-      .eq('id', printerId)
-      .eq('tenant_id', tenantId)
-      .maybeSingle();
-
-    if (printer) {
-      cachePrinterConfig(tenantId, printerId, printer);
-      cacheDefaultReceiptPrinter(tenantId, printerId);
-    } else {
-      printer = getCachedPrinterConfig(tenantId, printerId);
-    }
-
-    if (printerError && !printer) {
-      throw new Error('Printer not found or not configured');
-    }
-
-    if (!printer) {
-      throw new Error('Printer not found or not configured');
-    }
+    // 1. Use local cache first so a receipt does not wait on the network.
+    const printer = await getPrinterForPrint(tenantId, printerId, true);
 
     // 2. Generate ESC/POS commands
     const escPosData = generateReceiptESCPOS(data, {
-      paperWidth: printer.config.paper_width || 80,
-      copies: printer.config.copies || 1,
+      paperWidth: printer.config?.paper_width || 80,
+      copies: printer.config?.copies || 1,
       locale: data.currencyInfo.locale,
       openCashDrawer: data.openCashDrawer === true && printer.config?.cash_drawer_enabled !== false,
     });
@@ -234,31 +276,11 @@ export async function printCashClosingReceipt(
   data: CashClosingReceiptData
 ): Promise<void> {
   try {
-    let { data: printer, error: printerError } = await getSupabase()
-      .from('printer_devices')
-      .select('*')
-      .eq('id', printerId)
-      .eq('tenant_id', tenantId)
-      .maybeSingle();
-
-    if (printer) {
-      cachePrinterConfig(tenantId, printerId, printer);
-      cacheDefaultReceiptPrinter(tenantId, printerId);
-    } else {
-      printer = getCachedPrinterConfig(tenantId, printerId);
-    }
-
-    if (printerError && !printer) {
-      throw new Error('Printer not found or not configured');
-    }
-
-    if (!printer) {
-      throw new Error('Printer not found or not configured');
-    }
+    const printer = await getPrinterForPrint(tenantId, printerId, true);
 
     const escPosData = generateCashClosingReceiptESCPOS(data, {
-      paperWidth: printer.config.paper_width || 80,
-      copies: printer.config.copies || 1,
+      paperWidth: printer.config?.paper_width || 80,
+      copies: printer.config?.copies || 1,
       locale: data.currencyInfo.locale,
     });
 
@@ -316,31 +338,11 @@ export async function printMonthlyClosingReceipt(
   data: MonthlyClosingReceiptData
 ): Promise<void> {
   try {
-    let { data: printer, error: printerError } = await getSupabase()
-      .from('printer_devices')
-      .select('*')
-      .eq('id', printerId)
-      .eq('tenant_id', tenantId)
-      .maybeSingle();
-
-    if (printer) {
-      cachePrinterConfig(tenantId, printerId, printer);
-      cacheDefaultReceiptPrinter(tenantId, printerId);
-    } else {
-      printer = getCachedPrinterConfig(tenantId, printerId);
-    }
-
-    if (printerError && !printer) {
-      throw new Error('Printer not found or not configured');
-    }
-
-    if (!printer) {
-      throw new Error('Printer not found or not configured');
-    }
+    const printer = await getPrinterForPrint(tenantId, printerId, true);
 
     const escPosData = generateMonthlyClosingReceiptESCPOS(data, {
-      paperWidth: printer.config.paper_width || 80,
-      copies: printer.config.copies || 1,
+      paperWidth: printer.config?.paper_width || 80,
+      copies: printer.config?.copies || 1,
       locale: data.currencyInfo.locale,
     });
 
@@ -399,30 +401,11 @@ export async function printKitchenTicket(
   data: KitchenTicketData
 ): Promise<void> {
   try {
-    let { data: printer, error: printerError } = await getSupabase()
-      .from('printer_devices')
-      .select('*')
-      .eq('id', printerId)
-      .eq('tenant_id', tenantId)
-      .maybeSingle();
-
-    if (printer) {
-      cachePrinterConfig(tenantId, printerId, printer);
-    } else {
-      printer = getCachedPrinterConfig(tenantId, printerId);
-    }
-
-    if (printerError && !printer) {
-      throw new Error('Printer not found or not configured');
-    }
-
-    if (!printer) {
-      throw new Error('Printer not found or not configured');
-    }
+    const printer = await getPrinterForPrint(tenantId, printerId);
 
     const escPosData = generateKitchenTicketESCPOS(data, {
-      paperWidth: printer.config.paper_width || 80,
-      copies: printer.config.copies || 1,
+      paperWidth: printer.config?.paper_width || 80,
+      copies: printer.config?.copies || 1,
       locale: 'es-ES',
     });
 
@@ -979,18 +962,9 @@ export async function testPrinterConnection(
   printerId: string
 ): Promise<{ success: boolean; message: string }> {
   try {
-    const { data: printer } = await getSupabase()
-      .from('printer_devices')
-      .select('*')
-      .eq('id', printerId)
-      .eq('tenant_id', tenantId)
-      .maybeSingle();
+    const printer = await getPrinterForPrint(tenantId, printerId, true);
 
-    if (!printer) {
-      return { success: false, message: 'Impresora no encontrada' };
-    }
-
-    const testData = generateTestReceiptESCPOS(printer.config.paper_width || 80);
+    const testData = generateTestReceiptESCPOS(printer.config?.paper_width || 80);
 
     if (shouldUseLocalBridge(printer)) {
       try {
@@ -1069,35 +1043,33 @@ export async function openCashDrawer(tenantId: string): Promise<void> {
       0x1b, 0x70, 0x01, 0x32, 0xfa,
     ]);
 
-    const { data: settings } = await getSupabase()
-      .from('restaurant_settings')
-      .select('default_receipt_printer_id')
-      .eq('tenant_id', tenantId)
-      .maybeSingle();
-
-    const printerId = settings?.default_receipt_printer_id || getCachedDefaultReceiptPrinter(tenantId);
+    let printerId = getCachedDefaultReceiptPrinter(tenantId);
+    if (printerId) {
+      void getSupabase()
+        .from('restaurant_settings')
+        .select('default_receipt_printer_id')
+        .eq('tenant_id', tenantId)
+        .maybeSingle()
+        .then(({ data: settings }) => {
+          if (settings?.default_receipt_printer_id) {
+            cacheDefaultReceiptPrinter(tenantId, settings.default_receipt_printer_id);
+          }
+        }, () => undefined);
+    } else {
+      const { data: settings } = await getSupabase()
+        .from('restaurant_settings')
+        .select('default_receipt_printer_id')
+        .eq('tenant_id', tenantId)
+        .maybeSingle();
+      printerId = settings?.default_receipt_printer_id || null;
+      if (printerId) cacheDefaultReceiptPrinter(tenantId, printerId);
+    }
 
     if (!printerId) {
       throw new Error('No hay impresora de recibos predeterminada');
     }
 
-    let { data: printer } = await getSupabase()
-      .from('printer_devices')
-      .select('*')
-      .eq('id', printerId)
-      .eq('tenant_id', tenantId)
-      .maybeSingle();
-
-    if (printer) {
-      cachePrinterConfig(tenantId, printerId, printer);
-      cacheDefaultReceiptPrinter(tenantId, printerId);
-    } else {
-      printer = getCachedPrinterConfig(tenantId, printerId);
-    }
-
-    if (!printer) {
-      throw new Error('No se encontro la impresora configurada');
-    }
+    const printer = await getPrinterForPrint(tenantId, printerId, true);
 
     if (printer.config?.cash_drawer_enabled === false) {
       return;

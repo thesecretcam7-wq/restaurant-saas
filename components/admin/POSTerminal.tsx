@@ -2118,7 +2118,17 @@ export function POSTerminal({
       const printInBackground = async () => {
         const backgroundWarnings: string[] = [];
         let settings: any = null;
-        try {
+        const printerSettingsKey = `eccofood-pos-printer-settings-${tenantId}`;
+        if (typeof window !== 'undefined') {
+          try {
+            const cachedSettings = localStorage.getItem(printerSettingsKey);
+            settings = cachedSettings ? JSON.parse(cachedSettings) : null;
+          } catch {
+            settings = null;
+          }
+        }
+
+        const fetchPrinterSettings = async () => {
           const result = await supabase
             .from('restaurant_settings')
             .select('default_receipt_printer_id, kitchen_printer_id, printer_auto_print, display_name, phone')
@@ -2126,16 +2136,18 @@ export function POSTerminal({
             .maybeSingle();
 
           if (result.error) throw new Error(result.error.message);
-          settings = result.data;
-          if (settings?.default_receipt_printer_id && typeof window !== 'undefined') {
-            localStorage.setItem(`eccofood-pos-printer-settings-${tenantId}`, JSON.stringify(settings));
+          if (result.data?.default_receipt_printer_id && typeof window !== 'undefined') {
+            localStorage.setItem(printerSettingsKey, JSON.stringify(result.data));
           }
-        } catch (settingsError) {
-          if (typeof window !== 'undefined') {
-            const cachedSettings = localStorage.getItem(`eccofood-pos-printer-settings-${tenantId}`);
-            settings = cachedSettings ? JSON.parse(cachedSettings) : null;
-          }
-          if (!settings) {
+          return result.data;
+        };
+
+        if (settings) {
+          void fetchPrinterSettings().catch(() => {});
+        } else {
+          try {
+            settings = await fetchPrinterSettings();
+          } catch (settingsError) {
             backgroundWarnings.push(`No se pudo leer configuracion de impresora: ${settingsError instanceof Error ? settingsError.message : String(settingsError)}`);
           }
         }
