@@ -4,7 +4,7 @@ param(
 
 $ErrorActionPreference = "Stop"
 
-$AgentVersion = "1.1.2"
+$AgentVersion = "1.1.3"
 $PrinterCacheTtlSeconds = 30
 $script:DefaultPrinterCache = $null
 $script:DefaultPrinterCacheAt = [datetime]::MinValue
@@ -88,16 +88,24 @@ function Write-AgentLog {
 
 function Send-Json {
   param($Context, [int]$StatusCode, $Payload)
-  $json = $Payload | ConvertTo-Json -Depth 10
-  $bytes = [System.Text.Encoding]::UTF8.GetBytes($json)
-  $Context.Response.StatusCode = $StatusCode
-  $Context.Response.ContentType = "application/json; charset=utf-8"
-  $Context.Response.Headers.Add("Access-Control-Allow-Origin", "*")
-  $Context.Response.Headers.Add("Access-Control-Allow-Methods", "GET,POST,OPTIONS")
-  $Context.Response.Headers.Add("Access-Control-Allow-Headers", "Content-Type")
-  $Context.Response.Headers.Add("Access-Control-Allow-Private-Network", "true")
-  $Context.Response.OutputStream.Write($bytes, 0, $bytes.Length)
-  $Context.Response.Close()
+
+  try {
+    $json = $Payload | ConvertTo-Json -Depth 10
+    $bytes = [System.Text.Encoding]::UTF8.GetBytes($json)
+    $Context.Response.StatusCode = $StatusCode
+    $Context.Response.ContentType = "application/json; charset=utf-8"
+    $Context.Response.Headers.Add("Access-Control-Allow-Origin", "*")
+    $Context.Response.Headers.Add("Access-Control-Allow-Methods", "GET,POST,OPTIONS")
+    $Context.Response.Headers.Add("Access-Control-Allow-Headers", "Content-Type")
+    $Context.Response.Headers.Add("Access-Control-Allow-Private-Network", "true")
+    $Context.Response.OutputStream.Write($bytes, 0, $bytes.Length)
+  } catch {
+    Write-AgentLog "No se pudo responder al navegador: $($_.Exception.Message)"
+  } finally {
+    try {
+      $Context.Response.Close()
+    } catch {}
+  }
 }
 
 function Get-DefaultPrinterName {
@@ -161,12 +169,30 @@ Write-AgentLog "Eccofood Print Agent iniciado en $($prefixes -join ', ')"
 Write-Host "Eccofood Print Agent activo en $($prefixes -join ', ')"
 
 while ($listener.IsListening) {
-  $context = $listener.GetContext()
+  try {
+    $context = $listener.GetContext()
+  } catch {
+    Write-AgentLog "Listener continuo despues de error de conexion: $($_.Exception.Message)"
+    Start-Sleep -Milliseconds 250
+    continue
+  }
+
   try {
     $path = $context.Request.Url.AbsolutePath.ToLowerInvariant()
 
     if ($context.Request.HttpMethod -eq "OPTIONS") {
       Send-Json $context 200 @{ ok = $true }
+      continue
+    }
+
+    if ($path -eq "/ping") {
+      Send-Json $context 200 @{
+        ok = $true
+        app = "Eccofood Print Agent"
+        version = $AgentVersion
+        pid = $PID
+        uptimeSeconds = [int]((Get-Date) - $script:StartedAt).TotalSeconds
+      }
       continue
     }
 

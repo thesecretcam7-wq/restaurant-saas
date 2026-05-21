@@ -26,19 +26,37 @@ export function LocalPrintAgentStatus() {
     try {
       for (const url of AGENT_URLS) {
         const controller = new AbortController()
-        const timeout = window.setTimeout(() => controller.abort(), 1800)
+        const timeout = window.setTimeout(() => controller.abort(), 2500)
         try {
-          const response = await fetch(`${url}/health`, {
+          const response = await fetch(`${url}/ping`, {
             signal: controller.signal,
             cache: 'no-store',
           })
           const data = await response.json().catch(() => ({}))
           if (!response.ok || data?.ok === false) throw new Error(data?.error || 'Sin respuesta valida')
+
+          let defaultPrinter = null
+          try {
+            const healthController = new AbortController()
+            const healthTimeout = window.setTimeout(() => healthController.abort(), 4500)
+            const healthResponse = await fetch(`${url}/health`, {
+              signal: healthController.signal,
+              cache: 'no-store',
+            })
+            window.clearTimeout(healthTimeout)
+            const health = await healthResponse.json().catch(() => ({}))
+            if (healthResponse.ok && health?.ok !== false) {
+              defaultPrinter = health?.defaultPrinter || null
+            }
+          } catch {
+            defaultPrinter = null
+          }
+
           setState({
             ok: true,
             loading: false,
             message: 'Agente local activo en este computador',
-            defaultPrinter: data?.defaultPrinter || null,
+            defaultPrinter,
             version: data?.version || null,
             url,
           })

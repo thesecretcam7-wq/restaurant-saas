@@ -18,14 +18,13 @@ try {
 
 Start-Sleep -Seconds 2
 
-$urls = @("http://localhost:$Port/health", "http://127.0.0.1:$Port/health")
+$urls = @("http://localhost:$Port/ping", "http://127.0.0.1:$Port/ping")
 foreach ($url in $urls) {
   try {
-    $health = Invoke-RestMethod -Uri $url -TimeoutSec 2
+    $health = Invoke-RestMethod -Uri $url -TimeoutSec 5
     if ($health.ok -eq $true) {
       Write-Host "Eccofood Print Agent activo. Version: $($health.version)"
       Write-Host "Direccion: $url"
-      Write-Host "Impresora predeterminada: $($health.defaultPrinter)"
       exit 0
     }
   } catch {

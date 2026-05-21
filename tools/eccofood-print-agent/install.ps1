@@ -75,10 +75,39 @@ $startupPath = Join-Path $installDir "Start-EccofoodPrintAgent.ps1"
 $startupCommand = "powershell.exe -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File `"$startupPath`" -Port $Port"
 $action = New-ScheduledTaskAction -Execute "powershell.exe" -Argument "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File `"$agentPath`" -Port $Port"
 $logonTrigger = New-ScheduledTaskTrigger -AtLogOn
+$startupTrigger = New-ScheduledTaskTrigger -AtStartup
+$principal = New-ScheduledTaskPrincipal -UserId ([System.Security.Principal.WindowsIdentity]::GetCurrent().Name) -LogonType Interactive -RunLevel Highest
 $settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -RestartCount 3 -RestartInterval (New-TimeSpan -Minutes 1) -ExecutionTimeLimit ([TimeSpan]::Zero) -MultipleInstances IgnoreNew
 $startupCmd = Join-Path $commonStartup "Eccofood Print Agent.cmd"
 $userStartupCmd = Join-Path $userStartup "Eccofood Print Agent.cmd"
 $scheduledTaskCreated = $false
+
+function Test-AgentReady {
+  param(
+    [int]$Attempts = 1,
+    [int]$DelayMs = 800
+  )
+
+  $urls = @("http://localhost:$Port/ping", "http://127.0.0.1:$Port/ping")
+  for ($attempt = 1; $attempt -le $Attempts; $attempt++) {
+    foreach ($url in $urls) {
+      try {
+        $ping = Invoke-RestMethod -Uri $url -TimeoutSec 5
+        if ($ping.ok -eq $true) {
+          return @{ ok = $true; url = $url; version = $ping.version }
+        }
+      } catch {
+        continue
+      }
+    }
+
+    if ($attempt -lt $Attempts) {
+      Start-Sleep -Milliseconds $DelayMs
+    }
+  }
+
+  return $null
+}
 
 Remove-Item -LiteralPath $startupCmd -Force -ErrorAction SilentlyContinue
 Remove-Item -LiteralPath $userStartupCmd -Force -ErrorAction SilentlyContinue
@@ -87,7 +116,7 @@ Remove-ItemProperty -Path "HKLM:\Software\Microsoft\Windows\CurrentVersion\Run" 
 
 try {
   Unregister-ScheduledTask -TaskName $taskName -Confirm:$false -ErrorAction SilentlyContinue | Out-Null
-  Register-ScheduledTask -TaskName $taskName -Action $action -Trigger $logonTrigger -Settings $settings -Description "Eccofood local printing and cash drawer agent" -Force | Out-Null
+  Register-ScheduledTask -TaskName $taskName -Action $action -Trigger @($logonTrigger, $startupTrigger) -Principal $principal -Settings $settings -Description "Eccofood local printing and cash drawer agent" -Force | Out-Null
   $scheduledTaskCreated = $true
 } catch {
   Write-Host "Aviso: no pude crear la tarea programada. Se usara el arranque automatico del usuario." -ForegroundColor Yellow
@@ -109,16 +138,24 @@ try {
   Write-Host "Aviso: no pude detener una instancia anterior del agente." -ForegroundColor Yellow
 }
 
-Start-Process powershell.exe -WindowStyle Hidden -WorkingDirectory $installDir -ArgumentList "-NoProfile -ExecutionPolicy Bypass -File `"$startupPath`" -Port $Port"
-Start-Sleep -Seconds 2
-
-try {
-  $health = Invoke-RestMethod -Uri "http://localhost:$Port/health" -TimeoutSec 2
-  if ($health.ok -eq $true) {
-    Write-Host "Agente activo en segundo plano. Version: $($health.version)" -ForegroundColor Green
+if ($scheduledTaskCreated) {
+  try {
+    Start-ScheduledTask -TaskName $taskName -ErrorAction Stop
+  } catch {
+    Write-Host "Aviso: no pude iniciar la tarea programada ahora. Intentare iniciar el agente directo en segundo plano." -ForegroundColor Yellow
+    Start-Process powershell.exe -WindowStyle Hidden -WorkingDirectory $installDir -ArgumentList "-NoProfile -ExecutionPolicy Bypass -File `"$startupPath`" -Port $Port"
   }
-} catch {
-  Write-Host "Aviso: el agente quedo programado, pero todavia no respondio al chequeo inicial. Ejecuta Estado-EccofoodPrint.bat para revisar." -ForegroundColor Yellow
+} else {
+  Start-Process powershell.exe -WindowStyle Hidden -WorkingDirectory $installDir -ArgumentList "-NoProfile -ExecutionPolicy Bypass -File `"$startupPath`" -Port $Port"
+}
+
+$ready = Test-AgentReady -Attempts 10 -DelayMs 900
+if ($ready) {
+  Write-Host "Agente activo en segundo plano. Version: $($ready.version)" -ForegroundColor Green
+  Write-Host "Chequeo local: $($ready.url)" -ForegroundColor Green
+} else {
+  Write-Host "Aviso: el agente quedo programado, pero todavia no respondio al chequeo inicial." -ForegroundColor Yellow
+  Write-Host "Espera unos segundos y ejecuta Estado-EccofoodPrint.bat. Si no responde, reinstala como administrador." -ForegroundColor Yellow
 }
 
 Write-Host ""

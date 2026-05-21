@@ -17,10 +17,10 @@ function Write-StartupLog {
 }
 
 function Test-AgentHealth {
-  $urls = @("http://localhost:$Port/health", "http://127.0.0.1:$Port/health")
+  $urls = @("http://localhost:$Port/ping", "http://127.0.0.1:$Port/ping")
   foreach ($url in $urls) {
   try {
-      $health = Invoke-RestMethod -Uri $url -TimeoutSec 2
+      $health = Invoke-RestMethod -Uri $url -TimeoutSec 5
       if ($health.ok -eq $true) { return $true }
   } catch {
       continue
@@ -57,7 +57,7 @@ try {
     -WorkingDirectory $installDir `
     -ArgumentList "-NoProfile -ExecutionPolicy Bypass -File `"$agentPath`" -Port $Port"
 
-  Start-Sleep -Seconds 1
+  Start-Sleep -Seconds 3
   if (Test-AgentHealth) {
     Write-StartupLog "Agente activo."
   } else {

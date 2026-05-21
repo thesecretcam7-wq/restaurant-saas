@@ -27,6 +27,10 @@ El agente queda activo en segundo plano. No hay que dejar PowerShell abierto.
 Tambien queda programado para arrancar con Windows. No debe abrir ventanas
 cada minuto.
 
+No abras EccofoodPrintAgent.ps1 directamente para trabajar durante el dia.
+Usa Instalar-EccofoodPrint.bat para instalarlo y Estado-EccofoodPrint.bat para
+comprobarlo o despertarlo si Windows tardo en arrancarlo.
+
 COMPROBAR QUE FUNCIONA
 
 Opcion facil:
@@ -37,11 +41,11 @@ Opcion desde navegador:
 1. Abre Chrome, Edge o Firefox en el mismo computador de la impresora.
 2. Escribe esta direccion:
 
-http://localhost:17777/health
+http://localhost:17777/ping
 
 Tambien puede funcionar:
 
-http://127.0.0.1:17777/health
+http://127.0.0.1:17777/ping
 
 3. Si ves una respuesta con "ok": true, el agente esta funcionando.
 
