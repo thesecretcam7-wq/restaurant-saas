@@ -26,7 +26,7 @@ const TENANT_PWA_IDENTITY_PATHS = new Set([
   '/icon-512.png',
 ])
 
-type TenantRoute = { id: string; slug: string }
+type TenantRoute = { id: string; slug?: string | null }
 type StaffSession = {
   tenantId?: string
   staffId?: string
@@ -92,6 +92,10 @@ function withStoreHeaders(request: NextRequest, slug: string) {
   return requestHeaders
 }
 
+function getTenantRouteSegment(tenant: TenantRoute, fallback?: string) {
+  return tenant.slug || fallback || tenant.id
+}
+
 function isTenantPwaIdentityPath(pathname: string) {
   return TENANT_PWA_IDENTITY_PATHS.has(pathname)
 }
@@ -150,8 +154,9 @@ export async function middleware(request: NextRequest) {
   if (!isAssetPath && earlySubdomain && earlySubdomain !== 'www' && earlySubdomain !== 'app' && pathname === '/') {
     const tenant = await getTenantBySlug(earlySubdomain)
     if (tenant) {
-      url.pathname = `/${tenant.slug}`
-      return NextResponse.rewrite(url, { request: { headers: withStoreHeaders(request, tenant.slug) } })
+      const tenantSegment = getTenantRouteSegment(tenant, earlySubdomain)
+      url.pathname = `/${tenantSegment}`
+      return NextResponse.rewrite(url, { request: { headers: withStoreHeaders(request, tenantSegment) } })
     }
   }
 
@@ -160,24 +165,27 @@ export async function middleware(request: NextRequest) {
   if (!isAssetPath && !hostname.includes(BASE_DOMAIN) && pathname === '/') {
     const tenant = await getTenantByDomain(hostname)
     if (tenant) {
-      url.pathname = `/${tenant.slug}`
-      return NextResponse.rewrite(url, { request: { headers: withStoreHeaders(request, tenant.slug) } })
+      const tenantSegment = getTenantRouteSegment(tenant)
+      url.pathname = `/${tenantSegment}`
+      return NextResponse.rewrite(url, { request: { headers: withStoreHeaders(request, tenantSegment) } })
     }
   }
 
   if (!hostname.includes(BASE_DOMAIN) && isTenantPwaIdentityPath(pathname)) {
     const tenant = await getTenantByDomain(hostname)
     if (tenant) {
-      url.pathname = `/${tenant.slug}${pathname}`
-      return NextResponse.rewrite(url, { request: { headers: withStoreHeaders(request, tenant.slug) } })
+      const tenantSegment = getTenantRouteSegment(tenant)
+      url.pathname = `/${tenantSegment}${pathname}`
+      return NextResponse.rewrite(url, { request: { headers: withStoreHeaders(request, tenantSegment) } })
     }
   }
 
   if (earlySubdomain && earlySubdomain !== 'www' && earlySubdomain !== 'app' && isTenantPwaIdentityPath(pathname)) {
     const tenant = await getTenantBySlug(earlySubdomain)
     if (tenant) {
-      url.pathname = `/${tenant.slug}${pathname}`
-      return NextResponse.rewrite(url, { request: { headers: withStoreHeaders(request, tenant.slug) } })
+      const tenantSegment = getTenantRouteSegment(tenant, earlySubdomain)
+      url.pathname = `/${tenantSegment}${pathname}`
+      return NextResponse.rewrite(url, { request: { headers: withStoreHeaders(request, tenantSegment) } })
     }
   }
 
@@ -319,7 +327,7 @@ export async function middleware(request: NextRequest) {
       }
     }
 
-    const loginUrl = new URL(`/${tenant.slug}/acceso/login/${operationalAccess.loginRole}`, request.url)
+    const loginUrl = new URL(`/${getTenantRouteSegment(tenant, operationalAccess.slug)}/acceso/login/${operationalAccess.loginRole}`, request.url)
     return NextResponse.redirect(loginUrl)
   }
 
@@ -442,7 +450,8 @@ export async function middleware(request: NextRequest) {
   if (!hostname.includes(BASE_DOMAIN)) {
     const tenant = await getTenantByDomain(hostname)
     if (tenant) {
-      const slugPrefix = `/${tenant.slug}`
+      const tenantSegment = getTenantRouteSegment(tenant)
+      const slugPrefix = `/${tenantSegment}`
       if (pathname === slugPrefix || pathname.startsWith(`${slugPrefix}/`)) {
         const cleanPath = pathname.slice(slugPrefix.length) || '/'
         const redirectUrl = request.nextUrl.clone()
@@ -450,8 +459,8 @@ export async function middleware(request: NextRequest) {
         return NextResponse.redirect(redirectUrl)
       }
 
-      url.pathname = `/${tenant.slug}${pathname}`
-      return NextResponse.rewrite(url, { request: { headers: withStoreHeaders(request, tenant.slug) } })
+      url.pathname = `/${tenantSegment}${pathname}`
+      return NextResponse.rewrite(url, { request: { headers: withStoreHeaders(request, tenantSegment) } })
     }
   }
 
@@ -460,7 +469,8 @@ export async function middleware(request: NextRequest) {
   if (subdomain && subdomain !== 'www' && subdomain !== 'app') {
     const tenant = await getTenantBySlug(subdomain)
     if (tenant) {
-      const slugPrefix = `/${tenant.slug}`
+      const tenantSegment = getTenantRouteSegment(tenant, subdomain)
+      const slugPrefix = `/${tenantSegment}`
       if (pathname === slugPrefix || pathname.startsWith(`${slugPrefix}/`)) {
         const cleanPath = pathname.slice(slugPrefix.length) || '/'
         const redirectUrl = request.nextUrl.clone()
@@ -468,8 +478,8 @@ export async function middleware(request: NextRequest) {
         return NextResponse.redirect(redirectUrl)
       }
 
-      url.pathname = `/${tenant.slug}${pathname}`
-      return NextResponse.rewrite(url, { request: { headers: withStoreHeaders(request, tenant.slug) } })
+      url.pathname = `/${tenantSegment}${pathname}`
+      return NextResponse.rewrite(url, { request: { headers: withStoreHeaders(request, tenantSegment) } })
     }
   }
 
@@ -480,8 +490,9 @@ export async function middleware(request: NextRequest) {
     const tenant = isUUID(slug) ? await getTenantById(slug) : await getTenantBySlug(slug)
     if (tenant) {
       const restPath = pathname.slice(slug.length + 1) || '/'
-      url.pathname = `/${tenant.slug}${restPath}`
-      return NextResponse.rewrite(url, { request: { headers: withStoreHeaders(request, tenant.slug) } })
+      const tenantSegment = getTenantRouteSegment(tenant, slug)
+      url.pathname = `/${tenantSegment}${restPath}`
+      return NextResponse.rewrite(url, { request: { headers: withStoreHeaders(request, tenantSegment) } })
     }
   }
 

@@ -867,7 +867,7 @@ export function POSTerminal({
 
   function downloadPOSShortcut() {
     const origin = window.location.origin;
-    const posUrl = `${origin}/${tenantSlug || tenantId}/staff/pos`;
+    const posUrl = `${origin}/${tenantId}/staff/pos`;
     const iconUrl = `${origin}/favicon.ico`;
     const safeRestaurantName = restaurantName
       .normalize('NFD')
