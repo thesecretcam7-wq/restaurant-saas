@@ -54,8 +54,10 @@ export function POSPayment({
   };
 
   const handleSuggestedAmount = (amount: number) => {
-    setAmountPaid(amount.toString());
-    setChange(calculateChange(totalWithTip, amount));
+    const currentAmount = Number(amountPaid);
+    const nextAmount = Math.round(((Number.isFinite(currentAmount) ? currentAmount : 0) + amount) * 100) / 100;
+    setAmountPaid(nextAmount.toString());
+    setChange(calculateChange(totalWithTip, nextAmount));
   };
 
   const handleConfirmPaymentAmount = (value: number) => {
