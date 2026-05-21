@@ -8,9 +8,10 @@ try {
 } catch {}
 
 try {
-  $health = Invoke-RestMethod -Uri "http://127.0.0.1:$Port/health" -TimeoutSec 2
+  $health = Invoke-RestMethod -Uri "http://localhost:$Port/health" -TimeoutSec 2
   Write-Host "Activo"
   Write-Host "Version: $($health.version)"
+  Write-Host "Direccion: http://localhost:$Port"
   Write-Host "Impresora predeterminada: $($health.defaultPrinter)"
   Write-Host "Proceso: $($health.pid)"
   Write-Host "Tiempo activo: $($health.uptimeSeconds) segundos"
@@ -26,12 +27,13 @@ try {
   }
 
   try {
-    $health = Invoke-RestMethod -Uri "http://127.0.0.1:$Port/health" -TimeoutSec 2
+    $health = Invoke-RestMethod -Uri "http://localhost:$Port/health" -TimeoutSec 2
     Write-Host "Activo"
     Write-Host "Version: $($health.version)"
+    Write-Host "Direccion: http://localhost:$Port"
     Write-Host "Impresora predeterminada: $($health.defaultPrinter)"
   } catch {
-    Write-Host "No responde en http://127.0.0.1:$Port"
+    Write-Host "No responde en http://localhost:$Port ni en http://127.0.0.1:$Port"
     Write-Host "Reinstala Eccofood Print Agent como administrador si este mensaje se repite."
   }
 }

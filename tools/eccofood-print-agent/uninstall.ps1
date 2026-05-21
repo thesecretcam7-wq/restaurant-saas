@@ -10,7 +10,7 @@ $startupCmd = Join-Path $commonStartup "Eccofood Print Agent.cmd"
 $userStartupCmd = Join-Path $userStartup "Eccofood Print Agent.cmd"
 $commonDesktopShortcut = Join-Path $commonDesktop "Eccofood Impresora.lnk"
 $userDesktopShortcut = Join-Path $userDesktop "Eccofood Impresora.lnk"
-$urlAcl = "http://127.0.0.1:17777/"
+$urlAcls = @("http://localhost:17777/", "http://127.0.0.1:17777/")
 
 Stop-ScheduledTask -TaskName $taskName
 Unregister-ScheduledTask -TaskName $taskName -Confirm:$false
@@ -25,7 +25,9 @@ Remove-Item -LiteralPath $startupCmd -Force
 Remove-Item -LiteralPath $userStartupCmd -Force
 Remove-Item -LiteralPath $commonDesktopShortcut -Force
 Remove-Item -LiteralPath $userDesktopShortcut -Force
-& netsh http delete urlacl url=$urlAcl | Out-Null
+foreach ($urlAcl in $urlAcls) {
+  & netsh http delete urlacl url=$urlAcl | Out-Null
+}
 Remove-Item -LiteralPath $installDir -Recurse -Force
 
 Write-Host "Eccofood Print Agent eliminado."

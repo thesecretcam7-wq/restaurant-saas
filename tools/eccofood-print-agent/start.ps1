@@ -18,14 +18,20 @@ try {
 
 Start-Sleep -Seconds 2
 
-try {
-  $health = Invoke-RestMethod -Uri "http://127.0.0.1:$Port/health" -TimeoutSec 2
-  if ($health.ok -eq $true) {
-    Write-Host "Eccofood Print Agent activo. Version: $($health.version)"
-    Write-Host "Impresora predeterminada: $($health.defaultPrinter)"
-    exit 0
+$urls = @("http://localhost:$Port/health", "http://127.0.0.1:$Port/health")
+foreach ($url in $urls) {
+  try {
+    $health = Invoke-RestMethod -Uri $url -TimeoutSec 2
+    if ($health.ok -eq $true) {
+      Write-Host "Eccofood Print Agent activo. Version: $($health.version)"
+      Write-Host "Direccion: $url"
+      Write-Host "Impresora predeterminada: $($health.defaultPrinter)"
+      exit 0
+    }
+  } catch {
+    continue
   }
-} catch {}
+}
 
-Write-Host "No responde en http://127.0.0.1:$Port. Ejecuta Estado-EccofoodPrint.bat para revisar."
+Write-Host "No responde en http://localhost:$Port ni en http://127.0.0.1:$Port. Ejecuta Estado-EccofoodPrint.bat para revisar."
 exit 1

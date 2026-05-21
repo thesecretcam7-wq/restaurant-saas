@@ -4,7 +4,7 @@ param(
 
 $ErrorActionPreference = "Stop"
 
-$AgentVersion = "1.1.1"
+$AgentVersion = "1.1.2"
 $PrinterCacheTtlSeconds = 30
 $script:DefaultPrinterCache = $null
 $script:DefaultPrinterCacheAt = [datetime]::MinValue
@@ -151,12 +151,14 @@ function Resolve-PrinterName {
 }
 
 $listener = [System.Net.HttpListener]::new()
-$prefix = "http://127.0.0.1:$Port/"
-$listener.Prefixes.Add($prefix)
+$prefixes = @("http://localhost:$Port/", "http://127.0.0.1:$Port/")
+foreach ($prefix in $prefixes) {
+  $listener.Prefixes.Add($prefix)
+}
 $listener.Start()
 
-Write-AgentLog "Eccofood Print Agent iniciado en $prefix"
-Write-Host "Eccofood Print Agent activo en $prefix"
+Write-AgentLog "Eccofood Print Agent iniciado en $($prefixes -join ', ')"
+Write-Host "Eccofood Print Agent activo en $($prefixes -join ', ')"
 
 while ($listener.IsListening) {
   $context = $listener.GetContext()

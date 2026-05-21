@@ -60,12 +60,14 @@ if (-not $desktopShortcutCreated) {
   }
 }
 
-$urlAcl = "http://127.0.0.1:$Port/"
-try {
-  & netsh http delete urlacl url=$urlAcl 2>$null | Out-Null
-  & netsh http add urlacl url=$urlAcl sddl="D:(A;;GX;;;WD)" | Out-Null
-} catch {
-  Write-Host "Aviso: no pude reservar el puerto local. Si el agente no inicia, ejecuta este instalador como administrador." -ForegroundColor Yellow
+$urlAcls = @("http://localhost:$Port/", "http://127.0.0.1:$Port/")
+foreach ($urlAcl in $urlAcls) {
+  try {
+    & netsh http delete urlacl url=$urlAcl 2>$null | Out-Null
+    & netsh http add urlacl url=$urlAcl sddl="D:(A;;GX;;;WD)" | Out-Null
+  } catch {
+    Write-Host "Aviso: no pude reservar $urlAcl. Si el agente no inicia, ejecuta este instalador como administrador." -ForegroundColor Yellow
+  }
 }
 
 $agentPath = Join-Path $installDir "EccofoodPrintAgent.ps1"
@@ -111,7 +113,7 @@ Start-Process powershell.exe -WindowStyle Hidden -WorkingDirectory $installDir -
 Start-Sleep -Seconds 2
 
 try {
-  $health = Invoke-RestMethod -Uri "http://127.0.0.1:$Port/health" -TimeoutSec 2
+  $health = Invoke-RestMethod -Uri "http://localhost:$Port/health" -TimeoutSec 2
   if ($health.ok -eq $true) {
     Write-Host "Agente activo en segundo plano. Version: $($health.version)" -ForegroundColor Green
   }
@@ -121,7 +123,7 @@ try {
 
 Write-Host ""
 Write-Host "Eccofood Print Agent instalado correctamente."
-Write-Host "URL local: http://127.0.0.1:$Port"
+Write-Host "URL local: http://localhost:$Port"
 Write-Host "La herramienta arrancara sola con Windows en segundo plano."
 Write-Host "No necesitas dejar PowerShell abierto."
 Write-Host ""

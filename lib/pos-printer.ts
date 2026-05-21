@@ -48,6 +48,7 @@ const getSupabase = () => {
 };
 
 const LOCAL_BRIDGE_PRINT_TIMEOUT_MS = 4500;
+const LOCAL_BRIDGE_DEFAULT_URLS = ['http://localhost:17777', 'http://127.0.0.1:17777'];
 
 function getCachedPrinterKey(tenantId: string, printerId: string) {
   return `eccofood-printer-${tenantId}-${printerId}`;
@@ -147,7 +148,12 @@ function bytesToBase64(bytes: Uint8Array) {
 }
 
 function getBridgeUrl(printer: PrinterDevice) {
-  return (printer.config?.local_bridge_url || 'http://127.0.0.1:17777').replace(/\/$/, '');
+  return (printer.config?.local_bridge_url || LOCAL_BRIDGE_DEFAULT_URLS[0]).replace(/\/$/, '');
+}
+
+function getBridgeUrls(printer: PrinterDevice) {
+  const configured = getBridgeUrl(printer);
+  return Array.from(new Set([configured, ...LOCAL_BRIDGE_DEFAULT_URLS].map((url) => url.replace(/\/$/, ''))));
 }
 
 function shouldUseLocalBridge(printer: PrinterDevice) {
@@ -159,18 +165,18 @@ function canUseBrowserPrintFallback(printer: PrinterDevice) {
 }
 
 function getLocalBridgeError(printer: PrinterDevice) {
-  return `No se encontro el puente local de Eccofood en este computador (${getBridgeUrl(printer)}). Revisa Estado-EccofoodPrint o reinstala el agente como administrador.`;
+  return `No se encontro el puente local de Eccofood en este computador (${getBridgeUrls(printer).join(' o ')}). Revisa Estado-EccofoodPrint o reinstala el agente como administrador.`;
 }
 
-async function printViaLocalBridge(printer: PrinterDevice, data: Uint8Array): Promise<void> {
+async function postToLocalBridge(bridgeUrl: string, printer: PrinterDevice, data: Uint8Array): Promise<void> {
   const controller = new AbortController();
   const timeout = window.setTimeout(() => controller.abort(), LOCAL_BRIDGE_PRINT_TIMEOUT_MS);
 
   let response: Response;
   try {
-    response = await fetch(`${getBridgeUrl(printer)}/print`, {
+    response = await fetch(`${bridgeUrl}/print`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'text/plain;charset=UTF-8' },
       cache: 'no-store',
       signal: controller.signal,
       body: JSON.stringify({
@@ -191,6 +197,19 @@ async function printViaLocalBridge(printer: PrinterDevice, data: Uint8Array): Pr
   if (!response.ok || payload?.ok === false) {
     throw new Error(payload?.error || 'No se pudo imprimir con el puente local');
   }
+}
+
+async function printViaLocalBridge(printer: PrinterDevice, data: Uint8Array): Promise<void> {
+  const errors: string[] = [];
+  for (const bridgeUrl of getBridgeUrls(printer)) {
+    try {
+      await postToLocalBridge(bridgeUrl, printer, data);
+      return;
+    } catch (error) {
+      errors.push(`${bridgeUrl}: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  }
+  throw new Error(errors[0] || getLocalBridgeError(printer));
 }
 
 /**

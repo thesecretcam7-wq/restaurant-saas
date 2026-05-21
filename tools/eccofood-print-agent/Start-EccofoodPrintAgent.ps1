@@ -17,12 +17,16 @@ function Write-StartupLog {
 }
 
 function Test-AgentHealth {
+  $urls = @("http://localhost:$Port/health", "http://127.0.0.1:$Port/health")
+  foreach ($url in $urls) {
   try {
-    $health = Invoke-RestMethod -Uri "http://127.0.0.1:$Port/health" -TimeoutSec 2
-    return $health.ok -eq $true
+      $health = Invoke-RestMethod -Uri $url -TimeoutSec 2
+      if ($health.ok -eq $true) { return $true }
   } catch {
-    return $false
+      continue
+    }
   }
+  return $false
 }
 
 function Stop-StaleAgents {

@@ -3,8 +3,8 @@ ECCOFOOD PRINT AGENT
 QUE ES ESTO
 
 Eccofood Print Agent permite que el TPV imprima tickets directamente en la
-impresora de Windows y abra el cajon monedero sin mostrar la vista previa de
-Chrome.
+impresora de Windows y abra el cajon monedero sin mostrar la vista previa del
+navegador.
 
 Debe instalarse SOLO en el computador donde estan conectados:
 - La impresora de tickets
@@ -34,8 +34,12 @@ Opcion facil:
 2. Debe decir "Activo" y mostrar la impresora predeterminada.
 
 Opcion desde navegador:
-1. Abre Chrome en el mismo computador de la impresora.
+1. Abre Chrome, Edge o Firefox en el mismo computador de la impresora.
 2. Escribe esta direccion:
+
+http://localhost:17777/health
+
+Tambien puede funcionar:
 
 http://127.0.0.1:17777/health
 
@@ -50,7 +54,7 @@ SI DICE QUE NO RESPONDE
 
 Valores recomendados en Eccofood:
 - Puente local sin vista previa: activo
-- Direccion: http://127.0.0.1:17777
+- Direccion: http://localhost:17777
 - Nombre impresora Windows: default
 - Abrir cajon al cobrar: activo
 
