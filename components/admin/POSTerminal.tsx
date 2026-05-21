@@ -1,8 +1,9 @@
 'use client';
 
 import { useEffect, useState, useRef, useCallback, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { createClient } from '@/lib/supabase/client';
-import { ShoppingCart, Plus, Minus, Trash2, Search, DollarSign, CreditCard, Maximize2, Minimize2, Lock, Clock, Truck, Store, UtensilsCrossed, Archive, Monitor, Printer, CalendarDays, Download, PencilLine } from 'lucide-react';
+import { ShoppingCart, Plus, Minus, Trash2, Search, DollarSign, CreditCard, Maximize2, Minimize2, Lock, Clock, Truck, Store, UtensilsCrossed, Archive, Monitor, Printer, CalendarDays, Download, PencilLine, X } from 'lucide-react';
 import { POSStaffSelector } from './POSStaffSelector';
 import { TableMap } from './TableMap';
 import { POSPayment } from './POSPayment';
@@ -121,6 +122,25 @@ interface LoadedOrderContext {
   tableNumber?: number | null;
 }
 
+interface HeldPOSAccount {
+  id: string;
+  label: string;
+  createdAt: string;
+  items: CartItem[];
+  total: number;
+  discount: number;
+  discountCode: string;
+  tip: number;
+  paymentMethod: PaymentMethod;
+  posMode: POSMode;
+  posOrderType: 'takeaway' | 'pickup' | 'delivery';
+  selectedTableId: string | null;
+  selectedTableNumber: number | null;
+  selectedStaffId: string | null;
+  selectedStaffName: string;
+  selectedDeliveryZoneId: string | null;
+}
+
 interface ReservationSummary {
   id: string;
   customer_name: string;
@@ -135,6 +155,16 @@ function getOrderItemQty(item: { qty?: number; quantity?: number }) {
 
 function getOrderItemsTotal(items: Array<{ price: number; qty?: number; quantity?: number }> = []) {
   return items.reduce((sum, item) => sum + Number(item.price || 0) * getOrderItemQty(item), 0);
+}
+
+function getHeldAccountItemCount(account: HeldPOSAccount) {
+  return account.items.reduce((sum, item) => sum + Number(item.quantity || 0), 0);
+}
+
+function formatHeldAccountTime(createdAt: string, locale: string) {
+  const date = new Date(createdAt);
+  if (Number.isNaN(date.getTime())) return '';
+  return date.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' });
 }
 
 async function fetchPendingCashClosingStats(tenantId: string): Promise<CashClosingStats | null> {
@@ -510,6 +540,8 @@ export function POSTerminal({
   const [billingOrderIds, setBillingOrderIds] = useState<string[]>([]);
   const [expandedTable, setExpandedTable] = useState<number | null>(null);
   const [tip, setTip] = useState(0);
+  const [heldAccounts, setHeldAccounts] = useState<HeldPOSAccount[]>([]);
+  const [showHeldAccountsPanel, setShowHeldAccountsPanel] = useState(false);
   const [mesasView, setMesasView] = useState<'list' | 'map'>('map');
   const [allTables, setAllTables] = useState<RestaurantTable[]>([]);
   const [androidTapToPayAvailable, setAndroidTapToPayAvailable] = useState(false);
@@ -527,6 +559,43 @@ export function POSTerminal({
   const cartRestoredRef = useRef(false);
   const previousCartLengthRef = useRef(0);
   const restoredStaffTenantRef = useRef<string | null>(null);
+
+  const persistHeldAccounts = useCallback((nextAccounts: HeldPOSAccount[]) => {
+    setHeldAccounts(nextAccounts);
+    if (typeof window === 'undefined') return;
+
+    const storageKey = `pos-held-accounts-${tenantId}`;
+    if (nextAccounts.length > 0) {
+      localStorage.setItem(storageKey, JSON.stringify(nextAccounts));
+    } else {
+      localStorage.removeItem(storageKey);
+    }
+  }, [tenantId]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    try {
+      const savedAccounts = localStorage.getItem(`pos-held-accounts-${tenantId}`);
+      if (!savedAccounts) {
+        setHeldAccounts([]);
+        return;
+      }
+
+      const parsed = JSON.parse(savedAccounts);
+      const validAccounts = Array.isArray(parsed)
+        ? parsed.filter((account): account is HeldPOSAccount =>
+            Boolean(account)
+            && typeof account.id === 'string'
+            && Array.isArray(account.items)
+          )
+        : [];
+      setHeldAccounts(validAccounts);
+    } catch (error) {
+      console.error('Error restoring held POS accounts:', error);
+      setHeldAccounts([]);
+    }
+  }, [tenantId]);
 
   useEffect(() => {
     if (restoredStaffTenantRef.current === tenantId) return;
@@ -1712,6 +1781,138 @@ export function POSTerminal({
     }
   }
 
+  function resetCurrentCartForNextCustomer() {
+    setCart([]);
+    setDiscount(0);
+    setDiscountCode('');
+    setTip(0);
+    setPendingPaymentData(null);
+    setLoadedOrderId(null);
+    setLoadedOrderContext(null);
+    setLoadedOrderIds([]);
+    setBillingOrderIds([]);
+    setPaymentMethod('cash');
+    setSelectedCategory(null);
+    setSearchQuery('');
+    setSelectedTableId(null);
+    setSelectedTableNumber(null);
+    setSelectedStaffId(null);
+    setSelectedStaffName('');
+    setSelectedDeliveryZoneId(null);
+    setPosMode('simple');
+    setPosOrderType('takeaway');
+    setShowIncomingPanel(false);
+    setShowDineInPanel(false);
+    setShowFindPayPanel(false);
+
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem(`pos-cart-${tenantId}`);
+      localStorage.removeItem(`pos-discount-${tenantId}`);
+      localStorage.removeItem(`pos-discount-code-${tenantId}`);
+    }
+
+    setPaymentResetKey((value) => value + 1);
+  }
+
+  function getCurrentAccountLabel() {
+    if (selectedTableNumber) return `Mesa ${selectedTableNumber}`;
+    if (posOrderType === 'delivery') return 'Domicilio';
+    if (posOrderType === 'pickup') return 'Para recoger';
+    return 'Mostrador';
+  }
+
+  function handleHoldCurrentAccount() {
+    if (cart.length === 0) {
+      setToast({ message: 'Agrega productos antes de guardar la cuenta', type: 'error' });
+      return;
+    }
+
+    if (loadedOrderId || billingOrderIds.length > 0) {
+      setToast({ message: 'Termina o cancela el ticket cargado antes de guardar otra cuenta', type: 'error' });
+      return;
+    }
+
+    const heldAccount: HeldPOSAccount = {
+      id: `held-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+      label: getCurrentAccountLabel(),
+      createdAt: new Date().toISOString(),
+      items: cart.map((item) => ({ ...item })),
+      total,
+      discount,
+      discountCode,
+      tip,
+      paymentMethod,
+      posMode,
+      posOrderType,
+      selectedTableId,
+      selectedTableNumber,
+      selectedStaffId,
+      selectedStaffName,
+      selectedDeliveryZoneId,
+    };
+
+    persistHeldAccounts([heldAccount, ...heldAccounts].slice(0, 20));
+    resetCurrentCartForNextCustomer();
+    setShowHeldAccountsPanel(false);
+    setToast({ message: 'Cuenta guardada en espera', type: 'success' });
+  }
+
+  function handleResumeHeldAccount(accountId: string) {
+    if (cart.length > 0 || loadedOrderId || billingOrderIds.length > 0) {
+      setToast({ message: 'Guarda o cobra la cuenta actual antes de recuperar otra', type: 'error' });
+      return;
+    }
+
+    const account = heldAccounts.find((item) => item.id === accountId);
+    if (!account) {
+      setToast({ message: 'No se encontro la cuenta guardada', type: 'error' });
+      return;
+    }
+
+    const loggedStaff = getLoggedStaffFromBrowser(tenantId);
+    const nextOrderType =
+      account.posOrderType === 'delivery' || account.posOrderType === 'pickup'
+        ? account.posOrderType
+        : 'takeaway';
+
+    setCart(account.items.map((item) => ({ ...item })));
+    setDiscount(Number(account.discount || 0));
+    setDiscountCode(account.discountCode || '');
+    setTip(Number(account.tip || 0));
+    setPaymentMethod(account.paymentMethod === 'stripe' ? 'stripe' : 'cash');
+    setPosMode(account.posMode === 'table' ? 'table' : 'simple');
+    setPosOrderType(nextOrderType);
+    setSelectedTableId(account.selectedTableId || null);
+    setSelectedTableNumber(account.selectedTableNumber || null);
+    setSelectedStaffId(account.selectedStaffId || loggedStaff.staffId || null);
+    setSelectedStaffName(account.selectedStaffName || loggedStaff.staffName || '');
+    setSelectedDeliveryZoneId(account.selectedDeliveryZoneId || null);
+    setPendingPaymentData(null);
+    setLoadedOrderId(null);
+    setLoadedOrderContext(null);
+    setLoadedOrderIds([]);
+    setBillingOrderIds([]);
+    setShowIncomingPanel(false);
+    setShowDineInPanel(false);
+    setShowFindPayPanel(false);
+
+    if (typeof window !== 'undefined') {
+      localStorage.setItem(`pos-cart-${tenantId}`, JSON.stringify(account.items));
+      localStorage.setItem(`pos-discount-${tenantId}`, String(account.discount || 0));
+      localStorage.setItem(`pos-discount-code-${tenantId}`, account.discountCode || '');
+    }
+
+    persistHeldAccounts(heldAccounts.filter((item) => item.id !== accountId));
+    setPaymentResetKey((value) => value + 1);
+    setShowHeldAccountsPanel(false);
+    setToast({ message: 'Cuenta recuperada', type: 'success' });
+  }
+
+  function handleDeleteHeldAccount(accountId: string) {
+    persistHeldAccounts(heldAccounts.filter((item) => item.id !== accountId));
+    setToast({ message: 'Cuenta en espera eliminada', type: 'success' });
+  }
+
   function selectTableForCurrentCart(tableId: string, tableNumber: number) {
     setSelectedTableId(tableId);
     setSelectedTableNumber(tableNumber);
@@ -2350,6 +2551,7 @@ export function POSTerminal({
         setShowIncomingPanel(false);
         setShowDineInPanel(false);
         setShowFindPayPanel(false);
+        setShowHeldAccountsPanel(false);
         return;
       }
 
@@ -2575,7 +2777,7 @@ export function POSTerminal({
               </button>
             )}
 
-            <div className="grid grid-cols-3 gap-2 lg:min-w-[420px]">
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:min-w-[600px]">
               <div className="pos-kpi">
                 <span>Reservas hoy</span>
                 <strong>{todayReservations.length}</strong>
@@ -2593,9 +2795,137 @@ export function POSTerminal({
                 <span>Total</span>
                 <strong>{formatPriceWithCurrency(total, currencyInfo.code, currencyInfo.locale)}</strong>
               </div>
+              <div>
+                <div className={`pos-kpi h-full ${showHeldAccountsPanel ? 'border-cyan-300/50 bg-cyan-400/12' : ''}`}>
+                  <div className="flex items-start justify-between gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (cart.length > 0) {
+                          handleHoldCurrentAccount();
+                        } else {
+                          setShowHeldAccountsPanel((value) => !value);
+                        }
+                      }}
+                      disabled={
+                        cart.length > 0
+                          ? processingPayment || !!loadedOrderId || billingOrderIds.length > 0
+                          : heldAccounts.length === 0
+                      }
+                      className="min-w-0 flex-1 text-left disabled:cursor-not-allowed disabled:opacity-45"
+                      title="Guardar la cuenta actual y liberar el TPV"
+                    >
+                      <span>En espera</span>
+                      <strong>{heldAccounts.length}</strong>
+                      <small className="block truncate text-[10px] font-black uppercase text-cyan-100/60">
+                        {cart.length > 0 ? 'Guardar actual' : heldAccounts.length > 0 ? 'Ver guardadas' : 'Sin cuentas'}
+                      </small>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setShowHeldAccountsPanel((value) => !value)}
+                      className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-cyan-300/25 bg-cyan-300/10 text-cyan-100 transition hover:bg-cyan-300/18"
+                      aria-label="Ver cuentas en espera"
+                      title="Ver cuentas en espera"
+                    >
+                      <Clock className="h-4 w-4" />
+                    </button>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </div>
+      )}
+
+      {showHeldAccountsPanel && typeof document !== 'undefined' && createPortal(
+        <div
+          className="fixed inset-0 flex items-center justify-center bg-black/60 px-4 py-6 backdrop-blur-sm"
+          style={{ zIndex: 2147483647 }}
+          onClick={() => setShowHeldAccountsPanel(false)}
+        >
+          <div
+            className="flex max-h-[82dvh] w-full max-w-md flex-col overflow-hidden rounded-2xl border border-cyan-300/30 bg-slate-950/96 shadow-2xl shadow-black/55"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="flex items-center justify-between gap-3 border-b border-white/10 px-4 py-3">
+              <div className="min-w-0">
+                <p className="text-xs font-black uppercase text-cyan-100/55">En espera</p>
+                <h2 className="truncate text-lg font-black text-white">
+                  {heldAccounts.length} cuenta{heldAccounts.length === 1 ? '' : 's'} guardada{heldAccounts.length === 1 ? '' : 's'}
+                </h2>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowHeldAccountsPanel(false)}
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-white/10 text-slate-200 transition hover:bg-white/16 hover:text-white"
+                aria-label="Cerrar cuentas en espera"
+                title="Cerrar"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <div className="space-y-2 overflow-y-auto p-3">
+              <button
+                type="button"
+                onClick={handleHoldCurrentAccount}
+                disabled={cart.length === 0 || processingPayment || !!loadedOrderId || billingOrderIds.length > 0}
+                className="flex w-full items-center justify-center gap-2 rounded-xl border border-cyan-300/30 bg-cyan-400/14 px-3 py-2.5 text-xs font-black text-cyan-100 transition hover:bg-cyan-400/22 disabled:cursor-not-allowed disabled:opacity-45"
+              >
+                <Archive className="h-3.5 w-3.5" />
+                Guardar cuenta actual
+              </button>
+
+              {heldAccounts.length === 0 ? (
+                <div className="rounded-xl border border-white/10 bg-white/[0.04] px-3 py-6 text-center text-sm font-bold text-slate-400">
+                  Sin cuentas guardadas
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {heldAccounts.map((account) => {
+                    const itemCount = getHeldAccountItemCount(account);
+                    return (
+                      <div key={account.id} className="rounded-xl border border-white/10 bg-white/[0.04] px-3 py-3">
+                        <div className="flex items-start gap-2">
+                          <Clock className="mt-0.5 h-4 w-4 shrink-0 text-cyan-200" />
+                          <div className="min-w-0 flex-1">
+                            <p className="truncate text-sm font-black text-white">
+                              {account.label} - {itemCount} prod.
+                            </p>
+                            <p className="truncate text-xs font-bold text-slate-400">
+                              {formatHeldAccountTime(account.createdAt, currencyInfo.locale)} - {formatPriceWithCurrency(account.total, currencyInfo.code, currencyInfo.locale)}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="mt-3 grid grid-cols-[1fr_auto] gap-2">
+                          <button
+                            type="button"
+                            onClick={() => handleResumeHeldAccount(account.id)}
+                            disabled={cart.length > 0 || processingPayment || !!loadedOrderId || billingOrderIds.length > 0}
+                            className="rounded-lg bg-emerald-400/16 px-3 py-2 text-sm font-black text-emerald-100 transition hover:bg-emerald-400/24 disabled:cursor-not-allowed disabled:opacity-45"
+                          >
+                            Recuperar
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteHeldAccount(account.id)}
+                            className="flex h-10 w-10 items-center justify-center rounded-lg border border-red-400/30 bg-red-500/12 text-red-200 transition hover:bg-red-500/22 hover:text-white"
+                            aria-label="Eliminar cuenta en espera"
+                            title="Eliminar cuenta en espera"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>,
+        document.body
       )}
 
       {pendingCashClosingStats && (
