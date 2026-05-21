@@ -78,7 +78,6 @@ $settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoi
 try {
   Unregister-ScheduledTask -TaskName $taskName -Confirm:$false -ErrorAction SilentlyContinue | Out-Null
   Register-ScheduledTask -TaskName $taskName -Action $action -Trigger $trigger -Settings $settings -Description "Eccofood local printing and cash drawer agent" -Force | Out-Null
-  Start-ScheduledTask -TaskName $taskName
 } catch {
   Write-Host "Aviso: no pude crear la tarea programada. Se usara el arranque automatico de Windows." -ForegroundColor Yellow
 }
@@ -115,17 +114,29 @@ try {
 }
 
 try {
+  Get-CimInstance Win32_Process |
+    Where-Object { $_.CommandLine -like "*EccofoodPrintAgent.ps1*" } |
+    ForEach-Object { Stop-Process -Id $_.ProcessId -Force }
+} catch {
+  Write-Host "Aviso: no pude detener una instancia anterior del agente." -ForegroundColor Yellow
+}
+
+$openAgentBat = Join-Path $installDir "Abrir-EccofoodPrint.bat"
+Start-Process -FilePath $openAgentBat -WorkingDirectory $installDir -WindowStyle Normal
+Start-Sleep -Seconds 3
+
+try {
   $health = Invoke-RestMethod -Uri "http://127.0.0.1:$Port/health" -TimeoutSec 2
-  if ($health.ok -ne $true) {
-    Start-Process powershell.exe -WindowStyle Hidden -ArgumentList "-NoProfile -ExecutionPolicy Bypass -File `"$startupPath`" -Port $Port"
+  if ($health.ok -eq $true) {
+    Write-Host "Agente abierto y respondiendo correctamente." -ForegroundColor Green
   }
 } catch {
-  Start-Process powershell.exe -WindowStyle Hidden -ArgumentList "-NoProfile -ExecutionPolicy Bypass -File `"$startupPath`" -Port $Port"
+  Write-Host "Aviso: el agente se abrio en una ventana, pero todavia no responde. Deja esa ventana abierta y revisa el mensaje que aparece alli." -ForegroundColor Yellow
 }
 
 Write-Host ""
 Write-Host "Eccofood Print Agent instalado correctamente."
 Write-Host "URL local: http://127.0.0.1:$Port"
 Write-Host "La herramienta arrancara sola cuando inicie sesion en Windows."
-Write-Host "Si el estado dice que no responde, ejecuta Abrir-EccofoodPrint.bat y deja la ventana abierta."
+Write-Host "Se abrio una ventana de Eccofood Print Agent. Dejala abierta mientras uses el TPV."
 Write-Host ""
