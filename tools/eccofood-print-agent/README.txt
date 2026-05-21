@@ -24,7 +24,8 @@ INSTALACION PASO A PASO
 IMPORTANTE
 
 El agente queda activo en segundo plano. No hay que dejar PowerShell abierto.
-Tambien queda programado para arrancar con Windows y revisarse automaticamente.
+Tambien queda programado para arrancar con Windows. No debe abrir ventanas
+cada minuto.
 
 COMPROBAR QUE FUNCIONA
 

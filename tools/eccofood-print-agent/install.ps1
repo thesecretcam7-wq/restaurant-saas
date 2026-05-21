@@ -71,47 +71,32 @@ try {
 $agentPath = Join-Path $installDir "EccofoodPrintAgent.ps1"
 $startupPath = Join-Path $installDir "Start-EccofoodPrintAgent.ps1"
 $startupCommand = "powershell.exe -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File `"$startupPath`" -Port $Port"
-$action = New-ScheduledTaskAction -Execute "powershell.exe" -Argument "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File `"$startupPath`" -Port $Port"
+$action = New-ScheduledTaskAction -Execute "powershell.exe" -Argument "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File `"$agentPath`" -Port $Port"
 $logonTrigger = New-ScheduledTaskTrigger -AtLogOn
-$watchdogTrigger = New-ScheduledTaskTrigger -Once -At (Get-Date).AddMinutes(1) -RepetitionInterval (New-TimeSpan -Minutes 1) -RepetitionDuration (New-TimeSpan -Days 3650)
-$settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -RestartCount 3 -RestartInterval (New-TimeSpan -Minutes 1) -ExecutionTimeLimit (New-TimeSpan -Minutes 5) -MultipleInstances IgnoreNew
+$settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -RestartCount 3 -RestartInterval (New-TimeSpan -Minutes 1) -ExecutionTimeLimit ([TimeSpan]::Zero) -MultipleInstances IgnoreNew
+$startupCmd = Join-Path $commonStartup "Eccofood Print Agent.cmd"
+$userStartupCmd = Join-Path $userStartup "Eccofood Print Agent.cmd"
+$scheduledTaskCreated = $false
+
+Remove-Item -LiteralPath $startupCmd -Force -ErrorAction SilentlyContinue
+Remove-Item -LiteralPath $userStartupCmd -Force -ErrorAction SilentlyContinue
+Remove-ItemProperty -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Run" -Name "Eccofood Print Agent" -ErrorAction SilentlyContinue
+Remove-ItemProperty -Path "HKLM:\Software\Microsoft\Windows\CurrentVersion\Run" -Name "Eccofood Print Agent" -ErrorAction SilentlyContinue
 
 try {
   Unregister-ScheduledTask -TaskName $taskName -Confirm:$false -ErrorAction SilentlyContinue | Out-Null
-  Register-ScheduledTask -TaskName $taskName -Action $action -Trigger @($logonTrigger, $watchdogTrigger) -Settings $settings -Description "Eccofood local printing and cash drawer agent" -Force | Out-Null
+  Register-ScheduledTask -TaskName $taskName -Action $action -Trigger $logonTrigger -Settings $settings -Description "Eccofood local printing and cash drawer agent" -Force | Out-Null
+  $scheduledTaskCreated = $true
 } catch {
-  Write-Host "Aviso: no pude crear la tarea programada. Se usara el arranque automatico de Windows." -ForegroundColor Yellow
+  Write-Host "Aviso: no pude crear la tarea programada. Se usara el arranque automatico del usuario." -ForegroundColor Yellow
 }
 
-$startupContent = @"
-@echo off
-powershell -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File "$startupPath" -Port $Port
-"@
-
-try {
-  $startupCmd = Join-Path $commonStartup "Eccofood Print Agent.cmd"
-  Set-Content -Path $startupCmd -Value $startupContent -Encoding ASCII -Force
-} catch {
-  Write-Host "Aviso: no pude agregar el arranque automatico para todos los usuarios." -ForegroundColor Yellow
-}
-
-try {
-  $userStartupCmd = Join-Path $userStartup "Eccofood Print Agent.cmd"
-  Set-Content -Path $userStartupCmd -Value $startupContent -Encoding ASCII -Force
-} catch {
-  Write-Host "Aviso: no pude agregar el arranque automatico para este usuario." -ForegroundColor Yellow
-}
-
-try {
-  New-ItemProperty -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Run" -Name "Eccofood Print Agent" -Value $startupCommand -PropertyType String -Force | Out-Null
-} catch {
-  Write-Host "Aviso: no pude agregar el arranque automatico del usuario en Windows Run." -ForegroundColor Yellow
-}
-
-try {
-  New-ItemProperty -Path "HKLM:\Software\Microsoft\Windows\CurrentVersion\Run" -Name "Eccofood Print Agent" -Value $startupCommand -PropertyType String -Force | Out-Null
-} catch {
-  Write-Host "Aviso: no pude agregar el arranque automatico en Windows Run." -ForegroundColor Yellow
+if (-not $scheduledTaskCreated) {
+  try {
+    New-ItemProperty -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Run" -Name "Eccofood Print Agent" -Value $startupCommand -PropertyType String -Force | Out-Null
+  } catch {
+    Write-Host "Aviso: no pude agregar el arranque automatico del usuario en Windows Run." -ForegroundColor Yellow
+  }
 }
 
 try {
@@ -131,12 +116,12 @@ try {
     Write-Host "Agente activo en segundo plano. Version: $($health.version)" -ForegroundColor Green
   }
 } catch {
-  Write-Host "Aviso: el agente quedo programado, pero todavia no respondio al chequeo inicial. Windows lo reintentara automaticamente." -ForegroundColor Yellow
+  Write-Host "Aviso: el agente quedo programado, pero todavia no respondio al chequeo inicial. Ejecuta Estado-EccofoodPrint.bat para revisar." -ForegroundColor Yellow
 }
 
 Write-Host ""
 Write-Host "Eccofood Print Agent instalado correctamente."
 Write-Host "URL local: http://127.0.0.1:$Port"
-Write-Host "La herramienta arrancara sola con Windows y se revisara automaticamente cada minuto."
+Write-Host "La herramienta arrancara sola con Windows en segundo plano."
 Write-Host "No necesitas dejar PowerShell abierto."
 Write-Host ""
