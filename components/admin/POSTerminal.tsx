@@ -815,7 +815,7 @@ export function POSTerminal({
       'setlocal',
       'echo Instalando acceso directo del TPV en el Escritorio...',
       'echo.',
-      'powershell -NoProfile -ExecutionPolicy Bypass -Command "$ErrorActionPreference = \'Stop\'; $url = [Text.Encoding]::UTF8.GetString([Convert]::FromBase64String(\'' + encodeBase64(posUrl) + '\')); $icon = [Text.Encoding]::UTF8.GetString([Convert]::FromBase64String(\'' + encodeBase64(iconUrl) + '\')); $name = [Text.Encoding]::UTF8.GetString([Convert]::FromBase64String(\'' + encodeBase64(shortcutName) + '\')); $desktop = [Environment]::GetFolderPath(\'Desktop\'); $path = Join-Path $desktop $name; $content = @(\'[InternetShortcut]\', \'URL=\' + $url, \'IconIndex=0\', \'IconFile=\' + $icon) -join \"`r`n\"; Set-Content -Path $path -Value $content -Encoding ASCII; Write-Host \'Acceso creado:\' $path; Start-Process $path"',
+      'powershell -NoProfile -ExecutionPolicy Bypass -Command "$ErrorActionPreference = \'Stop\'; $url = [Text.Encoding]::UTF8.GetString([Convert]::FromBase64String(\'' + encodeBase64(posUrl) + '\')); $icon = [Text.Encoding]::UTF8.GetString([Convert]::FromBase64String(\'' + encodeBase64(iconUrl) + '\')); $name = [Text.Encoding]::UTF8.GetString([Convert]::FromBase64String(\'' + encodeBase64(shortcutName) + '\')); $desktop = [Environment]::GetFolderPath(\'Desktop\'); $path = Join-Path $desktop $name; $content = @(\'[InternetShortcut]\', (\'URL=\' + $url), \'IconIndex=0\', (\'IconFile=\' + $icon)); Set-Content -Path $path -Value $content -Encoding ASCII; Write-Host \'Acceso creado:\' $path; Start-Process $path"',
       'echo.',
       'echo Si Windows pregunto por permisos, acepta para crear el icono.',
       'echo Ya puedes abrir el TPV desde el Escritorio.',
