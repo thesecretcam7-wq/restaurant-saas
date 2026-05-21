@@ -16,6 +16,27 @@ function getOrderItemQty(item: any) {
   return Number.isFinite(qty) && qty > 0 ? qty : 1
 }
 
+function normalizePaymentMethod(method: unknown) {
+  if (typeof method !== 'string') return null
+  const value = method.trim().toLowerCase()
+  if (value === 'tarjeta' || value === 'card') return 'stripe'
+  if (value === 'cash' || value === 'stripe' || value === 'wompi') return value
+  return null
+}
+
+function getPaymentMethodLabel(method: string | null | undefined) {
+  switch (normalizePaymentMethod(method) || method) {
+    case 'cash':
+      return 'Efectivo'
+    case 'stripe':
+      return 'Tarjeta'
+    case 'wompi':
+      return 'Wompi'
+    default:
+      return method || 'Sin metodo'
+  }
+}
+
 function getRemovedItems(previousItems: any[] = [], nextItems: any[] = []) {
   const nextQtyByKey = new Map<string, number>()
   nextItems.forEach((item) => {
@@ -114,21 +135,27 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     const { id } = await params
     const orderId = id
     const body = await request.json()
-    const { status, payment_status, payment_method, cancel_reason, items, subtotal, tax, delivery_fee, total, edit_reason } = body
+    const { status, payment_status, payment_method, payment_method_reason, cancel_reason, items, subtotal, tax, delivery_fee, total, edit_reason } = body
+    const hasPaymentMethod = Object.prototype.hasOwnProperty.call(body, 'payment_method')
+    const normalizedPaymentMethod = hasPaymentMethod ? normalizePaymentMethod(payment_method) : null
 
     if (!orderId) {
       return NextResponse.json({ error: 'Order ID is required' }, { status: 400 })
     }
 
-    if (!status && !payment_status && !payment_method && !Array.isArray(items)) {
+    if (!status && !payment_status && !hasPaymentMethod && !Array.isArray(items)) {
       return NextResponse.json({ error: 'Status, payment_status, payment_method or items is required' }, { status: 400 })
+    }
+
+    if (hasPaymentMethod && !normalizedPaymentMethod) {
+      return NextResponse.json({ error: 'Metodo de pago invalido' }, { status: 400 })
     }
 
     const supabase = createServiceClient()
 
     const { data: existingOrder, error: existingError } = await supabase
       .from('orders')
-      .select('id, tenant_id, order_number, status, payment_status, total, notes, items')
+      .select('id, tenant_id, order_number, status, payment_status, payment_method, total, notes, items')
       .eq('id', orderId)
       .single()
 
@@ -139,12 +166,18 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     const access = await requireTenantAccess(existingOrder.tenant_id, { staffRoles: ['admin', 'cajero', 'camarero', 'cocinero'] })
 
     const updateData: Record<string, any> = { updated_at: new Date().toISOString() }
+    const previousPaymentMethod = normalizePaymentMethod(existingOrder.payment_method) || existingOrder.payment_method || null
+    const paymentMethodChanged = Boolean(
+      hasPaymentMethod &&
+      normalizedPaymentMethod &&
+      normalizedPaymentMethod !== previousPaymentMethod
+    )
     let sanitizedItemsForEdit: any[] | null = null
     let removedItemsForStockReturn: any[] = []
     let addedItemsForStockSale: any[] = []
     if (status) updateData.status = status
     if (payment_status) updateData.payment_status = payment_status
-    if (payment_method) updateData.payment_method = payment_method
+    if (hasPaymentMethod) updateData.payment_method = normalizedPaymentMethod
     if (Array.isArray(items)) {
       const sanitizedItems = items
         .map((item: any) => ({
@@ -192,6 +225,19 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       updateData.notes = existingOrder.notes
         ? `${existingOrder.notes}\n${auditNote}`
         : auditNote
+    }
+    if (paymentMethodChanged) {
+      const timestamp = new Date().toISOString()
+      const reason = typeof payment_method_reason === 'string' && payment_method_reason.trim()
+        ? payment_method_reason.trim()
+        : typeof edit_reason === 'string' && edit_reason.trim()
+          ? edit_reason.trim()
+          : 'Correccion de forma de pago desde TPV'
+      const paymentNote = `Metodo de pago corregido ${timestamp}: ${getPaymentMethodLabel(previousPaymentMethod)} -> ${getPaymentMethodLabel(normalizedPaymentMethod)}. ${reason}`
+      const baseNotes = typeof updateData.notes === 'string' ? updateData.notes : existingOrder.notes
+      updateData.notes = baseNotes
+        ? `${baseNotes}\n${paymentNote}`
+        : paymentNote
     }
 
     if (payment_status === 'paid' && existingOrder.payment_status !== 'paid') {
@@ -360,6 +406,24 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
           new_total: Number(order.total || 0),
           previous_items_count: Array.isArray(existingOrder.items) ? existingOrder.items.length : 0,
           new_items_count: Array.isArray(order.items) ? order.items.length : 0,
+        },
+      })
+    }
+
+    if (paymentMethodChanged) {
+      await writeAuditLog(supabase, {
+        tenantId: order.tenant_id,
+        actor: access,
+        action: 'sale.payment_method_corrected',
+        entityType: 'order',
+        entityId: orderId,
+        reason: payment_method_reason || edit_reason || 'Correccion de forma de pago desde TPV',
+        metadata: {
+          order_number: order.order_number || existingOrder.order_number,
+          total: Number(order.total ?? existingOrder.total) || 0,
+          previous_payment_method: previousPaymentMethod,
+          new_payment_method: normalizedPaymentMethod,
+          payment_status: order.payment_status,
         },
       })
     }

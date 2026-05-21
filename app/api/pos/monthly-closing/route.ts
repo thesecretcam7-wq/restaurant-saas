@@ -96,7 +96,7 @@ function statsFromOrders(args: {
     totalTax: 0,
     totalDiscount: 0,
     transactionCount: args.orders.length,
-    ordersCompleted: 0,
+    ordersCompleted: args.orders.length,
     ordersCancelled: 0,
   };
 
@@ -121,9 +121,6 @@ function statsFromOrders(args: {
 
     if (order.delivery_type === 'delivery' || deliveryFee > 0) {
       stats.deliveryOrderCount++;
-    }
-    if (order.status === 'delivered' || order.status === 'completed') {
-      stats.ordersCompleted++;
     }
     if (order.status === 'cancelled') {
       stats.ordersCancelled++;

@@ -173,12 +173,8 @@ export function CashClosingModal({
             <h4 className="font-black text-slate-950">Detalles de Transacciones</h4>
             <div className="mt-4 grid grid-cols-1 gap-4 text-sm sm:grid-cols-2">
               <div>
-                <p className="font-semibold text-slate-600">Total de transacciones</p>
+                <p className="font-semibold text-slate-600">Ventas cobradas</p>
                 <p className="mt-1 text-lg font-black text-slate-950">{data.transactionCount}</p>
-              </div>
-              <div>
-                <p className="font-semibold text-slate-600">Ordenes completadas</p>
-                <p className="mt-1 text-lg font-black text-slate-950">{data.ordersCompleted}</p>
               </div>
               <div>
                 <p className="font-semibold text-slate-600">Ordenes canceladas</p>

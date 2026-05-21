@@ -29,6 +29,18 @@ interface POSOrderLookupProps {
   onRemoveItem?: (order: Order, itemIndex: number) => Promise<Order | null | void>;
 }
 
+type PaymentMethod = 'cash' | 'stripe';
+
+function normalizePaymentMethod(method?: string | null): PaymentMethod {
+  return method === 'stripe' || method === 'card' || method === 'tarjeta' || method === 'wompi'
+    ? 'stripe'
+    : 'cash';
+}
+
+function getPaymentMethodLabel(method?: string | null) {
+  return normalizePaymentMethod(method) === 'stripe' ? 'Tarjeta' : 'Efectivo';
+}
+
 export function POSOrderLookup({ domain, onOrderSelected, onVoidOrder, onRemoveItem }: POSOrderLookupProps) {
   const [searchInput, setSearchInput] = useState('');
   const [results, setResults] = useState<Order[]>([]);
@@ -255,6 +267,11 @@ export function POSOrderLookup({ domain, onOrderSelected, onVoidOrder, onRemoveI
                       <span className={`rounded border px-2 py-0.5 text-xs font-semibold ${getPaymentStatusColor(order.payment_status)}`}>
                         {getPaymentStatusLabel(order.payment_status)}
                       </span>
+                      {order.payment_status === 'paid' && (
+                        <span className="rounded border border-gray-600/35 bg-gray-950/40 px-2 py-0.5 text-xs font-semibold text-gray-300">
+                          {getPaymentMethodLabel(order.payment_method)}
+                        </span>
+                      )}
                     </div>
                   </div>
 

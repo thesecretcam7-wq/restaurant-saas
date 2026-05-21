@@ -144,7 +144,7 @@ function statsFromOrders(period: CashClosingPeriod, orders: any[] = []) {
     totalTax: 0,
     totalDiscount: 0,
     transactionCount: orders.length,
-    ordersCompleted: 0,
+    ordersCompleted: orders.length,
     ordersCancelled: 0,
     closingOrders: orders.map((order: any) => ({
       id: order.id,
@@ -173,9 +173,6 @@ function statsFromOrders(period: CashClosingPeriod, orders: any[] = []) {
     stats.totalTax += tax;
     stats.totalDiscount += discount;
 
-    if (order.status === 'delivered' || order.status === 'completed') {
-      stats.ordersCompleted++;
-    }
   });
 
   return stats;

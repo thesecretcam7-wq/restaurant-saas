@@ -338,7 +338,7 @@ export function generateCashClosingReceiptESCPOS(
   row('Contado:', money(data.actualCash));
   row('Diferencia:', money(data.difference));
   row('Transacciones:', String(data.transactionCount));
-  row('Completadas:', String(data.ordersCompleted));
+row('Cobradas:', String(data.ordersCompleted));
   row('Canceladas:', String(data.ordersCancelled));
 
   if (data.notes) {
@@ -414,7 +414,7 @@ export function generateMonthlyClosingReceiptESCPOS(
   row('Impuestos:', money(data.totalTax));
   if (data.totalDiscount > 0) row('Descuentos:', money(data.totalDiscount));
   row('Transacciones:', String(data.transactionCount));
-  row('Completadas:', String(data.ordersCompleted));
+row('Cobradas:', String(data.ordersCompleted));
   row('Canceladas:', String(data.ordersCancelled));
   sep();
   push(BOLD_ON, SIZE_WIDE);

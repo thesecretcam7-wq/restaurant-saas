@@ -4,7 +4,7 @@ import { useParams } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useTenantResolver } from '@/lib/hooks/useTenantResolver'
-import { AlertCircle, CalendarDays, Check, Eye, Printer, RefreshCw, WalletCards } from 'lucide-react'
+import { AlertCircle, CalendarDays, Check, Eye, PencilLine, Printer, RefreshCw, WalletCards } from 'lucide-react'
 import { formatPriceWithCurrency, getCurrencyByCountry } from '@/lib/currency'
 import { printCashClosingReceipt, printMonthlyClosingReceipt } from '@/lib/pos-printer'
 
@@ -26,7 +26,7 @@ interface CashClosing {
   transaction_count: number
   orders_completed: number
   orders_cancelled?: number | null
-  notes?: string
+  notes?: string | null
 }
 
 interface MonthlyStats {
@@ -95,6 +95,10 @@ export default function CashClosingsPage() {
   const [printingMonthly, setPrintingMonthly] = useState(false)
   const [monthlyNeedsMigration, setMonthlyNeedsMigration] = useState(false)
   const [printingClosingId, setPrintingClosingId] = useState<string | null>(null)
+  const [editingClosing, setEditingClosing] = useState<CashClosing | null>(null)
+  const [editActualCash, setEditActualCash] = useState('')
+  const [editReason, setEditReason] = useState('')
+  const [savingCorrection, setSavingCorrection] = useState(false)
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
 
   useEffect(() => {
@@ -335,6 +339,65 @@ export default function CashClosingsPage() {
     }
   }
 
+  function openCorrectionModal(closing: CashClosing) {
+    setEditingClosing(closing)
+    setEditActualCash(String(Number(closing.actual_cash_count) || 0))
+    setEditReason('')
+    setSelectedClosing(null)
+    setMessage(null)
+  }
+
+  async function handleSaveClosingCorrection() {
+    if (!tenantId || !editingClosing) return
+
+    const nextActualCash = Number(editActualCash)
+    if (!Number.isFinite(nextActualCash) || nextActualCash < 0) {
+      setMessage({ type: 'error', text: 'Ingresa un monto contado valido.' })
+      return
+    }
+
+    if (!editReason.trim()) {
+      setMessage({ type: 'error', text: 'Escribe el motivo de la correccion.' })
+      return
+    }
+
+    setSavingCorrection(true)
+    setMessage(null)
+
+    try {
+      const response = await fetch(`/api/pos/cash-closing/${editingClosing.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          tenantId,
+          actualCashCount: nextActualCash,
+          reason: editReason.trim(),
+        }),
+      })
+      const payload = await response.json().catch(() => ({}))
+      if (!response.ok) throw new Error(payload?.error || 'No se pudo corregir el cierre.')
+
+      const updatedClosing = payload.closing as CashClosing
+      setClosings(prev => prev.map(closing => (
+        closing.id === updatedClosing.id ? { ...closing, ...updatedClosing } : closing
+      )))
+      setSelectedClosing(prev => (
+        prev?.id === updatedClosing.id ? { ...prev, ...updatedClosing } : prev
+      ))
+      setEditingClosing(null)
+      setEditActualCash('')
+      setEditReason('')
+      setMessage({ type: 'success', text: 'Monto contado corregido y diferencia recalculada.' })
+    } catch (error) {
+      setMessage({
+        type: 'error',
+        text: `No se pudo corregir el cierre: ${error instanceof Error ? error.message : String(error)}`,
+      })
+    } finally {
+      setSavingCorrection(false)
+    }
+  }
+
   return (
     <div className="admin-page">
       <div className="admin-page-header">
@@ -425,7 +488,7 @@ export default function CashClosingsPage() {
                     ['Tarjeta', formatPriceWithCurrency(monthlyStats.cardSales, currencyInfo.code, currencyInfo.locale)],
                     ['Otros', formatPriceWithCurrency(monthlyStats.otherSales, currencyInfo.code, currencyInfo.locale)],
                     ['Impuestos', formatPriceWithCurrency(monthlyStats.totalTax, currencyInfo.code, currencyInfo.locale)],
-                    ['Pedidos completados', monthlyStats.ordersCompleted.toString()],
+                    ['Pedidos cobrados', monthlyStats.ordersCompleted.toString()],
                     ['Pedidos domicilio', monthlyStats.deliveryOrderCount.toString()],
                   ].map(([label, value]) => (
                     <div key={label} className="flex items-center justify-between gap-3 border-b border-black/8 py-2 text-sm">
@@ -522,7 +585,7 @@ export default function CashClosingsPage() {
                 <tr>
                   <th className="px-5 py-3 text-left">Fecha</th>
                   <th className="px-5 py-3 text-left">Personal</th>
-                  <th className="px-5 py-3 text-right">Efectivo</th>
+                  <th className="px-5 py-3 text-right">Contado</th>
                   <th className="px-5 py-3 text-right">Esperado</th>
                   <th className="px-5 py-3 text-right">Diferencia</th>
                   <th className="px-5 py-3 text-center">Estado</th>
@@ -534,7 +597,7 @@ export default function CashClosingsPage() {
                   <tr key={closing.id} className="transition hover:bg-white/70">
                     <td className="px-5 py-4 font-bold text-black/58">{new Date(closing.closed_at).toLocaleString('es-CO', { dateStyle: 'short', timeStyle: 'short' })}</td>
                     <td className="px-5 py-4 font-black text-[#15130f]">{closing.staff_name}</td>
-                    <td className="px-5 py-4 text-right font-bold text-black/64">{formatPriceWithCurrency(closing.cash_sales, currencyInfo.code, currencyInfo.locale)}</td>
+                    <td className="px-5 py-4 text-right font-bold text-black/64">{formatPriceWithCurrency(closing.actual_cash_count, currencyInfo.code, currencyInfo.locale)}</td>
                     <td className="px-5 py-4 text-right font-bold text-black/64">{formatPriceWithCurrency(closing.expected_total, currencyInfo.code, currencyInfo.locale)}</td>
                     <td className={`px-5 py-4 text-right font-black ${Math.abs(closing.difference) < 0.01 ? 'text-[#1c8b5f]' : 'text-red-600'}`}>{formatPriceWithCurrency(Math.abs(closing.difference), currencyInfo.code, currencyInfo.locale)}</td>
                     <td className="px-5 py-4 text-center">
@@ -545,6 +608,13 @@ export default function CashClosingsPage() {
                     </td>
                     <td className="px-5 py-4 text-right">
                       <div className="inline-flex items-center justify-end gap-3">
+                      <button
+                        onClick={() => openCorrectionModal(closing)}
+                        className="inline-flex items-center gap-1.5 text-sm font-black text-[#1c8b5f]"
+                      >
+                        <PencilLine className="size-4" />
+                        Corregir
+                      </button>
                       <button
                         onClick={() => handlePrintClosing(closing)}
                         disabled={printingClosingId === closing.id}
@@ -574,8 +644,7 @@ export default function CashClosingsPage() {
             <div className="mt-6 grid gap-4 sm:grid-cols-2">
               {[
                 ['Personal', selectedClosing.staff_name],
-                ['Transacciones', selectedClosing.transaction_count.toString()],
-                ['Ordenes completadas', selectedClosing.orders_completed.toString()],
+                ['Ventas cobradas', selectedClosing.transaction_count.toString()],
                 ['Ventas tarjeta', formatPriceWithCurrency(selectedClosing.card_sales, currencyInfo.code, currencyInfo.locale)],
                 ['Monto esperado', formatPriceWithCurrency(selectedClosing.expected_total, currencyInfo.code, currencyInfo.locale)],
                 ['Monto real', formatPriceWithCurrency(selectedClosing.actual_cash_count, currencyInfo.code, currencyInfo.locale)],
@@ -589,13 +658,95 @@ export default function CashClosingsPage() {
             {selectedClosing.notes && <p className="mt-5 rounded-xl bg-black/5 p-4 text-sm font-semibold text-black/60">{selectedClosing.notes}</p>}
             <div className="mt-6 grid gap-3 sm:grid-cols-2">
               <button
+                onClick={() => openCorrectionModal(selectedClosing)}
+                className="admin-button-secondary w-full"
+              >
+                Corregir monto contado
+              </button>
+              <button
                 onClick={() => handlePrintClosing(selectedClosing)}
                 disabled={printingClosingId === selectedClosing.id}
                 className="admin-button-secondary w-full"
               >
                 {printingClosingId === selectedClosing.id ? 'Imprimiendo...' : 'Imprimir recibo'}
               </button>
-              <button onClick={() => setSelectedClosing(null)} className="admin-button-primary w-full">Cerrar</button>
+              <button onClick={() => setSelectedClosing(null)} className="admin-button-primary w-full sm:col-span-2">Cerrar</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {editingClosing && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="admin-panel max-h-[90vh] w-full max-w-xl overflow-y-auto p-6">
+            <h2 className="text-2xl font-black text-[#15130f]">Corregir cierre</h2>
+            <p className="mt-2 text-sm font-semibold text-black/55">
+              Cambia solo el monto real contado. Las ventas esperadas se mantienen y la diferencia se recalcula.
+            </p>
+
+            <div className="mt-6 grid gap-4 sm:grid-cols-2">
+              <div className="rounded-xl border border-black/10 bg-white/60 p-4">
+                <p className="text-xs font-black uppercase text-black/42">Esperado</p>
+                <p className="mt-2 text-xl font-black text-[#15130f]">
+                  {formatPriceWithCurrency(Number(editingClosing.expected_total) || 0, currencyInfo.code, currencyInfo.locale)}
+                </p>
+              </div>
+              <div className="rounded-xl border border-black/10 bg-white/60 p-4">
+                <p className="text-xs font-black uppercase text-black/42">Contado anterior</p>
+                <p className="mt-2 text-xl font-black text-[#15130f]">
+                  {formatPriceWithCurrency(Number(editingClosing.actual_cash_count) || 0, currencyInfo.code, currencyInfo.locale)}
+                </p>
+              </div>
+            </div>
+
+            <label className="mt-5 block text-xs font-black uppercase text-black/42">
+              Nuevo monto contado
+            </label>
+            <input
+              type="number"
+              inputMode="decimal"
+              step="0.01"
+              min="0"
+              value={editActualCash}
+              onChange={(event) => setEditActualCash(event.target.value)}
+              className="mt-2 w-full rounded-xl border border-black/10 bg-white px-4 py-3 text-lg font-black text-[#15130f] outline-none focus:border-[#e43d30]"
+            />
+
+            {editActualCash && Number.isFinite(Number(editActualCash)) && (
+              <div className="mt-4 rounded-xl border border-black/10 bg-white/60 p-4">
+                <p className="text-xs font-black uppercase text-black/42">Nueva diferencia</p>
+                <p className={`mt-2 text-xl font-black ${Math.abs((Number(editingClosing.expected_total) || 0) - Number(editActualCash)) < 0.01 ? 'text-[#1c8b5f]' : 'text-red-600'}`}>
+                  {formatPriceWithCurrency(Math.abs((Number(editingClosing.expected_total) || 0) - Number(editActualCash)), currencyInfo.code, currencyInfo.locale)}
+                </p>
+              </div>
+            )}
+
+            <label className="mt-5 block text-xs font-black uppercase text-black/42">
+              Motivo de la correccion
+            </label>
+            <textarea
+              value={editReason}
+              onChange={(event) => setEditReason(event.target.value)}
+              placeholder="Ej: se ingreso efectivo de mas por error"
+              rows={3}
+              className="mt-2 w-full resize-none rounded-xl border border-black/10 bg-white px-4 py-3 text-sm font-semibold text-[#15130f] outline-none focus:border-[#e43d30]"
+            />
+
+            <div className="mt-6 grid gap-3 sm:grid-cols-2">
+              <button
+                onClick={() => setEditingClosing(null)}
+                disabled={savingCorrection}
+                className="admin-button-secondary w-full disabled:opacity-50"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleSaveClosingCorrection}
+                disabled={savingCorrection}
+                className="admin-button-primary w-full disabled:opacity-50"
+              >
+                {savingCorrection ? 'Guardando...' : 'Guardar correccion'}
+              </button>
             </div>
           </div>
         </div>

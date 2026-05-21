@@ -1,5 +1,6 @@
 import { createServiceClient } from '@/lib/supabase/server'
-import { getTenantIdFromSlug } from '@/lib/tenant'
+import { getTenantContext, getTenantIdFromSlug } from '@/lib/tenant'
+import { formatRestaurantDateTime, getRestaurantLocale, getRestaurantTimeZone } from '@/lib/restaurant-time'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import type { Order, OrderItem } from '@/lib/types'
@@ -44,15 +45,33 @@ export default async function PedidoDetailPage({ params }: PedidoDetailProps) {
   if (!order) notFound()
 
   const statusInfo = STATUS_LABELS[order.status] || { label: order.status, color: 'bg-gray-100 text-gray-600' }
+  const context = await getTenantContext(tenantId)
+  const restaurantCountry = context.settings?.country || (context.tenant as { country?: string | null } | null)?.country || 'CO'
+  const restaurantLocale = getRestaurantLocale(restaurantCountry)
+  const restaurantTimeZone = getRestaurantTimeZone({
+    timezone: context.settings?.timezone,
+    settingsCountry: context.settings?.country,
+    tenantCountry: (context.tenant as { country?: string | null } | null)?.country,
+  })
 
   return (
     <div className="max-w-2xl">
       <div className="flex items-center gap-4 mb-8">
-        <Link href={`/${slug}/admin/pedidos`} className="text-gray-500 hover:text-gray-700">←</Link>
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">{order.order_number}</h1>
-          <p className="text-sm text-gray-500">
-            {new Date(order.created_at).toLocaleString('es-CO')}
+        <Link href={`/${slug}/admin/pedidos`} className="text-white/50 hover:text-white" style={{ color: 'rgba(255,255,255,0.65)' }}>←</Link>
+        <div className="min-w-0">
+          <h1
+            className="inline-flex max-w-full break-all rounded-xl border border-white/20 bg-white px-3 py-2 text-xl font-black text-[#15130f] shadow-[0_12px_30px_rgba(0,0,0,0.24)]"
+            style={{ color: '#15130f', backgroundColor: '#ffffff' }}
+          >
+            {order.order_number}
+          </h1>
+          <p className="mt-1 text-sm font-semibold text-white/70" style={{ color: 'rgba(255,255,255,0.72)' }}>
+            {formatRestaurantDateTime(order.created_at, {
+              locale: restaurantLocale,
+              timeZone: restaurantTimeZone,
+              dateStyle: 'short',
+              timeStyle: 'short',
+            })}
           </p>
         </div>
         <span className={`ml-auto px-3 py-1 rounded-full text-sm font-medium ${statusInfo.color}`}>

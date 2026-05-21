@@ -21,7 +21,9 @@ type AuditLog = {
 
 const actionLabel: Record<string, string> = {
   'sale.voided': 'Venta anulada',
+  'sale.payment_method_corrected': 'Pago corregido',
   'order.cancelled': 'Pedido cancelado',
+  'cash_closing.corrected': 'Cierre corregido',
   'printer.created': 'Impresora creada',
   'printer.updated': 'Impresora actualizada',
   'printer.deleted': 'Impresora eliminada',

@@ -2107,7 +2107,7 @@ export function POSTerminal({
         const loadedTotal = loadedTaxableSubtotal + loadedTax + loadedDeliveryFee + tip;
         const wasPaidReceipt = loadedOrderContext?.paymentStatus === 'paid';
         editedPaidReceipt = wasPaidReceipt;
-        receiptPaymentMethod = wasPaidReceipt ? (loadedOrderContext?.paymentMethod || paymentMethod) : paymentMethod;
+        receiptPaymentMethod = paymentMethod;
         shouldOpenCashDrawer = !wasPaidReceipt && receiptPaymentMethod === 'cash';
 
         receiptSubtotal = subtotal;
@@ -2627,6 +2627,7 @@ export function POSTerminal({
   }, [categories, selectedCategory, filteredMenu, cart, paymentMethod, handleShowReceipt]);
 
   const nextReservationTime = todayReservations[0]?.reservation_time?.slice(0, 5) || null;
+  const compactPOSLayout = true;
 
   if (loading) {
     return (
@@ -2639,9 +2640,15 @@ export function POSTerminal({
   }
 
   return (
-    <div ref={posRootRef} className={`pos-premium ${isFullscreen ? 'fixed inset-0 z-[9999] h-[100dvh] w-screen p-0 m-0 overflow-hidden flex flex-col bg-[#020617]' : 'min-h-[100dvh]'} text-white flex flex-col`}>
-      {/* Fullscreen Header - Logo and Controls - TPV Header with Eccofood Brand */}
-      {isFullscreen && (
+    <div ref={posRootRef} className={`pos-premium ${
+      isFullscreen
+        ? 'fixed inset-0 z-[9999] h-[100dvh] w-screen p-0 m-0 overflow-hidden flex flex-col bg-[#020617]'
+        : compactPOSLayout
+          ? 'h-[100dvh] max-h-[100dvh] w-full overflow-hidden bg-[#020617]'
+          : 'min-h-[100dvh]'
+    } text-white flex flex-col`}>
+      {/* Compact Header - Logo and Controls - TPV Header with Eccofood Brand */}
+      {(isFullscreen || compactPOSLayout) && (
         <div className="pos-panel border-x-0 border-t-0 px-6 py-4 flex items-center justify-between gap-4">
           <div className="flex min-w-0 items-center gap-4">
             <div className="rounded-xl border border-cyan-300/25 bg-cyan-300/10 p-2.5 shadow-lg shadow-cyan-900/20">
@@ -2753,7 +2760,7 @@ export function POSTerminal({
         </div>
       )}
 
-      {!isFullscreen && (
+      {!isFullscreen && !compactPOSLayout && (
         <div className="pos-topbar shrink-0 px-4 py-4">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <div className="flex min-w-0 items-center gap-3">
@@ -2948,12 +2955,12 @@ export function POSTerminal({
         </div>
       )}
 
-      <div className={`flex-1 flex min-h-0 flex-col overflow-y-auto lg:overflow-hidden lg:flex-row ${isFullscreen ? 'gap-0' : 'gap-0'}`}>
+      <div className="flex-1 flex min-h-0 flex-col overflow-y-auto lg:overflow-hidden lg:flex-row gap-0">
         {/* Menu Section */}
-        <div className={`${isFullscreen ? 'min-h-0 flex-1' : 'min-h-[44dvh] max-h-[58dvh] lg:min-h-0 lg:max-h-none lg:flex-1'} flex flex-col overflow-hidden`}>
+        <div className={`${compactPOSLayout ? 'min-h-0 flex-1' : 'min-h-[44dvh] max-h-[58dvh] lg:min-h-0 lg:max-h-none lg:flex-1'} flex flex-col overflow-hidden`}>
           {/* Search and Controls - Sticky Header */}
-          <div className={`pos-panel pos-command-bar border-x-0 border-t-0 flex flex-wrap gap-2.5 items-center sticky top-0 z-10 lg:flex-nowrap ${isFullscreen ? 'px-4 py-3' : 'p-3 sm:p-4'}`}>
-            {!isFullscreen && (
+          <div className={`pos-panel pos-command-bar border-x-0 border-t-0 flex flex-wrap gap-2.5 items-center sticky top-0 z-10 lg:flex-nowrap ${compactPOSLayout ? 'px-4 py-3' : 'p-3 sm:p-4'}`}>
+            {!isFullscreen && !compactPOSLayout && (
               <div className="relative min-w-[220px] flex-[1_1_260px]">
                 <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-cyan-100/45 pointer-events-none" />
                 <input
@@ -2974,7 +2981,7 @@ export function POSTerminal({
               <PencilLine className="w-5 h-5" />
               <span className="hidden sm:inline">Manual</span>
             </button>
-            {!isFullscreen && (
+            {!isFullscreen && !compactPOSLayout && (
               <>
                 <button
                   onClick={() => syncOfflineSales(true)}
@@ -3056,7 +3063,7 @@ export function POSTerminal({
           </div>
 
           {/* Categories - Sticky */}
-          <div className={`flex gap-2 overflow-x-auto pb-2 sticky z-10 border-b border-white/10 bg-black/24 backdrop-blur-xl scrollbar-none ${isFullscreen ? 'px-4 py-3' : 'px-4 py-2.5'}`}>
+          <div className={`flex gap-2 overflow-x-auto pb-2 sticky z-10 border-b border-white/10 bg-black/24 backdrop-blur-xl scrollbar-none ${compactPOSLayout ? 'px-4 py-3' : 'px-4 py-2.5'}`}>
             <button
               onClick={() => setSelectedCategory(null)}
               title="Alt + flechas cambia categorias"
@@ -3085,8 +3092,8 @@ export function POSTerminal({
           </div>
 
           {/* Menu Grid */}
-          <div className={`flex-1 overflow-y-auto ${isFullscreen ? 'px-4 py-3' : 'p-3 sm:p-4'}`}>
-            <div className={`grid gap-3 h-fit ${isFullscreen ? 'grid-cols-2 sm:grid-cols-3 lg:grid-cols-6' : 'grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6'}`}>
+          <div className={`flex-1 min-h-0 overflow-y-scroll overscroll-contain pr-1 [scrollbar-gutter:stable] [scrollbar-width:thin] [scrollbar-color:rgba(103,232,249,0.55)_rgba(15,23,42,0.45)] [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-cyan-300/45 [&::-webkit-scrollbar-track]:bg-white/5 ${compactPOSLayout ? 'px-4 py-3' : 'p-3 sm:p-4'}`}>
+            <div className={`grid gap-3 h-fit ${compactPOSLayout ? 'grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-6' : 'grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6'}`}>
               {filteredMenu.map((item, index) => {
                 const qty = cartQuantityMap.get(item.id);
                 return (
@@ -3114,7 +3121,7 @@ export function POSTerminal({
                       <img
                         src={item.image_url}
                         alt={item.name}
-                        className={`w-full object-contain rounded-lg mb-1 group-hover:scale-110 transition-transform duration-200 ${isFullscreen ? 'h-20' : 'h-24'}`}
+                        className={`w-full object-contain rounded-lg mb-1 group-hover:scale-110 transition-transform duration-200 ${compactPOSLayout ? 'h-20' : 'h-24'}`}
                       />
                     )}
                     <p className="font-black text-base leading-tight line-clamp-2 flex-1 text-white group-hover:text-cyan-200 transition-colors">{item.name}</p>
@@ -3194,7 +3201,7 @@ export function POSTerminal({
         </div>
 
         {/* Cart/Payment Section */}
-        <div className={`${isFullscreen ? 'h-[44dvh] min-h-0 overflow-hidden lg:h-auto lg:min-h-0 lg:w-72 xl:w-80' : 'min-h-[520px] flex-none overflow-y-auto pb-6 lg:min-h-0 lg:h-auto lg:w-80 lg:overflow-y-auto lg:pb-0'} pos-panel border-x-0 border-b-0 lg:border-y-0 lg:border-r-0 flex flex-col`}>
+        <div className={`${compactPOSLayout ? 'h-[44dvh] min-h-0 overflow-hidden lg:h-auto lg:min-h-0 lg:w-72 xl:w-80' : 'min-h-[520px] flex-none overflow-y-auto pb-6 lg:min-h-0 lg:h-auto lg:w-80 lg:overflow-y-auto lg:pb-0'} pos-panel border-x-0 border-b-0 lg:border-y-0 lg:border-r-0 flex flex-col`}>
           {/* Tabs: Cart / Entregas / Salón */}
           <div className="border-b border-white/10 flex bg-black/20 backdrop-blur-xl">
             <button
@@ -3364,12 +3371,8 @@ export function POSTerminal({
                   {editingPaidReceipt ? (
                     <button
                       onClick={() => {
-                        setLoadedOrderId(null);
-                        setLoadedOrderContext(null);
-                        setCart([]);
-                        setDiscount(0);
-                        setDiscountCode('');
-                        setTip(0);
+                        resetCurrentCartForNextCustomer();
+                        setToast({ message: 'Edicion cancelada. TPV listo para una venta nueva.', type: 'success' });
                       }}
                       className="shrink-0 text-xs text-cyan-100 hover:text-white font-bold border border-cyan-300/35 hover:border-cyan-200 rounded-lg px-2 py-1 transition"
                     >
@@ -3426,16 +3429,16 @@ export function POSTerminal({
           )}
 
           {/* Cart Items List */}
-          <div className={`${isFullscreen ? 'flex-1 min-h-0 overflow-y-auto overscroll-contain pr-1 [scrollbar-gutter:stable]' : 'min-h-28 max-h-48 overflow-y-auto'}`}>
+          <div className={`${compactPOSLayout ? 'flex-1 min-h-0 overflow-y-auto overscroll-contain pr-1 [scrollbar-gutter:stable]' : 'min-h-28 max-h-48 overflow-y-auto'}`}>
             {cart.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-full text-slate-500 py-8">
                 <ShoppingCart className="w-8 h-8 mb-2 opacity-30" />
                 <p className="text-xs">Carrito vacío</p>
               </div>
             ) : (
-              <div className={`${isFullscreen ? 'space-y-1 p-1.5 pb-3' : 'p-2 space-y-1'}`}>
+              <div className={`${compactPOSLayout ? 'space-y-1 p-1.5 pb-3' : 'p-2 space-y-1'}`}>
                 {cart.map((item) => (
-                  <div key={item.menu_item_id} className={`pos-card flex items-center gap-2 rounded-xl px-2 ${isFullscreen ? 'py-1' : 'py-1.5'}`}>
+                  <div key={item.menu_item_id} className={`pos-card flex items-center gap-2 rounded-xl px-2 ${compactPOSLayout ? 'py-1' : 'py-1.5'}`}>
                     <div className="flex-1 min-w-0">
                       <p className="text-white text-xs font-semibold truncate">
                         {item.name}
@@ -3471,7 +3474,7 @@ export function POSTerminal({
           </div>
 
           {/* Discount Code */}
-              <div className={`border-b border-white/10 ${isFullscreen ? 'px-2 py-1' : 'px-2 py-1'} space-y-1 text-xs`}>
+              <div className={`border-b border-white/10 ${compactPOSLayout ? 'px-2 py-1' : 'px-2 py-1'} space-y-1 text-xs`}>
             <div className="flex gap-1">
               <input
                 type="text"
@@ -3493,8 +3496,8 @@ export function POSTerminal({
           </div>
 
           {/* Totals */}
-          <div className={`border-b border-white/10 ${isFullscreen ? 'px-2 py-1.5' : 'px-3 py-2'} ${isFullscreen ? 'space-y-1' : 'space-y-2'} bg-black/18 text-sm backdrop-blur-xl`}>
-            <div className={`${isFullscreen ? 'space-y-1' : 'space-y-1.5'} text-xs`}>
+          <div className={`border-b border-white/10 ${compactPOSLayout ? 'px-2 py-1.5' : 'px-3 py-2'} ${compactPOSLayout ? 'space-y-1' : 'space-y-2'} bg-black/18 text-sm backdrop-blur-xl`}>
+            <div className={`${compactPOSLayout ? 'space-y-1' : 'space-y-1.5'} text-xs`}>
               <div className="flex justify-between">
                 <span className="text-slate-400">Subtotal:</span>
                 <span className="font-semibold text-slate-200">{formatPriceWithCurrency(subtotal, currencyInfo.code, currencyInfo.locale)}</span>
@@ -3518,9 +3521,9 @@ export function POSTerminal({
                 </div>
               )}
             </div>
-            <div className={`pos-total-band flex justify-between font-black px-2 rounded-xl ${isFullscreen ? 'py-1.5 text-sm' : 'pt-2 py-2 text-base'}`}>
+            <div className={`pos-total-band flex justify-between font-black px-2 rounded-xl ${compactPOSLayout ? 'py-1.5 text-sm' : 'pt-2 py-2 text-base'}`}>
               <span className="text-white">Total:</span>
-              <span className={`text-emerald-300 ${isFullscreen ? 'text-base' : 'text-lg'}`}>{formatPriceWithCurrency(total, currencyInfo.code, currencyInfo.locale)}</span>
+              <span className={`text-emerald-300 ${compactPOSLayout ? 'text-base' : 'text-lg'}`}>{formatPriceWithCurrency(total, currencyInfo.code, currencyInfo.locale)}</span>
             </div>
 
           </div>
@@ -3636,7 +3639,7 @@ export function POSTerminal({
           )}
 
           {/* Payment Component */}
-              <div className={`${isFullscreen ? 'px-2 py-1' : 'px-2 pb-[calc(env(safe-area-inset-bottom)+1.25rem)] pt-1 lg:pb-1'}`}>
+              <div className={`${compactPOSLayout ? 'px-2 py-1' : 'px-2 pb-[calc(env(safe-area-inset-bottom)+1.25rem)] pt-1 lg:pb-1'}`}>
                 {editingPaidReceipt ? (
                   <div className="rounded-xl border border-cyan-300/30 bg-cyan-400/10 p-2">
                     <div className="mb-2 rounded-lg border border-white/10 bg-black/20 px-3 py-2 text-xs">
@@ -3660,6 +3663,37 @@ export function POSTerminal({
                           : `Devolver ${formatPriceWithCurrency(Math.abs(editedReceiptDifference), currencyInfo.code, currencyInfo.locale)}`}
                       </div>
                     )}
+                    <div className="mb-2 rounded-lg border border-white/10 bg-black/20 px-3 py-2">
+                      <p className="mb-2 text-[11px] font-black uppercase text-slate-400">Forma de pago</p>
+                      <div className="grid grid-cols-2 gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setPaymentMethod('cash')}
+                          disabled={processingPayment}
+                          className={`flex min-h-10 items-center justify-center gap-1.5 rounded-lg border px-2 py-2 text-xs font-black transition ${
+                            paymentMethod === 'cash'
+                              ? 'border-amber-300 bg-amber-300/20 text-amber-50'
+                              : 'border-white/10 bg-white/10 text-slate-300 hover:text-white'
+                          } disabled:opacity-50`}
+                        >
+                          <DollarSign className="h-4 w-4" />
+                          Efectivo
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setPaymentMethod('stripe')}
+                          disabled={processingPayment}
+                          className={`flex min-h-10 items-center justify-center gap-1.5 rounded-lg border px-2 py-2 text-xs font-black transition ${
+                            paymentMethod === 'stripe'
+                              ? 'border-cyan-300 bg-cyan-300/20 text-cyan-50'
+                              : 'border-white/10 bg-white/10 text-slate-300 hover:text-white'
+                          } disabled:opacity-50`}
+                        >
+                          <CreditCard className="h-4 w-4" />
+                          Tarjeta
+                        </button>
+                      </div>
+                    </div>
                     <button
                       type="button"
                       onClick={() => processPaymentAfterReceipt()}
@@ -3690,7 +3724,7 @@ export function POSTerminal({
                     disabled={cart.length === 0 || (!!selectedTableNumber && !selectedStaffId && billingOrderIds.length === 0)}
                     loading={processingPayment}
                     country={country}
-                    compact={isFullscreen}
+                    compact={compactPOSLayout}
                   />
                 )}
               </div>

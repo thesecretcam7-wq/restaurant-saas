@@ -116,7 +116,7 @@ function statsFromOrders(period: CashClosingPeriod, orders: any[] = []): CashClo
     totalTax: 0,
     totalDiscount: 0,
     transactionCount: countableOrders.length,
-    ordersCompleted: 0,
+    ordersCompleted: countableOrders.length,
     ordersCancelled: 0,
     closingOrders: countableOrders.map((order: any) => ({
       id: order.id,
@@ -156,9 +156,6 @@ function statsFromOrders(period: CashClosingPeriod, orders: any[] = []): CashClo
     stats.totalTax += tax;
     stats.totalDiscount += discount;
 
-    if (order.status === 'delivered' || order.status === 'completed') {
-      stats.ordersCompleted++;
-    }
   });
 
   return stats;
@@ -232,7 +229,7 @@ export async function calculateCashClosingStats(
       totalTax: 0,
       totalDiscount: 0,
       transactionCount: countableOrders.length,
-      ordersCompleted: 0,
+      ordersCompleted: countableOrders.length,
       ordersCancelled: 0,
       closingOrders: countableOrders.map((order: any) => ({
         id: order.id,
@@ -273,9 +270,6 @@ export async function calculateCashClosingStats(
       stats.totalTax += tax;
       stats.totalDiscount += discount;
 
-      if (order.status === 'delivered' || order.status === 'completed') {
-        stats.ordersCompleted++;
-      }
     });
 
     return stats;
