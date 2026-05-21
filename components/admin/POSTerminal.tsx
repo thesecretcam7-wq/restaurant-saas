@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import { createClient } from '@/lib/supabase/client';
-import { ShoppingCart, Plus, Minus, Trash2, Search, DollarSign, CreditCard, Maximize2, Minimize2, Lock, Clock, Truck, Store, UtensilsCrossed, Archive, Monitor, Printer, CalendarDays, Download } from 'lucide-react';
+import { ShoppingCart, Plus, Minus, Trash2, Search, DollarSign, CreditCard, Maximize2, Minimize2, Lock, Clock, Truck, Store, UtensilsCrossed, Archive, Monitor, Printer, CalendarDays, Download, PencilLine } from 'lucide-react';
 import { POSStaffSelector } from './POSStaffSelector';
 import { TableMap } from './TableMap';
 import { POSPayment } from './POSPayment';
@@ -30,6 +30,7 @@ interface CartItem {
   price: number;
   quantity: number;
   notes?: string;
+  is_manual?: boolean;
 }
 
 interface Category {
@@ -798,6 +799,7 @@ export function POSTerminal({
   function downloadPOSShortcut() {
     const origin = window.location.origin;
     const posUrl = `${origin}/${tenantSlug || tenantId}/staff/pos`;
+    const iconUrl = `${origin}/favicon.ico`;
     const safeRestaurantName = restaurantName
       .normalize('NFD')
       .replace(/[\u0300-\u036f]/g, '')
@@ -805,22 +807,30 @@ export function POSTerminal({
       .trim()
       .replace(/\s+/g, '-')
       .slice(0, 42) || 'Restaurante';
-    const shortcut = [
-      '[InternetShortcut]',
-      `URL=${posUrl}`,
-      'IconIndex=0',
-      `IconFile=${origin}/favicon.ico`,
+    const shortcutName = `Eccofood TPV - ${safeRestaurantName}.url`;
+    const encodeBase64 = (value: string) =>
+      btoa(unescape(encodeURIComponent(value)));
+    const installer = [
+      '@echo off',
+      'setlocal',
+      'echo Instalando acceso directo del TPV en el Escritorio...',
+      'echo.',
+      'powershell -NoProfile -ExecutionPolicy Bypass -Command "$ErrorActionPreference = \'Stop\'; $url = [Text.Encoding]::UTF8.GetString([Convert]::FromBase64String(\'' + encodeBase64(posUrl) + '\')); $icon = [Text.Encoding]::UTF8.GetString([Convert]::FromBase64String(\'' + encodeBase64(iconUrl) + '\')); $name = [Text.Encoding]::UTF8.GetString([Convert]::FromBase64String(\'' + encodeBase64(shortcutName) + '\')); $desktop = [Environment]::GetFolderPath(\'Desktop\'); $path = Join-Path $desktop $name; $content = @(\'[InternetShortcut]\', \'URL=\' + $url, \'IconIndex=0\', \'IconFile=\' + $icon) -join \"`r`n\"; Set-Content -Path $path -Value $content -Encoding ASCII; Write-Host \'Acceso creado:\' $path; Start-Process $path"',
+      'echo.',
+      'echo Si Windows pregunto por permisos, acepta para crear el icono.',
+      'echo Ya puedes abrir el TPV desde el Escritorio.',
+      'pause',
     ].join('\r\n');
-    const blob = new Blob([shortcut], { type: 'application/internet-shortcut' });
+    const blob = new Blob([installer], { type: 'application/x-msdownload' });
     const href = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = href;
-    link.download = `TPV-${safeRestaurantName}.url`;
+    link.download = `Instalar-TPV-${safeRestaurantName}-en-Escritorio.cmd`;
     document.body.appendChild(link);
     link.click();
     link.remove();
     URL.revokeObjectURL(href);
-    setToast({ message: 'Acceso directo del TPV descargado', type: 'success' });
+    setToast({ message: 'Instalador del acceso descargado. Abrelo una vez y dejara el TPV en el Escritorio.', type: 'success' });
   }
 
   async function handleOpenCashClosing() {
@@ -957,6 +967,7 @@ export function POSTerminal({
         price: Number(item.price || 0),
         quantity: Number(item.qty ?? item.quantity ?? 1),
         notes: item.notes || undefined,
+        is_manual: item.is_manual === true || !(item.menu_item_id || item.item_id || item.id),
       }));
 
       setCart(cartItems);
@@ -1143,6 +1154,7 @@ export function POSTerminal({
         price: Number(current.price || 0),
         quantity: Number(current.qty ?? current.quantity ?? 1),
         notes: current.notes || undefined,
+        is_manual: current.is_manual === true || !(current.menu_item_id || (current as any).item_id || (current as any).id),
       })));
     }
 
@@ -1451,9 +1463,58 @@ export function POSTerminal({
     const order = dineInOrders.find(o => o.id === orderId);
     if (!order) return;
 
+    const item = order.items[itemIndex];
+    const confirmed = window.confirm(
+      item
+        ? `Anular "${item.name}" de Mesa ${order.table_number || ''}?`
+        : 'Anular este item?'
+    );
+    if (!confirmed) return;
+
     const updatedItems = order.items.filter((_, i) => i !== itemIndex);
     const newTotal = getOrderItemsTotal(updatedItems);
     const isEmptyOrder = updatedItems.length === 0;
+
+    try {
+      const response = await fetch(`/api/orders/${orderId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          tenantId,
+          items: updatedItems,
+          subtotal: newTotal,
+          tax: 0,
+          delivery_fee: 0,
+          total: newTotal,
+          status: isEmptyOrder ? 'cancelled' : undefined,
+          cancel_reason: isEmptyOrder
+            ? selectedStaffName
+              ? `Comanda vacia anulada desde TPV por ${selectedStaffName}`
+              : 'Comanda vacia anulada desde TPV'
+            : undefined,
+          edit_reason: selectedStaffName
+            ? `Item anulado desde TPV por ${selectedStaffName}: ${item?.name || 'item'}`
+            : `Item anulado desde TPV: ${item?.name || 'item'}`,
+        }),
+      });
+
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.error || 'No se pudo anular el item');
+
+      await fetchDineInOrders();
+      setToast({
+        message: isEmptyOrder ? 'Comanda vacia anulada' : 'Item anulado',
+        type: 'success'
+      });
+    } catch (error) {
+      setToast({
+        message: error instanceof Error ? error.message : 'No se pudo anular el item',
+        type: 'error',
+      });
+    }
+  }
+    /*
 
     const orderUpdate: Record<string, any> = {
       items: updatedItems,
@@ -1480,6 +1541,7 @@ export function POSTerminal({
     });
   }
 
+    */
   function loadTableToCart(tableOrders: DineInOrder[]) {
     const mergedMap = new Map<string, CartItem>();
     tableOrders.forEach(order => {
@@ -1495,6 +1557,8 @@ export function POSTerminal({
               name: item.name,
               price: item.price,
               quantity,
+              is_manual: (item as any).is_manual === true || !item.item_id,
+              notes: (item as any).notes || undefined,
             });
           }
       });
@@ -1592,6 +1656,40 @@ export function POSTerminal({
         },
       ];
     });
+  }
+
+  function addManualItem() {
+    const name = window.prompt('Nombre del articulo manual:', 'Articulo manual');
+    if (name === null) return;
+
+    const cleanName = name.trim();
+    if (!cleanName) {
+      setToast({ message: 'Escribe un nombre para el articulo manual', type: 'error' });
+      return;
+    }
+
+    const rawPrice = window.prompt(`Valor de "${cleanName}":`, '');
+    if (rawPrice === null) return;
+
+    const price = Number(rawPrice.replace(',', '.'));
+    if (!Number.isFinite(price) || price <= 0) {
+      setToast({ message: 'El valor manual debe ser mayor que cero', type: 'error' });
+      return;
+    }
+
+    const manualId = `manual-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+    setCart((prev) => [
+      ...prev,
+      {
+        menu_item_id: manualId,
+        name: cleanName,
+        price,
+        quantity: 1,
+        notes: 'Articulo manual',
+        is_manual: true,
+      },
+    ]);
+    setToast({ message: 'Articulo manual agregado', type: 'success' });
   }
 
   function removeFromCart(itemId: string) {
@@ -1707,7 +1805,8 @@ export function POSTerminal({
       }
 
       const formattedItems = cart.map(item => ({
-        menu_item_id: item.menu_item_id,
+        menu_item_id: item.is_manual ? null : item.menu_item_id,
+        is_manual: item.is_manual === true,
         name: item.name,
         price: item.price,
         qty: item.quantity,
@@ -1794,7 +1893,8 @@ export function POSTerminal({
         }
 
         const formattedItems = cart.map(item => ({
-          menu_item_id: item.menu_item_id,
+          menu_item_id: item.is_manual ? null : item.menu_item_id,
+          is_manual: item.is_manual === true,
           name: item.name,
           price: item.price,
           qty: item.quantity,
@@ -1882,7 +1982,8 @@ export function POSTerminal({
       } else {
         // New POS order — create via API
         const formattedItems = cart.map(item => ({
-          menu_item_id: item.menu_item_id,
+          menu_item_id: item.is_manual ? null : item.menu_item_id,
+          is_manual: item.is_manual === true,
           name: item.name,
           price: item.price,
           qty: item.quantity,
@@ -1924,7 +2025,8 @@ export function POSTerminal({
             paymentMethod,
             deliveryType: selectedTableId ? 'dine-in' : posOrderType,
             items: formattedItems.map((item) => ({
-              menu_item_id: item.menu_item_id,
+              menu_item_id: item.is_manual ? null : item.menu_item_id,
+              is_manual: item.is_manual === true,
               name: item.name,
               price: item.price,
               quantity: item.qty,
@@ -2379,10 +2481,10 @@ export function POSTerminal({
             <button
               onClick={downloadPOSShortcut}
               className="pos-action-ghost"
-              title="Descargar acceso directo al TPV"
+              title="Crear acceso del TPV en el Escritorio"
             >
               <Download className="w-5 h-5" />
-              <span className="hidden sm:inline">Acceso</span>
+              <span className="hidden sm:inline">Escritorio</span>
             </button>
             {todayReservations.length > 0 && (
               <div
@@ -2522,6 +2624,14 @@ export function POSTerminal({
                 />
               </div>
             )}
+            <button
+              onClick={addManualItem}
+              className="pos-action"
+              title="Agregar articulo manual con valor libre"
+            >
+              <PencilLine className="w-5 h-5" />
+              <span className="hidden sm:inline">Manual</span>
+            </button>
             {!isFullscreen && (
               <>
                 <button
@@ -2559,10 +2669,10 @@ export function POSTerminal({
                 <button
                   onClick={downloadPOSShortcut}
                   className="pos-action-ghost"
-                  title="Descargar acceso directo al TPV"
+                  title="Crear acceso del TPV en el Escritorio"
                 >
                   <Download className="w-5 h-5" />
-                  <span className="hidden sm:inline">Acceso</span>
+                  <span className="hidden sm:inline">Escritorio</span>
                 </button>
                 <button
                   onClick={async () => {
@@ -2985,7 +3095,10 @@ export function POSTerminal({
                 {cart.map((item) => (
                   <div key={item.menu_item_id} className={`pos-card flex items-center gap-2 rounded-xl px-2 ${isFullscreen ? 'py-1' : 'py-1.5'}`}>
                     <div className="flex-1 min-w-0">
-                      <p className="text-white text-xs font-semibold truncate">{item.name}</p>
+                      <p className="text-white text-xs font-semibold truncate">
+                        {item.name}
+                        {item.is_manual && <span className="ml-1 text-[10px] font-black uppercase text-cyan-200">Manual</span>}
+                      </p>
                       <p className="text-emerald-300 text-xs font-black">{formatPriceWithCurrency(item.price * item.quantity, currencyInfo.code, currencyInfo.locale)}</p>
                     </div>
                     <div className="flex items-center gap-1 shrink-0">

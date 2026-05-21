@@ -143,19 +143,27 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Order must include items' }, { status: 400 })
     }
 
+    const canUseManualItems = ['pos', 'pos-offline'].includes(String(source || ''))
     const itemIds = items
+      .filter((item: any) => !(canUseManualItems && item.is_manual === true))
       .map((item: any) => item.menu_item_id || item.item_id || item.id)
       .filter(Boolean)
 
-    if (itemIds.length !== items.length) {
+    const missingCatalogItem = items.some((item: any) => {
+      if (canUseManualItems && item.is_manual === true) return false
+      return !(item.menu_item_id || item.item_id || item.id)
+    })
+    if (missingCatalogItem) {
       return NextResponse.json({ error: 'Every item must include a menu item id' }, { status: 400 })
     }
 
-    const { data: menuRows, error: menuError } = await supabase
-      .from('menu_items')
-      .select('id, name, price, available, variants')
-      .eq('tenant_id', tenantId)
-      .in('id', itemIds)
+    const { data: menuRows, error: menuError } = itemIds.length > 0
+      ? await supabase
+          .from('menu_items')
+          .select('id, name, price, available, variants')
+          .eq('tenant_id', tenantId)
+          .in('id', itemIds)
+      : { data: [], error: null }
 
     if (menuError) {
       console.error('[orders POST] menu validation error:', menuError.message)
@@ -164,6 +172,26 @@ export async function POST(request: NextRequest) {
 
     const menuById = new Map((menuRows || []).map((item: any) => [item.id, item]))
     const sanitizedItems = items.map((item: any) => {
+      if (canUseManualItems && item.is_manual === true) {
+        const manualName = String(item.name || '').trim()
+        const manualPrice = Number(item.price)
+        const qty = Math.max(1, Number(item.qty ?? item.quantity ?? 1))
+
+        if (!manualName || !Number.isFinite(manualPrice) || manualPrice <= 0) {
+          throw new Error('INVALID_MANUAL_ITEM')
+        }
+
+        return {
+          menu_item_id: null,
+          name: manualName,
+          price: manualPrice,
+          qty,
+          notes: item.notes || 'Articulo manual',
+          is_manual: true,
+          requires_kitchen: false,
+        }
+      }
+
       const menuId = item.menu_item_id || item.item_id || item.id
       const menuItem = menuById.get(menuId)
       const qty = Math.max(1, Number(item.qty ?? item.quantity ?? 1))
@@ -395,6 +423,12 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ orderId: order.id, orderNumber, displayNumber })
   } catch (err) {
+    if (err instanceof Error && err.message === 'INVALID_MANUAL_ITEM') {
+      return NextResponse.json(
+        { error: 'El articulo manual necesita nombre y valor mayor que cero.' },
+        { status: 400 }
+      )
+    }
     if (err instanceof Error && err.message === 'MENU_ITEM_NOT_AVAILABLE') {
       return NextResponse.json(
         {

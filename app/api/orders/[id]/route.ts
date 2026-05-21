@@ -153,6 +153,8 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
           price: Math.max(0, Number(item.price || 0)),
           qty: Math.max(1, Number(item.qty ?? item.quantity ?? 1)),
           notes: item.notes || null,
+          is_manual: item.is_manual === true || !(item.menu_item_id || item.item_id || item.id),
+          requires_kitchen: item.requires_kitchen === false ? false : undefined,
         }))
         .filter((item: any) => item.name)
 
@@ -164,12 +166,19 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       updateData.tax = Math.max(0, Number(tax ?? 0))
       updateData.delivery_fee = Math.max(0, Number(delivery_fee ?? 0))
       updateData.total = Math.max(0, Number(total ?? updateData.subtotal + updateData.tax + updateData.delivery_fee))
+      if (sanitizedItems.length === 0 && !status) {
+        updateData.status = 'cancelled'
+      }
 
       const timestamp = new Date().toISOString()
       const reason = typeof edit_reason === 'string' && edit_reason.trim()
         ? edit_reason.trim()
-        : 'Recibo editado desde TPV'
-      const editNote = `Editado ${timestamp}: ${reason}`
+        : sanitizedItems.length === 0
+          ? 'Pedido sin productos anulado desde TPV'
+          : 'Recibo editado desde TPV'
+      const editNote = sanitizedItems.length === 0
+        ? `Anulado ${timestamp}: ${reason}`
+        : `Editado ${timestamp}: ${reason}`
       updateData.notes = existingOrder.notes
         ? `${existingOrder.notes}\n${editNote}`
         : editNote

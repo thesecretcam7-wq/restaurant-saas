@@ -3,11 +3,12 @@
 import { getOfflineStorage, type OfflineOrder } from './storage'
 
 type POSOfflineItem = {
-  menu_item_id: string
+  menu_item_id: string | null
   name: string
   price: number
   quantity: number
   notes?: string | null
+  is_manual?: boolean
 }
 
 export type POSOfflineOrderInput = {
@@ -70,6 +71,7 @@ export async function saveOfflinePOSOrder(input: POSOfflineOrderInput) {
       quantity: item.quantity,
       qty: item.quantity,
       notes: item.notes || null,
+      is_manual: item.is_manual === true,
     })),
     subtotal: input.subtotal,
     discount: input.discount,
@@ -131,6 +133,7 @@ export async function syncOfflinePOSOrders(tenantId: string, csrfToken?: string)
           },
           items: offlineOrder.items.map((item) => ({
             menu_item_id: item.menu_item_id,
+            is_manual: item.is_manual === true,
             name: item.name,
             price: item.price,
             qty: item.qty ?? item.quantity,

@@ -24,12 +24,13 @@ export interface OfflineOrder {
     phone: string
   }
   items: Array<{
-    menu_item_id?: string
+    menu_item_id?: string | null
     name: string
     quantity: number
     qty?: number
     price: number
     notes?: string | null
+    is_manual?: boolean
   }>
   subtotal: number
   discount: number

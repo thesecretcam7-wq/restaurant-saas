@@ -6,6 +6,8 @@ interface CartData {
     name: string;
     price: number;
     quantity: number;
+    is_manual?: boolean;
+    notes?: string;
   }>;
   discount: number;
   discountCode: string;
@@ -232,10 +234,12 @@ export async function loadOrderToCart(
 
     // Convert order items to cart format
     const items = (order.items || []).map((item: any) => ({
-      menu_item_id: item.id || `item-${Date.now()}`,
+      menu_item_id: item.menu_item_id || item.item_id || item.id || `item-${Date.now()}`,
       name: item.name,
       price: item.price,
       quantity: item.qty || item.quantity || 1,
+      is_manual: item.is_manual === true || !(item.menu_item_id || item.item_id || item.id),
+      notes: item.notes || undefined,
     }));
 
     const subtotal = items.reduce((sum: number, item: any) => sum + item.price * item.quantity, 0);
