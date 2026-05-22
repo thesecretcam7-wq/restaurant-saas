@@ -77,6 +77,14 @@ function getCurrentMonthInput() {
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
 }
 
+function chunkArray<T>(values: T[], size: number) {
+  const chunks: T[][] = []
+  for (let index = 0; index < values.length; index += size) {
+    chunks.push(values.slice(index, index + size))
+  }
+  return chunks
+}
+
 export default function CashClosingsPage() {
   const params = useParams()
   const slug = params.domain as string
@@ -103,6 +111,78 @@ export default function CashClosingsPage() {
   const [savingCorrection, setSavingCorrection] = useState(false)
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
 
+  async function getDeliverySummariesForClosings(
+    closingRows: CashClosing[],
+    supabase: ReturnType<typeof createClient>
+  ) {
+    const summaries = new Map<string, { totalDeliveryFees: number; deliveryOrderCount: number }>()
+    closingRows.forEach(closing => {
+      summaries.set(closing.id, {
+        totalDeliveryFees: Number(closing.total_delivery_fees) || 0,
+        deliveryOrderCount: Number(closing.delivery_order_count) || 0,
+      })
+    })
+
+    const closingIds = closingRows.map(closing => closing.id).filter(Boolean)
+    if (!tenantId || closingIds.length === 0) return summaries
+
+    const { data: items, error: itemsError } = await supabase
+      .from('cash_closing_items')
+      .select('cash_closing_id, order_id')
+      .eq('tenant_id', tenantId)
+      .in('cash_closing_id', closingIds)
+      .not('order_id', 'is', null)
+      .limit(5000)
+
+    if (itemsError || !items?.length) {
+      if (itemsError) console.warn('No se pudieron consultar items de cierres:', itemsError.message)
+      return summaries
+    }
+
+    const orderIds = Array.from(new Set(
+      (items as { order_id: string | null }[])
+        .map(item => item.order_id)
+        .filter((orderId): orderId is string => Boolean(orderId))
+    ))
+    if (orderIds.length === 0) return summaries
+
+    const orderById = new Map<string, any>()
+    for (const orderIdChunk of chunkArray(orderIds, 100)) {
+      const { data: orders, error: ordersError } = await supabase
+        .from('orders')
+        .select('id, delivery_fee, delivery_type, payment_status, status')
+        .eq('tenant_id', tenantId)
+        .in('id', orderIdChunk)
+
+      if (ordersError) {
+        console.warn('No se pudieron recalcular domicilios de cierres:', ordersError.message)
+        return summaries
+      }
+      ;(orders || []).forEach(order => orderById.set(order.id, order))
+    }
+
+    const recalculated = new Map<string, { totalDeliveryFees: number; deliveryOrderCount: number }>()
+    ;(items as { cash_closing_id: string; order_id: string | null }[]).forEach(item => {
+      if (!item.order_id) return
+      const order = orderById.get(item.order_id)
+      if (!order || order.status === 'cancelled' || order.payment_status !== 'paid') return
+
+      const summary = recalculated.get(item.cash_closing_id) || {
+        totalDeliveryFees: 0,
+        deliveryOrderCount: 0,
+      }
+      const deliveryFee = Number(order.delivery_fee) || 0
+      summary.totalDeliveryFees += deliveryFee
+      if (deliveryFee > 0 || order.delivery_type === 'delivery') {
+        summary.deliveryOrderCount += 1
+      }
+      recalculated.set(item.cash_closing_id, summary)
+    })
+
+    recalculated.forEach((summary, closingId) => summaries.set(closingId, summary))
+    return summaries
+  }
+
   useEffect(() => {
     if (!tenantId) return
     async function loadData() {
@@ -117,6 +197,7 @@ export default function CashClosingsPage() {
 
         if (!error && data) {
           const closingRows = data as CashClosing[]
+          const deliverySummaries = await getDeliverySummariesForClosings(closingRows, supabase)
           const missingStaffIds = Array.from(new Set(
             closingRows
               .filter(closing => !closing.staff_name && closing.staff_id)
@@ -137,6 +218,8 @@ export default function CashClosingsPage() {
           setClosings(closingRows.map(closing => ({
             ...closing,
             staff_name: closing.staff_name || (closing.staff_id ? staffById.get(closing.staff_id) : '') || 'Sin asignar',
+            total_delivery_fees: deliverySummaries.get(closing.id)?.totalDeliveryFees || 0,
+            delivery_order_count: deliverySummaries.get(closing.id)?.deliveryOrderCount || 0,
           })))
         }
       } finally {
@@ -155,6 +238,8 @@ export default function CashClosingsPage() {
 
   const currencyInfo = getCurrencyByCountry(country)
   const totalSales = closings.reduce((sum, closing) => sum + closing.total_sales, 0)
+  const totalDeliveryFees = closings.reduce((sum, closing) => sum + (Number(closing.total_delivery_fees) || 0), 0)
+  const totalDeliveryOrderCount = closings.reduce((sum, closing) => sum + (Number(closing.delivery_order_count) || 0), 0)
   const balancedCount = closings.filter(closing => closing.is_balanced).length
   const avgDifference = closings.length ? closings.reduce((sum, closing) => sum + Math.abs(closing.difference), 0) / closings.length : 0
 
@@ -505,11 +590,12 @@ export default function CashClosingsPage() {
       </div>
 
       {closings.length > 0 && (
-        <div className="mb-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="mb-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
           {[
             ['Total de cierres', closings.length.toString()],
             ['Balanceados', balancedCount.toString()],
             ['Ventas registradas', formatPriceWithCurrency(totalSales, currencyInfo.code, currencyInfo.locale)],
+            ['Domicilios', `${formatPriceWithCurrency(totalDeliveryFees, currencyInfo.code, currencyInfo.locale)} (${totalDeliveryOrderCount})`],
             ['Diferencia promedio', formatPriceWithCurrency(avgDifference, currencyInfo.code, currencyInfo.locale)],
           ].map(([label, value]) => (
             <article key={label} className="admin-card p-5">
@@ -624,6 +710,7 @@ export default function CashClosingsPage() {
                     <tr>
                       <th className="px-4 py-3 text-left">Mes cerrado</th>
                       <th className="px-4 py-3 text-left">Responsable</th>
+                      <th className="px-4 py-3 text-right">Domicilios</th>
                       <th className="px-4 py-3 text-right">Total</th>
                       <th className="px-4 py-3 text-right">Accion</th>
                     </tr>
@@ -635,6 +722,7 @@ export default function CashClosingsPage() {
                         <tr key={closing.id}>
                           <td className="px-4 py-3 font-black text-[#15130f]">{stats.monthLabel}</td>
                           <td className="px-4 py-3 font-bold text-black/58">{closing.staff_name}</td>
+                          <td className="px-4 py-3 text-right font-bold text-black/58">{formatPriceWithCurrency(stats.totalDeliveryFees, currencyInfo.code, currencyInfo.locale)} ({stats.deliveryOrderCount})</td>
                           <td className="px-4 py-3 text-right font-black text-[#15130f]">{formatPriceWithCurrency(Number(closing.total_sales) || 0, currencyInfo.code, currencyInfo.locale)}</td>
                           <td className="px-4 py-3 text-right">
                             <button
@@ -680,6 +768,7 @@ export default function CashClosingsPage() {
                   <th className="px-5 py-3 text-left">Personal</th>
                   <th className="px-5 py-3 text-right">Contado</th>
                   <th className="px-5 py-3 text-right">Esperado</th>
+                  <th className="px-5 py-3 text-right">Domicilios</th>
                   <th className="px-5 py-3 text-right">Diferencia</th>
                   <th className="px-5 py-3 text-center">Estado</th>
                   <th className="px-5 py-3 text-right">Accion</th>
@@ -692,6 +781,7 @@ export default function CashClosingsPage() {
                     <td className="px-5 py-4 font-black text-[#15130f]">{closing.staff_name}</td>
                     <td className="px-5 py-4 text-right font-bold text-black/64">{formatPriceWithCurrency(closing.actual_cash_count, currencyInfo.code, currencyInfo.locale)}</td>
                     <td className="px-5 py-4 text-right font-bold text-black/64">{formatPriceWithCurrency(closing.expected_total, currencyInfo.code, currencyInfo.locale)}</td>
+                    <td className="px-5 py-4 text-right font-bold text-black/64">{formatPriceWithCurrency(Number(closing.total_delivery_fees) || 0, currencyInfo.code, currencyInfo.locale)} ({Number(closing.delivery_order_count) || 0})</td>
                     <td className={`px-5 py-4 text-right font-black ${Math.abs(closing.difference) < 0.01 ? 'text-[#1c8b5f]' : 'text-red-600'}`}>{formatPriceWithCurrency(Math.abs(closing.difference), currencyInfo.code, currencyInfo.locale)}</td>
                     <td className="px-5 py-4 text-center">
                       <span className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs font-black ${closing.is_balanced ? 'border-green-200 bg-green-50 text-green-700' : 'border-amber-200 bg-amber-50 text-amber-700'}`}>

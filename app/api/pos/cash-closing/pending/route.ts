@@ -141,6 +141,8 @@ function statsFromOrders(period: CashClosingPeriod, orders: any[] = []) {
     cardSales: 0,
     otherSales: 0,
     totalSales: 0,
+    totalDeliveryFees: 0,
+    deliveryOrderCount: 0,
     totalTax: 0,
     totalDiscount: 0,
     transactionCount: orders.length,
@@ -160,6 +162,7 @@ function statsFromOrders(period: CashClosingPeriod, orders: any[] = []) {
     const total = Number(order.total) || 0;
     const tax = Number(order.tax ?? order.tax_amount) || 0;
     const discount = Number(order.discount_amount) || 0;
+    const deliveryFee = Number(order.delivery_fee) || 0;
 
     if (order.payment_method === 'cash') {
       stats.cashSales += total;
@@ -170,6 +173,10 @@ function statsFromOrders(period: CashClosingPeriod, orders: any[] = []) {
     }
 
     stats.totalSales += total;
+    stats.totalDeliveryFees += deliveryFee;
+    if (deliveryFee > 0 || order.delivery_type === 'delivery') {
+      stats.deliveryOrderCount++;
+    }
     stats.totalTax += tax;
     stats.totalDiscount += discount;
 
@@ -205,7 +212,7 @@ export async function GET(request: NextRequest) {
     const [ordersRes, closedItemsRes, latestClosingRes] = await Promise.all([
       supabase
         .from('orders')
-        .select('id, order_number, total, tax, payment_method, payment_status, status, created_at')
+        .select('id, order_number, total, tax, delivery_fee, delivery_type, payment_method, payment_status, status, created_at')
         .eq('tenant_id', tenantId)
         .lt('created_at', currentPeriodStart.toISOString())
         .neq('payment_method', null)
