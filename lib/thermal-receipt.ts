@@ -72,10 +72,10 @@ export function generateReceiptESCPOS(data: ReceiptData, options: ReceiptOptions
   const bytes: string[] = [];
   const push = (...s: string[]) => bytes.push(...s);
   const line = (s = '') => bytes.push(normalizeThermalText(s) + '\n');
-
-  const sep = () => {
-    push(SIZE_NORMAL);
-    line('-'.repeat(cols));
+  const row = (label: string, value: string) => {
+    const cleanValue = normalizeThermalText(value);
+    const cleanLabel = normalizeThermalText(label).substring(0, Math.max(1, cols - cleanValue.length - 1));
+    line(padR(cleanLabel, cols - cleanValue.length) + cleanValue);
   };
 
   push(INIT, CODE_PAGE_PC850, FONT_B);
@@ -86,8 +86,9 @@ export function generateReceiptESCPOS(data: ReceiptData, options: ReceiptOptions
   if (data.restaurantPhone) line(`Tel: ${data.restaurantPhone}`);
 
   push(BOLD_ON);
-  line(data.orderNumber);
+  line('RECIBO DE VENTA');
   push(BOLD_OFF);
+  line(`Pedido: ${data.orderNumber}`);
 
   const ts = data.timestamp ? new Date(data.timestamp) : new Date();
   const receiptLocale = data.currencyInfo?.locale || options.locale || 'es-ES';
@@ -105,63 +106,54 @@ export function generateReceiptESCPOS(data: ReceiptData, options: ReceiptOptions
   if (data.waiterName) line(`Empleado: ${data.waiterName}`);
 
   push(ALIGN_LEFT);
-  sep();
+  line('');
   push(BOLD_ON);
-  line(padR('Producto', cols - 12) + padL('Total', 12));
+  line('Detalle del pedido');
   push(BOLD_OFF);
-  sep();
+  line('');
 
   for (const item of data.items) {
     const itemTotal = item.price * item.quantity;
-    const priceStr = formatPrice(itemTotal, data);
-    const nameStr = normalizeThermalText(item.name).substring(0, Math.max(1, cols - priceStr.length - 1));
-    line(padR(nameStr, cols - priceStr.length) + priceStr);
-    if (item.quantity > 1) {
-      const unitStr = formatPrice(item.price, data);
-      line(`  x${item.quantity} - ${unitStr}`);
-    }
+    const itemTotalStr = formatPrice(itemTotal, data);
+    const unitStr = formatPrice(item.price, data);
+    push(BOLD_ON);
+    line(normalizeThermalText(item.name).substring(0, cols));
+    push(BOLD_OFF);
+    row(`  ${item.quantity} x ${unitStr}`, itemTotalStr);
+    line('');
   }
-
-  sep();
 
   const hasBreakdown = data.discount > 0 || (data.tax || 0) > 0 || (data.deliveryFee || 0) > 0;
 
   if (hasBreakdown) {
-    const subStr = formatPrice(data.subtotal, data);
-    line(padR('Subtotal:', cols - subStr.length) + subStr);
+    row('Subtotal:', formatPrice(data.subtotal, data));
     if (data.discount > 0) {
-      const disStr = '-' + formatPrice(data.discount, data);
-      line(padR('Descuento:', cols - disStr.length) + disStr);
+      row('Descuento:', `-${formatPrice(data.discount, data)}`);
     }
     if ((data.tax || 0) > 0) {
-      const taxStr = formatPrice(data.tax || 0, data);
       const taxLabel = data.taxRate ? `IVA ${data.taxRate}%:` : 'IVA:';
-      line(padR(taxLabel, cols - taxStr.length) + taxStr);
+      row(taxLabel, formatPrice(data.tax || 0, data));
     }
     if ((data.deliveryFee || 0) > 0) {
-      const deliveryStr = formatPrice(data.deliveryFee || 0, data);
-      line(padR('Domicilio:', cols - deliveryStr.length) + deliveryStr);
+      row('Domicilio:', formatPrice(data.deliveryFee || 0, data));
     }
-    sep();
+    line('');
   }
 
   push(ALIGN_CENTER, FONT_A, SIZE_WIDE, BOLD_ON);
-  line('TOTAL');
+  line('TOTAL A PAGAR');
   line(formatPrice(data.total, data));
   push(BOLD_OFF, SIZE_NORMAL, FONT_B);
 
-  sep();
+  line('');
   push(ALIGN_LEFT);
   const paymentLabel = getPaymentMethodLabel(data.paymentMethod);
   if (paymentLabel) {
-    line(padR('Metodo:', cols - paymentLabel.length) + paymentLabel);
+    row('Metodo:', paymentLabel);
   }
   if (data.amountPaid !== undefined) {
-    const paidStr = formatPrice(data.amountPaid, data);
-    const changeStr = formatPrice(data.change, data);
-    line(padR('Recibido:', cols - paidStr.length) + paidStr);
-    line(padR('Cambio:', cols - changeStr.length) + changeStr);
-    sep();
+    row('Recibido:', formatPrice(data.amountPaid, data));
+    row('Cambio:', formatPrice(data.change, data));
   }
 
   push(ALIGN_CENTER);
@@ -248,10 +240,6 @@ function padR(text: string, width: number): string {
   return normalizeThermalText(text).substring(0, width).padEnd(width, ' ');
 }
 
-function padL(text: string, width: number): string {
-  return normalizeThermalText(text).substring(0, width).padStart(width, ' ');
-}
-
 export function generateTestReceiptESCPOS(paperWidth: 58 | 80): Uint8Array {
   const testData: ReceiptData = {
     orderId: 'TEST-001',
@@ -321,8 +309,8 @@ export function generateCashClosingReceiptESCPOS(
     row('Efectivo:', money(data.cashSales));
     row('Tarjeta:', money(data.cardSales));
     row('Otros:', money(data.otherSales));
-    row('Domicilios:', money(data.totalDeliveryFees || 0));
-    row('Pedidos dom.:', String(data.deliveryOrderCount || 0));
+    row('Valor dom.:', money(data.totalDeliveryFees || 0));
+    row('No. domicilios:', String(data.deliveryOrderCount || 0));
     row('Impuestos:', money(data.totalTax));
   if (data.totalDiscount > 0) row('Descuentos:', money(data.totalDiscount));
   sep();
@@ -409,8 +397,8 @@ export function generateMonthlyClosingReceiptESCPOS(
   row('Efectivo:', money(data.cashSales));
   row('Tarjeta:', money(data.cardSales));
   row('Otros:', money(data.otherSales));
-  row('Domicilios:', money(data.totalDeliveryFees || 0));
-  row('Pedidos dom.:', String(data.deliveryOrderCount || 0));
+  row('Valor dom.:', money(data.totalDeliveryFees || 0));
+  row('No. domicilios:', String(data.deliveryOrderCount || 0));
   row('Impuestos:', money(data.totalTax));
   if (data.totalDiscount > 0) row('Descuentos:', money(data.totalDiscount));
   row('Transacciones:', String(data.transactionCount));

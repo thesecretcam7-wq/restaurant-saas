@@ -605,8 +605,8 @@ function printCashClosingViaBrowserAPI(data: CashClosingReceiptData): void {
               <div class="line"><span>Efectivo</span><strong>${money(data.cashSales)}</strong></div>
               <div class="line"><span>Tarjeta</span><strong>${money(data.cardSales)}</strong></div>
               <div class="line"><span>Otros</span><strong>${money(data.otherSales)}</strong></div>
-              <div class="line"><span>Domicilios</span><strong>${money(data.totalDeliveryFees || 0)}</strong></div>
-              <div class="line"><span>Pedidos domicilio</span><strong>${data.deliveryOrderCount || 0}</strong></div>
+              <div class="line"><span>Valor domicilios</span><strong>${money(data.totalDeliveryFees || 0)}</strong></div>
+              <div class="line"><span>Numero domicilios</span><strong>${data.deliveryOrderCount || 0}</strong></div>
               <div class="line"><span>Esperado caja</span><strong>${money(data.expectedCash)}</strong></div>
             <div class="line"><span>Contado</span><strong>${money(data.actualCash)}</strong></div>
             <div class="line"><span>Diferencia</span><strong>${money(data.difference)}</strong></div>
@@ -667,8 +667,8 @@ function printMonthlyClosingViaBrowserAPI(data: MonthlyClosingReceiptData): void
             <div class="line"><span>Efectivo</span><strong>${money(data.cashSales)}</strong></div>
             <div class="line"><span>Tarjeta</span><strong>${money(data.cardSales)}</strong></div>
             <div class="line"><span>Otros</span><strong>${money(data.otherSales)}</strong></div>
-            <div class="line"><span>Domicilios</span><strong>${money(data.totalDeliveryFees || 0)}</strong></div>
-            <div class="line"><span>Pedidos domicilio</span><strong>${data.deliveryOrderCount || 0}</strong></div>
+            <div class="line"><span>Valor domicilios</span><strong>${money(data.totalDeliveryFees || 0)}</strong></div>
+            <div class="line"><span>Numero domicilios</span><strong>${data.deliveryOrderCount || 0}</strong></div>
             <div class="line"><span>Impuestos</span><strong>${money(data.totalTax)}</strong></div>
             <div class="line"><span>Transacciones</span><strong>${data.transactionCount}</strong></div>
             <div class="line total"><span>Total mes</span><strong>${money(data.totalSales)}</strong></div>
@@ -761,15 +761,18 @@ function generateReceiptHTML(data: ReceiptData): string {
   const itemsHTML = data.items
     .map(
       (item) =>
-        `<tr>
-        <td>${safe(item.name)}</td>
-        <td class="number">${item.quantity}</td>
-        <td class="number">${money(item.price * item.quantity)}</td>
-      </tr>`
+        `<div class="item">
+          <div class="item-name">${safe(item.name)}</div>
+          <div class="item-detail">
+            <span>${item.quantity} x ${money(item.price)}</span>
+            <strong>${money(item.price * item.quantity)}</strong>
+          </div>
+        </div>`
     )
     .join('');
-  const extraRows = (data.discount > 0 ? 1 : 0) + ((data.tax || 0) > 0 ? 1 : 0);
-  const minHeightMm = Math.max(76, 54 + (data.items.length + extraRows) * 8);
+  const hasBreakdown = data.discount > 0 || (data.tax || 0) > 0 || (data.deliveryFee || 0) > 0;
+  const extraRows = (data.discount > 0 ? 1 : 0) + ((data.tax || 0) > 0 ? 1 : 0) + ((data.deliveryFee || 0) > 0 ? 1 : 0);
+  const minHeightMm = Math.max(76, 58 + data.items.length * 10 + extraRows * 6);
 
   return `
     <!DOCTYPE html>
@@ -821,40 +824,55 @@ function generateReceiptHTML(data: ReceiptData): string {
           font-weight: 800;
           margin: 2px 0;
         }
-        .number {
-          text-align: right;
+        .title {
+          text-align: center;
+          font-size: 14px;
+          font-weight: 900;
+          margin: 3px 0 2px;
+        }
+        .section-title {
+          font-size: 14px;
+          font-weight: 900;
+          margin: 10px 0 7px;
+        }
+        .item {
+          margin: 0 0 8px;
+        }
+        .item-name {
+          font-size: 15px;
+          font-weight: 900;
+        }
+        .item-detail,
+        .summary-row,
+        .payment-row {
+          display: flex;
+          justify-content: space-between;
+          gap: 8px;
+          font-size: 14px;
           white-space: nowrap;
         }
-        table {
-          width: 100%;
-          border-collapse: collapse;
-          margin: 8px 0;
+        .summary {
+          margin-top: 6px;
         }
-        th {
-          font-size: 14px;
-          text-align: left;
-          border-bottom: 2px solid #000;
-          padding: 4px 1px;
+        .grand-total {
+          text-align: center;
+          margin: 12px 0 10px;
+          font-size: 22px;
+          font-weight: 900;
         }
-        td {
-          padding: 5px 1px;
-          border-bottom: 1px dashed #000;
-          vertical-align: top;
+        .grand-total span {
+          display: block;
+          font-size: 15px;
+          margin-bottom: 2px;
         }
-        .total-row {
-          font-weight: bold;
-          font-size: 20px;
+        .payment {
+          margin-top: 4px;
         }
         .footer {
           text-align: center;
-          margin-top: 6px;
+          margin-top: 10px;
           font-size: 14px;
           font-weight: 800;
-        }
-        hr {
-          border: 0;
-          border-top: 2px solid #000;
-          margin: 7px 0;
         }
         @media print {
           html, body {
@@ -879,61 +897,53 @@ function generateReceiptHTML(data: ReceiptData): string {
       <div class="receipt">
       <div class="header">${safe(data.restaurantName || 'Restaurante')}</div>
       ${data.restaurantPhone ? `<div class="meta">Tel: ${safe(data.restaurantPhone)}</div>` : ''}
+      <div class="title">RECIBO DE VENTA</div>
+      <div class="meta">Pedido: ${safe(data.orderNumber)}</div>
       <div class="meta">Fecha: ${printedAt.toLocaleDateString(locale)}</div>
       <div class="meta">Hora: ${printedAt.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' })}</div>
-      <div class="header">Orden: ${safe(data.orderNumber)}</div>
-      <hr>
-      <table>
-        <tr>
-          <th>Artículo</th>
-          <th class="number">Qty</th>
-          <th class="number">Total</th>
-        </tr>
+      <div class="section-title">Detalle del pedido</div>
+      <div class="items">
         ${itemsHTML}
-      </table>
-      <hr>
-      <table>
-        <tr>
-          <td>Subtotal:</td>
-          <td class="number">${money(data.subtotal)}</td>
-        </tr>
+      </div>
+      ${
+        hasBreakdown
+          ? `<div class="summary">
+        <div class="summary-row"><span>Subtotal:</span><strong>${money(data.subtotal)}</strong></div>
         ${
           data.discount > 0
-            ? `<tr>
-          <td>Descuento:</td>
-          <td class="number">-${money(data.discount)}</td>
-        </tr>`
+            ? `<div class="summary-row"><span>Descuento:</span><strong>-${money(data.discount)}</strong></div>`
             : ''
         }
         ${
           (data.tax || 0) > 0
-            ? `<tr>
-          <td>IVA${data.taxRate ? ` ${data.taxRate}%` : ''}:</td>
-          <td class="number">${money(data.tax || 0)}</td>
-        </tr>`
+            ? `<div class="summary-row"><span>IVA${data.taxRate ? ` ${data.taxRate}%` : ''}:</span><strong>${money(data.tax || 0)}</strong></div>`
             : ''
         }
         ${
           (data.deliveryFee || 0) > 0
-            ? `<tr>
-          <td>Domicilio:</td>
-          <td class="number">${money(data.deliveryFee || 0)}</td>
-        </tr>`
+            ? `<div class="summary-row"><span>Domicilio:</span><strong>${money(data.deliveryFee || 0)}</strong></div>`
             : ''
         }
-        <tr class="total-row">
-          <td>TOTAL:</td>
-          <td class="number">${money(data.total)}</td>
-        </tr>
+      </div>`
+          : ''
+      }
+      <div class="grand-total">
+        <span>TOTAL A PAGAR</span>
+        ${money(data.total)}
+      </div>
+      <div class="payment">
         ${
           paymentLabel
-            ? `<tr>
-          <td>Metodo de pago:</td>
-          <td class="number">${safe(paymentLabel)}</td>
-        </tr>`
+            ? `<div class="payment-row"><span>Metodo:</span><strong>${safe(paymentLabel)}</strong></div>`
             : ''
         }
-      </table>
+        ${
+          data.amountPaid !== undefined
+            ? `<div class="payment-row"><span>Recibido:</span><strong>${money(data.amountPaid)}</strong></div>
+        <div class="payment-row"><span>Cambio:</span><strong>${money(data.change)}</strong></div>`
+            : ''
+        }
+      </div>
       <div class="footer">
         <p>Gracias por su compra</p>
       </div>

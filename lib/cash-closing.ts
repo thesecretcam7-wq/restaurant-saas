@@ -161,6 +161,14 @@ function statsFromOrders(period: CashClosingPeriod, orders: any[] = []): CashClo
   return stats;
 }
 
+function isMissingDeliveryClosingColumns(error: any) {
+  const text = `${error?.message || ''} ${error?.details || ''} ${error?.hint || ''}`;
+  return (
+    error?.code === 'PGRST204' &&
+    (text.includes('total_delivery_fees') || text.includes('delivery_order_count'))
+  );
+}
+
 async function getCurrentOperationalPeriod(tenantId: string) {
   const supabase = createClient();
   const { data: settings } = await supabase
@@ -372,9 +380,7 @@ export async function saveCashClosing(
   const notes = closingData.notes ? `${periodNote}\n${closingData.notes}` : periodNote;
 
   try {
-    const { data, error } = await supabase
-      .from('cash_closings')
-      .insert({
+    const baseClosing = {
         tenant_id: tenantId,
         staff_id: staffId,
         staff_name: staffName,
@@ -393,14 +399,36 @@ export async function saveCashClosing(
         orders_cancelled: closingData.ordersCancelled,
         notes,
         closed_at: new Date().toISOString(),
-      })
-      .select()
-      .single();
+    };
+
+    const insertClosing = (includeDeliveryTotals: boolean) =>
+      supabase
+        .from('cash_closings')
+        .insert({
+          ...baseClosing,
+          ...(includeDeliveryTotals
+            ? {
+                total_delivery_fees: Number(closingData.totalDeliveryFees) || 0,
+                delivery_order_count: Number(closingData.deliveryOrderCount) || 0,
+              }
+            : {}),
+        })
+        .select()
+        .single();
+
+    let result = await insertClosing(true);
+    if (result.error && isMissingDeliveryClosingColumns(result.error)) {
+      console.warn('Cash closing delivery columns are missing; save will continue without persisted delivery totals.');
+      result = await insertClosing(false);
+    }
+
+    const { data, error } = result;
 
     if (error) {
       console.error('Error saving cash closing:', error);
       throw error;
     }
+    if (!data) throw new Error('No se pudo guardar el cierre de caja.');
 
     if (closingData.closingOrders?.length) {
       const { error: itemsError } = await supabase

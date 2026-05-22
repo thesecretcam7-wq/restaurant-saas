@@ -19,6 +19,8 @@ interface CashClosing {
   total_sales: number
   total_tax?: number | null
   total_discount?: number | null
+  total_delivery_fees?: number | null
+  delivery_order_count?: number | null
   expected_total: number
   actual_cash_count: number
   difference: number
@@ -162,6 +164,76 @@ export default function CashClosingsPage() {
     return Number.isNaN(parsed.getTime()) ? fallback : parsed.toISOString()
   }
 
+  async function getClosingDeliverySummary(
+    closing: CashClosing,
+    supabase: ReturnType<typeof createClient>
+  ) {
+    const storedTotalDeliveryFees = Number(closing.total_delivery_fees) || 0
+    const storedDeliveryOrderCount = Number(closing.delivery_order_count) || 0
+
+    if (storedTotalDeliveryFees > 0 || storedDeliveryOrderCount > 0) {
+      return {
+        totalDeliveryFees: storedTotalDeliveryFees,
+        deliveryOrderCount: storedDeliveryOrderCount,
+      }
+    }
+
+    const { data: items, error: itemsError } = await supabase
+      .from('cash_closing_items')
+      .select('order_id')
+      .eq('tenant_id', tenantId)
+      .eq('cash_closing_id', closing.id)
+      .not('order_id', 'is', null)
+
+    if (itemsError) {
+      console.warn('No se pudieron consultar los pedidos del cierre:', itemsError.message)
+      return {
+        totalDeliveryFees: storedTotalDeliveryFees,
+        deliveryOrderCount: storedDeliveryOrderCount,
+      }
+    }
+
+    const orderIds = Array.from(new Set(
+      ((items || []) as { order_id: string | null }[])
+        .map(item => item.order_id)
+        .filter((orderId): orderId is string => Boolean(orderId))
+    ))
+
+    if (orderIds.length === 0) {
+      return {
+        totalDeliveryFees: storedTotalDeliveryFees,
+        deliveryOrderCount: storedDeliveryOrderCount,
+      }
+    }
+
+    const { data: orders, error: ordersError } = await supabase
+      .from('orders')
+      .select('id, delivery_fee, delivery_type, payment_status, status')
+      .eq('tenant_id', tenantId)
+      .in('id', orderIds)
+
+    if (ordersError) {
+      console.warn('No se pudieron recalcular domicilios del cierre:', ordersError.message)
+      return {
+        totalDeliveryFees: storedTotalDeliveryFees,
+        deliveryOrderCount: storedDeliveryOrderCount,
+      }
+    }
+
+    return ((orders || []) as any[]).reduce(
+      (summary, order) => {
+        if (order.status === 'cancelled' || order.payment_status !== 'paid') return summary
+        const deliveryFee = Number(order.delivery_fee) || 0
+        summary.totalDeliveryFees += deliveryFee
+        if (deliveryFee > 0 || order.delivery_type === 'delivery') {
+          summary.deliveryOrderCount += 1
+        }
+        return summary
+      },
+      { totalDeliveryFees: 0, deliveryOrderCount: 0 }
+    )
+  }
+
   async function loadMonthlyData() {
     if (!tenantId) return
     setMonthlyLoading(true)
@@ -303,6 +375,7 @@ export default function CashClosingsPage() {
       const periodMatch = closing.notes?.match(/Periodo operativo:\s*(.+?)\s*-\s*(.+?)(?:\n|$)/)
       const periodStart = parsePeriodDate(periodMatch?.[1], closing.closed_at)
       const periodEnd = parsePeriodDate(periodMatch?.[2], closing.closed_at)
+      const deliverySummary = await getClosingDeliverySummary(closing, supabase)
 
       await printCashClosingReceipt(tenantId, settings.default_receipt_printer_id, {
         closingId: closing.id,
@@ -316,6 +389,8 @@ export default function CashClosingsPage() {
         cardSales: Number(closing.card_sales) || 0,
         otherSales: Number(closing.other_sales) || 0,
         totalSales: Number(closing.total_sales) || 0,
+        totalDeliveryFees: deliverySummary.totalDeliveryFees,
+        deliveryOrderCount: deliverySummary.deliveryOrderCount,
         totalTax: Number(closing.total_tax) || 0,
         totalDiscount: Number(closing.total_discount) || 0,
         expectedCash: Number(closing.expected_total) || 0,
@@ -345,6 +420,24 @@ export default function CashClosingsPage() {
     setEditReason('')
     setSelectedClosing(null)
     setMessage(null)
+  }
+
+  function openClosingDetails(closing: CashClosing) {
+    setSelectedClosing(closing)
+    if (!tenantId) return
+
+    const supabase = createClient()
+    void getClosingDeliverySummary(closing, supabase).then(summary => {
+      setSelectedClosing(prev => (
+        prev?.id === closing.id
+          ? {
+              ...prev,
+              total_delivery_fees: summary.totalDeliveryFees,
+              delivery_order_count: summary.deliveryOrderCount,
+            }
+          : prev
+      ))
+    })
   }
 
   async function handleSaveClosingCorrection() {
@@ -623,7 +716,7 @@ export default function CashClosingsPage() {
                         <Printer className="size-4" />
                         {printingClosingId === closing.id ? 'Imprimiendo' : 'Imprimir'}
                       </button>
-                      <button onClick={() => setSelectedClosing(closing)} className="inline-flex items-center gap-1.5 text-sm font-black text-[#e43d30]">
+                      <button onClick={() => openClosingDetails(closing)} className="inline-flex items-center gap-1.5 text-sm font-black text-[#e43d30]">
                         <Eye className="size-4" />
                         Ver
                       </button>
@@ -646,6 +739,8 @@ export default function CashClosingsPage() {
                 ['Personal', selectedClosing.staff_name],
                 ['Ventas cobradas', selectedClosing.transaction_count.toString()],
                 ['Ventas tarjeta', formatPriceWithCurrency(selectedClosing.card_sales, currencyInfo.code, currencyInfo.locale)],
+                ['Valor domicilios', formatPriceWithCurrency(Number(selectedClosing.total_delivery_fees) || 0, currencyInfo.code, currencyInfo.locale)],
+                ['Numero domicilios', String(Number(selectedClosing.delivery_order_count) || 0)],
                 ['Monto esperado', formatPriceWithCurrency(selectedClosing.expected_total, currencyInfo.code, currencyInfo.locale)],
                 ['Monto real', formatPriceWithCurrency(selectedClosing.actual_cash_count, currencyInfo.code, currencyInfo.locale)],
               ].map(([label, value]) => (
