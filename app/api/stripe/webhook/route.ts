@@ -3,6 +3,7 @@ import { cookies } from 'next/headers'
 import { NextRequest, NextResponse } from 'next/server'
 import Stripe from 'stripe'
 import { applyRecipeStockMovement } from '@/lib/inventory-recipes'
+import { getStripeConnectStatus } from '@/lib/stripe-connect'
 
 const getStripe = () => new Stripe(process.env.STRIPE_SECRET_KEY!)
 
@@ -183,7 +184,7 @@ export async function POST(request: NextRequest) {
 
       case 'account.updated': {
         const account = event.data.object as Stripe.Account
-        const status = account.charges_enabled ? 'verified' : 'pending'
+        const status = getStripeConnectStatus(account)
 
         const { error } = await supabase
           .from('tenants')

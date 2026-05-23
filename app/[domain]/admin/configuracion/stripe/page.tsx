@@ -1,8 +1,13 @@
 import { createServiceClient } from '@/lib/supabase/server'
 import { CreditCard, ShieldCheck, Zap } from 'lucide-react'
+import Stripe from 'stripe'
 import { StripeConnectClient } from './StripeConnectClient'
+import { syncStripeConnectStatus } from '@/lib/stripe-connect'
 
-interface Props { params: Promise<{ domain: string }> }
+interface Props {
+  params: Promise<{ domain: string }>
+  searchParams: Promise<{ connected?: string }>
+}
 
 type StripeTenant = {
   id: string
@@ -11,8 +16,9 @@ type StripeTenant = {
   stripe_account_status: string | null
 }
 
-export default async function StripeConnectPage({ params }: Props) {
+export default async function StripeConnectPage({ params, searchParams }: Props) {
   const { domain } = await params
+  const search = await searchParams
   const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(domain)
 
   let tenant: StripeTenant | null = null
@@ -28,6 +34,26 @@ export default async function StripeConnectPage({ params }: Props) {
 
     tenant = data
     tenantErrorMessage = error?.message || ''
+
+    if (data?.stripe_account_id) {
+      try {
+        const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!)
+        const synced = await syncStripeConnectStatus({
+          stripe,
+          supabase,
+          tenantId: data.id,
+          stripeAccountId: data.stripe_account_id,
+        })
+        tenant = { ...data, stripe_account_status: synced.status }
+      } catch (syncError) {
+        const wasReturningFromStripe = search.connected === 'true'
+        if (wasReturningFromStripe) {
+          tenantErrorMessage = syncError instanceof Error
+            ? syncError.message
+            : 'No se pudo confirmar el estado de Stripe al volver.'
+        }
+      }
+    }
   } catch (error) {
     tenantErrorMessage = error instanceof Error ? error.message : 'Error cargando la configuracion de Stripe'
   }
@@ -53,6 +79,15 @@ export default async function StripeConnectPage({ params }: Props) {
           </p>
           <p className="mt-3 text-sm font-semibold text-red-700/80">
             Revisa en Vercel que existan NEXT_PUBLIC_SUPABASE_URL y SUPABASE_SERVICE_ROLE_KEY.
+          </p>
+        </div>
+      )}
+
+      {tenant && tenantErrorMessage && (
+        <div className="rounded-2xl border border-amber-200 bg-amber-50 p-5">
+          <h2 className="text-base font-black text-amber-900">No pude confirmar Stripe automaticamente</h2>
+          <p className="mt-1 text-sm font-semibold text-amber-800">
+            {tenantErrorMessage}
           </p>
         </div>
       )}

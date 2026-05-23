@@ -3,6 +3,7 @@ import { createClient } from '@supabase/supabase-js'
 import { cookies } from 'next/headers'
 import { NextRequest, NextResponse } from 'next/server'
 import Stripe from 'stripe'
+import { syncStripeConnectStatus } from '@/lib/stripe-connect'
 
 const getStripe = () => {
   if (!process.env.STRIPE_SECRET_KEY) {
@@ -78,6 +79,15 @@ async function createConnectLink(request: NextRequest, tenantParam?: string | nu
         .from('tenants')
         .update({ stripe_account_id: stripeAccountId, stripe_account_status: 'pending' })
         .eq('id', tenant.id)
+    } else {
+      await syncStripeConnectStatus({
+        stripe,
+        supabase: serviceSupabase,
+        tenantId: tenant.id,
+        stripeAccountId,
+      }).catch((error) => {
+        console.warn('Stripe status sync before onboarding link failed:', error)
+      })
     }
 
     const appOrigin = tenant.primary_domain
