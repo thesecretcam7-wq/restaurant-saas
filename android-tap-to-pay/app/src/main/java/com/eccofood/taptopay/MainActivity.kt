@@ -641,7 +641,7 @@ class MainActivity : AppCompatActivity() {
                     currentTaxRate = bootstrap.taxRate
                     categories = bootstrap.categories
                     products = bootstrap.products
-                    tables = bootstrap.tables
+                    tables = bootstrap.tables.ifEmpty { defaultTables() }
                     if (selectedCategoryId != null && categories.none { it.id == selectedCategoryId }) {
                         selectedCategoryId = null
                     }
@@ -979,6 +979,17 @@ class MainActivity : AppCompatActivity() {
         val trimmed = value.trim().trimEnd('/')
         if (trimmed.isBlank()) return ""
         return if (trimmed.startsWith("http://") || trimmed.startsWith("https://")) trimmed else "http://$trimmed"
+    }
+
+    private fun defaultTables(): List<RestaurantTable> {
+        return (1..5).map { tableNumber ->
+            RestaurantTable(
+                id = "default-$tableNumber",
+                tableNumber = tableNumber,
+                seats = 4,
+                location = "",
+            )
+        }
     }
 
     private enum class ScreenMode {
