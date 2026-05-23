@@ -15,10 +15,12 @@ import com.stripe.stripeterminal.external.models.DiscoveryConfiguration
 import com.stripe.stripeterminal.external.models.PaymentIntent
 import com.stripe.stripeterminal.external.models.PaymentStatus
 import com.stripe.stripeterminal.external.models.Reader
+import com.stripe.stripeterminal.external.models.TapUseCase
 import com.stripe.stripeterminal.external.models.TerminalException
 import com.stripe.stripeterminal.log.LogLevel
 import org.json.JSONArray
 import org.json.JSONObject
+import java.util.concurrent.CountDownLatch
 import kotlin.concurrent.thread
 
 class TapToPayController(
@@ -51,10 +53,12 @@ class TapToPayController(
             try {
                 val tenant = payload.getString("tenantId")
                 val orderIds = payload.getJSONArray("orderIds")
-                val tableNumber = payload.optInt("tableNumber").takeIf { payload.has("tableNumber") }
+                val tableNumber = payload.optInt("tableNumber").takeIf {
+                    payload.has("tableNumber") && !payload.isNull("tableNumber")
+                }
                 tenantId = tenant
 
-                activity.runOnUiThread { initializeTerminalIfNeeded() }
+                initializeTerminalOnMain()
                 val bootstrap = api.connectionToken(tenant)
                 val locationId = bootstrap.getString("locationId")
                 val intentPayload = api.tablePaymentIntent(tenant, orderIds, tableNumber)
@@ -81,6 +85,54 @@ class TapToPayController(
                 activity.runOnUiThread { onResult(false, error.message) }
             }
         }
+    }
+
+    fun payOrder(payload: JSONObject) {
+        thread {
+            try {
+                val tenant = payload.getString("tenantId")
+                val orderId = payload.getString("orderId")
+                tenantId = tenant
+
+                initializeTerminalOnMain()
+                val bootstrap = api.connectionToken(tenant)
+                val locationId = bootstrap.getString("locationId")
+                val intentPayload = api.paymentIntent(tenant, orderId)
+                val clientSecret = intentPayload.getString("clientSecret")
+                val paymentIntentId = intentPayload.getString("paymentIntentId")
+
+                activity.runOnUiThread {
+                    connectAndCollect(
+                        locationId = locationId,
+                        clientSecret = clientSecret,
+                        onSucceeded = {
+                            thread {
+                                try {
+                                    api.completeOrder(tenant, orderId, paymentIntentId)
+                                    activity.runOnUiThread { onResult(true, null) }
+                                } catch (error: Exception) {
+                                    activity.runOnUiThread { onResult(false, error.message) }
+                                }
+                            }
+                        }
+                    )
+                }
+            } catch (error: Exception) {
+                activity.runOnUiThread { onResult(false, error.message) }
+            }
+        }
+    }
+
+    private fun initializeTerminalOnMain() {
+        val latch = CountDownLatch(1)
+        activity.runOnUiThread {
+            try {
+                initializeTerminalIfNeeded()
+            } finally {
+                latch.countDown()
+            }
+        }
+        latch.await()
     }
 
     private fun initializeTerminalIfNeeded() {
@@ -112,7 +164,7 @@ class TapToPayController(
 
     private fun connectReader(reader: Reader, locationId: String, clientSecret: String, onSucceeded: () -> Unit) {
         val config = TapToPayConnectionConfiguration(
-            locationId,
+            TapUseCase.Pay(locationId),
             true,
             tapToPayReaderListener
         )
