@@ -37,6 +37,8 @@ data class MenuProduct(
     val name: String,
     val price: Double,
     val categoryId: String,
+    val description: String,
+    val imageUrl: String,
 )
 
 data class RestaurantTable(
@@ -230,6 +232,8 @@ class EccofoodApi(initialBaseUrl: String) {
                     name = it.optString("name"),
                     price = it.optDouble("price", 0.0),
                     categoryId = it.optString("category_id"),
+                    description = it.optString("description"),
+                    imageUrl = it.optString("image_url"),
                 )
             }
         }.filter { it.id.isNotBlank() && it.name.isNotBlank() }

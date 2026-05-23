@@ -10,6 +10,7 @@ import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
 import android.text.Editable
 import android.text.InputType
+import android.text.TextUtils
 import android.text.TextWatcher
 import android.util.TypedValue
 import android.view.Gravity
@@ -66,6 +67,7 @@ class MainActivity : AppCompatActivity() {
     private var accountTableNumber: Int? = null
     private var loadedAccountTable: Int? = null
     private var searchText: String = ""
+    private var searchOpen = false
     private var loadingCommandData = false
     private var loadingAccount = false
     private var sendingOrder = false
@@ -244,37 +246,52 @@ class MainActivity : AppCompatActivity() {
         val root = baseRoot(
             title = "Comandero",
             actions = listOf(
-                HeaderAction("Actualizar") { loadCommandData() },
+                HeaderAction(if (searchOpen) "Cerrar" else "Buscar") {
+                    searchOpen = !searchOpen
+                    if (!searchOpen) searchText = ""
+                    showOrderingScreen()
+                },
                 HeaderAction("Cuenta") { openAccountForSelectedTable() },
+                HeaderAction("Actualizar") { loadCommandData() },
             )
         )
 
         val content = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(dp(12), dp(10), dp(12), dp(12))
+            setPadding(dp(8), dp(8), dp(8), dp(10))
         }
 
-        content.addView(sectionTitle("Mesa"))
-        content.addView(tableSelector { tableNumber ->
+        val selectorPanel = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(10), dp(10), dp(10), dp(8))
+            background = rounded(color("#1A1F2C"), color("#D4AF3730"), dp(1), dp(14))
+        }
+
+        selectorPanel.addView(sectionTitle("Mesas"))
+        selectorPanel.addView(tableSelector { tableNumber ->
             selectedTableNumber = tableNumber
             showOrderingScreen()
-        }, matchWrap(bottom = 10))
+        }, matchWrap(bottom = 8))
 
-        content.addView(sectionTitle("Categorias"))
-        content.addView(categorySelector(), matchWrap(bottom = 10))
+        selectorPanel.addView(sectionTitle("Categorias"))
+        selectorPanel.addView(categorySelector(), matchWrap(bottom = if (searchOpen) 10 else 2))
 
-        val searchInput = field("Buscar producto").apply {
-            setText(searchText)
-            addTextChangedListener(object : TextWatcher {
-                override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) = Unit
-                override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
-                    searchText = s?.toString().orEmpty()
-                    renderProducts()
-                }
-                override fun afterTextChanged(s: Editable?) = Unit
-            })
+        if (searchOpen) {
+            val searchInput = field("Buscar producto").apply {
+                setText(searchText)
+                addTextChangedListener(object : TextWatcher {
+                    override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) = Unit
+                    override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
+                        searchText = s?.toString().orEmpty()
+                        renderProducts()
+                    }
+                    override fun afterTextChanged(s: Editable?) = Unit
+                })
+            }
+            selectorPanel.addView(searchInput, matchWrap(bottom = 2))
         }
-        content.addView(searchInput, matchWrap(bottom = 10))
+
+        content.addView(selectorPanel, matchWrap(bottom = 8))
 
         productsContainer = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
@@ -338,14 +355,14 @@ class MainActivity : AppCompatActivity() {
     private fun baseRoot(title: String, actions: List<HeaderAction>): LinearLayout {
         return LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(dp(12), dp(14), dp(12), dp(10))
+            setPadding(0, 0, 0, 0)
             setBackgroundColor(color("#0B0E14"))
             addView(header(title, actions), matchWrap())
             statusText = TextView(this@MainActivity).apply {
                 text = if (loadingCommandData) "Cargando comandero..." else "Listo"
-                textSize = 13f
-                setTextColor(color("#C9D3E3"))
-                setPadding(0, dp(8), 0, dp(4))
+                textSize = 12f
+                setTextColor(color("#8B97A8"))
+                setPadding(dp(12), dp(6), dp(12), dp(4))
             }
             addView(statusText, matchWrap())
         }
@@ -354,6 +371,8 @@ class MainActivity : AppCompatActivity() {
     private fun header(title: String, actions: List<HeaderAction>): View {
         val header = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
+            setPadding(dp(12), dp(12), dp(12), dp(10))
+            setBackgroundColor(color("#111827"))
         }
 
         val brandRow = LinearLayout(this).apply {
@@ -363,10 +382,10 @@ class MainActivity : AppCompatActivity() {
         }
 
         val logoView = ImageView(this).apply {
-            setBackgroundColor(color("#151A23"))
+            setBackgroundColor(color("#FFFFFF"))
             scaleType = ImageView.ScaleType.CENTER_INSIDE
             setPadding(dp(4), dp(4), dp(4), dp(4))
-            background = rounded(color("#151A23"), color("#2A3241"), dp(1), dp(10))
+            background = rounded(color("#FFFFFF"), color("#D4AF3740"), dp(1), dp(12))
         }
         loadLogoInto(logoView, currentLogoUrl)
 
@@ -377,21 +396,21 @@ class MainActivity : AppCompatActivity() {
 
         titleBlock.addView(TextView(this).apply {
             text = "Comandero"
-            textSize = 25f
+            textSize = 20f
             setTextColor(Color.WHITE)
             setTypeface(typeface, Typeface.BOLD)
         })
         titleBlock.addView(TextView(this).apply {
             text = currentTenantName.ifBlank { currentTenantSlug }
             textSize = 13f
-            setTextColor(color("#9AA6B8"))
+            setTextColor(color("#C9D3E3"))
             setPadding(0, dp(2), 0, 0)
         })
         if (title != "Comandero") {
             titleBlock.addView(TextView(this).apply {
                 text = title
                 textSize = 12f
-                setTextColor(color("#39D98A"))
+                setTextColor(color("#D4AF37"))
                 setTypeface(typeface, Typeface.BOLD)
                 setPadding(0, dp(2), 0, 0)
             })
@@ -403,13 +422,13 @@ class MainActivity : AppCompatActivity() {
         }
 
         actions.forEachIndexed { index, action ->
-            if (index > 0) actionRow.addView(space(dp(8), 1))
+            if (index > 0) actionRow.addView(space(dp(6), 1))
             actionRow.addView(secondaryButton(action.label).apply {
                 setOnClickListener { action.onClick() }
             }, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
         }
 
-        brandRow.addView(logoView, LinearLayout.LayoutParams(dp(64), dp(54)))
+        brandRow.addView(logoView, LinearLayout.LayoutParams(dp(52), dp(52)))
         brandRow.addView(titleBlock, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
         header.addView(brandRow)
         header.addView(actionRow)
@@ -431,9 +450,9 @@ class MainActivity : AppCompatActivity() {
                 } else {
                     selectedTableNumber == table.tableNumber
                 }
-                row.addView(tableButton("Mesa ${table.tableNumber}", active) {
+                row.addView(tableButton(table.tableNumber.toString(), active) {
                     onSelect(table.tableNumber)
-                }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, dp(48)).apply {
+                }, LinearLayout.LayoutParams(dp(58), dp(44)).apply {
                     rightMargin = dp(8)
                 })
             }
@@ -454,7 +473,7 @@ class MainActivity : AppCompatActivity() {
         row.addView(tableButton("Todos", selectedCategoryId == null) {
             selectedCategoryId = null
             showOrderingScreen()
-        }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, dp(46)).apply {
+        }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, dp(40)).apply {
             rightMargin = dp(8)
         })
 
@@ -462,7 +481,7 @@ class MainActivity : AppCompatActivity() {
             row.addView(tableButton(category.name, selectedCategoryId == category.id) {
                 selectedCategoryId = category.id
                 showOrderingScreen()
-            }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, dp(46)).apply {
+            }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, dp(40)).apply {
                 rightMargin = dp(8)
             })
         }
@@ -493,48 +512,99 @@ class MainActivity : AppCompatActivity() {
             return
         }
 
-        visibleProducts.forEach { product ->
-            container.addView(productRow(product), matchWrap(bottom = 8))
+        visibleProducts.chunked(2).forEach { rowProducts ->
+            val row = LinearLayout(this).apply {
+                orientation = LinearLayout.HORIZONTAL
+            }
+            rowProducts.forEachIndexed { index, product ->
+                row.addView(productCard(product), LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply {
+                    leftMargin = if (index == 0) 0 else dp(4)
+                    rightMargin = if (index == 0) dp(4) else 0
+                    bottomMargin = dp(8)
+                })
+            }
+            if (rowProducts.size == 1) {
+                row.addView(space(1, 1), LinearLayout.LayoutParams(0, 1, 1f).apply {
+                    leftMargin = dp(4)
+                })
+            }
+            container.addView(row, matchWrap())
         }
     }
 
-    private fun productRow(product: MenuProduct): View {
-        val row = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER_VERTICAL
-            setPadding(dp(12), dp(10), dp(12), dp(10))
-            background = rounded(color("#151A23"), color("#2A3241"), dp(1), dp(8))
+    private fun productCard(product: MenuProduct): View {
+        val card = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            minimumHeight = dp(212)
+            setPadding(0, 0, 0, dp(8))
+            background = rounded(color("#1A1F2C"), color("#D4AF372E"), dp(1), dp(14))
         }
+
+        val imageView = ImageView(this).apply {
+            scaleType = ImageView.ScaleType.CENTER_CROP
+            setBackgroundColor(color("#252B38"))
+        }
+        loadLogoInto(imageView, product.imageUrl)
+        card.addView(imageView, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(96)))
 
         val info = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
+            setPadding(dp(9), dp(8), dp(9), 0)
         }
         info.addView(TextView(this).apply {
             text = product.name
-            textSize = 16f
-            setTextColor(Color.WHITE)
+            textSize = 13f
+            setTextColor(color("#F8F5EC"))
             setTypeface(typeface, Typeface.BOLD)
+            maxLines = 2
+            ellipsize = TextUtils.TruncateAt.END
         })
+        if (product.description.isNotBlank()) {
+            info.addView(TextView(this).apply {
+                text = product.description
+                textSize = 11f
+                setTextColor(color("#8B97A8"))
+                setPadding(0, dp(2), 0, 0)
+                maxLines = 1
+                ellipsize = TextUtils.TruncateAt.END
+            })
+        }
         info.addView(TextView(this).apply {
             text = formatMoney(product.price)
-            textSize = 13f
-            setTextColor(color("#39D98A"))
-            setPadding(0, dp(2), 0, 0)
+            textSize = 14f
+            setTextColor(color("#D35A37"))
+            setTypeface(typeface, Typeface.BOLD)
+            setPadding(0, dp(4), 0, 0)
         })
+        card.addView(info, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
 
         val qty = cart.find { it.productId == product.id }?.quantity ?: 0
-        val addButton = Button(this).apply {
-            text = if (qty > 0) "+ ($qty)" else "+"
-            isAllCaps = false
-            textSize = 18f
-            setTextColor(Color.WHITE)
-            background = rounded(color("#0E9F6E"), color("#0E9F6E"), 0, dp(10))
-            setOnClickListener { addToCart(product) }
+        val controls = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(dp(8), dp(8), dp(8), 0)
         }
 
-        row.addView(info, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
-        row.addView(addButton, LinearLayout.LayoutParams(dp(72), dp(48)))
-        return row
+        if (qty > 0) {
+            controls.addView(squareButton("-", primary = false) { changeCartQty(product.id, -1) }, LinearLayout.LayoutParams(dp(38), dp(38)))
+            controls.addView(TextView(this).apply {
+                text = qty.toString()
+                textSize = 16f
+                gravity = Gravity.CENTER
+                setTextColor(color("#F8F5EC"))
+                setTypeface(typeface, Typeface.BOLD)
+            }, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+            controls.addView(squareButton("+", primary = true) { addToCart(product) }, LinearLayout.LayoutParams(dp(38), dp(38)))
+        } else {
+            controls.addView(primaryButton("+ Agregar").apply {
+                minHeight = dp(40)
+                textSize = 13f
+                setOnClickListener { addToCart(product) }
+            }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(40)))
+        }
+
+        card.addView(controls, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+        return card
     }
 
     private fun renderCart() {
@@ -544,49 +614,90 @@ class MainActivity : AppCompatActivity() {
         val panel = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(dp(12), dp(10), dp(12), dp(12))
-            background = rounded(color("#111722"), color("#2A3241"), dp(1), dp(12))
+            background = rounded(color("#1A1F2C"), color("#D4AF3730"), dp(1), dp(18))
         }
 
         val table = selectedTableNumber
-        val total = cartTotal()
-        val title = TextView(this).apply {
-            text = if (table != null) "Mesa $table" else "Selecciona una mesa"
-            textSize = 16f
-            setTextColor(Color.WHITE)
-            setTypeface(typeface, Typeface.BOLD)
+        val subtotal = cartSubtotal()
+        val tax = cartTax()
+        val total = subtotal + tax
+        val headerRow = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
         }
-        panel.addView(title)
+        val titleBlock = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+        }
+        titleBlock.addView(TextView(this).apply {
+            text = "Pedido actual"
+            textSize = 11f
+            setTextColor(color("#D4AF37"))
+            setTypeface(typeface, Typeface.BOLD)
+        })
+        titleBlock.addView(TextView(this).apply {
+            text = if (table != null) "Mesa $table" else "Selecciona una mesa"
+            textSize = 18f
+            setTextColor(color("#F8F5EC"))
+            setTypeface(typeface, Typeface.BOLD)
+        })
+        headerRow.addView(titleBlock, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+        headerRow.addView(TextView(this).apply {
+            text = "${cart.sumOf { it.quantity }} productos"
+            textSize = 12f
+            setTextColor(color("#8B97A8"))
+            setTypeface(typeface, Typeface.BOLD)
+            setPadding(dp(10), dp(6), dp(10), dp(6))
+            background = rounded(color("#FFFFFF12"), color("#D4AF3728"), dp(1), dp(16))
+        })
+        panel.addView(headerRow)
 
         if (cart.isEmpty()) {
             panel.addView(TextView(this).apply {
-                text = "Agrega productos para enviar la comanda."
+                text = "Toca productos para agregarlos."
                 textSize = 13f
-                setTextColor(color("#9AA6B8"))
-                setPadding(0, dp(8), 0, dp(8))
+                gravity = Gravity.CENTER
+                setTextColor(color("#8B97A8"))
+                setPadding(0, dp(16), 0, dp(16))
             })
         } else {
+            panel.addView(secondaryButton("Limpiar pedido").apply {
+                setOnClickListener {
+                    cart.clear()
+                    renderCart()
+                    renderProducts()
+                }
+            }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(42)).apply {
+                topMargin = dp(10)
+                bottomMargin = dp(4)
+            })
             cart.forEach { line ->
                 panel.addView(cartLineView(line), matchWrap(top = 8))
             }
-            panel.addView(totalRow("Total", total), matchWrap(top = 10, bottom = 8))
+            val summary = LinearLayout(this).apply {
+                orientation = LinearLayout.VERTICAL
+                setPadding(dp(10), dp(8), dp(10), dp(8))
+                background = rounded(color("#D4AF3714"), color("#D4AF3728"), dp(1), dp(12))
+            }
+            summary.addView(totalRow("Subtotal", subtotal))
+            summary.addView(totalRow("Impuesto ${if (currentTaxRate > 0) "${currentTaxRate.toInt()}%" else "0%"}", tax))
+            summary.addView(totalRow("Total", total))
+            panel.addView(summary, matchWrap(top = 10, bottom = 8))
         }
 
-        val actions = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-        }
-        actions.addView(secondaryButton("Limpiar").apply {
-            setOnClickListener {
-                cart.clear()
-                renderCart()
-                renderProducts()
-            }
-        }, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 0.8f))
-        actions.addView(space(dp(8), 1))
-        actions.addView(primaryButton(if (sendingOrder) "Enviando..." else "Enviar a mesa").apply {
+        panel.addView(primaryButton(if (sendingOrder) "Enviando..." else "Enviar a cocina").apply {
             isEnabled = cart.isNotEmpty() && table != null && !sendingOrder
             setOnClickListener { sendOrderToTable() }
-        }, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1.2f))
-        panel.addView(actions, matchWrap(top = 8))
+        }, matchWrap(top = 8))
+        if (table == null && cart.isNotEmpty()) {
+            panel.addView(TextView(this).apply {
+                text = "Selecciona una mesa para enviar."
+                textSize = 12f
+                gravity = Gravity.CENTER
+                setTextColor(color("#D4AF37"))
+                setTypeface(typeface, Typeface.BOLD)
+                setPadding(0, dp(6), 0, 0)
+            })
+        }
         container.addView(panel, matchWrap())
     }
 
@@ -594,16 +705,19 @@ class MainActivity : AppCompatActivity() {
         val row = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
+            setPadding(dp(10), dp(8), dp(10), dp(8))
+            background = rounded(color("#FFFFFF10"), color("#D4AF371E"), dp(1), dp(12))
         }
         val label = TextView(this).apply {
             text = "${line.quantity} x ${line.name}\n${formatMoney(line.price * line.quantity)}"
             textSize = 13f
-            setTextColor(color("#C9D3E3"))
+            setTextColor(color("#F8F5EC"))
+            setTypeface(typeface, Typeface.BOLD)
         }
         row.addView(label, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
-        row.addView(smallButton("-") { changeCartQty(line.productId, -1) }, LinearLayout.LayoutParams(dp(42), dp(38)))
+        row.addView(squareButton("-", primary = false) { changeCartQty(line.productId, -1) }, LinearLayout.LayoutParams(dp(42), dp(38)))
         row.addView(space(dp(6), 1))
-        row.addView(smallButton("+") { changeCartQty(line.productId, 1) }, LinearLayout.LayoutParams(dp(42), dp(38)))
+        row.addView(squareButton("+", primary = true) { changeCartQty(line.productId, 1) }, LinearLayout.LayoutParams(dp(42), dp(38)))
         return row
     }
 
@@ -611,13 +725,19 @@ class MainActivity : AppCompatActivity() {
         val panel = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(dp(12), dp(12), dp(12), dp(12))
-            background = rounded(color("#151A23"), color("#2A3241"), dp(1), dp(10))
+            background = rounded(color("#1A1F2C"), color("#D4AF3730"), dp(1), dp(18))
         }
 
         panel.addView(TextView(this).apply {
-            text = "Cuenta Mesa $tableNumber"
-            textSize = 19f
-            setTextColor(Color.WHITE)
+            text = "Cuenta completa"
+            textSize = 12f
+            setTextColor(color("#D4AF37"))
+            setTypeface(typeface, Typeface.BOLD)
+        })
+        panel.addView(TextView(this).apply {
+            text = "Mesa $tableNumber"
+            textSize = 22f
+            setTextColor(color("#F8F5EC"))
             setTypeface(typeface, Typeface.BOLD)
         })
 
@@ -637,12 +757,12 @@ class MainActivity : AppCompatActivity() {
         val panel = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(dp(10), dp(10), dp(10), dp(10))
-            background = rounded(color("#0F131B"), color("#30394A"), dp(1), dp(8))
+            background = rounded(color("#FFFFFF10"), color("#D4AF371E"), dp(1), dp(12))
         }
         panel.addView(TextView(this).apply {
             text = order.orderNumber
             textSize = 14f
-            setTextColor(Color.WHITE)
+            setTextColor(color("#F8F5EC"))
             setTypeface(typeface, Typeface.BOLD)
         })
         order.items.forEach { item ->
@@ -656,7 +776,7 @@ class MainActivity : AppCompatActivity() {
         panel.addView(TextView(this).apply {
             text = formatMoney(order.total)
             textSize = 14f
-            setTextColor(color("#39D98A"))
+            setTextColor(color("#D35A37"))
             gravity = Gravity.END
             setTypeface(typeface, Typeface.BOLD)
             setPadding(0, dp(8), 0, 0)
@@ -852,10 +972,13 @@ class MainActivity : AppCompatActivity() {
         renderProducts()
     }
 
-    private fun cartTotal(): Double {
-        val subtotal = cart.sumOf { it.price * it.quantity }
-        val tax = if (currentTaxRate > 0) subtotal * (currentTaxRate / 100.0) else 0.0
-        return subtotal + tax
+    private fun cartSubtotal(): Double {
+        return cart.sumOf { it.price * it.quantity }
+    }
+
+    private fun cartTax(): Double {
+        val subtotal = cartSubtotal()
+        return if (currentTaxRate > 0) subtotal * (currentTaxRate / 100.0) else 0.0
     }
 
     private fun clearAccess() {
@@ -870,6 +993,8 @@ class MainActivity : AppCompatActivity() {
         selectedTableNumber = null
         accountTableNumber = null
         loadedAccountTable = null
+        searchText = ""
+        searchOpen = false
         showSetupScreen()
     }
 
@@ -883,7 +1008,7 @@ class MainActivity : AppCompatActivity() {
         return TextView(this).apply {
             text = textValue
             textSize = 12f
-            setTextColor(color("#9AA6B8"))
+            setTextColor(color("#8B97A8"))
             setTypeface(typeface, Typeface.BOLD)
             setPadding(0, dp(6), 0, dp(6))
         }
@@ -907,14 +1032,14 @@ class MainActivity : AppCompatActivity() {
         }
         row.addView(TextView(this).apply {
             text = label
-            textSize = 16f
-            setTextColor(Color.WHITE)
+            textSize = 14f
+            setTextColor(color("#F8F5EC"))
             setTypeface(typeface, Typeface.BOLD)
         }, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
         row.addView(TextView(this).apply {
             text = formatMoney(amount)
-            textSize = 18f
-            setTextColor(color("#39D98A"))
+            textSize = if (label == "Total" || label == "Total a cobrar") 20f else 14f
+            setTextColor(color("#D35A37"))
             setTypeface(typeface, Typeface.BOLD)
         })
         return row
@@ -929,7 +1054,7 @@ class MainActivity : AppCompatActivity() {
             setHintTextColor(color("#6F7B8D"))
             setPadding(dp(12), 0, dp(12), 0)
             minHeight = dp(50)
-            background = rounded(color("#0F131B"), color("#30394A"), dp(1), dp(8))
+            background = rounded(color("#FFFFFF10"), color("#D4AF3730"), dp(1), dp(12))
         }
     }
 
@@ -941,7 +1066,7 @@ class MainActivity : AppCompatActivity() {
             textSize = 15f
             setTextColor(Color.WHITE)
             minHeight = dp(50)
-            background = rounded(color("#0E9F6E"), color("#0E9F6E"), 0, dp(8))
+            background = rounded(color("#D35A37"), color("#D35A37"), 0, dp(14))
         }
     }
 
@@ -952,17 +1077,24 @@ class MainActivity : AppCompatActivity() {
             textSize = 13f
             setTextColor(Color.WHITE)
             minHeight = dp(44)
-            background = rounded(color("#222A36"), color("#344052"), dp(1), dp(8))
+            background = rounded(color("#FFFFFF14"), color("#D4AF3730"), dp(1), dp(12))
         }
     }
 
-    private fun smallButton(label: String, onClick: () -> Unit): Button {
+    private fun squareButton(label: String, primary: Boolean, onClick: () -> Unit): Button {
         return Button(this).apply {
             text = label
             isAllCaps = false
             textSize = 16f
-            setTextColor(Color.WHITE)
-            background = rounded(color("#222A36"), color("#344052"), dp(1), dp(8))
+            setTypeface(typeface, Typeface.BOLD)
+            setTextColor(if (primary) Color.WHITE else color("#F8F5EC"))
+            minHeight = 0
+            minWidth = 0
+            background = if (primary) {
+                rounded(color("#D35A37"), color("#D35A37"), 0, dp(12))
+            } else {
+                rounded(color("#FFFFFF14"), color("#D4AF3730"), dp(1), dp(12))
+            }
             setOnClickListener { onClick() }
         }
     }
@@ -972,11 +1104,11 @@ class MainActivity : AppCompatActivity() {
             text = label
             isAllCaps = false
             textSize = 13f
-            setTextColor(if (active) Color.WHITE else color("#C9D3E3"))
+            setTextColor(if (active) color("#15130F") else color("#F8F5EC"))
             background = if (active) {
-                rounded(color("#0E9F6E"), color("#0E9F6E"), 0, dp(10))
+                rounded(color("#D4AF37"), color("#D4AF37"), 0, dp(18))
             } else {
-                rounded(color("#151A23"), color("#30394A"), dp(1), dp(10))
+                rounded(color("#111827"), color("#D4AF3730"), dp(1), dp(18))
             }
             setOnClickListener { onClick() }
         }

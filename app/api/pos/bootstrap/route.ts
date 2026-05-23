@@ -21,7 +21,7 @@ export async function GET(request: NextRequest) {
         .order('sort_order', { ascending: true }),
       supabase
         .from('menu_items')
-        .select('id, name, price, category_id, image_url')
+        .select('id, name, price, category_id, description, image_url')
         .eq('tenant_id', tenantId)
         .eq('available', true)
         .order('name', { ascending: true }),
