@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { AlertCircle, Loader2, Pencil, Printer, Search, Trash2 } from 'lucide-react';
+import { AlertCircle, Loader2, Pencil, Printer, Search, Trash2, Truck } from 'lucide-react';
 import { ReprintReceiptButton } from './ReprintReceiptButton';
 
 interface Order {
@@ -50,6 +50,8 @@ export function POSOrderLookup({ domain, onOrderSelected, onVoidOrder, onRemoveI
   const [error, setError] = useState<string | null>(null);
   const [searched, setSearched] = useState(false);
   const [showingToday, setShowingToday] = useState(false);
+  const [todayTicketCount, setTodayTicketCount] = useState(0);
+  const [todayPaidCount, setTodayPaidCount] = useState(0);
 
   const loadTodayOrders = useCallback(async () => {
     setLoading(true);
@@ -57,7 +59,7 @@ export function POSOrderLookup({ domain, onOrderSelected, onVoidOrder, onRemoveI
 
     try {
       const response = await fetch(
-        `/api/orders/search?domain=${domain}&today=1&limit=40`,
+        `/api/orders/search?domain=${domain}&today=1&limit=200`,
         { credentials: 'include', cache: 'no-store' }
       );
 
@@ -65,6 +67,8 @@ export function POSOrderLookup({ domain, onOrderSelected, onVoidOrder, onRemoveI
 
       const data = await response.json();
       setResults(data.orders || []);
+      setTodayTicketCount(typeof data.count === 'number' ? data.count : (data.orders || []).length);
+      setTodayPaidCount(typeof data.paidCount === 'number' ? data.paidCount : 0);
       setSearched(false);
       setShowingToday(true);
     } catch (err) {
@@ -90,6 +94,8 @@ export function POSOrderLookup({ domain, onOrderSelected, onVoidOrder, onRemoveI
     setLoading(true);
     setError(null);
     setResults([]);
+    setTodayTicketCount(0);
+    setTodayPaidCount(0);
     setShowingToday(false);
 
     try {
@@ -211,9 +217,14 @@ export function POSOrderLookup({ domain, onOrderSelected, onVoidOrder, onRemoveI
         </form>
         {showingToday && (
           <div className="mt-3 flex items-center justify-between gap-2 text-xs">
-            <span className="font-semibold text-gray-400">
-              Tickets de hoy: <strong className="text-white">{results.length}</strong>
-            </span>
+            <div className="flex min-w-0 flex-wrap gap-x-3 gap-y-1 font-semibold text-gray-400">
+              <span>
+                Ventas cobradas del turno: <strong className="text-white">{todayPaidCount}</strong>
+              </span>
+              <span>
+                Tickets del turno: <strong className="text-white">{todayTicketCount}</strong>
+              </span>
+            </div>
             <button
               type="button"
               onClick={loadTodayOrders}
@@ -251,7 +262,12 @@ export function POSOrderLookup({ domain, onOrderSelected, onVoidOrder, onRemoveI
 
         {results.length > 0 && (
           <div className="space-y-2 p-3">
-            {results.map((order) => (
+            {results.map((order) => {
+              const orderDeliveryFee = Number(order.delivery_fee || 0);
+              const hasDeliveryFee = orderDeliveryFee > 0;
+              const orderItems = Array.isArray(order.items) ? order.items : [];
+
+              return (
               <div
                 key={order.id}
                 className="rounded-lg border border-gray-700 bg-gray-800/50 p-3 transition-all hover:border-blue-600 hover:bg-gray-800"
@@ -281,9 +297,9 @@ export function POSOrderLookup({ domain, onOrderSelected, onVoidOrder, onRemoveI
                   </div>
                 </button>
 
-                {order.items && order.items.length > 0 && (
+                {(orderItems.length > 0 || hasDeliveryFee) && (
                   <div className="space-y-1 border-t border-gray-700 pt-2">
-                    {order.items.map((item, i) => (
+                    {orderItems.map((item, i) => (
                       <div key={`${order.id}-${i}`} className="flex items-center justify-between gap-2 rounded-md px-1 py-0.5 text-xs text-gray-400 hover:bg-gray-900/70">
                         <span className="min-w-0 flex-1 truncate">
                           {(item.qty ?? item.quantity ?? 1)}x {item.name}
@@ -304,6 +320,15 @@ export function POSOrderLookup({ domain, onOrderSelected, onVoidOrder, onRemoveI
                         )}
                       </div>
                     ))}
+                    {hasDeliveryFee && (
+                      <div className="flex items-center justify-between gap-2 rounded-md border border-amber-400/20 bg-amber-400/10 px-2 py-1 text-xs text-amber-100">
+                        <span className="flex min-w-0 flex-1 items-center gap-1.5 font-bold">
+                          <Truck className="h-3.5 w-3.5 shrink-0" />
+                          Domicilio
+                        </span>
+                        <span className="shrink-0 font-black">{formatMoney(orderDeliveryFee)}</span>
+                      </div>
+                    )}
                   </div>
                 )}
 
@@ -353,7 +378,8 @@ export function POSOrderLookup({ domain, onOrderSelected, onVoidOrder, onRemoveI
                   </div>
                 )}
               </div>
-            ))}
+              );
+            })}
           </div>
         )}
 

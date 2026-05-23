@@ -1,6 +1,7 @@
 import { createServiceClient } from '@/lib/supabase/server'
 import { NextRequest, NextResponse } from 'next/server'
 import { requireTenantAccess, tenantAuthErrorResponse } from '@/lib/tenant-api-auth'
+import { getRestaurantBusinessPeriod, getRestaurantLocale, getRestaurantTimeZone } from '@/lib/restaurant-time'
 
 export async function GET(request: NextRequest) {
   try {
@@ -8,7 +9,8 @@ export async function GET(request: NextRequest) {
     const domain = searchParams.get('domain')
     const orderNumber = searchParams.get('order_number')
     const todayOnly = searchParams.get('today') === '1'
-    const limit = parseInt(searchParams.get('limit') || '10')
+    const requestedLimit = parseInt(searchParams.get('limit') || '10')
+    const limit = Number.isFinite(requestedLimit) ? Math.min(Math.max(requestedLimit, 1), 200) : 10
 
     if (!domain || (!orderNumber && !todayOnly)) {
       return NextResponse.json(
@@ -26,7 +28,7 @@ export async function GET(request: NextRequest) {
 
       const { data: tenant } = await supabase
         .from('tenants')
-        .select('id')
+        .select('id, country')
         .or(tenantLookup)
         .maybeSingle()
 
@@ -41,18 +43,47 @@ export async function GET(request: NextRequest) {
       const searchTerm = `%${rawSearch}%`
       const onlyDigits = rawSearch.replace(/\D/g, '')
       const maybeTableNumber = Number(onlyDigits || rawSearch)
+      let todayPeriod: ReturnType<typeof getRestaurantBusinessPeriod> | null = null
 
-      let query = supabase
-        .from('orders')
-        .select('id, order_number, customer_name, customer_phone, subtotal, tax, delivery_fee, total, payment_status, payment_method, status, items, created_at, delivery_type, table_number')
+      if (todayOnly && !rawSearch) {
+        const { data: settings, error: settingsError } = await supabase
+          .from('restaurant_settings')
+          .select('operating_hours, timezone, country')
+          .eq('tenant_id', tenantId)
+          .maybeSingle()
+
+        if (settingsError) {
+          return NextResponse.json({ error: settingsError.message }, { status: 500 })
+        }
+
+        const timeZone = getRestaurantTimeZone({
+          timezone: settings?.timezone,
+          settingsCountry: settings?.country,
+          tenantCountry: tenant.country,
+        })
+        const locale = getRestaurantLocale(settings?.country || tenant.country)
+
+        todayPeriod = getRestaurantBusinessPeriod({
+          operatingHours: settings?.operating_hours,
+          timeZone,
+          locale,
+        })
+      }
+
+      const orderFields = 'id, order_number, customer_name, customer_phone, subtotal, tax, delivery_fee, total, payment_status, payment_method, status, items, created_at, delivery_type, table_number'
+      let query = todayPeriod
+        ? supabase.from('orders').select(orderFields, { count: 'exact' })
+        : supabase.from('orders').select(orderFields)
+
+      query = query
         .eq('tenant_id', tenantId)
         .order('created_at', { ascending: false })
         .limit(limit)
 
-      if (todayOnly && !rawSearch) {
-        const todayStart = new Date()
-        todayStart.setHours(0, 0, 0, 0)
-        query = query.gte('created_at', todayStart.toISOString())
+      if (todayPeriod) {
+        query = query
+          .gte('created_at', todayPeriod.periodStart)
+          .lt('created_at', todayPeriod.periodEnd)
       } else if (/mesa/i.test(rawSearch) && Number.isFinite(maybeTableNumber)) {
         query = query.eq('table_number', maybeTableNumber)
       } else {
@@ -74,13 +105,37 @@ export async function GET(request: NextRequest) {
         query = query.or(orFilters.join(','))
       }
 
-      const { data: orders, error } = await query
+      const { data: orders, error, count } = await query
 
       if (error) {
         return NextResponse.json({ error: error.message }, { status: 500 })
       }
 
-      return NextResponse.json({ orders: orders || [] })
+      let paidCount: number | null = null
+      if (todayPeriod) {
+        const { count: exactPaidCount, error: paidCountError } = await supabase
+          .from('orders')
+          .select('id', { count: 'exact', head: true })
+          .eq('tenant_id', tenantId)
+          .gte('created_at', todayPeriod.periodStart)
+          .lt('created_at', todayPeriod.periodEnd)
+          .neq('payment_method', null)
+          .eq('payment_status', 'paid')
+          .neq('status', 'cancelled')
+
+        if (paidCountError) {
+          return NextResponse.json({ error: paidCountError.message }, { status: 500 })
+        }
+
+        paidCount = exactPaidCount || 0
+      }
+
+      return NextResponse.json({
+        orders: orders || [],
+        count: count ?? orders?.length ?? 0,
+        paidCount,
+        period: todayPeriod,
+      })
     } catch (authError) {
       return tenantAuthErrorResponse(authError)
     }

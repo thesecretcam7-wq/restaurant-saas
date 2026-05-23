@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/client';
+import { getRestaurantBusinessPeriod, getRestaurantLocale, getRestaurantTimeZone } from '@/lib/restaurant-time';
 
 export interface CashClosingStats {
   cashSales: number;
@@ -25,8 +26,6 @@ export interface CashClosingStats {
   }[];
 }
 
-const DEFAULT_OPERATIONAL_CLOSE_MINUTES = 5 * 60; // 05:00, useful for restaurants that close after midnight.
-
 function emptyStats(period: CashClosingPeriod): CashClosingStats {
   return {
     cashSales: 0,
@@ -51,55 +50,6 @@ type CashClosingPeriod = {
   businessDateLabel: string;
   operationalCloseTime: string;
 };
-
-function parseTimeToMinutes(value?: string | null) {
-  if (!value || !/^\d{1,2}:\d{2}$/.test(value)) return null;
-  const [hours, minutes] = value.split(':').map(Number);
-  if (hours < 0 || hours > 23 || minutes < 0 || minutes > 59) return null;
-  return hours * 60 + minutes;
-}
-
-function formatMinutes(minutes: number) {
-  const h = Math.floor(minutes / 60).toString().padStart(2, '0');
-  const m = (minutes % 60).toString().padStart(2, '0');
-  return `${h}:${m}`;
-}
-
-function findOperationalCloseMinutes(operatingHours: any) {
-  const overnightCloseMinutes: number[] = [];
-
-  Object.values(operatingHours || {}).forEach((day: any) => {
-    Object.values(day || {}).forEach((shift: any) => {
-      const open = parseTimeToMinutes(shift?.open);
-      const close = parseTimeToMinutes(shift?.close);
-      if (open === null || close === null) return;
-      if (close <= open) overnightCloseMinutes.push(close);
-    });
-  });
-
-  if (overnightCloseMinutes.length === 0) return DEFAULT_OPERATIONAL_CLOSE_MINUTES;
-  return Math.max(...overnightCloseMinutes);
-}
-
-function calculateBusinessPeriod(closeMinutes: number, now = new Date()): CashClosingPeriod {
-  const currentMinutes = now.getHours() * 60 + now.getMinutes();
-  const start = new Date(now);
-  start.setHours(Math.floor(closeMinutes / 60), closeMinutes % 60, 0, 0);
-
-  if (currentMinutes < closeMinutes) {
-    start.setDate(start.getDate() - 1);
-  }
-
-  const end = new Date(start);
-  end.setDate(end.getDate() + 1);
-
-  return {
-    periodStart: start.toISOString(),
-    periodEnd: end.toISOString(),
-    businessDateLabel: start.toLocaleDateString('es-ES', { weekday: 'long', day: '2-digit', month: 'long' }),
-    operationalCloseTime: formatMinutes(closeMinutes),
-  };
-}
 
 function statsFromOrders(period: CashClosingPeriod, orders: any[] = []): CashClosingStats {
   const countableOrders = orders.filter((order: any) =>
@@ -173,11 +123,21 @@ async function getCurrentOperationalPeriod(tenantId: string) {
   const supabase = createClient();
   const { data: settings } = await supabase
     .from('restaurant_settings')
-    .select('operating_hours')
+    .select('operating_hours, timezone, country')
     .eq('tenant_id', tenantId)
     .maybeSingle();
 
-  return calculateBusinessPeriod(findOperationalCloseMinutes(settings?.operating_hours));
+  const timeZone = getRestaurantTimeZone({
+    timezone: settings?.timezone,
+    settingsCountry: settings?.country,
+  });
+  const locale = getRestaurantLocale(settings?.country);
+
+  return getRestaurantBusinessPeriod({
+    operatingHours: settings?.operating_hours,
+    timeZone,
+    locale,
+  });
 }
 
 /**
@@ -194,18 +154,27 @@ export async function calculateCashClosingStats(
   try {
     const { data: settings } = await supabase
       .from('restaurant_settings')
-      .select('operating_hours')
+      .select('operating_hours, timezone, country')
       .eq('tenant_id', tenantId)
       .maybeSingle();
 
+    const timeZone = getRestaurantTimeZone({
+      timezone: settings?.timezone,
+      settingsCountry: settings?.country,
+    });
+    const locale = getRestaurantLocale(settings?.country);
     const period = fromDate && toDate
       ? {
           periodStart: fromDate.toISOString(),
           periodEnd: toDate.toISOString(),
-          businessDateLabel: fromDate.toLocaleDateString('es-ES', { weekday: 'long', day: '2-digit', month: 'long' }),
+          businessDateLabel: fromDate.toLocaleDateString(locale, { weekday: 'long', day: '2-digit', month: 'long', timeZone }),
           operationalCloseTime: 'manual',
         }
-      : calculateBusinessPeriod(findOperationalCloseMinutes(settings?.operating_hours));
+      : getRestaurantBusinessPeriod({
+          operatingHours: settings?.operating_hours,
+          timeZone,
+          locale,
+        });
 
     const startDate = fromDate || new Date(period.periodStart);
     const endDate = toDate || new Date(period.periodEnd);
@@ -215,7 +184,7 @@ export async function calculateCashClosingStats(
       .select('*')
       .eq('tenant_id', tenantId)
       .gte('created_at', startDate.toISOString())
-      .lte('created_at', endDate.toISOString())
+      .lt('created_at', endDate.toISOString())
       .neq('payment_method', null);
 
     if (error) {
@@ -283,7 +252,10 @@ export async function calculateCashClosingStats(
     return stats;
   } catch (error) {
     console.error('Error calculating cash closing stats:', error);
-    return emptyStats(calculateBusinessPeriod(DEFAULT_OPERATIONAL_CLOSE_MINUTES));
+    return emptyStats(getRestaurantBusinessPeriod({
+      timeZone: getRestaurantTimeZone(),
+      locale: getRestaurantLocale(),
+    }));
   }
 }
 

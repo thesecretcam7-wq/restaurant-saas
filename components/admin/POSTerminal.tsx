@@ -2482,10 +2482,12 @@ export function POSTerminal({
   const taxableSubtotal = Math.max(0, subtotal - discount);
   const taxAmount = taxRate > 0 ? taxableSubtotal * (taxRate / 100) : 0;
   const activeDeliveryFee = !selectedTableId && posOrderType === 'delivery' && deliveryEnabled ? Number(selectedDeliveryZone?.fee || deliveryFee || 0) : 0;
-  const paymentBaseTotal = taxableSubtotal + taxAmount + activeDeliveryFee;
+  const loadedOrderDeliveryFee = loadedOrderId ? Number(loadedOrderContext?.deliveryFee || 0) : 0;
+  const cartDeliveryFee = loadedOrderId ? loadedOrderDeliveryFee : activeDeliveryFee;
+  const paymentBaseTotal = taxableSubtotal + taxAmount + cartDeliveryFee;
   const total = paymentBaseTotal + tip;
   const editingPaidReceipt = loadedOrderContext?.paymentStatus === 'paid';
-  const editedReceiptDeliveryFee = editingPaidReceipt ? Number(loadedOrderContext?.deliveryFee || 0) : activeDeliveryFee;
+  const editedReceiptDeliveryFee = editingPaidReceipt ? loadedOrderDeliveryFee : cartDeliveryFee;
   const editedReceiptTotal = taxableSubtotal + taxAmount + editedReceiptDeliveryFee + tip;
   const editedReceiptDifference = editingPaidReceipt
     ? Math.round((editedReceiptTotal - Number(loadedOrderContext?.originalTotal || 0)) * 100) / 100
@@ -3521,10 +3523,10 @@ export function POSTerminal({
                   <span className="font-semibold text-slate-200">{formatPriceWithCurrency(taxAmount, currencyInfo.code, currencyInfo.locale)}</span>
                 </div>
               )}
-              {activeDeliveryFee > 0 && (
+              {cartDeliveryFee > 0 && (
                 <div className="flex justify-between rounded-lg border border-amber-300/25 bg-amber-300/10 px-2 py-1">
                   <span className="text-amber-200 font-bold">Domicilio:</span>
-                  <span className="font-black text-amber-100">{formatPriceWithCurrency(activeDeliveryFee, currencyInfo.code, currencyInfo.locale)}</span>
+                  <span className="font-black text-amber-100">{formatPriceWithCurrency(cartDeliveryFee, currencyInfo.code, currencyInfo.locale)}</span>
                 </div>
               )}
             </div>
