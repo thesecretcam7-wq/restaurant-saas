@@ -7,6 +7,65 @@ import type { TenantAccess } from '@/lib/tenant-api-auth'
 
 export const getStripe = () => new Stripe(process.env.STRIPE_SECRET_KEY!)
 
+export class TerminalSetupError extends Error {
+  constructor(
+    message: string,
+    public code: string,
+    public status = 400
+  ) {
+    super(message)
+    this.name = 'TerminalSetupError'
+  }
+}
+
+const TAP_TO_PAY_ANDROID_COUNTRIES = new Set([
+  'AU',
+  'AT',
+  'BE',
+  'BG',
+  'CA',
+  'CH',
+  'CY',
+  'CZ',
+  'DE',
+  'DK',
+  'EE',
+  'ES',
+  'FI',
+  'FR',
+  'GB',
+  'GI',
+  'HR',
+  'HU',
+  'IE',
+  'IT',
+  'LI',
+  'LT',
+  'LU',
+  'LV',
+  'MT',
+  'MY',
+  'NL',
+  'NO',
+  'NZ',
+  'PL',
+  'PT',
+  'RO',
+  'SE',
+  'SG',
+  'SI',
+  'SK',
+  'US',
+])
+
+const TERMINAL_LOCATION_DEFAULTS: Record<string, { city: string; postalCode: string; state?: string }> = {
+  AU: { city: 'Sydney', postalCode: '2000', state: 'NSW' },
+  CA: { city: 'Toronto', postalCode: 'M5H 2N2', state: 'ON' },
+  ES: { city: 'Madrid', postalCode: '28001', state: 'Madrid' },
+  IT: { city: 'Roma', postalCode: '00118', state: 'RM' },
+  US: { city: 'New York', postalCode: '10001', state: 'NY' },
+}
+
 const ZERO_DECIMAL_STRIPE_CURRENCIES = new Set([
   'BIF',
   'CLP',
@@ -80,12 +139,7 @@ export async function getOrCreateTerminalLocation(
 ) {
   const stripe = getStripe()
   const metadataTenantId = tenant.id
-  const existingLocations = await stripe.terminal.locations.list(
-    { limit: 100 },
-    { stripeAccount: tenant.stripe_account_id! }
-  )
-  const existing = existingLocations.data.find((location) => location.metadata?.tenant_id === metadataTenantId)
-  if (existing) return existing
+  const account = await stripe.accounts.retrieve(tenant.stripe_account_id!)
 
   const { data: settings } = await supabase
     .from('restaurant_settings')
@@ -93,19 +147,42 @@ export async function getOrCreateTerminalLocation(
     .eq('tenant_id', tenant.id)
     .maybeSingle()
 
-  const country = String(settings?.country || tenant.country || 'ES').toUpperCase()
-  const city = String(settings?.city || (country === 'CO' ? 'Bogota' : 'Madrid')).trim()
+  const country = String(account.country || settings?.country || tenant.country || 'ES').toUpperCase()
+  if (!TAP_TO_PAY_ANDROID_COUNTRIES.has(country)) {
+    throw new TerminalSetupError(
+      `Tap to Pay en Android no esta disponible para cuentas Stripe de ${country}. Usa una cuenta Stripe de un pais compatible, por ejemplo US o ES.`,
+      'TERMINAL_COUNTRY_UNSUPPORTED'
+    )
+  }
+
+  const existingLocations = await stripe.terminal.locations.list(
+    { limit: 100 },
+    { stripeAccount: tenant.stripe_account_id! }
+  )
+  const existing = existingLocations.data.find((location) => (
+    location.metadata?.tenant_id === metadataTenantId &&
+    String(location.address?.country || '').toUpperCase() === country
+  ))
+  if (existing) return existing
+
+  const defaults = TERMINAL_LOCATION_DEFAULTS[country] || { city: 'Madrid', postalCode: '28001' }
+  const city = String(settings?.city || defaults.city).trim()
   const line1 = String(settings?.address || 'Direccion del restaurante').trim()
+  const address: Stripe.Terminal.LocationCreateParams.Address = {
+    line1,
+    city,
+    country,
+    postal_code: defaults.postalCode,
+  }
+
+  if (defaults.state) {
+    address.state = defaults.state
+  }
 
   return stripe.terminal.locations.create(
     {
       display_name: settings?.display_name || tenant.organization_name || tenant.slug || 'Eccofood Restaurante',
-      address: {
-        line1,
-        city,
-        country,
-        postal_code: country === 'CO' ? '110111' : '28001',
-      },
+      address,
       metadata: {
         tenant_id: tenant.id,
         tenant_slug: tenant.slug || '',

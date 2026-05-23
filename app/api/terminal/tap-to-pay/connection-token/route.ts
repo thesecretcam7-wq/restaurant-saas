@@ -1,7 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
 import { requireTenantAccess, tenantAuthErrorResponse } from '@/lib/tenant-api-auth'
-import { assertTerminalReady, getOrCreateTerminalLocation, getStripe, resolveTerminalTenant } from '@/lib/terminal-payments'
+import {
+  TerminalSetupError,
+  assertTerminalReady,
+  getOrCreateTerminalLocation,
+  getStripe,
+  resolveTerminalTenant,
+} from '@/lib/terminal-payments'
 
 export async function POST(request: NextRequest) {
   try {
@@ -39,6 +45,14 @@ export async function POST(request: NextRequest) {
     }
     if (error instanceof Error && error.message === 'STRIPE_NOT_READY') {
       return NextResponse.json({ error: 'Stripe no esta listo para este restaurante' }, { status: 400 })
+    }
+    if (error instanceof TerminalSetupError) {
+      return NextResponse.json({ error: error.message, code: error.code }, { status: error.status })
+    }
+
+    const stripeError = error as { type?: string; message?: string }
+    if (stripeError.type?.startsWith('Stripe') && stripeError.message) {
+      return NextResponse.json({ error: stripeError.message }, { status: 400 })
     }
 
     console.error('[terminal connection token]', error)

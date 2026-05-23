@@ -20,7 +20,7 @@ class TerminalTokenProvider(
             lastLocationId = payload.optString("locationId").takeIf { it.isNotBlank() }
             callback.onSuccess(payload.getString("secret"))
         } catch (error: Exception) {
-            callback.onFailure(ConnectionTokenException("No se pudo obtener token de Terminal", error))
+            callback.onFailure(ConnectionTokenException(error.message ?: "No se pudo obtener token de Terminal", error))
         }
     }
 }
