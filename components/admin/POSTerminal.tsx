@@ -486,6 +486,7 @@ export function POSTerminal({
   const [searchQuery, setSearchQuery] = useState('');
   const searchInputRef = useRef<HTMLInputElement>(null);
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('cash');
+  const [printReceiptAfterPayment, setPrintReceiptAfterPayment] = useState(true);
   const [discountCode, setDiscountCode] = useState('');
   const [discount, setDiscount] = useState(0);
   const [taxRate, setTaxRate] = useState(0);
@@ -1699,6 +1700,9 @@ export function POSTerminal({
         );
         if (data.settings.display_name) setRestaurantName(data.settings.display_name);
         if (data.settings.phone) setRestaurantPhone(data.settings.phone);
+        if (typeof data.settings.printer_auto_print === 'boolean') {
+          setPrintReceiptAfterPayment(data.settings.printer_auto_print);
+        }
       }
     } catch (error) {
       console.error('Error fetching menu:', error);
@@ -1959,7 +1963,7 @@ export function POSTerminal({
     }
   }
 
-  function handleShowReceipt(amountPaid?: number) {
+  function handleShowReceipt(amountPaid?: number, printReceipt = printReceiptAfterPayment) {
     if (cart.length === 0) {
       setToast({ message: 'El carrito está vacío', type: 'error' });
       return;
@@ -1970,9 +1974,8 @@ export function POSTerminal({
       return;
     }
 
-    // Auto-print receipt without modal
     setPendingPaymentData({ amountPaid });
-    processPaymentAfterReceipt(amountPaid);
+    processPaymentAfterReceipt(amountPaid, printReceipt);
   }
 
   async function handleSendCartToTable() {
@@ -2071,7 +2074,7 @@ export function POSTerminal({
     }
   }
 
-  async function processPaymentAfterReceipt(amountPaid?: number) {
+  async function processPaymentAfterReceipt(amountPaid?: number, printCustomerReceipt = printReceiptAfterPayment) {
     try {
       setProcessingPayment(true);
       let receiptOrderId: string | null = null;
@@ -2343,22 +2346,24 @@ export function POSTerminal({
           return result.data;
         };
 
-        if (settings) {
-          void fetchPrinterSettings().catch(() => {});
-        } else {
-          try {
-            settings = await fetchPrinterSettings();
-          } catch (settingsError) {
-            backgroundWarnings.push(`No se pudo leer configuracion de impresora: ${settingsError instanceof Error ? settingsError.message : String(settingsError)}`);
+        if (printCustomerReceipt) {
+          if (settings) {
+            void fetchPrinterSettings().catch(() => {});
+          } else {
+            try {
+              settings = await fetchPrinterSettings();
+            } catch (settingsError) {
+              backgroundWarnings.push(`No se pudo leer configuracion de impresora: ${settingsError instanceof Error ? settingsError.message : String(settingsError)}`);
+            }
           }
         }
 
         let receiptPrintedWithDrawer = false;
         try {
-          if (!settings?.default_receipt_printer_id) {
+          if (!printCustomerReceipt) {
+            // Receipt intentionally skipped for this sale.
+          } else if (!settings?.default_receipt_printer_id) {
             backgroundWarnings.push('No hay impresora predeterminada');
-          } else if (!settings?.printer_auto_print) {
-            backgroundWarnings.push('Auto impresion desactivada');
           } else if (receiptSnapshot.orderId) {
             try {
               await printReceipt(tenantId, settings.default_receipt_printer_id, {
@@ -2409,9 +2414,9 @@ export function POSTerminal({
           });
         } else if (!savedOfflineSale) {
           setToast({
-            message: receiptSnapshot.openCashDrawer
-              ? 'Recibo impreso y cajon abierto'
-              : 'Recibo impreso',
+            message: printCustomerReceipt
+              ? (receiptSnapshot.openCashDrawer ? 'Recibo impreso y cajon abierto' : 'Recibo impreso')
+              : (receiptSnapshot.openCashDrawer ? 'Venta guardada sin recibo. Cajon abierto' : 'Venta guardada sin recibo'),
             type: 'success',
           });
         }
@@ -2451,7 +2456,9 @@ export function POSTerminal({
       setToast({
         message: savedOfflineSale
           ? 'Venta cobrada en modo offline. Se subira sola cuando vuelva internet.'
-          : 'Venta guardada. Imprimiendo recibo...',
+          : printCustomerReceipt
+            ? 'Venta guardada. Imprimiendo recibo...'
+            : (shouldOpenCashDrawer ? 'Venta guardada. Abriendo cajon...' : 'Venta guardada sin imprimir recibo.'),
         type: 'success',
       });
     } catch (error) {
@@ -3696,7 +3703,7 @@ export function POSTerminal({
                     </div>
                     <button
                       type="button"
-                      onClick={() => processPaymentAfterReceipt()}
+                      onClick={() => processPaymentAfterReceipt(undefined, true)}
                       disabled={cart.length === 0 || processingPayment}
                       className="w-full rounded-xl bg-gradient-to-r from-cyan-500 to-emerald-500 px-3 py-3 text-sm font-black text-white shadow-lg shadow-cyan-950/30 transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50"
                     >
@@ -3720,6 +3727,8 @@ export function POSTerminal({
                     onTipChange={setTip}
                     paymentMethod={paymentMethod}
                     onPaymentMethodChange={setPaymentMethod}
+                    printReceipt={printReceiptAfterPayment}
+                    onPrintReceiptChange={setPrintReceiptAfterPayment}
                     onProceedPayment={handleShowReceipt}
                     disabled={cart.length === 0 || (!!selectedTableNumber && !selectedStaffId && billingOrderIds.length === 0)}
                     loading={processingPayment}

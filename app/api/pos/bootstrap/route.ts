@@ -32,7 +32,7 @@ export async function GET(request: NextRequest) {
         .maybeSingle(),
       supabase
         .from('restaurant_settings')
-        .select('tax_rate, display_name, phone, delivery_enabled, delivery_fee, delivery_zones, country')
+        .select('tax_rate, display_name, phone, delivery_enabled, delivery_fee, delivery_zones, country, printer_auto_print')
         .eq('tenant_id', tenantId)
         .maybeSingle(),
       supabase

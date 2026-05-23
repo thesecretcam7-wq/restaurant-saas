@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { DollarSign, CreditCard } from 'lucide-react';
+import { DollarSign, CreditCard, Printer } from 'lucide-react';
 import { calculateChange, getSuggestedBillAmounts } from '@/lib/pos-utils';
 import { getCurrencyByCountry, formatPriceWithCurrency } from '@/lib/currency';
 import { useTouchDevice } from '@/lib/hooks/useTouchDevice';
@@ -15,7 +15,9 @@ interface POSPaymentProps {
   onTipChange: (tip: number) => void;
   paymentMethod: PaymentMethod;
   onPaymentMethodChange: (method: PaymentMethod) => void;
-  onProceedPayment: (amountPaid?: number) => void;
+  printReceipt: boolean;
+  onPrintReceiptChange: (printReceipt: boolean) => void;
+  onProceedPayment: (amountPaid?: number, printReceipt?: boolean) => void;
   disabled?: boolean;
   loading?: boolean;
   country?: string;
@@ -28,6 +30,8 @@ export function POSPayment({
   onTipChange,
   paymentMethod,
   onPaymentMethodChange,
+  printReceipt,
+  onPrintReceiptChange,
   onProceedPayment,
   disabled = false,
   loading = false,
@@ -146,7 +150,7 @@ export function POSPayment({
               onChange={(event) => handleAmountChange(event.target.value)}
               onKeyDown={(event) => {
                 if (event.key === 'Enter' && isValidPayment && !disabled && !loading) {
-                  onProceedPayment(cashAmountForPayment);
+                  onProceedPayment(cashAmountForPayment, printReceipt);
                 }
               }}
               placeholder="0.00"
@@ -193,9 +197,45 @@ export function POSPayment({
         </div>
       )}
 
+      {/* Recibo */}
+      <div className={`pos-card flex items-center justify-between gap-2 rounded-xl ${compact ? 'px-2 py-1.5' : 'px-3 py-2'}`}>
+        <div className="flex min-w-0 items-center gap-1.5 text-xs font-black uppercase text-slate-400">
+          <Printer className="h-4 w-4 shrink-0 text-[#D4AF37]" />
+          <span>Recibo</span>
+        </div>
+        <div className={`grid grid-cols-2 rounded-lg border border-white/10 bg-black/20 p-0.5 ${compact ? 'w-24' : 'w-28'}`} role="group" aria-label="Imprimir recibo">
+          <button
+            type="button"
+            onClick={() => onPrintReceiptChange(true)}
+            disabled={disabled || loading}
+            aria-pressed={printReceipt}
+            className={`min-h-8 rounded-md px-2 text-xs font-black transition ${
+              printReceipt
+                ? 'bg-[#D4AF37] text-[#111827]'
+                : 'text-slate-400 hover:text-white'
+            } disabled:opacity-50`}
+          >
+            Sí
+          </button>
+          <button
+            type="button"
+            onClick={() => onPrintReceiptChange(false)}
+            disabled={disabled || loading}
+            aria-pressed={!printReceipt}
+            className={`min-h-8 rounded-md px-2 text-xs font-black transition ${
+              !printReceipt
+                ? 'bg-[#D4AF37] text-[#111827]'
+                : 'text-slate-400 hover:text-white'
+            } disabled:opacity-50`}
+          >
+            No
+          </button>
+        </div>
+      </div>
+
       {/* Botón Pagar */}
       <button
-        onClick={() => onProceedPayment(paymentMethod === 'cash' ? cashAmountForPayment : undefined)}
+        onClick={() => onProceedPayment(paymentMethod === 'cash' ? cashAmountForPayment : undefined, printReceipt)}
         disabled={disabled || loading || !isValidPayment}
         className={`w-full ${compact ? 'min-h-[54px] py-3 text-base' : 'py-4 text-lg'} rounded-xl font-black transition border ${
           isValidPayment && !disabled && !loading
