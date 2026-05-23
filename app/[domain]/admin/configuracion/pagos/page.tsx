@@ -161,10 +161,10 @@ export default async function PagosOnlinePage({ params }: Props) {
               <Smartphone className="size-6" />
             </span>
             <div>
-              <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-700">APK camarero</p>
-              <h2 className="mt-1 text-2xl font-black text-slate-950">Comandero con Tap to Pay</h2>
+              <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-700">APK Android</p>
+              <h2 className="mt-1 text-2xl font-black text-slate-950">TPV nativo con Tap to Pay</h2>
               <p className="mt-2 max-w-2xl text-sm font-semibold leading-6 text-slate-600">
-                App Android aislada para meseros. Se configura con el correo y contrasena del restaurante, abre solo el comandero y permite cobrar mesas completas con Tap to Pay sin cambiar el flujo principal del TPV.
+                App Android aislada del TPV web. Se configura con el correo y contrasena del restaurante, muestra los pedidos pendientes y permite cobrar tickets o mesas completas con Tap to Pay.
               </p>
             </div>
           </div>
