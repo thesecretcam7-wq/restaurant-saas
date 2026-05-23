@@ -127,6 +127,29 @@ export async function getTenantCurrency(supabase: SupabaseClient, tenant: { id: 
   return getCurrencyByCountry(settings?.country || tenant.country || 'ES')
 }
 
+export async function getTerminalCurrency(
+  stripe: Stripe,
+  tenant: {
+    stripe_account_id?: string | null
+    country?: string | null
+  }
+) {
+  const account = await stripe.accounts.retrieve(tenant.stripe_account_id!)
+  const country = String(account.country || tenant.country || 'ES').toUpperCase()
+
+  if (!TAP_TO_PAY_ANDROID_COUNTRIES.has(country)) {
+    throw new TerminalSetupError(
+      `Tap to Pay en Android no esta disponible para cuentas Stripe de ${country}. Usa una cuenta Stripe de un pais compatible, por ejemplo US o ES.`,
+      'TERMINAL_COUNTRY_UNSUPPORTED'
+    )
+  }
+
+  return {
+    country,
+    currencyInfo: getCurrencyByCountry(country),
+  }
+}
+
 export async function getOrCreateTerminalLocation(
   supabase: SupabaseClient,
   tenant: {
@@ -139,7 +162,6 @@ export async function getOrCreateTerminalLocation(
 ) {
   const stripe = getStripe()
   const metadataTenantId = tenant.id
-  const account = await stripe.accounts.retrieve(tenant.stripe_account_id!)
 
   const { data: settings } = await supabase
     .from('restaurant_settings')
@@ -147,13 +169,10 @@ export async function getOrCreateTerminalLocation(
     .eq('tenant_id', tenant.id)
     .maybeSingle()
 
-  const country = String(account.country || settings?.country || tenant.country || 'ES').toUpperCase()
-  if (!TAP_TO_PAY_ANDROID_COUNTRIES.has(country)) {
-    throw new TerminalSetupError(
-      `Tap to Pay en Android no esta disponible para cuentas Stripe de ${country}. Usa una cuenta Stripe de un pais compatible, por ejemplo US o ES.`,
-      'TERMINAL_COUNTRY_UNSUPPORTED'
-    )
-  }
+  const { country } = await getTerminalCurrency(stripe, {
+    stripe_account_id: tenant.stripe_account_id,
+    country: settings?.country || tenant.country,
+  })
 
   const existingLocations = await stripe.terminal.locations.list(
     { limit: 100 },
