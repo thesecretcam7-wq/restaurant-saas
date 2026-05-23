@@ -14,8 +14,8 @@ android {
         applicationId = "com.eccofood.taptopay"
         minSdk = 33
         targetSdk = 35
-        versionCode = 13
-        versionName = "0.4.3"
+        versionCode = 14
+        versionName = "0.4.4"
         buildConfigField("String", "ECCOFOOD_BASE_URL", "\"${eccofoodBaseUrl.get()}\"")
     }
 

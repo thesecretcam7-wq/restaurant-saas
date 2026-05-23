@@ -2,6 +2,7 @@ package com.eccofood.taptopay
 
 import android.app.Activity
 import android.content.pm.ApplicationInfo
+import android.content.pm.PackageManager
 import com.stripe.stripeterminal.Terminal
 import com.stripe.stripeterminal.external.callable.Callback
 import com.stripe.stripeterminal.external.callable.DiscoveryListener
@@ -51,6 +52,8 @@ class TapToPayController(
     fun payTable(payload: JSONObject) {
         thread {
             try {
+                if (!ensureTapToPayDeviceReady()) return@thread
+
                 val tenant = payload.getString("tenantId")
                 val orderIds = payload.getJSONArray("orderIds")
                 val tableNumber = payload.optInt("tableNumber").takeIf {
@@ -75,14 +78,14 @@ class TapToPayController(
                                     api.completeTable(tenant, orderIds, paymentIntentId)
                                     activity.runOnUiThread { onResult(true, null) }
                                 } catch (error: Exception) {
-                                    activity.runOnUiThread { onResult(false, error.message) }
+                                    reportError(error.message)
                                 }
                             }
                         }
                     )
                 }
             } catch (error: Exception) {
-                activity.runOnUiThread { onResult(false, error.message) }
+                reportError(error.message)
             }
         }
     }
@@ -90,6 +93,8 @@ class TapToPayController(
     fun payOrder(payload: JSONObject) {
         thread {
             try {
+                if (!ensureTapToPayDeviceReady()) return@thread
+
                 val tenant = payload.getString("tenantId")
                 val orderId = payload.getString("orderId")
                 tenantId = tenant
@@ -111,14 +116,14 @@ class TapToPayController(
                                     api.completeOrder(tenant, orderId, paymentIntentId)
                                     activity.runOnUiThread { onResult(true, null) }
                                 } catch (error: Exception) {
-                                    activity.runOnUiThread { onResult(false, error.message) }
+                                    reportError(error.message)
                                 }
                             }
                         }
                     )
                 }
             } catch (error: Exception) {
-                activity.runOnUiThread { onResult(false, error.message) }
+                reportError(error.message)
             }
         }
     }
@@ -156,7 +161,7 @@ class TapToPayController(
             object : Callback {
                 override fun onSuccess() = Unit
                 override fun onFailure(e: TerminalException) {
-                    onResult(false, e.errorMessage)
+                    reportError(e.errorMessage)
                 }
             }
         )
@@ -178,7 +183,7 @@ class TapToPayController(
                 }
 
                 override fun onFailure(e: TerminalException) {
-                    onResult(false, e.errorMessage)
+                    reportError(e.errorMessage)
                 }
             }
         )
@@ -193,7 +198,7 @@ class TapToPayController(
                 }
 
                 override fun onFailure(e: TerminalException) {
-                    onResult(false, e.errorMessage)
+                    reportError(e.errorMessage)
                 }
             }
         )
@@ -208,7 +213,7 @@ class TapToPayController(
                 }
 
                 override fun onFailure(e: TerminalException) {
-                    onResult(false, e.errorMessage)
+                    reportError(e.errorMessage)
                 }
             }
         )
@@ -223,9 +228,42 @@ class TapToPayController(
                 }
 
                 override fun onFailure(e: TerminalException) {
-                    onResult(false, e.errorMessage)
+                    reportError(e.errorMessage)
                 }
             }
         )
+    }
+
+    private fun ensureTapToPayDeviceReady(): Boolean {
+        if (!activity.packageManager.hasSystemFeature(PackageManager.FEATURE_NFC)) {
+            reportError(NFC_REQUIRED_MESSAGE)
+            return false
+        }
+        return true
+    }
+
+    private fun reportError(message: String?) {
+        activity.runOnUiThread {
+            onResult(false, userFacingError(message))
+        }
+    }
+
+    private fun userFacingError(message: String?): String {
+        val raw = message?.trim().orEmpty()
+        val normalized = raw.lowercase()
+        return when {
+            normalized.contains("nfc") -> NFC_REQUIRED_MESSAGE
+            normalized.contains("google mobile services") || normalized.contains("gms") ->
+                "Este dispositivo no esta certificado por Google Mobile Services. Para Tap to Pay necesitas un Android compatible y certificado."
+            normalized.contains("developer options") || normalized.contains("opciones de desarrollador") ->
+                "Desactiva las opciones de desarrollador del dispositivo para poder cobrar con Tap to Pay."
+            raw.isBlank() -> "No se pudo completar el pago con Tap to Pay."
+            else -> raw
+        }
+    }
+
+    private companion object {
+        const val NFC_REQUIRED_MESSAGE =
+            "Esta tablet no tiene NFC. Para cobrar con Tap to Pay necesitas un Android compatible con NFC o usar un lector Stripe Terminal."
     }
 }
