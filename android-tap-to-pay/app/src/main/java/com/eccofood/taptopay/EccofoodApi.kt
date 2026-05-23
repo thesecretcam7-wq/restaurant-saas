@@ -27,6 +27,47 @@ data class PosOrder(
     val itemsSummary: String,
 )
 
+data class MenuCategory(
+    val id: String,
+    val name: String,
+)
+
+data class MenuProduct(
+    val id: String,
+    val name: String,
+    val price: Double,
+    val categoryId: String,
+)
+
+data class RestaurantTable(
+    val id: String,
+    val tableNumber: Int,
+    val seats: Int,
+    val location: String,
+)
+
+data class TableOrderLine(
+    val name: String,
+    val quantity: Int,
+    val price: Double,
+)
+
+data class TableOrder(
+    val id: String,
+    val orderNumber: String,
+    val waiterName: String,
+    val total: Double,
+    val items: List<TableOrderLine>,
+)
+
+data class PosBootstrap(
+    val categories: List<MenuCategory>,
+    val products: List<MenuProduct>,
+    val tables: List<RestaurantTable>,
+    val country: String,
+    val taxRate: Double,
+)
+
 class EccofoodApi(initialBaseUrl: String) {
     @Volatile
     private var baseUrl: String = normalizeBaseUrl(initialBaseUrl)
@@ -58,6 +99,61 @@ class EccofoodApi(initialBaseUrl: String) {
         val orders = response.optJSONArray("orders") ?: JSONArray()
         return (0 until orders.length())
             .mapNotNull { index -> orders.optJSONObject(index)?.let(::parseOrder) }
+    }
+
+    fun posBootstrap(tenantId: String): PosBootstrap {
+        val response = get("/api/pos/bootstrap?tenantId=${encode(tenantId)}")
+        val settings = response.optJSONObject("settings") ?: JSONObject()
+        return PosBootstrap(
+            categories = parseCategories(response.optJSONArray("categories")),
+            products = parseProducts(response.optJSONArray("menu")),
+            tables = parseTables(response.optJSONArray("tables")),
+            country = settings.optString("country", "CO"),
+            taxRate = settings.optDouble("tax_rate", 0.0),
+        )
+    }
+
+    fun csrfToken(): String {
+        val response = get("/api/csrf-token")
+        return response.optString("token")
+    }
+
+    fun tableAccount(tenantId: String, tableNumber: Int): List<TableOrder> {
+        val response = get("/api/table-account?tenantId=${encode(tenantId)}&tableNumber=$tableNumber")
+        val orders = response.optJSONArray("orders") ?: JSONArray()
+        return (0 until orders.length())
+            .mapNotNull { index -> orders.optJSONObject(index)?.let(::parseTableOrder) }
+    }
+
+    fun createDineInOrder(
+        tenantId: String,
+        tenantSlug: String,
+        tableNumber: Int,
+        waiterName: String,
+        items: JSONArray,
+        csrfToken: String,
+    ): JSONObject {
+        return post(
+            "/api/orders",
+            JSONObject()
+                .put("tenantId", tenantId)
+                .put("tenantSlug", tenantSlug)
+                .put("items", items)
+                .put(
+                    "customerInfo",
+                    JSONObject()
+                        .put("name", "Mesa $tableNumber")
+                        .put("email", "")
+                        .put("phone", "")
+                )
+                .put("deliveryType", "dine-in")
+                .put("deliveryAddress", JSONObject.NULL)
+                .put("tableNumber", tableNumber)
+                .put("waiterName", waiterName)
+                .put("paymentMethod", "cash")
+                .put("source", "comandero"),
+            mapOf("x-csrf-token" to csrfToken)
+        )
     }
 
     fun connectionToken(tenantId: String): JSONObject {
@@ -108,6 +204,67 @@ class EccofoodApi(initialBaseUrl: String) {
         CookieManager.getInstance().flush()
     }
 
+    private fun parseCategories(items: JSONArray?): List<MenuCategory> {
+        if (items == null) return emptyList()
+        return (0 until items.length()).mapNotNull { index ->
+            items.optJSONObject(index)?.let {
+                MenuCategory(
+                    id = it.optString("id"),
+                    name = it.optString("name"),
+                )
+            }
+        }.filter { it.id.isNotBlank() && it.name.isNotBlank() }
+    }
+
+    private fun parseProducts(items: JSONArray?): List<MenuProduct> {
+        if (items == null) return emptyList()
+        return (0 until items.length()).mapNotNull { index ->
+            items.optJSONObject(index)?.let {
+                MenuProduct(
+                    id = it.optString("id"),
+                    name = it.optString("name"),
+                    price = it.optDouble("price", 0.0),
+                    categoryId = it.optString("category_id"),
+                )
+            }
+        }.filter { it.id.isNotBlank() && it.name.isNotBlank() }
+    }
+
+    private fun parseTables(items: JSONArray?): List<RestaurantTable> {
+        if (items == null) return emptyList()
+        return (0 until items.length()).mapNotNull { index ->
+            items.optJSONObject(index)?.let {
+                RestaurantTable(
+                    id = it.optString("id"),
+                    tableNumber = it.optInt("table_number", 0),
+                    seats = it.optInt("seats", 0),
+                    location = it.optString("location"),
+                )
+            }
+        }.filter { it.id.isNotBlank() && it.tableNumber > 0 }
+    }
+
+    private fun parseTableOrder(json: JSONObject): TableOrder {
+        val items = json.optJSONArray("items") ?: JSONArray()
+        val lines = (0 until items.length()).mapNotNull { index ->
+            items.optJSONObject(index)?.let {
+                TableOrderLine(
+                    name = it.optString("name", "Producto"),
+                    quantity = it.optInt("qty", it.optInt("quantity", 1)),
+                    price = it.optDouble("price", 0.0),
+                )
+            }
+        }
+
+        return TableOrder(
+            id = json.getString("id"),
+            orderNumber = json.optString("order_number").ifBlank { json.getString("id").take(8) },
+            waiterName = json.optString("waiter_name"),
+            total = json.optDouble("total", 0.0),
+            items = lines,
+        )
+    }
+
     private fun parseOrder(json: JSONObject): PosOrder {
         return PosOrder(
             id = json.getString("id"),
@@ -141,11 +298,16 @@ class EccofoodApi(initialBaseUrl: String) {
         return request("GET", path, null)
     }
 
-    private fun post(path: String, body: JSONObject): JSONObject {
-        return request("POST", path, body)
+    private fun post(path: String, body: JSONObject, extraHeaders: Map<String, String> = emptyMap()): JSONObject {
+        return request("POST", path, body, extraHeaders)
     }
 
-    private fun request(method: String, path: String, body: JSONObject?): JSONObject {
+    private fun request(
+        method: String,
+        path: String,
+        body: JSONObject?,
+        extraHeaders: Map<String, String> = emptyMap(),
+    ): JSONObject {
         val origin = cookieOrigin()
         val url = URL(baseUrl.trimEnd('/') + path)
         val connection = (url.openConnection() as HttpURLConnection).apply {
@@ -158,6 +320,7 @@ class EccofoodApi(initialBaseUrl: String) {
                 doOutput = true
                 setRequestProperty("Content-Type", "application/json")
             }
+            extraHeaders.forEach { (key, value) -> setRequestProperty(key, value) }
         }
 
         if (body != null) {
