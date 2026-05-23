@@ -4,7 +4,7 @@ plugins {
 }
 
 val eccofoodBaseUrl = providers.gradleProperty("ECCOFOOD_BASE_URL")
-    .orElse("https://eccofood.app")
+    .orElse("https://www.eccofoodapp.com")
 
 android {
     namespace = "com.eccofood.taptopay"
@@ -14,8 +14,8 @@ android {
         applicationId = "com.eccofood.taptopay"
         minSdk = 33
         targetSdk = 35
-        versionCode = 4
-        versionName = "0.2.0"
+        versionCode = 5
+        versionName = "0.2.1"
         buildConfigField("String", "ECCOFOOD_BASE_URL", "\"${eccofoodBaseUrl.get()}\"")
     }
 
