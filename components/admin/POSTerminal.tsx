@@ -2657,7 +2657,7 @@ export function POSTerminal({
           : 'min-h-[100dvh]'
     } text-white flex flex-col`}>
       {/* Compact Header - Logo and Controls - TPV Header with Eccofood Brand */}
-      {(isFullscreen || compactPOSLayout) && (
+      {isFullscreen && !compactPOSLayout && (
         <div className="pos-panel border-x-0 border-t-0 px-6 py-4 flex items-center justify-between gap-4">
           <div className="flex min-w-0 items-center gap-4">
             <div className="rounded-xl border border-cyan-300/25 bg-cyan-300/10 p-2.5 shadow-lg shadow-cyan-900/20">
@@ -2968,8 +2968,20 @@ export function POSTerminal({
         {/* Menu Section */}
         <div className={`${compactPOSLayout ? 'min-h-0 flex-1' : 'min-h-[44dvh] max-h-[58dvh] lg:min-h-0 lg:max-h-none lg:flex-1'} flex flex-col overflow-hidden`}>
           {/* Search and Controls - Sticky Header */}
-          <div className={`pos-panel pos-command-bar border-x-0 border-t-0 flex flex-wrap gap-2.5 items-center sticky top-0 z-10 lg:flex-nowrap ${compactPOSLayout ? 'px-4 py-3' : 'p-3 sm:p-4'}`}>
-            {!isFullscreen && !compactPOSLayout && (
+          <div className={`pos-panel pos-command-bar border-x-0 border-t-0 flex flex-wrap gap-2.5 items-center sticky top-0 z-10 ${compactPOSLayout ? 'px-4 py-3' : 'p-3 sm:p-4 lg:flex-nowrap'}`}>
+            {compactPOSLayout ? (
+              <div className="relative min-w-[180px] flex-[1_1_260px]">
+                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-cyan-100/45 pointer-events-none" />
+                <input
+                  ref={searchInputRef}
+                  type="text"
+                  placeholder="Buscar producto..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full rounded-xl py-2.5 pl-10 pr-3 text-sm font-bold text-white outline-none transition-all"
+                />
+              </div>
+            ) : !isFullscreen && (
               <div className="relative min-w-[220px] flex-[1_1_260px]">
                 <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-cyan-100/45 pointer-events-none" />
                 <input
@@ -2990,6 +3002,95 @@ export function POSTerminal({
               <PencilLine className="w-5 h-5" />
               <span className="hidden sm:inline">Manual</span>
             </button>
+            {compactPOSLayout && (
+              <>
+                <button
+                  onClick={() => activateWakeLock()}
+                  className={`pos-action-ghost ${wakeLockActive ? 'border-emerald-300/45 bg-emerald-300/12 text-emerald-100' : 'border-amber-300/35 bg-amber-300/10 text-amber-100'}`}
+                  title={wakeLockSupported ? 'Mantener la pantalla activa' : 'Tu navegador puede no soportar bloqueo de pantalla'}
+                >
+                  <Lock className="w-5 h-5" />
+                  <span className="hidden xl:inline">{wakeLockActive ? 'Activa' : 'Bloquear'}</span>
+                </button>
+                <button
+                  onClick={() => syncOfflineSales(true)}
+                  disabled={!isOnline || syncingOffline}
+                  className={`pos-action-ghost ${!isOnline ? 'border-amber-300/45 bg-amber-300/12 text-amber-100' : offlinePendingCount > 0 ? 'border-emerald-300/45 bg-emerald-300/12 text-emerald-100' : ''} disabled:opacity-75`}
+                  title={isOnline ? 'Sincronizar ventas offline' : 'Modo offline activo'}
+                >
+                  <span
+                    className={`h-2.5 w-2.5 rounded-full ${
+                      isOnline
+                        ? 'bg-[#39ff88] shadow-[0_0_8px_#39ff88,0_0_18px_rgba(57,255,136,0.72)]'
+                        : 'animate-pulse bg-[#ff174d] shadow-[0_0_8px_#ff174d,0_0_18px_rgba(255,23,77,0.72)]'
+                    }`}
+                  />
+                  <span className="hidden xl:inline">{isOnline ? (syncingOffline ? 'Sync...' : 'Online') : 'Offline'}</span>
+                  {offlinePendingCount > 0 && (
+                    <span className="rounded-full bg-amber-400 px-1.5 py-0.5 text-[10px] font-black text-slate-950">
+                      {offlinePendingCount}
+                    </span>
+                  )}
+                </button>
+                <button
+                  onClick={downloadPOSShortcut}
+                  className="pos-action-ghost"
+                  title="Crear acceso del TPV en el Escritorio"
+                >
+                  <Download className="w-5 h-5" />
+                  <span className="hidden xl:inline">Escritorio</span>
+                </button>
+                {todayReservations.length > 0 && (
+                  <div
+                    className="pos-action-ghost border-amber-300/55 bg-amber-300/14 text-amber-100 shadow-[0_0_18px_rgba(251,191,36,0.22)]"
+                    title="Reservas de hoy"
+                  >
+                    <CalendarDays className="w-5 h-5" />
+                    <span className="hidden xl:inline">
+                      {todayReservations.length} reserva{todayReservations.length > 1 ? 's' : ''}
+                    </span>
+                    <span className="rounded-full bg-amber-300 px-1.5 py-0.5 text-[10px] font-black text-slate-950 xl:hidden">
+                      {todayReservations.length}
+                    </span>
+                  </div>
+                )}
+                <button
+                  onClick={async () => {
+                    try {
+                      await openCashDrawer(tenantId);
+                      setToast({ message: 'Cajon abierto', type: 'success' });
+                    } catch (error) {
+                      setToast({
+                        message: `No se pudo abrir el cajon: ${error instanceof Error ? error.message : 'Error desconocido'}`,
+                        type: 'error',
+                      });
+                    }
+                  }}
+                  className="pos-action-ghost"
+                  title="Abrir cajon de dinero"
+                >
+                  <Archive className="w-5 h-5" />
+                  <span className="hidden xl:inline">Cajon</span>
+                </button>
+                <button
+                  onClick={handleOpenCashClosing}
+                  disabled={closingLoading}
+                  className="pos-action-danger disabled:cursor-not-allowed disabled:opacity-50"
+                  title="Cerrar caja diaria"
+                >
+                  <Lock className="w-5 h-5" />
+                  <span className="hidden xl:inline">Cerrar</span>
+                </button>
+                <button
+                  onClick={toggleFullscreen}
+                  className="pos-action-ghost"
+                  title={isFullscreen ? 'Salir de pantalla completa (ESC)' : 'Pantalla completa'}
+                >
+                  {isFullscreen ? <Minimize2 className="w-5 h-5" /> : <Maximize2 className="w-5 h-5" />}
+                  <span className="hidden xl:inline">{isFullscreen ? 'Salir' : 'Completa'}</span>
+                </button>
+              </>
+            )}
             {!isFullscreen && !compactPOSLayout && (
               <>
                 <button
