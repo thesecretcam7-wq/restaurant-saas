@@ -758,21 +758,24 @@ function generateReceiptHTML(data: ReceiptData): string {
       .replaceAll('>', '&gt;')
       .replaceAll('"', '&quot;')
       .replaceAll("'", '&#39;');
+  const ticketLine = (name: string, value: string, className = '') =>
+    `<div class="ticket-line ${className}">
+      <span class="line-name">${safe(name).toUpperCase()}</span>
+      <strong>${safe(value)}</strong>
+    </div>`;
   const itemsHTML = data.items
-    .map(
-      (item) =>
-        `<div class="item">
-          <div class="item-name">${safe(item.name)}</div>
-          <div class="item-detail">
-            <span>${item.quantity} x ${money(item.price)}</span>
-            <strong>${money(item.price * item.quantity)}</strong>
-          </div>
-        </div>`
-    )
+    .map((item) => {
+      const quantity = Number(item.quantity || 0);
+      return ticketLine(item.name, `${money(item.price * quantity)} x${formatReceiptQuantity(quantity)}`);
+    })
     .join('');
-  const hasBreakdown = data.discount > 0 || (data.tax || 0) > 0 || (data.deliveryFee || 0) > 0;
-  const extraRows = (data.discount > 0 ? 1 : 0) + ((data.tax || 0) > 0 ? 1 : 0) + ((data.deliveryFee || 0) > 0 ? 1 : 0);
-  const minHeightMm = Math.max(76, 58 + data.items.length * 10 + extraRows * 6);
+  const deliveryHTML = (data.deliveryFee || 0) > 0
+    ? ticketLine('Domicilio', `${money(data.deliveryFee || 0)} x1`, 'delivery-line')
+    : '';
+  const productCount = data.items.reduce((sum, item) => sum + Number(item.quantity || 0), 0) + ((data.deliveryFee || 0) > 0 ? 1 : 0);
+  const hasBreakdown = data.discount > 0 || (data.tax || 0) > 0;
+  const extraRows = (data.discount > 0 ? 1 : 0) + ((data.tax || 0) > 0 ? 1 : 0);
+  const minHeightMm = Math.max(92, 70 + (data.items.length + ((data.deliveryFee || 0) > 0 ? 1 : 0)) * 8 + extraRows * 6);
 
   return `
     <!DOCTYPE html>
@@ -814,65 +817,115 @@ function generateReceiptHTML(data: ReceiptData): string {
         }
         .header {
           text-align: center;
-          font-weight: bold;
-          margin-bottom: 4px;
+          font-weight: 900;
+          margin-bottom: 2px;
           font-size: 19px;
+          letter-spacing: 0;
         }
-        .meta {
+        .meta-center {
           text-align: center;
           font-size: 13px;
           font-weight: 800;
-          margin: 2px 0;
+          margin: 1px 0;
         }
         .title {
           text-align: center;
           font-size: 14px;
           font-weight: 900;
-          margin: 3px 0 2px;
+          margin: 4px 0 5px;
         }
-        .section-title {
-          font-size: 14px;
-          font-weight: 900;
-          margin: 10px 0 7px;
-        }
-        .item {
-          margin: 0 0 8px;
-        }
-        .item-name {
-          font-size: 15px;
-          font-weight: 900;
-        }
-        .item-detail,
+        .meta-row,
+        .table-head,
+        .ticket-line,
         .summary-row,
-        .payment-row {
+        .amount-row,
+        .cash-row {
           display: flex;
           justify-content: space-between;
-          gap: 8px;
-          font-size: 14px;
+          gap: 6px;
           white-space: nowrap;
         }
-        .summary {
-          margin-top: 6px;
+        .meta-row {
+          font-size: 14px;
+          margin: 1px 0;
         }
-        .grand-total {
-          text-align: center;
-          margin: 12px 0 10px;
-          font-size: 22px;
+        .meta-row strong {
+          text-align: right;
+        }
+        .table-head {
+          margin-top: 12px;
+          font-size: 15px;
           font-weight: 900;
         }
-        .grand-total span {
-          display: block;
-          font-size: 15px;
-          margin-bottom: 2px;
+        .divider {
+          border-top: 1px dashed #000;
+          margin: 5px 0;
         }
-        .payment {
+        .ticket-line {
+          align-items: flex-start;
+          font-size: 15px;
+          font-weight: 900;
+          margin: 3px 0;
+        }
+        .line-name {
+          min-width: 0;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+        .delivery-line {
           margin-top: 4px;
+        }
+        .count {
+          margin: 9px 0 10px;
+          font-size: 15px;
+          font-weight: 900;
+        }
+        .summary {
+          margin: 6px 0 8px;
+          font-size: 14px;
+        }
+        .grand-total {
+          margin: 8px 0 12px;
+        }
+        .total-word {
+          display: block;
+          font-size: 25px;
+          font-weight: 900;
+          line-height: 1;
+        }
+        .total-money {
+          display: block;
+          margin-top: 2px;
+          text-align: right;
+          font-size: 24px;
+          font-weight: 900;
+          line-height: 1.05;
+        }
+        .sale-type {
+          margin-top: 3px;
+          text-align: right;
+          font-size: 18px;
+          font-weight: 900;
+        }
+        .amount-row,
+        .cash-row {
+          margin-top: 8px;
+          align-items: baseline;
+          font-size: 18px;
+          font-weight: 900;
+        }
+        .cash-row {
+          margin-top: 2px;
+          font-size: 14px;
         }
         .footer {
           text-align: center;
-          margin-top: 10px;
-          font-size: 14px;
+          margin-top: 18px;
+          font-size: 16px;
           font-weight: 800;
+        }
+        .footer p {
+          margin: 2px 0;
         }
         @media print {
           html, body {
@@ -896,15 +949,19 @@ function generateReceiptHTML(data: ReceiptData): string {
     <body>
       <div class="receipt">
       <div class="header">${safe(data.restaurantName || 'Restaurante')}</div>
-      ${data.restaurantPhone ? `<div class="meta">Tel: ${safe(data.restaurantPhone)}</div>` : ''}
+      ${data.restaurantPhone ? `<div class="meta-center">Tel: ${safe(data.restaurantPhone)}</div>` : ''}
       <div class="title">RECIBO DE VENTA</div>
-      <div class="meta">Pedido: ${safe(data.orderNumber)}</div>
-      <div class="meta">Fecha: ${printedAt.toLocaleDateString(locale)}</div>
-      <div class="meta">Hora: ${printedAt.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' })}</div>
-      <div class="section-title">Detalle del pedido</div>
-      <div class="items">
-        ${itemsHTML}
-      </div>
+      <div class="meta-row"><span>Recibo:</span><strong>${safe(getBrowserReceiptNumber(data.orderNumber))}</strong></div>
+      <div class="meta-row"><span>Pedido:</span><strong>${safe(data.orderNumber)}</strong></div>
+      <div class="meta-row"><span>Fecha:</span><strong>${printedAt.toLocaleDateString(locale)} ${printedAt.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</strong></div>
+      ${data.tableNumber ? `<div class="meta-row"><span>Mesa:</span><strong>${safe(data.tableNumber)}</strong></div>` : ''}
+      ${data.waiterName ? `<div class="meta-row"><span>Atendido Por:</span><strong>${safe(data.waiterName)}</strong></div>` : ''}
+
+      <div class="table-head"><span>Item</span><span>Precio</span></div>
+      <div class="divider"></div>
+      <div class="items">${itemsHTML}${deliveryHTML}</div>
+      <div class="divider"></div>
+      <div class="count"># Productos: ${safe(formatReceiptQuantity(productCount))}</div>
       ${
         hasBreakdown
           ? `<div class="summary">
@@ -919,33 +976,26 @@ function generateReceiptHTML(data: ReceiptData): string {
             ? `<div class="summary-row"><span>IVA${data.taxRate ? ` ${data.taxRate}%` : ''}:</span><strong>${money(data.tax || 0)}</strong></div>`
             : ''
         }
-        ${
-          (data.deliveryFee || 0) > 0
-            ? `<div class="summary-row"><span>Domicilio:</span><strong>${money(data.deliveryFee || 0)}</strong></div>`
-            : ''
-        }
       </div>`
           : ''
       }
       <div class="grand-total">
-        <span>TOTAL A PAGAR</span>
-        ${money(data.total)}
+        <span class="total-word">Total</span>
+        <span class="total-money">${money(data.total)}</span>
+        ${paymentLabel ? `<div class="sale-type">VENTA ${safe(paymentLabel).toUpperCase()}</div>` : ''}
       </div>
       <div class="payment">
-        ${
-          paymentLabel
-            ? `<div class="payment-row"><span>Metodo:</span><strong>${safe(paymentLabel)}</strong></div>`
-            : ''
-        }
+        <div class="amount-row"><span>MONTO</span><strong>${money(data.total)}</strong></div>
         ${
           data.amountPaid !== undefined
-            ? `<div class="payment-row"><span>Recibido:</span><strong>${money(data.amountPaid)}</strong></div>
-        <div class="payment-row"><span>Cambio:</span><strong>${money(data.change)}</strong></div>`
+            ? `<div class="cash-row"><span>Recibido:</span><strong>${money(data.amountPaid)}</strong></div>
+        <div class="cash-row"><span>Cambio:</span><strong>${money(data.change)}</strong></div>`
             : ''
         }
       </div>
       <div class="footer">
         <p>Gracias por su compra</p>
+        <p>Estamos a su servicio</p>
       </div>
       </div>
     </body>
@@ -957,6 +1007,18 @@ function getPaymentMethodLabel(method?: string | null): string {
   if (method === 'cash') return 'Efectivo';
   if (method === 'stripe' || method === 'card') return 'Tarjeta';
   return method ? method : '';
+}
+
+function getBrowserReceiptNumber(orderNumber?: string | null): string {
+  const clean = String(orderNumber || '').trim();
+  const digits = clean.replace(/\D/g, '');
+  if (digits.length >= 5) return digits.slice(-6);
+  return clean || 'POS';
+}
+
+function formatReceiptQuantity(quantity: number): string {
+  if (Number.isInteger(quantity)) return String(quantity);
+  return new Intl.NumberFormat('es-CO', { maximumFractionDigits: 2 }).format(quantity);
 }
 
 /**

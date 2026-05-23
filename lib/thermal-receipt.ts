@@ -68,64 +68,84 @@ function cutCommands(): string {
 }
 
 export function generateReceiptESCPOS(data: ReceiptData, options: ReceiptOptions): Uint8Array {
-  const cols = options.paperWidth === 80 ? 48 : 32;
+  const cols = options.paperWidth === 80 ? 42 : 32;
   const bytes: string[] = [];
   const push = (...s: string[]) => bytes.push(...s);
   const line = (s = '') => bytes.push(normalizeThermalText(s) + '\n');
+  const sep = () => line('-'.repeat(cols));
   const row = (label: string, value: string) => {
-    const cleanValue = normalizeThermalText(value);
+    const cleanValue = normalizeThermalText(value).substring(0, Math.max(1, cols - 2));
     const cleanLabel = normalizeThermalText(label).substring(0, Math.max(1, cols - cleanValue.length - 1));
     line(padR(cleanLabel, cols - cleanValue.length) + cleanValue);
   };
+  const itemRow = (name: string, value: string) => {
+    const cleanValue = normalizeThermalText(value).substring(0, Math.max(1, cols - 2));
+    const cleanName = normalizeThermalText(name).toUpperCase();
+    const nameWidth = Math.max(1, cols - cleanValue.length - 1);
 
-  push(INIT, CODE_PAGE_PC850, FONT_B);
+    if (cleanName.length <= nameWidth) {
+      line(padR(cleanName, cols - cleanValue.length) + cleanValue);
+      return;
+    }
+
+    line(cleanName.substring(0, cols));
+    line(padR('', cols - cleanValue.length) + cleanValue);
+  };
+
+  push(INIT, CODE_PAGE_PC850, FONT_A);
 
   push(ALIGN_CENTER, FONT_A, SIZE_WIDE, BOLD_ON);
   line(data.restaurantName ?? 'Restaurante');
-  push(BOLD_OFF, SIZE_NORMAL, FONT_B);
+  push(BOLD_OFF, SIZE_NORMAL);
   if (data.restaurantPhone) line(`Tel: ${data.restaurantPhone}`);
-
   push(BOLD_ON);
   line('RECIBO DE VENTA');
   push(BOLD_OFF);
-  line(`Pedido: ${data.orderNumber}`);
+  line('');
 
+  push(ALIGN_LEFT, FONT_A, SIZE_NORMAL);
   const ts = data.timestamp ? new Date(data.timestamp) : new Date();
   const receiptLocale = data.currencyInfo?.locale || options.locale || 'es-ES';
-  line(`Fecha: ${ts.toLocaleDateString(receiptLocale, {
+  const receiptDate = ts.toLocaleDateString(receiptLocale, {
     day: '2-digit',
     month: '2-digit',
     year: 'numeric',
-  })}`);
-  line(`Hora: ${ts.toLocaleTimeString(receiptLocale, {
+  });
+  const receiptTime = ts.toLocaleTimeString(receiptLocale, {
     hour: '2-digit',
     minute: '2-digit',
-  })}`);
+    second: '2-digit',
+  });
 
+  row('Recibo:', getReceiptNumber(data.orderNumber));
+  if (data.orderNumber) row('Pedido:', normalizeThermalText(data.orderNumber).substring(0, Math.max(8, cols - 8)));
+  row('Fecha:', `${receiptDate} ${receiptTime}`);
   if (data.tableNumber) line(`Mesa: ${data.tableNumber}`);
-  if (data.waiterName) line(`Empleado: ${data.waiterName}`);
+  if (data.waiterName) row('Atendido Por:', data.waiterName);
 
-  push(ALIGN_LEFT);
   line('');
-  push(BOLD_ON);
-  line('Detalle del pedido');
-  push(BOLD_OFF);
-  line('');
+  row('Item', 'Precio');
+  sep();
 
+  let productCount = 0;
   for (const item of data.items) {
-    const itemTotal = item.price * item.quantity;
-    const itemTotalStr = formatPrice(itemTotal, data);
-    const unitStr = formatPrice(item.price, data);
-    push(BOLD_ON);
-    line(normalizeThermalText(item.name).substring(0, cols));
-    push(BOLD_OFF);
-    row(`  ${item.quantity} x ${unitStr}`, itemTotalStr);
-    line('');
+    const quantity = Number(item.quantity || 0);
+    const itemTotal = item.price * quantity;
+    productCount += quantity;
+    itemRow(item.name, `${formatPrice(itemTotal, data)} x${formatQuantity(quantity)}`);
   }
 
-  const hasBreakdown = data.discount > 0 || (data.tax || 0) > 0 || (data.deliveryFee || 0) > 0;
+  if ((data.deliveryFee || 0) > 0) {
+    productCount += 1;
+    itemRow('Domicilio', `${formatPrice(data.deliveryFee || 0, data)} x1`);
+  }
 
+  sep();
+  row('# Productos:', formatQuantity(productCount));
+
+  const hasBreakdown = data.discount > 0 || (data.tax || 0) > 0;
   if (hasBreakdown) {
+    line('');
     row('Subtotal:', formatPrice(data.subtotal, data));
     if (data.discount > 0) {
       row('Descuento:', `-${formatPrice(data.discount, data)}`);
@@ -134,23 +154,27 @@ export function generateReceiptESCPOS(data: ReceiptData, options: ReceiptOptions
       const taxLabel = data.taxRate ? `IVA ${data.taxRate}%:` : 'IVA:';
       row(taxLabel, formatPrice(data.tax || 0, data));
     }
-    if ((data.deliveryFee || 0) > 0) {
-      row('Domicilio:', formatPrice(data.deliveryFee || 0, data));
-    }
-    line('');
   }
-
-  push(ALIGN_CENTER, FONT_A, SIZE_WIDE, BOLD_ON);
-  line('TOTAL A PAGAR');
-  line(formatPrice(data.total, data));
-  push(BOLD_OFF, SIZE_NORMAL, FONT_B);
 
   line('');
-  push(ALIGN_LEFT);
+  push(ALIGN_CENTER, FONT_A, SIZE_WIDE, BOLD_ON);
+  line('Total');
+  push(SIZE_2X);
+  line(formatPrice(data.total, data));
+  push(SIZE_NORMAL);
+
   const paymentLabel = getPaymentMethodLabel(data.paymentMethod);
   if (paymentLabel) {
-    row('Metodo:', paymentLabel);
+    line(`VENTA ${paymentLabel.toUpperCase()}`);
   }
+  push(BOLD_OFF);
+
+  line('');
+  push(BOLD_ON);
+  push(ALIGN_LEFT);
+  row('MONTO', formatPrice(data.total, data));
+  push(BOLD_OFF);
+
   if (data.amountPaid !== undefined) {
     row('Recibido:', formatPrice(data.amountPaid, data));
     row('Cambio:', formatPrice(data.change, data));
@@ -160,6 +184,7 @@ export function generateReceiptESCPOS(data: ReceiptData, options: ReceiptOptions
   line('');
   push(BOLD_ON);
   line('Gracias por su compra');
+  line('Estamos a su servicio');
   push(BOLD_OFF);
   line('');
   line('');
@@ -234,6 +259,18 @@ function getPaymentMethodLabel(method?: string | null): string {
   if (method === 'cash') return 'Efectivo';
   if (method === 'stripe' || method === 'card') return 'Tarjeta';
   return method ? method : '';
+}
+
+function getReceiptNumber(orderNumber?: string | null): string {
+  const clean = normalizeThermalText(orderNumber || '').trim();
+  const digits = clean.replace(/\D/g, '');
+  if (digits.length >= 5) return digits.slice(-6);
+  return clean || 'POS';
+}
+
+function formatQuantity(quantity: number): string {
+  if (Number.isInteger(quantity)) return String(quantity);
+  return new Intl.NumberFormat('es-CO', { maximumFractionDigits: 2 }).format(quantity);
 }
 
 function padR(text: string, width: number): string {
