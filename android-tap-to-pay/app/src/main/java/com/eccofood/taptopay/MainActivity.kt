@@ -239,7 +239,6 @@ class MainActivity : AppCompatActivity() {
             actions = listOf(
                 HeaderAction("Actualizar") { loadCommandData() },
                 HeaderAction("Cuenta") { openAccountForSelectedTable() },
-                HeaderAction("Cambiar") { clearAccess() },
             )
         )
 
@@ -294,7 +293,6 @@ class MainActivity : AppCompatActivity() {
             actions = listOf(
                 HeaderAction("Pedido") { showOrderingScreen() },
                 HeaderAction("Actualizar") { accountTableNumber?.let { loadTableAccount(it, force = true) } },
-                HeaderAction("Cambiar") { clearAccess() },
             )
         )
 
