@@ -484,6 +484,7 @@ export function POSTerminal({
   const [loading, setLoading] = useState(true);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [productSearchOpen, setProductSearchOpen] = useState(false);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('cash');
   const [printReceiptAfterPayment, setPrintReceiptAfterPayment] = useState(true);
@@ -2523,6 +2524,14 @@ export function POSTerminal({
     return map;
   }, [cart]);
 
+  const openProductSearch = useCallback(() => {
+    setProductSearchOpen(true);
+    window.requestAnimationFrame(() => {
+      searchInputRef.current?.focus();
+      searchInputRef.current?.select();
+    });
+  }, []);
+
   useEffect(() => {
     const isEditableTarget = (target: EventTarget | null) => {
       const element = target as HTMLElement | null;
@@ -2547,8 +2556,7 @@ export function POSTerminal({
 
       if (event.key === 'F2' || (!editable && event.key === '/')) {
         event.preventDefault();
-        searchInputRef.current?.focus();
-        searchInputRef.current?.select();
+        openProductSearch();
         return;
       }
 
@@ -2557,6 +2565,7 @@ export function POSTerminal({
           (event.target as HTMLElement).blur();
         }
         setSearchQuery('');
+        setProductSearchOpen(false);
         setShowIncomingPanel(false);
         setShowDineInPanel(false);
         setShowFindPayPanel(false);
@@ -2633,7 +2642,7 @@ export function POSTerminal({
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [categories, selectedCategory, filteredMenu, cart, paymentMethod, handleShowReceipt]);
+  }, [categories, selectedCategory, filteredMenu, cart, paymentMethod, handleShowReceipt, openProductSearch]);
 
   const nextReservationTime = todayReservations[0]?.reservation_time?.slice(0, 5) || null;
   const compactPOSLayout = true;
@@ -2969,8 +2978,8 @@ export function POSTerminal({
         <div className={`${compactPOSLayout ? 'min-h-0 flex-1' : 'min-h-[44dvh] max-h-[58dvh] lg:min-h-0 lg:max-h-none lg:flex-1'} flex flex-col overflow-hidden`}>
           {/* Search and Controls - Sticky Header */}
           <div className={`pos-panel pos-command-bar border-x-0 border-t-0 flex flex-wrap gap-2.5 items-center sticky top-0 z-10 ${compactPOSLayout ? 'px-4 py-3' : 'p-3 sm:p-4 lg:flex-nowrap'}`}>
-            {compactPOSLayout ? (
-              <div className="relative min-w-[180px] flex-[1_1_260px]">
+            {(productSearchOpen || searchQuery) ? (
+              <div className={`relative min-w-[180px] ${compactPOSLayout ? 'flex-[1_1_240px]' : 'flex-[1_1_260px]'}`}>
                 <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-cyan-100/45 pointer-events-none" />
                 <input
                   ref={searchInputRef}
@@ -2978,21 +2987,43 @@ export function POSTerminal({
                   placeholder="Buscar producto..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full rounded-xl py-2.5 pl-10 pr-3 text-sm font-bold text-white outline-none transition-all"
+                  onKeyDown={(event) => {
+                    if (event.key === 'Escape') {
+                      event.preventDefault();
+                      event.stopPropagation();
+                      setSearchQuery('');
+                      setProductSearchOpen(false);
+                    }
+                  }}
+                  onBlur={() => {
+                    if (!searchQuery.trim()) setProductSearchOpen(false);
+                  }}
+                  className="w-full rounded-xl py-2.5 pl-10 pr-10 text-sm font-bold text-white outline-none transition-all"
                 />
+                <button
+                  type="button"
+                  onMouseDown={(event) => event.preventDefault()}
+                  onClick={() => {
+                    setSearchQuery('');
+                    setProductSearchOpen(false);
+                  }}
+                  className="absolute right-2 top-1/2 grid h-7 w-7 -translate-y-1/2 place-items-center rounded-lg text-cyan-100/65 transition hover:bg-white/10 hover:text-white"
+                  title="Cerrar busqueda"
+                  aria-label="Cerrar busqueda de producto"
+                >
+                  <X className="h-4 w-4" />
+                </button>
               </div>
-            ) : !isFullscreen && (
-              <div className="relative min-w-[220px] flex-[1_1_260px]">
-                <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-cyan-100/45 pointer-events-none" />
-                <input
-                  ref={searchInputRef}
-                  type="text"
-                  placeholder="Buscar producto... (/ o F2)"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-12 pr-4 py-3 rounded-xl outline-none text-white text-sm font-bold transition-all"
-                />
-              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={openProductSearch}
+                className="pos-action-ghost"
+                title="Buscar producto"
+                aria-label="Buscar producto"
+              >
+                <Search className="w-5 h-5" />
+              </button>
             )}
             <button
               onClick={addManualItem}
