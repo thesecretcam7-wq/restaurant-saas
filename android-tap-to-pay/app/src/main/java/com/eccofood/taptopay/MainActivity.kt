@@ -3,6 +3,7 @@ package com.eccofood.taptopay
 import android.Manifest
 import android.annotation.SuppressLint
 import android.content.pm.PackageManager
+import android.graphics.BitmapFactory
 import android.graphics.Color
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
@@ -18,6 +19,7 @@ import android.webkit.CookieManager
 import android.widget.Button
 import android.widget.EditText
 import android.widget.HorizontalScrollView
+import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
@@ -29,6 +31,7 @@ import org.json.JSONArray
 import org.json.JSONObject
 import java.text.NumberFormat
 import java.util.Locale
+import java.net.URL
 import kotlin.concurrent.thread
 
 class MainActivity : AppCompatActivity() {
@@ -48,6 +51,8 @@ class MainActivity : AppCompatActivity() {
     private var currentTenantSlug: String = ""
     private var currentCountry: String = "CO"
     private var currentTaxRate: Double = 0.0
+    private var currentTenantName: String = ""
+    private var currentLogoUrl: String = ""
     private var selectedStaffName = "Comandero Android"
 
     private var categories: List<MenuCategory> = emptyList()
@@ -125,6 +130,8 @@ class MainActivity : AppCompatActivity() {
         val baseUrl = prefs.getString("base_url", BuildConfig.ECCOFOOD_BASE_URL) ?: BuildConfig.ECCOFOOD_BASE_URL
         currentTenantId = prefs.getString("tenant_id", "") ?: ""
         currentTenantSlug = prefs.getString("tenant_slug", currentTenantId) ?: currentTenantId
+        currentTenantName = prefs.getString("tenant_name", currentTenantSlug) ?: currentTenantSlug
+        currentLogoUrl = prefs.getString("tenant_logo_url", "") ?: ""
         api.setBaseUrl(baseUrl)
     }
 
@@ -348,18 +355,48 @@ class MainActivity : AppCompatActivity() {
         val header = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
         }
-        val titleText = TextView(this).apply {
-            text = title
+
+        val brandRow = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(0, 0, 0, dp(8))
+        }
+
+        val logoView = ImageView(this).apply {
+            setBackgroundColor(color("#151A23"))
+            scaleType = ImageView.ScaleType.CENTER_INSIDE
+            setPadding(dp(4), dp(4), dp(4), dp(4))
+            background = rounded(color("#151A23"), color("#2A3241"), dp(1), dp(10))
+        }
+        loadLogoInto(logoView, currentLogoUrl)
+
+        val titleBlock = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(10), 0, 0, 0)
+        }
+
+        titleBlock.addView(TextView(this).apply {
+            text = "Comandero"
             textSize = 25f
             setTextColor(Color.WHITE)
             setTypeface(typeface, Typeface.BOLD)
-        }
-        val subtitle = TextView(this).apply {
-            text = currentTenantSlug
+        })
+        titleBlock.addView(TextView(this).apply {
+            text = currentTenantName.ifBlank { currentTenantSlug }
             textSize = 13f
             setTextColor(color("#9AA6B8"))
-            setPadding(0, dp(2), 0, dp(8))
+            setPadding(0, dp(2), 0, 0)
+        })
+        if (title != "Comandero") {
+            titleBlock.addView(TextView(this).apply {
+                text = title
+                textSize = 12f
+                setTextColor(color("#39D98A"))
+                setTypeface(typeface, Typeface.BOLD)
+                setPadding(0, dp(2), 0, 0)
+            })
         }
+
         val actionRow = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
@@ -372,8 +409,9 @@ class MainActivity : AppCompatActivity() {
             }, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
         }
 
-        header.addView(titleText)
-        header.addView(subtitle)
+        brandRow.addView(logoView, LinearLayout.LayoutParams(dp(64), dp(54)))
+        brandRow.addView(titleBlock, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+        header.addView(brandRow)
         header.addView(actionRow)
         return header
     }
@@ -637,6 +675,12 @@ class MainActivity : AppCompatActivity() {
                 runOnUiThread {
                     currentCountry = bootstrap.country
                     currentTaxRate = bootstrap.taxRate
+                    currentTenantName = bootstrap.tenantName.ifBlank { currentTenantSlug }
+                    currentLogoUrl = bootstrap.logoUrl
+                    prefs.edit()
+                        .putString("tenant_name", currentTenantName)
+                        .putString("tenant_logo_url", currentLogoUrl)
+                        .apply()
                     categories = bootstrap.categories
                     products = bootstrap.products
                     tables = bootstrap.tables.ifEmpty { defaultTables() }
@@ -977,6 +1021,30 @@ class MainActivity : AppCompatActivity() {
         val trimmed = value.trim().trimEnd('/')
         if (trimmed.isBlank()) return ""
         return if (trimmed.startsWith("http://") || trimmed.startsWith("https://")) trimmed else "http://$trimmed"
+    }
+
+    private fun loadLogoInto(imageView: ImageView, rawUrl: String) {
+        val resolvedUrl = resolveLogoUrl(rawUrl)
+        if (resolvedUrl.isBlank()) {
+            imageView.setImageDrawable(null)
+            return
+        }
+
+        thread {
+            try {
+                val bitmap = URL(resolvedUrl).openStream().use { BitmapFactory.decodeStream(it) }
+                runOnUiThread { imageView.setImageBitmap(bitmap) }
+            } catch (_: Exception) {
+                runOnUiThread { imageView.setImageDrawable(null) }
+            }
+        }
+    }
+
+    private fun resolveLogoUrl(rawUrl: String): String {
+        val trimmed = rawUrl.trim()
+        if (trimmed.isBlank()) return ""
+        if (trimmed.startsWith("http://") || trimmed.startsWith("https://")) return trimmed
+        return "${api.getBaseUrl().trimEnd('/')}/${trimmed.trimStart('/')}"
     }
 
     private fun defaultTables(): List<RestaurantTable> {

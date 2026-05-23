@@ -66,6 +66,8 @@ data class PosBootstrap(
     val tables: List<RestaurantTable>,
     val country: String,
     val taxRate: Double,
+    val tenantName: String,
+    val logoUrl: String,
 )
 
 class EccofoodApi(initialBaseUrl: String) {
@@ -104,12 +106,15 @@ class EccofoodApi(initialBaseUrl: String) {
     fun posBootstrap(tenantId: String): PosBootstrap {
         val response = get("/api/pos/bootstrap?tenantId=${encode(tenantId)}")
         val settings = response.optJSONObject("settings") ?: JSONObject()
+        val tenant = response.optJSONObject("tenant") ?: JSONObject()
         return PosBootstrap(
             categories = parseCategories(response.optJSONArray("categories")),
             products = parseProducts(response.optJSONArray("menu")),
             tables = parseTables(response.optJSONArray("tables")),
             country = settings.optString("country", "CO"),
             taxRate = settings.optDouble("tax_rate", 0.0),
+            tenantName = tenant.optString("organization_name", settings.optString("display_name", "")),
+            logoUrl = tenant.optString("logo_url"),
         )
     }
 
