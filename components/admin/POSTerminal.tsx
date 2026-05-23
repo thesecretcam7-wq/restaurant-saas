@@ -2647,6 +2647,27 @@ export function POSTerminal({
   const nextReservationTime = todayReservations[0]?.reservation_time?.slice(0, 5) || null;
   const compactPOSLayout = true;
 
+  const renderHeldAccountsToolbarButton = (labelClassName = 'hidden sm:inline') => (
+    <button
+      type="button"
+      onClick={() => setShowHeldAccountsPanel(true)}
+      className={`pos-action-ghost ${
+        heldAccounts.length > 0
+          ? 'border-cyan-300/45 bg-cyan-300/12 text-cyan-100'
+          : ''
+      }`}
+      title="Abrir cuentas guardadas"
+    >
+      <Clock className="w-5 h-5" />
+      <span className={labelClassName}>Guardadas</span>
+      {heldAccounts.length > 0 && (
+        <span className="rounded-full bg-cyan-300 px-1.5 py-0.5 text-[10px] font-black text-slate-950">
+          {heldAccounts.length}
+        </span>
+      )}
+    </button>
+  );
+
   if (loading) {
     return (
       <div className="pos-premium flex h-screen items-center justify-center">
@@ -2739,6 +2760,7 @@ export function POSTerminal({
                 </span>
               </div>
             )}
+            {renderHeldAccountsToolbarButton('hidden sm:inline')}
             <button
               onClick={async () => {
                 try {
@@ -3085,6 +3107,7 @@ export function POSTerminal({
                     </span>
                   </div>
                 )}
+                {renderHeldAccountsToolbarButton('hidden xl:inline')}
                 <button
                   onClick={async () => {
                     try {
@@ -3164,6 +3187,7 @@ export function POSTerminal({
                   <Download className="w-5 h-5" />
                   <span className="hidden sm:inline">Escritorio</span>
                 </button>
+                {renderHeldAccountsToolbarButton('hidden sm:inline')}
                 <button
                   onClick={async () => {
                     try {
