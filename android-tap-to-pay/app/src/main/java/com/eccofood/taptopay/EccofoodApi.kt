@@ -62,6 +62,22 @@ data class TableOrder(
     val items: List<TableOrderLine>,
 )
 
+data class BrandTheme(
+    val appName: String = "Comandero",
+    val primaryColor: String = "#D4AF37",
+    val secondaryColor: String = "#1A1F2C",
+    val accentColor: String = "#D35A37",
+    val backgroundColor: String = "#0B0E14",
+    val surfaceColor: String = "#1A1F2C",
+    val buttonPrimaryColor: String = "#D35A37",
+    val buttonSecondaryColor: String = "#D4AF37",
+    val textPrimaryColor: String = "#ffffff",
+    val textSecondaryColor: String = "#8b97a8",
+    val borderColor: String = "rgba(212, 175, 55, 0.18)",
+    val isLightTheme: Boolean = false,
+    val logoUrl: String = "",
+)
+
 data class PosBootstrap(
     val categories: List<MenuCategory>,
     val products: List<MenuProduct>,
@@ -70,6 +86,7 @@ data class PosBootstrap(
     val taxRate: Double,
     val tenantName: String,
     val logoUrl: String,
+    val branding: BrandTheme,
 )
 
 class EccofoodApi(initialBaseUrl: String) {
@@ -109,14 +126,16 @@ class EccofoodApi(initialBaseUrl: String) {
         val response = get("/api/pos/bootstrap?tenantId=${encode(tenantId)}")
         val settings = response.optJSONObject("settings") ?: JSONObject()
         val tenant = response.optJSONObject("tenant") ?: JSONObject()
+        val branding = parseBranding(response.optJSONObject("branding"), tenant, settings)
         return PosBootstrap(
             categories = parseCategories(response.optJSONArray("categories")),
             products = parseProducts(response.optJSONArray("menu")),
             tables = parseTables(response.optJSONArray("tables")),
             country = settings.optString("country", "CO"),
             taxRate = settings.optDouble("tax_rate", 0.0),
-            tenantName = tenant.optString("organization_name", settings.optString("display_name", "")),
-            logoUrl = tenant.optString("logo_url"),
+            tenantName = branding.appName.ifBlank { tenant.optString("organization_name", settings.optString("display_name", "")) },
+            logoUrl = branding.logoUrl.ifBlank { tenant.optString("logo_url") },
+            branding = branding,
         )
     }
 
@@ -251,6 +270,27 @@ class EccofoodApi(initialBaseUrl: String) {
                 )
             }
         }.filter { it.id.isNotBlank() && it.tableNumber > 0 }
+    }
+
+    private fun parseBranding(json: JSONObject?, tenant: JSONObject, settings: JSONObject): BrandTheme {
+        val source = json ?: JSONObject()
+        val tenantName = tenant.optString("organization_name", settings.optString("display_name", "Comandero"))
+        val logoUrl = source.optString("logoUrl", tenant.optString("logo_url")).takeUnless { it == "null" } ?: ""
+        return BrandTheme(
+            appName = source.optString("appName", tenantName),
+            primaryColor = source.optString("primaryColor", "#D4AF37"),
+            secondaryColor = source.optString("secondaryColor", "#1A1F2C"),
+            accentColor = source.optString("accentColor", "#D35A37"),
+            backgroundColor = source.optString("backgroundColor", "#0B0E14"),
+            surfaceColor = source.optString("surfaceColor", "#1A1F2C"),
+            buttonPrimaryColor = source.optString("buttonPrimaryColor", "#D35A37"),
+            buttonSecondaryColor = source.optString("buttonSecondaryColor", "#D4AF37"),
+            textPrimaryColor = source.optString("textPrimaryColor", "#ffffff"),
+            textSecondaryColor = source.optString("textSecondaryColor", "#8b97a8"),
+            borderColor = source.optString("borderColor", "rgba(212, 175, 55, 0.18)"),
+            isLightTheme = source.optBoolean("isLightTheme", false),
+            logoUrl = logoUrl,
+        )
     }
 
     private fun parseTableOrder(json: JSONObject): TableOrder {
