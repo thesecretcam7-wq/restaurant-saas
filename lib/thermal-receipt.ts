@@ -185,6 +185,9 @@ export function generateReceiptESCPOS(data: ReceiptData, options: ReceiptOptions
   push(BOLD_ON);
   line('Gracias por su compra');
   line('Estamos a su servicio');
+  line('');
+  line('PEDIDOS ONLINE');
+  line('www.parrillaburgers.com');
   push(BOLD_OFF);
   line('');
   line('');
