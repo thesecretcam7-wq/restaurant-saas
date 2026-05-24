@@ -2929,6 +2929,8 @@ export function POSTerminal({
                 <div className="space-y-2">
                   {heldAccounts.map((account) => {
                     const itemCount = getHeldAccountItemCount(account);
+                    const previewItems = account.items.slice(0, 6);
+                    const hiddenItems = Math.max(0, account.items.length - previewItems.length);
                     return (
                       <div key={account.id} className="rounded-xl border border-white/10 bg-white/[0.04] px-3 py-3">
                         <div className="flex items-start gap-2">
@@ -2941,6 +2943,34 @@ export function POSTerminal({
                               {formatHeldAccountTime(account.createdAt, currencyInfo.locale)} - {formatPriceWithCurrency(account.total, currencyInfo.code, currencyInfo.locale)}
                             </p>
                           </div>
+                        </div>
+                        <div className="mt-3 rounded-lg border border-white/10 bg-slate-950/35 p-2">
+                          <p className="mb-1.5 text-[10px] font-black uppercase text-cyan-100/45">Productos</p>
+                          {previewItems.length === 0 ? (
+                            <p className="text-xs font-bold text-slate-500">Sin productos</p>
+                          ) : (
+                            <div className="space-y-1">
+                              {previewItems.map((item, index) => (
+                                <div
+                                  key={`${account.id}-${item.menu_item_id}-${index}`}
+                                  className="flex items-start justify-between gap-2 text-xs"
+                                >
+                                  <span className="min-w-0 flex-1 font-bold text-slate-200">
+                                    <span className="text-cyan-200">{item.quantity}x</span>{' '}
+                                    <span className="break-words">{item.name}</span>
+                                  </span>
+                                  <span className="shrink-0 font-black text-emerald-200">
+                                    {formatPriceWithCurrency(item.price * item.quantity, currencyInfo.code, currencyInfo.locale)}
+                                  </span>
+                                </div>
+                              ))}
+                              {hiddenItems > 0 && (
+                                <p className="pt-1 text-[11px] font-black text-cyan-100/55">
+                                  +{hiddenItems} producto{hiddenItems === 1 ? '' : 's'} mas
+                                </p>
+                              )}
+                            </div>
+                          )}
                         </div>
                         <div className="mt-3 grid grid-cols-[1fr_auto] gap-2">
                           <button
