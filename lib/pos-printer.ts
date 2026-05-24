@@ -751,6 +751,9 @@ function generateReceiptHTML(data: ReceiptData): string {
   const locale = data.currencyInfo?.locale || 'es-ES';
   const money = (amount: number) => formatPriceWithCurrency(amount, data.currencyInfo.code, locale);
   const paymentLabel = getPaymentMethodLabel(data.paymentMethod);
+  const displayOrderNumber = data.orderNumber || getBrowserReceiptNumber(data.orderNumber);
+  const receiptDate = printedAt.toLocaleDateString(locale);
+  const receiptTime = printedAt.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' });
   const safe = (value: string | number | null | undefined) =>
     String(value ?? '')
       .replaceAll('&', '&amp;')
@@ -805,7 +808,7 @@ function generateReceiptHTML(data: ReceiptData): string {
           font-size: 16px;
           font-weight: 700;
           line-height: 1.18;
-          padding: 2mm 3mm 0;
+          padding: 5mm 3mm 0;
         }
         .receipt {
           width: 74mm;
@@ -818,7 +821,7 @@ function generateReceiptHTML(data: ReceiptData): string {
         .header {
           text-align: center;
           font-weight: 900;
-          margin-bottom: 2px;
+          margin-bottom: 4px;
           font-size: 19px;
           letter-spacing: 0;
         }
@@ -944,7 +947,7 @@ function generateReceiptHTML(data: ReceiptData): string {
             padding: 0 !important;
             overflow: hidden;
           }
-          body { padding: 2mm 3mm 0 !important; }
+          body { padding: 5mm 3mm 0 !important; }
           .receipt {
             break-after: avoid;
             break-inside: avoid;
@@ -960,9 +963,9 @@ function generateReceiptHTML(data: ReceiptData): string {
       <div class="header">${safe(data.restaurantName || 'Restaurante')}</div>
       ${data.restaurantPhone ? `<div class="meta-center">Tel: ${safe(data.restaurantPhone)}</div>` : ''}
       <div class="title">RECIBO DE VENTA</div>
-      <div class="meta-row"><span>Recibo:</span><strong>${safe(getBrowserReceiptNumber(data.orderNumber))}</strong></div>
-      <div class="meta-row"><span>Pedido:</span><strong>${safe(data.orderNumber)}</strong></div>
-      <div class="meta-row"><span>Fecha:</span><strong>${printedAt.toLocaleDateString(locale)} ${printedAt.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</strong></div>
+      <div class="meta-row"><span>Pedido:</span><strong>${safe(displayOrderNumber)}</strong></div>
+      <div class="meta-row"><span>Fecha:</span><strong>${safe(receiptDate)}</strong></div>
+      <div class="meta-row"><span>Hora:</span><strong>${safe(receiptTime)}</strong></div>
       ${data.tableNumber ? `<div class="meta-row"><span>Mesa:</span><strong>${safe(data.tableNumber)}</strong></div>` : ''}
       ${data.waiterName ? `<div class="meta-row"><span>Atendido Por:</span><strong>${safe(data.waiterName)}</strong></div>` : ''}
 
@@ -993,15 +996,14 @@ function generateReceiptHTML(data: ReceiptData): string {
         <span class="total-money">${money(data.total)}</span>
         ${paymentLabel ? `<div class="sale-type">VENTA ${safe(paymentLabel).toUpperCase()}</div>` : ''}
       </div>
-      <div class="payment">
-        <div class="amount-row"><span>MONTO</span><strong>${money(data.total)}</strong></div>
-        ${
-          data.amountPaid !== undefined
-            ? `<div class="cash-row"><span>Recibido:</span><strong>${money(data.amountPaid)}</strong></div>
-        <div class="cash-row"><span>Cambio:</span><strong>${money(data.change)}</strong></div>`
-            : ''
-        }
-      </div>
+      ${
+        data.amountPaid !== undefined
+          ? `<div class="payment">
+        <div class="cash-row"><span>Recibido:</span><strong>${money(data.amountPaid)}</strong></div>
+        <div class="cash-row"><span>Cambio:</span><strong>${money(data.change)}</strong></div>
+      </div>`
+          : ''
+      }
       <div class="footer">
         <p>Gracias por su compra</p>
         <p>Estamos a su servicio</p>

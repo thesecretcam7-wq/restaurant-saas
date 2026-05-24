@@ -95,6 +95,7 @@ export function generateReceiptESCPOS(data: ReceiptData, options: ReceiptOptions
   push(INIT, CODE_PAGE_PC850, FONT_A);
 
   push(ALIGN_CENTER, FONT_A, SIZE_WIDE, BOLD_ON);
+  line('');
   line(data.restaurantName ?? 'Restaurante');
   push(BOLD_OFF, SIZE_NORMAL);
   if (data.restaurantPhone) line(`Tel: ${data.restaurantPhone}`);
@@ -114,12 +115,14 @@ export function generateReceiptESCPOS(data: ReceiptData, options: ReceiptOptions
   const receiptTime = ts.toLocaleTimeString(receiptLocale, {
     hour: '2-digit',
     minute: '2-digit',
-    second: '2-digit',
   });
+  const displayOrderNumber = data.orderNumber
+    ? normalizeThermalText(data.orderNumber).substring(0, Math.max(8, cols - 8))
+    : getReceiptNumber(data.orderNumber);
 
-  row('Recibo:', getReceiptNumber(data.orderNumber));
-  if (data.orderNumber) row('Pedido:', normalizeThermalText(data.orderNumber).substring(0, Math.max(8, cols - 8)));
-  row('Fecha:', `${receiptDate} ${receiptTime}`);
+  row('Pedido:', displayOrderNumber);
+  row('Fecha:', receiptDate);
+  row('Hora:', receiptTime);
   if (data.tableNumber) line(`Mesa: ${data.tableNumber}`);
   if (data.waiterName) row('Atendido Por:', data.waiterName);
 
@@ -169,13 +172,9 @@ export function generateReceiptESCPOS(data: ReceiptData, options: ReceiptOptions
   }
   push(BOLD_OFF);
 
-  line('');
-  push(BOLD_ON);
-  push(ALIGN_LEFT);
-  row('MONTO', formatPrice(data.total, data));
-  push(BOLD_OFF);
-
   if (data.amountPaid !== undefined) {
+    line('');
+    push(ALIGN_LEFT);
     row('Recibido:', formatPrice(data.amountPaid, data));
     row('Cambio:', formatPrice(data.change, data));
   }
