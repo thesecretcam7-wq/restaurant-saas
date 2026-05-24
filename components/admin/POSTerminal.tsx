@@ -2542,6 +2542,7 @@ export function POSTerminal({
     cart.forEach(item => map.set(item.menu_item_id, item.quantity));
     return map;
   }, [cart]);
+  const savedAccountButtonDisabled = cart.length > 0 && (processingPayment || !!loadedOrderId || billingOrderIds.length > 0);
 
   const openProductSearch = useCallback(() => {
     setProductSearchOpen(true);
@@ -2589,6 +2590,14 @@ export function POSTerminal({
         setShowDineInPanel(false);
         setShowFindPayPanel(false);
         setShowHeldAccountsPanel(false);
+        return;
+      }
+
+      if (event.ctrlKey && !event.altKey && key === 'g') {
+        event.preventDefault();
+        if (!savedAccountButtonDisabled) {
+          handleSavedAccountButton();
+        }
         return;
       }
 
@@ -2661,10 +2670,14 @@ export function POSTerminal({
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [categories, selectedCategory, filteredMenu, cart, paymentMethod, handleShowReceipt, openProductSearch]);
+  }, [categories, selectedCategory, filteredMenu, cart, paymentMethod, handleShowReceipt, openProductSearch, savedAccountButtonDisabled, handleSavedAccountButton]);
 
   const nextReservationTime = todayReservations[0]?.reservation_time?.slice(0, 5) || null;
   const compactPOSLayout = true;
+  const heldAccountsPortalTarget =
+    typeof document !== 'undefined'
+      ? (isFullscreen && posRootRef.current ? posRootRef.current : document.body)
+      : null;
 
   if (loading) {
     return (
@@ -2882,7 +2895,7 @@ export function POSTerminal({
         </div>
       )}
 
-      {showHeldAccountsPanel && typeof document !== 'undefined' && createPortal(
+      {showHeldAccountsPanel && heldAccountsPortalTarget ? createPortal(
         <div
           className="fixed inset-0 flex items-center justify-center bg-black/60 px-4 py-6 backdrop-blur-sm"
           style={{ zIndex: 2147483647 }}
@@ -2999,8 +3012,8 @@ export function POSTerminal({
             </div>
           </div>
         </div>,
-        document.body
-      )}
+        heldAccountsPortalTarget
+      ) : null}
 
       {pendingCashClosingStats && (
         <div className="shrink-0 border-y border-amber-300/25 bg-amber-400/12 px-4 py-3 text-amber-50">
@@ -3168,6 +3181,26 @@ export function POSTerminal({
                 >
                   {isFullscreen ? <Minimize2 className="w-5 h-5" /> : <Maximize2 className="w-5 h-5" />}
                   <span className="hidden xl:inline">{isFullscreen ? 'Salir' : 'Completa'}</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSavedAccountButton}
+                  disabled={savedAccountButtonDisabled}
+                  className={`pos-action-ghost disabled:cursor-not-allowed disabled:opacity-45 ${
+                    showHeldAccountsPanel || heldAccounts.length > 0 || cart.length > 0
+                      ? 'border-cyan-300/45 bg-cyan-300/12 text-cyan-50'
+                      : ''
+                  }`}
+                  title={cart.length > 0 ? 'Guardar la cuenta actual (Ctrl+G)' : 'Recuperar cuentas guardadas (Ctrl+G)'}
+                  aria-keyshortcuts="Control+G"
+                >
+                  <Archive className="w-5 h-5" />
+                  <span className="hidden xl:inline">Guardar</span>
+                  {heldAccounts.length > 0 && (
+                    <span className="rounded-full bg-cyan-300 px-1.5 py-0.5 text-[10px] font-black text-slate-950">
+                      {heldAccounts.length}
+                    </span>
+                  )}
                 </button>
               </>
             )}
@@ -3394,25 +3427,6 @@ export function POSTerminal({
         <div className={`${compactPOSLayout ? 'h-[44dvh] min-h-0 overflow-hidden lg:h-auto lg:min-h-0 lg:w-72 xl:w-80' : 'min-h-[520px] flex-none overflow-y-auto pb-6 lg:min-h-0 lg:h-auto lg:w-80 lg:overflow-y-auto lg:pb-0'} pos-panel border-x-0 border-b-0 lg:border-y-0 lg:border-r-0 flex flex-col`}>
           {/* Tabs: Guardar / Cart / Entregas / Salón */}
           <div className="border-b border-white/10 flex bg-black/20 backdrop-blur-xl">
-            <button
-              type="button"
-              onClick={handleSavedAccountButton}
-              disabled={cart.length > 0 && (processingPayment || !!loadedOrderId || billingOrderIds.length > 0)}
-              className={`flex-1 flex flex-col items-center justify-center gap-0.5 py-2 border-b-2 transition relative disabled:cursor-not-allowed disabled:opacity-45 ${
-                heldAccounts.length > 0
-                  ? 'border-cyan-300/45 bg-cyan-300/12 text-cyan-50'
-                  : 'border-transparent text-slate-400 hover:text-white'
-              }`}
-              title={cart.length > 0 ? 'Guardar la cuenta actual' : 'Recuperar cuentas guardadas'}
-            >
-              <div className="relative">
-                <Archive className="w-4 h-4" />
-                {heldAccounts.length > 0 && (
-                  <span className="absolute -top-1.5 -right-2 bg-cyan-300 text-slate-950 rounded-full w-4 h-4 text-[9px] font-black flex items-center justify-center">{heldAccounts.length}</span>
-                )}
-              </div>
-              <span className="text-[10px] font-bold">Guardar</span>
-            </button>
             <button
               onClick={() => { setShowIncomingPanel(false); setShowDineInPanel(false); setShowFindPayPanel(false); }}
               className={`flex-1 flex flex-col items-center justify-center gap-0.5 py-2 border-b-2 transition relative ${

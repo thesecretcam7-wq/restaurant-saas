@@ -138,7 +138,7 @@ function getOperationalAccess(pathname: string) {
   return null
 }
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   const url = request.nextUrl.clone()
   const hostname = request.headers.get('host') || ''
   const pathname = url.pathname
