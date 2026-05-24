@@ -2647,27 +2647,6 @@ export function POSTerminal({
   const nextReservationTime = todayReservations[0]?.reservation_time?.slice(0, 5) || null;
   const compactPOSLayout = true;
 
-  const renderHeldAccountsToolbarButton = (labelClassName = 'hidden sm:inline') => (
-    <button
-      type="button"
-      onClick={() => setShowHeldAccountsPanel(true)}
-      className={`pos-action-ghost ${
-        heldAccounts.length > 0
-          ? 'border-cyan-300/45 bg-cyan-300/12 text-cyan-100'
-          : ''
-      }`}
-      title="Abrir cuentas guardadas"
-    >
-      <Clock className="w-5 h-5" />
-      <span className={labelClassName}>Guardadas</span>
-      {heldAccounts.length > 0 && (
-        <span className="rounded-full bg-cyan-300 px-1.5 py-0.5 text-[10px] font-black text-slate-950">
-          {heldAccounts.length}
-        </span>
-      )}
-    </button>
-  );
-
   if (loading) {
     return (
       <div className="pos-premium flex h-screen items-center justify-center">
@@ -2760,7 +2739,6 @@ export function POSTerminal({
                 </span>
               </div>
             )}
-            {renderHeldAccountsToolbarButton('hidden sm:inline')}
             <button
               onClick={async () => {
                 try {
@@ -3107,7 +3085,6 @@ export function POSTerminal({
                     </span>
                   </div>
                 )}
-                {renderHeldAccountsToolbarButton('hidden xl:inline')}
                 <button
                   onClick={async () => {
                     try {
@@ -3187,7 +3164,6 @@ export function POSTerminal({
                   <Download className="w-5 h-5" />
                   <span className="hidden sm:inline">Escritorio</span>
                 </button>
-                {renderHeldAccountsToolbarButton('hidden sm:inline')}
                 <button
                   onClick={async () => {
                     try {
@@ -3367,8 +3343,33 @@ export function POSTerminal({
 
         {/* Cart/Payment Section */}
         <div className={`${compactPOSLayout ? 'h-[44dvh] min-h-0 overflow-hidden lg:h-auto lg:min-h-0 lg:w-72 xl:w-80' : 'min-h-[520px] flex-none overflow-y-auto pb-6 lg:min-h-0 lg:h-auto lg:w-80 lg:overflow-y-auto lg:pb-0'} pos-panel border-x-0 border-b-0 lg:border-y-0 lg:border-r-0 flex flex-col`}>
-          {/* Tabs: Cart / Entregas / Salón */}
+          {/* Tabs: Guardar / Cart / Entregas / Salón */}
           <div className="border-b border-white/10 flex bg-black/20 backdrop-blur-xl">
+            <button
+              type="button"
+              onClick={() => {
+                if (cart.length > 0) {
+                  handleHoldCurrentAccount();
+                } else {
+                  setShowHeldAccountsPanel(true);
+                }
+              }}
+              disabled={cart.length > 0 && (processingPayment || !!loadedOrderId || billingOrderIds.length > 0)}
+              className={`flex-1 flex flex-col items-center justify-center gap-0.5 py-2 border-b-2 transition relative disabled:cursor-not-allowed disabled:opacity-45 ${
+                heldAccounts.length > 0
+                  ? 'border-cyan-300/45 bg-cyan-300/12 text-cyan-50'
+                  : 'border-transparent text-slate-400 hover:text-white'
+              }`}
+              title={cart.length > 0 ? 'Guardar la cuenta actual' : 'Ver cuentas guardadas'}
+            >
+              <div className="relative">
+                <Archive className="w-4 h-4" />
+                {heldAccounts.length > 0 && (
+                  <span className="absolute -top-1.5 -right-2 bg-cyan-300 text-slate-950 rounded-full w-4 h-4 text-[9px] font-black flex items-center justify-center">{heldAccounts.length}</span>
+                )}
+              </div>
+              <span className="text-[10px] font-bold">Guardar</span>
+            </button>
             <button
               onClick={() => { setShowIncomingPanel(false); setShowDineInPanel(false); setShowFindPayPanel(false); }}
               className={`flex-1 flex flex-col items-center justify-center gap-0.5 py-2 border-b-2 transition relative ${
