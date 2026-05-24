@@ -1862,6 +1862,25 @@ export function POSTerminal({
     setToast({ message: 'Cuenta guardada en espera', type: 'success' });
   }
 
+  function handleSavedAccountButton() {
+    if (cart.length > 0) {
+      handleHoldCurrentAccount();
+      return;
+    }
+
+    if (heldAccounts.length === 0) {
+      setToast({ message: 'No hay cuentas guardadas para recuperar', type: 'error' });
+      return;
+    }
+
+    if (heldAccounts.length === 1) {
+      handleResumeHeldAccount(heldAccounts[0].id);
+      return;
+    }
+
+    setShowHeldAccountsPanel(true);
+  }
+
   function handleResumeHeldAccount(accountId: string) {
     if (cart.length > 0 || loadedOrderId || billingOrderIds.length > 0) {
       setToast({ message: 'Guarda o cobra la cuenta actual antes de recuperar otra', type: 'error' });
@@ -3347,14 +3366,14 @@ export function POSTerminal({
           <div className="border-b border-white/10 flex bg-black/20 backdrop-blur-xl">
             <button
               type="button"
-              onClick={handleHoldCurrentAccount}
+              onClick={handleSavedAccountButton}
               disabled={cart.length > 0 && (processingPayment || !!loadedOrderId || billingOrderIds.length > 0)}
               className={`flex-1 flex flex-col items-center justify-center gap-0.5 py-2 border-b-2 transition relative disabled:cursor-not-allowed disabled:opacity-45 ${
                 heldAccounts.length > 0
                   ? 'border-cyan-300/45 bg-cyan-300/12 text-cyan-50'
                   : 'border-transparent text-slate-400 hover:text-white'
               }`}
-              title="Guardar la cuenta actual"
+              title={cart.length > 0 ? 'Guardar la cuenta actual' : 'Recuperar cuentas guardadas'}
             >
               <div className="relative">
                 <Archive className="w-4 h-4" />
