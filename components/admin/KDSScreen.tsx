@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState, useCallback } from 'react';
-import { createClient } from '@supabase/supabase-js';
+import { createClient } from '@/lib/supabase/client';
 import {
   BellRing,
   CheckCircle2,
@@ -18,14 +18,10 @@ import {
   VolumeX,
   Zap,
 } from 'lucide-react';
+import { useWakeLock } from '@/lib/hooks/useWakeLock';
+import LanguageSwitcher, { useI18n } from '@/components/LanguageSwitcher';
 
-  // Wake Lock
-type WakeLockSentinel = any;
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
+const supabase = createClient();
 
 interface OrderItemWithOrder {
   id: string;
@@ -170,10 +166,10 @@ function useSound() {
     if (ctx && ctx.state === 'suspended') {
       ctx.resume().then(() => {
         console.log('Audio context resumed successfully');
-        setAudioStatus('Audio listo');
+        setAudioStatus('kds.audioReady');
       }).catch(err => {
         console.error('Resume audio context failed:', err);
-        setAudioStatus(`Error de audio: ${err}`);
+        setAudioStatus('kds.audioError');
       });
     }
     setSoundPermissionGranted(true);
@@ -244,11 +240,11 @@ function useSound() {
 
   const playBeeps = useCallback((frequencies: number[], duration: number = 0.15, gap: number = 0.2) => {
     if (!soundEnabled) {
-      setAudioStatus('Sonido deshabilitado');
+      setAudioStatus('kds.audioDisabled');
       return;
     }
 
-    setAudioStatus('Reproduciendo alerta...');
+    setAudioStatus('kds.alertPlaying');
     console.log('Playing beeps:', frequencies);
 
     const fileAlert = alertAudioRef.current;
@@ -307,7 +303,7 @@ function useSound() {
           time += duration + gap;
         });
 
-        setAudioStatus('Alerta reproducida');
+        setAudioStatus('kds.alertPlayed');
         console.log('Beeps scheduled with Web Audio API');
         return;
       } catch (err) {
@@ -317,7 +313,7 @@ function useSound() {
 
     // Fallback: Usar HTMLAudioElement para Android
     try {
-      setAudioStatus('Reproduciendo alerta de respaldo...');
+      setAudioStatus('kds.fallbackAlert');
       frequencies.forEach((freq, idx) => {
         setTimeout(() => {
           const dataUrl = generateToneDataUrl(freq, duration * 1000);
@@ -325,15 +321,15 @@ function useSound() {
           audio.volume = 1.0;
           audio.play().catch(err => {
             console.error('HTML Audio play error:', err);
-            setAudioStatus(`Error de audio: ${err}`);
+            setAudioStatus('kds.audioError');
           });
         }, (duration + gap) * 1000 * idx);
       });
 
-      setAudioStatus('Alerta reproducida');
+      setAudioStatus('kds.alertPlayed');
     } catch (err) {
       console.error('Fallback error:', err);
-        setAudioStatus(`Error de audio: ${err}`);
+        setAudioStatus('kds.audioError');
     }
   }, [soundEnabled, initAudio, generateToneDataUrl]);
 
@@ -347,11 +343,11 @@ function useSound() {
 
   const playDelayedAlert = useCallback(() => {
     if (!soundEnabled) {
-      setAudioStatus('Sonido deshabilitado');
+      setAudioStatus('kds.audioDisabled');
       return;
     }
 
-    setAudioStatus('Alarma de pedido atrasado...');
+    setAudioStatus('kds.delayedAlert');
     initAudio();
     const ctx = audioCtxRef.current;
 
@@ -389,7 +385,7 @@ function useSound() {
           time += 0.34;
         });
 
-        setAudioStatus('Alarma de atraso reproducida');
+        setAudioStatus('kds.delayedAlertPlayed');
       } catch (err) {
         console.error('Delayed alarm Web Audio error:', err);
         playBeeps([420, 1120, 420, 1120, 760], 0.28, 0.06);
@@ -433,59 +429,65 @@ function OrderCard({
   loading: boolean;
   onPlayTestSound?: () => void;
 }) {
+  const { tr } = useI18n();
   const minutes = useElapsedMinutes(order.createdAt);
 
   // Determine urgency badge
   const getUrgencyBadge = (mins: number) => {
-    if (mins < 5) return { label: 'A tiempo', color: 'bg-emerald-400/10 text-emerald-200 border-emerald-400/30' };
-    if (mins < 10) return { label: 'Moderado', color: 'bg-amber-400/15 text-amber-100 border-amber-400/40' };
-    return { label: 'Urgente', color: 'bg-red-500/20 text-red-100 border-red-400/50' };
+    if (mins < 5) return { label: tr('kds.onTime'), color: 'bg-emerald-400/10 text-emerald-200 border-emerald-400/30' };
+    if (mins < 10) return { label: tr('kds.moderate'), color: 'bg-amber-400/15 text-amber-100 border-amber-400/40' };
+    return { label: tr('kds.urgent'), color: 'bg-red-500/20 text-red-100 border-red-400/50' };
   };
 
   const urgency = getUrgencyBadge(minutes);
 
   return (
     <div
-      className={`rounded-2xl border transition-all duration-200 overflow-hidden shadow-2xl ${getUrgencyBorder(minutes)} ${getUrgencyBg(minutes)} ${getTimerPulse(minutes)}`}
+      className={`rounded-xl border transition-all duration-200 overflow-hidden shadow-xl ${getUrgencyBorder(minutes)} ${getUrgencyBg(minutes)} ${getTimerPulse(minutes)}`}
       style={{
         borderWidth: '2px',
       }}
     >
       {/* Card Content */}
-      <div className="p-4 flex flex-col gap-3 h-full relative">
-        <div className="absolute inset-x-4 top-0 h-px bg-gradient-to-r from-transparent via-white/40 to-transparent" />
+      <div className="p-3 flex flex-col gap-2.5 h-full relative">
+        <div className="absolute inset-x-3 top-0 h-px bg-gradient-to-r from-transparent via-white/40 to-transparent" />
         {/* Header with Order Number and Timer */}
-        <div className="flex items-start justify-between gap-3">
-          <div className="flex-1">
+        <div className="flex items-start justify-between gap-2.5">
+          <div className="min-w-0 flex-1">
             {/* Order Number - Large and Bold */}
-            <p className="text-4xl font-black text-white tracking-wider leading-tight">
-              {order.orderNumber}
-            </p>
+            <div className="flex min-w-0 items-center gap-2">
+              <span className="rounded-md border border-white/10 bg-white/10 px-2 py-1 text-[10px] font-black uppercase tracking-[0.16em] text-slate-300">
+                {tr('kds.order')}
+              </span>
+              <p className="truncate text-2xl font-black leading-none tracking-wide text-white sm:text-[1.7rem]">
+                {order.orderNumber}
+              </p>
+            </div>
 
             {/* Meta Info */}
-            <div className="flex items-center gap-2 mt-2 flex-wrap">
+            <div className="flex items-center gap-1.5 mt-2 flex-wrap">
               {order.deliveryType === 'delivery' && (
-                <span className="text-xs font-bold bg-violet-400/15 text-violet-100 px-2.5 py-1 rounded-lg border border-violet-300/20">
-                  A domicilio
+                <span className="text-[11px] font-bold bg-violet-400/15 text-violet-100 px-2 py-0.5 rounded-md border border-violet-300/20">
+                  {tr('kds.delivery')}
                 </span>
               )}
               {order.deliveryType === 'pickup' && (
-                <span className="text-xs font-bold bg-emerald-400/15 text-emerald-100 px-2.5 py-1 rounded-lg border border-emerald-300/20">
-                  Para recoger
+                <span className="text-[11px] font-bold bg-emerald-400/15 text-emerald-100 px-2 py-0.5 rounded-md border border-emerald-300/20">
+                  {tr('kds.pickup')}
                 </span>
               )}
               {order.tableNumber && (
-                <span className="text-xs font-semibold bg-cyan-400/15 text-cyan-100 px-2.5 py-1 rounded-lg border border-cyan-300/20">
-                  Mesa {order.tableNumber}
+                <span className="text-[11px] font-semibold bg-cyan-400/15 text-cyan-100 px-2 py-0.5 rounded-md border border-cyan-300/20">
+                  {tr('kds.table')} {order.tableNumber}
                 </span>
               )}
               {order.waiterName && (
-                <span className="text-xs font-medium text-slate-200 px-2.5 py-1 bg-white/10 rounded-lg border border-white/10">
+                <span className="text-[11px] font-medium text-slate-200 px-2 py-0.5 bg-white/10 rounded-md border border-white/10">
                   {order.waiterName}
                 </span>
               )}
               {(order.deliveryType === 'delivery' || order.deliveryType === 'pickup') && order.customerName && (
-                <span className="text-xs font-medium text-slate-200 px-2.5 py-1 bg-white/10 rounded-lg border border-white/10 truncate max-w-[120px]">
+                <span className="text-[11px] font-medium text-slate-200 px-2 py-0.5 bg-white/10 rounded-md border border-white/10 truncate max-w-[120px]">
                   {order.customerName}
                 </span>
               )}
@@ -493,9 +495,9 @@ function OrderCard({
           </div>
 
           {/* Timer - Right Side */}
-          <div className="flex flex-col items-end gap-2">
-            <div className={`flex items-center gap-2 rounded-xl px-3 py-2 font-black text-lg border ${getTimerColor(minutes)} transition-all`}>
-              <Clock className="w-5 h-5" />
+          <div className="flex flex-col items-end gap-1.5">
+            <div className={`flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 font-black text-base border ${getTimerColor(minutes)} transition-all`}>
+              <Clock className="w-4 h-4" />
               <span>{minutes}m</span>
             </div>
             {onPlayTestSound && (
@@ -504,34 +506,34 @@ function OrderCard({
                   e.stopPropagation();
                   onPlayTestSound();
                 }}
-                className="grid h-8 w-8 place-items-center rounded-lg bg-white/10 hover:bg-white/20 border border-white/10 text-xs font-semibold text-white transition active:scale-95"
-                title="Test sound"
+                className="grid h-7 w-7 place-items-center rounded-md bg-white/10 hover:bg-white/20 border border-white/10 text-xs font-semibold text-white transition active:scale-95"
+                title={tr('kds.testSound')}
               >
-                <BellRing className="h-4 w-4" />
+                <BellRing className="h-3.5 w-3.5" />
               </button>
             )}
           </div>
         </div>
 
         {/* Urgency Badge */}
-        <div className={`border rounded-xl px-3 py-2 text-xs font-bold text-center uppercase tracking-[0.18em] ${urgency.color}`}>
+        <div className={`border rounded-lg px-2.5 py-1.5 text-[11px] font-bold text-center uppercase tracking-[0.16em] ${urgency.color}`}>
           {urgency.label}
         </div>
 
         {/* Items List */}
-        <div className="flex-1 space-y-2 border-t border-white/10 pt-3">
+        <div className="flex-1 space-y-1.5 border-t border-white/10 pt-2.5">
           {order.items
             .filter((i) => i.status !== 'cancelled' && i.status !== 'delivered')
             .map((item) => (
-              <div key={item.id} className="flex items-start gap-3 rounded-xl bg-white/[0.06] border border-white/10 p-3">
-                <span className="text-white font-black text-base bg-white/10 rounded-lg px-2.5 py-1 min-w-fit leading-none">
+              <div key={item.id} className="flex items-start gap-2.5 rounded-lg bg-white/[0.06] border border-white/10 p-2.5">
+                <span className="text-white font-black text-sm bg-white/10 rounded-md px-2 py-1 min-w-fit leading-none">
                   x{item.quantity}
                 </span>
                 <div className="flex-1">
-                  <p className="text-white font-semibold text-sm leading-snug">{item.name}</p>
+                  <p className="text-white font-semibold text-[15px] leading-snug">{item.name}</p>
                   {item.notes && (
                     <p className="text-amber-200 text-xs mt-1 leading-snug">
-                      Nota: {item.notes}
+                      {tr('kds.note')}: {item.notes}
                     </p>
                   )}
                 </div>
@@ -543,7 +545,7 @@ function OrderCard({
         <button
           onClick={() => onAction(order)}
           disabled={loading}
-          className={`w-full py-3.5 rounded-xl font-black text-white text-sm tracking-[0.14em] transition-all duration-200 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed hover:shadow-lg ${actionColor}`}
+          className={`w-full py-2.5 rounded-lg font-black text-white text-sm tracking-[0.12em] transition-all duration-200 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed hover:shadow-lg ${actionColor}`}
         >
           {actionLabel}
         </button>
@@ -574,29 +576,33 @@ function KDSColumn({
   loading: boolean;
   onPlayTestSound?: () => void;
 }) {
+  const { tr } = useI18n();
+
   return (
-    <div className="flex flex-col rounded-3xl overflow-hidden border border-white/10 bg-slate-950/92 h-full shadow-2xl shadow-black/30 backdrop-blur-xl">
+    <div className="flex min-h-[72dvh] flex-col rounded-2xl overflow-hidden border border-white/10 bg-slate-950/92 shadow-2xl shadow-black/30 backdrop-blur-xl md:min-h-0 md:h-full">
       {/* Column Header */}
-      <div className={`px-4 py-4 flex items-center justify-between border-b border-white/10 ${headerColor}`}>
-        <div className="flex items-center gap-3">
-          <span className="grid h-10 w-10 place-items-center rounded-2xl bg-white/10 border border-white/10">{icon}</span>
+      <div className={`px-3 py-3 flex items-center justify-between border-b border-white/10 ${headerColor}`}>
+        <div className="flex items-center gap-2.5">
+          <span className="grid h-9 w-9 place-items-center rounded-xl bg-white/10 border border-white/10">{icon}</span>
           <div>
-            <span className="font-black text-white text-base tracking-[0.18em] block">{title}</span>
-            <span className="text-xs text-slate-400 mt-0.5">{orders.length} {orders.length === 1 ? 'orden' : 'ordenes'}</span>
+            <span className="font-black text-white text-sm tracking-[0.14em] block">{title}</span>
+            <span className="text-xs text-slate-400 mt-0.5">
+              {orders.length} {tr(orders.length === 1 ? 'kds.orderSingular' : 'kds.orderPlural')}
+            </span>
           </div>
         </div>
-        <span className="bg-white text-slate-950 font-black text-lg rounded-xl px-3 py-2 border border-white/20 shadow-sm">
+        <span className="bg-white text-slate-950 font-black text-base rounded-lg px-2.5 py-1.5 border border-white/20 shadow-sm">
           {orders.length}
         </span>
       </div>
 
       {/* Cards Container */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-3 max-h-[calc(100vh-230px)]">
+      <div className="flex-1 overflow-y-auto p-2.5 space-y-2.5 md:max-h-[calc(100vh-190px)]">
         {orders.length === 0 ? (
           <div className="text-center py-16 flex flex-col items-center justify-center h-full">
             <Utensils className="h-12 w-12 text-slate-500" />
-            <p className="text-sm font-medium text-slate-300">Sin ordenes</p>
-            <p className="text-xs text-slate-500 mt-1">Esperando nuevas ordenes...</p>
+            <p className="text-sm font-medium text-slate-300">{tr('kds.noOrders')}</p>
+            <p className="text-xs text-slate-500 mt-1">{tr('kds.waitingOrders')}</p>
           </div>
         ) : (
           orders.map((order, index) => (
@@ -619,12 +625,12 @@ function KDSColumn({
 
 // Main KDSScreen Component
 export function KDSScreen({ tenantId }: { tenantId: string }) {
+  const { tr } = useI18n();
   const [items, setItems] = useState<OrderItemWithOrder[]>([]);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
-  const [wakeLockActive, setWakeLockActive] = useState(false);
-  const wakeLockRef = useRef<WakeLockSentinel | null>(null);
+  const { wakeLockActive, activateWakeLock } = useWakeLock();
   const delayedAlertedOrders = useRef(new Map<string, number>());
   const {
     soundEnabled,
@@ -650,60 +656,6 @@ export function KDSScreen({ tenantId }: { tenantId: string }) {
       if (!isFullscreen) await document.documentElement.requestFullscreen();
       else await document.exitFullscreen();
     } catch (_) {}
-  }
-
-  // Wake Lock
-  async function activateWakeLock() {
-    try {
-      if ('wakeLock' in navigator) {
-        const sentinel = await (navigator as any).wakeLock.request('screen');
-        wakeLockRef.current = sentinel;
-        setWakeLockActive(true);
-        console.log('Wake Lock activated successfully');
-
-        // Handle release event (battery saver, user action, etc)
-        const handleRelease = () => {
-          console.log('Wake Lock released by system');
-          wakeLockRef.current = null;
-          setWakeLockActive(false);
-        };
-        sentinel.addEventListener('release', handleRelease);
-
-  // Wake Lock
-        const handleVisibilityChange = async () => {
-          if (document.hidden && wakeLockRef.current) {
-            try {
-              await wakeLockRef.current.release();
-              wakeLockRef.current = null;
-              setWakeLockActive(false);
-              console.log('Wake Lock released on tab hide');
-            } catch (_) {}
-          } else if (!document.hidden && !wakeLockRef.current) {
-            try {
-              const newSentinel = await (navigator as any).wakeLock.request('screen');
-              wakeLockRef.current = newSentinel;
-              setWakeLockActive(true);
-              console.log('Wake Lock re-activated on tab show');
-              newSentinel.addEventListener('release', handleRelease);
-            } catch (err) {
-              console.error('Re-activate wake lock failed:', err);
-            }
-          }
-        };
-
-        document.addEventListener('visibilitychange', handleVisibilityChange);
-        return () => {
-          document.removeEventListener('visibilitychange', handleVisibilityChange);
-          sentinel.removeEventListener('release', handleRelease);
-        };
-      } else {
-        console.warn('Wake Lock API not supported');
-        setWakeLockActive(false);
-      }
-    } catch (err) {
-      console.error('Wake Lock error:', err);
-      setWakeLockActive(false);
-    }
   }
 
   // Delayed Order Alerts: pending orders not confirmed after 10 minutes.
@@ -887,8 +839,8 @@ export function KDSScreen({ tenantId }: { tenantId: string }) {
             </div>
           </div>
           <div>
-            <p className="text-2xl font-black tracking-wider mb-2 text-white">Cargando cocina digital</p>
-            <p className="text-slate-400 text-sm">Preparando la pantalla de servicio...</p>
+            <p className="text-2xl font-black tracking-wider mb-2 text-white">{tr('common.loading')}</p>
+            <p className="text-slate-400 text-sm">{tr('display.active')}</p>
           </div>
         </div>
       </div>
@@ -898,42 +850,43 @@ export function KDSScreen({ tenantId }: { tenantId: string }) {
   return (
     // Clicking anywhere inits audio (required by iOS/Safari)
     <div
-      className={`bg-slate-950 text-white flex flex-col select-none overflow-hidden ${isFullscreen ? 'fixed inset-0 z-50' : 'h-screen'}`}
+      className={`bg-slate-950 text-white flex flex-col select-none ${isFullscreen ? 'fixed inset-0 z-50 overflow-hidden' : 'min-h-[100dvh] md:h-screen md:overflow-hidden'}`}
       onClick={initAudio}
     >
       {/* Top Bar */}
       <div className="bg-slate-950/95 border-b border-white/10 shrink-0 shadow-2xl shadow-black/30">
-        <div className="flex flex-col gap-3 px-3 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-6 sm:py-4">
+        <div className="flex flex-col gap-2.5 px-3 py-2.5 sm:flex-row sm:items-center sm:justify-between sm:px-5 sm:py-3">
           {/* Left Section */}
-          <div className="flex min-w-0 items-center gap-3 sm:gap-4">
-            <div className="bg-cyan-400/10 backdrop-blur-sm rounded-2xl p-3 border border-cyan-300/20 shadow-lg shadow-cyan-500/10">
-              <ChefHat className="w-6 h-6 text-cyan-200" />
+          <div className="flex min-w-0 items-center gap-3">
+            <div className="bg-cyan-400/10 backdrop-blur-sm rounded-xl p-2.5 border border-cyan-300/20 shadow-lg shadow-cyan-500/10">
+              <ChefHat className="w-5 h-5 text-cyan-200" />
             </div>
             <div>
-              <span className="block text-base font-black tracking-[0.08em] text-white sm:text-xl sm:tracking-[0.22em]">KITCHEN DISPLAY</span>
-              <span className="text-slate-400 text-sm font-medium">
-                {allOrders.length} orden{allOrders.length !== 1 ? 'es' : ''} activa{allOrders.length !== 1 ? 's' : ''}
+              <span className="block text-sm font-black tracking-[0.08em] text-white sm:text-lg sm:tracking-[0.18em]">{tr('kds.title').toUpperCase()}</span>
+              <span className="text-slate-400 text-xs font-medium">
+                {allOrders.length} {tr('kds.activeOrders')}
               </span>
             </div>
           </div>
 
           {/* Right Section - Controls */}
           <div className="flex items-center gap-2 overflow-x-auto scrollbar-hide">
+            <LanguageSwitcher compact className="border-white/15 bg-white/10 text-white [&_select]:text-white" />
             {/* Sound Toggle */}
             <button
               onClick={(e) => { e.stopPropagation(); setSoundEnabled((v) => !v); }}
-              className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 backdrop-blur-sm border border-white/15 text-sm font-semibold text-white transition-all duration-200"
-              title={soundEnabled ? 'Silenciar alertas' : 'Activar alertas'}
+              className="flex items-center gap-2 px-3 py-2 rounded-lg bg-white/10 hover:bg-white/20 backdrop-blur-sm border border-white/15 text-xs font-semibold text-white transition-all duration-200"
+              title={tr('kds.sound')}
             >
               {soundEnabled ? (
                 <>
-                  <Volume2 className="w-5 h-5" />
-                  <span>Sonido</span>
+                  <Volume2 className="w-4 h-4" />
+                  <span>{tr('kds.sound')}</span>
                 </>
               ) : (
                 <>
-                  <VolumeX className="w-5 h-5" />
-                  <span>Mudo</span>
+                  <VolumeX className="w-4 h-4" />
+                  <span>{tr('kds.sound')}</span>
                 </>
               )}
             </button>
@@ -941,18 +894,18 @@ export function KDSScreen({ tenantId }: { tenantId: string }) {
             {/* Fullscreen Toggle */}
             <button
               onClick={(e) => { e.stopPropagation(); toggleFullscreen(); }}
-              className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 backdrop-blur-sm border border-white/15 text-sm font-semibold text-white transition-all duration-200"
-              title={isFullscreen ? 'Salir de pantalla completa' : 'Pantalla completa'}
+              className="flex items-center gap-2 px-3 py-2 rounded-lg bg-white/10 hover:bg-white/20 backdrop-blur-sm border border-white/15 text-xs font-semibold text-white transition-all duration-200"
+              title={isFullscreen ? tr('kds.exitFullscreen') : tr('kds.fullscreen')}
             >
               {isFullscreen ? (
                 <>
-                  <Minimize2 className="w-5 h-5" />
-                  <span className="hidden sm:inline">Salir</span>
+                  <Minimize2 className="w-4 h-4" />
+                  <span className="hidden sm:inline">{tr('kds.exitFullscreen')}</span>
                 </>
               ) : (
                 <>
-                  <Maximize2 className="w-5 h-5" />
-                  <span className="hidden sm:inline">Fullscreen</span>
+                  <Maximize2 className="w-4 h-4" />
+                  <span className="hidden sm:inline">{tr('kds.fullscreen')}</span>
                 </>
               )}
             </button>
@@ -962,13 +915,13 @@ export function KDSScreen({ tenantId }: { tenantId: string }) {
 
       {/* Permission banners */}
       {!soundPermissionGranted && (
-        <div className="bg-red-950/90 border-b border-red-400/20 px-3 py-3 flex flex-col gap-3 shrink-0 sm:flex-row sm:items-center sm:justify-between sm:px-6 sm:py-4">
+        <div className="bg-red-950/90 border-b border-red-400/20 px-3 py-2.5 flex flex-col gap-2.5 shrink-0 sm:flex-row sm:items-center sm:justify-between sm:px-5 sm:py-3">
           <div className="flex items-center gap-4 flex-1">
             <BellRing className="h-8 w-8 text-red-200 animate-pulse" />
             <div>
-              <p className="text-sm font-bold text-red-100">Se requieren permisos de sonido</p>
-              <p className="text-xs text-red-200/80 mt-1">Las alertas de ordenes no funcionaran sin audio habilitado</p>
-              {audioStatus && <p className="text-xs text-red-100 mt-2 font-medium">{audioStatus}</p>}
+              <p className="text-sm font-bold text-red-100">{tr('kds.soundPermissionTitle')}</p>
+              <p className="text-xs text-red-200/80 mt-1">{tr('kds.soundPermissionText')}</p>
+              {audioStatus && <p className="text-xs text-red-100 mt-2 font-medium">{tr(audioStatus)}</p>}
             </div>
           </div>
           <button
@@ -981,18 +934,18 @@ export function KDSScreen({ tenantId }: { tenantId: string }) {
             }}
             className="px-6 py-2.5 bg-red-500 hover:bg-red-400 text-white rounded-xl font-bold text-sm transition-all duration-200 whitespace-nowrap sm:ml-4"
           >
-            Habilitar Sonido
+            {tr('kds.sound')}
           </button>
         </div>
       )}
 
       {!wakeLockActive && (
-        <div className="bg-amber-950/90 border-b border-amber-400/20 px-3 py-3 flex flex-col gap-3 shrink-0 sm:flex-row sm:items-center sm:justify-between sm:px-6 sm:py-4">
+        <div className="bg-amber-950/90 border-b border-amber-400/20 px-3 py-2.5 flex flex-col gap-2.5 shrink-0 sm:flex-row sm:items-center sm:justify-between sm:px-5 sm:py-3">
           <div className="flex items-center gap-4">
             <LockKeyhole className="h-8 w-8 text-amber-200" />
             <div>
-              <p className="text-sm font-bold text-amber-100">Activar proteccion de pantalla</p>
-              <p className="text-xs text-amber-200/80 mt-1">Manten la pantalla activa durante el servicio</p>
+              <p className="text-sm font-bold text-amber-100">{tr('kds.enableScreenProtection')}</p>
+              <p className="text-xs text-amber-200/80 mt-1">{tr('kds.keepScreenActive')}</p>
             </div>
           </div>
           <button
@@ -1002,52 +955,52 @@ export function KDSScreen({ tenantId }: { tenantId: string }) {
             }}
             className="px-6 py-2.5 bg-amber-500 hover:bg-amber-400 text-slate-950 rounded-xl font-bold text-sm transition-all duration-200 whitespace-nowrap sm:ml-4"
           >
-            Bloquear Pantalla
+            {tr('kds.lockScreen')}
           </button>
         </div>
       )}
 
       {/* Legend / urgency guide */}
-      <div className="bg-slate-900 border-b border-white/10 px-3 py-3 shrink-0 sm:px-6">
+      <div className="bg-slate-900 border-b border-white/10 px-3 py-2 shrink-0 sm:px-5">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
           <div className="flex gap-4 overflow-x-auto text-xs font-medium scrollbar-hide lg:gap-8">
             <div className="flex items-center gap-2">
               <div className="w-3 h-3 rounded-full bg-green-500 ring-2 ring-green-400/30" />
-              <span className="text-slate-300">Menos de 5 min <span className="text-slate-500">(A tiempo)</span></span>
+              <span className="text-slate-300">{tr('kds.lessThan5')} <span className="text-slate-500">({tr('kds.onTime')})</span></span>
             </div>
             <div className="flex items-center gap-2">
               <div className="w-3 h-3 rounded-full bg-amber-500 ring-2 ring-amber-400/30" />
-              <span className="text-slate-300">5 a 10 minutos <span className="text-slate-500">(Moderado)</span></span>
+              <span className="text-slate-300">{tr('kds.between5And10')} <span className="text-slate-500">({tr('kds.moderate')})</span></span>
             </div>
             <div className="flex items-center gap-2">
               <div className="w-3 h-3 rounded-full bg-red-500 ring-2 ring-red-400/30 animate-pulse" />
-              <span className="text-slate-300">Mas de 10 min <span className="text-slate-500 font-bold">(Urgente)</span></span>
+              <span className="text-slate-300">{tr('kds.moreThan10')} <span className="text-slate-500 font-bold">({tr('kds.urgent')})</span></span>
             </div>
           </div>
 
           {/* Trust-Building Stats */}
-          <div className="flex items-center gap-4 lg:ml-auto lg:gap-6">
+          <div className="grid grid-cols-2 gap-2 sm:flex sm:items-center sm:gap-4 lg:ml-auto lg:gap-6">
             <div className="flex items-center gap-2 text-center">
               <ShieldCheck className="h-4 w-4 text-emerald-300" />
               <div className="text-2xl font-black text-emerald-300">{totalDeliveredItems}</div>
-              <span className="text-xs text-slate-400 font-medium">Completadas</span>
+              <span className="text-xs text-slate-400 font-medium">{tr('kds.completed')}</span>
             </div>
             <div className="w-px h-4 bg-white/10" />
             <div className="flex items-center gap-2 text-center">
               <Zap className="h-4 w-4 text-cyan-300" />
               <div className="text-2xl font-black text-cyan-300">{avgPrepTime}m</div>
-              <span className="text-xs text-slate-400 font-medium">Tiempo prom.</span>
+              <span className="text-xs text-slate-400 font-medium">{tr('kds.avgTime')}</span>
             </div>
           </div>
         </div>
       </div>
 
       {/* Columns */}
-      <div className="flex-1 grid grid-cols-1 gap-3 overflow-y-auto p-3 bg-[radial-gradient(circle_at_top_left,rgba(34,211,238,0.14),transparent_34%),linear-gradient(180deg,#020617,#0f172a)] md:grid-cols-3 md:gap-4 md:overflow-hidden md:p-6">
+      <div className="grid flex-1 grid-cols-1 gap-2.5 overflow-y-auto p-2.5 bg-[radial-gradient(circle_at_top_left,rgba(34,211,238,0.14),transparent_34%),linear-gradient(180deg,#020617,#0f172a)] md:grid-cols-3 md:gap-3 md:overflow-hidden md:p-4">
         <KDSColumn
-          title="PENDIENTES"
+          title={tr('kds.pending').toUpperCase()}
           orders={pendingOrders}
-          actionLabel="INICIAR"
+          actionLabel={tr('kds.start').toUpperCase()}
           actionColor="bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-400 hover:to-cyan-400 shadow-blue-500/30"
           headerColor="bg-gradient-to-r from-blue-500/20 to-cyan-400/10 border-l-4 border-blue-400"
           icon={<Flame className="h-5 w-5 text-blue-200" />}
@@ -1057,9 +1010,9 @@ export function KDSScreen({ tenantId }: { tenantId: string }) {
         />
 
         <KDSColumn
-          title="EN PREPARACION"
+          title={tr('kds.preparing').toUpperCase()}
           orders={preparingOrders}
-          actionLabel="LISTO"
+          actionLabel={tr('kds.markReady').toUpperCase()}
           actionColor="bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 shadow-amber-500/30"
           headerColor="bg-gradient-to-r from-amber-500/20 to-orange-400/10 border-l-4 border-amber-400"
           icon={<Timer className="h-5 w-5 text-amber-100" />}
@@ -1069,9 +1022,9 @@ export function KDSScreen({ tenantId }: { tenantId: string }) {
         />
 
         <KDSColumn
-          title="LISTOS"
+          title={tr('kds.ready').toUpperCase()}
           orders={readyOrders}
-          actionLabel="ENTREGADO"
+          actionLabel={tr('kds.delivered').toUpperCase()}
           actionColor="bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 shadow-emerald-500/30"
           headerColor="bg-gradient-to-r from-emerald-500/20 to-teal-400/10 border-l-4 border-emerald-400"
           icon={<CheckCircle2 className="w-5 h-5 text-emerald-100" />}

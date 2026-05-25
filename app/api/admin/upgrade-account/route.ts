@@ -1,13 +1,35 @@
+import { createServerClient } from '@supabase/ssr'
 import { createServiceClient } from '@/lib/supabase/server'
+import { isOwnerEmail } from '@/lib/owner-auth'
+import { cookies } from 'next/headers'
 import { NextRequest, NextResponse } from 'next/server'
 
 export async function POST(request: NextRequest) {
   try {
+    const cookieStore = await cookies()
+    const authClient = createServerClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      {
+        cookies: {
+          getAll() { return cookieStore.getAll() },
+          setAll(cookiesToSet) {
+            try { cookiesToSet.forEach(({ name, value, options }) => cookieStore.set(name, value, options)) } catch {}
+          },
+        },
+      }
+    )
+
+    const { data: { user: currentUser } } = await authClient.auth.getUser()
+    if (!isOwnerEmail(currentUser?.email)) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
     const { email, plan } = await request.json()
 
-    if (!email || !plan) {
+    if (!email || !plan || !['basic', 'pro', 'premium'].includes(plan)) {
       return NextResponse.json(
-        { error: 'Email and plan are required' },
+        { error: 'Email and valid plan are required' },
         { status: 400 }
       )
     }
@@ -24,9 +46,9 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const user = users.users.find(u => u.email === email)
+    const targetUser = users.users.find(u => u.email === email)
 
-    if (!user) {
+    if (!targetUser) {
       return NextResponse.json(
         { error: 'User not found' },
         { status: 404 }
@@ -37,7 +59,7 @@ export async function POST(request: NextRequest) {
     const { data: tenant, error: tenantError } = await supabase
       .from('tenants')
       .select('id, slug, subscription_plan')
-      .eq('owner_id', user.id)
+      .eq('owner_id', targetUser.id)
       .single()
 
     if (tenantError) {

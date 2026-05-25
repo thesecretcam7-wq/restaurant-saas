@@ -17,6 +17,7 @@ export interface PrinterConfig {
   local_bridge_enabled?: boolean;
   local_bridge_url?: string;
   cash_drawer_enabled?: boolean;
+  allow_browser_print_fallback?: boolean;
 }
 
 export interface PrinterDevice {
@@ -61,9 +62,11 @@ export interface ReceiptData {
   discount: number;
   tax?: number;
   taxRate?: number;
+  deliveryFee?: number;
   total: number;
   amountPaid?: number;
   change: number;
+  paymentMethod?: 'cash' | 'stripe' | 'card' | string | null;
   currencyInfo: {
     code: string;
     symbol: string;
@@ -72,7 +75,85 @@ export interface ReceiptData {
   timestamp?: string;
   waiterName?: string;
   tableNumber?: number;
+  notes?: string | null;
   openCashDrawer?: boolean;
+}
+
+export interface CashClosingReceiptData {
+  closingId?: string;
+  restaurantName?: string;
+  restaurantPhone?: string | null;
+  staffName: string;
+  closedAt?: string;
+  periodStart: string;
+  periodEnd: string;
+  cashSales: number;
+  cardSales: number;
+    otherSales: number;
+    totalSales: number;
+    totalDeliveryFees?: number;
+    deliveryOrderCount?: number;
+    totalTax: number;
+  totalDiscount: number;
+  expectedCash: number;
+  actualCash: number;
+  difference: number;
+  transactionCount: number;
+  ordersCompleted: number;
+  ordersCancelled: number;
+  notes?: string | null;
+  currencyInfo: {
+    code: string;
+    symbol: string;
+    locale: string;
+  };
+}
+
+export interface MonthlyClosingReceiptData {
+  closingId?: string;
+  restaurantName?: string;
+  restaurantPhone?: string | null;
+  staffName: string;
+  closedAt?: string;
+  monthLabel: string;
+  periodStart: string;
+  periodEnd: string;
+  cashSales: number;
+  cardSales: number;
+  otherSales: number;
+  totalSales: number;
+  totalDeliveryFees?: number;
+  deliveryOrderCount?: number;
+  totalTax: number;
+  totalDiscount: number;
+  transactionCount: number;
+  ordersCompleted: number;
+  ordersCancelled: number;
+  notes?: string | null;
+  currencyInfo: {
+    code: string;
+    symbol: string;
+    locale: string;
+  };
+}
+
+export interface KitchenTicketData {
+  orderId?: string | null;
+  orderNumber: string;
+  restaurantName?: string;
+  ticketType?: string;
+  items: Array<{
+    menu_item_id: string;
+    name: string;
+    quantity: number;
+    notes?: string | null;
+  }>;
+  customerName?: string | null;
+  deliveryType?: string | null;
+  tableNumber?: number | null;
+  waiterName?: string | null;
+  notes?: string | null;
+  timestamp?: string;
 }
 
 export interface WebUSBDevice {

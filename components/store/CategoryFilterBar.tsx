@@ -10,11 +10,26 @@ interface Category {
 interface CategoryFilterBarProps {
   categories: Category[]
   primary: string
+  activeTextColor?: string
+  inactiveTextColor?: string
+  borderColor?: string
   inactiveColor?: string
+  activeColor?: string
+  buttonShadow?: string
   btnCls: string
 }
 
-export default function CategoryFilterBar({ categories, primary, inactiveColor = '#f3f4f6', btnCls }: CategoryFilterBarProps) {
+export default function CategoryFilterBar({
+  categories,
+  primary,
+  activeTextColor = 'white',
+  inactiveTextColor,
+  borderColor,
+  inactiveColor = '#f3f4f6',
+  activeColor,
+  buttonShadow,
+  btnCls,
+}: CategoryFilterBarProps) {
   const [activeCatId, setActiveCatId] = useState<string | null>(null)
 
   if (categories.length === 0) return null
@@ -42,14 +57,16 @@ export default function CategoryFilterBar({ categories, primary, inactiveColor =
   }, [])
 
   return (
-    <div className="mx-auto flex max-w-7xl snap-x gap-2 overflow-x-auto border-t border-black/[0.04] bg-white/95 px-3 py-2.5 scrollbar-hide sm:px-6 sm:py-3 lg:px-8">
+    <div className="mx-auto flex max-w-7xl snap-x gap-2 overflow-x-auto border-t px-3 py-2.5 scrollbar-hide sm:px-6 sm:py-3 lg:px-8" style={{ background: 'rgba(4, 4, 4, 0.96)', borderColor: borderColor || `${primary}26` }}>
       <button
         onClick={handleShowAll}
         className={`h-10 snap-start whitespace-nowrap border px-4 text-xs font-black shadow-sm transition active:scale-[0.98] sm:px-5 sm:hover:-translate-y-0.5 ${btnCls}`}
         style={{
           backgroundColor: activeCatId === null ? primary : inactiveColor,
-          color: activeCatId === null ? 'white' : primary,
-          borderColor: activeCatId === null ? primary : `${primary}40`,
+          ...(activeCatId === null && activeColor ? { backgroundColor: activeColor } : {}),
+          color: activeCatId === null ? activeTextColor : inactiveTextColor || primary,
+          borderColor: activeCatId === null ? borderColor || primary : borderColor || `${primary}40`,
+          boxShadow: buttonShadow,
         }}
       >
         Todo
@@ -61,8 +78,10 @@ export default function CategoryFilterBar({ categories, primary, inactiveColor =
           className={`h-10 snap-start whitespace-nowrap border px-4 text-xs font-black shadow-sm transition active:scale-[0.98] sm:px-5 sm:hover:-translate-y-0.5 ${btnCls}`}
           style={{
             backgroundColor: activeCatId === cat.id ? primary : inactiveColor,
-            color: activeCatId === cat.id ? 'white' : primary,
-            borderColor: activeCatId === cat.id ? primary : `${primary}40`,
+            ...(activeCatId === cat.id && activeColor ? { backgroundColor: activeColor } : {}),
+            color: activeCatId === cat.id ? activeTextColor : inactiveTextColor || primary,
+            borderColor: activeCatId === cat.id ? borderColor || primary : borderColor || `${primary}40`,
+            boxShadow: buttonShadow,
           }}
         >
           {cat.name}

@@ -1,9 +1,16 @@
 import { NextResponse } from 'next/server'
-import { createServiceClient } from '@/lib/supabase/server'
+import { createClient, createServiceClient } from '@/lib/supabase/server'
+import { isOwnerEmail } from '@/lib/owner-auth'
 
 export const dynamic = 'force-dynamic'
 
 export async function GET() {
+  const authSupabase = await createClient()
+  const { data: { user } } = await authSupabase.auth.getUser()
+  if (!isOwnerEmail(user?.email)) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  }
+
   const env = {
     NEXT_PUBLIC_SUPABASE_URL: Boolean(process.env.NEXT_PUBLIC_SUPABASE_URL),
     NEXT_PUBLIC_SUPABASE_ANON_KEY: Boolean(process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY),

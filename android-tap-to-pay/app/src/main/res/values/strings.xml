@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Comandero</string>
+    <string name="location_permission_title">Permiso de ubicacion</string>
+    <string name="location_permission_message">Stripe Terminal necesita ubicacion para aceptar pagos presenciales.</string>
+</resources>

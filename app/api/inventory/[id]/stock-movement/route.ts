@@ -14,7 +14,9 @@ export async function POST(
     const { tenantId, movementType, quantity, notes, referenceId, createdBy } = body;
     const { id } = await params;
 
-    if (!tenantId || !movementType || !quantity) {
+    const movementQuantity = Math.abs(Number(quantity))
+
+    if (!tenantId || !movementType || !Number.isFinite(movementQuantity) || movementQuantity <= 0) {
       return NextResponse.json(
         { error: 'Missing required fields' },
         { status: 400 }
@@ -34,11 +36,11 @@ export async function POST(
     }
 
     // Calculate new stock
-    let newStock = inventory.current_stock;
+    let newStock = Number(inventory.current_stock || 0);
     if (movementType === 'sale' || movementType === 'damage') {
-      newStock -= quantity;
+      newStock -= movementQuantity;
     } else if (movementType === 'purchase' || movementType === 'return') {
-      newStock += quantity;
+      newStock += movementQuantity;
     }
 
     if (newStock < 0) {
@@ -56,7 +58,7 @@ export async function POST(
           tenant_id: tenantId,
           inventory_id: id,
           movement_type: movementType,
-          quantity: Math.abs(quantity),
+          quantity: movementQuantity,
           notes,
           reference_id: referenceId,
           created_by: createdBy,
@@ -132,7 +134,25 @@ export async function GET(
 
     if (error) throw error;
 
-    return NextResponse.json(data);
+    const referenceIds = (data || [])
+      .map((movement: any) => movement.reference_id)
+      .filter(Boolean);
+    const uniqueReferenceIds = [...new Set(referenceIds)];
+
+    let ordersById = new Map<string, any>();
+    if (uniqueReferenceIds.length > 0) {
+      const { data: orders } = await supabase
+        .from('orders')
+        .select('id, order_number, customer_name, total, created_at')
+        .eq('tenant_id', tenantId)
+        .in('id', uniqueReferenceIds);
+      ordersById = new Map((orders || []).map((order: any) => [order.id, order]));
+    }
+
+    return NextResponse.json((data || []).map((movement: any) => ({
+      ...movement,
+      order: movement.reference_id ? ordersById.get(movement.reference_id) || null : null,
+    })));
   } catch (error) {
     console.error('Error fetching stock movements:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });

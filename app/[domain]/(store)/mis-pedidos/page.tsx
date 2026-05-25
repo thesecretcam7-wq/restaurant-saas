@@ -8,12 +8,12 @@ import { formatPriceWithCurrency, getCurrencyByCountry } from '@/lib/currency'
 interface Props { params: Promise<{ domain: string }> }
 
 const STATUS: Record<string, { label: string; bg: string; dot: string; icon: string }> = {
-  pending:    { label: 'Pendiente',    bg: '#FEF3C7', dot: '#F59E0B', icon: '⏳' },
-  confirmed:  { label: 'Confirmado',   bg: 'color-mix(in srgb, var(--primary-color, #E4002B) 12%, white)', dot: 'var(--primary-color, #E4002B)', icon: '✅' },
-  preparing:  { label: 'Preparando',   bg: '#FEE2E2', dot: '#EF4444', icon: '👨‍🍳' },
-  on_the_way: { label: 'En camino',    bg: '#EDE9FE', dot: '#8B5CF6', icon: '🚗' },
-  delivered:  { label: 'Entregado',    bg: '#D1FAE5', dot: '#10B981', icon: '🎉' },
-  cancelled:  { label: 'Cancelado',    bg: '#F1F5F9', dot: '#94A3B8', icon: '✕' },
+  pending:    { label: 'Pendiente',    bg: 'rgba(212,175,55,.12)', dot: '#D4AF37', icon: '⏳' },
+  confirmed:  { label: 'Confirmado',   bg: 'rgba(211,90,55,.14)', dot: '#D35A37', icon: '✅' },
+  preparing:  { label: 'Preparando',   bg: 'rgba(211,90,55,.14)', dot: '#D35A37', icon: '👨‍🍳' },
+  on_the_way: { label: 'En camino',    bg: 'rgba(212,175,55,.12)', dot: '#D4AF37', icon: '🚗' },
+  delivered:  { label: 'Entregado',    bg: 'rgba(16,185,129,.14)', dot: '#34D399', icon: '🎉' },
+  cancelled:  { label: 'Cancelado',    bg: 'rgba(139,151,168,.14)', dot: '#8b97a8', icon: '✕' },
 }
 
 const STEPS = ['pending', 'confirmed', 'preparing', 'on_the_way', 'delivered']
@@ -29,7 +29,13 @@ export default function MisPedidosPage({ params }: Props) {
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const activePhoneRef = useRef<string>('')
 
-  const primary = 'var(--primary-color, #E4002B)'
+  const primary = 'var(--primary-color, #D4AF37)'
+  const button = 'var(--button-primary-color, #D35A37)'
+  const pageBg = 'var(--brand-background-color, #0B0E14)'
+  const surface = 'var(--brand-surface-color, #1A1F2C)'
+  const text = 'var(--brand-text-color, #ffffff)'
+  const muted = 'var(--brand-muted-color, #8b97a8)'
+  const border = 'rgba(212,175,55,.18)'
   const money = (amount: number) => formatPriceWithCurrency(Number(amount || 0), currencyInfo.code, currencyInfo.locale)
 
   useEffect(() => {
@@ -46,7 +52,7 @@ export default function MisPedidosPage({ params }: Props) {
   async function fetchOrders(tel: string, silent = false) {
     if (!silent) setLoading(true)
     try {
-      const res = await fetch(`/api/orders/track?tenantId=${tenantSlug}&phone=${encodeURIComponent(tel.trim())}`)
+      const res = await fetch(`/api/orders/track?tenantId=${tenantSlug}&query=${encodeURIComponent(tel.trim())}`)
       const data = await res.json()
       setOrders(data.orders || [])
     } catch {
@@ -77,28 +83,28 @@ export default function MisPedidosPage({ params }: Props) {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <header className="bg-white border-b">
+    <div className="min-h-screen" style={{ backgroundColor: pageBg, color: text }}>
+      <header className="border-b backdrop-blur-xl" style={{ backgroundColor: surface, borderColor: border }}>
         <div className="max-w-lg mx-auto px-4 h-14 flex items-center gap-3">
-          <Link href={`/${tenantSlug}`} className="w-9 h-9 rounded-full bg-gray-100 flex items-center justify-center">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#374151" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+          <Link href={`/${tenantSlug}`} className="w-9 h-9 rounded-full flex items-center justify-center" style={{ backgroundColor: 'var(--brand-soft-color, rgba(212,175,55,.10))', color: primary }}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
               <path d="M19 12H5M12 19l-7-7 7-7"/>
             </svg>
           </Link>
-          <h1 className="font-extrabold text-gray-900">Mis Pedidos</h1>
+          <h1 className="font-extrabold" style={{ color: text }}>Mis Pedidos</h1>
         </div>
       </header>
 
       <main className="max-w-lg mx-auto px-4 py-5 space-y-4">
         {/* Search card */}
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+        <div className="rounded-2xl border shadow-sm p-5" style={{ backgroundColor: surface, borderColor: border }}>
           <div className="flex items-center gap-3 mb-4">
-            <div className="w-10 h-10 rounded-xl flex items-center justify-center text-xl" style={{ backgroundColor: 'color-mix(in srgb, var(--primary-color, #E4002B) 12%, white)', color: primary }}>
+            <div className="w-10 h-10 rounded-xl flex items-center justify-center text-xl" style={{ backgroundColor: 'var(--brand-soft-color, rgba(212,175,55,.10))', color: primary }}>
               📋
             </div>
             <div>
-              <p className="font-extrabold text-gray-900 text-sm">Buscar mis pedidos</p>
-              <p className="text-xs text-muted-foreground">Ingresa el teléfono con el que pediste</p>
+              <p className="font-extrabold text-sm" style={{ color: text }}>Buscar mis pedidos</p>
+              <p className="text-xs font-semibold" style={{ color: muted }}>Ingresa tu telefono o numero de pedido</p>
             </div>
           </div>
           <form onSubmit={handleSearch} className="flex gap-2">
@@ -106,15 +112,16 @@ export default function MisPedidosPage({ params }: Props) {
               type="tel"
               value={phone}
               onChange={e => setPhone(e.target.value)}
-              placeholder="Ej: 3001234567"
-              className="flex-1 px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:bg-white transition-all"
+              placeholder="Telefono o pedido"
+              className="flex-1 px-4 py-3 border rounded-xl text-sm focus:outline-none focus:ring-2 transition-all"
+              style={{ backgroundColor: pageBg, borderColor: border, color: text }}
               required
             />
             <button
               type="submit"
               disabled={loading}
               className="px-5 py-3 rounded-xl text-white font-bold text-sm active:scale-95 transition-transform disabled:opacity-50"
-              style={{ backgroundColor: primary }}
+              style={{ backgroundColor: button, boxShadow: '0 18px 46px rgba(211,90,55,.24)' }}
             >
               {loading ? '...' : 'Buscar'}
             </button>
@@ -124,10 +131,10 @@ export default function MisPedidosPage({ params }: Props) {
         {/* Results */}
         {searched && !loading && orders !== null && (
           orders.length === 0 ? (
-            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-10 text-center">
+            <div className="rounded-2xl border shadow-sm p-10 text-center" style={{ backgroundColor: surface, borderColor: border }}>
               <div className="text-5xl mb-3">📦</div>
-              <p className="font-bold text-gray-900 mb-1">Sin pedidos encontrados</p>
-              <p className="text-sm text-muted-foreground">Verifica que el número sea el mismo que usaste</p>
+              <p className="font-bold mb-1" style={{ color: text }}>Sin pedidos encontrados</p>
+              <p className="text-sm font-semibold" style={{ color: muted }}>Verifica el telefono o el numero de pedido.</p>
             </div>
           ) : (
             <div className="space-y-3">
@@ -137,12 +144,12 @@ export default function MisPedidosPage({ params }: Props) {
                 const isCancelled = order.status === 'cancelled'
 
                 return (
-                  <div key={order.id} className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+                  <div key={order.id} className="rounded-2xl border shadow-sm overflow-hidden" style={{ backgroundColor: surface, borderColor: border }}>
                     {/* Header */}
                     <div className="flex items-center justify-between p-4 pb-3">
                       <div>
-                        <p className="font-extrabold text-gray-900 font-mono text-sm">{order.order_number}</p>
-                        <p className="text-xs text-muted-foreground mt-0.5">
+                        <p className="font-extrabold font-mono text-sm" style={{ color: text }}>{order.order_number}</p>
+                        <p className="text-xs font-semibold mt-0.5" style={{ color: muted }}>
                           {new Date(order.created_at).toLocaleString('es-CO', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
                         </p>
                       </div>
@@ -160,12 +167,12 @@ export default function MisPedidosPage({ params }: Props) {
                               <div className="flex flex-col items-center gap-1">
                                 <div
                                   className="w-2 h-2 rounded-full transition-all"
-                                  style={{ backgroundColor: i <= currentStep ? 'var(--primary-color, #E4002B)' : '#E2E8F0' }}
+                                  style={{ backgroundColor: i <= currentStep ? primary : 'rgba(139,151,168,.28)' }}
                                 />
-                                <span className="text-[8px] text-muted-foreground font-medium whitespace-nowrap">{STEP_LABELS[i]}</span>
+                                <span className="text-[8px] font-medium whitespace-nowrap" style={{ color: muted }}>{STEP_LABELS[i]}</span>
                               </div>
                               {i < STEPS.length - 1 && (
-                                <div className="flex-1 h-0.5 mb-3 mx-0.5 transition-all" style={{ backgroundColor: i < currentStep ? 'var(--primary-color, #E4002B)' : '#E2E8F0' }} />
+                                <div className="flex-1 h-0.5 mb-3 mx-0.5 transition-all" style={{ backgroundColor: i < currentStep ? primary : 'rgba(139,151,168,.28)' }} />
                               )}
                             </div>
                           ))}
@@ -174,9 +181,9 @@ export default function MisPedidosPage({ params }: Props) {
                     )}
 
                     {/* Items */}
-                    <div className="px-4 pb-3 border-t border-gray-50 pt-3 space-y-1.5">
+                    <div className="px-4 pb-3 border-t pt-3 space-y-1.5" style={{ borderColor: border }}>
                       {order.items.map((item, i) => (
-                        <div key={i} className="flex justify-between text-sm text-gray-600">
+                        <div key={i} className="flex justify-between text-sm" style={{ color: muted }}>
                           <span>{item.qty}× {item.name}</span>
                           <span className="font-medium">{money(item.price * item.qty)}</span>
                         </div>
@@ -184,8 +191,8 @@ export default function MisPedidosPage({ params }: Props) {
                     </div>
 
                     {/* Total */}
-                    <div className="flex justify-between items-center px-4 py-3 bg-gray-50 border-t border-gray-100">
-                      <span className="text-sm font-bold text-gray-600">Total pagado</span>
+                    <div className="flex justify-between items-center px-4 py-3 border-t" style={{ backgroundColor: 'var(--brand-soft-color, rgba(212,175,55,.10))', borderColor: border }}>
+                      <span className="text-sm font-bold" style={{ color: muted }}>Total pagado</span>
                       <span className="font-extrabold text-base" style={{ color: primary }}>{money(Number(order.total))}</span>
                     </div>
                   </div>

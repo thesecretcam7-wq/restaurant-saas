@@ -1,17 +1,8 @@
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 import { NextRequest, NextResponse } from 'next/server'
-
-interface PriceMap {
-  [key: string]: number
-}
-
-const planPrices: PriceMap = {
-  trial: 0,
-  basic: 29.99,
-  pro: 79.99,
-  premium: 149.99,
-}
+import { getPlanMonthlyPrice } from '@/lib/subscription-pricing'
+import { requireTenantAccess, tenantAuthErrorResponse } from '@/lib/tenant-api-auth'
 
 export async function POST(request: NextRequest) {
   try {
@@ -21,6 +12,8 @@ export async function POST(request: NextRequest) {
     if (!tenantId || !newPlan) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
     }
+
+    await requireTenantAccess(tenantId, { staffRoles: [] })
 
     const cookieStore = await cookies()
     const supabase = createServerClient(
@@ -48,8 +41,8 @@ export async function POST(request: NextRequest) {
     }
 
     // Calculate pro-rata for upgrades
-    const currentPrice = planPrices[currentPlan] || 0
-    const newPrice = planPrices[newPlan] || 0
+    const currentPrice = getPlanMonthlyPrice(currentPlan)
+    const newPrice = getPlanMonthlyPrice(newPlan)
     const daysPerMonth = 30
     const dailyRate = (newPrice - currentPrice) / daysPerMonth
     const daysRemaining = daysPerMonth
@@ -85,6 +78,9 @@ export async function POST(request: NextRequest) {
       subscriptionExpiresAt: subscriptionExpiresAt.toISOString(),
     })
   } catch (error) {
+    if (error instanceof Error && ['Unauthorized', 'Forbidden'].includes(error.message)) {
+      return tenantAuthErrorResponse(error)
+    }
     console.error('Change plan error:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }

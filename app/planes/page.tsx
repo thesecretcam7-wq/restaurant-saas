@@ -2,36 +2,39 @@
 
 import Link from 'next/link'
 import { useState, useEffect } from 'react'
+import EccofoodLogo from '@/components/EccofoodLogo'
+import LanguageSwitcher, { useI18n } from '@/components/LanguageSwitcher'
 
 const PLANS = [
   {
     id: 'basic',
-    name: 'Essentials',
-    price: 39,
-    desc: 'Para restaurantes que empiezan',
+    name: 'Basic',
+    price: 49.99,
+    desc: 'Operacion interna para caja, meseros y cocina',
     features: [
-      'Menú digital ilimitado',
-      'Hasta 100 pedidos/mes',
-      'Panel de administración',
+      'TPV / POS completo',
+      'Carta QR incluida',
+      'Comandero para meseros',
+      'KDS cocina incluido',
+      'Hasta 1.000 pedidos/mes',
       'Soporte por email',
-      'Dominio gratis incluido',
-      'PWA instalable',
     ],
     cta: 'Empezar gratis',
     highlight: false,
   },
   {
     id: 'pro',
-    name: 'Professional',
-    price: 99,
-    desc: 'El más popular — todo lo que necesitas',
+    name: 'Pro',
+    price: 99.99,
+    desc: 'Para vender tambien desde web y kiosko',
     features: [
-      'Todo en Essentials',
+      'Todo en Basic',
       'Pedidos ilimitados',
+      'Pagina web del restaurante',
+      'Kiosko autoservicio',
       'Sistema de reservas',
       'Delivery integrado',
       'Analytics avanzado',
-      'Sistema mesero / cocina',
       'Soporte prioritario',
     ],
     cta: 'Empezar gratis',
@@ -39,21 +42,22 @@ const PLANS = [
   },
   {
     id: 'premium',
-    name: 'Enterprise',
-    price: null,
-    desc: 'Para cadenas y franquicias',
+    name: 'Premium',
+    price: 299.99,
+    desc: 'Todas las funciones con experiencia visual a medida',
     features: [
-      'Todo en Professional',
+      'Todo en Pro',
+      'Disenos exclusivos para cada cliente',
       'Dominio personalizado',
-      'Múltiples sucursales',
-      'Gestión avanzada de staff',
+      'Multiples sucursales',
+      'Gestion avanzada de staff',
       'Programas de lealtad',
       'API access completo',
       'Integraciones personalizadas',
       'Soporte 24/7 dedicado',
       'Onboarding personalizado',
     ],
-    cta: 'Hablar con ventas',
+    cta: 'Empezar gratis',
     highlight: false,
   },
 ]
@@ -87,6 +91,7 @@ function formatPrice(amount: number | null, currency: CurrencyInfo | null, yearl
 export default function PlanesPage() {
   const [yearly, setYearly] = useState(false)
   const [currency, setCurrency] = useState<CurrencyInfo | null>(null)
+  const { tr } = useI18n()
 
   useEffect(() => {
     fetch('/api/currency-rates')
@@ -96,7 +101,7 @@ export default function PlanesPage() {
   }, [])
 
   return (
-    <div className="min-h-screen bg-background text-foreground overflow-x-hidden">
+    <div className="ecco-platform-page min-h-screen overflow-x-hidden text-white">
       {/* Background gradient blobs */}
       <div className="fixed top-[-5%] left-1/2 -translate-x-1/2 w-[600px] h-[400px] bg-gradient-to-b from-primary/15 to-secondary/8 rounded-full blur-3xl pointer-events-none -z-10" />
       <div className="fixed bottom-0 -right-40 w-[400px] h-[400px] bg-accent/8 rounded-full blur-3xl pointer-events-none -z-10" />
@@ -106,18 +111,18 @@ export default function PlanesPage() {
       <nav className="fixed top-0 left-0 right-0 z-50 border-b border-border bg-background/80 backdrop-blur-xl">
         <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
           <Link href="/" className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-md bg-gradient-to-br from-primary to-secondary flex items-center justify-center text-xs font-black text-white">E</div>
-            <span className="font-bold text-foreground text-lg tracking-tight">Eccofood</span>
+            <EccofoodLogo size="sm" textClassName="font-bold text-foreground text-lg tracking-tight" />
           </Link>
           <div className="hidden md:flex items-center gap-8 text-sm text-muted-foreground">
-            <Link href="/#features" className="hover:text-foreground transition-colors">Funciones</Link>
+            <Link href="/#features" className="hover:text-foreground transition-colors">{tr('landing.nav.features')}</Link>
             <Link href="/#how" className="hover:text-foreground transition-colors">Cómo funciona</Link>
-            <Link href="/planes" className="text-primary font-semibold">Precios</Link>
+            <Link href="/planes" className="text-primary font-semibold">{tr('pricing.eyebrow')}</Link>
           </div>
           <div className="flex items-center gap-3">
+            <LanguageSwitcher compact className="hidden border-border bg-card/80 md:inline-flex" />
             <Link href="/login" className="text-sm text-muted-foreground hover:text-foreground transition-colors hidden md:block">Iniciar sesión</Link>
             <Link href="/register" className="px-5 py-2 rounded-lg bg-gradient-to-r from-primary to-secondary hover:from-primary/90 hover:to-secondary/90 text-white text-sm font-bold transition-all shadow-lg shadow-primary/30 active:scale-95">
-              Empezar gratis
+              {tr('common.startFree')}
             </Link>
           </div>
         </div>
@@ -128,12 +133,12 @@ export default function PlanesPage() {
 
           {/* HEADER */}
           <div className="text-center mb-16 animate-fade-in">
-            <p className="text-primary text-sm font-semibold uppercase tracking-widest mb-4">Precios</p>
+            <p className="text-primary text-sm font-semibold uppercase tracking-widest mb-4">{tr('pricing.eyebrow')}</p>
             <h1 className="text-5xl md:text-6xl font-black tracking-tight mb-4 text-foreground">
-              Transparente y justo
+              {tr('pricing.title')}
             </h1>
             <p className="text-muted-foreground text-lg max-w-xl mx-auto mb-2">
-              Sin comisiones por venta. Pagas solo el plan. Cancela cuando quieras.
+              {tr('pricing.subtitle')}
             </p>
             {currency && (
               <p className="text-sm text-muted-foreground">
@@ -149,13 +154,13 @@ export default function PlanesPage() {
                 onClick={() => setYearly(false)}
                 className={`px-5 py-2 rounded-lg text-sm font-semibold transition-all ${!yearly ? 'bg-foreground text-background' : 'text-muted-foreground hover:text-foreground'}`}
               >
-                Mensual
+                {tr('pricing.monthly')}
               </button>
               <button
                 onClick={() => setYearly(true)}
                 className={`px-5 py-2 rounded-lg text-sm font-semibold transition-all flex items-center gap-2 ${yearly ? 'bg-foreground text-background' : 'text-muted-foreground hover:text-foreground'}`}
               >
-                Anual
+                {tr('pricing.yearly')}
                 <span className="px-2 py-0.5 rounded-full bg-secondary text-white text-xs font-bold">−10%</span>
               </button>
             </div>
@@ -190,13 +195,13 @@ export default function PlanesPage() {
                         <span className="text-5xl font-black text-foreground">
                           {formatPrice(plan.price, currency, yearly)}
                         </span>
-                        <span className="text-muted-foreground text-sm mb-2">/mes</span>
+                        <span className="text-muted-foreground text-sm mb-2">{yearly ? '/año' : '/mes'}</span>
                       </>
                     ) : (
-                      <span className="text-3xl font-black text-foreground">Personalizado</span>
+                      <span className="text-3xl font-black text-foreground">{tr('common.customPrice')}</span>
                     )}
                   </div>
-                  {yearly && plan.price !== null && <p className="text-muted-foreground text-sm">facturado anual</p>}
+                  {yearly && plan.price !== null && <p className="text-muted-foreground text-sm">{tr('common.yearlyBilled')}</p>}
                   <p className="text-sm text-muted-foreground mt-2">{plan.desc}</p>
                 </div>
 
@@ -212,7 +217,7 @@ export default function PlanesPage() {
                 </ul>
 
                 <Link
-                  href={plan.id === 'premium' ? '/register?plan=enterprise' : `/register?plan=${plan.id}`}
+                  href={`/register?plan=${plan.id}${yearly ? '&billing=year' : ''}`}
                   className={`block w-full py-3.5 rounded-lg text-sm font-bold text-center transition-all active:scale-95 hover:-translate-y-0.5 ${
                     plan.highlight
                       ? 'bg-gradient-to-r from-primary via-secondary to-primary text-white shadow-lg shadow-primary/40 hover:shadow-xl hover:shadow-primary/50'
@@ -227,7 +232,7 @@ export default function PlanesPage() {
 
           {/* TRIAL NOTE */}
           <p className="text-center text-sm text-muted-foreground">
-            Todos los planes incluyen <span className="text-foreground font-semibold">14 días de prueba gratis</span> · Sin tarjeta de crédito · Cancela cuando quieras
+            Todos los planes incluyen <span className="text-foreground font-semibold">30 días de prueba gratis</span> · Sin tarjeta de crédito · Cancela cuando quieras
           </p>
 
           {/* FEATURE COMPARISON */}
@@ -238,22 +243,26 @@ export default function PlanesPage() {
                 <thead>
                   <tr className="border-b border-border">
                     <th className="text-left py-4 px-6 text-muted-foreground font-semibold w-1/2">Función</th>
-                    <th className="text-center py-4 px-4 text-muted-foreground font-semibold">Essentials</th>
-                    <th className="text-center py-4 px-4 text-primary font-bold">Professional</th>
-                    <th className="text-center py-4 px-4 text-muted-foreground font-semibold">Enterprise</th>
+                    <th className="text-center py-4 px-4 text-muted-foreground font-semibold">Basic</th>
+                    <th className="text-center py-4 px-4 text-primary font-bold">Pro</th>
+                    <th className="text-center py-4 px-4 text-muted-foreground font-semibold">Premium</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border/50">
                   {[
-                    ['Menú digital', true, true, true],
-                    ['Pedidos online', '100/mes', 'Ilimitados', 'Ilimitados'],
-                    ['Panel administración', true, true, true],
+                    ['TPV / POS', true, true, true],
+                    ['Carta QR', true, true, true],
+                    ['Comandero meseros', true, true, true],
+                    ['KDS cocina', true, true, true],
+                    ['Pedidos mensuales', '1.000/mes', 'Ilimitados', 'Ilimitados'],
+                    ['Pagina web', false, true, true],
+                    ['Kiosko autoservicio', false, true, true],
                     ['Sistema de reservas', false, true, true],
                     ['Delivery integrado', false, true, true],
                     ['Analytics avanzado', false, true, true],
+                    ['Multiples sucursales', false, false, true],
                     ['Dominio personalizado', false, false, true],
-                    ['Sistema mesero / cocina', false, true, true],
-                    ['Múltiples sucursales', false, false, true],
+                    ['Disenos exclusivos por cliente', false, false, true],
                     ['API access', false, false, true],
                     ['Onboarding personalizado', false, false, true],
                     ['Soporte', 'Email', 'Prioritario', '24/7 dedicado'],
@@ -272,14 +281,14 @@ export default function PlanesPage() {
 
           {/* FAQ */}
           <div className="mt-24 max-w-2xl mx-auto">
-            <h2 className="text-3xl font-black text-center mb-10 text-foreground">Preguntas frecuentes</h2>
+            <h2 className="text-3xl font-black text-center mb-10 text-foreground">{tr('pricing.faqTitle')}</h2>
             <div className="space-y-5">
               {[
-                ['¿Hay período de prueba?', '14 días gratis en cualquier plan. Sin tarjeta de crédito. Sin compromisos.'],
+                ['¿Hay período de prueba?', '30 días gratis en cualquier plan. Sin tarjeta de crédito. Sin compromisos.'],
                 ['¿Puedo cambiar de plan?', 'Sí, puedes subir o bajar de plan en cualquier momento desde tu panel. Los cambios aplican en el siguiente ciclo.'],
                 ['¿Qué pasa si cancelo?', 'Puedes cancelar cuando quieras. No hay penalidades ni cargos ocultos.'],
                 ['¿Cómo funciona el pago?', 'Procesamos pagos con Stripe. Aceptamos tarjetas de crédito/débito de todos los países.'],
-                ['¿Puedo conectar mi propio dominio?', 'Sí, desde el plan Enterprise/Premium puedes conectar tu dominio propio (ej: mipizzeria.com) con instrucciones paso a paso.'],
+                ['¿Puedo conectar mi propio dominio?', 'Sí, desde el plan Premium puedes conectar tu dominio propio (ej: mipizzeria.com) con instrucciones paso a paso.'],
               ].map(([q, a]) => (
                 <div key={q} className="border border-border rounded-2xl p-6 bg-card/50 backdrop-blur-sm hover:border-primary/30 hover:bg-primary/5 transition-all">
                   <p className="font-bold text-foreground mb-2">{q}</p>
@@ -295,7 +304,7 @@ export default function PlanesPage() {
               <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-secondary/5 pointer-events-none" />
               <div className="relative z-10">
                 <h2 className="text-3xl font-black mb-3 text-foreground">¿Listo para empezar?</h2>
-                <p className="text-muted-foreground mb-7">14 días gratis. Sin tarjeta. Sin sorpresas.</p>
+                <p className="text-muted-foreground mb-7">30 días gratis. Sin tarjeta. Sin sorpresas.</p>
                 <Link
                   href="/register"
                   className="inline-block px-8 py-4 bg-gradient-to-r from-primary via-secondary to-primary hover:from-primary/90 hover:via-secondary/90 hover:to-primary/90 text-white font-bold rounded-xl transition-all text-lg shadow-lg shadow-primary/40 hover:shadow-2xl hover:shadow-primary/50 active:scale-95 hover:-translate-y-1"
@@ -312,7 +321,7 @@ export default function PlanesPage() {
       <footer className="border-t border-border py-8 px-6 bg-card/30 backdrop-blur-sm">
         <div className="max-w-6xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-2">
-            <div className="w-6 h-6 rounded bg-gradient-to-br from-primary to-secondary flex items-center justify-center text-xs font-black text-white">E</div>
+            <EccofoodLogo size="xs" showText={false} />
             <span className="text-sm text-muted-foreground">Eccofood © 2026</span>
           </div>
           <div className="flex items-center gap-6 text-sm text-muted-foreground">

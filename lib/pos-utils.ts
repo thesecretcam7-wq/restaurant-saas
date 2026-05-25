@@ -10,36 +10,40 @@ export function calculateChange(total: number, amountPaid: number): number {
 }
 
 /**
- * Retorna billetes sugeridos para pagar
- * Ejemplo: total 23.50 → [24, 25, 30, 50]
+ * Retorna denominaciones sugeridas para sumar el efectivo recibido.
+ * Ejemplo: total 6 EUR -> [1, 2, 5, 10, 20]
  */
-export function getSuggestedBillAmounts(total: number): number[] {
-  const billDenominations = [1, 5, 10, 20, 50, 100];
-  const suggested: number[] = [];
+export function getSuggestedBillAmounts(total: number, currencyCode: string = 'COP'): number[] {
+  const denominationsByCurrency: Record<string, number[]> = {
+    COP: [1000, 2000, 5000, 10000, 20000, 50000, 100000],
+    CLP: [500, 1000, 2000, 5000, 10000, 20000],
+    MXN: [1, 2, 5, 10, 20, 50, 100, 200, 500, 1000],
+    EUR: [1, 2, 5, 10, 20, 50, 100, 200],
+    USD: [1, 5, 10, 20, 50, 100],
+  };
+  const billDenominations =
+    denominationsByCurrency[currencyCode.toUpperCase()] || denominationsByCurrency.USD;
+  if (total <= 0) return billDenominations.slice(0, 6);
 
-  for (const bill of billDenominations) {
-    if (bill > total) {
-      suggested.push(bill);
-      if (suggested.length >= 4) break;
-    }
-  }
+  const belowOrEqual = billDenominations.filter((bill) => bill <= total);
+  const above = billDenominations.filter((bill) => bill > total);
+  const suggested = [...belowOrEqual.slice(-4), ...above.slice(0, 2)];
 
-  // Si no hay suficientes billetes mayores, agregar algunos
-  if (suggested.length < 2) {
-    const nextBill = billDenominations.find(b => b >= total);
-    if (nextBill) suggested.push(nextBill);
-  }
-
-  return suggested.slice(0, 4);
+  return Array.from(new Set(suggested)).slice(0, 6);
 }
 
 /**
  * Formatea un número como moneda
  */
-export function formatCurrency(amount: number, currency: string = 'USD'): string {
+export function formatCurrency(amount: number, currency: string = 'COP'): string {
+  const zeroDecimalCurrencies = new Set(['COP', 'CLP', 'JPY', 'KRW', 'VND', 'PYG'])
+  const fractionDigits = zeroDecimalCurrencies.has(currency.toUpperCase()) ? 0 : 2
+
   return new Intl.NumberFormat('es-CO', {
     style: 'currency',
     currency: currency,
+    maximumFractionDigits: fractionDigits,
+    minimumFractionDigits: fractionDigits,
   }).format(amount);
 }
 

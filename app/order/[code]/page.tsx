@@ -2,14 +2,11 @@
 
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
-import { createClient } from '@supabase/supabase-js';
+import { createClient } from '@/lib/supabase/client';
 import { Plus, Minus, X, CheckCircle } from 'lucide-react';
 import { formatPriceWithCurrency, getCurrencyByCountry } from '@/lib/currency';
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
+const supabase = createClient();
 
 interface MenuItem {
   id: string;

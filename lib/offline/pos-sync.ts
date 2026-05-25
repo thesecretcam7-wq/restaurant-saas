@@ -3,11 +3,12 @@
 import { getOfflineStorage, type OfflineOrder } from './storage'
 
 type POSOfflineItem = {
-  menu_item_id: string
+  menu_item_id: string | null
   name: string
   price: number
   quantity: number
   notes?: string | null
+  is_manual?: boolean
 }
 
 export type POSOfflineOrderInput = {
@@ -17,7 +18,10 @@ export type POSOfflineOrderInput = {
   discount: number
   total: number
   paymentMethod: 'cash' | 'stripe'
-  deliveryType: 'takeaway' | 'pickup' | 'dine-in'
+  deliveryType: 'takeaway' | 'pickup' | 'delivery' | 'dine-in'
+  deliveryFee?: number | null
+  deliveryZoneId?: string | null
+  deliveryZoneName?: string | null
   waiter_id?: string | null
   waiterName?: string | null
   table_id?: string | null
@@ -67,12 +71,16 @@ export async function saveOfflinePOSOrder(input: POSOfflineOrderInput) {
       quantity: item.quantity,
       qty: item.quantity,
       notes: item.notes || null,
+      is_manual: item.is_manual === true,
     })),
     subtotal: input.subtotal,
     discount: input.discount,
     total: input.total,
     paymentMethod: input.paymentMethod,
     deliveryType: input.deliveryType,
+    deliveryFee: input.deliveryFee ?? null,
+    deliveryZoneId: input.deliveryZoneId || null,
+    deliveryZoneName: input.deliveryZoneName || null,
     waiter_id: input.waiter_id || null,
     waiterName: input.waiterName || null,
     table_id: input.table_id || null,
@@ -125,6 +133,7 @@ export async function syncOfflinePOSOrders(tenantId: string, csrfToken?: string)
           },
           items: offlineOrder.items.map((item) => ({
             menu_item_id: item.menu_item_id,
+            is_manual: item.is_manual === true,
             name: item.name,
             price: item.price,
             qty: item.qty ?? item.quantity,
@@ -132,6 +141,9 @@ export async function syncOfflinePOSOrders(tenantId: string, csrfToken?: string)
           })),
           paymentMethod: offlineOrder.paymentMethod === 'stripe' ? 'cash' : offlineOrder.paymentMethod,
           deliveryType: offlineOrder.deliveryType || 'takeaway',
+          deliveryFee: offlineOrder.deliveryFee ?? null,
+          deliveryZoneId: offlineOrder.deliveryZoneId || null,
+          deliveryZoneName: offlineOrder.deliveryZoneName || null,
           waiter_id: offlineOrder.waiter_id || null,
           waiterName: offlineOrder.waiterName || null,
           table_id: offlineOrder.table_id || null,

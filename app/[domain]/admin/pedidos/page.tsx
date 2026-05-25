@@ -1,5 +1,6 @@
 import { createServiceClient } from '@/lib/supabase/server'
 import { getTenantContext, getTenantIdFromSlug } from '@/lib/tenant'
+import { formatRestaurantDateTime, getRestaurantLocale, getRestaurantTimeZone } from '@/lib/restaurant-time'
 import { ExternalLink, Monitor, PackageOpen, Search, ShoppingBag } from 'lucide-react'
 
 interface PedidosProps {
@@ -43,6 +44,13 @@ export default async function PedidosPage({ params, searchParams }: PedidosProps
 
   const context = await getTenantContext(tenantId)
   const restaurantName = context.branding?.app_name || context.tenant?.organization_name || 'Restaurante'
+  const restaurantCountry = context.settings?.country || (context.tenant as { country?: string | null } | null)?.country || 'CO'
+  const restaurantLocale = getRestaurantLocale(restaurantCountry)
+  const restaurantTimeZone = getRestaurantTimeZone({
+    timezone: context.settings?.timezone,
+    settingsCountry: context.settings?.country,
+    tenantCountry: (context.tenant as { country?: string | null } | null)?.country,
+  })
 
   let query = supabase
     .from('orders')
@@ -120,7 +128,14 @@ export default async function PedidosPage({ params, searchParams }: PedidosProps
                   </span>
                   <p className="text-sm font-black text-[#15130f]">${Number(order.total).toLocaleString('es-CO')}</p>
                   <p className="text-xs font-bold text-black/42">
-                    {new Date(order.created_at).toLocaleString('es-CO', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                    {formatRestaurantDateTime(order.created_at, {
+                      locale: restaurantLocale,
+                      timeZone: restaurantTimeZone,
+                      month: 'short',
+                      day: 'numeric',
+                      hour: '2-digit',
+                      minute: '2-digit',
+                    })}
                   </p>
                 </a>
               )

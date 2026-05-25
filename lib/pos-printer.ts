@@ -4,8 +4,8 @@
  */
 
 import { createClient } from '@/lib/supabase/client';
-import { generateReceiptESCPOS, generateTestReceiptESCPOS } from './thermal-receipt';
-import type { ReceiptData, PrinterDevice } from '@/types/printer';
+import { generateCashClosingReceiptESCPOS, generateKitchenTicketESCPOS, generateMonthlyClosingReceiptESCPOS, generateReceiptESCPOS, generateTestReceiptESCPOS } from './thermal-receipt';
+import type { CashClosingReceiptData, KitchenTicketData, MonthlyClosingReceiptData, ReceiptData, PrinterDevice } from '@/types/printer';
 import { formatPriceWithCurrency } from '@/lib/currency';
 
 // WebUSB API type declarations
@@ -47,6 +47,9 @@ const getSupabase = () => {
   return _supabase;
 };
 
+const LOCAL_BRIDGE_PRINT_TIMEOUT_MS = 4500;
+const LOCAL_BRIDGE_DEFAULT_URLS = ['http://localhost:17777', 'http://127.0.0.1:17777'];
+
 function getCachedPrinterKey(tenantId: string, printerId: string) {
   return `eccofood-printer-${tenantId}-${printerId}`;
 }
@@ -86,6 +89,51 @@ function getCachedDefaultReceiptPrinter(tenantId: string) {
   }
 }
 
+async function fetchPrinterConfig(tenantId: string, printerId: string): Promise<PrinterDevice | null> {
+  const { data: printer, error } = await getSupabase()
+    .from('printer_devices')
+    .select('*')
+    .eq('id', printerId)
+    .eq('tenant_id', tenantId)
+    .maybeSingle();
+
+  if (error && !printer) {
+    throw new Error('Printer not found or not configured');
+  }
+
+  return (printer as PrinterDevice | null) || null;
+}
+
+async function refreshCachedPrinterConfig(tenantId: string, printerId: string, cacheAsDefault = false) {
+  try {
+    const printer = await fetchPrinterConfig(tenantId, printerId);
+    if (printer) {
+      cachePrinterConfig(tenantId, printerId, printer);
+      if (cacheAsDefault) cacheDefaultReceiptPrinter(tenantId, printerId);
+    }
+  } catch {
+    // Printing should not wait on a background cache refresh.
+  }
+}
+
+async function getPrinterForPrint(tenantId: string, printerId: string, cacheAsDefault = false): Promise<PrinterDevice> {
+  const cached = getCachedPrinterConfig(tenantId, printerId);
+  if (cached) {
+    void refreshCachedPrinterConfig(tenantId, printerId, cacheAsDefault);
+    if (cacheAsDefault) cacheDefaultReceiptPrinter(tenantId, printerId);
+    return cached as PrinterDevice;
+  }
+
+  const printer = await fetchPrinterConfig(tenantId, printerId);
+  if (!printer) {
+    throw new Error('Printer not found or not configured');
+  }
+
+  cachePrinterConfig(tenantId, printerId, printer);
+  if (cacheAsDefault) cacheDefaultReceiptPrinter(tenantId, printerId);
+  return printer;
+}
+
 function isBrowserDriverPrinter(printer: PrinterDevice) {
   return printer.config?.connection_mode === 'browser_driver' || (!printer.vendor_id && !printer.product_id);
 }
@@ -100,27 +148,68 @@ function bytesToBase64(bytes: Uint8Array) {
 }
 
 function getBridgeUrl(printer: PrinterDevice) {
-  return (printer.config?.local_bridge_url || 'http://127.0.0.1:17777').replace(/\/$/, '');
+  return (printer.config?.local_bridge_url || LOCAL_BRIDGE_DEFAULT_URLS[0]).replace(/\/$/, '');
+}
+
+function getBridgeUrls(printer: PrinterDevice) {
+  const configured = getBridgeUrl(printer);
+  return Array.from(new Set([configured, ...LOCAL_BRIDGE_DEFAULT_URLS].map((url) => url.replace(/\/$/, ''))));
 }
 
 function shouldUseLocalBridge(printer: PrinterDevice) {
   return isBrowserDriverPrinter(printer) && printer.config?.local_bridge_enabled !== false;
 }
 
-async function printViaLocalBridge(printer: PrinterDevice, data: Uint8Array): Promise<void> {
-  const response = await fetch(`${getBridgeUrl(printer)}/print`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      printerName: printer.config?.browser_printer_name || 'default',
-      dataBase64: bytesToBase64(data),
-    }),
-  });
+function canUseBrowserPrintFallback(printer: PrinterDevice) {
+  return printer.config?.allow_browser_print_fallback === true;
+}
+
+function getLocalBridgeError(printer: PrinterDevice) {
+  return `No se encontro el puente local de Eccofood en este computador (${getBridgeUrls(printer).join(' o ')}). Revisa Estado-EccofoodPrint o reinstala el agente como administrador.`;
+}
+
+async function postToLocalBridge(bridgeUrl: string, printer: PrinterDevice, data: Uint8Array): Promise<void> {
+  const controller = new AbortController();
+  const timeout = window.setTimeout(() => controller.abort(), LOCAL_BRIDGE_PRINT_TIMEOUT_MS);
+
+  let response: Response;
+  try {
+    response = await fetch(`${bridgeUrl}/print`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=UTF-8' },
+      cache: 'no-store',
+      signal: controller.signal,
+      body: JSON.stringify({
+        printerName: printer.config?.browser_printer_name || 'default',
+        dataBase64: bytesToBase64(data),
+      }),
+    });
+  } catch (error) {
+    if (error instanceof DOMException && error.name === 'AbortError') {
+      throw new Error('El puente local no respondio a tiempo. Revisa que el agente este activo y la impresora no este bloqueada en Windows.');
+    }
+    throw error;
+  } finally {
+    window.clearTimeout(timeout);
+  }
 
   const payload = await response.json().catch(() => ({}));
   if (!response.ok || payload?.ok === false) {
     throw new Error(payload?.error || 'No se pudo imprimir con el puente local');
   }
+}
+
+async function printViaLocalBridge(printer: PrinterDevice, data: Uint8Array): Promise<void> {
+  const errors: string[] = [];
+  for (const bridgeUrl of getBridgeUrls(printer)) {
+    try {
+      await postToLocalBridge(bridgeUrl, printer, data);
+      return;
+    } catch (error) {
+      errors.push(`${bridgeUrl}: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  }
+  throw new Error(errors[0] || getLocalBridgeError(printer));
 }
 
 /**
@@ -136,33 +225,13 @@ export async function printReceipt(
   data: ReceiptData
 ): Promise<void> {
   try {
-    // 1. Get printer configuration from database
-    let { data: printer, error: printerError } = await getSupabase()
-      .from('printer_devices')
-      .select('*')
-      .eq('id', printerId)
-      .eq('tenant_id', tenantId)
-      .maybeSingle();
-
-    if (printer) {
-      cachePrinterConfig(tenantId, printerId, printer);
-      cacheDefaultReceiptPrinter(tenantId, printerId);
-    } else {
-      printer = getCachedPrinterConfig(tenantId, printerId);
-    }
-
-    if (printerError && !printer) {
-      throw new Error('Printer not found or not configured');
-    }
-
-    if (!printer) {
-      throw new Error('Printer not found or not configured');
-    }
+    // 1. Use local cache first so a receipt does not wait on the network.
+    const printer = await getPrinterForPrint(tenantId, printerId, true);
 
     // 2. Generate ESC/POS commands
     const escPosData = generateReceiptESCPOS(data, {
-      paperWidth: printer.config.paper_width || 80,
-      copies: printer.config.copies || 1,
+      paperWidth: printer.config?.paper_width || 80,
+      copies: printer.config?.copies || 1,
       locale: data.currencyInfo.locale,
       openCashDrawer: data.openCashDrawer === true && printer.config?.cash_drawer_enabled !== false,
     });
@@ -172,11 +241,19 @@ export async function printReceipt(
       try {
         await printViaLocalBridge(printer, escPosData);
       } catch (bridgeError) {
-        console.warn('Local print bridge unavailable, using browser print dialog:', bridgeError);
-        printViaBrowserAPI(data);
+        console.warn('Local print bridge unavailable:', bridgeError);
+        if (canUseBrowserPrintFallback(printer)) {
+          printViaBrowserAPI(data);
+        } else {
+          throw new Error(getLocalBridgeError(printer));
+        }
       }
     } else if (isBrowserDriverPrinter(printer)) {
-      printViaBrowserAPI(data);
+      if (canUseBrowserPrintFallback(printer)) {
+        printViaBrowserAPI(data);
+      } else {
+        throw new Error('Esta impresora de Windows necesita el puente local de Eccofood para imprimir directo sin vista previa.');
+      }
     } else if (typeof navigator !== 'undefined' && 'usb' in navigator) {
       await printViaWebUSB(printer, escPosData);
     } else {
@@ -185,27 +262,207 @@ export async function printReceipt(
       printViaBrowserAPI(data);
     }
 
-    // 4. Log successful print
-    await savePrinterLog(tenantId, printerId, 'print', 'success', {
+    // 4. Log successful print without delaying the POS payment flow.
+    void savePrinterLog(tenantId, printerId, 'print', 'success', {
       orderNumber: data.orderNumber,
       amount: data.total,
-    });
+    }).catch(() => {});
 
     // Update device last_used_at. This is best-effort so offline printing can still succeed.
-    try {
-      await getSupabase()
+    void getSupabase()
         .from('printer_devices')
         .update({ last_used_at: new Date().toISOString() })
         .eq('id', printerId)
-        .eq('tenant_id', tenantId);
-    } catch {}
+        .eq('tenant_id', tenantId)
+        .then(() => undefined, () => undefined);
   } catch (error) {
     const errorMsg = error instanceof Error ? error.message : String(error);
     console.error('Print error:', errorMsg);
 
-    await savePrinterLog(tenantId, printerId, 'print', 'failed', {
+    void savePrinterLog(tenantId, printerId, 'print', 'failed', {
       error: errorMsg,
+    }).catch(() => {});
+    throw new Error(errorMsg);
+  }
+}
+
+/**
+ * Print a cash closing summary to the configured receipt printer.
+ */
+export async function printCashClosingReceipt(
+  tenantId: string,
+  printerId: string,
+  data: CashClosingReceiptData
+): Promise<void> {
+  try {
+    const printer = await getPrinterForPrint(tenantId, printerId, true);
+
+    const escPosData = generateCashClosingReceiptESCPOS(data, {
+      paperWidth: printer.config?.paper_width || 80,
+      copies: printer.config?.copies || 1,
+      locale: data.currencyInfo.locale,
     });
+
+    if (shouldUseLocalBridge(printer)) {
+      try {
+        await printViaLocalBridge(printer, escPosData);
+      } catch (bridgeError) {
+        console.warn('Local print bridge unavailable:', bridgeError);
+        if (canUseBrowserPrintFallback(printer)) {
+          printCashClosingViaBrowserAPI(data);
+        } else {
+          throw new Error(getLocalBridgeError(printer));
+        }
+      }
+    } else if (isBrowserDriverPrinter(printer)) {
+      if (canUseBrowserPrintFallback(printer)) {
+        printCashClosingViaBrowserAPI(data);
+      } else {
+        throw new Error('Esta impresora de Windows necesita el puente local de Eccofood para imprimir directo sin vista previa.');
+      }
+    } else if (typeof navigator !== 'undefined' && 'usb' in navigator) {
+      await printViaWebUSB(printer, escPosData);
+    } else {
+      printCashClosingViaBrowserAPI(data);
+    }
+
+    void savePrinterLog(tenantId, printerId, 'print', 'success', {
+      closingId: data.closingId,
+      type: 'cash_closing',
+      amount: data.totalSales,
+    }).catch(() => {});
+
+    void getSupabase()
+      .from('printer_devices')
+      .update({ last_used_at: new Date().toISOString() })
+      .eq('id', printerId)
+      .eq('tenant_id', tenantId)
+      .then(() => undefined, () => undefined);
+  } catch (error) {
+    const errorMsg = error instanceof Error ? error.message : String(error);
+    console.error('Cash closing print error:', errorMsg);
+
+    void savePrinterLog(tenantId, printerId, 'print', 'failed', {
+      closingId: data.closingId,
+      type: 'cash_closing',
+      error: errorMsg,
+    }).catch(() => {});
+    throw new Error(errorMsg);
+  }
+}
+
+export async function printMonthlyClosingReceipt(
+  tenantId: string,
+  printerId: string,
+  data: MonthlyClosingReceiptData
+): Promise<void> {
+  try {
+    const printer = await getPrinterForPrint(tenantId, printerId, true);
+
+    const escPosData = generateMonthlyClosingReceiptESCPOS(data, {
+      paperWidth: printer.config?.paper_width || 80,
+      copies: printer.config?.copies || 1,
+      locale: data.currencyInfo.locale,
+    });
+
+    if (shouldUseLocalBridge(printer)) {
+      try {
+        await printViaLocalBridge(printer, escPosData);
+      } catch (bridgeError) {
+        console.warn('Local print bridge unavailable:', bridgeError);
+        if (canUseBrowserPrintFallback(printer)) {
+          printMonthlyClosingViaBrowserAPI(data);
+        } else {
+          throw new Error(getLocalBridgeError(printer));
+        }
+      }
+    } else if (isBrowserDriverPrinter(printer)) {
+      if (canUseBrowserPrintFallback(printer)) {
+        printMonthlyClosingViaBrowserAPI(data);
+      } else {
+        throw new Error('Esta impresora de Windows necesita el puente local de Eccofood para imprimir directo sin vista previa.');
+      }
+    } else if (typeof navigator !== 'undefined' && 'usb' in navigator) {
+      await printViaWebUSB(printer, escPosData);
+    } else {
+      printMonthlyClosingViaBrowserAPI(data);
+    }
+
+    void savePrinterLog(tenantId, printerId, 'print', 'success', {
+      closingId: data.closingId,
+      type: 'monthly_closing',
+      month: data.monthLabel,
+      amount: data.totalSales,
+    }).catch(() => {});
+
+    void getSupabase()
+      .from('printer_devices')
+      .update({ last_used_at: new Date().toISOString() })
+      .eq('id', printerId)
+      .eq('tenant_id', tenantId)
+      .then(() => undefined, () => undefined);
+  } catch (error) {
+    const errorMsg = error instanceof Error ? error.message : String(error);
+    console.error('Monthly closing print error:', errorMsg);
+
+    void savePrinterLog(tenantId, printerId, 'print', 'failed', {
+      closingId: data.closingId,
+      type: 'monthly_closing',
+      error: errorMsg,
+    }).catch(() => {});
+    throw new Error(errorMsg);
+  }
+}
+
+export async function printKitchenTicket(
+  tenantId: string,
+  printerId: string,
+  data: KitchenTicketData
+): Promise<void> {
+  try {
+    const printer = await getPrinterForPrint(tenantId, printerId);
+
+    const escPosData = generateKitchenTicketESCPOS(data, {
+      paperWidth: printer.config?.paper_width || 80,
+      copies: printer.config?.copies || 1,
+      locale: 'es-ES',
+    });
+
+    if (shouldUseLocalBridge(printer)) {
+      try {
+        await printViaLocalBridge(printer, escPosData);
+      } catch (bridgeError) {
+        console.warn('Local print bridge unavailable:', bridgeError);
+        if (canUseBrowserPrintFallback(printer)) {
+          printKitchenTicketViaBrowserAPI(data);
+        } else {
+          throw new Error(getLocalBridgeError(printer));
+        }
+      }
+    } else if (isBrowserDriverPrinter(printer)) {
+      if (canUseBrowserPrintFallback(printer)) {
+        printKitchenTicketViaBrowserAPI(data);
+      } else {
+        throw new Error('Esta impresora de Windows necesita el puente local de Eccofood para imprimir directo sin vista previa.');
+      }
+    } else if (typeof navigator !== 'undefined' && 'usb' in navigator) {
+      await printViaWebUSB(printer, escPosData);
+    } else {
+      printKitchenTicketViaBrowserAPI(data);
+    }
+
+    void savePrinterLog(tenantId, printerId, 'print', 'success', {
+      orderNumber: data.orderNumber,
+      type: 'kitchen_ticket',
+    }).catch(() => {});
+  } catch (error) {
+    const errorMsg = error instanceof Error ? error.message : String(error);
+    console.error('Kitchen ticket print error:', errorMsg);
+    void savePrinterLog(tenantId, printerId, 'print', 'failed', {
+      orderNumber: data.orderNumber,
+      type: 'kitchen_ticket',
+      error: errorMsg,
+    }).catch(() => {});
     throw new Error(errorMsg);
   }
 }
@@ -298,6 +555,7 @@ function printViaBrowserAPI(data: ReceiptData): void {
     frameDocument.open();
     frameDocument.write(html);
     frameDocument.close();
+    frameDocument.title = `Recibo ${data.orderNumber}`;
 
     setTimeout(() => {
       frameWindow.focus();
@@ -309,6 +567,182 @@ function printViaBrowserAPI(data: ReceiptData): void {
   }
 }
 
+function printCashClosingViaBrowserAPI(data: CashClosingReceiptData): void {
+  try {
+    const money = (amount: number) =>
+      formatPriceWithCurrency(amount, data.currencyInfo.code, data.currencyInfo.locale);
+    const safe = (value: string | number | null | undefined) =>
+      String(value ?? '')
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;')
+        .replaceAll('"', '&quot;')
+        .replaceAll("'", '&#39;');
+    const html = `
+      <html>
+        <head>
+          <title>Cierre de caja</title>
+          <style>
+            body{font-family:Arial,sans-serif;margin:0;padding:16px;background:#fff;color:#111}
+            .receipt{max-width:300px;margin:0 auto}
+            h1{font-size:18px;text-align:center;margin:0 0 4px}
+            h2{font-size:16px;text-align:center;margin:8px 0 12px}
+            .meta{text-align:center;font-size:12px;color:#555;margin-bottom:12px}
+            .line{display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px dashed #ddd;font-size:13px}
+            .total{font-size:16px;font-weight:800;border-top:2px solid #111;margin-top:8px;padding-top:8px}
+            @media print{body{padding:0}.receipt{max-width:none;width:72mm}}
+          </style>
+        </head>
+        <body>
+          <div class="receipt">
+            <h1>${safe(data.restaurantName || 'Restaurante')}</h1>
+            <div class="meta">
+              ${data.restaurantPhone ? `Tel: ${safe(data.restaurantPhone)}<br/>` : ''}
+              ${new Date(data.closedAt || Date.now()).toLocaleString(data.currencyInfo.locale)}<br/>
+              Empleado: ${safe(data.staffName)}
+            </div>
+            <h2>CIERRE DE CAJA</h2>
+              <div class="line"><span>Efectivo</span><strong>${money(data.cashSales)}</strong></div>
+              <div class="line"><span>Tarjeta</span><strong>${money(data.cardSales)}</strong></div>
+              <div class="line"><span>Otros</span><strong>${money(data.otherSales)}</strong></div>
+              <div class="line"><span>Valor domicilios</span><strong>${money(data.totalDeliveryFees || 0)}</strong></div>
+              <div class="line"><span>Numero domicilios</span><strong>${data.deliveryOrderCount || 0}</strong></div>
+              <div class="line"><span>Esperado caja</span><strong>${money(data.expectedCash)}</strong></div>
+            <div class="line"><span>Contado</span><strong>${money(data.actualCash)}</strong></div>
+            <div class="line"><span>Diferencia</span><strong>${money(data.difference)}</strong></div>
+            <div class="line"><span>Transacciones</span><strong>${data.transactionCount}</strong></div>
+            <div class="line total"><span>Total ventas</span><strong>${money(data.totalSales)}</strong></div>
+          </div>
+          <script>window.onload=()=>{window.print();setTimeout(()=>window.close(),500)}</script>
+        </body>
+      </html>
+    `;
+
+    const popup = window.open('', '_blank', 'width=420,height=720');
+    if (!popup) throw new Error('El navegador bloqueo la ventana de impresion');
+    popup.document.open();
+    popup.document.write(html);
+    popup.document.close();
+  } catch (error) {
+    console.error('Browser cash closing print failed:', error);
+  }
+}
+
+function printMonthlyClosingViaBrowserAPI(data: MonthlyClosingReceiptData): void {
+  try {
+    const money = (amount: number) =>
+      formatPriceWithCurrency(amount, data.currencyInfo.code, data.currencyInfo.locale);
+    const safe = (value: string | number | null | undefined) =>
+      String(value ?? '')
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;')
+        .replaceAll('"', '&quot;')
+        .replaceAll("'", '&#39;');
+    const html = `
+      <html>
+        <head>
+          <title>Cierre mensual</title>
+          <style>
+            body{font-family:Arial,sans-serif;margin:0;padding:16px;background:#fff;color:#111}
+            .receipt{max-width:300px;margin:0 auto}
+            h1{font-size:18px;text-align:center;margin:0 0 4px}
+            h2{font-size:16px;text-align:center;margin:8px 0 12px}
+            .meta{text-align:center;font-size:12px;color:#555;margin-bottom:12px}
+            .line{display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px dashed #ddd;font-size:13px}
+            .total{font-size:16px;font-weight:800;border-top:2px solid #111;margin-top:8px;padding-top:8px}
+            @media print{body{padding:0}.receipt{max-width:none;width:72mm}}
+          </style>
+        </head>
+        <body>
+          <div class="receipt">
+            <h1>${safe(data.restaurantName || 'Restaurante')}</h1>
+            <div class="meta">
+              ${data.restaurantPhone ? `Tel: ${safe(data.restaurantPhone)}<br/>` : ''}
+              ${safe(data.monthLabel)}<br/>
+              ${new Date(data.closedAt || Date.now()).toLocaleString(data.currencyInfo.locale)}<br/>
+              Responsable: ${safe(data.staffName)}
+            </div>
+            <h2>CIERRE MENSUAL</h2>
+            <div class="line"><span>Efectivo</span><strong>${money(data.cashSales)}</strong></div>
+            <div class="line"><span>Tarjeta</span><strong>${money(data.cardSales)}</strong></div>
+            <div class="line"><span>Otros</span><strong>${money(data.otherSales)}</strong></div>
+            <div class="line"><span>Valor domicilios</span><strong>${money(data.totalDeliveryFees || 0)}</strong></div>
+            <div class="line"><span>Numero domicilios</span><strong>${data.deliveryOrderCount || 0}</strong></div>
+            <div class="line"><span>Impuestos</span><strong>${money(data.totalTax)}</strong></div>
+            <div class="line"><span>Transacciones</span><strong>${data.transactionCount}</strong></div>
+            <div class="line total"><span>Total mes</span><strong>${money(data.totalSales)}</strong></div>
+          </div>
+          <script>window.onload=()=>{window.print();setTimeout(()=>window.close(),500)}</script>
+        </body>
+      </html>
+    `;
+
+    const popup = window.open('', '_blank', 'width=420,height=720');
+    if (!popup) throw new Error('El navegador bloqueo la ventana de impresion');
+    popup.document.open();
+    popup.document.write(html);
+    popup.document.close();
+  } catch (error) {
+    console.error('Browser monthly closing print failed:', error);
+  }
+}
+
+function printKitchenTicketViaBrowserAPI(data: KitchenTicketData): void {
+  try {
+    const safe = (value: string | number | null | undefined) =>
+      String(value ?? '')
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;')
+        .replaceAll('"', '&quot;')
+        .replaceAll("'", '&#39;');
+    const rows = data.items.map((item) => `
+      <div class="item">
+        <strong>${safe(item.quantity)}x ${safe(item.name)}</strong>
+        ${item.notes ? `<small>Nota: ${safe(item.notes)}</small>` : ''}
+      </div>
+    `).join('');
+    const html = `
+      <html>
+        <head>
+          <title>Comanda ${safe(data.orderNumber)}</title>
+          <style>
+            body{font-family:Arial,sans-serif;margin:0;padding:16px;background:#fff;color:#111}
+            .ticket{max-width:300px;margin:0 auto}
+            h1{font-size:26px;text-align:center;margin:0;font-weight:900}
+            .meta{text-align:center;font-size:13px;margin:8px 0 12px;color:#333}
+            .item{border-top:1px dashed #999;padding:10px 0;font-size:20px}
+            .item small{display:block;font-size:13px;margin-top:4px}
+            @media print{body{padding:0}.ticket{max-width:none;width:72mm}}
+          </style>
+        </head>
+        <body>
+          <div class="ticket">
+            <h1>COMANDA COCINA</h1>
+            <div class="meta">
+              ${safe(data.restaurantName || '')}<br/>
+              ${safe(data.orderNumber)}<br/>
+              ${new Date(data.timestamp || Date.now()).toLocaleString('es-ES')}
+            </div>
+            ${rows}
+            ${data.notes ? `<p><strong>Notas:</strong> ${safe(data.notes)}</p>` : ''}
+          </div>
+          <script>window.onload=()=>{window.print();setTimeout(()=>window.close(),500)}</script>
+        </body>
+      </html>
+    `;
+
+    const popup = window.open('', '_blank', 'width=420,height=720');
+    if (!popup) throw new Error('El navegador bloqueo la ventana de impresion');
+    popup.document.open();
+    popup.document.write(html);
+    popup.document.close();
+  } catch (error) {
+    console.error('Browser kitchen ticket print failed:', error);
+  }
+}
+
 /**
  * Generate HTML for browser printing (fallback)
  */
@@ -316,6 +750,10 @@ function generateReceiptHTML(data: ReceiptData): string {
   const printedAt = data.timestamp ? new Date(data.timestamp) : new Date();
   const locale = data.currencyInfo?.locale || 'es-ES';
   const money = (amount: number) => formatPriceWithCurrency(amount, data.currencyInfo.code, locale);
+  const paymentLabel = getPaymentMethodLabel(data.paymentMethod);
+  const displayOrderNumber = data.orderNumber || getBrowserReceiptNumber(data.orderNumber);
+  const receiptDate = printedAt.toLocaleDateString(locale);
+  const receiptTime = printedAt.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' });
   const safe = (value: string | number | null | undefined) =>
     String(value ?? '')
       .replaceAll('&', '&amp;')
@@ -323,18 +761,24 @@ function generateReceiptHTML(data: ReceiptData): string {
       .replaceAll('>', '&gt;')
       .replaceAll('"', '&quot;')
       .replaceAll("'", '&#39;');
+  const ticketLine = (name: string, value: string, className = '') =>
+    `<div class="ticket-line ${className}">
+      <span class="line-name">${safe(name).toUpperCase()}</span>
+      <strong>${safe(value)}</strong>
+    </div>`;
   const itemsHTML = data.items
-    .map(
-      (item) =>
-        `<tr>
-        <td>${safe(item.name)}</td>
-        <td class="number">${item.quantity}</td>
-        <td class="number">${money(item.price * item.quantity)}</td>
-      </tr>`
-    )
+    .map((item) => {
+      const quantity = Number(item.quantity || 0);
+      return ticketLine(item.name, `${money(item.price * quantity)} x${formatReceiptQuantity(quantity)}`);
+    })
     .join('');
+  const deliveryHTML = (data.deliveryFee || 0) > 0
+    ? ticketLine('Domicilio', `${money(data.deliveryFee || 0)} x1`, 'delivery-line')
+    : '';
+  const productCount = data.items.reduce((sum, item) => sum + Number(item.quantity || 0), 0) + ((data.deliveryFee || 0) > 0 ? 1 : 0);
+  const hasBreakdown = data.discount > 0 || (data.tax || 0) > 0;
   const extraRows = (data.discount > 0 ? 1 : 0) + ((data.tax || 0) > 0 ? 1 : 0);
-  const pageHeightMm = Math.min(190, Math.max(92, 78 + (data.items.length + extraRows) * 9));
+  const minHeightMm = Math.max(92, 70 + (data.items.length + ((data.deliveryFee || 0) > 0 ? 1 : 0)) * 8 + extraRows * 6);
 
   return `
     <!DOCTYPE html>
@@ -344,7 +788,7 @@ function generateReceiptHTML(data: ReceiptData): string {
       <title>Recibo ${safe(data.orderNumber)}</title>
       <style>
         @page {
-          size: 80mm ${pageHeightMm}mm;
+          size: 80mm auto;
           margin: 0;
         }
         * {
@@ -352,8 +796,7 @@ function generateReceiptHTML(data: ReceiptData): string {
         }
         html, body {
           width: 80mm;
-          height: ${pageHeightMm}mm;
-          min-height: 0;
+          min-height: ${minHeightMm}mm;
           margin: 0;
           padding: 0;
           background: #fff;
@@ -362,73 +805,154 @@ function generateReceiptHTML(data: ReceiptData): string {
         }
         body {
           font-family: 'Courier New', Courier, monospace;
-          font-size: 18px;
+          font-size: 16px;
           font-weight: 700;
           line-height: 1.18;
-          padding: 3mm 3mm 1mm;
+          padding: 5mm 3mm 0;
         }
         .receipt {
           width: 74mm;
+          display: block;
           break-after: avoid;
+          break-inside: avoid;
           page-break-after: avoid;
+          page-break-inside: avoid;
         }
         .header {
           text-align: center;
-          font-weight: bold;
+          font-weight: 900;
           margin-bottom: 4px;
-          font-size: 21px;
+          font-size: 19px;
+          letter-spacing: 0;
         }
-        .meta {
+        .meta-center {
           text-align: center;
-          font-size: 15px;
+          font-size: 13px;
           font-weight: 800;
-          margin: 2px 0;
+          margin: 1px 0;
         }
-        .number {
-          text-align: right;
+        .title {
+          text-align: center;
+          font-size: 14px;
+          font-weight: 900;
+          margin: 4px 0 5px;
+        }
+        .meta-row,
+        .table-head,
+        .ticket-line,
+        .summary-row,
+        .amount-row,
+        .cash-row {
+          display: flex;
+          justify-content: space-between;
+          gap: 6px;
           white-space: nowrap;
         }
-        table {
-          width: 100%;
-          border-collapse: collapse;
-          margin: 8px 0;
+        .meta-row {
+          font-size: 14px;
+          margin: 1px 0;
         }
-        th {
-          font-size: 16px;
-          text-align: left;
-          border-bottom: 2px solid #000;
-          padding: 4px 1px;
+        .meta-row strong {
+          text-align: right;
         }
-        td {
-          padding: 5px 1px;
-          border-bottom: 1px dashed #000;
-          vertical-align: top;
+        .table-head {
+          margin-top: 12px;
+          font-size: 15px;
+          font-weight: 900;
         }
-        .total-row {
-          font-weight: bold;
-          font-size: 23px;
+        .divider {
+          border-top: 1px dashed #000;
+          margin: 5px 0;
+        }
+        .ticket-line {
+          align-items: flex-start;
+          font-size: 15px;
+          font-weight: 900;
+          margin: 3px 0;
+        }
+        .line-name {
+          min-width: 0;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+        .delivery-line {
+          margin-top: 4px;
+        }
+        .count {
+          margin: 9px 0 10px;
+          font-size: 15px;
+          font-weight: 900;
+        }
+        .summary {
+          margin: 6px 0 8px;
+          font-size: 14px;
+        }
+        .grand-total {
+          margin: 8px 0 12px;
+        }
+        .total-word {
+          display: block;
+          font-size: 25px;
+          font-weight: 900;
+          line-height: 1;
+        }
+        .total-money {
+          display: block;
+          margin-top: 2px;
+          text-align: right;
+          font-size: 24px;
+          font-weight: 900;
+          line-height: 1.05;
+        }
+        .sale-type {
+          margin-top: 3px;
+          text-align: right;
+          font-size: 18px;
+          font-weight: 900;
+        }
+        .amount-row,
+        .cash-row {
+          margin-top: 8px;
+          align-items: baseline;
+          font-size: 18px;
+          font-weight: 900;
+        }
+        .cash-row {
+          margin-top: 2px;
+          font-size: 14px;
         }
         .footer {
           text-align: center;
-          margin-top: 6px;
+          margin-top: 18px;
           font-size: 16px;
           font-weight: 800;
         }
-        hr {
-          border: 0;
-          border-top: 2px solid #000;
-          margin: 7px 0;
+        .footer p {
+          margin: 2px 0;
+        }
+        .online-orders {
+          margin-top: 10px;
+          font-size: 15px;
+          font-weight: 900;
+        }
+        .online-url {
+          font-size: 14px;
+          font-weight: 900;
         }
         @media print {
           html, body {
-            height: ${pageHeightMm}mm;
-            min-height: 0;
-            margin: 0;
-            overflow: visible;
+            width: 80mm !important;
+            min-height: ${minHeightMm}mm;
+            margin: 0 !important;
+            padding: 0 !important;
+            overflow: hidden;
           }
+          body { padding: 5mm 3mm 0 !important; }
           .receipt {
             break-after: avoid;
+            break-inside: avoid;
             page-break-after: avoid;
+            page-break-inside: avoid;
           }
           button { display: none !important; }
         }
@@ -437,53 +961,77 @@ function generateReceiptHTML(data: ReceiptData): string {
     <body>
       <div class="receipt">
       <div class="header">${safe(data.restaurantName || 'Restaurante')}</div>
-      ${data.restaurantPhone ? `<div class="meta">Tel: ${safe(data.restaurantPhone)}</div>` : ''}
-      <div class="meta">Fecha: ${printedAt.toLocaleDateString(locale)}</div>
-      <div class="meta">Hora: ${printedAt.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' })}</div>
-      <div class="header">Orden: ${safe(data.orderNumber)}</div>
-      <hr>
-      <table>
-        <tr>
-          <th>Artículo</th>
-          <th class="number">Qty</th>
-          <th class="number">Total</th>
-        </tr>
-        ${itemsHTML}
-      </table>
-      <hr>
-      <table>
-        <tr>
-          <td>Subtotal:</td>
-          <td class="number">${money(data.subtotal)}</td>
-        </tr>
+      ${data.restaurantPhone ? `<div class="meta-center">Tel: ${safe(data.restaurantPhone)}</div>` : ''}
+      <div class="title">RECIBO DE VENTA</div>
+      <div class="meta-row"><span>Pedido:</span><strong>${safe(displayOrderNumber)}</strong></div>
+      <div class="meta-row"><span>Fecha:</span><strong>${safe(receiptDate)}</strong></div>
+      <div class="meta-row"><span>Hora:</span><strong>${safe(receiptTime)}</strong></div>
+      ${data.tableNumber ? `<div class="meta-row"><span>Mesa:</span><strong>${safe(data.tableNumber)}</strong></div>` : ''}
+      ${data.waiterName ? `<div class="meta-row"><span>Atendido Por:</span><strong>${safe(data.waiterName)}</strong></div>` : ''}
+
+      <div class="table-head"><span>Item</span><span>Precio</span></div>
+      <div class="divider"></div>
+      <div class="items">${itemsHTML}${deliveryHTML}</div>
+      <div class="divider"></div>
+      <div class="count"># Productos: ${safe(formatReceiptQuantity(productCount))}</div>
+      ${
+        hasBreakdown
+          ? `<div class="summary">
+        <div class="summary-row"><span>Subtotal:</span><strong>${money(data.subtotal)}</strong></div>
         ${
           data.discount > 0
-            ? `<tr>
-          <td>Descuento:</td>
-          <td class="number">-${money(data.discount)}</td>
-        </tr>`
+            ? `<div class="summary-row"><span>Descuento:</span><strong>-${money(data.discount)}</strong></div>`
             : ''
         }
         ${
           (data.tax || 0) > 0
-            ? `<tr>
-          <td>IVA${data.taxRate ? ` ${data.taxRate}%` : ''}:</td>
-          <td class="number">${money(data.tax || 0)}</td>
-        </tr>`
+            ? `<div class="summary-row"><span>IVA${data.taxRate ? ` ${data.taxRate}%` : ''}:</span><strong>${money(data.tax || 0)}</strong></div>`
             : ''
         }
-        <tr class="total-row">
-          <td>TOTAL:</td>
-          <td class="number">${money(data.total)}</td>
-        </tr>
-      </table>
+      </div>`
+          : ''
+      }
+      <div class="grand-total">
+        <span class="total-word">Total</span>
+        <span class="total-money">${money(data.total)}</span>
+        ${paymentLabel ? `<div class="sale-type">VENTA ${safe(paymentLabel).toUpperCase()}</div>` : ''}
+      </div>
+      ${
+        data.amountPaid !== undefined
+          ? `<div class="payment">
+        <div class="cash-row"><span>Recibido:</span><strong>${money(data.amountPaid)}</strong></div>
+        <div class="cash-row"><span>Cambio:</span><strong>${money(data.change)}</strong></div>
+      </div>`
+          : ''
+      }
       <div class="footer">
         <p>Gracias por su compra</p>
+        <p>Estamos a su servicio</p>
+        <p class="online-orders">PEDIDOS ONLINE</p>
+        <p class="online-url">www.parrillaburgers.com</p>
       </div>
       </div>
     </body>
     </html>
   `;
+}
+
+function getPaymentMethodLabel(method?: string | null): string {
+  if (method === 'cash') return 'Efectivo';
+  if (method === 'stripe' || method === 'card') return 'Tarjeta';
+  return method ? method : '';
+}
+
+function getBrowserReceiptNumber(orderNumber?: string | null): string {
+  const clean = String(orderNumber || '').trim();
+  const digits = clean.replace(/\D/g, '');
+  if (digits.length >= 5) return digits.slice(-6);
+  return clean || 'POS';
+}
+
+function formatReceiptQuantity(quantity: number): string {
+  if (Number.isInteger(quantity)) return String(quantity);
+  return new Intl.NumberFormat('es-CO', { maximumFractionDigits: 2 }).format(quantity);
 }
 
 /**
@@ -518,24 +1066,34 @@ export async function testPrinterConnection(
   printerId: string
 ): Promise<{ success: boolean; message: string }> {
   try {
-    const { data: printer } = await getSupabase()
-      .from('printer_devices')
-      .select('*')
-      .eq('id', printerId)
-      .eq('tenant_id', tenantId)
-      .maybeSingle();
+    const printer = await getPrinterForPrint(tenantId, printerId, true);
 
-    if (!printer) {
-      return { success: false, message: 'Impresora no encontrada' };
-    }
-
-    const testData = generateTestReceiptESCPOS(printer.config.paper_width || 80);
+    const testData = generateTestReceiptESCPOS(printer.config?.paper_width || 80);
 
     if (shouldUseLocalBridge(printer)) {
       try {
         await printViaLocalBridge(printer, testData);
       } catch (bridgeError) {
-        console.warn('Local print bridge unavailable, using browser print dialog:', bridgeError);
+        console.warn('Local print bridge unavailable:', bridgeError);
+        if (canUseBrowserPrintFallback(printer)) {
+          printViaBrowserAPI({
+            orderId: 'test',
+            orderNumber: 'TEST',
+            restaurantName: 'Eccofood',
+            items: [{ menu_item_id: 'test', name: 'Prueba impresora', price: 0, quantity: 1 }],
+            subtotal: 0,
+            discount: 0,
+            total: 0,
+            change: 0,
+            currencyInfo: { code: 'EUR', symbol: 'EUR', locale: 'es-ES' },
+            timestamp: new Date().toISOString(),
+          });
+        } else {
+          throw new Error(getLocalBridgeError(printer));
+        }
+      }
+    } else if (isBrowserDriverPrinter(printer)) {
+      if (canUseBrowserPrintFallback(printer)) {
         printViaBrowserAPI({
           orderId: 'test',
           orderNumber: 'TEST',
@@ -548,20 +1106,9 @@ export async function testPrinterConnection(
           currencyInfo: { code: 'EUR', symbol: 'EUR', locale: 'es-ES' },
           timestamp: new Date().toISOString(),
         });
+      } else {
+        throw new Error('Esta impresora de Windows necesita el puente local de Eccofood para imprimir directo sin vista previa.');
       }
-    } else if (isBrowserDriverPrinter(printer)) {
-      printViaBrowserAPI({
-        orderId: 'test',
-        orderNumber: 'TEST',
-        restaurantName: 'Eccofood',
-        items: [{ menu_item_id: 'test', name: 'Prueba impresora', price: 0, quantity: 1 }],
-        subtotal: 0,
-        discount: 0,
-        total: 0,
-        change: 0,
-        currencyInfo: { code: 'EUR', symbol: '€', locale: 'es-ES' },
-        timestamp: new Date().toISOString(),
-      });
     } else if (typeof navigator !== 'undefined' && 'usb' in navigator) {
       await printViaWebUSB(printer, testData);
     } else {
@@ -593,38 +1140,40 @@ export async function testPrinterConnection(
  */
 export async function openCashDrawer(tenantId: string): Promise<void> {
   try {
-    // ESC p m t1 t2 — open drawer on pin 2
-    const drawerCmd = new Uint8Array([0x1b, 0x70, 0x00, 0x19, 0xfa]);
+    // ESC p m t1 t2. Send both common DK pins because many Windows POS
+    // drivers hide whether the drawer is wired to pin 2 (m=0) or pin 5 (m=1).
+    const drawerCmd = new Uint8Array([
+      0x1b, 0x70, 0x00, 0x32, 0xfa,
+      0x1b, 0x70, 0x01, 0x32, 0xfa,
+    ]);
 
-    const { data: settings } = await getSupabase()
-      .from('restaurant_settings')
-      .select('default_receipt_printer_id')
-      .eq('tenant_id', tenantId)
-      .maybeSingle();
-
-    const printerId = settings?.default_receipt_printer_id || getCachedDefaultReceiptPrinter(tenantId);
+    let printerId = getCachedDefaultReceiptPrinter(tenantId);
+    if (printerId) {
+      void getSupabase()
+        .from('restaurant_settings')
+        .select('default_receipt_printer_id')
+        .eq('tenant_id', tenantId)
+        .maybeSingle()
+        .then(({ data: settings }) => {
+          if (settings?.default_receipt_printer_id) {
+            cacheDefaultReceiptPrinter(tenantId, settings.default_receipt_printer_id);
+          }
+        }, () => undefined);
+    } else {
+      const { data: settings } = await getSupabase()
+        .from('restaurant_settings')
+        .select('default_receipt_printer_id')
+        .eq('tenant_id', tenantId)
+        .maybeSingle();
+      printerId = settings?.default_receipt_printer_id || null;
+      if (printerId) cacheDefaultReceiptPrinter(tenantId, printerId);
+    }
 
     if (!printerId) {
       throw new Error('No hay impresora de recibos predeterminada');
     }
 
-    let { data: printer } = await getSupabase()
-      .from('printer_devices')
-      .select('*')
-      .eq('id', printerId)
-      .eq('tenant_id', tenantId)
-      .maybeSingle();
-
-    if (printer) {
-      cachePrinterConfig(tenantId, printerId, printer);
-      cacheDefaultReceiptPrinter(tenantId, printerId);
-    } else {
-      printer = getCachedPrinterConfig(tenantId, printerId);
-    }
-
-    if (!printer) {
-      throw new Error('No se encontro la impresora configurada');
-    }
+    const printer = await getPrinterForPrint(tenantId, printerId, true);
 
     if (printer.config?.cash_drawer_enabled === false) {
       return;

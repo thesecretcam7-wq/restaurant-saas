@@ -1,9 +1,10 @@
 'use client';
 
 import { useState } from 'react';
-import { DollarSign, CreditCard } from 'lucide-react';
-import { calculateChange, getSuggestedBillAmounts, formatCurrency } from '@/lib/pos-utils';
+import { DollarSign, CreditCard, Printer } from 'lucide-react';
+import { calculateChange, getSuggestedBillAmounts } from '@/lib/pos-utils';
 import { getCurrencyByCountry, formatPriceWithCurrency } from '@/lib/currency';
+import { useTouchDevice } from '@/lib/hooks/useTouchDevice';
 import { NumericKeyboard } from './NumericKeyboard';
 
 type PaymentMethod = 'cash' | 'stripe';
@@ -14,7 +15,9 @@ interface POSPaymentProps {
   onTipChange: (tip: number) => void;
   paymentMethod: PaymentMethod;
   onPaymentMethodChange: (method: PaymentMethod) => void;
-  onProceedPayment: (amountPaid?: number) => void;
+  printReceipt: boolean;
+  onPrintReceiptChange: (printReceipt: boolean) => void;
+  onProceedPayment: (amountPaid?: number, printReceipt?: boolean) => void;
   disabled?: boolean;
   loading?: boolean;
   country?: string;
@@ -27,6 +30,8 @@ export function POSPayment({
   onTipChange,
   paymentMethod,
   onPaymentMethodChange,
+  printReceipt,
+  onPrintReceiptChange,
   onProceedPayment,
   disabled = false,
   loading = false,
@@ -34,14 +39,16 @@ export function POSPayment({
   compact = false,
 }: POSPaymentProps) {
   const currencyInfo = getCurrencyByCountry(country);
+  const isTouchDevice = useTouchDevice();
   const [amountPaid, setAmountPaid] = useState<string>('');
   const [change, setChange] = useState<number>(0);
   const [showNumericKeyboard, setShowNumericKeyboard] = useState(false);
   const [showTipKeyboard, setShowTipKeyboard] = useState(false);
   const totalWithTip = total + tip;
 
-  const suggestedAmounts = getSuggestedBillAmounts(totalWithTip);
+  const suggestedAmounts = getSuggestedBillAmounts(totalWithTip, currencyInfo.code);
   const paidAmount = amountPaid ? Number(amountPaid) : 0;
+  const cashAmountForPayment = amountPaid ? paidAmount : totalWithTip;
 
   const handleAmountChange = (value: string) => {
     setAmountPaid(value);
@@ -51,8 +58,10 @@ export function POSPayment({
   };
 
   const handleSuggestedAmount = (amount: number) => {
-    setAmountPaid(amount.toString());
-    setChange(calculateChange(totalWithTip, amount));
+    const currentAmount = Number(amountPaid);
+    const nextAmount = Math.round(((Number.isFinite(currentAmount) ? currentAmount : 0) + amount) * 100) / 100;
+    setAmountPaid(nextAmount.toString());
+    setChange(calculateChange(totalWithTip, nextAmount));
   };
 
   const handleConfirmPaymentAmount = (value: number) => {
@@ -61,7 +70,7 @@ export function POSPayment({
     setShowNumericKeyboard(false);
   };
 
-  const isValidPayment = paymentMethod === 'stripe' || (paymentMethod === 'cash' && paidAmount >= totalWithTip);
+  const isValidPayment = paymentMethod === 'stripe' || (paymentMethod === 'cash' && cashAmountForPayment >= totalWithTip);
 
   return (
     <div className={compact ? 'space-y-1.5 text-xs' : 'space-y-2'}>
@@ -70,7 +79,7 @@ export function POSPayment({
         <span className="text-slate-400 text-xs flex-1">Propina</span>
         <button
           onClick={() => setShowTipKeyboard(true)}
-          className="text-amber-300 font-black text-sm hover:text-amber-200 transition"
+          className="text-[#D4AF37] font-black text-sm hover:text-white transition"
         >
           {tip > 0 ? formatPriceWithCurrency(tip, currencyInfo.code, currencyInfo.locale) : '+ Agregar'}
         </button>
@@ -97,7 +106,7 @@ export function POSPayment({
           disabled={disabled}
           className={`${compact ? 'py-1.5 text-xs' : 'py-2 text-sm'} rounded-xl font-black flex items-center justify-center gap-1 transition border ${
             paymentMethod === 'cash'
-              ? 'bg-emerald-400/18 border-emerald-300/35 text-emerald-50'
+              ? 'bg-[#D4AF37]/16 border-[#D4AF37]/38 text-white'
               : 'bg-white/10 border-white/10 text-slate-400 hover:text-white'
           } ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
         >
@@ -109,7 +118,7 @@ export function POSPayment({
           disabled={disabled}
           className={`${compact ? 'py-1.5 text-xs' : 'py-2 text-sm'} rounded-xl font-black flex items-center justify-center gap-1 transition border ${
             paymentMethod === 'stripe'
-              ? 'bg-cyan-300/18 border-cyan-300/35 text-cyan-50'
+              ? 'bg-[#D4AF37]/16 border-[#D4AF37]/38 text-white'
               : 'bg-white/10 border-white/10 text-slate-400 hover:text-white'
           } ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
         >
@@ -125,19 +134,28 @@ export function POSPayment({
           <div className="flex gap-2">
             <input
               type="number"
-              inputMode="decimal"
+              inputMode={isTouchDevice ? 'none' : 'decimal'}
               min="0"
               step="0.01"
               value={amountPaid}
+              readOnly={isTouchDevice}
+              onPointerDown={(event) => {
+                if (!isTouchDevice) return;
+                event.preventDefault();
+                setShowNumericKeyboard(true);
+              }}
+              onFocus={() => {
+                if (isTouchDevice) setShowNumericKeyboard(true);
+              }}
               onChange={(event) => handleAmountChange(event.target.value)}
               onKeyDown={(event) => {
                 if (event.key === 'Enter' && isValidPayment && !disabled && !loading) {
-                  onProceedPayment(paidAmount);
+                  onProceedPayment(cashAmountForPayment, printReceipt);
                 }
               }}
               placeholder="0.00"
-              className={`min-w-0 flex-1 rounded-xl border-2 border-emerald-300/35 bg-emerald-400/10 px-3 text-center font-black text-emerald-200 outline-none transition placeholder:text-emerald-200/38 focus:border-emerald-200 focus:bg-emerald-400/16 ${compact ? 'py-1.5 text-base' : 'py-2 text-lg'}`}
-              title="Puedes escribir el dinero recibido con teclado"
+              className={`min-w-0 flex-1 rounded-xl border-2 border-[#D4AF37]/30 bg-[#0B0E14]/55 px-3 text-center font-black text-white outline-none transition placeholder:text-[#8b97a8] focus:border-[#D4AF37] focus:bg-[#0B0E14]/72 ${compact ? 'py-1.5 text-base' : 'py-2 text-lg'}`}
+              title={isTouchDevice ? 'Usa el teclado interno de Eccofood' : 'Puedes escribir el dinero recibido con teclado'}
             />
             <button
               type="button"
@@ -150,16 +168,17 @@ export function POSPayment({
           </div>
 
           {/* Billetes Sugeridos */}
-          <div className={compact ? 'space-y-1' : 'space-y-2'}>
-            <p className="text-xs text-slate-500">Billetes sugeridos:</p>
-            <div className={`grid grid-cols-4 ${compact ? 'gap-1.5' : 'gap-2'}`}>
+          <div className={compact ? 'space-y-1.5' : 'space-y-2'}>
+            <p className="text-xs font-black uppercase text-slate-400">Billetes sugeridos:</p>
+            <div className={`grid grid-cols-2 ${compact ? 'gap-2' : 'gap-2.5'}`}>
               {suggestedAmounts.map((amount) => (
                 <button
+                  type="button"
                   key={amount}
                   onClick={() => handleSuggestedAmount(amount)}
-                  className={`${compact ? 'py-1' : 'py-1'} px-1 bg-white/10 hover:bg-white/15 rounded-lg text-xs font-black text-emerald-300 border border-white/10 hover:border-emerald-300/40`}
+                  className={`${compact ? 'min-h-10 px-2 py-2 text-sm' : 'min-h-11 px-3 py-2 text-sm'} rounded-xl border border-[#D4AF37]/30 bg-[#D4AF37]/12 font-black text-white shadow-sm shadow-black/20 transition hover:bg-[#D4AF37]/20 active:scale-95`}
                 >
-                  {currencyInfo.symbol}{amount}
+                  {formatPriceWithCurrency(amount, currencyInfo.code, currencyInfo.locale)}
                 </button>
               ))}
             </div>
@@ -178,17 +197,57 @@ export function POSPayment({
         </div>
       )}
 
+      {/* Recibo */}
+      <div className={`pos-card flex items-center justify-between gap-2 rounded-xl ${compact ? 'px-2 py-1.5' : 'px-3 py-2'}`}>
+        <div className="flex min-w-0 items-center gap-1.5 text-xs font-black uppercase text-slate-400">
+          <Printer className="h-4 w-4 shrink-0 text-[#D4AF37]" />
+          <span>Recibo</span>
+        </div>
+        <div className={`grid grid-cols-2 rounded-lg border border-white/10 bg-black/20 p-0.5 ${compact ? 'w-24' : 'w-28'}`} role="group" aria-label="Imprimir recibo">
+          <button
+            type="button"
+            onClick={() => onPrintReceiptChange(true)}
+            disabled={disabled || loading}
+            aria-pressed={printReceipt}
+            className={`min-h-8 rounded-md px-2 text-xs font-black transition ${
+              printReceipt
+                ? 'bg-[#D4AF37] text-[#111827]'
+                : 'text-slate-400 hover:text-white'
+            } disabled:opacity-50`}
+          >
+            Sí
+          </button>
+          <button
+            type="button"
+            onClick={() => onPrintReceiptChange(false)}
+            disabled={disabled || loading}
+            aria-pressed={!printReceipt}
+            className={`min-h-8 rounded-md px-2 text-xs font-black transition ${
+              !printReceipt
+                ? 'bg-[#D4AF37] text-[#111827]'
+                : 'text-slate-400 hover:text-white'
+            } disabled:opacity-50`}
+          >
+            No
+          </button>
+        </div>
+      </div>
+
       {/* Botón Pagar */}
       <button
-        onClick={() => onProceedPayment(paymentMethod === 'cash' ? paidAmount : undefined)}
+        onClick={() => onProceedPayment(paymentMethod === 'cash' ? cashAmountForPayment : undefined, printReceipt)}
         disabled={disabled || loading || !isValidPayment}
-        className={`w-full ${compact ? 'py-2.5 text-sm' : 'py-4 text-lg'} rounded-xl font-black transition border ${
+        className={`w-full ${compact ? 'min-h-[54px] py-3 text-base' : 'py-4 text-lg'} rounded-xl font-black transition border ${
           isValidPayment && !disabled && !loading
-            ? 'bg-gradient-to-r from-emerald-500 to-cyan-500 hover:from-emerald-400 hover:to-cyan-400 text-slate-950 border-white/20 shadow-lg shadow-cyan-900/20'
+            ? 'bg-[#D35A37] hover:bg-[#bd4d31] text-white border-[#D35A37]/40 shadow-lg shadow-black/24'
             : 'bg-white/10 text-slate-500 border-white/10 cursor-not-allowed'
         }`}
       >
-        {loading ? 'Procesando...' : `PAGAR ${formatPriceWithCurrency(totalWithTip, currencyInfo.code, currencyInfo.locale)}`}
+        {loading
+          ? 'Procesando...'
+          : paymentMethod === 'cash' && !amountPaid
+            ? `PAGAR EXACTO ${formatPriceWithCurrency(totalWithTip, currencyInfo.code, currencyInfo.locale)}`
+            : `PAGAR ${formatPriceWithCurrency(totalWithTip, currencyInfo.code, currencyInfo.locale)}`}
       </button>
 
       {paymentMethod === 'cash' && paidAmount && change < 0 && (

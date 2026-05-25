@@ -12,6 +12,34 @@ export default function PWARegister() {
       return
     }
 
+    const isLocalDev =
+      window.location.hostname === 'localhost' ||
+      window.location.hostname === '127.0.0.1' ||
+      process.env.NODE_ENV === 'development'
+
+    if (isLocalDev) {
+      const clearLocalPwaCache = async () => {
+        try {
+          const registrations = await navigator.serviceWorker.getRegistrations()
+          await Promise.all(registrations.map((registration) => registration.unregister()))
+          const keys = 'caches' in window ? await caches.keys() : []
+          await Promise.all(keys.map((key) => caches.delete(key)))
+
+          const hadLocalCache = registrations.length > 0 || keys.length > 0
+          const alreadyReloaded = sessionStorage.getItem('eccofood-local-cache-cleared') === '1'
+          if (hadLocalCache && !alreadyReloaded) {
+            sessionStorage.setItem('eccofood-local-cache-cleared', '1')
+            window.location.reload()
+          }
+        } catch {
+          // Local development should never be blocked by PWA cleanup.
+        }
+      }
+
+      clearLocalPwaCache()
+      return
+    }
+
     // Register service worker
     navigator.serviceWorker
       .register('/sw.js', { scope: '/' })

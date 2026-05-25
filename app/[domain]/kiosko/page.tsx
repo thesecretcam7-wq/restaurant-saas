@@ -1,5 +1,7 @@
 import { createServiceClient } from '@/lib/supabase/server'
 import { getCurrencyByCountry } from '@/lib/currency'
+import { getTenantContext } from '@/lib/tenant'
+import { getPageConfig } from '@/lib/pageConfig'
 import KioskoClient from './KioskoClient'
 import KioskoBrandingProvider from './KioskoBrandingProvider'
 
@@ -30,12 +32,8 @@ export default async function KioskoPage({ params, searchParams }: Props) {
     )
   }
 
-  const [brandingRes, categoriesRes, itemsRes, toppingsRes, settingsRes, bannersRes] = await Promise.all([
-    supabase
-      .from('tenant_branding')
-      .select('app_name, primary_color, secondary_color, accent_color, background_color, button_primary_color, button_secondary_color, text_primary_color, text_secondary_color, border_color, logo_url, favicon_url')
-      .eq('tenant_id', tenant.id)
-      .maybeSingle(),
+  const [context, categoriesRes, itemsRes, toppingsRes, settingsRes, bannersRes] = await Promise.all([
+    getTenantContext(domain),
     supabase
       .from('menu_categories')
       .select('id, name, sort_order, image_url')
@@ -65,25 +63,26 @@ export default async function KioskoPage({ params, searchParams }: Props) {
       .order('sort_order'),
   ])
 
-  const tenantMetadata = (tenant.metadata || {}) as Record<string, any>
-  const metadataBranding = (tenantMetadata.branding || {}) as Record<string, any>
+  const contextBranding = (context.branding || {}) as Record<string, any>
+  const pageConfig = getPageConfig((context.tenant as any)?.metadata?.page_config || contextBranding.page_config)
+  const isLightTheme = pageConfig.appearance.theme_mode === 'light'
 
   const branding = {
-    appName: brandingRes.data?.app_name || tenant.organization_name,
-    primaryColor: brandingRes.data?.primary_color || '#E4002B',
-    secondaryColor: brandingRes.data?.secondary_color || '#111827',
-    accentColor: brandingRes.data?.accent_color || brandingRes.data?.primary_color || '#E4002B',
-    backgroundColor: brandingRes.data?.background_color || '#F3F4F6',
-    buttonPrimaryColor: brandingRes.data?.button_primary_color || brandingRes.data?.primary_color || '#E4002B',
-    buttonSecondaryColor: brandingRes.data?.button_secondary_color || brandingRes.data?.secondary_color || '#111827',
-    textPrimaryColor: brandingRes.data?.text_primary_color || '#111827',
-    textSecondaryColor: brandingRes.data?.text_secondary_color || '#6B7280',
-    borderColor: brandingRes.data?.border_color || '#E5E7EB',
+    appName: contextBranding.app_name || tenant.organization_name,
+    primaryColor: isLightTheme ? '#ff5a00' : '#D4AF37',
+    secondaryColor: isLightTheme ? '#ffffff' : '#1A1F2C',
+    accentColor: isLightTheme ? '#ff1f1f' : '#D4AF37',
+    backgroundColor: isLightTheme ? '#ffffff' : '#0B0E14',
+    buttonPrimaryColor: isLightTheme ? '#ff5a00' : '#D35A37',
+    buttonSecondaryColor: isLightTheme ? '#ff1f1f' : '#D4AF37',
+    textPrimaryColor: isLightTheme ? '#07111f' : '#ffffff',
+    textSecondaryColor: isLightTheme ? 'rgba(7, 17, 31, 0.70)' : '#8b97a8',
+    borderColor: isLightTheme ? 'rgba(7, 17, 31, 0.12)' : 'rgba(212, 175, 55, 0.18)',
+    isLightTheme,
     logoUrl:
       tenant.logo_url ||
-      metadataBranding.logo_url ||
-      (brandingRes.data as any)?.logo_url ||
-      (brandingRes.data as any)?.favicon_url ||
+      contextBranding.logo_url ||
+      contextBranding.favicon_url ||
       null,
   }
 

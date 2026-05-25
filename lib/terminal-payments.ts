@@ -1,0 +1,293 @@
+import Stripe from 'stripe'
+import type { SupabaseClient } from '@supabase/supabase-js'
+import { getCurrencyByCountry } from '@/lib/currency'
+import { applyRecipeStockMovement } from '@/lib/inventory-recipes'
+import { writeAuditLog } from '@/lib/audit-log'
+import type { TenantAccess } from '@/lib/tenant-api-auth'
+
+export const getStripe = () => new Stripe(process.env.STRIPE_SECRET_KEY!)
+
+export class TerminalSetupError extends Error {
+  constructor(
+    message: string,
+    public code: string,
+    public status = 400
+  ) {
+    super(message)
+    this.name = 'TerminalSetupError'
+  }
+}
+
+const TAP_TO_PAY_ANDROID_COUNTRIES = new Set([
+  'AU',
+  'AT',
+  'BE',
+  'BG',
+  'CA',
+  'CH',
+  'CY',
+  'CZ',
+  'DE',
+  'DK',
+  'EE',
+  'ES',
+  'FI',
+  'FR',
+  'GB',
+  'GI',
+  'HR',
+  'HU',
+  'IE',
+  'IT',
+  'LI',
+  'LT',
+  'LU',
+  'LV',
+  'MT',
+  'MY',
+  'NL',
+  'NO',
+  'NZ',
+  'PL',
+  'PT',
+  'RO',
+  'SE',
+  'SG',
+  'SI',
+  'SK',
+  'US',
+])
+
+const TERMINAL_LOCATION_DEFAULTS: Record<string, { city: string; postalCode: string; state?: string }> = {
+  AU: { city: 'Sydney', postalCode: '2000', state: 'NSW' },
+  CA: { city: 'Toronto', postalCode: 'M5H 2N2', state: 'ON' },
+  ES: { city: 'Madrid', postalCode: '28001', state: 'Madrid' },
+  IT: { city: 'Roma', postalCode: '00118', state: 'RM' },
+  US: { city: 'New York', postalCode: '10001', state: 'NY' },
+}
+
+const ZERO_DECIMAL_STRIPE_CURRENCIES = new Set([
+  'BIF',
+  'CLP',
+  'DJF',
+  'GNF',
+  'JPY',
+  'KMF',
+  'KRW',
+  'MGA',
+  'PYG',
+  'RWF',
+  'UGX',
+  'VND',
+  'VUV',
+  'XAF',
+  'XOF',
+  'XPF',
+])
+
+export function toStripeMinorUnitAmount(amount: number, currencyCode: string) {
+  const currency = currencyCode.toUpperCase()
+  const multiplier = ZERO_DECIMAL_STRIPE_CURRENCIES.has(currency) ? 1 : 100
+  return Math.round(amount * multiplier)
+}
+
+export function normalizeTenantLookup(value: string) {
+  const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value)
+  return { column: isUUID ? 'id' : 'slug', value }
+}
+
+export async function resolveTerminalTenant(supabase: SupabaseClient, tenantParam: string) {
+  const lookup = normalizeTenantLookup(tenantParam)
+  const { data: tenant, error } = await supabase
+    .from('tenants')
+    .select('id, slug, organization_name, stripe_account_id, stripe_account_status, country')
+    .eq(lookup.column, lookup.value)
+    .single()
+
+  if (error || !tenant) {
+    throw new Error('TENANT_NOT_FOUND')
+  }
+
+  return tenant
+}
+
+export function assertTerminalReady(tenant: { stripe_account_id?: string | null; stripe_account_status?: string | null }) {
+  if (!tenant.stripe_account_id || tenant.stripe_account_status !== 'verified') {
+    throw new Error('STRIPE_NOT_READY')
+  }
+}
+
+export async function getTenantCurrency(supabase: SupabaseClient, tenant: { id: string; country?: string | null }) {
+  const { data: settings } = await supabase
+    .from('restaurant_settings')
+    .select('country')
+    .eq('tenant_id', tenant.id)
+    .maybeSingle()
+
+  return getCurrencyByCountry(settings?.country || tenant.country || 'ES')
+}
+
+export async function getTerminalCurrency(
+  stripe: Stripe,
+  tenant: {
+    stripe_account_id?: string | null
+    country?: string | null
+  }
+) {
+  const account = await stripe.accounts.retrieve(tenant.stripe_account_id!)
+  const country = String(account.country || tenant.country || 'ES').toUpperCase()
+
+  if (!TAP_TO_PAY_ANDROID_COUNTRIES.has(country)) {
+    throw new TerminalSetupError(
+      `Tap to Pay en Android no esta disponible para cuentas Stripe de ${country}. Usa una cuenta Stripe de un pais compatible, por ejemplo US o ES.`,
+      'TERMINAL_COUNTRY_UNSUPPORTED'
+    )
+  }
+
+  return {
+    country,
+    currencyInfo: getCurrencyByCountry(country),
+  }
+}
+
+export async function getOrCreateTerminalLocation(
+  supabase: SupabaseClient,
+  tenant: {
+    id: string
+    slug?: string | null
+    organization_name?: string | null
+    stripe_account_id?: string | null
+    country?: string | null
+  }
+) {
+  const stripe = getStripe()
+  const metadataTenantId = tenant.id
+
+  const { data: settings } = await supabase
+    .from('restaurant_settings')
+    .select('display_name, address, city, country')
+    .eq('tenant_id', tenant.id)
+    .maybeSingle()
+
+  const { country } = await getTerminalCurrency(stripe, {
+    stripe_account_id: tenant.stripe_account_id,
+    country: settings?.country || tenant.country,
+  })
+
+  const existingLocations = await stripe.terminal.locations.list(
+    { limit: 100 },
+    { stripeAccount: tenant.stripe_account_id! }
+  )
+  const existing = existingLocations.data.find((location) => (
+    location.metadata?.tenant_id === metadataTenantId &&
+    String(location.address?.country || '').toUpperCase() === country
+  ))
+  if (existing) return existing
+
+  const defaults = TERMINAL_LOCATION_DEFAULTS[country] || { city: 'Madrid', postalCode: '28001' }
+  const city = String(settings?.city || defaults.city).trim()
+  const line1 = String(settings?.address || 'Direccion del restaurante').trim()
+  const address: Stripe.Terminal.LocationCreateParams.Address = {
+    line1,
+    city,
+    country,
+    postal_code: defaults.postalCode,
+  }
+
+  if (defaults.state) {
+    address.state = defaults.state
+  }
+
+  return stripe.terminal.locations.create(
+    {
+      display_name: settings?.display_name || tenant.organization_name || tenant.slug || 'Eccofood Restaurante',
+      address,
+      metadata: {
+        tenant_id: tenant.id,
+        tenant_slug: tenant.slug || '',
+        source: 'eccofood_android_tap_to_pay',
+      },
+    },
+    { stripeAccount: tenant.stripe_account_id! }
+  )
+}
+
+export async function markTerminalOrderPaid({
+  supabase,
+  order,
+  paymentIntent,
+  actor,
+}: {
+  supabase: SupabaseClient
+  order: any
+  paymentIntent: Stripe.PaymentIntent
+  actor: TenantAccess
+}) {
+  if (order.payment_status !== 'paid') {
+    try {
+      await applyRecipeStockMovement(supabase, order, 'sale')
+    } catch (stockError) {
+      console.error('[terminal] stock deduction error:', stockError)
+    }
+  }
+
+  const nextStatus = order.status === 'pending' ? 'confirmed' : order.status
+  const { data: updatedOrder, error } = await supabase
+    .from('orders')
+    .update({
+      payment_status: 'paid',
+      payment_method: 'stripe',
+      status: nextStatus,
+      stripe_payment_intent_id: paymentIntent.id,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', order.id)
+    .eq('tenant_id', order.tenant_id)
+    .select()
+    .single()
+
+  if (error) throw error
+
+  await writeAuditLog(supabase, {
+    tenantId: order.tenant_id,
+    actor,
+    action: 'sale.terminal_paid',
+    entityType: 'order',
+    entityId: order.id,
+    reason: 'Cobro presencial Tap to Pay',
+    metadata: {
+      order_number: order.order_number,
+      payment_intent: paymentIntent.id,
+      amount: paymentIntent.amount,
+      currency: paymentIntent.currency,
+    },
+  })
+
+  return updatedOrder
+}
+
+export async function markTerminalOrdersPaid({
+  supabase,
+  orders,
+  paymentIntent,
+  actor,
+}: {
+  supabase: SupabaseClient
+  orders: any[]
+  paymentIntent: Stripe.PaymentIntent
+  actor: TenantAccess
+}) {
+  const updatedOrders = []
+
+  for (const order of orders) {
+    const updatedOrder = await markTerminalOrderPaid({
+      supabase,
+      order,
+      paymentIntent,
+      actor,
+    })
+    updatedOrders.push(updatedOrder)
+  }
+
+  return updatedOrders
+}

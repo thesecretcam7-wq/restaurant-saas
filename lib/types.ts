@@ -8,6 +8,8 @@ export interface Tenant {
   status: 'trial' | 'active' | 'suspended' | 'cancelled';
   subscription_plan: 'free' | 'basic' | 'pro' | 'premium' | null;
   subscription_stripe_id: string | null;
+  subscription_expires_at?: string | null;
+  trial_ends_at?: string | null;
   stripe_customer_id: string | null;
   stripe_account_id: string | null;
   stripe_account_status: 'verified' | 'pending' | 'failed' | null;
@@ -175,7 +177,7 @@ export interface Order {
   delivery_fee: number;
   total: number;
   status: 'pending' | 'confirmed' | 'preparing' | 'ready' | 'on_the_way' | 'delivered' | 'cancelled';
-  payment_method: 'stripe' | 'cash' | null;
+  payment_method: 'stripe' | 'wompi' | 'cash' | null;
   payment_status: 'pending' | 'paid' | 'failed';
   stripe_payment_intent_id: string | null;
   delivery_type: 'pickup' | 'delivery' | 'dine-in';
@@ -244,6 +246,8 @@ export interface SubscriptionPlan {
   };
   stripe_product_id: string | null;
   stripe_price_id: string | null;
+  annual_price: number | null;
+  stripe_annual_price_id: string | null;
   created_at: string;
 }
 

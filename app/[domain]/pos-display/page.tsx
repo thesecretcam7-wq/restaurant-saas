@@ -2,7 +2,7 @@
 
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { createClient } from '@supabase/supabase-js';
+import { createClient } from '@/lib/supabase/client';
 import { Clock, Lock, Maximize2, Minimize2, ReceiptText, ShieldCheck, ShoppingBag, UtensilsCrossed } from 'lucide-react';
 import { getCurrencyByCountry, formatPriceWithCurrency } from '@/lib/currency';
 import { deriveBrandPalette, readableTextColor } from '@/lib/brand-colors';
@@ -66,14 +66,7 @@ function CustomerDisplayContent() {
   const [displayMode, setDisplayMode] = useState(false);
   const wakeLockRef = useRef<WakeLockSentinel>(null);
 
-  const supabase = useMemo(
-    () =>
-      createClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-      ),
-    []
-  );
+  const supabase = useMemo(() => createClient(), []);
 
   const palette = deriveBrandPalette({
     primary: branding?.primary_color,

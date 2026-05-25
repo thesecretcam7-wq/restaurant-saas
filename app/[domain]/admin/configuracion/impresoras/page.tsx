@@ -3,7 +3,7 @@
 import { use, useState, useEffect, useCallback } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { useTenantResolver } from '@/lib/hooks/useTenantResolver';
-import { Plus, AlertCircle, CheckCircle, Download } from 'lucide-react';
+import { Plus, AlertCircle, CheckCircle, Download, Activity } from 'lucide-react';
 import { PrinterDeviceCard } from '@/components/admin/PrinterDeviceCard';
 import { useWebUSB } from '@/lib/hooks/useWebUSB';
 import { testPrinterConnection } from '@/lib/pos-printer';
@@ -26,12 +26,15 @@ function dedupeBrowserDriverDevices(devices: PrinterDevice[]) {
 
 export default function PrintersConfigPage({ params }: Props) {
   const { domain: slug } = use(params);
-  const { tenantId } = useTenantResolver(slug);
+  const { tenantId, loading: tenantLoading } = useTenantResolver(slug);
 
   const [devices, setDevices] = useState<PrinterDevice[]>([]);
   const [loading, setLoading] = useState(false);
+  const [windowsLoading, setWindowsLoading] = useState(false);
+  const [busyDeviceId, setBusyDeviceId] = useState<string | null>(null);
   const [autoPrint, setAutoPrint] = useState(true);
   const [copies, setCopies] = useState(1);
+  const [bridgeStatus, setBridgeStatus] = useState<'unknown' | 'checking' | 'online' | 'offline'>('unknown');
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
 
   const webusb = useWebUSB();
@@ -76,6 +79,29 @@ export default function PrintersConfigPage({ params }: Props) {
     await saveAutoPrint(checked);
   };
 
+  const checkBridgeStatus = async () => {
+    setBridgeStatus('checking');
+    const controller = new AbortController();
+    const timeout = window.setTimeout(() => controller.abort(), 2500);
+
+    try {
+      const response = await fetch('http://127.0.0.1:17777/health', {
+        signal: controller.signal,
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok || payload?.ok === false) {
+        throw new Error(payload?.error || 'Puente local sin respuesta');
+      }
+      setBridgeStatus('online');
+      showToast(`Puente activo${payload.version ? ` v${payload.version}` : ''}${payload.defaultPrinter ? `: ${payload.defaultPrinter}` : ''}`, 'success');
+    } catch {
+      setBridgeStatus('offline');
+      showToast('Puente local no detectado. Ejecuta Estado-EccofoodPrint o reinstala el agente como administrador.', 'error');
+    } finally {
+      window.clearTimeout(timeout);
+    }
+  };
+
   // Copies are stored in the default device's config
   const handleCopiesChange = async (val: number) => {
     const clamped = Math.min(5, Math.max(1, val));
@@ -95,10 +121,13 @@ export default function PrintersConfigPage({ params }: Props) {
 
   const handleAddPrinter = async () => {
     if (!webusb.isSupported) {
-      showToast('WebUSB no soportado en este navegador', 'error');
+      showToast('Mozilla/Firefox no permite conectar USB directo. Usa "Usar impresora de Windows" o abre Chrome/Edge para USB.', 'error');
       return;
     }
-    if (!tenantId) return;
+    if (!tenantId) {
+      showToast('Todavia estamos cargando el restaurante. Espera unos segundos.', 'error');
+      return;
+    }
 
     try {
       const device = await webusb.requestDevice();
@@ -142,19 +171,55 @@ export default function PrintersConfigPage({ params }: Props) {
   };
 
   const handleAddWindowsPrinter = async () => {
-    if (!tenantId) return;
+    if (!tenantId) {
+      showToast('Todavia estamos cargando el restaurante. Espera unos segundos.', 'error');
+      return;
+    }
+
+    const fetchWithTimeout = async (url: string, options: RequestInit, timeoutMs = 10000) => {
+      const controller = new AbortController();
+      const timeout = window.setTimeout(() => controller.abort(), timeoutMs);
+      try {
+        return await fetch(url, { ...options, signal: controller.signal });
+      } finally {
+        window.clearTimeout(timeout);
+      }
+    };
+
+    const setReceiptPrinterDefault = async (deviceId: string) => {
+      const deviceResponse = await fetchWithTimeout(`/api/devices?id=${deviceId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tenantId, is_default: true }),
+      });
+
+      const deviceData = await deviceResponse.json().catch(() => ({}));
+      if (!deviceResponse.ok) throw new Error(deviceData.error || 'No se pudo marcar como predeterminada');
+
+      const { error: settingsError } = await supabase
+        .from('restaurant_settings')
+        .update({
+          default_receipt_printer_id: deviceId,
+          printer_auto_print: true,
+          printer_updated_at: new Date().toISOString(),
+        })
+        .eq('tenant_id', tenantId);
+
+      if (settingsError) throw settingsError;
+      setDevices((currentDevices) => currentDevices.map((d) => ({ ...d, is_default: d.id === deviceId })));
+    };
 
     try {
-      setLoading(true);
+      setWindowsLoading(true);
 
       const existingWindowsPrinter = devices.find(isBrowserDriverDevice);
       if (existingWindowsPrinter) {
-        await handleSetDefault(existingWindowsPrinter.id);
+        await setReceiptPrinterDefault(existingWindowsPrinter.id);
         showToast('Ya existe una impresora de Windows. La deje como predeterminada.', 'success');
         return;
       }
 
-      const response = await fetch('/api/devices', {
+      const response = await fetchWithTimeout('/api/devices', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -179,24 +244,27 @@ export default function PrintersConfigPage({ params }: Props) {
         }),
       });
 
-      if (!response.ok) throw new Error('Error al crear impresora de Windows');
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.error || 'Error al crear impresora de Windows');
 
-      const newDevice = await response.json();
+      const newDevice = data;
       setDevices(dedupeBrowserDriverDevices([newDevice.device, ...devices]));
-      await handleSetDefault(newDevice.device.id);
+      await setReceiptPrinterDefault(newDevice.device.id);
       showToast('Impresora de Windows agregada como predeterminada', 'success');
     } catch (error) {
-      const msg = error instanceof Error ? error.message : 'Error desconocido';
+      const msg = error instanceof DOMException && error.name === 'AbortError'
+        ? 'La conexion tardo demasiado. Revisa internet e intenta otra vez.'
+        : error instanceof Error ? error.message : 'Error desconocido';
       showToast(msg, 'error');
     } finally {
-      setLoading(false);
+      setWindowsLoading(false);
     }
   };
 
   const handleSetDefault = async (deviceId: string) => {
     if (!tenantId) return;
     try {
-      setLoading(true);
+      setBusyDeviceId(deviceId);
 
       await fetch(`/api/devices?id=${deviceId}`, {
         method: 'PUT',
@@ -218,16 +286,16 @@ export default function PrintersConfigPage({ params }: Props) {
       setDevices(devices.map((d) => ({ ...d, is_default: d.id === deviceId })));
       showToast('Impresora predeterminada actualizada', 'success');
     } catch {
-      showToast('Error al actualizar configuración', 'error');
+      showToast('Error al actualizar configuracion', 'error');
     } finally {
-      setLoading(false);
+      setBusyDeviceId(null);
     }
   };
 
   const handleDelete = async (deviceId: string) => {
     if (!tenantId) return;
     try {
-      setLoading(true);
+      setBusyDeviceId(deviceId);
       const response = await fetch(`/api/devices?id=${deviceId}&tenantId=${tenantId}`, {
         method: 'DELETE',
       });
@@ -237,20 +305,20 @@ export default function PrintersConfigPage({ params }: Props) {
     } catch {
       showToast('Error al eliminar dispositivo', 'error');
     } finally {
-      setLoading(false);
+      setBusyDeviceId(null);
     }
   };
 
   const handleTest = async (deviceId: string) => {
     if (!tenantId) return;
     try {
-      setLoading(true);
+      setBusyDeviceId(deviceId);
       const result = await testPrinterConnection(tenantId, deviceId);
       showToast(result.message, result.success ? 'success' : 'error');
     } catch {
       showToast('Error al probar impresora', 'error');
     } finally {
-      setLoading(false);
+      setBusyDeviceId(null);
     }
   };
 
@@ -295,9 +363,9 @@ export default function PrintersConfigPage({ params }: Props) {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-white">Configuración de Impresoras</h1>
+        <h1 className="text-2xl font-bold text-white">Configuracion de Impresoras</h1>
         <p className="text-sm text-gray-400 mt-1">
-          Configura impresoras USB térmicas para imprimir recibos automáticamente
+          Configura impresoras USB termicas para imprimir recibos automaticamente
         </p>
       </div>
 
@@ -324,42 +392,97 @@ export default function PrintersConfigPage({ params }: Props) {
         </div>
       )}
 
+      <div className="grid gap-3 lg:grid-cols-3">
+        <div className="rounded-xl border border-orange-500/30 bg-orange-500/10 p-4">
+          <div className="mb-3 flex items-center justify-between gap-3">
+            <p className="text-sm font-bold text-orange-100">1. Instalar en el PC de caja</p>
+            <span className="rounded-full bg-orange-500 px-2 py-1 text-xs font-black text-black">Paso 1</span>
+          </div>
+          <p className="mb-4 text-xs leading-relaxed text-orange-100/75">
+            Descarga, descomprime y ejecuta "Instalar-EccofoodPrint.bat" con clic derecho. El instalador deja un icono en el Escritorio.
+          </p>
+          <a
+            href="/downloads/eccofood-print-agent.zip"
+            download
+            className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-orange-500 px-4 py-2 font-bold text-black shadow-lg shadow-orange-500/20 transition hover:bg-orange-400"
+          >
+            <Download className="w-5 h-5" />
+            Descargar instalador
+          </a>
+        </div>
+
+        <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-4">
+          <div className="mb-3 flex items-center justify-between gap-3">
+            <p className="text-sm font-bold text-emerald-100">2. Registrar impresora Windows</p>
+            <span className="rounded-full bg-emerald-500 px-2 py-1 text-xs font-black text-black">Paso 2</span>
+          </div>
+          <p className="mb-4 text-xs leading-relaxed text-emerald-100/75">
+            Esto crea una sola impresora en Eccofood y usa la impresora predeterminada de Windows.
+          </p>
+          <button
+            type="button"
+            onClick={handleAddWindowsPrinter}
+            aria-busy={windowsLoading}
+            className="relative z-20 inline-flex w-full cursor-pointer items-center justify-center gap-2 rounded-lg border border-emerald-600 bg-emerald-500 px-4 py-3 font-black text-black shadow-lg shadow-emerald-500/20 transition hover:bg-emerald-400 active:scale-[0.98]"
+          >
+            <Plus className="w-5 h-5" />
+            {windowsLoading ? 'Conectando...' : 'Usar impresora de Windows'}
+          </button>
+          {tenantLoading && (
+            <p className="mt-2 text-xs font-bold text-emerald-100/65">
+              Si acabas de abrir la pagina, espera unos segundos antes de tocarlo.
+            </p>
+          )}
+        </div>
+
+        <div className="rounded-xl border border-cyan-500/30 bg-cyan-500/10 p-4">
+          <div className="mb-3 flex items-center justify-between gap-3">
+            <p className="text-sm font-bold text-cyan-100">3. Comprobar que esta abierto</p>
+            <span className={`rounded-full px-2 py-1 text-xs font-black ${
+              bridgeStatus === 'online'
+                ? 'bg-emerald-500 text-black'
+                : bridgeStatus === 'offline'
+                  ? 'bg-red-500 text-white'
+                  : 'bg-cyan-500 text-black'
+            }`}>
+              {bridgeStatus === 'checking' ? 'Revisando' : bridgeStatus === 'online' ? 'Activo' : bridgeStatus === 'offline' ? 'No activo' : 'Estado'}
+            </span>
+          </div>
+          <p className="mb-4 text-xs leading-relaxed text-cyan-100/75">
+            Si aqui aparece activo, el TPV puede imprimir directo y abrir el cajon sin Chrome.
+          </p>
+          <button
+            type="button"
+            onClick={checkBridgeStatus}
+            aria-busy={bridgeStatus === 'checking'}
+            className="relative z-20 inline-flex w-full cursor-pointer items-center justify-center gap-2 rounded-lg border border-cyan-600 bg-cyan-400 px-4 py-3 font-black text-black shadow-lg shadow-cyan-500/20 transition hover:bg-cyan-300 active:scale-[0.98]"
+          >
+            <Activity className="w-5 h-5" />
+            Comprobar puente activo
+          </button>
+        </div>
+      </div>
+
       <div className="flex flex-wrap gap-3">
         <button
           onClick={handleAddPrinter}
-          disabled={loading || !webusb.isSupported || !tenantId}
+          disabled={loading}
           className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-700 disabled:cursor-not-allowed text-white rounded-lg font-medium transition"
         >
           <Plus className="w-5 h-5" />
-          Agregar Impresora USB
+          {webusb.isSupported ? 'Agregar Impresora USB' : 'USB directo requiere Chrome o Edge'}
         </button>
-
-        <button
-          onClick={handleAddWindowsPrinter}
-          disabled={loading || !tenantId}
-          className="flex items-center gap-2 rounded-lg border border-emerald-500/40 bg-emerald-500/15 px-4 py-2 font-medium text-emerald-100 transition hover:bg-emerald-500/25 disabled:cursor-not-allowed disabled:border-gray-700 disabled:bg-gray-800 disabled:text-gray-400"
-        >
-          <Plus className="w-5 h-5" />
-          Usar impresora de Windows
-        </button>
-
-        <a
-          href="/downloads/eccofood-print-agent.zip"
-          download
-          className="flex items-center gap-2 rounded-lg border border-orange-400/50 bg-orange-500 px-4 py-2 font-bold text-black shadow-lg shadow-orange-500/20 transition hover:bg-orange-400"
-        >
-          <Download className="w-5 h-5" />
-          Descargar Eccofood Print Agent
-        </a>
       </div>
 
       <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-4 text-sm text-amber-100">
-        <p className="font-bold">Importante para cajon monedero</p>
-        <p className="mt-1 text-amber-100/80">
-          Para imprimir sin vista previa y abrir el cajon, instala Eccofood Print Agent en el computador
-          donde estan la impresora y el cajon. Despues agrega la impresora de Windows y deja activo el
-          puente local con la URL http://127.0.0.1:17777.
-        </p>
+        <p className="font-bold">Instrucciones para el administrador</p>
+        <ol className="mt-2 list-decimal space-y-1 pl-5 text-amber-100/85">
+          <li>Instala este agente solo en el computador donde estan conectados la impresora y el cajon.</li>
+          <li>Ejecuta "Instalar-EccofoodPrint.bat" como administrador para que pueda arrancar solo con Windows.</li>
+          <li>Al terminar, quedara un acceso directo "Eccofood Impresora" en el Escritorio del TPV.</li>
+          <li>Despues de instalar, pulsa "Comprobar puente activo". Si aparece activo, el TPV puede imprimir sin vista previa.</li>
+          <li>Si algun Windows lo bloquea, ejecuta Estado-EccofoodPrint.bat; el agente debe quedar activo en segundo plano.</li>
+        </ol>
       </div>
 
       {!tenantId && (
@@ -370,7 +493,7 @@ export default function PrintersConfigPage({ params }: Props) {
 
       {!webusb.isSupported && (
         <div className="bg-yellow-50 border border-yellow-200 text-yellow-700 p-4 rounded-lg text-sm">
-          ⚠️ WebUSB no es soportado en este navegador. Usa Chrome, Edge o Brave.
+          USB directo no esta disponible en Mozilla/Firefox. Como la impresora USB se detecta automaticamente, usa "Usar impresora de Windows"; si quieres conectar por USB directo, abre Chrome o Edge.
         </div>
       )}
 
@@ -392,7 +515,7 @@ export default function PrintersConfigPage({ params }: Props) {
               onDelete={() => handleDelete(device.id)}
               onTest={() => handleTest(device.id)}
               onConfigure={(config) => handleConfigureDevice(device.id, config)}
-              loading={loading}
+              loading={busyDeviceId === device.id}
             />
           ))
         )}
@@ -400,7 +523,7 @@ export default function PrintersConfigPage({ params }: Props) {
 
       {devices.length > 0 && (
         <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 space-y-4">
-          <h3 className="font-bold text-gray-900">Configuración General</h3>
+          <h3 className="font-bold text-gray-900">Configuracion General</h3>
 
           <label className="flex items-center gap-3 cursor-pointer">
             <input

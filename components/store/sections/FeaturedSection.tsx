@@ -6,15 +6,19 @@ interface Props {
   tenantId: string
   items: any[]
   primary: string
+  buttonColor?: string
+  priceColor?: string
   title: string
   borderRadius: string
   cardClasses: string
   animations: boolean
   currencyInfo?: { code: string; locale: string }
+  basePath?: string
 }
 
-export default function FeaturedSection({ tenantId, items, primary, title, borderRadius, cardClasses, animations, currencyInfo }: Props) {
+export default function FeaturedSection({ tenantId, items, primary, buttonColor = primary, priceColor = primary, title, borderRadius, cardClasses, animations, currencyInfo, basePath }: Props) {
   const money = (value: number) => formatPriceWithCurrency(Number(value || 0), currencyInfo?.code || 'EUR', currencyInfo?.locale || 'es-ES')
+  const pathBase = basePath ?? `/${tenantId}`
 
   if (!items?.length) {
     return (
@@ -26,44 +30,57 @@ export default function FeaturedSection({ tenantId, items, primary, title, borde
   }
 
   return (
-    <section className="rounded-[28px] border border-black/8 bg-white p-5 shadow-xl shadow-black/[0.04] sm:p-7">
+    <section className="relative rounded-[28px] border border-black/8 bg-white p-5 shadow-xl shadow-black/[0.04] sm:p-7">
       <div className="mb-5 flex items-end justify-between gap-4">
         <div>
           <p className="text-xs font-black uppercase text-black/42">Recomendados</p>
           <h2 className="mt-1 text-2xl font-black text-[#15130f] sm:text-3xl">{title}</h2>
         </div>
-        <Link href={`/${tenantId}/menu`} className="shrink-0 rounded-full border border-black/10 px-4 py-2 text-sm font-black transition hover:bg-black/[0.04]" style={{ color: primary }}>
+        <Link href={`${pathBase}/menu`} className="shrink-0 rounded-full border border-black/10 px-4 py-2 text-sm font-black transition hover:bg-black/[0.04]" style={{ color: buttonColor }}>
           Ver todo
         </Link>
       </div>
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="-mx-2 overflow-x-auto px-2 pb-2 scrollbar-hide">
+        <div className="flex w-max gap-4">
         {items.map((item, i) => (
           <Link
             key={item.id}
-            href={`/${tenantId}/menu`}
-            className={`group overflow-hidden border border-black/8 bg-white shadow-sm transition hover:-translate-y-0.5 hover:shadow-xl ${cardClasses}`}
+            href={`${pathBase}/menu`}
+            className={`group w-[min(82vw,24rem)] shrink-0 overflow-hidden border border-black/8 bg-white shadow-sm transition hover:-translate-y-0.5 hover:shadow-xl sm:w-[22rem] lg:w-[18rem] ${cardClasses}`}
             style={{
               borderRadius,
               animationDelay: animations ? `${i * 60}ms` : undefined,
+              backgroundImage: 'none',
             }}
           >
             {item.image_url ? (
-              <div className="aspect-[4/3] overflow-hidden bg-black/[0.03]">
+              <div className="relative aspect-[4/3] overflow-hidden bg-black/[0.03]">
                 <img src={item.image_url} alt={item.name} className="h-full w-full object-cover transition duration-500 group-hover:scale-105" />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/62 via-black/10 to-transparent" />
+                <span className="absolute bottom-2 left-2 rounded-full bg-white/92 px-3 py-1.5 text-sm font-black shadow-lg backdrop-blur" style={{ color: priceColor }}>
+                  {money(item.price)}
+                </span>
               </div>
             ) : (
-              <div className="aspect-[4/3]" style={{ backgroundColor: `${primary}14` }} />
+              <div className="aspect-[4/3]" style={{ background: `linear-gradient(135deg, ${primary}22, ${priceColor}18)` }} />
             )}
             <div className="p-3.5">
               <p className="line-clamp-2 min-h-10 text-sm font-black leading-5 text-[#15130f]">{item.name}</p>
               <div className="mt-3 flex items-center justify-between gap-2">
-                <p className="text-base font-black" style={{ color: primary }}>{money(item.price)}</p>
-                <AddToCartButton item={item} tenantId={tenantId} color={primary} small />
+                <p className={`text-base font-black ${item.image_url ? 'sr-only' : ''}`} style={{ color: priceColor }}>{money(item.price)}</p>
+                <AddToCartButton item={item} tenantId={tenantId} color={buttonColor} small />
               </div>
             </div>
           </Link>
         ))}
+        </div>
       </div>
+      {items.length > 1 && (
+        <div className="pointer-events-none absolute right-5 top-[48%] z-10 flex items-center gap-2 rounded-full border border-white/30 bg-black/62 px-3 py-2 text-xs font-black text-white shadow-2xl backdrop-blur-md sm:right-7">
+          <span>Desliza</span>
+          <span className="text-lg leading-none" aria-hidden="true">→</span>
+        </div>
+      )}
     </section>
   )
 }

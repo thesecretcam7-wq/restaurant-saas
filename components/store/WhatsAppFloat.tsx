@@ -16,7 +16,7 @@ export function getWhatsAppHref(whatsapp?: string | null, restaurantName?: strin
     : `https://wa.me/${trimmed.replace(/\D/g, '')}`
 
   const separator = base.includes('?') ? '&' : '?'
-  const text = encodeURIComponent(`Hola, necesito ayuda con ${restaurantName || 'mi pedido'}.`)
+  const text = encodeURIComponent('Hola necesito ayuda')
   return `${base}${separator}text=${text}`
 }
 

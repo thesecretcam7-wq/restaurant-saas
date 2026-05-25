@@ -4,6 +4,98 @@ import { sendOrderStatusUpdate } from '@/lib/email'
 import { sendWhatsAppOrderStatus } from '@/lib/whatsapp'
 import { requireTenantAccess, tenantAuthErrorResponse } from '@/lib/tenant-api-auth'
 import { writeAuditLog } from '@/lib/audit-log'
+import { applyRecipeStockMovement } from '@/lib/inventory-recipes'
+import { deriveBrandPalette } from '@/lib/brand-colors'
+
+function getOrderItemKey(item: any) {
+  return String(item?.menu_item_id || item?.item_id || item?.id || item?.name || '').trim()
+}
+
+function getOrderItemQty(item: any) {
+  const qty = Number(item?.qty ?? item?.quantity ?? 1)
+  return Number.isFinite(qty) && qty > 0 ? qty : 1
+}
+
+function normalizePaymentMethod(method: unknown) {
+  if (typeof method !== 'string') return null
+  const value = method.trim().toLowerCase()
+  if (value === 'tarjeta' || value === 'card') return 'stripe'
+  if (value === 'cash' || value === 'stripe' || value === 'wompi') return value
+  return null
+}
+
+function getPaymentMethodLabel(method: string | null | undefined) {
+  switch (normalizePaymentMethod(method) || method) {
+    case 'cash':
+      return 'Efectivo'
+    case 'stripe':
+      return 'Tarjeta'
+    case 'wompi':
+      return 'Wompi'
+    default:
+      return method || 'Sin metodo'
+  }
+}
+
+function getRemovedItems(previousItems: any[] = [], nextItems: any[] = []) {
+  const nextQtyByKey = new Map<string, number>()
+  nextItems.forEach((item) => {
+    const key = getOrderItemKey(item)
+    if (!key) return
+    nextQtyByKey.set(key, (nextQtyByKey.get(key) || 0) + getOrderItemQty(item))
+  })
+
+  const removed: any[] = []
+  previousItems.forEach((item) => {
+    const key = getOrderItemKey(item)
+    if (!key) return
+    const previousQty = getOrderItemQty(item)
+    const remainingQty = nextQtyByKey.get(key) || 0
+    const removedQty = Math.max(0, previousQty - remainingQty)
+    if (removedQty > 0) {
+      removed.push({
+        ...item,
+        qty: removedQty,
+        quantity: removedQty,
+      })
+      nextQtyByKey.set(key, Math.max(0, remainingQty - previousQty))
+    } else {
+      nextQtyByKey.set(key, Math.max(0, remainingQty - previousQty))
+    }
+  })
+
+  return removed
+}
+
+function getAddedItems(previousItems: any[] = [], nextItems: any[] = []) {
+  const previousQtyByKey = new Map<string, number>()
+  previousItems.forEach((item) => {
+    const key = getOrderItemKey(item)
+    if (!key) return
+    previousQtyByKey.set(key, (previousQtyByKey.get(key) || 0) + getOrderItemQty(item))
+  })
+
+  const added: any[] = []
+  nextItems.forEach((item) => {
+    const key = getOrderItemKey(item)
+    if (!key) return
+    const nextQty = getOrderItemQty(item)
+    const previousQty = previousQtyByKey.get(key) || 0
+    const addedQty = Math.max(0, nextQty - previousQty)
+    if (addedQty > 0) {
+      added.push({
+        ...item,
+        qty: addedQty,
+        quantity: addedQty,
+      })
+      previousQtyByKey.set(key, 0)
+    } else {
+      previousQtyByKey.set(key, Math.max(0, previousQty - nextQty))
+    }
+  })
+
+  return added
+}
 
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -43,21 +135,27 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     const { id } = await params
     const orderId = id
     const body = await request.json()
-    const { status, payment_status, cancel_reason } = body
+    const { status, payment_status, payment_method, payment_method_reason, cancel_reason, items, subtotal, tax, delivery_fee, total, edit_reason } = body
+    const hasPaymentMethod = Object.prototype.hasOwnProperty.call(body, 'payment_method')
+    const normalizedPaymentMethod = hasPaymentMethod ? normalizePaymentMethod(payment_method) : null
 
     if (!orderId) {
       return NextResponse.json({ error: 'Order ID is required' }, { status: 400 })
     }
 
-    if (!status && !payment_status) {
-      return NextResponse.json({ error: 'Status or payment_status is required' }, { status: 400 })
+    if (!status && !payment_status && !hasPaymentMethod && !Array.isArray(items)) {
+      return NextResponse.json({ error: 'Status, payment_status, payment_method or items is required' }, { status: 400 })
+    }
+
+    if (hasPaymentMethod && !normalizedPaymentMethod) {
+      return NextResponse.json({ error: 'Metodo de pago invalido' }, { status: 400 })
     }
 
     const supabase = createServiceClient()
 
     const { data: existingOrder, error: existingError } = await supabase
       .from('orders')
-      .select('id, tenant_id, order_number, status, payment_status, total, notes')
+      .select('id, tenant_id, order_number, status, payment_status, payment_method, total, notes, items')
       .eq('id', orderId)
       .single()
 
@@ -68,8 +166,56 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     const access = await requireTenantAccess(existingOrder.tenant_id, { staffRoles: ['admin', 'cajero', 'camarero', 'cocinero'] })
 
     const updateData: Record<string, any> = { updated_at: new Date().toISOString() }
+    const previousPaymentMethod = normalizePaymentMethod(existingOrder.payment_method) || existingOrder.payment_method || null
+    const paymentMethodChanged = Boolean(
+      hasPaymentMethod &&
+      normalizedPaymentMethod &&
+      normalizedPaymentMethod !== previousPaymentMethod
+    )
+    let sanitizedItemsForEdit: any[] | null = null
+    let removedItemsForStockReturn: any[] = []
+    let addedItemsForStockSale: any[] = []
     if (status) updateData.status = status
     if (payment_status) updateData.payment_status = payment_status
+    if (hasPaymentMethod) updateData.payment_method = normalizedPaymentMethod
+    if (Array.isArray(items)) {
+      const sanitizedItems = items
+        .map((item: any) => ({
+          menu_item_id: item.menu_item_id || item.item_id || item.id || null,
+          name: String(item.name || '').trim(),
+          price: Math.max(0, Number(item.price || 0)),
+          qty: Math.max(1, Number(item.qty ?? item.quantity ?? 1)),
+          notes: item.notes || null,
+          is_manual: item.is_manual === true || !(item.menu_item_id || item.item_id || item.id),
+          requires_kitchen: item.requires_kitchen === false ? false : undefined,
+        }))
+        .filter((item: any) => item.name)
+
+      sanitizedItemsForEdit = sanitizedItems
+      removedItemsForStockReturn = getRemovedItems(Array.isArray(existingOrder.items) ? existingOrder.items : [], sanitizedItems)
+      addedItemsForStockSale = getAddedItems(Array.isArray(existingOrder.items) ? existingOrder.items : [], sanitizedItems)
+      updateData.items = sanitizedItems
+      updateData.subtotal = Math.max(0, Number(subtotal ?? sanitizedItems.reduce((sum: number, item: any) => sum + item.price * item.qty, 0)))
+      updateData.tax = Math.max(0, Number(tax ?? 0))
+      updateData.delivery_fee = Math.max(0, Number(delivery_fee ?? 0))
+      updateData.total = Math.max(0, Number(total ?? updateData.subtotal + updateData.tax + updateData.delivery_fee))
+      if (sanitizedItems.length === 0 && !status) {
+        updateData.status = 'cancelled'
+      }
+
+      const timestamp = new Date().toISOString()
+      const reason = typeof edit_reason === 'string' && edit_reason.trim()
+        ? edit_reason.trim()
+        : sanitizedItems.length === 0
+          ? 'Pedido sin productos anulado desde TPV'
+          : 'Recibo editado desde TPV'
+      const editNote = sanitizedItems.length === 0
+        ? `Anulado ${timestamp}: ${reason}`
+        : `Editado ${timestamp}: ${reason}`
+      updateData.notes = existingOrder.notes
+        ? `${existingOrder.notes}\n${editNote}`
+        : editNote
+    }
     if (status === 'cancelled') {
       const timestamp = new Date().toISOString()
       const reason = typeof cancel_reason === 'string' && cancel_reason.trim()
@@ -79,6 +225,51 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       updateData.notes = existingOrder.notes
         ? `${existingOrder.notes}\n${auditNote}`
         : auditNote
+    }
+    if (paymentMethodChanged) {
+      const timestamp = new Date().toISOString()
+      const reason = typeof payment_method_reason === 'string' && payment_method_reason.trim()
+        ? payment_method_reason.trim()
+        : typeof edit_reason === 'string' && edit_reason.trim()
+          ? edit_reason.trim()
+          : 'Correccion de forma de pago desde TPV'
+      const paymentNote = `Metodo de pago corregido ${timestamp}: ${getPaymentMethodLabel(previousPaymentMethod)} -> ${getPaymentMethodLabel(normalizedPaymentMethod)}. ${reason}`
+      const baseNotes = typeof updateData.notes === 'string' ? updateData.notes : existingOrder.notes
+      updateData.notes = baseNotes
+        ? `${baseNotes}\n${paymentNote}`
+        : paymentNote
+    }
+
+    if (payment_status === 'paid' && existingOrder.payment_status !== 'paid') {
+      try {
+        await applyRecipeStockMovement(supabase, {
+          ...existingOrder,
+          items: sanitizedItemsForEdit || existingOrder.items,
+        }, 'sale')
+      } catch (stockError) {
+        return NextResponse.json(
+          { error: stockError instanceof Error ? stockError.message : 'No se pudo descontar inventario' },
+          { status: 400 }
+        )
+      }
+    }
+
+    if (sanitizedItemsForEdit && existingOrder.payment_status === 'paid' && addedItemsForStockSale.length > 0) {
+      try {
+        await applyRecipeStockMovement(supabase, {
+          id: existingOrder.id,
+          tenant_id: existingOrder.tenant_id,
+          order_number: existingOrder.order_number,
+          items: addedItemsForStockSale,
+          stock_reference_id: `${existingOrder.id}:partial-sale:${Date.now()}`,
+          stock_notes: `Venta parcial por edicion de recibo ${existingOrder.order_number || existingOrder.id}`,
+        }, 'sale')
+      } catch (stockError) {
+        return NextResponse.json(
+          { error: stockError instanceof Error ? stockError.message : 'No se pudo descontar inventario del producto agregado' },
+          { status: 400 }
+        )
+      }
     }
 
     const { data: order, error } = await supabase
@@ -92,9 +283,27 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
 
+    if (status === 'cancelled' && existingOrder.payment_status === 'paid') {
+      try {
+        await applyRecipeStockMovement(supabase, existingOrder, 'return')
+      } catch (stockError) {
+        console.error('[orders PATCH] stock return error:', stockError)
+      }
+    }
+
     // When confirming an order, ensure order_items exist for KDS visibility.
     // Kiosk cash orders skip order_items at creation time, so we create them here.
     if (status === 'confirmed' && Array.isArray(order.items) && order.items.length > 0) {
+      const { data: settings } = await supabase
+        .from('restaurant_settings')
+        .select('kds_enabled')
+        .eq('tenant_id', order.tenant_id)
+        .maybeSingle()
+
+      if (settings?.kds_enabled !== true) {
+        return NextResponse.json({ order })
+      }
+
       const kitchenItems = order.items.filter((item: any) => item.requires_kitchen !== false)
       const { count } = await supabase
         .from('order_items')
@@ -168,6 +377,57 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       })
     }
 
+    if (sanitizedItemsForEdit && existingOrder.payment_status === 'paid' && removedItemsForStockReturn.length > 0) {
+      try {
+        await applyRecipeStockMovement(supabase, {
+          id: order.id,
+          tenant_id: order.tenant_id,
+          order_number: order.order_number,
+          items: removedItemsForStockReturn,
+          stock_reference_id: `${order.id}:partial-return:${Date.now()}`,
+          stock_notes: `Devolucion parcial por edicion de recibo ${order.order_number || order.id}`,
+        }, 'return')
+      } catch (stockError) {
+        console.error('[orders PATCH] partial stock return error:', stockError)
+      }
+    }
+
+    if (Array.isArray(items)) {
+      await writeAuditLog(supabase, {
+        tenantId: order.tenant_id,
+        actor: access,
+        action: 'sale.edited',
+        entityType: 'order',
+        entityId: orderId,
+        reason: edit_reason || 'Recibo editado desde TPV',
+        metadata: {
+          order_number: order.order_number || existingOrder.order_number,
+          previous_total: Number(existingOrder.total || 0),
+          new_total: Number(order.total || 0),
+          previous_items_count: Array.isArray(existingOrder.items) ? existingOrder.items.length : 0,
+          new_items_count: Array.isArray(order.items) ? order.items.length : 0,
+        },
+      })
+    }
+
+    if (paymentMethodChanged) {
+      await writeAuditLog(supabase, {
+        tenantId: order.tenant_id,
+        actor: access,
+        action: 'sale.payment_method_corrected',
+        entityType: 'order',
+        entityId: orderId,
+        reason: payment_method_reason || edit_reason || 'Correccion de forma de pago desde TPV',
+        metadata: {
+          order_number: order.order_number || existingOrder.order_number,
+          total: Number(order.total ?? existingOrder.total) || 0,
+          previous_payment_method: previousPaymentMethod,
+          new_payment_method: normalizedPaymentMethod,
+          payment_status: order.payment_status,
+        },
+      })
+    }
+
     // Send status update email (non-blocking)
     if (order.customer_email && status && ['preparing', 'ready', 'delivered', 'cancelled'].includes(status)) {
       const { data: branding } = await supabase
@@ -182,9 +442,10 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
         .maybeSingle()
 
       const rName = branding?.app_name || tenantRow?.organization_name || 'Restaurante'
+      const palette = deriveBrandPalette()
       sendOrderStatusUpdate(order.customer_email, {
         restaurantName: rName,
-        primaryColor: branding?.primary_color,
+        primaryColor: palette.buttonPrimary,
         orderNumber: order.order_number,
         customerName: order.customer_name,
         status,

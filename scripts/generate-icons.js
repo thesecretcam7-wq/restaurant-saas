@@ -3,7 +3,7 @@
 const sharp = require('sharp');
 const path = require('path');
 
-const svgPath = path.join(__dirname, '../public/icons/icon.svg');
+const logoPath = path.join(__dirname, '../public/eccofood-logo.png');
 const outputDir = path.join(__dirname, '../public/icons');
 const publicDir = path.join(__dirname, '../public');
 
@@ -15,10 +15,29 @@ const iconTargets = [
 ];
 
 async function renderIcon(size, file) {
-  await sharp(svgPath)
+  await sharp({
+    create: {
+      width: size,
+      height: size,
+      channels: 4,
+      background: { r: 0, g: 0, b: 0, alpha: 1 },
+    },
+  })
+    .composite([
+      {
+        input: await sharp(logoPath)
+          .resize(Math.round(size * 0.92), Math.round(size * 0.92), {
+            fit: 'contain',
+            background: { r: 0, g: 0, b: 0, alpha: 0 },
+          })
+          .png()
+          .toBuffer(),
+        gravity: 'center',
+      },
+    ])
     .resize(size, size, {
       fit: 'cover',
-      background: { r: 21, g: 19, b: 15, alpha: 1 },
+      background: { r: 0, g: 0, b: 0, alpha: 1 },
     })
     .png()
     .toFile(file);

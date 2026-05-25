@@ -7,6 +7,20 @@ export interface TrialStatus {
   expiresAt: Date
 }
 
+export const TRIAL_DAYS = 30
+
+export function getTrialEndsAt(
+  trialEndsAt: string | Date | null | undefined,
+  createdAt?: string | Date | null
+): Date | null {
+  if (trialEndsAt) return new Date(trialEndsAt)
+  if (!createdAt) return null
+
+  const fallback = new Date(createdAt)
+  fallback.setDate(fallback.getDate() + TRIAL_DAYS)
+  return fallback
+}
+
 export function calculateTrialStatus(trialEndsAt: string | Date | null): TrialStatus {
   if (!trialEndsAt) {
     return {
@@ -29,7 +43,7 @@ export function calculateTrialStatus(trialEndsAt: string | Date | null): TrialSt
   const minutesRemaining = Math.ceil((totalMillis % (1000 * 60 * 60)) / (1000 * 60))
 
   // Calculate percentage (30 days = 100%, 0 days = 0%)
-  const totalDays = 30
+  const totalDays = TRIAL_DAYS
   const percentageRemaining = Math.max(0, Math.min(100, (daysRemaining / totalDays) * 100))
 
   return {

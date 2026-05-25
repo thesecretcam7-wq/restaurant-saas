@@ -1,5 +1,6 @@
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
+import { getTenantAccessInfo } from './tenant-access'
 
 export async function getTenantSubscriptionStatus(tenantId: string) {
   try {
@@ -25,7 +26,7 @@ export async function getTenantSubscriptionStatus(tenantId: string) {
 
     const { data: tenant, error } = await supabase
       .from('tenants')
-      .select('id, status, subscription_plan, subscription_stripe_id, created_at')
+      .select('id, status, subscription_plan, subscription_stripe_id, subscription_expires_at, trial_ends_at, created_at')
       .eq('id', tenantId)
       .single()
 
@@ -38,26 +39,16 @@ export async function getTenantSubscriptionStatus(tenantId: string) {
       }
     }
 
-    // Trial period: 14 days from creation
-    const createdAt = new Date(tenant.created_at)
-    const now = new Date()
-    const trialDays = Math.floor(
-      (now.getTime() - createdAt.getTime()) / (1000 * 60 * 60 * 24)
-    )
-    const isTrialActive = trialDays < 14
-
-    // Active subscription check
-    const hasActiveSubscription =
-      tenant.status === 'active' &&
-      tenant.subscription_plan &&
-      tenant.subscription_stripe_id
+    const access = getTenantAccessInfo(tenant)
+    const isTrialActive = access.reason === 'trial_active'
+    const hasActiveSubscription = access.reason === 'subscription_active'
 
     return {
-      hasActiveSubscription: hasActiveSubscription || isTrialActive,
+      hasActiveSubscription: access.allowed,
       status: tenant.status,
       plan: tenant.subscription_plan,
       isTrialActive,
-      trialDaysLeft: Math.max(0, 14 - trialDays),
+      trialDaysLeft: access.trialDaysRemaining,
       reason: isTrialActive
         ? null
         : !hasActiveSubscription

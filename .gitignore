@@ -19,6 +19,9 @@
 
 # production
 /build
+android-tap-to-pay/.gradle/
+android-tap-to-pay/build/
+android-tap-to-pay/app/build/
 
 # misc
 .DS_Store
@@ -48,3 +51,4 @@ respaldo-para-documentos-*.zip
 next-env.d.ts
 
 .vercel
+.env*.local

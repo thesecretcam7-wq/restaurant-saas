@@ -1,0 +1,65 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200">
+  <!-- Black background -->
+  <rect width="200" height="200" fill="#000"/>
+
+  <!-- Outer circle -->
+  <circle cx="100" cy="100" r="92" fill="#000" stroke="white" stroke-width="4"/>
+  <!-- Inner decorative ring -->
+  <circle cx="100" cy="100" r="84" fill="none" stroke="white" stroke-width="1" opacity="0.35"/>
+
+  <!-- Steam wisps (3) — top of burger -->
+  <path d="M 85 38 Q 81 31 85 24 Q 89 17 85 10" stroke="white" stroke-width="2.3" fill="none" stroke-linecap="round"/>
+  <path d="M 100 34 Q 96 27 100 20 Q 104 13 100 6"  stroke="white" stroke-width="2.3" fill="none" stroke-linecap="round"/>
+  <path d="M 115 38 Q 111 31 115 24 Q 119 17 115 10" stroke="white" stroke-width="2.3" fill="none" stroke-linecap="round"/>
+
+  <!-- Hamburger bun dome -->
+  <path d="M 60 68 Q 100 44 140 68" stroke="white" stroke-width="3" fill="none" stroke-linecap="round"/>
+  <!-- Bun base line -->
+  <line x1="59" y1="70" x2="141" y2="70" stroke="white" stroke-width="2" stroke-linecap="round"/>
+
+  <!-- Spatula / grill turner — handle from left-outside into circle, blade over bun -->
+  <!-- Handle -->
+  <line x1="8" y1="118" x2="86" y2="62" stroke="white" stroke-width="3.2" stroke-linecap="round"/>
+  <!-- Blade (flat paddle) -->
+  <path d="M 84 60 L 96 50 L 108 60 L 96 70 Z" fill="white"/>
+  <!-- Holes in blade -->
+  <circle cx="94" cy="55" r="2.5" fill="#000"/>
+  <circle cx="101" cy="63" r="2.5" fill="#000"/>
+
+  <!-- PARRILLA badge -->
+  <rect x="64" y="77" width="72" height="16" rx="8" fill="#111" stroke="white" stroke-width="1.5"/>
+  <text x="100" y="89.5"
+    font-family="Arial, Helvetica, sans-serif"
+    font-size="7.5"
+    font-weight="800"
+    fill="white"
+    text-anchor="middle"
+    letter-spacing="3">PARRILLA</text>
+
+  <!-- "Burgers" main script text -->
+  <text x="100" y="125"
+    font-family="Georgia, 'Times New Roman', serif"
+    font-size="34"
+    font-weight="900"
+    font-style="italic"
+    fill="white"
+    text-anchor="middle"
+    letter-spacing="-0.5">Burgers</text>
+
+  <!-- Swoosh / underline -->
+  <path d="M 46 132 Q 100 144 154 132" stroke="white" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+
+  <!-- BBQ Grill icon at bottom -->
+  <!-- Dome lid -->
+  <path d="M 72 152 Q 100 141 128 152" stroke="white" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+  <!-- Handle knob -->
+  <line x1="100" y1="152" x2="100" y2="146" stroke="white" stroke-width="2.2" stroke-linecap="round"/>
+  <circle cx="100" cy="144" r="2.8" fill="white"/>
+  <!-- Grill body -->
+  <rect x="72" y="152" width="56" height="12" rx="2" stroke="white" stroke-width="2" fill="none"/>
+  <!-- Legs -->
+  <line x1="82" y1="164" x2="75" y2="179" stroke="white" stroke-width="2.2" stroke-linecap="round"/>
+  <line x1="118" y1="164" x2="125" y2="179" stroke="white" stroke-width="2.2" stroke-linecap="round"/>
+  <!-- Cross bar -->
+  <line x1="78" y1="173" x2="122" y2="173" stroke="white" stroke-width="1.8" stroke-linecap="round"/>
+</svg>

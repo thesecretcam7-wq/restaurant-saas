@@ -21,7 +21,7 @@ export default async function CambiarPlanPage({ params }: PageParams) {
   // Get tenant by domain
   const { data: tenant } = await supabase
     .from('tenants')
-    .select('id, subscription_plan, subscription_expires_at, trial_ends_at, status')
+    .select('id, subscription_plan, subscription_expires_at, trial_ends_at, status, created_at')
     .eq('slug', domain)
     .single()
 

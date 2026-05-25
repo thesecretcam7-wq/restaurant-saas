@@ -100,8 +100,14 @@ export async function POST(request: NextRequest) {
       .select()
       .single();
 
-    // Create order items for KDS
-    if (order) {
+    const { data: settings } = await supabase
+      .from('restaurant_settings')
+      .select('kds_enabled')
+      .eq('tenant_id', tenantId)
+      .maybeSingle();
+
+    // Create order items for KDS only when kitchen display is enabled.
+    if (order && settings?.kds_enabled === true) {
       const orderItemsData = orderItems.map((item: any) => ({
         order_id: order.id,
         tenant_id: tenantId,

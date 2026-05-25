@@ -1,7 +1,7 @@
 'use client'
 
 import { use, useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import { useCartStore } from '@/lib/store/cart'
 import { checkoutSchema, type CheckoutInput } from '@/lib/validations/forms'
 import { getFieldError, parseValidationError } from '@/lib/validations/utils'
@@ -17,12 +17,18 @@ const profileStorageKey = (tenantSlug: string, phone: string) => `eccofood:custo
 export default function CheckoutPage({ params }: Props) {
   const { domain: tenantSlug } = use(params)
   const router = useRouter()
+  const pathname = usePathname()
+  const storeBasePath = pathname?.startsWith(`/${tenantSlug}`) ? `/${tenantSlug}` : ''
   const { items, tenantId: cartTenantId, total, clearCart } = useCartStore()
   const [settings, setSettings] = useState<any>(null)
+  const [storeBranding, setStoreBranding] = useState<{ appName?: string; logoUrl?: string | null; primaryColor?: string } | null>(null)
   const [csrfToken, setCsrfToken] = useState('')
   const [loading, setLoading] = useState(false)
+  const [paymentRedirectUrl, setPaymentRedirectUrl] = useState('')
+  const [mounted, setMounted] = useState(false)
   const [profileLookup, setProfileLookup] = useState<'idle' | 'searching' | 'found' | 'none'>('idle')
   const [errors, setErrors] = useState<Array<{ field: string; message: string }>>([])
+  const [cashReceived, setCashReceived] = useState('')
   const [form, setForm] = useState({
     name: '', phone: '', email: '',
     delivery_type: 'pickup', delivery_address: '',
@@ -31,11 +37,29 @@ export default function CheckoutPage({ params }: Props) {
   const tenantId = settings?.tenant_id || tenantSlug
 
   useEffect(() => {
-    if (items.length === 0) router.replace(`/${tenantSlug}/menu`)
+    setMounted(true)
+  }, [])
+
+  useEffect(() => {
+    if (!mounted) return
+    if (items.length === 0) router.replace(getStorePath(tenantSlug, '/menu'))
     fetch(`/api/settings/${tenantSlug}`)
       .then(r => r.json())
       .then(data => {
         setSettings(data)
+        if (data?.tenant_id) {
+          fetch(`/api/tenant/branding?tenantId=${encodeURIComponent(data.tenant_id)}`)
+            .then(r => r.json())
+            .then(brandData => {
+              const branding = brandData?.branding || {}
+              setStoreBranding({
+                appName: branding.app_name,
+                logoUrl: branding.logo_url || brandData?.tenant?.logo_url || null,
+                primaryColor: branding.primary_color,
+              })
+            })
+            .catch(() => {})
+        }
       })
 
     fetch('/api/csrf-token')
@@ -44,16 +68,25 @@ export default function CheckoutPage({ params }: Props) {
         if (token) setCsrfToken(token)
       })
       .catch(() => {})
-  }, [tenantSlug, items.length, router])
+  }, [tenantSlug, items.length, router, mounted])
 
   useEffect(() => {
-    if (!settings?.tenant_id || !cartTenantId || items.length === 0) return
+    if (!mounted || !settings?.tenant_id || !cartTenantId || items.length === 0) return
     if (cartTenantId !== settings.tenant_id) {
       clearCart()
       toast.error('El carrito tenia productos de otro restaurante. Vuelve a elegir tu pedido.')
-      router.replace(`/${tenantSlug}/menu`)
+      router.replace(getStorePath(tenantSlug, '/menu'))
     }
-  }, [settings?.tenant_id, cartTenantId, items.length, clearCart, router, tenantSlug])
+  }, [mounted, settings?.tenant_id, cartTenantId, items.length, clearCart, router, tenantSlug])
+
+  useEffect(() => {
+    if (!settings) return
+    if (settings.online_payment_provider === 'wompi' && settings.wompi_enabled) {
+      setForm(current => ({ ...current, payment_method: 'wompi' }))
+    } else if (settings.online_payment_provider === 'none' && settings.cash_payment_enabled) {
+      setForm(current => ({ ...current, payment_method: 'cash' }))
+    }
+  }, [settings])
 
   useEffect(() => {
     const phoneDigits = onlyDigits(form.phone)
@@ -124,6 +157,9 @@ export default function CheckoutPage({ params }: Props) {
   const formatMoney = (amount: number) => formatPriceWithCurrency(amount, currencyInfo.code, currencyInfo.locale)
   const deliveryMinOrder = Number(settings?.delivery_min_order || 0)
   const deliveryBelowMinimum = form.delivery_type === 'delivery' && deliveryMinOrder > 0 && subtotal < deliveryMinOrder
+  const needsCashChangeInfo = form.delivery_type === 'delivery' && form.payment_method === 'cash'
+  const cashReceivedAmount = Number(onlyDigits(cashReceived))
+  const cashChangeAmount = cashReceivedAmount - finalTotal
 
   const saveCustomerProfile = (validated: CheckoutInput) => {
     try {
@@ -135,6 +171,15 @@ export default function CheckoutPage({ params }: Props) {
         delivery_type: validated.delivery_type,
       }))
     } catch {}
+  }
+
+  const redirectToPaymentPortal = (url: string) => {
+    setPaymentRedirectUrl(url)
+    window.dispatchEvent(new Event('store:navigation-start'))
+    window.location.assign(url)
+    window.setTimeout(() => {
+      if (document.visibilityState === 'visible') window.location.href = url
+    }, 450)
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -152,9 +197,32 @@ export default function CheckoutPage({ params }: Props) {
     }
 
     setLoading(true)
+    let redirectingToPayment = false
 
     try {
       const validated = checkoutSchema.parse(form)
+      const needsCashChange = validated.delivery_type === 'delivery' && form.payment_method === 'cash'
+      const parsedCashReceived = Number(onlyDigits(cashReceived))
+      if (needsCashChange) {
+        if (!parsedCashReceived) {
+          toast.error('Indica con cuanto paga el cliente para enviar cambio.')
+          setLoading(false)
+          return
+        }
+        if (parsedCashReceived < finalTotal) {
+          toast.error(`El monto recibido debe ser minimo ${formatMoney(finalTotal)}.`)
+          setLoading(false)
+          return
+        }
+      }
+
+      const notesWithCash = needsCashChange
+        ? [
+            validated.notes?.trim(),
+            `Pago efectivo a domicilio: paga con ${formatMoney(parsedCashReceived)}. Cambio aprox ${formatMoney(parsedCashReceived - finalTotal)}.`,
+          ].filter(Boolean).join('\n')
+        : validated.notes
+
       saveCustomerProfile(validated)
       const orderItems = items.map(item => ({
         ...item,
@@ -169,21 +237,44 @@ export default function CheckoutPage({ params }: Props) {
           body: JSON.stringify({ tenantId, tenantSlug, items: orderItems, customerInfo: { name: validated.name, phone: validated.phone, email: validated.email }, deliveryType: validated.delivery_type, deliveryAddress: validated.delivery_address, notes: validated.notes }),
         })
         const data = await res.json()
-        if (data.url) { clearCart(); window.location.href = data.url }
+        if (data.url) {
+          clearCart()
+          redirectingToPayment = true
+          redirectToPaymentPortal(data.url)
+        }
         else { toast.error(data.error || 'Error al procesar') }
+      } else if (form.payment_method === 'wompi') {
+        const res = await fetch('/api/wompi/checkout', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ tenantId, tenantSlug, items: orderItems, customerInfo: { name: validated.name, phone: validated.phone, email: validated.email }, deliveryType: validated.delivery_type, deliveryAddress: validated.delivery_address, notes: validated.notes }),
+        })
+        const data = await res.json()
+        if (data.url) {
+          clearCart()
+          redirectingToPayment = true
+          redirectToPaymentPortal(data.url)
+        } else {
+          toast.error(data.error || 'Error al abrir Wompi')
+        }
       } else {
         const res = await fetch('/api/orders', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'x-csrf-token': csrfToken },
-          body: JSON.stringify({ tenantId, tenantSlug, items: orderItems, customerInfo: { name: validated.name, phone: validated.phone, email: validated.email }, deliveryType: validated.delivery_type, deliveryAddress: validated.delivery_address, notes: validated.notes, paymentMethod: 'cash', source: 'store' }),
+          body: JSON.stringify({ tenantId, tenantSlug, items: orderItems, customerInfo: { name: validated.name, phone: validated.phone, email: validated.email }, deliveryType: validated.delivery_type, deliveryAddress: validated.delivery_address, notes: notesWithCash, paymentMethod: 'cash', source: 'store' }),
         })
         const data = await res.json()
-        if (data.orderId) { clearCart(); router.push(`/${tenantSlug}/gracias?order=${data.orderId}`) }
+        if (data.orderId) {
+          clearCart()
+          window.dispatchEvent(new Event('store:navigation-start'))
+          router.push(getStorePath(tenantSlug, `/gracias?order=${data.orderId}`))
+        }
         else {
           console.error('[checkout] order error', data)
           if (data.clearCart) {
             clearCart()
-            router.replace(`/${tenantSlug}/menu`)
+            window.dispatchEvent(new Event('store:navigation-start'))
+            router.replace(getStorePath(tenantSlug, '/menu'))
           }
           toast.error(data.error || 'Error al crear pedido')
         }
@@ -197,25 +288,41 @@ export default function CheckoutPage({ params }: Props) {
         toast.error('Error al procesar el pedido')
       }
     } finally {
-      setLoading(false)
+      if (!redirectingToPayment) setLoading(false)
     }
   }
 
   const inputCls = "w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:bg-white transition-all placeholder:text-muted-foreground"
-  const primary = 'var(--primary-color, #E4002B)'
+  const primary = 'var(--button-primary-color, var(--primary-color, #15130f))'
+  const pageBg = 'var(--brand-background-color, #f8f5ef)'
+  const surface = 'var(--brand-surface-color, #ffffff)'
+  const text = 'var(--brand-text-color, #15130f)'
+  const muted = 'var(--brand-muted-color, rgba(21, 19, 15, 0.62))'
+
+  if (!mounted) {
+    return <div className="min-h-screen" style={{ backgroundColor: pageBg }} />
+  }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <header className="bg-white border-b">
+    <div className="min-h-screen" style={{ backgroundColor: pageBg, color: text }}>
+      {loading && (
+        <CheckoutStoreLoader
+          logoUrl={storeBranding?.logoUrl}
+          appName={storeBranding?.appName}
+          primaryColor={storeBranding?.primaryColor}
+          paymentUrl={paymentRedirectUrl}
+        />
+      )}
+      <header className="border-b backdrop-blur-lg" style={{ backgroundColor: surface }}>
         <div className="max-w-lg mx-auto px-4 h-14 flex items-center gap-3">
-          <Link href={`/${tenantSlug}/carrito`} className="w-9 h-9 rounded-full bg-gray-100 flex items-center justify-center">
+          <Link href={`${storeBasePath}/carrito`} className="w-9 h-9 rounded-full bg-gray-100 flex items-center justify-center">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#374151" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
               <path d="M19 12H5M12 19l-7-7 7-7"/>
             </svg>
           </Link>
           <div>
-            <h1 className="font-extrabold text-gray-900">Confirmar pedido</h1>
-            <p className="text-xs text-muted-foreground">{items.reduce((s, i) => s + i.qty, 0)} productos</p>
+            <h1 className="font-extrabold" style={{ color: text }}>Confirmar pedido</h1>
+            <p className="text-xs" style={{ color: muted }}>{items.reduce((s, i) => s + i.qty, 0)} productos</p>
           </div>
         </div>
       </header>
@@ -224,8 +331,8 @@ export default function CheckoutPage({ params }: Props) {
         <form onSubmit={handleSubmit} className="space-y-4">
 
           {/* Contact */}
-          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 space-y-3">
-            <h2 className="font-extrabold text-gray-900 flex items-center gap-2">
+          <div className="rounded-2xl border border-gray-100 shadow-sm p-5 space-y-3" style={{ backgroundColor: surface }}>
+            <h2 className="font-extrabold flex items-center gap-2" style={{ color: text }}>
               <span className="w-6 h-6 rounded-full text-white text-xs font-bold flex items-center justify-center" style={{ backgroundColor: primary }}>1</span>
               Tus datos
             </h2>
@@ -240,15 +347,15 @@ export default function CheckoutPage({ params }: Props) {
               {getFieldError(errors, 'name') && <p className="text-red-500 text-xs mt-1">{getFieldError(errors, 'name')}</p>}
             </div>
             <div>
-              <input value={form.email} onChange={e => setForm(f => ({...f, email: e.target.value}))} className={inputCls + (getFieldError(errors, 'email') ? ' border-red-300 focus:ring-red-500/10' : '')} placeholder="Email (opcional)" type="email" autoComplete="email" />
+              <input value={form.email} onChange={e => setForm(f => ({...f, email: e.target.value}))} className={inputCls + (getFieldError(errors, 'email') ? ' border-red-300 focus:ring-red-500/10' : '')} placeholder="Correo opcional" type="email" autoComplete="email" />
               {getFieldError(errors, 'email') && <p className="text-red-500 text-xs mt-1">{getFieldError(errors, 'email')}</p>}
             </div>
           </div>
 
           {/* Delivery */}
           {settings?.delivery_enabled && (
-            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 space-y-3">
-              <h2 className="font-extrabold text-gray-900 flex items-center gap-2">
+            <div className="rounded-2xl border border-gray-100 shadow-sm p-5 space-y-3" style={{ backgroundColor: surface }}>
+              <h2 className="font-extrabold flex items-center gap-2" style={{ color: text }}>
                 <span className="w-6 h-6 rounded-full text-white text-xs font-bold flex items-center justify-center" style={{ backgroundColor: primary }}>2</span>
                 Entrega
               </h2>
@@ -256,15 +363,17 @@ export default function CheckoutPage({ params }: Props) {
                 {[
                   { value: 'pickup', label: 'Para recoger', icon: '🏠', sub: 'En el local' },
                   { value: 'delivery', label: 'A domicilio', icon: '🚗', sub: settings.delivery_fee > 0 ? `+${formatMoney(Number(settings.delivery_fee))}` : 'Gratis' },
-                ].map(opt => (
+                ].map(opt => {
+                  const selected = form.delivery_type === opt.value
+                  return (
                   <button key={opt.value} type="button" onClick={() => setForm(f => ({...f, delivery_type: opt.value}))}
-                    className={`p-3.5 rounded-xl border-2 text-left transition-all ${form.delivery_type === opt.value ? 'border-current bg-opacity-5' : 'border-gray-200 hover:border-gray-300'}`}
-                    style={form.delivery_type === opt.value ? { borderColor: primary, backgroundColor: `color-mix(in srgb, ${primary} 8%, white)` } : {}}>
+                    className={`p-3.5 rounded-xl border-2 text-left transition-all ${selected ? 'border-current bg-opacity-5' : 'border-gray-200 hover:border-gray-300'}`}
+                    style={selected ? { borderColor: primary, backgroundColor: `color-mix(in srgb, ${primary} 14%, transparent)` } : {}}>
                     <span className="block text-xl mb-1">{opt.icon}</span>
-                    <span className="block text-sm font-bold text-gray-900">{opt.label}</span>
-                    <span className="block text-xs text-muted-foreground mt-0.5">{opt.sub}</span>
+                    <span className="block text-sm font-bold" style={{ color: selected ? primary : text }}>{opt.label}</span>
+                    <span className="block text-xs mt-0.5" style={{ color: muted }}>{opt.sub}</span>
                   </button>
-                ))}
+                )})}
               </div>
               {form.delivery_type === 'delivery' && (
                 <div>
@@ -281,36 +390,63 @@ export default function CheckoutPage({ params }: Props) {
           )}
 
           {/* Payment */}
-          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 space-y-3">
-            <h2 className="font-extrabold text-gray-900 flex items-center gap-2">
+          <div className="rounded-2xl border border-gray-100 shadow-sm p-5 space-y-3" style={{ backgroundColor: surface }}>
+            <h2 className="font-extrabold flex items-center gap-2" style={{ color: text }}>
               <span className="w-6 h-6 rounded-full text-white text-xs font-bold flex items-center justify-center" style={{ backgroundColor: primary }}>{settings?.delivery_enabled ? '3' : '2'}</span>
               Pago
             </h2>
             <div className="grid grid-cols-2 gap-2">
               {[
-                { value: 'stripe', label: 'Tarjeta', icon: '💳', sub: 'Visa, Mastercard' },
+                ...(settings?.online_payment_provider === 'wompi' && settings?.wompi_enabled
+                  ? [{ value: 'wompi', label: 'Wompi', icon: '💳', sub: 'Tarjeta, PSE y Nequi' }]
+                  : settings?.online_payment_provider !== 'none'
+                    ? [{ value: 'stripe', label: 'Tarjeta', icon: '💳', sub: 'Visa, Mastercard' }]
+                    : []),
                 ...(settings?.cash_payment_enabled ? [{ value: 'cash', label: 'Efectivo', icon: '💵', sub: 'Al entregar' }] : []),
-              ].map(opt => (
+              ].map(opt => {
+                const selected = form.payment_method === opt.value
+                return (
                 <button key={opt.value} type="button" onClick={() => setForm(f => ({...f, payment_method: opt.value}))}
-                  className={`p-3.5 rounded-xl border-2 text-left transition-all ${form.payment_method === opt.value ? 'border-current' : 'border-gray-200 hover:border-gray-300'}`}
-                  style={form.payment_method === opt.value ? { borderColor: primary, backgroundColor: `color-mix(in srgb, ${primary} 8%, white)` } : {}}>
+                  className={`p-3.5 rounded-xl border-2 text-left transition-all ${selected ? 'border-current' : 'border-gray-200 hover:border-gray-300'}`}
+                  style={selected ? { borderColor: primary, backgroundColor: `color-mix(in srgb, ${primary} 14%, transparent)` } : {}}>
                   <span className="block text-xl mb-1">{opt.icon}</span>
-                  <span className="block text-sm font-bold text-gray-900">{opt.label}</span>
-                  <span className="block text-xs text-muted-foreground mt-0.5">{opt.sub}</span>
+                  <span className="block text-sm font-bold" style={{ color: selected ? primary : text }}>{opt.label}</span>
+                  <span className="block text-xs mt-0.5" style={{ color: muted }}>{opt.sub}</span>
                 </button>
-              ))}
+              )})}
             </div>
+            {needsCashChangeInfo && (
+              <div className="rounded-xl border p-3.5" style={{ borderColor: `color-mix(in srgb, ${primary} 28%, transparent)`, backgroundColor: `color-mix(in srgb, ${primary} 7%, transparent)` }}>
+                <label className="block text-xs font-black uppercase" style={{ color: muted }}>
+                  Paga con cuanto
+                </label>
+                <input
+                  required
+                  value={cashReceived}
+                  onChange={e => setCashReceived(onlyDigits(e.target.value))}
+                  className={inputCls + ' mt-2'}
+                  placeholder={`Ej: ${formatMoney(Math.ceil(finalTotal / 1000) * 1000)}`}
+                  inputMode="numeric"
+                  autoComplete="off"
+                />
+                <p className="mt-2 text-xs font-bold" style={{ color: cashReceivedAmount >= finalTotal ? primary : muted }}>
+                  {cashReceivedAmount >= finalTotal
+                    ? `Cambio aproximado: ${formatMoney(cashChangeAmount)}`
+                    : `Total a pagar: ${formatMoney(finalTotal)}`}
+                </p>
+              </div>
+            )}
           </div>
 
           {/* Notes */}
-          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+          <div className="rounded-2xl border border-gray-100 shadow-sm p-5" style={{ backgroundColor: surface }}>
             <textarea value={form.notes} onChange={e => setForm(f => ({...f, notes: e.target.value}))}
               className={inputCls + ' resize-none'} placeholder="¿Alguna nota? Alergias, indicaciones... (opcional)" rows={2} />
           </div>
 
           {/* Order summary */}
-          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 space-y-2">
-            <h3 className="font-extrabold text-gray-900 mb-3">Resumen del pedido</h3>
+          <div className="rounded-2xl border border-gray-100 shadow-sm p-5 space-y-2" style={{ backgroundColor: surface }}>
+            <h3 className="font-extrabold mb-3" style={{ color: text }}>Resumen del pedido</h3>
             {items.map(item => (
               <div key={item.item_id} className="flex justify-between text-sm text-gray-600">
                 <span>{item.qty}× {item.name}</span>
@@ -330,12 +466,101 @@ export default function CheckoutPage({ params }: Props) {
           <button type="submit" disabled={loading}
             className="w-full py-4 rounded-2xl text-white font-extrabold text-sm shadow-lg active:scale-95 transition-all disabled:opacity-50"
             style={{ backgroundColor: primary }}>
-            {loading ? 'Procesando...' : form.payment_method === 'stripe' ? '💳 Pagar con tarjeta' : '✅ Confirmar pedido'}
+            {loading ? 'Procesando...' : form.payment_method === 'stripe' ? '💳 Pagar con tarjeta' : form.payment_method === 'wompi' ? '💳 Pagar con Wompi' : '✅ Confirmar pedido'}
           </button>
 
           <p className="text-center text-xs text-muted-foreground pb-2">Tu información está protegida y segura</p>
         </form>
       </main>
+    </div>
+  )
+}
+
+function getStorePath(tenantSlug: string, path: string) {
+  if (typeof window === 'undefined') return `/${tenantSlug}${path}`
+  const host = window.location.hostname
+  const isPlatformHost =
+    host === 'localhost' ||
+    host === '127.0.0.1' ||
+    host === 'eccofoodapp.com' ||
+    host === 'www.eccofoodapp.com' ||
+    host.endsWith('.vercel.app')
+
+  return isPlatformHost ? `/${tenantSlug}${path}` : path
+}
+
+function CheckoutStoreLoader({
+  logoUrl,
+  appName,
+  primaryColor,
+  paymentUrl,
+}: {
+  logoUrl?: string | null
+  appName?: string
+  primaryColor?: string
+  paymentUrl?: string
+}) {
+  const primary = primaryColor || 'var(--button-primary-color, var(--primary-color, #15130f))'
+
+  return (
+    <div className="fixed inset-0 z-[10020] flex items-center justify-center bg-white/75 px-5 backdrop-blur-[10px]">
+      <div className="w-full max-w-[460px] overflow-hidden rounded-[34px] border border-white/80 bg-white/98 p-8 text-center text-[#15130f] shadow-[0_30px_100px_rgba(0,0,0,0.2)]">
+        <div
+          className="relative mx-auto grid size-28 place-items-center rounded-[30px] text-4xl font-black text-white shadow-[0_22px_60px_rgba(0,0,0,0.16)]"
+          style={{ backgroundColor: primary }}
+        >
+          <span
+            className="absolute inset-0 rounded-2xl"
+            style={{
+              backgroundColor: primary,
+              animation: 'storeLoaderGlow 1.35s ease-in-out infinite',
+            }}
+          />
+          {logoUrl ? (
+            <img src={logoUrl} alt={appName || ''} className="relative h-32 w-40 object-contain drop-shadow-2xl" />
+          ) : (
+            <span className="relative">{appName?.charAt(0) || 'R'}</span>
+          )}
+        </div>
+
+        <div className="mt-7 flex items-center justify-center gap-0.5 text-3xl font-black tracking-wide">
+          {'Cargando'.split('').map((letter, index) => (
+            <span
+              key={`${letter}-${index}`}
+              className="inline-block"
+              style={{
+                color: primary,
+                animation: 'storeLoadingText 1.15s ease-in-out infinite',
+                animationDelay: `${index * 65}ms`,
+              }}
+            >
+              {letter}
+            </span>
+          ))}
+        </div>
+
+        <p className="mt-3 text-sm font-bold text-black/45">
+          {paymentUrl ? 'Abriendo pago seguro' : 'Confirmando tu pedido'}
+        </p>
+        {paymentUrl && (
+          <a
+            href={paymentUrl}
+            className="mt-5 inline-flex w-full items-center justify-center rounded-2xl px-5 py-4 text-sm font-extrabold text-white shadow-lg"
+            style={{ backgroundColor: primary }}
+          >
+            Abrir Wompi
+          </a>
+        )}
+        <div className="mt-8 h-2.5 overflow-hidden rounded-full bg-black/8">
+          <div
+            className="h-full rounded-full"
+            style={{
+              backgroundColor: primary,
+              animation: 'storeLoaderBar 1.15s ease-in-out infinite',
+            }}
+          />
+        </div>
+      </div>
     </div>
   )
 }

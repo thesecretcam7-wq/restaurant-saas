@@ -1,22 +1,25 @@
-import { createServiceClient } from '@/lib/supabase/server'
+import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import AccountsContent from './AccountsContent'
+import EccofoodLogo from '@/components/EccofoodLogo'
+import { isOwnerEmail } from '@/lib/owner-auth'
 
 export const dynamic = 'force-dynamic'
 
 export default async function AccountsPage() {
-  const supabase = createServiceClient()
+  const authClient = await createClient()
 
-  const { data: { user } } = await supabase.auth.getUser()
+  const { data: { user } } = await authClient.auth.getUser()
 
-  if (!user) {
-    redirect('/login')
+  if (!isOwnerEmail(user?.email)) {
+    redirect('/owner-login')
   }
 
+  const supabase = createServiceClient()
   const { data: tenants, error } = await supabase
     .from('tenants')
-    .select('id, organization_name, owner_name, owner_email, status, subscription_plan, trial_ends_at, created_at, stripe_account_status')
+    .select('id, organization_name, owner_name, owner_email, status, subscription_plan, subscription_expires_at, trial_ends_at, created_at, stripe_account_status, metadata, slug')
     .order('created_at', { ascending: false })
 
   if (error) {
@@ -24,7 +27,7 @@ export default async function AccountsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-background text-foreground overflow-x-hidden">
+    <div className="ecco-platform-page min-h-screen overflow-x-hidden text-white">
       {/* Background blobs */}
       <div className="fixed top-0 left-1/2 -translate-x-1/2 w-[600px] h-[300px] bg-primary/10 rounded-full blur-3xl pointer-events-none -z-10" />
       <div className="fixed bottom-0 -right-32 w-[400px] h-[400px] bg-secondary/8 rounded-full blur-3xl pointer-events-none -z-10" />
@@ -33,8 +36,7 @@ export default async function AccountsPage() {
       <nav className="border-b border-border bg-background/80 backdrop-blur-xl sticky top-0 z-50">
         <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
           <Link href="/" className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-md bg-gradient-to-br from-primary to-secondary flex items-center justify-center text-xs font-black text-white">E</div>
-            <span className="font-bold text-foreground text-lg tracking-tight">Eccofood</span>
+            <EccofoodLogo size="sm" textClassName="font-bold text-foreground text-lg tracking-tight" />
           </Link>
           <Link
             href="/admin"
@@ -51,7 +53,7 @@ export default async function AccountsPage() {
           <p className="text-muted-foreground mt-1">Administra todas las cuentas de clientes</p>
         </div>
 
-        <AccountsContent initialTenants={tenants || []} />
+        <AccountsContent initialTenants={(tenants || []).filter(tenant => !tenant.slug?.startsWith('demo-'))} />
       </div>
     </div>
   )

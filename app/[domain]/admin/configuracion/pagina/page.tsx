@@ -5,6 +5,7 @@ import { useParams } from 'next/navigation'
 import Link from 'next/link'
 import toast from 'react-hot-toast'
 import { useTenantResolver } from '@/lib/hooks/useTenantResolver'
+import { uploadTenantMedia } from '@/lib/upload-client'
 import {
   ArrowDown,
   ArrowUp,
@@ -31,6 +32,7 @@ interface BrandFallbacks {
   appName: string
   tagline: string
   description: string
+  logoUrl: string
   heroImageUrl: string
   instagram: string
   facebook: string
@@ -43,7 +45,7 @@ const tabs: Array<{ id: TabId; label: string; helper: string; Icon: typeof Layou
   { id: 'hero', label: 'Portada', helper: 'Primera pantalla', Icon: ImagePlus },
   { id: 'sections', label: 'Secciones', helper: 'Orden y contenido', Icon: Megaphone },
   { id: 'style', label: 'Estilo', helper: 'Tarjetas y menu', Icon: Palette },
-  { id: 'social', label: 'Redes', helper: 'Links publicos', Icon: Share2 },
+  { id: 'social', label: 'Redes', helper: 'Iconos publicos', Icon: Share2 },
   { id: 'advanced', label: 'Avanzado', helper: 'Footer y reset', Icon: Sparkles },
 ]
 
@@ -56,7 +58,7 @@ const sectionCopy: Record<string, { label: string; description: string }> = {
   hours: { label: 'Horarios', description: 'Dias y horas de atencion.' },
   testimonials: { label: 'Opiniones', description: 'Comentarios de clientes para generar confianza.' },
   actions: { label: 'Botones rapidos', description: 'Accesos como ver menu, reservar o contactar.' },
-  social: { label: 'Redes sociales', description: 'Links a Instagram, WhatsApp, Facebook y mas.' },
+  social: { label: 'Redes sociales', description: 'Iconos publicos que usan los links de Contenido y contacto.' },
 }
 
 function sectionInfo(type: string) {
@@ -72,6 +74,7 @@ export default function PageBuilderPage() {
     appName: '',
     tagline: '',
     description: '',
+    logoUrl: '',
     heroImageUrl: '',
     instagram: '',
     facebook: '',
@@ -81,17 +84,24 @@ export default function PageBuilderPage() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [dirty, setDirty] = useState(false)
-  const [saveStatus, setSaveStatus] = useState<'saved' | 'pending' | 'saving' | 'error'>('saved')
+  const [saveStatus, setSaveStatus] = useState<'idle' | 'saved' | 'pending' | 'saving' | 'error'>('idle')
   const [tab, setTab] = useState<TabId>('home')
   const [selectedSectionId, setSelectedSectionId] = useState<string>('featured')
   const [uploadingImage, setUploadingImage] = useState<string | null>(null)
   const autosaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => {
-    fetch(`/api/tenant/page-config?tenantId=${tenantSlug}`)
+    fetch(`/api/tenant/page-config?tenantId=${tenantSlug}`, { credentials: 'include' })
       .then(r => r.json())
-      .then(data => setConfig(getPageConfig(data.page_config)))
-      .catch(() => toast.error('No se pudo cargar el diseno'))
+      .then(data => {
+        setConfig(getPageConfig(data.page_config))
+        setDirty(false)
+        setSaveStatus('idle')
+      })
+      .catch(() => {
+        setSaveStatus('error')
+        toast.error('No se pudo cargar el diseño')
+      })
       .finally(() => setLoading(false))
   }, [tenantSlug])
 
@@ -102,10 +112,12 @@ export default function PageBuilderPage() {
       .then(r => r.json())
       .then(data => {
         const branding = data.branding || {}
+        const tenant = data.tenant || {}
         const fallbacks = {
           appName: branding.app_name || '',
           tagline: branding.tagline || '',
           description: branding.description || '',
+          logoUrl: tenant.logo_url || '',
           heroImageUrl: branding.hero_image_url || '',
           instagram: branding.instagram_url || '',
           facebook: branding.facebook_url || '',
@@ -124,13 +136,6 @@ export default function PageBuilderPage() {
             ...current.about,
             text: current.about.text || fallbacks.description,
           },
-          social: {
-            ...current.social,
-            instagram: current.social.instagram || fallbacks.instagram,
-            facebook: current.social.facebook || fallbacks.facebook,
-            whatsapp: current.social.whatsapp || fallbacks.whatsapp,
-            website: current.social.website || fallbacks.website,
-          },
         }))
       })
       .catch(() => {})
@@ -142,6 +147,14 @@ export default function PageBuilderPage() {
   )
   const selectedSection = config.sections.find(s => s.id === selectedSectionId) || sortedSections[0]
   const activeSections = config.sections.filter(s => s.enabled).length
+  const publicBaseDomain = process.env.NEXT_PUBLIC_BASE_DOMAIN || 'eccofoodapp.com'
+  const storeUrl = `https://${tenantSlug}.${publicBaseDomain}`
+
+  const openSectionEditor = (sectionType: string) => {
+    const section = config.sections.find(item => item.type === sectionType)
+    if (section) setSelectedSectionId(section.id)
+    setTab('sections')
+  }
 
   const markDirty = () => {
     setDirty(true)
@@ -155,12 +168,13 @@ export default function PageBuilderPage() {
       const res = await fetch('/api/tenant/page-config', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({ tenantId: tenantSlug, page_config: config }),
       })
       if (!res.ok) throw new Error('Error al guardar')
       setDirty(false)
       setSaveStatus('saved')
-      if (mode === 'manual') toast.success('Diseno guardado')
+      if (mode === 'manual') toast.success('Diseño guardado')
     } catch {
       setSaveStatus('error')
       toast.error('No se pudo guardar')
@@ -180,16 +194,38 @@ export default function PageBuilderPage() {
 
   const uploadImage = async (file: File, key: string): Promise<string | null> => {
     setUploadingImage(key)
-    const formData = new FormData()
-    formData.append('file', file)
-    formData.append('bucket', 'images')
     try {
-      const res = await fetch('/api/upload', { method: 'POST', body: formData })
-      const data = await res.json()
-      return data.url || null
-    } catch {
-      toast.error('No se pudo subir la imagen')
+      return await uploadTenantMedia({ file, bucket: 'images', tenantId: tenantId || '' })
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'No se pudo subir la imagen')
       return null
+    } finally {
+      setUploadingImage(null)
+    }
+  }
+
+  const uploadLogo = async (file: File) => {
+    if (!tenantId) {
+      toast.error('No se pudo identificar el restaurante')
+      return
+    }
+
+    setUploadingImage('logo')
+    try {
+      const logoUrl = await uploadTenantMedia({ file, bucket: 'images', tenantId })
+      const res = await fetch('/api/tenant/logo', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ tenantId, logoUrl }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(data.error || 'No se pudo guardar el logo')
+
+      setBrandFallbacks(current => ({ ...current, logoUrl }))
+      toast.success('Logo actualizado')
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'No se pudo subir el logo')
     } finally {
       setUploadingImage(null)
     }
@@ -203,11 +239,7 @@ export default function PageBuilderPage() {
   const updateAppearance = (key: string, value: any) => {
     setConfig(c => ({ ...c, appearance: { ...c.appearance, [key]: value } }))
     markDirty()
-  }
-
-  const updateSocial = (key: string, value: string) => {
-    setConfig(c => ({ ...c, social: { ...c.social, [key]: value } }))
-    markDirty()
+    if (key === 'theme_mode') toast.success('Tema aplicado')
   }
 
   const updateBanner = (key: string, value: any) => {
@@ -217,6 +249,16 @@ export default function PageBuilderPage() {
 
   const updateAbout = (key: string, value: any) => {
     setConfig(c => ({ ...c, about: { ...c.about, [key]: value } }))
+    markDirty()
+  }
+
+  const updateGallery = (key: string, value: any) => {
+    setConfig(c => ({ ...c, gallery: { ...c.gallery, [key]: value } }))
+    markDirty()
+  }
+
+  const updateSocial = (key: string, value: string) => {
+    setConfig(c => ({ ...c, social: { ...c.social, [key]: value } }))
     markDirty()
   }
 
@@ -307,12 +349,12 @@ export default function PageBuilderPage() {
     <div className="space-y-5">
       <div className="admin-page-header">
         <div>
-          <p className="admin-eyebrow">Tienda publica</p>
-          <h1 className="admin-title">Diseno de tienda</h1>
+          <p className="admin-eyebrow">Tienda pública</p>
+          <h1 className="admin-title">Diseño de tienda</h1>
           <p className="admin-subtitle">Edita la portada, el orden de secciones y los detalles visibles para tus clientes.</p>
         </div>
         <div className="flex flex-col gap-2 sm:flex-row">
-          <Link href={`/${tenantSlug}`} className="admin-button-secondary">
+          <Link href={storeUrl} target="_blank" rel="noopener noreferrer" className="admin-button-secondary">
             <ExternalLink className="size-4" />
             Ver tienda
           </Link>
@@ -324,17 +366,35 @@ export default function PageBuilderPage() {
           ? 'border-red-200 bg-red-50/95 text-red-800'
           : saveStatus === 'saved'
             ? 'border-emerald-200 bg-emerald-50/95 text-emerald-800'
+            : saveStatus === 'idle'
+              ? 'border-slate-200 bg-white text-slate-800'
             : 'border-amber-200 bg-amber-50/95 text-amber-900'
       }`}>
         <div>
           <p className="text-sm font-black">
-            {saveStatus === 'saving' ? 'Guardando cambios...' : saveStatus === 'pending' ? 'Cambios pendientes' : saveStatus === 'error' ? 'No se pudo guardar' : 'Cambios guardados'}
+            {saveStatus === 'saving'
+              ? 'Guardando cambios...'
+              : saveStatus === 'pending'
+                ? 'Cambios pendientes'
+                : saveStatus === 'error'
+                  ? 'No se pudo guardar'
+                  : saveStatus === 'saved'
+                    ? 'Cambios guardados'
+                    : 'Diseño cargado'}
           </p>
           <p className="text-sm font-bold opacity-90">
-            {saveStatus === 'pending' ? 'Se guardaran automaticamente en un momento.' : saveStatus === 'saved' ? 'El diseno esta sincronizado con la tienda.' : 'Tambien puedes guardar manualmente.'}
+            {saveStatus === 'pending'
+              ? 'Se guardarán automáticamente en un momento.'
+              : saveStatus === 'saved'
+                ? 'El diseño está sincronizado con la tienda.'
+                : saveStatus === 'saving'
+                  ? 'Estamos actualizando la tienda.'
+                  : saveStatus === 'error'
+                    ? 'Revisa la conexión e intenta guardar de nuevo.'
+                    : 'No hay cambios pendientes por guardar.'}
           </p>
         </div>
-        <button onClick={() => save('manual')} disabled={saving || (!dirty && saveStatus === 'saved')} className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-[#15130f] px-4 text-sm font-black text-white transition hover:bg-black disabled:cursor-not-allowed disabled:opacity-45">
+        <button onClick={() => save('manual')} disabled={saving || (!dirty && (saveStatus === 'saved' || saveStatus === 'idle'))} className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-[#15130f] px-4 text-sm font-black text-white transition hover:bg-black disabled:cursor-not-allowed disabled:opacity-45">
           <Save className="size-4" />
           Guardar ahora
         </button>
@@ -369,11 +429,34 @@ export default function PageBuilderPage() {
               <div className="grid gap-4 md:grid-cols-3">
                 <StatCard label="Secciones activas" value={`${activeSections}/${config.sections.length}`} />
                 <StatCard label="Portada" value={config.hero.image_url ? 'Con imagen' : 'Sin imagen'} />
-                <StatCard label="Menu" value={labelFor(config.appearance.menu_layout, menuLayoutOptions)} />
+                <StatCard label="Modo" value={labelFor(config.appearance.theme_mode, themeModeOptions)} />
               </div>
-              <Panel title="Que quieres cambiar?" desc="Elige una accion rapida. Todo queda guardado solo cuando presionas Guardar.">
+              <Panel title="Logo del restaurante" desc="Este logo se usa en la tienda, carta QR, kiosko, bienvenida y accesos del restaurante.">
+                <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_240px] lg:items-center">
+                  <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-bold leading-6 text-amber-950">
+                    Sube una imagen cuadrada o con fondo transparente para que se vea limpia en todos los accesos.
+                  </div>
+                  <ImageUploader
+                    label="Logo"
+                    imageUrl={brandFallbacks.logoUrl}
+                    loading={uploadingImage === 'logo'}
+                    fit="contain"
+                    onFile={uploadLogo}
+                  />
+                </div>
+              </Panel>
+              <Panel title="Modo de tienda" desc="Escoge si esta tienda se muestra con apariencia oscura o clara.">
+                <ChoiceGrid
+                  label="Apariencia publica"
+                  value={config.appearance.theme_mode}
+                  options={themeModeOptions}
+                  onChange={v => updateAppearance('theme_mode', v)}
+                />
+              </Panel>
+              <Panel title="¿Qué quieres cambiar?" desc="Elige una acción rápida. Todo queda guardado solo cuando presionas Guardar.">
                 <div className="grid gap-3 md:grid-cols-2">
                   <QuickButton title="Cambiar foto principal" desc="Imagen grande de entrada" onClick={() => setTab('hero')} />
+                  <QuickButton title="Subir fotos" desc="Galeria del local y platos" onClick={() => openSectionEditor('gallery')} />
                   <QuickButton title="Ordenar secciones" desc="Mostrar u ocultar bloques" onClick={() => setTab('sections')} />
                   <QuickButton title="Cambiar estilo" desc="Tarjetas, botones y menu" onClick={() => setTab('style')} />
                   <QuickButton title="Conectar redes" desc="Instagram, WhatsApp y links" onClick={() => setTab('social')} />
@@ -464,6 +547,7 @@ export default function PageBuilderPage() {
                   updateSectionConfig={updateSectionConfig}
                   updateBanner={updateBanner}
                   updateAbout={updateAbout}
+                  updateGallery={updateGallery}
                   addGalleryImage={addGalleryImage}
                   removeGalleryImage={removeGalleryImage}
                   addTestimonial={addTestimonial}
@@ -478,6 +562,7 @@ export default function PageBuilderPage() {
           {tab === 'style' && (
             <Panel title="Estilo visual" desc="Controles simples para que la tienda se vea consistente. Los colores principales se editan en Branding.">
               <div className="space-y-5">
+                <ChoiceGrid label="Modo de tienda" value={config.appearance.theme_mode} options={themeModeOptions} onChange={v => updateAppearance('theme_mode', v)} />
                 <ChoiceGrid label="Esquinas" value={config.appearance.border_radius} options={radiusOptions} onChange={v => updateAppearance('border_radius', v)} />
                 <ChoiceGrid label="Tarjetas" value={config.appearance.card_style} options={cardOptions} onChange={v => updateAppearance('card_style', v)} />
                 <ChoiceGrid label="Botones" value={config.appearance.button_style} options={buttonOptions} onChange={v => updateAppearance('button_style', v)} />
@@ -488,17 +573,24 @@ export default function PageBuilderPage() {
           )}
 
           {tab === 'social' && (
-            <Panel title="Redes y enlaces" desc="Agrega los links que quieres mostrar en la tienda.">
-              <div className="grid gap-3">
-                {socialFields.map(field => (
-                  <Field
-                    key={field.key}
-                    label={field.label}
-                    placeholder={field.placeholder}
-                    value={(config.social as any)[field.key] || ''}
-                    onChange={v => updateSocial(field.key, v)}
-                  />
-                ))}
+            <Panel title="Redes y enlaces" desc="Agrega aqui los enlaces que quieres mostrar en la tienda publica.">
+              <div className="space-y-4">
+                <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-bold leading-6 text-amber-950">
+                  <span className="block text-sm leading-6">Si un campo aparece vacio, la tienda lo muestra como "Sin configurar". Al llenar estos datos y guardar, se publican en la seccion de redes sociales.</span>
+                </div>
+
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <Field label="Instagram" value={config.social.instagram || brandFallbacks.instagram} placeholder="https://instagram.com/tu_restaurante" onChange={v => updateSocial('instagram', v)} />
+                  <Field label="Facebook" value={config.social.facebook || brandFallbacks.facebook} placeholder="https://facebook.com/tu_restaurante" onChange={v => updateSocial('facebook', v)} />
+                  <Field label="WhatsApp" value={config.social.whatsapp || brandFallbacks.whatsapp} placeholder="https://wa.me/34600000000" onChange={v => updateSocial('whatsapp', v)} />
+                  <Field label="Sitio web" value={config.social.website || brandFallbacks.website} placeholder="https://turestaurante.com" onChange={v => updateSocial('website', v)} />
+                </div>
+
+                <div className="flex flex-col gap-2 sm:flex-row">
+                  <button onClick={() => setTab('sections')} className="inline-flex h-11 items-center justify-center rounded-lg border border-black/10 bg-white px-4 text-sm font-black text-[#15130f] transition hover:bg-black/[0.04]">
+                    Mostrar u ordenar la seccion
+                  </button>
+                </div>
               </div>
             </Panel>
           )}
@@ -510,16 +602,16 @@ export default function PageBuilderPage() {
                 <Field label="Texto del footer" value={config.footer.custom_text} placeholder="Ej: 2026 El Buen Paladar" onChange={v => updateFooter('custom_text', v)} />
                 <button
                   onClick={() => {
-                    if (confirm('Restablecer el diseno de tienda? Se perderan los cambios no guardados.')) {
+                    if (confirm('¿Restablecer el diseño de tienda? Se perderán los cambios no guardados.')) {
                       setConfig(DEFAULT_PAGE_CONFIG)
                       markDirty()
-                      toast.success('Diseno restablecido')
+                      toast.success('Diseño restablecido')
                     }
                   }}
                   className="inline-flex h-11 items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 text-sm font-black text-red-700 transition hover:bg-red-100"
                 >
                   <RotateCcw className="size-4" />
-                  Restablecer diseno
+                  Restablecer diseño
                 </button>
               </div>
             </Panel>
@@ -546,10 +638,15 @@ export default function PageBuilderPage() {
             </div>
             <div className="space-y-2 p-4">
               {sortedSections.filter(s => s.enabled).slice(0, 5).map(section => (
-                <div key={section.id} className="flex items-center justify-between rounded-lg bg-black/[0.035] px-3 py-2">
+                <button
+                  key={section.id}
+                  type="button"
+                  onClick={() => openSectionEditor(section.type)}
+                  className="flex w-full items-center justify-between rounded-lg bg-black/[0.035] px-3 py-2 text-left transition hover:bg-[#e43d30]/10"
+                >
                   <span className="text-sm font-black text-[#15130f]">{sectionInfo(section.type).label}</span>
                   <span className="size-2 rounded-full bg-[#e43d30]" />
-                </div>
+                </button>
               ))}
             </div>
           </div>
@@ -567,6 +664,7 @@ function SectionEditor(props: {
   updateSectionConfig: (id: string, key: string, value: any) => void
   updateBanner: (key: string, value: any) => void
   updateAbout: (key: string, value: any) => void
+  updateGallery: (key: string, value: any) => void
   addGalleryImage: (file: File) => void
   removeGalleryImage: (index: number) => void
   addTestimonial: () => void
@@ -624,7 +722,7 @@ function SectionEditor(props: {
               { id: 'carousel', label: 'Carrusel' },
               { id: 'masonry', label: 'Mosaico' },
             ]}
-            onChange={v => props.updateSectionConfig(section.id, 'style', v)}
+            onChange={v => props.updateGallery('style', v)}
           />
           <div className="grid grid-cols-3 gap-2">
             {config.gallery.images.map((image, index) => (
@@ -669,7 +767,7 @@ function SectionEditor(props: {
       {['info', 'hours', 'actions', 'social'].includes(section.type) && (
         <div className="rounded-xl border border-dashed border-black/15 bg-black/[0.025] p-4">
           <p className="text-sm font-black text-[#15130f]">Esta seccion usa datos ya configurados.</p>
-          <p className="mt-1 text-sm font-bold leading-6 text-black/62">Puedes mostrarla, ocultarla u ordenarla. Sus datos salen de Restaurante, Horarios, Branding y Redes.</p>
+          <p className="mt-1 text-sm font-bold leading-6 text-black/62">Puedes mostrarla, ocultarla u ordenarla. Sus datos salen de Restaurante, Horarios, Branding y Contenido y contacto.</p>
         </div>
       )}
     </Panel>
@@ -681,6 +779,11 @@ const radiusOptions = [
   { id: 'small', label: 'Suaves' },
   { id: 'medium', label: 'Redondas' },
   { id: 'large', label: 'Premium' },
+]
+
+const themeModeOptions = [
+  { id: 'dark', label: 'Dark premium' },
+  { id: 'light', label: 'Light premium' },
 ]
 
 const cardOptions = [
@@ -700,15 +803,6 @@ const menuLayoutOptions = [
   { id: 'list', label: 'Lista' },
   { id: 'grid', label: 'Cuadricula' },
   { id: 'compact', label: 'Compacto' },
-]
-
-const socialFields = [
-  { key: 'instagram', label: 'Instagram', placeholder: 'https://instagram.com/turestaurante' },
-  { key: 'facebook', label: 'Facebook', placeholder: 'https://facebook.com/turestaurante' },
-  { key: 'whatsapp', label: 'WhatsApp', placeholder: 'https://wa.me/573001234567' },
-  { key: 'tiktok', label: 'TikTok', placeholder: 'https://tiktok.com/@turestaurante' },
-  { key: 'google_maps', label: 'Google Maps', placeholder: 'https://maps.google.com/...' },
-  { key: 'website', label: 'Sitio web', placeholder: 'https://turestaurante.com' },
 ]
 
 function labelFor(value: string, options: Array<{ id: string; label: string }>) {
@@ -805,9 +899,10 @@ function ChoiceGrid({ label, value, options, onChange }: {
         {options.map(option => (
           <button
             key={option.id}
+            type="button"
             onClick={() => onChange(option.id)}
             className={`rounded-lg border px-3 py-2 text-sm font-black transition ${
-              value === option.id ? 'border-[#e43d30] bg-red-50 text-[#15130f]' : 'border-black/12 bg-white text-black/72 hover:border-black/25'
+              value === option.id ? 'border-[#e43d30] bg-[#15130f] text-white' : 'border-black/12 bg-white text-[#15130f] hover:border-black/25'
             }`}
           >
             {option.label}
@@ -872,18 +967,19 @@ function RangeField({ label, value, min, max, onChange }: {
   )
 }
 
-function ImageUploader({ label, imageUrl, loading, onFile }: {
+function ImageUploader({ label, imageUrl, loading, onFile, fit = 'cover' }: {
   label: string
   imageUrl?: string
   loading: boolean
   onFile: (file: File) => void
+  fit?: 'cover' | 'contain'
 }) {
   return (
     <div>
       <p className="mb-2 text-sm font-black uppercase text-black/65">{label}</p>
       <div className="overflow-hidden rounded-2xl border border-black/10 bg-white">
         {imageUrl ? (
-          <img src={imageUrl} alt="" className="h-48 w-full object-cover" />
+          <img src={imageUrl} alt="" className={`h-48 w-full ${fit === 'contain' ? 'object-contain p-5' : 'object-cover'}`} />
         ) : (
           <div className="flex h-48 items-center justify-center bg-black/[0.045] text-black/55">
             <ImagePlus className="size-10" />

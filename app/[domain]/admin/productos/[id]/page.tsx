@@ -4,10 +4,24 @@ import { useState, useEffect, use } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { useTenantResolver } from '@/lib/hooks/useTenantResolver'
+import { uploadTenantMedia } from '@/lib/upload-client'
 import toast from 'react-hot-toast'
 import ToppingsManager from '@/components/admin/ToppingsManager'
 
 interface Props { params: Promise<{ domain: string; id: string }> }
+
+interface InventoryOption {
+  id: string
+  product_name: string
+  current_stock: number | string
+  cost_per_unit: number | string
+}
+
+interface RecipeIngredient {
+  inventory_id: string
+  quantity: string
+  unit: string
+}
 
 export default function EditProductoPage({ params }: Props) {
   const { domain, id } = use(params)
@@ -18,7 +32,10 @@ export default function EditProductoPage({ params }: Props) {
   const [saving, setSaving] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [uploadingImage, setUploadingImage] = useState(false)
+  const [savingRecipe, setSavingRecipe] = useState(false)
   const [notFound, setNotFound] = useState(false)
+  const [inventory, setInventory] = useState<InventoryOption[]>([])
+  const [recipe, setRecipe] = useState<RecipeIngredient[]>([])
   const [form, setForm] = useState({
     name: '',
     description: '',
@@ -38,7 +55,9 @@ export default function EditProductoPage({ params }: Props) {
     Promise.all([
       supabase.from('menu_categories').select('id, name').eq('tenant_id', tenantId).order('sort_order'),
       supabase.from('menu_items').select('*').eq('id', id).eq('tenant_id', tenantId).single(),
-    ]).then(([catRes, itemRes]) => {
+      fetch(`/api/inventory?tenantId=${tenantId}`, { credentials: 'include' }).then(res => res.json()).catch(() => []),
+      fetch(`/api/products/${id}/recipe?tenantId=${tenantId}`, { credentials: 'include' }).then(res => res.json()).catch(() => ({ recipe: [] })),
+    ]).then(([catRes, itemRes, inventoryRes, recipeRes]) => {
       setCategories(catRes.data || [])
       if (!itemRes.data) { setNotFound(true) }
       else {
@@ -55,22 +74,90 @@ export default function EditProductoPage({ params }: Props) {
           requires_kitchen: item.variants?.requires_kitchen !== false,
         })
       }
+      setInventory(Array.isArray(inventoryRes) ? inventoryRes : inventoryRes?.inventory || [])
+      setRecipe((recipeRes?.recipe || []).map((row: any) => ({
+        inventory_id: row.inventory_id,
+        quantity: String(row.quantity || ''),
+        unit: row.unit || '',
+      })))
       setLoading(false)
     })
   }, [tenantId, id])
 
+  const addRecipeRow = () => {
+    setRecipe(current => [...current, { inventory_id: '', quantity: '1', unit: '' }])
+  }
+
+  const updateRecipeRow = (index: number, updates: Partial<RecipeIngredient>) => {
+    setRecipe(current => current.map((row, rowIndex) => rowIndex === index ? { ...row, ...updates } : row))
+  }
+
+  const removeRecipeRow = (index: number) => {
+    setRecipe(current => current.filter((_, rowIndex) => rowIndex !== index))
+  }
+
+  const getInventoryItem = (inventoryId: string) => inventory.find(item => item.id === inventoryId)
+  const salePrice = Number(String(form.price || '0').replace(',', '.')) || 0
+  const recipeRows = recipe.map(row => {
+    const item = getInventoryItem(row.inventory_id)
+    const quantity = Number(String(row.quantity || '0').replace(',', '.')) || 0
+    const unitCost = Number(item?.cost_per_unit || 0)
+    const currentStock = Number(item?.current_stock || 0)
+    return {
+      ...row,
+      item,
+      quantity,
+      unitCost,
+      lineCost: quantity * unitCost,
+      possibleUnits: quantity > 0 ? Math.floor(currentStock / quantity) : null,
+    }
+  })
+  const recipeCost = recipeRows.reduce((sum, row) => sum + row.lineCost, 0)
+  const grossMargin = salePrice - recipeCost
+  const marginPercent = salePrice > 0 ? (grossMargin / salePrice) * 100 : 0
+  const maxProductsFromStock = recipeRows
+    .map(row => row.possibleUnits)
+    .filter((value): value is number => typeof value === 'number')
+    .reduce<number | null>((lowest, value) => lowest === null ? value : Math.min(lowest, value), null)
+  const money = (value: number) => `$${value.toFixed(2)}`
+
+  const saveRecipe = async () => {
+    if (!tenantId) return
+    setSavingRecipe(true)
+    try {
+      const res = await fetch(`/api/products/${id}/recipe`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          tenantId,
+          ingredients: recipe,
+        }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(data.error || 'No se pudo guardar la receta')
+      toast.success('Receta de inventario guardada')
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Error al guardar receta')
+    } finally {
+      setSavingRecipe(false)
+    }
+  }
+
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
+    if (!tenantId) {
+      toast.error('Espera a que cargue el restaurante')
+      return
+    }
     setUploadingImage(true)
-    const fd = new FormData()
-    fd.append('file', file)
-    fd.append('bucket', 'product-images')
     try {
-      const res = await fetch('/api/upload', { method: 'POST', body: fd })
-      const data = await res.json()
-      if (data.url) setForm(f => ({ ...f, image_url: data.url }))
-    } catch { toast.error('Error al subir imagen') }
+      const url = await uploadTenantMedia({ file, bucket: 'product-images', tenantId })
+      setForm(f => ({ ...f, image_url: url }))
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Error al subir imagen')
+    }
     finally { setUploadingImage(false) }
   }
 
@@ -115,19 +202,19 @@ export default function EditProductoPage({ params }: Props) {
 
   if (notFound) return (
     <div className="text-center py-20">
-      <p className="text-gray-500 mb-4">Producto no encontrado</p>
-      <button onClick={() => router.back()} className="text-blue-600 font-medium">Volver</button>
+      <p className="text-slate-600 mb-4">Producto no encontrado</p>
+      <button onClick={() => router.back()} className="text-orange-700 font-medium">Volver</button>
     </div>
   )
 
   return (
-    <div className="min-h-screen bg-gray-50 sm:bg-transparent">
+    <div className="product-edit-page min-h-screen bg-gray-50 sm:bg-transparent">
       {/* Header */}
       <div className="sticky top-0 z-10 bg-white border-b sm:static sm:border-0 sm:bg-transparent sm:mb-6">
         <div className="px-4 sm:px-0 h-14 sm:h-auto flex items-center gap-3">
           <button
             onClick={() => router.back()}
-            className="p-2 -ml-2 sm:ml-0 rounded-xl hover:bg-gray-100 text-gray-500"
+            className="p-2 -ml-2 sm:ml-0 rounded-xl hover:bg-gray-100 text-slate-700"
           >
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
               <path d="M19 12H5M12 5l-7 7 7 7" />
@@ -185,7 +272,7 @@ export default function EditProductoPage({ params }: Props) {
                     ) : (
                       <>
                         <span className="text-5xl">📷</span>
-                        <span className="text-sm font-medium text-gray-400">Agregar foto</span>
+                        <span className="text-sm font-medium text-slate-600">Agregar foto</span>
                       </>
                     )}
                   </div>
@@ -210,38 +297,38 @@ export default function EditProductoPage({ params }: Props) {
 
             <div className="bg-white sm:rounded-xl sm:border divide-y">
               <div className="px-4 py-4">
-                <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wide mb-1.5">Nombre *</label>
+                <label className="block text-xs font-black text-slate-700 uppercase tracking-wide mb-1.5">Nombre *</label>
                 <input
                   required
                   value={form.name}
                   onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
-                  className="w-full text-base sm:text-sm text-gray-900 focus:outline-none placeholder-gray-300 bg-transparent"
+                  className="w-full text-base sm:text-sm text-slate-950 focus:outline-none placeholder-slate-400 bg-transparent"
                   placeholder="Nombre del producto"
                 />
               </div>
 
               <div className="sm:grid sm:grid-cols-2 sm:divide-x divide-y sm:divide-y-0">
                 <div className="px-4 py-4">
-                  <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wide mb-1.5">Precio *</label>
+                  <label className="block text-xs font-black text-slate-700 uppercase tracking-wide mb-1.5">Precio *</label>
                   <div className="flex items-center gap-1.5">
-                    <span className="text-gray-400 font-medium">$</span>
+                    <span className="text-slate-700 font-bold">$</span>
                     <input
                       required
                       inputMode="decimal"
                       value={form.price}
                       onChange={e => setForm(f => ({ ...f, price: e.target.value }))}
-                      className="flex-1 text-xl sm:text-base font-bold text-gray-900 focus:outline-none placeholder-gray-200 bg-transparent"
+                      className="flex-1 text-xl sm:text-base font-bold text-slate-950 focus:outline-none placeholder-slate-400 bg-transparent"
                       placeholder="0"
                     />
                   </div>
                 </div>
 
                 <div className="px-4 py-4">
-                  <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wide mb-1.5">Categoría</label>
+                  <label className="block text-xs font-black text-slate-700 uppercase tracking-wide mb-1.5">Categoría</label>
                   <select
                     value={form.category_id}
                     onChange={e => setForm(f => ({ ...f, category_id: e.target.value }))}
-                    className="w-full text-base sm:text-sm text-gray-900 focus:outline-none bg-transparent appearance-none"
+                    className="w-full text-base sm:text-sm text-slate-950 focus:outline-none bg-transparent appearance-none"
                   >
                     <option value="">Sin categoría</option>
                     {categories.map(cat => (
@@ -252,11 +339,11 @@ export default function EditProductoPage({ params }: Props) {
               </div>
 
               <div className="px-4 py-4">
-                <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wide mb-1.5">Descripción</label>
+                <label className="block text-xs font-black text-slate-700 uppercase tracking-wide mb-1.5">Descripción</label>
                 <textarea
                   value={form.description}
                   onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
-                  className="w-full text-base sm:text-sm text-gray-900 focus:outline-none placeholder-gray-300 resize-none bg-transparent"
+                  className="w-full text-base sm:text-sm text-slate-950 focus:outline-none placeholder-slate-400 resize-none bg-transparent"
                   rows={3}
                   placeholder="Ingredientes, alérgenos, especificaciones..."
                 />
@@ -288,6 +375,110 @@ export default function EditProductoPage({ params }: Props) {
                 checked={form.requires_kitchen}
                 onChange={v => setForm(f => ({ ...f, requires_kitchen: v }))}
               />
+            </div>
+
+            <div className="bg-white sm:rounded-xl sm:border">
+              <div className="px-4 py-4 border-b">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <h2 className="font-bold text-gray-900 text-sm">Receta de inventario</h2>
+                    <p className="text-xs text-slate-600 mt-1">
+                      Ingredientes que se descuentan automaticamente al vender este producto.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={addRecipeRow}
+                    className="shrink-0 px-3 py-2 rounded-xl bg-emerald-50 text-emerald-700 text-xs font-bold hover:bg-emerald-100"
+                  >
+                    Agregar
+                  </button>
+                </div>
+              </div>
+
+              <div className="grid gap-3 border-b px-4 py-4 sm:grid-cols-4">
+                <RecipeMetric label="Precio venta" value={money(salePrice)} />
+                <RecipeMetric label="Costo receta" value={money(recipeCost)} tone={recipeCost > 0 ? 'dark' : 'muted'} />
+                <RecipeMetric label="Margen" value={money(grossMargin)} tone={grossMargin >= 0 ? 'good' : 'bad'} />
+                <RecipeMetric label="% margen" value={`${marginPercent.toFixed(1)}%`} tone={grossMargin >= 0 ? 'good' : 'bad'} />
+              </div>
+
+              {recipe.length > 0 && (
+                <div className="border-b px-4 py-3 text-xs font-semibold text-slate-600">
+                  {maxProductsFromStock === null
+                    ? 'Agrega cantidades para calcular cuantas unidades puedes vender con el stock actual.'
+                    : `Con el stock actual puedes preparar aproximadamente ${maxProductsFromStock} unidad${maxProductsFromStock === 1 ? '' : 'es'} de este producto.`}
+                  {grossMargin < 0 && (
+                    <span className="mt-2 block rounded-xl border border-red-200 bg-red-50 px-3 py-2 font-bold text-red-700">
+                      Atencion: el costo de receta supera el precio de venta.
+                    </span>
+                  )}
+                </div>
+              )}
+
+              <div className="divide-y">
+                {recipe.length === 0 ? (
+                  <div className="px-4 py-5 text-sm text-slate-600">
+                    Sin ingredientes configurados. Este producto no descontara inventario hasta que agregues una receta.
+                  </div>
+                ) : (
+                  recipeRows.map((ingredient, index) => (
+                    <div key={index} className="px-4 py-3 grid gap-2 sm:grid-cols-[1fr_90px_90px_auto] sm:items-center">
+                      <select
+                        value={ingredient.inventory_id}
+                        onChange={event => updateRecipeRow(index, { inventory_id: event.target.value })}
+                        className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm text-gray-900"
+                      >
+                        <option value="">Selecciona ingrediente</option>
+                        {inventory.map(item => (
+                          <option key={item.id} value={item.id}>
+                            {item.product_name} - Stock {Number(item.current_stock || 0)} - Costo {money(Number(item.cost_per_unit || 0))}
+                          </option>
+                        ))}
+                      </select>
+                      <input
+                        inputMode="decimal"
+                        value={ingredient.quantity}
+                        onChange={event => updateRecipeRow(index, { quantity: event.target.value })}
+                        className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm text-gray-900"
+                        placeholder="Cant."
+                      />
+                      <input
+                        value={ingredient.unit}
+                        onChange={event => updateRecipeRow(index, { unit: event.target.value })}
+                        className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm text-gray-900"
+                        placeholder="unidad"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => removeRecipeRow(index)}
+                        className="rounded-xl border border-red-100 px-3 py-2 text-xs font-bold text-red-600 hover:bg-red-50"
+                      >
+                        Quitar
+                      </button>
+                      {ingredient.item && (
+                        <div className="rounded-xl bg-gray-50 px-3 py-2 text-xs font-semibold text-slate-600 sm:col-span-4">
+                          Costo de esta linea: <span className="font-black text-slate-950">{money(ingredient.lineCost)}</span>
+                          {ingredient.possibleUnits !== null && (
+                            <span> · Stock alcanza para {ingredient.possibleUnits} unidad{ingredient.possibleUnits === 1 ? '' : 'es'}</span>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  ))
+                )}
+              </div>
+
+              <div className="px-4 py-3 border-t">
+                <button
+                  type="button"
+                  onClick={saveRecipe}
+                  disabled={savingRecipe}
+                  className="w-full py-2.5 rounded-xl bg-emerald-600 text-white text-sm font-bold hover:bg-emerald-700 disabled:opacity-50"
+                >
+                  {savingRecipe ? 'Guardando receta...' : 'Guardar receta'}
+                </button>
+              </div>
             </div>
 
             {tenantId && (
@@ -328,15 +519,30 @@ function ToggleRow({ label, description, checked, onChange }: {
     <label className="flex items-center justify-between px-4 py-3.5 cursor-pointer hover:bg-gray-50 transition-colors">
       <div>
         <p className="font-medium text-gray-900 text-sm">{label}</p>
-        <p className="text-xs text-gray-400">{description}</p>
+        <p className="text-xs text-slate-600">{description}</p>
       </div>
       <button
         type="button"
         onClick={() => onChange(!checked)}
-        className={`w-11 h-6 rounded-full transition-all flex items-center flex-shrink-0 ml-4 ${checked ? 'bg-blue-500 justify-end' : 'bg-gray-200 justify-start'}`}
+        className={`w-11 h-6 rounded-full transition-all flex items-center flex-shrink-0 ml-4 ${checked ? 'bg-orange-500 justify-end' : 'bg-gray-200 justify-start'}`}
       >
         <span className="w-5 h-5 bg-white rounded-full shadow-sm mx-0.5" />
       </button>
     </label>
+  )
+}
+
+function RecipeMetric({ label, value, tone = 'dark' }: { label: string; value: string; tone?: 'dark' | 'muted' | 'good' | 'bad' }) {
+  const color =
+    tone === 'good' ? 'text-emerald-700'
+      : tone === 'bad' ? 'text-red-700'
+        : tone === 'muted' ? 'text-slate-600'
+          : 'text-slate-950'
+
+  return (
+    <div className="rounded-2xl border border-gray-100 bg-gray-50 px-3 py-3">
+      <p className="text-[11px] font-black uppercase tracking-wide text-slate-600">{label}</p>
+      <p className={`mt-1 text-lg font-black ${color}`}>{value}</p>
+    </div>
   )
 }

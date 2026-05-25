@@ -24,18 +24,22 @@ export interface OfflineOrder {
     phone: string
   }
   items: Array<{
-    menu_item_id?: string
+    menu_item_id?: string | null
     name: string
     quantity: number
     qty?: number
     price: number
     notes?: string | null
+    is_manual?: boolean
   }>
   subtotal: number
   discount: number
   total: number
   paymentMethod: 'cash' | 'stripe' | 'card'
   deliveryType?: 'delivery' | 'pickup' | 'takeaway' | 'dine-in'
+  deliveryFee?: number | null
+  deliveryZoneId?: string | null
+  deliveryZoneName?: string | null
   deliveryAddress?: string | null
   waiter_id?: string | null
   waiterName?: string | null

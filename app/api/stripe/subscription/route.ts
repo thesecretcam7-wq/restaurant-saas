@@ -2,16 +2,24 @@ import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 import { NextRequest, NextResponse } from 'next/server'
 import Stripe from 'stripe'
+import { requireTenantAccess, tenantAuthErrorResponse } from '@/lib/tenant-api-auth'
 
 const getStripe = () => new Stripe(process.env.STRIPE_SECRET_KEY!)
 
 export async function POST(request: NextRequest) {
   try {
-    const { tenantId, planName } = await request.json()
+    const { tenantId, planName, billingInterval = 'month' } = await request.json()
 
     if (!tenantId || !planName) {
       return NextResponse.json(
         { error: 'Missing tenantId or planName' },
+        { status: 400 }
+      )
+    }
+
+    if (!['month', 'year'].includes(billingInterval)) {
+      return NextResponse.json(
+        { error: 'Intervalo de facturacion invalido' },
         { status: 400 }
       )
     }
@@ -51,6 +59,8 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    await requireTenantAccess(tenant.id, { staffRoles: [] })
+
     // Get subscription plan details
     const { data: plan, error: planError } = await supabase
       .from('subscription_plans')
@@ -84,12 +94,30 @@ export async function POST(request: NextRequest) {
       await supabase
         .from('tenants')
         .update({ stripe_customer_id: customerId })
-        .eq('id', tenantId)
+        .eq('id', tenant.id)
     }
 
     // Build redirect URLs from request origin to avoid env var misconfiguration
     const origin = request.headers.get('origin') || process.env.NEXT_PUBLIC_APP_URL || `https://eccofoodapp.com`
     const baseUrl = origin.endsWith('/') ? origin.slice(0, -1) : origin
+
+    const priceId = billingInterval === 'year'
+      ? plan.stripe_annual_price_id
+      : plan.stripe_price_id
+
+    if (!priceId) {
+      return NextResponse.json(
+        { error: billingInterval === 'year' ? 'El pago anual no esta configurado para este plan' : 'El pago mensual no esta configurado para este plan' },
+        { status: 400 }
+      )
+    }
+
+    const trialEndsAt = tenant.status === 'trial' && tenant.trial_ends_at
+      ? new Date(tenant.trial_ends_at)
+      : null
+    const trialEndTimestamp = trialEndsAt && trialEndsAt.getTime() > Date.now() + 5 * 60 * 1000
+      ? Math.floor(trialEndsAt.getTime() / 1000)
+      : null
 
     // Create checkout session for subscription
     const session = await stripe.checkout.sessions.create({
@@ -97,7 +125,7 @@ export async function POST(request: NextRequest) {
       customer: customerId,
       line_items: [
         {
-          price: plan.stripe_price_id!,
+          price: priceId,
           quantity: 1,
         },
       ],
@@ -106,13 +134,16 @@ export async function POST(request: NextRequest) {
         metadata: {
           tenant_id: tenant.id,
           plan_name: planName,
+          billing_interval: billingInterval,
         },
+        ...(trialEndTimestamp ? { trial_end: trialEndTimestamp } : {}),
       },
       success_url: `${baseUrl}/${tenant.slug}/admin/dashboard`,
       cancel_url: `${baseUrl}/${tenant.slug}/admin/configuracion/planes`,
       metadata: {
         tenant_id: tenant.id,
         plan_name: planName,
+        billing_interval: billingInterval,
       },
     })
 
@@ -122,6 +153,9 @@ export async function POST(request: NextRequest) {
       url: session.url,
     })
   } catch (error) {
+    if (error instanceof Error && ['Unauthorized', 'Forbidden'].includes(error.message)) {
+      return tenantAuthErrorResponse(error)
+    }
     console.error('Subscription error:', error)
     return NextResponse.json(
       { error: error instanceof Error ? error.message : 'Internal server error' },

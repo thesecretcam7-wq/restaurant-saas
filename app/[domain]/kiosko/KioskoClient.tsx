@@ -2,7 +2,11 @@
 
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { formatPriceWithCurrency } from '@/lib/currency'
-import './kiosko.css'
+import LanguageSwitcher, { useI18n } from '@/components/LanguageSwitcher'
+import { useWakeLock } from '@/lib/hooks/useWakeLock'
+
+const KIOSK_BANNER_ROTATION_MS = 10000
+const KIOSK_ATTRACT_MODE_DELAY_MS = 90000
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -12,7 +16,14 @@ interface MenuItem {
   price: number; image_url: string | null; available: boolean
   category_id: string | null; featured: boolean; variants?: { show_in_upsell?: boolean } | null
 }
-interface Banner { id: string; title: string; image_url: string; link_url: string | null; sort_order: number }
+interface Banner {
+  id: string
+  title: string
+  image_url: string
+  link_url: string | null
+  sort_order: number
+  placement?: 'top' | 'bottom' | 'both' | null
+}
 interface Topping { id: string; menu_item_id: string; name: string; price: number; is_required?: boolean; sort_order?: number }
 interface CartItem { lineId: string; menu_item_id: string; name: string; price: number; qty: number; toppings?: Topping[]; notes?: string }
 type Step = 'menu' | 'cart' | 'checkout' | 'confirmed'
@@ -31,6 +42,7 @@ interface Props {
     textPrimaryColor: string
     textSecondaryColor: string
     borderColor: string
+    isLightTheme?: boolean
     logoUrl: string | null
   }
   categories: MenuCategory[]
@@ -72,58 +84,97 @@ function readableText(background: string, preferred?: string, fallbackDark = '#1
   return isDark(background) ? fallbackLight : fallbackDark
 }
 
+function isVideoMedia(url?: string | null) {
+  if (!url) return false
+  return /\.(mp4|webm|mov|m4v)(\?|#|$)/i.test(url) || url.includes('/video/upload/')
+}
+
+function BannerMedia({ banner, className }: { banner: Banner; className: string }) {
+  if (isVideoMedia(banner.image_url)) {
+    return (
+      <video
+        src={banner.image_url}
+        className={className}
+        autoPlay
+        muted
+        loop
+        playsInline
+        preload="metadata"
+      />
+    )
+  }
+
+  return <img src={banner.image_url} alt={banner.title} className={className} />
+}
+
 // ─── App Header Component ─────────────────────────────────────────────────
 function AppHeader({
+  primaryColor,
+  accentColor,
+  textColor,
   appName,
   logoUrl,
   time,
   backLabel,
   onBack,
   cartCount,
+  isLightTheme = false,
 }: {
+  primaryColor: string
+  accentColor?: string
+  textColor: string
   appName: string
   logoUrl: string | null
   time: Date | null
   backLabel?: string
   onBack?: () => void
   cartCount?: number
+  isLightTheme?: boolean
 }) {
   const initial = appName.trim().charAt(0).toUpperCase() || 'E'
+  const mutedHeaderText = `${textColor}b3`
+  const headerAccentColor = accentColor || primaryColor
 
   return (
     <header
-      className="flex flex-shrink-0 items-center justify-between px-4 py-3 shadow-2xl shadow-black/10 sm:px-6 md:px-8 md:py-4 kiosko-header"
+      className="flex flex-shrink-0 items-center justify-between border-b px-4 py-3 shadow-lg shadow-black/[0.08] sm:px-5 md:px-6"
+      style={{ backgroundColor: primaryColor, borderColor: isLightTheme ? 'rgba(7,17,31,.12)' : `${textColor}24` }}
     >
-      <div className="flex min-w-0 items-center gap-3 md:gap-4">
+      <div className="flex min-w-0 items-center gap-3">
         {onBack && (
-          <button onClick={onBack} className="mr-2 rounded-full p-2 transition-colors kiosko-header-accent">
+          <button onClick={onBack} className="mr-2 rounded-full p-2 transition-colors" style={{ backgroundColor: `${textColor}22`, color: textColor }}>
             <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M19 12H5"/><path d="M12 19l-7-7 7-7"/></svg>
           </button>
         )}
-        <div className="flex h-14 w-20 flex-shrink-0 items-center justify-center overflow-visible md:h-16 md:w-28 xl:w-32">
+        <div className="flex h-16 w-24 flex-shrink-0 items-center justify-center md:h-20 md:w-32">
           {logoUrl ? (
-            <img src={logoUrl} alt={appName} className="max-h-full max-w-full scale-125 object-contain drop-shadow-xl md:scale-150" />
+            <img src={logoUrl} alt={appName} className="max-h-full max-w-full object-contain" />
           ) : (
-            <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-white text-2xl font-black shadow-xl md:h-16 md:w-16" style={{ color: 'var(--kiosko-primary)' }}>{initial}</span>
+            <span className="flex h-full w-full items-center justify-center rounded-xl bg-white text-lg font-black shadow-sm" style={{ color: headerAccentColor }}>{initial}</span>
           )}
         </div>
         <div className="min-w-0">
-          <p className="truncate text-xl font-black leading-tight md:text-3xl" style={{ color: 'var(--kiosko-text-on-primary)' }}>{appName}</p>
-          {backLabel && <p className="text-xs opacity-75" style={{ color: 'var(--kiosko-text-on-primary)' }}>{backLabel}</p>}
+          <p className="truncate text-base font-black leading-tight md:text-lg" style={{ color: textColor }}>{appName}</p>
+          {backLabel && <p className="text-xs font-semibold" style={{ color: mutedHeaderText }}>{backLabel}</p>}
         </div>
       </div>
-      <div className="flex flex-shrink-0 items-center gap-3 md:gap-6">
+      <div className="flex flex-shrink-0 items-center gap-3 md:gap-4">
+        <LanguageSwitcher
+          compact
+          iconColor={isLightTheme ? headerAccentColor : headerAccentColor}
+          className={isLightTheme ? 'border-black/10 bg-white text-gray-900 shadow-sm backdrop-blur-md' : 'border-white/18 bg-black/35 text-white shadow-inner shadow-white/5 backdrop-blur-md'}
+        />
         {cartCount !== undefined && cartCount > 0 && (
-          <div className="flex items-center gap-2 rounded-full px-3 py-2 md:px-4" style={{ backgroundColor: 'color-mix(in srgb, var(--kiosko-text-on-primary) 15%, transparent)', color: 'var(--kiosko-text-on-primary)' }}>
+          <div className="flex items-center gap-2 rounded-full px-3 py-2 md:px-4" style={{ backgroundColor: `${textColor}22`, color: textColor }}>
             <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>
             <span className="font-bold text-sm">{cartCount}</span>
           </div>
         )}
         <div className="hidden text-right sm:block">
-          <p className="font-mono text-2xl font-bold tabular-nums" style={{ color: 'var(--kiosko-text-on-primary)' }}>
+          <p className="font-mono text-lg font-bold tabular-nums md:text-xl" style={{ color: textColor }}>
             {time?.toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' }) ?? ''}
           </p>
-          <p className="text-xs opacity-70" style={{ color: 'var(--kiosko-text-on-primary)' }}>
+          <p className="text-[11px] font-semibold" style={{ color: mutedHeaderText }}>
             {time?.toLocaleDateString('es-CO', { weekday: 'long', day: 'numeric', month: 'short' }) ?? ''}
           </p>
         </div>
@@ -140,7 +191,7 @@ function BannerCarouselFullscreen({ banners }: { banners: Banner[] }) {
   useEffect(() => {
     const interval = setInterval(() => {
       setBannerIdx(prev => (prev + 1) % banners.length)
-    }, 6000)
+    }, KIOSK_BANNER_ROTATION_MS)
     return () => clearInterval(interval)
   }, [banners.length])
 
@@ -219,7 +270,7 @@ function HorizontalBannerCarousel({
   useEffect(() => {
     const interval = setInterval(() => {
       setBannerIdx(prev => (prev + 1) % (banners.length || 1))
-    }, 6000)
+    }, KIOSK_BANNER_ROTATION_MS)
     return () => clearInterval(interval)
   }, [banners.length])
 
@@ -275,6 +326,16 @@ function CategoryProductModal({
   banners,
   currencyCode,
   currencyLocale,
+  primaryColor,
+  accentColor,
+  buttonColor,
+  surfaceColor,
+  textColor,
+  mutedTextColor,
+  borderColor,
+  headerTextColor,
+  placeholderImageBg,
+  freeToppingsLabel,
   toppings,
   onClose,
   onSelectItem,
@@ -284,6 +345,16 @@ function CategoryProductModal({
   banners: Banner[]
   currencyCode: string
   currencyLocale: string
+  primaryColor: string
+  accentColor: string
+  buttonColor: string
+  surfaceColor: string
+  textColor: string
+  mutedTextColor: string
+  borderColor: string
+  headerTextColor: string
+  placeholderImageBg: string
+  freeToppingsLabel: string
   toppings: Topping[]
   onClose: () => void
   onSelectItem: (item: MenuItem) => void
@@ -292,36 +363,39 @@ function CategoryProductModal({
 
   return (
     <div
-      className="fixed inset-0 bg-black/40 flex items-center justify-center z-40 p-4"
+      className="ecco-fixed-layer fixed inset-0 z-[10000] flex items-center justify-center bg-black/40 p-4"
       onClick={onClose}
     >
       <div
-        className="rounded-3xl w-full max-w-2xl max-h-[90vh] overflow-hidden shadow-2xl flex flex-col kiosko-surface"
+        className="rounded-3xl w-full max-w-2xl max-h-[90vh] overflow-hidden shadow-2xl flex flex-col"
+        style={{ backgroundColor: surfaceColor }}
         onClick={e => e.stopPropagation()}
       >
         {/* Header */}
         <div
-          className="flex items-center gap-4 px-6 py-4 flex-shrink-0 kiosko-header"
+          className="flex items-center gap-4 px-6 py-4 flex-shrink-0"
+          style={{ backgroundColor: primaryColor, color: headerTextColor }}
         >
           <button
             onClick={onClose}
-            className="rounded-full p-2 transition-colors kiosko-header-accent"
+            className="rounded-full p-2 transition-colors"
+            style={{ backgroundColor: `${headerTextColor}22`, color: headerTextColor }}
           >
             <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M19 12H5"/><path d="M12 19l-7-7 7-7"/></svg>
           </button>
-          <h2 className="text-xl font-black" style={{ color: 'var(--kiosko-text-on-primary)' }}>{category.name}</h2>
+          <h2 className="text-xl font-black">{category.name}</h2>
         </div>
 
         {/* Content */}
         <div className="flex-1 overflow-y-auto">
           {/* Banners carousel */}
           {banners.length > 0 && (
-            <HorizontalBannerCarousel banners={banners} containerRef={containerRef} surfaceColor="var(--kiosko-surface)" borderColor="var(--kiosko-border)" />
+            <HorizontalBannerCarousel banners={banners} containerRef={containerRef} surfaceColor={surfaceColor} borderColor={borderColor} />
           )}
 
           {/* Products grid */}
           {products.length === 0 ? (
-            <div className="flex flex-col items-center justify-center h-64 p-6" style={{ color: 'var(--kiosko-text-secondary)' }}>
+            <div className="flex flex-col items-center justify-center h-64 p-6" style={{ color: mutedTextColor }}>
               <p className="text-6xl mb-4">🍽️</p>
               <p className="text-lg font-medium">No hay productos en esta categoría</p>
             </div>
@@ -329,38 +403,44 @@ function CategoryProductModal({
             <div className="p-6">
               <div className="grid grid-cols-3 gap-4">
                 {products.map(item => {
-                  const hasToppings = toppings.some(topping => topping.menu_item_id === item.id)
+                  const itemToppings = toppings.filter(topping => topping.menu_item_id === item.id)
+                  const hasToppings = itemToppings.length > 0
+                  const hasOnlyFreeToppings = hasToppings && itemToppings.every(topping => Number(topping.price || 0) === 0)
                   return (
                   <button
                     key={item.id}
                     onClick={() => onSelectItem(item)}
-                    className="rounded-2xl shadow-sm overflow-hidden text-left transition-all active:scale-95 hover:shadow-md flex flex-col group kiosko-card"
+                    className="rounded-2xl shadow-sm overflow-hidden text-left transition-all active:scale-95 hover:shadow-md flex flex-col group border"
+                    style={{ backgroundColor: surfaceColor, borderColor }}
                   >
                     <div className="relative overflow-hidden">
                       {item.image_url ? (
                         <img src={item.image_url} alt={item.name} className="w-full h-44 object-cover group-hover:scale-105 transition-transform duration-300" />
                       ) : (
-                        <div className="w-full h-44 flex items-center justify-center text-6xl" style={{ backgroundColor: '#ffffff' }}>
+                        <div className="w-full h-44 flex items-center justify-center text-6xl" style={{ backgroundColor: placeholderImageBg }}>
                           🍽️
                         </div>
                       )}
                       {hasToppings && (
-                        <span className="absolute left-3 top-3 rounded-full px-3 py-1 text-[11px] font-black shadow-lg kiosko-badge">
-                          Adicionales
+                        <span className="absolute left-3 top-3 rounded-full px-3 py-1 text-[11px] font-black shadow-lg" style={{ backgroundColor: buttonColor, color: readableText(buttonColor) }}>
+                          {hasOnlyFreeToppings ? freeToppingsLabel : 'Adicionales'}
                         </span>
                       )}
                     </div>
                     <div className="p-4 flex flex-col flex-1">
-                      <p className="font-bold text-sm leading-snug line-clamp-2 flex-1 mb-2" style={{ color: 'var(--kiosko-surface-text)' }}>{item.name}</p>
+                      <p className="font-bold text-sm leading-snug line-clamp-2 flex-1 mb-2" style={{ color: textColor }}>{item.name}</p>
                       {hasToppings && (
-                        <p className="mb-2 text-xs font-black uppercase tracking-wide" style={{ color: 'var(--kiosko-primary)' }}>Toca para personalizar</p>
+                        <p className="mb-2 text-xs font-black uppercase tracking-wide" style={{ color: accentColor }}>
+                          {hasOnlyFreeToppings ? 'Elige ingredientes gratis' : 'Toca para personalizar'}
+                        </p>
                       )}
                       <div className="flex items-center justify-between">
-                        <p className="font-black text-lg" style={{ color: 'var(--kiosko-primary)' }}>
+                        <p className="font-black text-lg" style={{ color: accentColor }}>
                           {fmt(item.price, currencyCode, currencyLocale)}
                         </p>
                         <div
-                          className="min-w-9 h-9 rounded-full px-3 flex items-center justify-center text-white font-black text-sm shadow-md transition-transform active:scale-90 kiosko-button-primary"
+                          className="min-w-9 h-9 rounded-full px-3 flex items-center justify-center text-white font-black text-sm shadow-md transition-transform active:scale-90"
+                          style={{ backgroundColor: buttonColor, color: readableText(buttonColor) }}
                         >
                           {hasToppings ? 'Elegir' : '+'}
                         </div>
@@ -384,6 +464,7 @@ export default function KioskoClient({
   tenantId, domain, branding, categories, menuItems, toppings, banners,
   taxRate, currencyCode, currencyLocale, stripeEnabled, initialConfirmed,
 }: Props) {
+  const { tr } = useI18n()
   const [step, setStep] = useState<Step>(initialConfirmed ? 'confirmed' : 'menu')
   const [activeCategory, setActiveCategory] = useState<string | null>(categories[0]?.id ?? null)
   const [pressedCategory, setPressedCategory] = useState<string | null>(null)
@@ -403,9 +484,11 @@ export default function KioskoClient({
   const [time, setTime] = useState<Date | null>(null)
   const [isFullscreen, setIsFullscreen] = useState(false)
   const [showFsPrompt, setShowFsPrompt] = useState(true)
+  const [isAttractMode, setIsAttractMode] = useState(false)
   const [adBannerIndex, setAdBannerIndex] = useState(0)
   const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const categoryScrollRef = useRef<HTMLDivElement | null>(null)
+  const { activateWakeLock } = useWakeLock()
 
   const {
     primaryColor,
@@ -417,34 +500,64 @@ export default function KioskoClient({
     textPrimaryColor,
     textSecondaryColor,
     borderColor,
+    isLightTheme = false,
     appName,
     logoUrl
   } = branding
   const pageTextColor = readableText(backgroundColor, textPrimaryColor)
   const mutedTextColor = textSecondaryColor || readableText(backgroundColor, undefined, 'rgba(21,19,15,0.62)', 'rgba(255,255,255,0.66)')
   const primaryTextColor = readableText(primaryColor)
-  const buttonTextColor = readableText(buttonPrimaryColor)
-  const secondaryButtonTextColor = readableText(buttonSecondaryColor)
-  const surfaceColor = isDark(backgroundColor) ? secondaryColor : '#ffffff'
-  const surfaceTextColor = readableText(surfaceColor, textPrimaryColor)
-  const surfaceMutedTextColor = readableText(surfaceColor, textSecondaryColor, 'rgba(21,19,15,0.62)', 'rgba(255,255,255,0.66)')
+  const appHeaderColor = isLightTheme ? '#ffffff' : secondaryColor || backgroundColor || buttonSecondaryColor || '#0B0B0B'
+  const appHeaderTextColor = isLightTheme ? '#07111f' : readableText(appHeaderColor, textPrimaryColor)
+  const freeToppingsLabel = domain === 'parrillaburgers' ? 'Barra libre' : 'Ingredientes gratis'
+  const actionButtonColor = isLightTheme ? '#ff5a00' : buttonPrimaryColor
+  const actionButtonTextColor = isLightTheme ? '#ffffff' : readableText(buttonPrimaryColor)
+  const secondaryActionButtonColor = isLightTheme ? '#ffffff' : buttonSecondaryColor
+  const secondaryActionButtonTextColor = isLightTheme ? '#07111f' : readableText(buttonSecondaryColor)
+  const buttonTextColor = actionButtonTextColor
+  const secondaryButtonTextColor = secondaryActionButtonTextColor
+  const kioskAccentColor = isLightTheme ? '#ff1f1f' : accentColor
+  const kioskBackgroundColor = isLightTheme ? '#f8fafc' : backgroundColor
+  const surfaceColor = isLightTheme ? '#ffffff' : secondaryColor || '#1A1F2C'
+  const surfaceTextColor = isLightTheme ? '#07111f' : textPrimaryColor || '#ffffff'
+  const modalTextColor = isLightTheme ? '#000000' : surfaceTextColor
+  const surfaceMutedTextColor = isLightTheme ? 'rgba(7, 17, 31, 0.68)' : textSecondaryColor || '#8b97a8'
+  const menuShellBackground = isLightTheme
+    ? 'linear-gradient(180deg, #ffffff 0%, #f4f4f5 58%, #e5e7eb 100%)'
+    : `linear-gradient(135deg, ${backgroundColor} 0%, ${surfaceColor} 54%, ${backgroundColor} 100%)`
+  const mainPanelBackground = isLightTheme
+    ? 'linear-gradient(180deg, #ffffff 0%, #f4f4f5 58%, #e5e7eb 100%)'
+    : `linear-gradient(180deg, ${surfaceColor} 0%, ${backgroundColor} 100%)`
+  const placeholderImageBg = isLightTheme ? '#f4f4f5' : '#111827'
 
-  useEffect(() => {
-    if (step !== 'menu' || banners.length <= 1) return
-    const interval = setInterval(() => {
-      setAdBannerIndex(prev => (prev + 1) % banners.length)
-    }, 5000)
-    return () => clearInterval(interval)
-  }, [banners.length, step])
   const accentTextColor = readableText(accentColor)
 
+  useEffect(() => {
+    void activateWakeLock()
+
+    const keepAwake = () => {
+      void activateWakeLock()
+    }
+
+    window.addEventListener('pointerdown', keepAwake, { passive: true })
+    window.addEventListener('touchstart', keepAwake, { passive: true })
+    window.addEventListener('keydown', keepAwake)
+
+    return () => {
+      window.removeEventListener('pointerdown', keepAwake)
+      window.removeEventListener('touchstart', keepAwake)
+      window.removeEventListener('keydown', keepAwake)
+    }
+  }, [activateWakeLock])
+
   const toggleFullscreen = useCallback(() => {
+    void activateWakeLock()
     if (!document.fullscreenElement) {
       document.documentElement.requestFullscreen().catch(() => {})
     } else {
       document.exitFullscreen().catch(() => {})
     }
-  }, [])
+  }, [activateWakeLock])
 
   useEffect(() => {
     const onChange = () => {
@@ -617,17 +730,22 @@ export default function KioskoClient({
   }, [cart, menuItems])
 
   useEffect(() => {
-    if (cart.length > 0 || step === 'confirmed') return
+    if (cart.length > 0 || step === 'confirmed') {
+      setIsAttractMode(false)
+      return
+    }
 
     let timeout: ReturnType<typeof setTimeout>
     const armAttraction = () => {
+      setIsAttractMode(false)
       clearTimeout(timeout)
       timeout = setTimeout(() => {
         setSelectedItem(null)
         setSelectedToppings([])
         setIsCategoryModalOpen(false)
         setStep('menu')
-      }, 30000)
+        setIsAttractMode(true)
+      }, KIOSK_ATTRACT_MODE_DELAY_MS)
     }
 
     const events = ['pointerdown', 'keydown', 'touchstart']
@@ -640,11 +758,26 @@ export default function KioskoClient({
     }
   }, [cart.length, step])
 
+  const topBanners = banners.filter(banner => (banner.placement || 'both') !== 'bottom')
+  const bottomBanners = banners.filter(banner => (banner.placement || 'both') !== 'top')
+  const rotationLength = Math.max(topBanners.length, bottomBanners.length, banners.length)
+  const activeAdBanner = topBanners.length > 0 ? topBanners[adBannerIndex % topBanners.length] : null
+  const secondaryAdBanner = bottomBanners.length > 0 ? bottomBanners[adBannerIndex % bottomBanners.length] : null
+
+  useEffect(() => {
+    if (step !== 'menu' || rotationLength <= 1) return
+    const interval = setInterval(() => {
+      setAdBannerIndex(prev => (prev + 1) % rotationLength)
+    }, KIOSK_BANNER_ROTATION_MS)
+    return () => clearInterval(interval)
+  }, [rotationLength, step])
+
   const getQtyInCart = (id: string) => cart.filter(c => c.menu_item_id === id).reduce((sum, c) => sum + c.qty, 0)
   const toppingsForSelectedItem = selectedItem ? toppings.filter(t => t.menu_item_id === selectedItem.id) : []
+  const selectedItemHasOnlyFreeToppings = toppingsForSelectedItem.length > 0 && toppingsForSelectedItem.every(topping => Number(topping.price || 0) === 0)
   const selectedToppingsCost = selectedToppings.reduce((sum, t) => sum + Number(t.price || 0), 0)
   const selectedUnitPrice = selectedItem ? selectedItem.price + selectedToppingsCost : 0
-  const toppingsNote = (tops: Topping[]) => tops.length ? `Adicionales: ${tops.map(t => `${t.name}${t.price > 0 ? ` (+${fmt(t.price, currencyCode, currencyLocale)})` : ''}`).join(', ')}` : undefined
+  const toppingsNote = (tops: Topping[]) => tops.length ? `Ingredientes: ${tops.map(t => `${t.name}${t.price > 0 ? ` (+${fmt(t.price, currencyCode, currencyLocale)})` : ''}`).join(', ')}` : undefined
   const toggleTopping = (topping: Topping) => {
     setSelectedToppings(prev =>
       prev.some(t => t.id === topping.id)
@@ -717,6 +850,13 @@ export default function KioskoClient({
   }
 
   const removeFromCart = (lineId: string) => setCart(prev => prev.filter(c => c.lineId !== lineId))
+  const clearStaleCart = () => {
+    setCart([])
+    setSelectedToppings([])
+    setSelectedItem(null)
+    setItemQty(1)
+    setStep('menu')
+  }
 
   const getCSRF = async (): Promise<string> => {
     const res = await fetch('/api/csrf-token')
@@ -742,7 +882,10 @@ export default function KioskoClient({
         }),
       })
       const data = await res.json()
-      if (!res.ok) throw new Error(data.error || 'Error al crear el pedido')
+      if (!res.ok) {
+        if (data.clearCart) clearStaleCart()
+        throw new Error(data.error || 'Error al crear el pedido')
+      }
       setConfirmed({ number: data.displayNumber ?? 0, name: customerName.trim() })
       setStep('confirmed')
     } catch (e) {
@@ -766,7 +909,10 @@ export default function KioskoClient({
         }),
       })
       const data = await res.json()
-      if (!res.ok) throw new Error(data.error || 'Error al procesar pago')
+      if (!res.ok) {
+        if (data.clearCart) clearStaleCart()
+        throw new Error(data.error || 'Error al procesar pago')
+      }
       window.location.href = data.url
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Error al procesar')
@@ -778,46 +924,47 @@ export default function KioskoClient({
   // ── Confirmed screen ────────────────────────────────────────────────────────
   if (step === 'confirmed' && confirmed) {
     return (
-      <div className="h-screen flex flex-col" style={{ fontFamily: 'Inter, system-ui, sans-serif', backgroundColor: 'var(--kiosko-background)', color: 'var(--kiosko-surface-text)' }}>
-        <AppHeader appName={appName} logoUrl={logoUrl} time={time} />
+      <div className="h-screen flex flex-col" style={{ fontFamily: 'Inter, system-ui, sans-serif', backgroundColor: kioskBackgroundColor, color: pageTextColor }}>
+        <AppHeader primaryColor={appHeaderColor} accentColor={primaryColor} textColor={appHeaderTextColor} appName={appName} logoUrl={logoUrl} time={time} isLightTheme={isLightTheme} />
         <div className="flex-1 flex flex-col items-center justify-center px-8">
           <div className="text-center w-full max-w-2xl">
-            <div className="mb-6 inline-flex items-center gap-3 rounded-full px-5 py-3 font-black shadow-lg" style={{ backgroundColor: 'color-mix(in srgb, var(--kiosko-primary) 10%, transparent)', color: 'var(--kiosko-surface-text)' }}>
+            <div className="mb-6 inline-flex items-center gap-3 rounded-full px-5 py-3 font-black shadow-lg" style={{ backgroundColor: `${primaryColor}18`, color: pageTextColor }}>
               Pedido recibido
             </div>
             <div
               className="rounded-[2.5rem] p-10 mb-8 shadow-2xl border"
-              style={{ backgroundColor: 'var(--kiosko-primary)', borderColor: 'color-mix(in srgb, var(--kiosko-text-on-primary) 20%, transparent)' }}
+              style={{ backgroundColor: primaryColor, borderColor: `${primaryTextColor}33` }}
             >
-              <p className="text-sm tracking-widest uppercase mb-2 font-semibold" style={{ color: 'var(--kiosko-text-on-primary)' }}>Tu número de turno</p>
-              <p className="text-[9rem] font-black tabular-nums leading-none" style={{ color: 'var(--kiosko-text-on-primary)' }}>
+              <p className="text-sm tracking-widest uppercase mb-2 font-semibold" style={{ color: primaryTextColor }}>Tu n?mero de turno</p>
+              <p className="text-[9rem] font-black tabular-nums leading-none" style={{ color: primaryTextColor }}>
                 {pad(confirmed.number)}
               </p>
             </div>
-            <p className="text-2xl font-bold mb-2" style={{ color: 'var(--kiosko-surface-text)' }}>{confirmed.name}</p>
-            <p className="text-xl mb-8 max-w-xl mx-auto" style={{ color: 'var(--kiosko-text-secondary)' }}>
+            <p className="text-2xl font-bold mb-2" style={{ color: pageTextColor }}>{confirmed.name}</p>
+            <p className="text-xl mb-8 max-w-xl mx-auto" style={{ color: mutedTextColor }}>
               Pasa a recoger cuando tu n?mero aparezca en la pantalla.
             </p>
             <div className="grid grid-cols-2 gap-3 mb-8 text-left">
-              <div className="rounded-2xl border p-4 kiosko-card">
-                <p className="text-xs font-black uppercase tracking-widest" style={{ color: 'var(--kiosko-text-secondary)' }}>Estado</p>
-                <p className="text-lg font-black" style={{ color: 'var(--kiosko-surface-text)' }}>Enviado a cocina</p>
+              <div className="rounded-2xl border p-4" style={{ backgroundColor: surfaceColor, borderColor }}>
+                <p className="text-xs font-black uppercase tracking-widest" style={{ color: surfaceMutedTextColor }}>Estado</p>
+                <p className="text-lg font-black" style={{ color: surfaceTextColor }}>Enviado a cocina</p>
               </div>
-              <div className="rounded-2xl border p-4 kiosko-card">
-                <p className="text-xs font-black uppercase tracking-widest" style={{ color: surfaceMutedTextColor }}>Pedido</p>
-                <p className="text-lg font-black" style={{ color: 'var(--kiosko-surface-text)' }}>{cartCount} productos</p>
+              <div className="rounded-2xl border p-4" style={{ backgroundColor: surfaceColor, borderColor }}>
+                <p className="text-xs font-black uppercase tracking-widest" style={{ color: surfaceMutedTextColor }}>{tr('display.order')}</p>
+                <p className="text-lg font-black" style={{ color: surfaceTextColor }}>{cartCount} productos</p>
               </div>
             </div>
-            <div className="w-full h-3 rounded-full mb-3 overflow-hidden" style={{ backgroundColor: 'var(--kiosko-border)' }}>
+            <div className="w-full h-3 rounded-full mb-3 overflow-hidden" style={{ backgroundColor: borderColor }}>
               <div
                 className="h-full rounded-full transition-all duration-1000"
-                style={{ width: `${(countdown / 12) * 100}%`, backgroundColor: 'var(--kiosko-primary)' }}
+                style={{ width: `${(countdown / 12) * 100}%`, backgroundColor: primaryColor }}
               />
             </div>
-            <p className="text-sm mb-6" style={{ color: 'var(--kiosko-text-secondary)' }}>Nuevo pedido en {countdown}s</p>
+            <p className="text-sm mb-6" style={{ color: mutedTextColor }}>Nuevo pedido en {countdown}s</p>
             <button
               onClick={reset}
-              className="px-10 py-4 rounded-2xl font-bold text-lg transition-opacity hover:opacity-90 kiosko-button-primary"
+              className="px-10 py-4 rounded-2xl font-bold text-lg transition-opacity hover:opacity-90"
+              style={{ backgroundColor: actionButtonColor, color: actionButtonTextColor }}
             >
               Hacer otro pedido
             </button>
@@ -830,50 +977,50 @@ export default function KioskoClient({
   // ── Checkout screen ─────────────────────────────────────────────────────────
   if (step === 'checkout') {
     return (
-      <div className="h-screen flex flex-col" style={{ fontFamily: 'Inter, system-ui, sans-serif', backgroundColor: 'var(--kiosko-background)', color: 'var(--kiosko-surface-text)' }}>
-        <AppHeader appName={appName} logoUrl={logoUrl} time={time} backLabel="Volver al carrito" onBack={() => setStep('cart')} />
+      <div className="h-screen flex flex-col" style={{ fontFamily: 'Inter, system-ui, sans-serif', backgroundColor: kioskBackgroundColor, color: pageTextColor }}>
+        <AppHeader primaryColor={appHeaderColor} accentColor={primaryColor} textColor={appHeaderTextColor} appName={appName} logoUrl={logoUrl} time={time} backLabel={tr('kitchen.viewOrder')} onBack={() => setStep('cart')} isLightTheme={isLightTheme} />
         <div className="flex-1 overflow-y-auto">
           <div className="max-w-lg mx-auto p-6">
-            <h2 className="text-2xl font-black mb-6" style={{ color: 'var(--kiosko-surface-text)' }}>Finalizar pedido</h2>
+            <h2 className="text-2xl font-black mb-6" style={{ color: pageTextColor }}>{tr('checkout.finishOrder')}</h2>
 
             {/* Order summary */}
-            <div className="rounded-2xl shadow-sm border p-5 mb-6 kiosko-card">
-              <p className="text-xs font-bold uppercase tracking-widest mb-3" style={{ color: 'var(--kiosko-text-secondary)' }}>Resumen</p>
+            <div className="rounded-2xl shadow-sm border p-5 mb-6" style={{ backgroundColor: surfaceColor, borderColor }}>
+              <p className="text-xs font-bold uppercase tracking-widest mb-3" style={{ color: surfaceMutedTextColor }}>Resumen</p>
               {cart.map(item => (
-                <div key={item.lineId} className="flex justify-between py-2 text-sm border-b last:border-0 gap-4" style={{ borderColor: 'var(--kiosko-border)' }}>
-                  <span style={{ color: 'var(--kiosko-surface-text)' }}>
+                <div key={item.lineId} className="flex justify-between py-2 text-sm border-b last:border-0 gap-4" style={{ borderColor }}>
+                  <span style={{ color: surfaceTextColor }}>
                     {item.qty} x {item.name}
                     {item.toppings && item.toppings.length > 0 && (
-                      <span className="block text-xs mt-1" style={{ color: 'var(--kiosko-text-secondary)' }}>
+                      <span className="block text-xs mt-1" style={{ color: surfaceMutedTextColor }}>
                         {item.toppings.map(t => t.name).join(', ')}
                       </span>
                     )}
                   </span>
-                  <span className="font-semibold" style={{ color: surfaceTextColor }}>{fmt(item.price * item.qty, currencyCode, currencyLocale)}</span>
+                  <span className="font-semibold" style={{ color: kioskAccentColor }}>{fmt(item.price * item.qty, currencyCode, currencyLocale)}</span>
                 </div>
               ))}
-              <div className="mt-3 space-y-2 rounded-2xl p-4" style={{ backgroundColor: 'var(--kiosko-background)' }}>
-                <div className="flex justify-between text-sm font-bold" style={{ color: 'var(--kiosko-text-secondary)' }}>
-                  <span>Subtotal</span>
-                  <span>{fmt(cartTotal, currencyCode, currencyLocale)}</span>
+              <div className="mt-3 space-y-2 rounded-2xl p-4" style={{ backgroundColor: isLightTheme ? '#f8fafc' : backgroundColor }}>
+                <div className="flex justify-between text-sm font-bold" style={{ color: surfaceMutedTextColor }}>
+                  <span>{tr('kitchen.subtotal')}</span>
+                  <span style={{ color: kioskAccentColor }}>{fmt(cartTotal, currencyCode, currencyLocale)}</span>
                 </div>
                 {taxRate > 0 && (
                   <div className="flex justify-between text-base font-black" style={{ color: surfaceTextColor }}>
-                    <span>IVA {taxRate}%</span>
-                    <span>{fmt(tax, currencyCode, currencyLocale)}</span>
+                    <span>{tr('kitchen.tax')} {taxRate}%</span>
+                    <span style={{ color: kioskAccentColor }}>{fmt(tax, currencyCode, currencyLocale)}</span>
                   </div>
                 )}
               </div>
-              <div className="flex justify-between pt-4 border-t mt-4 font-black text-2xl" style={{ borderColor: 'var(--kiosko-border)' }}>
-                <span style={{ color: surfaceTextColor }}>Total</span>
-                <span style={{ color: 'var(--kiosko-primary)' }}>{fmt(grandTotal, currencyCode, currencyLocale)}</span>
+              <div className="flex justify-between pt-4 border-t mt-4 font-black text-2xl" style={{ borderColor }}>
+                <span style={{ color: surfaceTextColor }}>{tr('kitchen.total')}</span>
+                <span style={{ color: kioskAccentColor }}>{fmt(grandTotal, currencyCode, currencyLocale)}</span>
               </div>
             </div>
 
             {/* Name input */}
             <div className="rounded-2xl shadow-sm border p-5 mb-4" style={{ backgroundColor: surfaceColor, borderColor }}>
               <label className="block">
-                <span className="text-sm font-bold mb-2 block" style={{ color: 'var(--kiosko-surface-text)' }}>
+                <span className="text-sm font-bold mb-2 block" style={{ color: surfaceTextColor }}>
                   Tu nombre <span className="text-red-500">*</span>
                 </span>
                 <input
@@ -882,23 +1029,23 @@ export default function KioskoClient({
                   onChange={e => setCustomerName(e.target.value)}
                   placeholder="¿Cómo te llamamos?"
                   className="w-full border-2 rounded-xl px-4 py-4 text-xl placeholder-gray-300 focus:outline-none transition-colors"
-                  style={{ borderColor: customerName ? 'var(--kiosko-primary)' : 'var(--kiosko-border)', color: 'var(--kiosko-surface-text)', backgroundColor: 'var(--kiosko-surface)' }}
+                  style={{ borderColor: customerName ? primaryColor : borderColor, color: surfaceTextColor, backgroundColor: surfaceColor }}
                   autoComplete="off"
                 />
               </label>
             </div>
 
             {/* Notes */}
-            <div className="rounded-2xl shadow-sm border p-5 mb-6 kiosko-card">
+            <div className="rounded-2xl shadow-sm border p-5 mb-6" style={{ backgroundColor: surfaceColor, borderColor }}>
               <label className="block">
-                <span className="text-sm font-bold mb-2 block" style={{ color: 'var(--kiosko-surface-text)' }}>Instrucciones especiales <span className="font-normal" style={{ color: surfaceMutedTextColor }}>(opcional)</span></span>
+                <span className="text-sm font-bold mb-2 block" style={{ color: surfaceTextColor }}>Instrucciones especiales <span className="font-normal" style={{ color: surfaceMutedTextColor }}>(opcional)</span></span>
                 <textarea
                   value={orderNotes}
                   onChange={e => setOrderNotes(e.target.value)}
                   placeholder="Sin cebolla, extra salsa..."
                   rows={2}
                   className="w-full border-2 rounded-xl px-4 py-3 text-sm placeholder-gray-300 focus:outline-none resize-none"
-                  style={{ borderColor: 'var(--kiosko-border)', color: 'var(--kiosko-surface-text)', backgroundColor: 'var(--kiosko-surface)' }}
+                  style={{ borderColor, color: surfaceTextColor, backgroundColor: surfaceColor }}
                 />
               </label>
             </div>
@@ -914,22 +1061,24 @@ export default function KioskoClient({
               <button
                 onClick={placeOrderCash}
                 disabled={loading}
-                className="w-full py-5 rounded-2xl font-black text-xl flex items-center justify-center gap-3 shadow-lg transition-all active:scale-98 disabled:opacity-50 kiosko-button-primary"
+                className="w-full py-5 rounded-2xl font-black text-xl flex items-center justify-center gap-3 shadow-lg transition-all active:scale-98 disabled:opacity-50"
+                style={{ backgroundColor: actionButtonColor, color: actionButtonTextColor }}
               >
-                🏧 Pagar en Caja
+                {tr('pos.cash')}
               </button>
               {stripeEnabled && (
                 <button
                   onClick={placeOrderStripe}
                   disabled={loading}
-                  className="w-full py-5 rounded-2xl font-black text-xl flex items-center justify-center gap-3 shadow-lg transition-all active:scale-98 disabled:opacity-50 kiosko-button-secondary"
+                  className="w-full py-5 rounded-2xl font-black text-xl flex items-center justify-center gap-3 shadow-lg transition-all active:scale-98 disabled:opacity-50"
+                  style={{ backgroundColor: secondaryActionButtonColor, color: secondaryActionButtonTextColor, border: isLightTheme ? `2px solid ${actionButtonColor}` : undefined }}
                 >
-                  💳 Pagar con Tarjeta
+                  {tr('pos.card')}
                 </button>
               )}
               {loading && (
-                <div className="flex items-center justify-center gap-2 pt-2 text-sm" style={{ color: 'var(--kiosko-text-secondary)' }}>
-                  <div className="w-4 h-4 border-2 rounded-full animate-spin" style={{ borderColor: 'var(--kiosko-border)', borderTopColor: 'var(--kiosko-primary)' }} />
+                <div className="flex items-center justify-center gap-2 pt-2 text-sm" style={{ color: mutedTextColor }}>
+                  <div className="w-4 h-4 border-2 rounded-full animate-spin" style={{ borderColor, borderTopColor: primaryColor }} />
                   Procesando...
                 </div>
               )}
@@ -943,44 +1092,45 @@ export default function KioskoClient({
   // ── Cart screen ─────────────────────────────────────────────────────────────
   if (step === 'cart') {
     return (
-      <div className="h-screen flex flex-col" style={{ fontFamily: 'Inter, system-ui, sans-serif', backgroundColor: 'var(--kiosko-background)', color: 'var(--kiosko-surface-text)' }}>
-        <AppHeader appName={appName} logoUrl={logoUrl} time={time} backLabel="Seguir pidiendo" onBack={() => setStep('menu')} />
+      <div className="h-screen flex flex-col" style={{ fontFamily: 'Inter, system-ui, sans-serif', backgroundColor: kioskBackgroundColor, color: pageTextColor }}>
+        <AppHeader primaryColor={appHeaderColor} accentColor={primaryColor} textColor={appHeaderTextColor} appName={appName} logoUrl={logoUrl} time={time} backLabel="Seguir pidiendo" onBack={() => setStep('menu')} isLightTheme={isLightTheme} />
         <div className="flex-1 overflow-y-auto">
           <div className="max-w-lg mx-auto p-6 pb-40">
-            <h2 className="text-2xl font-black mb-5" style={{ color: 'var(--kiosko-surface-text)' }}>Tu pedido</h2>
+            <h2 className="text-2xl font-black mb-5" style={{ color: pageTextColor }}>{tr('kitchen.viewOrder')}</h2>
 
             {cart.length === 0 ? (
-              <div className="text-center py-20" style={{ color: 'var(--kiosko-text-secondary)' }}>
+              <div className="text-center py-20" style={{ color: mutedTextColor }}>
                 <p className="text-6xl mb-4">🛒</p>
                 <p className="text-lg font-medium">Tu carrito está vacío</p>
               </div>
             ) : (
               <div className="space-y-3">
                 {cart.map(item => (
-                  <div key={item.lineId} className="rounded-2xl shadow-sm border p-4 flex items-center gap-4 kiosko-card">
+                  <div key={item.lineId} className="rounded-2xl shadow-sm border p-4 flex items-center gap-4" style={{ backgroundColor: surfaceColor, borderColor }}>
                     <div className="flex-1 min-w-0">
-                      <p className="font-bold truncate" style={{ color: 'var(--kiosko-surface-text)' }}>{item.name}</p>
+                      <p className="font-bold truncate" style={{ color: surfaceTextColor }}>{item.name}</p>
                       {item.toppings && item.toppings.length > 0 && (
-                        <p className="text-xs mt-1 line-clamp-2" style={{ color: 'var(--kiosko-text-secondary)' }}>
+                        <p className="text-xs mt-1 line-clamp-2" style={{ color: surfaceMutedTextColor }}>
                           {item.toppings.map(t => t.name).join(', ')}
                         </p>
                       )}
-                      <p className="text-sm mt-0.5" style={{ color: 'var(--kiosko-text-secondary)' }}>{fmt(item.price, currencyCode, currencyLocale)} c/u</p>
+                      <p className="text-sm mt-0.5" style={{ color: kioskAccentColor }}>{fmt(item.price, currencyCode, currencyLocale)} c/u</p>
                     </div>
                     <div className="flex items-center gap-2">
                       <button
                         onClick={() => updateQty(item.lineId, -1)}
                         className="w-10 h-10 rounded-full font-bold text-xl flex items-center justify-center transition-colors"
-                        style={{ backgroundColor: 'color-mix(in srgb, var(--kiosko-button-secondary) 15%, transparent)', color: 'var(--kiosko-text-on-button-secondary)' }}
+                        style={{ backgroundColor: isLightTheme ? '#fff3e8' : `${buttonSecondaryColor}22`, color: secondaryActionButtonTextColor }}
                       >−</button>
-                      <span className="font-black w-6 text-center tabular-nums text-lg" style={{ color: 'var(--kiosko-surface-text)' }}>{item.qty}</span>
+                      <span className="font-black w-6 text-center tabular-nums text-lg" style={{ color: surfaceTextColor }}>{item.qty}</span>
                       <button
                         onClick={() => updateQty(item.lineId, 1)}
-                        className="w-10 h-10 rounded-full font-bold text-xl flex items-center justify-center transition-colors kiosko-button-primary"
+                        className="w-10 h-10 rounded-full font-bold text-xl flex items-center justify-center transition-colors"
+                        style={{ backgroundColor: actionButtonColor, color: actionButtonTextColor }}
                       >+</button>
                     </div>
                     <div className="text-right min-w-[80px]">
-                      <p className="font-black" style={{ color: 'var(--kiosko-surface-text)' }}>{fmt(item.price * item.qty, currencyCode, currencyLocale)}</p>
+                      <p className="font-black" style={{ color: kioskAccentColor }}>{fmt(item.price * item.qty, currencyCode, currencyLocale)}</p>
                       <button onClick={() => removeFromCart(item.lineId)} className="text-xs text-red-400 mt-0.5">
                         Eliminar
                       </button>
@@ -989,13 +1139,13 @@ export default function KioskoClient({
                 ))}
 
                 {recommendedItems.length > 0 && (
-                  <div className="rounded-3xl border p-4 shadow-sm kiosko-card">
+                  <div className="rounded-3xl border p-4 shadow-sm" style={{ backgroundColor: surfaceColor, borderColor }}>
                     <div className="flex items-end justify-between gap-3 mb-4">
                       <div>
-                        <p className="text-xs font-black uppercase tracking-[0.22em]" style={{ color: 'var(--kiosko-text-secondary)' }}>
-                          Completa tu pedido
+                        <p className="text-xs font-black uppercase tracking-[0.22em]" style={{ color: surfaceMutedTextColor }}>
+                          {tr('checkout.completeOrder')}
                         </p>
-                        <p className="text-xl font-black" style={{ color: 'var(--kiosko-surface-text)' }}>
+                        <p className="text-xl font-black" style={{ color: surfaceTextColor }}>
                           Algo mas para acompanar?
                         </p>
                       </div>
@@ -1006,7 +1156,7 @@ export default function KioskoClient({
                           key={item.id}
                           onClick={() => addToCart(item, 1)}
                           className="rounded-2xl border overflow-hidden text-left active:scale-[0.98] transition-transform"
-                          style={{ borderColor: 'var(--kiosko-border)', backgroundColor: 'var(--kiosko-background)' }}
+                          style={{ borderColor, backgroundColor: isLightTheme ? '#ffffff' : backgroundColor }}
                         >
                           <div className="h-24 bg-white overflow-hidden">
                             {item.image_url ? (
@@ -1016,11 +1166,11 @@ export default function KioskoClient({
                             )}
                           </div>
                           <div className="p-3">
-                            <p className="font-black text-sm leading-tight line-clamp-2 min-h-[2.25rem]" style={{ color: 'var(--kiosko-surface-text)' }}>{item.name}</p>
+                            <p className="font-black text-sm leading-tight line-clamp-2 min-h-[2.25rem]" style={{ color: surfaceTextColor }}>{item.name}</p>
                             <div className="flex items-center justify-between mt-2">
-                              <span className="font-black" style={{ color: 'var(--kiosko-primary)' }}>{fmt(item.price, currencyCode, currencyLocale)}</span>
-                              <span className="rounded-full px-3 py-1 text-xs font-black kiosko-button-primary">
-                                Agregar
+                              <span className="font-black" style={{ color: kioskAccentColor }}>{fmt(item.price, currencyCode, currencyLocale)}</span>
+                              <span className="rounded-full px-3 py-1 text-xs font-black" style={{ backgroundColor: actionButtonColor, color: actionButtonTextColor }}>
+                                {tr('cart.add')}
                               </span>
                             </div>
                           </div>
@@ -1031,12 +1181,12 @@ export default function KioskoClient({
                 )}
 
                 {taxRate > 0 && (
-                  <div className="rounded-2xl shadow-sm border p-4 space-y-2 kiosko-card">
-                    <div className="flex justify-between text-sm" style={{ color: 'var(--kiosko-text-secondary)' }}>
-                      <span>Subtotal</span><span>{fmt(cartTotal, currencyCode, currencyLocale)}</span>
+                  <div className="rounded-2xl shadow-sm border p-4 space-y-2" style={{ backgroundColor: surfaceColor, borderColor }}>
+                    <div className="flex justify-between text-sm" style={{ color: surfaceMutedTextColor }}>
+                      <span>{tr('kitchen.subtotal')}</span><span style={{ color: kioskAccentColor }}>{fmt(cartTotal, currencyCode, currencyLocale)}</span>
                     </div>
-                    <div className="flex justify-between text-sm" style={{ color: 'var(--kiosko-text-secondary)' }}>
-                      <span>IVA {taxRate}%</span><span>{fmt(tax, currencyCode, currencyLocale)}</span>
+                    <div className="flex justify-between text-sm" style={{ color: surfaceMutedTextColor }}>
+                      <span>{tr('kitchen.tax')} {taxRate}%</span><span style={{ color: kioskAccentColor }}>{fmt(tax, currencyCode, currencyLocale)}</span>
                     </div>
                   </div>
                 )}
@@ -1046,15 +1196,16 @@ export default function KioskoClient({
         </div>
 
         {cart.length > 0 && (
-          <div className="fixed bottom-0 left-0 right-0 border-t p-4 shadow-2xl kiosko-card">
+          <div className="fixed bottom-0 left-0 right-0 border-t p-4 shadow-2xl" style={{ backgroundColor: surfaceColor, borderColor }}>
             <div className="max-w-lg mx-auto">
               <div className="flex items-center justify-between mb-3 px-1">
-                <span className="font-medium" style={{ color: surfaceMutedTextColor }}>Total a pagar</span>
-                <span className="text-2xl font-black" style={{ color: primaryColor }}>{fmt(grandTotal, currencyCode, currencyLocale)}</span>
+                <span className="font-medium" style={{ color: surfaceMutedTextColor }}>{tr('checkout.totalToPay')}</span>
+                <span className="text-2xl font-black" style={{ color: kioskAccentColor }}>{fmt(grandTotal, currencyCode, currencyLocale)}</span>
               </div>
               <button
                 onClick={() => setStep('checkout')}
-                className="w-full py-4 rounded-2xl font-black text-xl shadow-lg transition-all active:scale-98 kiosko-button-primary"
+                className="w-full py-4 rounded-2xl font-black text-xl shadow-lg transition-all active:scale-98"
+                style={{ backgroundColor: actionButtonColor, color: actionButtonTextColor }}
               >
                 Continuar con el pago →
               </button>
@@ -1069,27 +1220,210 @@ export default function KioskoClient({
   const visibleItems = activeCategory
     ? menuItems.filter(i => i.category_id === activeCategory)
     : menuItems
-  const activeAdBanner = banners.length > 0 ? banners[adBannerIndex % banners.length] : null
+
+  const renderAdPanel = (banner: Banner, label: string, compact = false) => (
+    <button
+      key={`${label}-${banner.id}`}
+      onClick={() => handleBannerClick(banner)}
+      className={`relative w-full overflow-hidden border text-left shadow-[0_24px_70px_rgba(0,0,0,0.42)] transition-transform active:scale-[0.99] ${
+        compact ? 'h-full rounded-[1.35rem] md:rounded-[1.8rem]' : 'h-full min-h-[220px] rounded-[1.6rem] md:rounded-[2.4rem]'
+      }`}
+      style={{
+        backgroundColor: surfaceColor,
+        borderColor: `${primaryColor}55`,
+        boxShadow: `0 24px 70px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.09), 0 0 0 1px ${primaryColor}18`,
+      }}
+    >
+      <BannerMedia
+        banner={banner}
+        className="absolute inset-0 h-full w-full scale-[1.04] object-cover object-center"
+      />
+      <div
+        className="absolute inset-0"
+        style={{
+          background: compact
+            ? 'linear-gradient(90deg, rgba(0,0,0,0.76) 0%, rgba(0,0,0,0.28) 54%, rgba(0,0,0,0.08) 100%)'
+            : 'linear-gradient(180deg, rgba(0,0,0,0.18) 0%, rgba(0,0,0,0.03) 38%, rgba(0,0,0,0.74) 100%)',
+        }}
+      />
+      <div
+        className="absolute inset-x-0 bottom-0 h-[52%]"
+        style={{
+          background: `linear-gradient(180deg, transparent 0%, ${surfaceColor}B8 58%, ${surfaceColor}F7 100%)`,
+        }}
+      />
+      <div className="absolute inset-0 rounded-[inherit] ring-1 ring-inset ring-white/10" />
+
+      <div className={`absolute left-4 right-4 top-4 z-10 flex items-center justify-between gap-3 ${compact ? '' : 'md:left-6 md:right-6 md:top-6'}`}>
+        <span
+          className="rounded-full border px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.22em] shadow-lg backdrop-blur-md md:px-4 md:py-2 md:text-xs"
+          style={{
+            backgroundColor: `${surfaceColor}CC`,
+            borderColor: `${primaryColor}55`,
+            color: primaryColor,
+          }}
+        >
+          {label}
+        </span>
+        <span
+          className="rounded-full px-4 py-2 text-xs font-black uppercase tracking-[0.18em] shadow-lg md:text-sm"
+          style={{ backgroundColor: actionButtonColor, color: actionButtonTextColor }}
+        >
+          Ordenar
+        </span>
+      </div>
+
+      <div className={`relative z-10 flex h-full flex-col justify-end text-white ${compact ? 'p-5 md:p-6' : 'p-5 md:p-10 xl:p-12'}`}>
+        <p className={`max-w-4xl font-black leading-[0.94] drop-shadow-[0_8px_30px_rgba(0,0,0,0.55)] ${
+          compact ? 'text-3xl md:text-4xl xl:text-5xl' : 'text-5xl md:text-7xl xl:text-8xl'
+        }`}>
+          {banner.title}
+        </p>
+        <div className="mt-4 flex flex-wrap items-center gap-3">
+          <p className="text-xs font-black uppercase tracking-[0.22em] text-white/82 md:text-sm">
+            Toca para ordenar
+          </p>
+          {!compact && <span className="hidden h-px w-16 bg-white/24 md:block" />}
+          {!compact && (
+            <p className="text-sm font-bold text-white/68 md:text-base">
+              Promocion destacada del kiosko
+            </p>
+          )}
+        </div>
+      </div>
+
+      {!compact && topBanners.length > 1 && (
+        <div className="absolute bottom-5 left-1/2 z-20 flex -translate-x-1/2 items-center gap-2 rounded-full border border-white/12 bg-black/42 px-3 py-2 shadow-xl backdrop-blur-md">
+          {topBanners.map((item, idx) => (
+            <span
+              key={item.id}
+              className={`h-2 rounded-full transition-all ${idx === adBannerIndex % topBanners.length ? 'w-9' : 'w-2 bg-white/45'}`}
+              style={idx === adBannerIndex % topBanners.length ? { backgroundColor: primaryColor } : undefined}
+            />
+          ))}
+        </div>
+      )}
+    </button>
+  )
 
   return (
-    <div className="h-screen flex flex-col overflow-hidden" style={{ fontFamily: 'Inter, system-ui, sans-serif', backgroundColor: 'var(--kiosko-background)', color: 'var(--kiosko-surface-text)' }}>
+    <div
+      className="ecco-premium-app h-screen flex flex-col overflow-hidden"
+      style={{
+        fontFamily: 'Inter, system-ui, sans-serif',
+        backgroundColor,
+        background: menuShellBackground,
+        color: pageTextColor,
+      }}
+    >
 
       {/* Fullscreen prompt overlay */}
       {showFsPrompt && !isFullscreen && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center cursor-pointer"
-          style={{ backgroundColor: 'var(--kiosko-primary)' }}
+          className="ecco-fixed-layer fixed inset-0 flex h-[100dvh] w-screen cursor-pointer items-center justify-center"
+          style={{
+            position: 'fixed',
+            inset: 0,
+            width: '100vw',
+            height: '100dvh',
+            zIndex: 9999,
+            background:
+              isLightTheme
+            ? 'linear-gradient(180deg, #ffffff 0%, #f4f4f5 58%, #e5e7eb 100%)'
+                : `radial-gradient(circle at 50% 18%, ${primaryColor}33 0%, transparent 34%), linear-gradient(180deg, ${surfaceColor} 0%, ${backgroundColor} 64%, #05070d 100%)`,
+          }}
           onClick={() => { toggleFullscreen(); setShowFsPrompt(false) }}
         >
-          <div className="text-center" style={{ color: 'var(--kiosko-text-on-primary)' }}>
-            <p className="text-8xl mb-8">🖥️</p>
-            <p className="text-4xl font-black mb-4">Toca para comenzar</p>
-            <p className="text-xl opacity-80">{appName}</p>
+          <div className="text-center" style={{ color: isLightTheme ? pageTextColor : primaryTextColor }}>
+            <p className="mb-8 text-8xl drop-shadow-2xl">🖥️</p>
+            <p className="mb-4 text-5xl font-black tracking-tight drop-shadow-[0_8px_28px_rgba(0,0,0,0.45)]">
+              Toca para comenzar
+            </p>
+            <p className="text-2xl font-semibold opacity-85">{appName}</p>
           </div>
         </div>
       )}
 
-      <AppHeader appName={appName} logoUrl={logoUrl} time={time} cartCount={cartCount} />
+      {isAttractMode && !showFsPrompt && (
+        <button
+          type="button"
+          className="ecco-fixed-layer fixed inset-0 z-[9998] h-[100dvh] w-screen overflow-hidden text-left"
+          onClick={() => {
+            setIsAttractMode(false)
+            void activateWakeLock()
+            if (!document.fullscreenElement) {
+              document.documentElement.requestFullscreen().catch(() => {})
+            }
+          }}
+          style={{
+            background:
+              isLightTheme
+                ? 'linear-gradient(180deg, #ffffff 0%, #f4f4f5 58%, #e5e7eb 100%)'
+                : `radial-gradient(circle at 24% 18%, ${primaryColor}44 0%, transparent 32%), linear-gradient(135deg, ${backgroundColor} 0%, ${surfaceColor} 48%, ${backgroundColor} 100%)`,
+          }}
+        >
+          {activeAdBanner ? (
+            <BannerMedia
+              banner={activeAdBanner}
+              className="absolute inset-0 h-full w-full scale-[1.03] object-cover object-center"
+            />
+          ) : (
+            <div className="absolute inset-0" style={{ background: `linear-gradient(135deg, ${primaryColor}, ${surfaceColor}, ${backgroundColor})` }} />
+          )}
+          <div className="absolute inset-0 bg-gradient-to-t from-black/86 via-black/28 to-black/20" />
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_72%_18%,rgba(255,255,255,0.16),transparent_22rem)]" />
+
+          <div className="relative z-10 flex h-full flex-col justify-between p-8 text-white md:p-12 xl:p-16">
+            <div className="flex items-center justify-between gap-6">
+              <div className="flex min-w-0 items-center gap-5">
+                {logoUrl ? (
+                  <img src={logoUrl} alt={appName} className="h-20 max-w-[14rem] object-contain drop-shadow-2xl md:h-28" />
+                ) : (
+                  <span className="grid size-20 place-items-center rounded-[1.7rem] text-4xl font-black shadow-2xl md:size-28" style={{ backgroundColor: primaryColor, color: primaryTextColor }}>
+                    {appName.charAt(0)}
+                  </span>
+                )}
+                <div className="min-w-0">
+                  <p className="truncate text-3xl font-black drop-shadow md:text-5xl">{appName}</p>
+                  <p className="mt-2 text-sm font-black uppercase tracking-[0.28em] text-white/72 md:text-base">Kiosko de autoservicio</p>
+                </div>
+              </div>
+              <div className="hidden rounded-full border border-white/20 bg-black/42 px-6 py-3 text-xl font-black shadow-xl backdrop-blur-md md:block">
+                {time?.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }) ?? ''}
+              </div>
+            </div>
+
+            <div className="max-w-5xl">
+              <span className="inline-flex rounded-full border border-white/18 bg-black/42 px-5 py-3 text-sm font-black uppercase tracking-[0.26em] shadow-xl backdrop-blur-md">
+                {activeAdBanner ? 'Promocion' : 'Bienvenido'}
+              </span>
+              <h1 className="mt-6 max-w-5xl text-6xl font-black leading-[0.9] drop-shadow-[0_12px_45px_rgba(0,0,0,0.72)] md:text-8xl xl:text-9xl">
+                {activeAdBanner?.title || 'Toca para ordenar'}
+              </h1>
+              <div className="mt-8 flex flex-wrap items-center gap-4">
+                <span className="rounded-full px-8 py-5 text-2xl font-black shadow-2xl md:text-3xl" style={{ backgroundColor: buttonPrimaryColor, color: buttonTextColor }}>
+                  Toca la pantalla
+                </span>
+                <span className="text-lg font-bold text-white/76 md:text-2xl">Empieza tu pedido en segundos</span>
+              </div>
+            </div>
+
+            {topBanners.length > 1 && (
+              <div className="flex items-center justify-center gap-2">
+                {topBanners.map((item, idx) => (
+                  <span
+                    key={item.id}
+                    className={`h-2 rounded-full transition-all ${idx === adBannerIndex % topBanners.length ? 'w-12' : 'w-2 bg-white/45'}`}
+                    style={idx === adBannerIndex % topBanners.length ? { backgroundColor: primaryColor } : undefined}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
+        </button>
+      )}
+
+      <AppHeader primaryColor={appHeaderColor} accentColor={primaryColor} textColor={appHeaderTextColor} appName={appName} logoUrl={logoUrl} time={time} cartCount={cartCount} isLightTheme={isLightTheme} />
 
       {/* Body: sidebar only (products in modal) */}
       <div className="flex flex-1 flex-col overflow-hidden md:flex-row">
@@ -1097,12 +1431,12 @@ export default function KioskoClient({
         {/* ── Category carousel ── */}
         <aside
           ref={categoryScrollRef}
-          className="w-full flex-shrink-0 overflow-x-auto border-b p-3 hide-scrollbar md:w-[24rem] md:overflow-y-auto md:border-b-0 md:border-r md:p-5 xl:w-[28rem] kiosko-surface"
-          style={{ WebkitOverflowScrolling: 'touch', borderColor: 'var(--kiosko-border)' }}
+          className="w-full flex-shrink-0 overflow-x-auto border-b p-3 pt-0 hide-scrollbar md:w-[24rem] md:overflow-y-auto md:border-b-0 md:border-r md:p-5 md:pt-0 xl:w-[28rem]"
+          style={{ WebkitOverflowScrolling: 'touch', background: mainPanelBackground, borderColor }}
         >
-          <div className="hidden sticky top-0 z-10 pb-4 mb-3 md:block kiosko-surface">
-            <p className="text-xs font-black uppercase tracking-[0.25em]" style={{ color: 'var(--kiosko-text-secondary)' }}>Menu</p>
-            <p className="text-3xl font-black leading-none mt-1" style={{ color: 'var(--kiosko-surface-text)' }}>Categorias</p>
+          <div className="hidden sticky top-0 z-10 -mx-5 mb-3 border-b px-5 pb-4 pt-5 md:block" style={{ background: mainPanelBackground, borderColor }}>
+            <p className="text-xs font-black uppercase tracking-[0.25em]" style={{ color: surfaceMutedTextColor }}>Menu</p>
+            <p className="text-3xl font-black leading-none mt-1" style={{ color: surfaceTextColor }}>Categorias</p>
           </div>
           <div className="flex gap-4 md:block md:space-y-6">
             {/* Show categories three times for infinite scroll effect */}
@@ -1118,13 +1452,13 @@ export default function KioskoClient({
                   onClick={() => { setActiveCategory(cat.id); setIsCategoryModalOpen(true); setPressedCategory(null) }}
                   className="group relative h-40 min-w-[300px] overflow-hidden rounded-[1.55rem] border text-left shadow-xl transition-all active:scale-[0.97] md:h-48 md:w-full md:min-w-0 md:rounded-[2rem] xl:h-56"
                   style={{
-                    backgroundColor: isPressed ? 'var(--kiosko-primary)' : 'var(--kiosko-surface)',
-                    borderColor: isPressed ? 'var(--kiosko-primary)' : 'var(--kiosko-border)',
-                    color: isPressed ? 'var(--kiosko-text-on-primary)' : 'var(--kiosko-surface-text)',
-                    boxShadow: isPressed ? `0 22px 55px color-mix(in srgb, var(--kiosko-primary) 33%, transparent)` : undefined,
+                    backgroundColor: isPressed ? primaryColor : surfaceColor,
+                    borderColor: isPressed ? primaryColor : borderColor,
+                    color: isPressed ? primaryTextColor : surfaceTextColor,
+                    boxShadow: isPressed ? `0 22px 55px ${primaryColor}55` : undefined,
                   }}
                 >
-                  <div className="absolute inset-0 flex items-center justify-center bg-white">
+                  <div className="absolute inset-0 flex items-center justify-center bg-neutral-950" style={{ backgroundColor: placeholderImageBg }}>
                     {cat.image_url ? (
                       <img
                         src={cat.image_url}
@@ -1146,7 +1480,7 @@ export default function KioskoClient({
                   <div className="relative z-10 flex h-full flex-col justify-end p-4 md:p-5 xl:p-6">
                     <span
                       className="mb-3 w-fit rounded-full px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.18em] md:text-xs"
-                      style={{ backgroundColor: isPressed ? 'color-mix(in srgb, var(--kiosko-text-on-primary) 13%, transparent)' : 'var(--kiosko-primary)', color: 'var(--kiosko-text-on-primary)' }}
+                      style={{ backgroundColor: isPressed ? `${primaryTextColor}22` : `${primaryColor}ee`, color: primaryTextColor }}
                     >
                       Categoria
                     </span>
@@ -1159,55 +1493,52 @@ export default function KioskoClient({
           </div>
         </aside>
 
-        <div className="flex-1 overflow-hidden p-3 md:p-7">
-          {activeAdBanner ? (
-            <section className="h-full">
-              <button
-                key={activeAdBanner.id}
-                onClick={() => handleBannerClick(activeAdBanner)}
-                className="relative h-full min-h-[360px] w-full overflow-hidden rounded-[1.6rem] border text-left shadow-2xl transition-transform active:scale-[0.99] md:min-h-0 md:rounded-[2.4rem] kiosko-card"
-              >
-                <img
-                  src={activeAdBanner.image_url}
-                  alt={activeAdBanner.title}
-                  className="absolute inset-0 h-full w-full object-cover"
-                />
-                <div className="absolute inset-0 bg-black/10" />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/82 via-black/22 to-black/8" />
-
-                <div className="relative z-10 flex h-full flex-col justify-end p-5 text-white md:p-10 xl:p-12">
-                  <span
-                    className="mb-4 w-fit rounded-full px-4 py-2 text-xs font-black uppercase tracking-[0.24em] md:text-sm kiosko-badge"
-                  >
-                    Publicidad
-                  </span>
-                  <p className="max-w-4xl text-4xl font-black leading-none drop-shadow md:text-7xl xl:text-8xl">
-                    {activeAdBanner.title}
+            <div className="flex-1 overflow-hidden p-3 md:p-5 xl:p-7" style={{ background: mainPanelBackground }}>
+          {activeAdBanner || secondaryAdBanner ? (
+            <section className="grid h-full grid-rows-[minmax(0,1.1fr)_minmax(170px,0.9fr)] gap-3 md:gap-5">
+              {activeAdBanner ? (
+                renderAdPanel(activeAdBanner, 'Publicidad')
+              ) : (
+                <div
+                  className="flex h-full flex-col justify-center rounded-[1.6rem] border p-6 text-center shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] md:rounded-[2.4rem] md:p-10"
+                  style={{ backgroundColor: surfaceColor, borderColor: `${primaryColor}42`, color: surfaceTextColor }}
+                >
+                  <p className="text-xs font-black uppercase tracking-[0.24em]" style={{ color: primaryColor }}>Banner de arriba</p>
+                  <p className="mt-3 text-3xl font-black leading-none md:text-5xl">Asigna un banner para la parte superior</p>
+                </div>
+              )}
+              {secondaryAdBanner ? (
+                renderAdPanel(secondaryAdBanner, 'Promocion', true)
+              ) : (
+                <div
+                  className="flex h-full flex-col justify-center rounded-[1.35rem] border p-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] md:rounded-[1.8rem] md:p-7"
+                  style={{
+                    background:
+                      `linear-gradient(135deg, ${surfaceColor} 0%, ${primaryColor}1F 100%)`,
+                    borderColor: `${primaryColor}42`,
+                    color: surfaceTextColor,
+                  }}
+                >
+                  <p className="text-xs font-black uppercase tracking-[0.24em]" style={{ color: primaryColor }}>
+                    Siguiente paso
                   </p>
-                  <p className="mt-5 text-sm font-black uppercase tracking-[0.24em] text-white/82 md:text-base">
-                    Toca la imagen para ordenar
+                  <p className="mt-3 text-3xl font-black leading-none md:text-4xl">
+                    Toca una categoria para ver productos
+                  </p>
+                  <p className="mt-3 text-sm font-semibold" style={{ color: surfaceMutedTextColor }}>
+                    La publicidad superior queda fija mientras el menu infinito sigue activo a la izquierda.
                   </p>
                 </div>
-
-                {banners.length > 1 && (
-                  <div className="absolute bottom-5 left-1/2 z-20 flex -translate-x-1/2 items-center gap-2 rounded-full bg-black/28 px-3 py-2 backdrop-blur-md">
-                    {banners.map((banner, idx) => (
-                      <span
-                        key={banner.id}
-                        className={`h-2 rounded-full transition-all ${idx === adBannerIndex % banners.length ? 'w-9 bg-white' : 'w-2 bg-white/45'}`}
-                      />
-                    ))}
-                  </div>
-                )}
-              </button>
+              )}
             </section>
           ) : (
             <section
-              className="flex h-full flex-col items-center justify-center rounded-[1.4rem] border p-5 text-center md:rounded-[2rem] md:p-10 kiosko-card"
+              className="flex h-full flex-col items-center justify-center rounded-[1.4rem] border p-5 text-center md:rounded-[2rem] md:p-10"
+              style={{ backgroundColor: surfaceColor, borderColor, color: surfaceTextColor }}
             >
-              <p className="text-sm font-black uppercase tracking-[0.28em]" style={{ color: 'var(--kiosko-text-secondary)' }}>Publicidad</p>
-              <h1 className="mt-4 max-w-2xl text-3xl font-black leading-none md:text-6xl" style={{ color: 'var(--kiosko-surface-text)' }}>Agrega banners para mostrar promociones aqui</h1>
-              <p className="mt-5 max-w-xl text-base md:text-xl" style={{ color: 'var(--kiosko-text-secondary)' }}>
+              <p className="text-sm font-black uppercase tracking-[0.28em]" style={{ color: mutedTextColor }}>Publicidad</p>
+              <h1 className="mt-4 max-w-2xl text-3xl font-black leading-none md:text-6xl">Agrega banners para mostrar promociones aqui</h1>
+              <p className="mt-5 max-w-xl text-base md:text-xl" style={{ color: surfaceMutedTextColor }}>
                 Los productos se muestran al tocar una categoria del carrusel izquierdo.
               </p>
             </section>
@@ -1217,37 +1548,38 @@ export default function KioskoClient({
 
       {/* Cart bar */}
       {cartCount > 0 && (
-        <div className="flex-shrink-0 border-t px-3 py-3 shadow-2xl md:px-6 md:py-4 kiosko-surface" style={{ borderColor: 'var(--kiosko-border)' }}>
+        <div className="flex-shrink-0 border-t px-3 py-3 shadow-2xl md:px-6 md:py-4" style={{ backgroundColor: surfaceColor, borderColor }}>
           <div className="mx-auto flex max-w-5xl items-center gap-3 md:gap-4">
             <div
               className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-2xl text-xl font-black shadow-lg md:h-16 md:w-16 md:text-2xl"
-              style={{ backgroundColor: 'color-mix(in srgb, var(--kiosko-button-primary) 10%, transparent)', color: 'var(--kiosko-primary)' }}
+              style={{ backgroundColor: isLightTheme ? '#fff3e8' : `${buttonPrimaryColor}18`, color: isLightTheme ? actionButtonColor : primaryColor }}
             >
               {cartCount}
             </div>
             <div className="min-w-0 flex-1">
-              <p className="text-xs font-black uppercase tracking-[0.24em]" style={{ color: 'var(--kiosko-text-secondary)' }}>
-                Pedido en curso
+              <p className="text-xs font-black uppercase tracking-[0.24em]" style={{ color: surfaceMutedTextColor }}>
+                {tr('checkout.orderInProgress')}
               </p>
-              <p className="truncate text-xl font-black" style={{ color: 'var(--kiosko-surface-text)' }}>
+              <p className="truncate text-xl font-black" style={{ color: surfaceTextColor }}>
                 {cartCount} {cartCount === 1 ? 'producto seleccionado' : 'productos seleccionados'}
               </p>
             </div>
             <div className="hidden text-right sm:block">
-              <p className="text-xs font-bold uppercase tracking-widest" style={{ color: 'var(--kiosko-text-secondary)' }}>Total</p>
-              <p className="text-3xl font-black leading-none" style={{ color: 'var(--kiosko-primary)' }}>{fmt(grandTotal, currencyCode, currencyLocale)}</p>
+              <p className="text-xs font-bold uppercase tracking-widest" style={{ color: surfaceMutedTextColor }}>{tr('kitchen.total')}</p>
+              <p className="text-3xl font-black leading-none" style={{ color: kioskAccentColor }}>{fmt(grandTotal, currencyCode, currencyLocale)}</p>
               {taxRate > 0 && (
-                <p className="mt-1 text-xs font-semibold" style={{ color: 'var(--kiosko-text-secondary)' }}>
-                  Incluye IVA {taxRate}%: {fmt(tax, currencyCode, currencyLocale)}
+                <p className="mt-1 text-xs font-semibold" style={{ color: surfaceMutedTextColor }}>
+                  Incluye IVA {taxRate}%: <span style={{ color: kioskAccentColor }}>{fmt(tax, currencyCode, currencyLocale)}</span>
                 </p>
               )}
             </div>
             <button
               onClick={() => setStep('cart')}
-              className="flex min-w-0 flex-shrink-0 items-center justify-between gap-3 rounded-2xl px-4 py-4 text-sm font-black shadow-xl transition-transform active:scale-[0.98] md:min-w-[260px] md:gap-5 md:px-6 md:py-5 md:text-xl kiosko-button-primary"
+              className="flex min-w-0 flex-shrink-0 items-center justify-between gap-3 rounded-2xl px-4 py-4 text-sm font-black shadow-xl transition-transform active:scale-[0.98] md:min-w-[260px] md:gap-5 md:px-6 md:py-5 md:text-xl"
+              style={{ backgroundColor: actionButtonColor, color: actionButtonTextColor }}
             >
-              <span>Ver pedido</span>
-              <span className="rounded-full px-4 py-2 text-base" style={{ backgroundColor: 'color-mix(in srgb, var(--kiosko-text-on-button) 15%, transparent)' }}>
+              <span>{tr('kitchen.viewOrder')}</span>
+              <span className="rounded-full px-4 py-2 text-base" style={{ backgroundColor: `${buttonTextColor}24` }}>
                 {fmt(grandTotal, currencyCode, currencyLocale)}
               </span>
             </button>
@@ -1263,6 +1595,16 @@ export default function KioskoClient({
           banners={[]}
           currencyCode={currencyCode}
           currencyLocale={currencyLocale}
+          primaryColor={primaryColor}
+          accentColor={accentColor}
+          buttonColor={buttonPrimaryColor}
+          surfaceColor={surfaceColor}
+          textColor={surfaceTextColor}
+          mutedTextColor={surfaceMutedTextColor}
+          borderColor={borderColor}
+          headerTextColor={primaryTextColor}
+          placeholderImageBg={placeholderImageBg}
+          freeToppingsLabel={freeToppingsLabel}
           toppings={toppings}
           onClose={() => setIsCategoryModalOpen(false)}
           onSelectItem={item => { setSelectedItem(item); setItemQty(1) }}
@@ -1272,37 +1614,54 @@ export default function KioskoClient({
       {/* ── Item modal ── */}
       {selectedItem && (
         <div
-          className="fixed inset-0 bg-black/50 flex items-end sm:items-center justify-center z-50 p-4"
+          className="ecco-fixed-layer fixed inset-0 z-[10010] flex items-end justify-center bg-black/50 p-4 sm:items-center"
           onClick={() => setSelectedItem(null)}
         >
           <div
-            className="rounded-3xl w-full max-w-md overflow-hidden shadow-2xl kiosko-surface"
+            className="rounded-3xl w-full max-w-md overflow-hidden shadow-2xl"
+            style={{ backgroundColor: surfaceColor }}
             onClick={e => e.stopPropagation()}
           >
             {selectedItem.image_url ? (
               <img src={selectedItem.image_url} alt={selectedItem.name} className="w-full h-56 object-cover" />
             ) : (
-              <div className="w-full h-44 flex items-center justify-center text-7xl" style={{ backgroundColor: '#ffffff' }}>
+              <div className="w-full h-44 flex items-center justify-center text-7xl" style={{ backgroundColor: placeholderImageBg }}>
                 🍽️
               </div>
             )}
             <div className="p-6">
               <div className="flex items-start justify-between mb-1 gap-4">
-                <h3 className="text-2xl font-black leading-tight" style={{ color: 'var(--kiosko-surface-text)' }}>{selectedItem.name}</h3>
-                <p className="text-2xl font-black flex-shrink-0" style={{ color: 'var(--kiosko-primary)' }}>
+                <h3
+                  className={`text-2xl font-black leading-tight ${isLightTheme ? '!text-black' : ''}`}
+                  style={{
+                    color: modalTextColor,
+                    WebkitTextFillColor: modalTextColor,
+                    textShadow: 'none',
+                  }}
+                >
+                  {selectedItem.name}
+                </h3>
+                <p className="text-2xl font-black flex-shrink-0" style={{ color: kioskAccentColor }}>
                   {fmt(selectedItem.price, currencyCode, currencyLocale)}
                 </p>
               </div>
               {selectedItem.description && (
-                <p className="text-sm mb-5 leading-relaxed" style={{ color: 'var(--kiosko-text-secondary)' }}>{selectedItem.description}</p>
+                <p className="text-sm mb-5 leading-relaxed" style={{ color: surfaceMutedTextColor }}>{selectedItem.description}</p>
               )}
 
               {toppingsForSelectedItem.length > 0 && (
                 <div className="mb-6">
                   <div className="flex items-center justify-between mb-3">
-                    <p className="text-sm font-black uppercase tracking-widest" style={{ color: 'var(--kiosko-text-secondary)' }}>Adicionales</p>
-                    <p className="text-xs font-bold" style={{ color: 'var(--kiosko-text-secondary)' }}>Opcional</p>
+                    <p className="text-sm font-black uppercase tracking-widest" style={{ color: surfaceMutedTextColor }}>
+                      {selectedItemHasOnlyFreeToppings ? freeToppingsLabel : 'Adicionales'}
+                    </p>
+                    <p className="text-xs font-bold" style={{ color: surfaceMutedTextColor }}>Opcional</p>
                   </div>
+                  {selectedItemHasOnlyFreeToppings && (
+                    <p className="mb-3 text-sm font-semibold" style={{ color: surfaceMutedTextColor }}>
+                      Elige los ingredientes que quieres. No tienen costo adicional.
+                    </p>
+                  )}
                   <div className="grid grid-cols-2 gap-2 max-h-56 overflow-y-auto pr-1">
                     {toppingsForSelectedItem.map(topping => {
                       const checked = selectedToppings.some(t => t.id === topping.id)
@@ -1313,24 +1672,27 @@ export default function KioskoClient({
                           onClick={() => toggleTopping(topping)}
                           className="w-full rounded-2xl border p-4 flex items-center gap-3 text-left transition-transform active:scale-[0.99]"
                           style={{
-                            backgroundColor: checked ? 'color-mix(in srgb, var(--kiosko-button-primary) 10%, transparent)' : 'var(--kiosko-background)',
-                            borderColor: checked ? 'var(--kiosko-button-primary)' : 'var(--kiosko-border)',
+                            backgroundColor: checked ? `${actionButtonColor}18` : (isLightTheme ? '#ffffff' : backgroundColor),
+                            borderColor: checked ? actionButtonColor : borderColor,
                           }}
                         >
                           <span
                             className="w-7 h-7 rounded-full border-2 flex items-center justify-center font-black text-sm flex-shrink-0"
                             style={{
-                              borderColor: checked ? 'var(--kiosko-button-primary)' : 'var(--kiosko-border)',
-                              backgroundColor: checked ? 'var(--kiosko-button-primary)' : 'var(--kiosko-surface)',
-                              color: checked ? 'var(--kiosko-text-on-button)' : 'var(--kiosko-text-secondary)',
+                              borderColor: checked ? actionButtonColor : borderColor,
+                              backgroundColor: checked ? actionButtonColor : surfaceColor,
+                              color: checked ? actionButtonTextColor : surfaceMutedTextColor,
                             }}
                           >
                             {checked ? 'OK' : '+'}
                           </span>
                           <span className="flex-1 min-w-0">
-                            <span className="block font-black leading-tight" style={{ color: 'var(--kiosko-surface-text)' }}>{topping.name}</span>
+                            <span className="block font-black leading-tight" style={{ color: modalTextColor }}>{topping.name}</span>
                             {topping.price > 0 && (
-                              <span className="block text-xs mt-0.5" style={{ color: 'var(--kiosko-text-secondary)' }}>+ {fmt(topping.price, currencyCode, currencyLocale)}</span>
+                              <span className="block text-xs mt-0.5" style={{ color: kioskAccentColor }}>+ {fmt(topping.price, currencyCode, currencyLocale)}</span>
+                            )}
+                            {topping.price <= 0 && selectedItemHasOnlyFreeToppings && (
+                              <span className="block text-xs mt-0.5" style={{ color: kioskAccentColor }}>Gratis</span>
                             )}
                           </span>
                         </button>
@@ -1340,22 +1702,24 @@ export default function KioskoClient({
                 </div>
               )}
 
-              <div className="flex items-center justify-center gap-6 mb-6 py-4 rounded-2xl" style={{ backgroundColor: 'var(--kiosko-background)', border: '1px solid var(--kiosko-border)' }}>
+              <div className="flex items-center justify-center gap-6 mb-6 py-4 rounded-2xl" style={{ backgroundColor: isLightTheme ? '#f8fafc' : backgroundColor, border: `1px solid ${borderColor}` }}>
                 <button
                   onClick={() => setItemQty(q => Math.max(1, q - 1))}
                   className="w-14 h-14 rounded-full text-3xl font-bold flex items-center justify-center transition-colors"
-                  style={{ backgroundColor: 'color-mix(in srgb, var(--kiosko-button-secondary) 13%, transparent)', color: 'var(--kiosko-text-on-button-secondary)' }}
+                  style={{ backgroundColor: isLightTheme ? '#fff3e8' : `${buttonSecondaryColor}22`, color: secondaryButtonTextColor }}
                 >−</button>
-                <span className="text-4xl font-black w-12 text-center tabular-nums" style={{ color: 'var(--kiosko-surface-text)' }}>{itemQty}</span>
+                <span className="text-4xl font-black w-12 text-center tabular-nums" style={{ color: modalTextColor }}>{itemQty}</span>
                 <button
                   onClick={() => setItemQty(q => q + 1)}
-                  className="w-14 h-14 rounded-full text-3xl font-bold flex items-center justify-center transition-colors shadow-md kiosko-button-primary"
+                  className="w-14 h-14 rounded-full text-3xl font-bold flex items-center justify-center transition-colors shadow-md"
+                  style={{ backgroundColor: actionButtonColor, color: actionButtonTextColor }}
                 >+</button>
               </div>
 
               <button
                 onClick={() => { addToCart(selectedItem, itemQty, selectedToppings); setSelectedItem(null) }}
-                className="w-full py-5 rounded-2xl font-black text-xl transition-all active:scale-98 shadow-lg kiosko-button-primary"
+                className="w-full py-5 rounded-2xl font-black text-xl transition-all active:scale-98 shadow-lg"
+                style={{ backgroundColor: actionButtonColor, color: actionButtonTextColor }}
               >
                 Agregar - {fmt(selectedUnitPrice * itemQty, currencyCode, currencyLocale)}
               </button>

@@ -1,10 +1,13 @@
 import { createClient } from '@/lib/supabase/client';
+import { getRestaurantBusinessPeriod, getRestaurantLocale, getRestaurantTimeZone } from '@/lib/restaurant-time';
 
 export interface CashClosingStats {
   cashSales: number;
   cardSales: number;
   otherSales: number;
   totalSales: number;
+  totalDeliveryFees: number;
+  deliveryOrderCount: number;
   totalTax: number;
   totalDiscount: number;
   transactionCount: number;
@@ -23,14 +26,14 @@ export interface CashClosingStats {
   }[];
 }
 
-const DEFAULT_OPERATIONAL_CLOSE_MINUTES = 5 * 60; // 05:00, useful for restaurants that close after midnight.
-
 function emptyStats(period: CashClosingPeriod): CashClosingStats {
   return {
     cashSales: 0,
     cardSales: 0,
     otherSales: 0,
     totalSales: 0,
+    totalDeliveryFees: 0,
+    deliveryOrderCount: 0,
     totalTax: 0,
     totalDiscount: 0,
     transactionCount: 0,
@@ -48,53 +51,93 @@ type CashClosingPeriod = {
   operationalCloseTime: string;
 };
 
-function parseTimeToMinutes(value?: string | null) {
-  if (!value || !/^\d{1,2}:\d{2}$/.test(value)) return null;
-  const [hours, minutes] = value.split(':').map(Number);
-  if (hours < 0 || hours > 23 || minutes < 0 || minutes > 59) return null;
-  return hours * 60 + minutes;
-}
+function statsFromOrders(period: CashClosingPeriod, orders: any[] = []): CashClosingStats {
+  const countableOrders = orders.filter((order: any) =>
+    order.status !== 'cancelled' && order.payment_status === 'paid'
+  );
 
-function formatMinutes(minutes: number) {
-  const h = Math.floor(minutes / 60).toString().padStart(2, '0');
-  const m = (minutes % 60).toString().padStart(2, '0');
-  return `${h}:${m}`;
-}
+  const stats = {
+    cashSales: 0,
+    cardSales: 0,
+    otherSales: 0,
+    totalSales: 0,
+    totalDeliveryFees: 0,
+    deliveryOrderCount: 0,
+    totalTax: 0,
+    totalDiscount: 0,
+    transactionCount: countableOrders.length,
+    ordersCompleted: countableOrders.length,
+    ordersCancelled: 0,
+    closingOrders: countableOrders.map((order: any) => ({
+      id: order.id,
+      order_number: order.order_number,
+      total: Number(order.total) || 0,
+      payment_method: order.payment_method,
+      created_at: order.created_at,
+    })),
+    ...period,
+  };
 
-function findOperationalCloseMinutes(operatingHours: any) {
-  const overnightCloseMinutes: number[] = [];
+  orders.forEach((order: any) => {
+    if (order.status === 'cancelled') {
+      stats.ordersCancelled++;
+      return;
+    }
+    if (order.payment_status !== 'paid') return;
 
-  Object.values(operatingHours || {}).forEach((day: any) => {
-    Object.values(day || {}).forEach((shift: any) => {
-      const open = parseTimeToMinutes(shift?.open);
-      const close = parseTimeToMinutes(shift?.close);
-      if (open === null || close === null) return;
-      if (close <= open) overnightCloseMinutes.push(close);
-    });
+    const total = Number(order.total) || 0;
+    const deliveryFee = Number(order.delivery_fee || 0);
+    const tax = Number(order.tax ?? order.tax_amount) || 0;
+    const discount = Number(order.discount_amount) || 0;
+
+    if (order.payment_method === 'cash') {
+      stats.cashSales += total;
+    } else if (order.payment_method === 'stripe' || order.payment_method === 'card' || order.payment_method === 'wompi') {
+      stats.cardSales += total;
+    } else {
+      stats.otherSales += total;
+    }
+
+    stats.totalSales += total;
+    stats.totalDeliveryFees += deliveryFee;
+    if (deliveryFee > 0 || order.delivery_type === 'delivery') {
+      stats.deliveryOrderCount++;
+    }
+    stats.totalTax += tax;
+    stats.totalDiscount += discount;
+
   });
 
-  if (overnightCloseMinutes.length === 0) return DEFAULT_OPERATIONAL_CLOSE_MINUTES;
-  return Math.max(...overnightCloseMinutes);
+  return stats;
 }
 
-function calculateBusinessPeriod(closeMinutes: number, now = new Date()): CashClosingPeriod {
-  const currentMinutes = now.getHours() * 60 + now.getMinutes();
-  const start = new Date(now);
-  start.setHours(Math.floor(closeMinutes / 60), closeMinutes % 60, 0, 0);
+function isMissingDeliveryClosingColumns(error: any) {
+  const text = `${error?.message || ''} ${error?.details || ''} ${error?.hint || ''}`;
+  return (
+    error?.code === 'PGRST204' &&
+    (text.includes('total_delivery_fees') || text.includes('delivery_order_count'))
+  );
+}
 
-  if (currentMinutes < closeMinutes) {
-    start.setDate(start.getDate() - 1);
-  }
+async function getCurrentOperationalPeriod(tenantId: string) {
+  const supabase = createClient();
+  const { data: settings } = await supabase
+    .from('restaurant_settings')
+    .select('operating_hours, timezone, country')
+    .eq('tenant_id', tenantId)
+    .maybeSingle();
 
-  const end = new Date(start);
-  end.setDate(end.getDate() + 1);
+  const timeZone = getRestaurantTimeZone({
+    timezone: settings?.timezone,
+    settingsCountry: settings?.country,
+  });
+  const locale = getRestaurantLocale(settings?.country);
 
-  return {
-    periodStart: start.toISOString(),
-    periodEnd: end.toISOString(),
-    businessDateLabel: start.toLocaleDateString('es-ES', { weekday: 'long', day: '2-digit', month: 'long' }),
-    operationalCloseTime: formatMinutes(closeMinutes),
-  };
+  return getRestaurantBusinessPeriod({
+    operatingHours: settings?.operating_hours,
+    timeZone,
+    locale,
+  });
 }
 
 /**
@@ -111,18 +154,27 @@ export async function calculateCashClosingStats(
   try {
     const { data: settings } = await supabase
       .from('restaurant_settings')
-      .select('operating_hours')
+      .select('operating_hours, timezone, country')
       .eq('tenant_id', tenantId)
       .maybeSingle();
 
+    const timeZone = getRestaurantTimeZone({
+      timezone: settings?.timezone,
+      settingsCountry: settings?.country,
+    });
+    const locale = getRestaurantLocale(settings?.country);
     const period = fromDate && toDate
       ? {
           periodStart: fromDate.toISOString(),
           periodEnd: toDate.toISOString(),
-          businessDateLabel: fromDate.toLocaleDateString('es-ES', { weekday: 'long', day: '2-digit', month: 'long' }),
+          businessDateLabel: fromDate.toLocaleDateString(locale, { weekday: 'long', day: '2-digit', month: 'long', timeZone }),
           operationalCloseTime: 'manual',
         }
-      : calculateBusinessPeriod(findOperationalCloseMinutes(settings?.operating_hours));
+      : getRestaurantBusinessPeriod({
+          operatingHours: settings?.operating_hours,
+          timeZone,
+          locale,
+        });
 
     const startDate = fromDate || new Date(period.periodStart);
     const endDate = toDate || new Date(period.periodEnd);
@@ -132,7 +184,7 @@ export async function calculateCashClosingStats(
       .select('*')
       .eq('tenant_id', tenantId)
       .gte('created_at', startDate.toISOString())
-      .lte('created_at', endDate.toISOString())
+      .lt('created_at', endDate.toISOString())
       .neq('payment_method', null);
 
     if (error) {
@@ -149,10 +201,12 @@ export async function calculateCashClosingStats(
       cardSales: 0,
       otherSales: 0,
       totalSales: 0,
+      totalDeliveryFees: 0,
+      deliveryOrderCount: 0,
       totalTax: 0,
       totalDiscount: 0,
       transactionCount: countableOrders.length,
-      ordersCompleted: 0,
+      ordersCompleted: countableOrders.length,
       ordersCancelled: 0,
       closingOrders: countableOrders.map((order: any) => ({
         id: order.id,
@@ -172,31 +226,109 @@ export async function calculateCashClosingStats(
       if (order.payment_status !== 'paid') return;
 
       const total = Number(order.total) || 0;
+      const deliveryFee = Number(order.delivery_fee || 0);
       const tax = Number(order.tax ?? order.tax_amount) || 0;
       const discount = Number(order.discount_amount) || 0;
 
       // Desglose por método de pago
       if (order.payment_method === 'cash') {
         stats.cashSales += total;
-      } else if (order.payment_method === 'stripe' || order.payment_method === 'card') {
+      } else if (order.payment_method === 'stripe' || order.payment_method === 'card' || order.payment_method === 'wompi') {
         stats.cardSales += total;
       } else {
         stats.otherSales += total;
       }
 
       stats.totalSales += total;
+      stats.totalDeliveryFees += deliveryFee;
+      if (deliveryFee > 0 || order.delivery_type === 'delivery') {
+        stats.deliveryOrderCount++;
+      }
       stats.totalTax += tax;
       stats.totalDiscount += discount;
 
-      if (order.status === 'delivered' || order.status === 'completed') {
-        stats.ordersCompleted++;
-      }
     });
 
     return stats;
   } catch (error) {
     console.error('Error calculating cash closing stats:', error);
-    return emptyStats(calculateBusinessPeriod(DEFAULT_OPERATIONAL_CLOSE_MINUTES));
+    return emptyStats(getRestaurantBusinessPeriod({
+      timeZone: getRestaurantTimeZone(),
+      locale: getRestaurantLocale(),
+    }));
+  }
+}
+
+export async function calculatePendingPreviousCashClosingStats(tenantId: string): Promise<CashClosingStats | null> {
+  const supabase = createClient();
+
+  try {
+    const currentPeriod = await getCurrentOperationalPeriod(tenantId);
+    const currentPeriodStart = new Date(currentPeriod.periodStart);
+
+    const { data: orders, error } = await supabase
+      .from('orders')
+      .select('*')
+      .eq('tenant_id', tenantId)
+      .lt('created_at', currentPeriodStart.toISOString())
+      .neq('payment_method', null)
+      .eq('payment_status', 'paid')
+      .neq('status', 'cancelled')
+      .order('created_at', { ascending: true })
+      .limit(1000);
+
+    if (error || !orders?.length) {
+      if (error) {
+        console.warn('No se pudieron consultar ventas pendientes de cierre:', error.message || error);
+      }
+      return null;
+    }
+
+    const { data: closedItems, error: closedItemsError } = await supabase
+      .from('cash_closing_items')
+      .select('order_id')
+      .eq('tenant_id', tenantId)
+      .not('order_id', 'is', null)
+      .limit(2000);
+
+    const { data: latestClosing, error: latestClosingError } = await supabase
+      .from('cash_closings')
+      .select('closed_at')
+      .eq('tenant_id', tenantId)
+      .order('closed_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (closedItemsError) {
+      console.warn('No se pudieron consultar items de cierres anteriores:', closedItemsError.message || closedItemsError);
+    }
+
+    if (latestClosingError) {
+      console.warn('No se pudo consultar el ultimo cierre de caja:', latestClosingError.message || latestClosingError);
+    }
+
+    const closedOrderIds = new Set((closedItems || []).map((item: any) => item.order_id));
+    const latestClosingDate = latestClosing?.closed_at ? new Date(latestClosing.closed_at) : null;
+    const pendingOrders = orders.filter((order: any) => {
+      if (closedOrderIds.has(order.id)) return false;
+      if (latestClosingDate && new Date(order.created_at) <= latestClosingDate) return false;
+      return true;
+    });
+
+    if (pendingOrders.length === 0) return null;
+
+    const firstOrderDate = new Date(pendingOrders[0].created_at);
+    const period: CashClosingPeriod = {
+      periodStart: firstOrderDate.toISOString(),
+      periodEnd: currentPeriodStart.toISOString(),
+      businessDateLabel: `pendiente hasta ${currentPeriodStart.toLocaleDateString('es-ES', { weekday: 'long', day: '2-digit', month: 'long' })}`,
+      operationalCloseTime: currentPeriod.operationalCloseTime,
+    };
+
+    return statsFromOrders(period, pendingOrders);
+  } catch (error) {
+    console.warn('No se pudo calcular cierres pendientes anteriores:', error instanceof Error ? error.message : error);
+    return null;
   }
 }
 
@@ -220,9 +352,7 @@ export async function saveCashClosing(
   const notes = closingData.notes ? `${periodNote}\n${closingData.notes}` : periodNote;
 
   try {
-    const { data, error } = await supabase
-      .from('cash_closings')
-      .insert({
+    const baseClosing = {
         tenant_id: tenantId,
         staff_id: staffId,
         staff_name: staffName,
@@ -241,14 +371,36 @@ export async function saveCashClosing(
         orders_cancelled: closingData.ordersCancelled,
         notes,
         closed_at: new Date().toISOString(),
-      })
-      .select()
-      .single();
+    };
+
+    const insertClosing = (includeDeliveryTotals: boolean) =>
+      supabase
+        .from('cash_closings')
+        .insert({
+          ...baseClosing,
+          ...(includeDeliveryTotals
+            ? {
+                total_delivery_fees: Number(closingData.totalDeliveryFees) || 0,
+                delivery_order_count: Number(closingData.deliveryOrderCount) || 0,
+              }
+            : {}),
+        })
+        .select()
+        .single();
+
+    let result = await insertClosing(true);
+    if (result.error && isMissingDeliveryClosingColumns(result.error)) {
+      console.warn('Cash closing delivery columns are missing; save will continue without persisted delivery totals.');
+      result = await insertClosing(false);
+    }
+
+    const { data, error } = result;
 
     if (error) {
       console.error('Error saving cash closing:', error);
       throw error;
     }
+    if (!data) throw new Error('No se pudo guardar el cierre de caja.');
 
     if (closingData.closingOrders?.length) {
       const { error: itemsError } = await supabase

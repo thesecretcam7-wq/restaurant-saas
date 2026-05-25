@@ -30,7 +30,7 @@ export const checkoutSchema = z.object({
     .or(z.literal('')),
   delivery_type: z.enum(['pickup', 'delivery'], { message: 'Tipo de entrega inválido' }),
   delivery_address: z.string().optional(),
-  payment_method: z.enum(['stripe', 'cash'], { message: 'Método de pago inválido' }),
+  payment_method: z.enum(['stripe', 'wompi', 'cash'], { message: 'Método de pago inválido' }),
   notes: z.string().optional(),
 }).refine(
   data => data.delivery_type !== 'delivery' || (data.delivery_address && data.delivery_address.trim().length > 0),

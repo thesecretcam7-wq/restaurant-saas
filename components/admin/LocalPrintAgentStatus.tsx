@@ -8,7 +8,11 @@ type AgentState = {
   loading: boolean
   message: string
   defaultPrinter?: string | null
+  version?: string | null
+  url?: string | null
 }
+
+const AGENT_URLS = ['http://localhost:17777', 'http://127.0.0.1:17777']
 
 export function LocalPrintAgentStatus() {
   const [state, setState] = useState<AgentState>({
@@ -20,21 +24,48 @@ export function LocalPrintAgentStatus() {
   async function checkAgent() {
     setState((current) => ({ ...current, loading: true }))
     try {
-      const controller = new AbortController()
-      const timeout = window.setTimeout(() => controller.abort(), 2500)
-      const response = await fetch('http://127.0.0.1:17777/health', {
-        signal: controller.signal,
-        cache: 'no-store',
-      })
-      window.clearTimeout(timeout)
-      const data = await response.json().catch(() => ({}))
-      if (!response.ok || data?.ok === false) throw new Error(data?.error || 'Sin respuesta valida')
-      setState({
-        ok: true,
-        loading: false,
-        message: 'Agente local activo en este computador',
-        defaultPrinter: data?.defaultPrinter || null,
-      })
+      for (const url of AGENT_URLS) {
+        const controller = new AbortController()
+        const timeout = window.setTimeout(() => controller.abort(), 2500)
+        try {
+          const response = await fetch(`${url}/ping`, {
+            signal: controller.signal,
+            cache: 'no-store',
+          })
+          const data = await response.json().catch(() => ({}))
+          if (!response.ok || data?.ok === false) throw new Error(data?.error || 'Sin respuesta valida')
+
+          let defaultPrinter = null
+          try {
+            const healthController = new AbortController()
+            const healthTimeout = window.setTimeout(() => healthController.abort(), 4500)
+            const healthResponse = await fetch(`${url}/health`, {
+              signal: healthController.signal,
+              cache: 'no-store',
+            })
+            window.clearTimeout(healthTimeout)
+            const health = await healthResponse.json().catch(() => ({}))
+            if (healthResponse.ok && health?.ok !== false) {
+              defaultPrinter = health?.defaultPrinter || null
+            }
+          } catch {
+            defaultPrinter = null
+          }
+
+          setState({
+            ok: true,
+            loading: false,
+            message: 'Agente local activo en este computador',
+            defaultPrinter,
+            version: data?.version || null,
+            url,
+          })
+          return
+        } finally {
+          window.clearTimeout(timeout)
+        }
+      }
+      throw new Error('Sin respuesta valida')
     } catch {
       setState({
         ok: false,
@@ -59,7 +90,7 @@ export function LocalPrintAgentStatus() {
           </div>
           <p className="mt-2 text-sm font-semibold text-black/55">
             {state.ok
-              ? `Impresora predeterminada: ${state.defaultPrinter || 'no configurada en Windows'}`
+              ? `Impresora predeterminada: ${state.defaultPrinter || 'no configurada en Windows'}${state.version ? ` - agente v${state.version}` : ''}${state.url ? ` - ${state.url}` : ''}`
               : 'Instala Eccofood Print Agent en el PC de caja para imprimir sin vista previa y abrir el cajon.'}
           </p>
         </div>

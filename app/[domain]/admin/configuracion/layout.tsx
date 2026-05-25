@@ -1,34 +1,34 @@
 'use client'
 
-import { useParams, usePathname, useRouter } from 'next/navigation'
+import { useParams, usePathname } from 'next/navigation'
 import Link from 'next/link'
 import {
   CalendarDays,
   ChevronRight,
   Clock3,
-  CreditCard,
   Globe2,
   LayoutTemplate,
-  Paintbrush,
-  Palette,
   Printer,
   Settings,
   Store,
+  Table2,
   Truck,
   UsersRound,
+  WalletCards,
 } from 'lucide-react'
 
 const sections = [
-  { href: 'branding', label: 'Branding', desc: 'Logo, colores, tipografia e imagenes', Icon: Palette },
-  { href: 'pagina', label: 'Diseno de tienda', desc: 'Banner, secciones y pagina publica', Icon: LayoutTemplate },
-  { href: 'personalizacion', label: 'Contenido y contacto', desc: 'Textos, redes, WhatsApp y datos visibles', Icon: Paintbrush },
+  { href: 'pagina', label: 'Editor de secciones', desc: 'Orden y portada de la tienda', Icon: LayoutTemplate, hidden: true },
   { href: 'restaurante', label: 'Restaurante', desc: 'Nombre, ubicacion y datos publicos', Icon: Store },
   { href: 'personal', label: 'Personal', desc: 'Empleados, roles y PINs', Icon: UsersRound },
   { href: 'horarios', label: 'Horarios', desc: 'Dias y horas de atencion', Icon: Clock3 },
-  { href: 'delivery', label: 'Delivery y pagos', desc: 'Tarifas, metodos, impuestos', Icon: Truck },
-  { href: 'reservas', label: 'Reservas', desc: 'Mesas, capacidad y anticipacion', Icon: CalendarDays },
+  { href: 'delivery', label: 'Delivery', desc: 'Tarifas y tiempos de domicilio', Icon: Truck },
+  { href: 'pagos', label: 'Pagos online', desc: 'Stripe, Wompi y conexiones por pais', Icon: WalletCards },
+  { href: 'stripe', label: 'Stripe', desc: 'Configuracion de Stripe', Icon: WalletCards, hidden: true },
+  { href: 'wompi', label: 'Wompi', desc: 'Configuracion de Wompi', Icon: WalletCards, hidden: true },
+  { href: 'mesas', label: 'Mesas', desc: 'Numeros, asientos y zonas del salon', Icon: Table2 },
+  { href: 'reservas', label: 'Reservas', desc: 'Capacidad y anticipacion de reservas', Icon: CalendarDays },
   { href: 'impresoras', label: 'Impresoras', desc: 'Tickets y dispositivos USB', Icon: Printer },
-  { href: 'stripe', label: 'Stripe', desc: 'Cuenta de cobro e integracion', Icon: CreditCard },
   { href: 'dominio', label: 'Dominio', desc: 'Dominio propio y URLs', Icon: Globe2 },
   { href: 'planes', label: 'Plan', desc: 'Suscripcion y limites', Icon: Settings },
 ]
@@ -37,14 +37,12 @@ export default function ConfiguracionLayout({ children }: { children: React.Reac
   const params = useParams()
   const tenantId = params.domain as string
   const pathname = usePathname()
-  const router = useRouter()
-
   const activeSection = sections.find(s => pathname?.endsWith(`/configuracion/${s.href}`))
   const isInSection = !!activeSection
 
   const navList = (
     <nav className="admin-panel overflow-hidden p-2">
-      {sections.map(({ href, label, desc, Icon }) => {
+      {sections.filter(section => !section.hidden).map(({ href, label, desc, Icon }) => {
         const fullHref = `/${tenantId}/admin/configuracion/${href}`
         const active = activeSection?.href === href
         return (
@@ -75,18 +73,11 @@ export default function ConfiguracionLayout({ children }: { children: React.Reac
         <div>
           <p className="admin-eyebrow">Sistema</p>
           <h1 className="admin-title">Configuracion</h1>
-          <p className="admin-subtitle">Gestiona la marca, operacion, pagos, personal y presencia digital del restaurante.</p>
+          <p className="admin-subtitle">Gestiona la operacion, pagos, personal y presencia digital del restaurante.</p>
         </div>
       </div>
 
-      {isInSection ? (
-        <div className="sticky top-0 z-10 mb-4 flex h-14 items-center gap-3 border-b border-black/10 bg-[#f5f3ee]/92 px-1 backdrop-blur lg:hidden">
-          <button onClick={() => router.back()} className="rounded-lg p-2 text-black/55 transition hover:bg-white hover:text-black" aria-label="Volver">
-            <ChevronRight className="size-5 rotate-180" />
-          </button>
-          <h1 className="text-lg font-black text-[#15130f]">{activeSection.label}</h1>
-        </div>
-      ) : (
+      {!isInSection && (
         <div className="mb-4 lg:hidden">
           <p className="admin-eyebrow">Sistema</p>
           <h1 className="admin-title">Configuracion</h1>

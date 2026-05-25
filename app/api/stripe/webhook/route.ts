@@ -2,8 +2,26 @@ import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 import { NextRequest, NextResponse } from 'next/server'
 import Stripe from 'stripe'
+import { applyRecipeStockMovement } from '@/lib/inventory-recipes'
+import { getStripeConnectStatus } from '@/lib/stripe-connect'
 
 const getStripe = () => new Stripe(process.env.STRIPE_SECRET_KEY!)
+
+function getSubscriptionExpiry(subscription: Stripe.Subscription, fallbackInterval?: string | null) {
+  const periodEnd = (subscription as any).current_period_end
+  if (typeof periodEnd === 'number' && periodEnd > 0) {
+    return new Date(periodEnd * 1000).toISOString()
+  }
+
+  const interval = fallbackInterval || subscription.items.data[0]?.price?.recurring?.interval
+  const expiresAt = new Date()
+  if (interval === 'year') {
+    expiresAt.setFullYear(expiresAt.getFullYear() + 1)
+  } else {
+    expiresAt.setDate(expiresAt.getDate() + 30)
+  }
+  return expiresAt.toISOString()
+}
 
 // Returns true if already processed (skip), false if new (proceed)
 async function trackWebhookEvent(supabase: any, eventId: string): Promise<boolean> {
@@ -67,15 +85,18 @@ export async function POST(request: NextRequest) {
         // Subscription checkout — activate the tenant's plan
         if (session.mode === 'subscription' && tenant_id) {
           const plan = plan_name || 'basic'
-          const expiresAt = new Date()
-          expiresAt.setDate(expiresAt.getDate() + 30)
+          const subscription = session.subscription
+            ? await stripe.subscriptions.retrieve(session.subscription as string)
+            : null
 
           const { error } = await supabase
             .from('tenants')
             .update({
               subscription_plan: plan,
               status: 'active',
-              subscription_expires_at: expiresAt.toISOString(),
+              subscription_expires_at: subscription
+                ? getSubscriptionExpiry(subscription, session.metadata?.billing_interval)
+                : null,
               subscription_stripe_id: session.subscription as string,
             })
             .eq('id', tenant_id)
@@ -88,6 +109,21 @@ export async function POST(request: NextRequest) {
         if (!order_id || !tenant_id) {
           console.warn('checkout.session.completed missing metadata:', { tenant_id, order_id })
           break
+        }
+
+        const { data: currentOrder } = await supabase
+          .from('orders')
+          .select('id, tenant_id, order_number, payment_status, items')
+          .eq('id', order_id)
+          .eq('tenant_id', tenant_id)
+          .maybeSingle()
+
+        if (currentOrder && currentOrder.payment_status !== 'paid') {
+          try {
+            await applyRecipeStockMovement(supabase, currentOrder, 'sale')
+          } catch (stockError) {
+            console.error('[webhook] stock deduction error:', stockError)
+          }
         }
 
         const { data: updatedOrder, error } = await supabase
@@ -104,8 +140,14 @@ export async function POST(request: NextRequest) {
 
         if (error) { console.error('Error updating order:', error); break }
 
+        const { data: settings } = await supabase
+          .from('restaurant_settings')
+          .select('kds_enabled')
+          .eq('tenant_id', tenant_id)
+          .maybeSingle()
+
         // Create order_items so KDS receives the order immediately on payment.
-        if (updatedOrder && Array.isArray(updatedOrder.items) && updatedOrder.items.length > 0) {
+        if (settings?.kds_enabled === true && updatedOrder && Array.isArray(updatedOrder.items) && updatedOrder.items.length > 0) {
           const { count } = await supabase
             .from('order_items')
             .select('*', { count: 'exact', head: true })
@@ -142,7 +184,7 @@ export async function POST(request: NextRequest) {
 
       case 'account.updated': {
         const account = event.data.object as Stripe.Account
-        const status = account.charges_enabled ? 'verified' : 'pending'
+        const status = getStripeConnectStatus(account)
 
         const { error } = await supabase
           .from('tenants')
@@ -165,16 +207,13 @@ export async function POST(request: NextRequest) {
                      subscription.items.data[0]?.price?.nickname ||
                      'basic'
 
-        const expiresAt = new Date()
-        expiresAt.setDate(expiresAt.getDate() + 30)
-
         const { error } = await supabase
           .from('tenants')
           .update({
             subscription_stripe_id: subscription.id,
             subscription_plan: plan,
             status: subscription.status === 'active' ? 'active' : 'suspended',
-            subscription_expires_at: expiresAt.toISOString(),
+            subscription_expires_at: getSubscriptionExpiry(subscription, subscription.metadata?.billing_interval),
           })
           .eq('id', tenant_id)
 
@@ -197,16 +236,13 @@ export async function POST(request: NextRequest) {
         const isActive = subscription.status === 'active'
         const status = isActive ? 'active' : 'suspended'
 
-        const expiresAt = new Date()
-        expiresAt.setDate(expiresAt.getDate() + 30)
-
         const { error } = await supabase
           .from('tenants')
           .update({
             subscription_stripe_id: subscription.id,
             subscription_plan: plan,
             status,
-            subscription_expires_at: isActive ? expiresAt.toISOString() : null,
+            subscription_expires_at: isActive ? getSubscriptionExpiry(subscription, subscription.metadata?.billing_interval) : null,
           })
           .eq('id', tenant_id)
 
@@ -246,9 +282,19 @@ export async function POST(request: NextRequest) {
           .single()
 
         if (tenant) {
+          const { data: currentTenant } = await supabase
+            .from('tenants')
+            .select('payment_failure_count')
+            .eq('id', tenant.id)
+            .maybeSingle()
+
           const { error } = await supabase
             .from('tenants')
-            .update({ status: 'suspended' })
+            .update({
+              status: 'suspended',
+              payment_failure_count: Number(currentTenant?.payment_failure_count || 0) + 1,
+              last_payment_failure_at: new Date().toISOString(),
+            })
             .eq('id', tenant.id)
           if (error) console.error('Error updating tenant status on invoice failure:', error)
         }
@@ -266,14 +312,16 @@ export async function POST(request: NextRequest) {
           .single()
 
         if (tenant) {
-          const expiresAt = new Date()
-          expiresAt.setDate(expiresAt.getDate() + 30)
+          const subscription = await stripe.subscriptions.retrieve((invoice as any).subscription as string)
 
           const { error } = await supabase
             .from('tenants')
             .update({
               status: 'active',
-              subscription_expires_at: expiresAt.toISOString(),
+              subscription_expires_at: getSubscriptionExpiry(subscription, subscription.metadata?.billing_interval),
+              payment_failure_count: 0,
+              last_payment_failure_at: null,
+              subscription_expiration_notified: false,
             })
             .eq('id', tenant.id)
           if (error) console.error('Error updating tenant status on invoice success:', error)

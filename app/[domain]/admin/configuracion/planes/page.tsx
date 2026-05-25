@@ -22,35 +22,41 @@ interface SystemFeature {
 }
 
 const SYSTEM_FEATURES: SystemFeature[] = [
-  { name: 'POS', icon: '💳', description: 'Sistema de Punto de Venta' },
-  { name: 'Comandera', icon: '📋', description: 'Control de Meseros' },
-  { name: 'KDS', icon: '👨‍🍳', description: 'Pantalla de Cocina' }
+  { name: 'POS', icon: 'POS', description: 'Sistema de Punto de Venta' },
+  { name: 'Carta QR', icon: 'QR', description: 'Menu digital con codigo QR' },
+  { name: 'Comandera', icon: 'CMD', description: 'Control de Meseros' },
+  { name: 'KDS', icon: 'KDS', description: 'Pantalla de Cocina' },
+  { name: 'Pagina Web', icon: 'WEB', description: 'Pagina web del restaurante' },
+  { name: 'Kiosko', icon: 'KIO', description: 'Autoservicio en tienda' }
 ]
 
 const planHighlights: { [key: string]: string[] } = {
   basic: [
-    '✓ POS completo',
-    '✓ Hasta 100 productos',
-    '✓ Reportes básicos',
-    '✓ Soporte por email',
-    '✓ Integración Stripe'
+    'TPV / POS completo',
+    'Carta QR incluida',
+    'Comandero para meseros',
+    'KDS cocina incluido',
+    'Hasta 1.000 pedidos/mes',
+    'Soporte por email',
+    'Integracion Stripe'
   ],
   pro: [
-    '✓ POS y Comandera',
-    '✓ Hasta 500 productos',
-    '✓ Analytics avanzados',
-    '✓ Soporte prioritario',
-    '✓ Custom domain',
-    '✓ API access'
+    'Todo en Basic',
+    'Pagina web del restaurante',
+    'Kiosko autoservicio',
+    'Pedidos ilimitados',
+    'Reservas y delivery',
+    'Analytics avanzados',
+    'Soporte prioritario'
   ],
   premium: [
-    '✓ Sistema completo POS + Comandera + KDS',
-    '✓ Productos ilimitados',
-    '✓ Analytics avanzados + IA',
-    '✓ Soporte 24/7 dedicado',
-    '✓ Custom domain',
-    '✓ API access + webhooks',
-    '✓ Integración multi-sucursal'
+    'Todas las funciones del Pro',
+    'Disenos exclusivos para cada cliente',
+    'Dominio personalizado',
+    'Multi-sucursal',
+    'API access + webhooks',
+    'Integraciones personalizadas',
+    'Soporte 24/7 dedicado'
   ]
 }
 
@@ -62,6 +68,7 @@ export default function PlanesPage({ params }: Props) {
   const [loading, setLoading] = useState(true)
   const [processingPlan, setProcessingPlan] = useState<string | null>(null)
   const [currency, setCurrency] = useState<CurrencyInfo | null>(null)
+  const [billingInterval, setBillingInterval] = useState<'month' | 'year'>('month')
 
   useEffect(() => {
     const fetchData = async () => {
@@ -70,10 +77,13 @@ export default function PlanesPage({ params }: Props) {
           fetch(`/api/subscription-plans`),
           fetch('/api/currency-rates'),
         ])
+        const statusRes = await fetch(`/api/subscription-status?domain=${encodeURIComponent(tenantId)}`)
         const plansData = await plansRes.json()
         const currencyData = await currencyRes.json()
+        const statusData = await statusRes.json()
         setPlans(plansData)
         if (!currencyData.error) setCurrency(currencyData)
+        if (!statusData.error) setCurrentPlan(statusData.plan || null)
         setLoading(false)
       } catch (error) {
         console.error('Error fetching data:', error)
@@ -85,12 +95,12 @@ export default function PlanesPage({ params }: Props) {
 
   const handleSelectPlan = async (planName: string) => {
     if (!tenantId) return
-    setProcessingPlan(planName)
+    setProcessingPlan(`${planName}-${billingInterval}`)
     try {
       const res = await fetch('/api/stripe/subscription', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ tenantId, planName }),
+        body: JSON.stringify({ tenantId, planName, billingInterval }),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Error')
@@ -103,9 +113,9 @@ export default function PlanesPage({ params }: Props) {
   }
 
   const planDescriptions: { [key: string]: string } = {
-    basic: 'POS completo para empezar. Ideal para negocios que inician su transformación digital',
-    pro: 'Solución integral con Comandera incluida. Para restaurantes con operaciones en crecimiento',
-    premium: 'Ecosistema completo: POS + Comandera + KDS. Máximo control y eficiencia operacional'
+    basic: 'TPV, comandero y KDS para operar caja, sala y cocina desde el primer dia.',
+    pro: 'Todo el flujo operativo mas pagina web y kiosko para vender mejor.',
+    premium: 'Todas las funciones, con disenos exclusivos adaptados a cada cliente.'
   }
 
   const planSubtitles: { [key: string]: string } = {
@@ -115,9 +125,9 @@ export default function PlanesPage({ params }: Props) {
   }
 
   const systemsIncluded: { [key: string]: string[] } = {
-    basic: ['POS'],
-    pro: ['POS', 'Comandera'],
-    premium: ['POS', 'Comandera', 'KDS']
+    basic: ['POS', 'Carta QR', 'Comandera', 'KDS'],
+    pro: ['POS', 'Carta QR', 'Comandera', 'KDS', 'Pagina Web', 'Kiosko'],
+    premium: ['POS', 'Carta QR', 'Comandera', 'KDS', 'Pagina Web', 'Kiosko']
   }
 
   const formatSubscriptionPrice = (amount: number) => {
@@ -134,17 +144,38 @@ export default function PlanesPage({ params }: Props) {
     }).format(convertedAmount)
   }
 
+  const getPlanPrice = (plan: SubscriptionPlan) => {
+    if (billingInterval === 'year' && plan.annual_price) {
+      return Number(plan.annual_price)
+    }
+    return Number(plan.monthly_price)
+  }
+
+  const getAnnualSavings = (plan: SubscriptionPlan) => {
+    const annualPrice = Number(plan.annual_price || 0)
+    if (!annualPrice) return 0
+    return Math.max(0, Number(plan.monthly_price) * 12 - annualPrice)
+  }
+
   const featureLabels: { [key: string]: string } = {
-    max_products: 'Productos en menú',
-    orders_per_month: 'Órdenes mensuales',
-    categories: 'Categorías de menú',
+    max_products: 'Productos en menu',
+    orders_per_month: 'Ordenes mensuales',
+    categories: 'Categorias de menu',
     support: 'Soporte',
+    qr_menu: 'Carta QR',
+    pos: 'TPV / POS',
+    comandero: 'Comandero',
+    kds: 'KDS cocina',
+    website: 'Pagina web',
+    kiosk: 'Kiosko autoservicio',
+    kiosko: 'Kiosko autoservicio',
     delivery: 'Entrega a domicilio',
     reservations: 'Sistema de reservas',
     custom_domain: 'Dominio personalizado',
     analytics: 'Analytics avanzados',
     api_access: 'Acceso API',
-    dedicated_support: 'Soporte dedicado'
+    dedicated_support: 'Soporte dedicado',
+    exclusive_design: 'Disenos exclusivos'
   }
 
   const featureValues: { [key: string]: (value: any) => string } = {
@@ -157,46 +188,77 @@ export default function PlanesPage({ params }: Props) {
       return map[value] || String(value)
     },
     delivery: (value) => value === true ? 'Incluido' : 'No incluido',
+    qr_menu: (value) => value === true ? 'Incluido' : 'No incluido',
     reservations: (value) => value === true ? 'Incluido' : 'No incluido',
+    pos: (value) => value === true ? 'Incluido' : 'No incluido',
+    comandero: (value) => value === true ? 'Incluido' : 'No incluido',
+    kds: (value) => value === true ? 'Incluido' : 'No incluido',
+    website: (value) => value === true ? 'Incluido' : 'No incluido',
+    kiosk: (value) => value === true ? 'Incluido' : 'No incluido',
     custom_domain: (value) => value === true ? 'Sí' : 'No',
     analytics: (value) => value === true ? 'Sí' : 'No',
     api_access: (value) => value === true ? 'Sí' : 'No',
     dedicated_support: (value) => value === true ? 'Sí' : 'No'
   }
 
-  if (loading) return <div className="flex items-center justify-center h-48"><div className="w-7 h-7 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin" /></div>
+  if (loading) return <div className="admin-panel flex h-48 items-center justify-center"><div className="h-7 w-7 animate-spin rounded-full border-4 border-black/10 border-t-[#e43d30]" /></div>
 
   return (
-    <div>
-      <div className="mb-8">
-        <h2 className="text-2xl font-bold text-gray-900 mb-2">Planes de Suscripción</h2>
-        <p className="text-gray-600">Elige el plan que mejor se adapta a tu restaurante</p>
+    <div className="max-w-6xl space-y-6">
+      <div className="admin-panel p-6">
+        <p className="admin-eyebrow">Suscripcion</p>
+        <h2 className="admin-title">Planes de Suscripción</h2>
+        <p className="admin-subtitle">Elige el plan que mejor se adapta a tu restaurante</p>
         {currency && (
-          <p className="mt-2 text-sm text-gray-500">
+          <p className="mt-3 text-sm font-bold text-black/50">
             Precios mostrados en {currency.name} ({currency.currency}) segun tu pais: {currency.countryCode}.
           </p>
         )}
+        <div className="mt-5 inline-flex rounded-xl border border-black/10 bg-white p-1 shadow-sm">
+          <button
+            type="button"
+            onClick={() => setBillingInterval('month')}
+            className={`rounded-lg px-4 py-2 text-sm font-black transition ${
+              billingInterval === 'month' ? 'bg-[#15130f] text-white' : 'text-black/58 hover:bg-black/[0.04]'
+            }`}
+          >
+            Mensual
+          </button>
+          <button
+            type="button"
+            onClick={() => setBillingInterval('year')}
+            className={`rounded-lg px-4 py-2 text-sm font-black transition ${
+              billingInterval === 'year' ? 'bg-[#15130f] text-white' : 'text-black/58 hover:bg-black/[0.04]'
+            }`}
+          >
+            Anual <span className="ml-1 text-xs">-10%</span>
+          </button>
+        </div>
       </div>
 
       {currentPlan && (
-        <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-6 text-sm text-green-800">
+        <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-800">
           <span className="font-medium">Plan actual:</span> <strong className="capitalize">{currentPlan}</strong>
         </div>
       )}
 
-      <div className="grid sm:grid-cols-3 gap-6">
+      <div className="grid gap-5 xl:grid-cols-3">
         {plans.map(plan => {
           const systems = systemsIncluded[plan.name] || []
           const highlights = planHighlights[plan.name] || []
+          const planPrice = getPlanPrice(plan)
+          const annualSavings = getAnnualSavings(plan)
+          const canSelectInterval = billingInterval === 'month' || Boolean(plan.stripe_annual_price_id)
+          const processingKey = `${plan.name}-${billingInterval}`
 
           return (
-            <div key={plan.id} className={`bg-white rounded-xl border-2 overflow-hidden transition-all shadow-md hover:shadow-lg ${
+            <div key={plan.id} className={`admin-card overflow-hidden p-0 transition-all hover:shadow-lg ${
               currentPlan === plan.name
-                ? 'ring-2 ring-blue-600 border-blue-600'
-                : 'border-gray-200 hover:border-gray-300'
+                ? 'ring-2 ring-[#e43d30] border-[#e43d30]'
+                : 'hover:border-black/18'
             }`}>
               {currentPlan === plan.name && (
-                <div className="bg-blue-600 px-6 py-2 text-white text-xs font-semibold text-center">
+                <div className="bg-[#15130f] px-6 py-2 text-center text-xs font-semibold text-white">
                   PLAN ACTUAL
                 </div>
               )}
@@ -206,12 +268,19 @@ export default function PlanesPage({ params }: Props) {
 
                 <div className="mb-8 pb-8 border-b">
                   <p className="text-4xl font-bold text-gray-900">
-                    {formatSubscriptionPrice(Number(plan.monthly_price))}
+                    {formatSubscriptionPrice(planPrice)}
                   </p>
-                  <p className="text-sm text-gray-500">por mes</p>
+                  <p className="text-sm text-gray-500">
+                    {billingInterval === 'year' ? 'por año' : 'por mes'}
+                  </p>
+                  {billingInterval === 'year' && annualSavings > 0 && (
+                    <p className="mt-2 rounded-full bg-green-50 px-3 py-1 text-xs font-black text-green-700">
+                      Ahorras {formatSubscriptionPrice(annualSavings)} al año
+                    </p>
+                  )}
                   {currency?.currency && currency.currency !== 'EUR' && (
                     <p className="mt-1 text-xs font-semibold text-gray-400">
-                      aprox. desde {Number(plan.monthly_price).toLocaleString('es-ES', {
+                      aprox. desde {planPrice.toLocaleString('es-ES', {
                         style: 'currency',
                         currency: 'EUR',
                         maximumFractionDigits: 0,
@@ -231,13 +300,13 @@ export default function PlanesPage({ params }: Props) {
                           key={feature.name}
                           className={`p-3 rounded-lg text-center transition-all ${
                             isIncluded
-                              ? 'bg-blue-50 border-2 border-blue-200'
+                              ? 'bg-red-50/70 border-2 border-red-200'
                               : 'bg-gray-50 border-2 border-gray-100 opacity-40'
                           }`}
                         >
                           <div className="text-2xl mb-1">{feature.icon}</div>
                           <p className="text-xs font-bold text-gray-900">{feature.name}</p>
-                          <p className={`text-xs mt-1 ${isIncluded ? 'text-blue-700' : 'text-gray-500'}`}>
+                          <p className={`text-xs mt-1 ${isIncluded ? 'text-red-700' : 'text-gray-500'}`}>
                             {isIncluded ? '✓ Incluido' : 'No incluido'}
                           </p>
                         </div>
@@ -280,16 +349,26 @@ export default function PlanesPage({ params }: Props) {
 
                 <button
                   onClick={() => handleSelectPlan(plan.name)}
-                  disabled={processingPlan !== null || currentPlan === plan.name}
+                  disabled={processingPlan !== null || currentPlan === plan.name || !canSelectInterval}
                   className={`w-full py-3 rounded-lg text-sm font-bold transition-all ${
                     currentPlan === plan.name
                       ? 'bg-gray-100 text-gray-500 cursor-not-allowed'
-                      : processingPlan === plan.name
-                        ? 'bg-blue-400 text-white cursor-wait'
-                        : 'bg-blue-600 hover:bg-blue-700 text-white shadow-md hover:shadow-lg'
+                      : !canSelectInterval
+                        ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                      : processingPlan === processingKey
+                        ? 'bg-red-300 text-white cursor-wait'
+                        : 'bg-[#e43d30] hover:bg-[#c9271d] text-white shadow-md hover:shadow-lg'
                   }`}
                 >
-                  {processingPlan === plan.name ? 'Procesando...' : currentPlan === plan.name ? 'Plan Actual' : 'Seleccionar Plan'}
+                  {processingPlan === processingKey
+                    ? 'Procesando...'
+                    : currentPlan === plan.name
+                      ? 'Plan Actual'
+                      : !canSelectInterval
+                        ? 'Pago anual no configurado'
+                        : billingInterval === 'year'
+                          ? 'Pagar anual'
+                          : 'Seleccionar Plan'}
                 </button>
               </div>
             </div>
@@ -297,10 +376,11 @@ export default function PlanesPage({ params }: Props) {
         })}
       </div>
 
-      <div className="mt-8 bg-blue-50 border border-blue-200 rounded-lg p-6">
+      <div className="admin-panel p-6">
         <h3 className="font-bold text-gray-900 mb-2">¿Necesitas más información?</h3>
         <p className="text-sm text-gray-700">Todos nuestros planes incluyen soporte para gestión de pedidos, integración con Stripe, y acceso completo al panel administrativo. Puedes cambiar de plan en cualquier momento.</p>
       </div>
     </div>
   )
 }
+

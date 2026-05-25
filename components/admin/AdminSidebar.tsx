@@ -1,7 +1,8 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import type { ComponentType } from 'react'
+import { createPortal } from 'react-dom'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import {
@@ -27,11 +28,14 @@ import {
   ShoppingBag,
   Store,
   Table2,
+  Truck,
   UsersRound,
+  WalletCards,
   X,
 } from 'lucide-react'
 import { detectAdminSection, getSectionColorVar } from '@/lib/colors'
 import { StoreStatusToggle } from './StoreStatusToggle'
+import LanguageSwitcher, { useI18n } from '@/components/LanguageSwitcher'
 
 interface NavLink {
   href: string
@@ -65,17 +69,48 @@ const icons: Record<string, ComponentType<{ className?: string }>> = {
   sales: BarChart3,
   cash: CreditCard,
   settings: Settings,
+  delivery: Truck,
+  payments: WalletCards,
   pos: CreditCard,
   inventory: Package,
   tables: Table2,
+  storePage: Store,
   password: KeyRound,
   kds: ChefHat,
   comandero: ClipboardList,
   staffAccess: UsersRound,
+  personal: UsersRound,
   qr: QrCode,
   audit: ShieldCheck,
   ai: Brain,
   health: Activity,
+}
+
+const navTranslationByIcon: Record<string, string> = {
+  dashboard: 'admin.nav.dashboard',
+  orders: 'admin.nav.orders',
+  kds: 'admin.nav.kds',
+  screen: 'admin.nav.screen',
+  staffAccess: 'admin.nav.staffAccess',
+  kiosk: 'admin.nav.kiosk',
+  products: 'admin.nav.products',
+  banners: 'admin.nav.banners',
+  reservations: 'admin.nav.reservations',
+  customers: 'admin.nav.customers',
+  sales: 'admin.nav.sales',
+  cash: 'admin.nav.cash',
+  settings: 'admin.nav.settings',
+  pos: 'admin.nav.pos',
+  inventory: 'admin.nav.inventory',
+  tables: 'admin.nav.tables',
+  qr: 'admin.nav.qr',
+  ai: 'admin.nav.ai',
+  audit: 'admin.nav.audit',
+}
+
+function getRestaurantStoreUrl(tenantSlug: string) {
+  const baseDomain = process.env.NEXT_PUBLIC_BASE_DOMAIN || 'eccofoodapp.com'
+  return `https://${tenantSlug}.${baseDomain}/`
 }
 
 export function AdminSidebar({
@@ -90,31 +125,45 @@ export function AdminSidebar({
   storeEnabled = true,
 }: AdminSidebarProps) {
   const [open, setOpen] = useState(false)
+  const [mounted, setMounted] = useState(false)
   const pathname = usePathname()
+  const storeUrl = getRestaurantStoreUrl(tenantSlug)
+  const { tr } = useI18n()
+
+  useEffect(() => {
+    setMounted(true)
+    const openMenu = () => setOpen(true)
+    window.addEventListener('eccofood:open-admin-menu', openMenu)
+    return () => window.removeEventListener('eccofood:open-admin-menu', openMenu)
+  }, [])
+
+  const openMenu = () => setOpen(true)
 
   const sidebarContent = (
     <>
-      <div className="border-b border-white/10 p-4">
+      <div className="admin-sidebar-brand border-b border-white/10 p-4">
         <div className="flex items-center justify-between gap-3">
           <div className="flex min-w-0 items-center gap-3">
             {logoUrl ? (
-              <img src={logoUrl} alt="" className="size-10 flex-shrink-0 rounded-lg object-cover shadow-sm" />
+              <span className="flex h-14 w-20 flex-shrink-0 items-center justify-center">
+                <img src={logoUrl} alt="" className="max-h-full max-w-full object-contain" />
+              </span>
             ) : (
-              <div className="flex size-10 flex-shrink-0 items-center justify-center rounded-lg bg-white text-sm font-black text-[#15130f]">
+              <div className="flex h-12 w-16 flex-shrink-0 items-center justify-center rounded-xl bg-white text-sm font-black text-[#111827]">
                 {restaurantName.charAt(0)}
               </div>
             )}
             <div className="min-w-0">
-              <p className="truncate text-sm font-black text-white" style={{ color: primaryColor ?? undefined }}>
+              <p className="truncate text-sm font-black text-white">
                 {restaurantName}
               </p>
-              <p className="text-xs font-semibold text-white/45">Panel operativo</p>
+              <p className="text-xs font-semibold text-white/45">{tr('admin.subtitle')}</p>
             </div>
           </div>
           <button
             className="rounded-lg p-2 text-white/55 transition hover:bg-white/10 hover:text-white md:hidden"
             onClick={() => setOpen(false)}
-            aria-label="Cerrar menu"
+            aria-label={tr('admin.closeMenu')}
           >
             <X className="size-5" />
           </button>
@@ -124,7 +173,7 @@ export function AdminSidebar({
       <nav className="flex-1 space-y-1 overflow-y-auto p-3">
         {isOwner && userTenants.length > 1 && (
           <div className="mb-4 border-b border-white/10 pb-4">
-            <p className="px-3 pb-2 text-[11px] font-black uppercase text-white/35">Mis restaurantes</p>
+            <p className="px-3 pb-2 text-[11px] font-black uppercase text-white/35">{tr('admin.myRestaurants')}</p>
             <div className="space-y-1">
               {userTenants.map(t => (
                 <Link
@@ -133,7 +182,7 @@ export function AdminSidebar({
                   onClick={() => setOpen(false)}
                   className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-semibold transition ${
                     t.slug === tenantSlug
-                      ? 'bg-white text-[#15130f]'
+                      ? 'bg-white text-[#111827]'
                       : 'text-white/62 hover:bg-white/8 hover:text-white'
                   }`}
                 >
@@ -150,6 +199,7 @@ export function AdminSidebar({
           const linkSection = detectAdminSection(link.href)
           const linkColor = `var(${getSectionColorVar(linkSection)})`
           const Icon = icons[link.icon] || LayoutDashboard
+          const translatedLabel = navTranslationByIcon[link.icon] ? tr(navTranslationByIcon[link.icon]) : link.label
 
           return (
             <div key={link.href}>
@@ -159,13 +209,13 @@ export function AdminSidebar({
                 onClick={() => setOpen(false)}
                 className={`group flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-bold transition ${
                   isActive
-                    ? 'bg-white text-[#15130f] shadow-sm'
+                    ? 'bg-white text-[#111827] shadow-sm'
                     : 'text-white/64 hover:bg-white/8 hover:text-white'
                 }`}
                 style={isActive ? { boxShadow: `inset 3px 0 0 ${linkColor}` } : undefined}
               >
                 <Icon className="size-4 flex-shrink-0" />
-                <span className="truncate">{link.label}</span>
+                <span className="truncate">{translatedLabel}</span>
               </Link>
             </div>
           )
@@ -173,53 +223,88 @@ export function AdminSidebar({
       </nav>
 
       <div className="space-y-1 border-t border-white/10 p-3">
+        <LanguageSwitcher className="mb-2 w-full justify-between border-white/10 bg-white/10 text-white [&_select]:text-white" compact={false} />
         {tenantId && <StoreStatusToggle tenantId={tenantId} initialEnabled={storeEnabled} />}
-        <Link
-          href={`/${tenantSlug}/menu`}
+        <a
+          href={storeUrl}
+          target="_blank"
+          rel="noopener noreferrer"
           onClick={() => setOpen(false)}
           className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-bold text-white/64 transition hover:bg-white/8 hover:text-white"
         >
           <Eye className="size-4" />
-          <span>Ver tienda</span>
-        </Link>
+          <span>{tr('admin.viewStore')}</span>
+        </a>
         <form action="/api/auth/logout" method="POST">
           <button
             type="submit"
             className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm font-bold text-white/64 transition hover:bg-white/8 hover:text-white"
           >
             <DoorOpen className="size-4" />
-            <span>Cerrar sesion</span>
+            <span>{tr('admin.logout')}</span>
           </button>
         </form>
       </div>
     </>
   )
 
+  const mobileMenuLayer = mounted
+    ? createPortal(
+        <>
+          <button
+            className="fixed left-[max(0.85rem,env(safe-area-inset-left))] top-[calc(env(safe-area-inset-top)+0.85rem)] z-[2147483647] inline-flex h-12 items-center gap-2 rounded-2xl border border-white/15 bg-gradient-to-br from-[#e43d30] to-[#ff5a1f] px-4 text-sm font-black text-white shadow-[0_18px_60px_rgba(228,61,48,0.28)] active:scale-95 md:hidden"
+            onPointerDown={(event) => {
+              event.preventDefault()
+              event.stopPropagation()
+              openMenu()
+            }}
+            onTouchStart={(event) => {
+              event.preventDefault()
+              event.stopPropagation()
+              openMenu()
+            }}
+            onClick={(event) => {
+              event.preventDefault()
+              event.stopPropagation()
+              openMenu()
+            }}
+            aria-label={tr('admin.openMenu')}
+            type="button"
+          >
+            <Menu className="size-5" />
+            Menu
+          </button>
+
+          {open && (
+            <div className="fixed inset-0 z-[2147483645] bg-black/70 backdrop-blur-sm md:hidden" onClick={() => setOpen(false)} />
+          )}
+
+          <aside
+            className={`admin-sidebar fixed inset-y-0 left-0 z-[2147483646] flex max-h-dvh w-[min(92vw,22rem)] flex-col bg-[#0f172a] shadow-2xl transition-transform duration-200 md:hidden ${
+              open ? 'translate-x-0' : '-translate-x-full'
+            }`}
+          >
+            {sidebarContent}
+          </aside>
+        </>,
+        document.body
+      )
+    : null
+
   return (
     <>
-      <aside className="hidden md:flex fixed inset-y-0 left-0 z-30 w-64 flex-col border-r border-black/10 bg-[#15130f] shadow-2xl shadow-black/10">
+      <aside className="admin-sidebar hidden md:flex fixed inset-y-0 left-0 z-30 w-64 flex-col border-r border-black/10 bg-[#0f172a] shadow-2xl shadow-black/10">
         {sidebarContent}
       </aside>
 
-      <button
-        className="fixed left-3 top-3 z-40 rounded-lg border border-black/10 bg-white p-2 text-[#15130f] shadow-sm md:hidden"
-        onClick={() => setOpen(true)}
-        aria-label="Abrir menu"
-      >
-        <Menu className="size-5" />
-      </button>
+      {mobileMenuLayer}
 
-      {open && (
-        <div className="fixed inset-0 z-30 bg-black/35 md:hidden" onClick={() => setOpen(false)} />
-      )}
-
-      <aside
-        className={`fixed inset-y-0 left-0 z-40 flex w-72 flex-col bg-[#15130f] shadow-2xl transition-transform duration-200 md:hidden ${
-          open ? 'translate-x-0' : '-translate-x-full'
-        }`}
-      >
-        {sidebarContent}
-      </aside>
+      <div className="fixed inset-x-0 top-0 z-[2147483644] flex h-16 items-center justify-end border-b border-slate-200 bg-white/95 px-3 pl-32 shadow-xl shadow-slate-950/10 backdrop-blur-xl md:hidden">
+        <div className="min-w-0 pl-3 text-right">
+          <p className="truncate text-sm font-black text-[#111827]">{restaurantName}</p>
+          <p className="text-[11px] font-bold uppercase tracking-wide text-[#e43d30]">Panel operativo</p>
+        </div>
+      </div>
     </>
   )
 }

@@ -1,20 +1,44 @@
 import { createClient } from '@/lib/supabase/server'
 import { getTenantContext } from '@/lib/tenant'
+import { deriveBrandPalette } from '@/lib/brand-colors'
 import { formatPriceWithCurrency, getCurrencyByCountry } from '@/lib/currency'
 import Link from 'next/link'
+import { headers } from 'next/headers'
+import { WompiReturnVerifier } from './WompiReturnVerifier'
 
 interface Props {
   params: Promise<{ domain: string }>
-  searchParams: Promise<{ order?: string }>
+  searchParams: Promise<{ order?: string; provider?: string; reference?: string; id?: string; 'transaction.id'?: string }>
 }
 
 export default async function GraciasPage({ params, searchParams }: Props) {
   const { domain: tenantId } = await params
-  const { order: orderId } = await searchParams
+  const headersList = await headers()
+  const hostname = (headersList.get('host') || '').split(':')[0]?.toLowerCase() || ''
+  const baseDomain = process.env.NEXT_PUBLIC_BASE_DOMAIN || 'eccofoodapp.com'
+  const isCustomDomain = Boolean(hostname && !hostname.includes(baseDomain) && !hostname.includes('localhost') && !hostname.endsWith('.vercel.app'))
+  const search = await searchParams
+  const { order: orderId } = search
+  const wompiTransactionId = search.id || search['transaction.id']
   const context = await getTenantContext(tenantId)
   const { branding } = context
   const tenantSlug = context.tenant?.slug || tenantId
-  const primary = branding?.primary_color || '#E4002B'
+  const storeBasePath = isCustomDomain ? '' : `/${tenantSlug}`
+  const brandingValues = branding as any
+  const palette = deriveBrandPalette({
+    primary: brandingValues?.primary_color,
+    secondary: brandingValues?.secondary_color,
+    accent: brandingValues?.accent_color,
+    background: brandingValues?.background_color,
+    surface: brandingValues?.surface_color,
+    buttonPrimary: brandingValues?.button_primary_color,
+    buttonSecondary: brandingValues?.button_secondary_color,
+    textPrimary: brandingValues?.text_primary_color,
+    textSecondary: brandingValues?.text_secondary_color,
+    border: brandingValues?.border_color,
+  })
+  const primary = palette.buttonPrimary
+  const price = palette.accent
   const currencyInfo = getCurrencyByCountry(context.settings?.country_code || context.settings?.country || (context.tenant as any)?.country || 'ES')
   const money = (amount: number) => formatPriceWithCurrency(Number(amount || 0), currencyInfo.code, currencyInfo.locale)
 
@@ -45,9 +69,23 @@ export default async function GraciasPage({ params, searchParams }: Props) {
       <h1 className="text-2xl font-extrabold text-gray-900 mb-1 text-center">
         {order?.customer_name ? `¡Gracias, ${order.customer_name.split(' ')[0]}!` : '¡Pedido recibido!'}
       </h1>
+      {order?.payment_method === 'wompi' ? (
+        <p className="text-muted-foreground text-sm text-center mb-6 max-w-xs">
+          Estamos verificando tu pago con Wompi. El pedido se confirma cuando el pago sea aprobado.
+        </p>
+      ) : (
       <p className="text-muted-foreground text-sm text-center mb-6 max-w-xs">
         Tu pedido está confirmado y pronto lo estaremos preparando con todo el amor 🍽️
       </p>
+      )}
+
+      {search.provider === 'wompi' && (
+        <WompiReturnVerifier
+          orderId={orderId}
+          reference={search.reference}
+          transactionId={wompiTransactionId}
+        />
+      )}
 
       {order && (
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 w-full max-w-sm mb-6 space-y-3">
@@ -59,7 +97,7 @@ export default async function GraciasPage({ params, searchParams }: Props) {
             </div>
             <div className="flex justify-between items-center">
               <span className="text-sm text-muted-foreground">Total</span>
-              <span className="font-extrabold text-lg" style={{ color: primary }}>{money(Number(order.total))}</span>
+              <span className="font-extrabold text-lg" style={{ color: price }}>{money(Number(order.total))}</span>
             </div>
             <div className="flex justify-between items-center">
               <span className="text-sm text-muted-foreground">Pago</span>
@@ -68,7 +106,7 @@ export default async function GraciasPage({ params, searchParams }: Props) {
             <div className="flex justify-between items-center">
               <span className="text-sm text-muted-foreground">Estado</span>
               <span className="px-2.5 py-1 rounded-full text-xs font-bold" style={{ backgroundColor: `${primary}15`, color: primary }}>
-                En preparación
+                {order.payment_method === 'wompi' ? 'Verificando pago' : 'En preparacion'}
               </span>
             </div>
           </div>
@@ -77,7 +115,7 @@ export default async function GraciasPage({ params, searchParams }: Props) {
 
       <div className="w-full max-w-sm space-y-3">
         <Link
-          href={`/${tenantSlug}/mis-pedidos`}
+          href={`${storeBasePath}/mis-pedidos`}
           className="flex items-center justify-center gap-2 w-full py-3.5 rounded-2xl text-white font-bold text-sm shadow-lg active:scale-95 transition-transform"
           style={{ backgroundColor: primary }}
         >
@@ -90,7 +128,7 @@ export default async function GraciasPage({ params, searchParams }: Props) {
           Seguir mi pedido
         </Link>
         <Link
-          href={`/${tenantSlug}/menu`}
+          href={`${storeBasePath}/menu`}
           className="flex items-center justify-center w-full py-3.5 rounded-2xl text-gray-600 font-bold text-sm bg-white border border-gray-200 active:scale-95 transition-transform"
         >
           Pedir algo más

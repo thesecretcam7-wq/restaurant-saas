@@ -127,19 +127,23 @@ export function formatPriceWithCurrency(
   currencyCode: string = 'COP',
   locale: string = 'es-CO'
 ): string {
+  const zeroDecimalCurrencies = new Set(['COP', 'CLP', 'JPY', 'KRW', 'VND', 'PYG'])
+  const fractionDigits = zeroDecimalCurrencies.has(currencyCode.toUpperCase()) ? 0 : 2
+
   try {
     return new Intl.NumberFormat(locale, {
       style: 'currency',
       currency: currencyCode,
-      maximumFractionDigits: currencyCode === 'JPY' ? 0 : 2,
-      minimumFractionDigits: currencyCode === 'JPY' ? 0 : 2,
+      maximumFractionDigits: fractionDigits,
+      minimumFractionDigits: fractionDigits,
     }).format(amount)
   } catch (error) {
     // Fallback si el locale no es válido
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
       currency: currencyCode,
-      maximumFractionDigits: 2,
+      maximumFractionDigits: fractionDigits,
+      minimumFractionDigits: fractionDigits,
     }).format(amount)
   }
 }

@@ -1,21 +1,21 @@
 'use client';
 
 import { useEffect, useState, useRef, useCallback, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { createClient } from '@/lib/supabase/client';
-import { ShoppingCart, Plus, Minus, Trash2, Search, DollarSign, CreditCard, Maximize2, Minimize2, Lock, Clock, Truck, Store, UtensilsCrossed, Archive, Monitor } from 'lucide-react';
+import { ShoppingCart, Plus, Minus, Trash2, Search, DollarSign, CreditCard, Maximize2, Minimize2, Lock, Clock, Truck, Store, UtensilsCrossed, Archive, Monitor, Printer, CalendarDays, Download, PencilLine, X } from 'lucide-react';
 import { POSStaffSelector } from './POSStaffSelector';
 import { TableMap } from './TableMap';
 import { POSPayment } from './POSPayment';
-import { POSCartDrawer } from './POSCartDrawer';
-import { AdminMenuDrawer } from './AdminMenuDrawer';
 import { CashClosingModal } from './CashClosingModal';
 import { Toast } from './Toast';
 import { POSOrderLookup } from './POSOrderLookup';
-import { saveCartToSupabase, loadCartFromSupabase, abandonCart, loadOrderToCart } from '@/lib/pos-cart-sync';
+import { saveCartToSupabase, loadCartFromSupabase, abandonCart, abandonCurrentCartSession, loadOrderToCart } from '@/lib/pos-cart-sync';
 import { calculateCashClosingStats, saveCashClosing, CashClosingStats } from '@/lib/cash-closing';
 import { getCurrencyByCountry, formatPriceWithCurrency } from '@/lib/currency';
-import { printReceipt, savePrinterLog, openCashDrawer } from '@/lib/pos-printer';
+import { printCashClosingReceipt, printKitchenTicket, printReceipt, savePrinterLog, openCashDrawer } from '@/lib/pos-printer';
 import { countPendingPOSOrders, isNetworkPaymentError, saveOfflinePOSOrder, syncOfflinePOSOrders } from '@/lib/offline/pos-sync';
+import { useWakeLock } from '@/lib/hooks/useWakeLock';
 
 interface MenuItem {
   id: string;
@@ -31,6 +31,7 @@ interface CartItem {
   price: number;
   quantity: number;
   notes?: string;
+  is_manual?: boolean;
 }
 
 interface Category {
@@ -40,6 +41,14 @@ interface Category {
 
 type POSMode = 'simple' | 'table';
 type PaymentMethod = 'cash' | 'stripe';
+
+declare global {
+  interface Window {
+    EccofoodAndroidTapToPay?: {
+      payTable: (payload: string) => void;
+    };
+  }
+}
 
 function getLoggedStaffFromBrowser(tenantId: string) {
   if (typeof window === 'undefined') return { staffId: null as string | null, staffName: '' };
@@ -94,12 +103,82 @@ interface RestaurantTable {
   location?: string;
 }
 
+interface DeliveryZone {
+  id: string;
+  name: string;
+  fee: number;
+  min_order?: number;
+}
+
+interface LoadedOrderContext {
+  id: string;
+  orderNumber?: string | null;
+  paymentStatus?: string | null;
+  status?: string | null;
+  deliveryFee: number;
+  originalTotal: number;
+  paymentMethod?: PaymentMethod;
+  deliveryType?: string | null;
+  tableNumber?: number | null;
+}
+
+interface HeldPOSAccount {
+  id: string;
+  label: string;
+  createdAt: string;
+  items: CartItem[];
+  total: number;
+  discount: number;
+  discountCode: string;
+  tip: number;
+  paymentMethod: PaymentMethod;
+  posMode: POSMode;
+  posOrderType: 'takeaway' | 'pickup' | 'delivery';
+  selectedTableId: string | null;
+  selectedTableNumber: number | null;
+  selectedStaffId: string | null;
+  selectedStaffName: string;
+  selectedDeliveryZoneId: string | null;
+}
+
+interface ReservationSummary {
+  id: string;
+  customer_name: string;
+  party_size: number;
+  reservation_time: string;
+  status: string;
+}
+
 function getOrderItemQty(item: { qty?: number; quantity?: number }) {
   return Number(item.qty ?? item.quantity ?? 1);
 }
 
 function getOrderItemsTotal(items: Array<{ price: number; qty?: number; quantity?: number }> = []) {
   return items.reduce((sum, item) => sum + Number(item.price || 0) * getOrderItemQty(item), 0);
+}
+
+function getHeldAccountItemCount(account: HeldPOSAccount) {
+  return account.items.reduce((sum, item) => sum + Number(item.quantity || 0), 0);
+}
+
+function formatHeldAccountTime(createdAt: string, locale: string) {
+  const date = new Date(createdAt);
+  if (Number.isNaN(date.getTime())) return '';
+  return date.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' });
+}
+
+async function fetchPendingCashClosingStats(tenantId: string): Promise<CashClosingStats | null> {
+  const response = await fetch(`/api/pos/cash-closing/pending?tenantId=${encodeURIComponent(tenantId)}`, {
+    cache: 'no-store',
+  });
+
+  if (!response.ok) {
+    const payload = await response.json().catch(() => ({}));
+    throw new Error(payload.error || 'No se pudo consultar el cierre pendiente');
+  }
+
+  const payload = await response.json();
+  return payload.stats || null;
 }
 
 // ─── Timer Hook ───────────────────────────────────────────────────────────────
@@ -135,6 +214,7 @@ function getTimerColor(minutes: number) {
 function TableGroupCard({
   group,
   onBillTable,
+  onPrintKitchen,
   onVoidItem,
   expanded,
   onToggleExpand,
@@ -142,6 +222,7 @@ function TableGroupCard({
 }: {
   group: TableGroup;
   onBillTable: (orders: DineInOrder[]) => void;
+  onPrintKitchen: (orders: DineInOrder[]) => void;
   onVoidItem: (orderId: string, itemIndex: number) => void;
   expanded: boolean;
   onToggleExpand: () => void;
@@ -207,13 +288,21 @@ function TableGroupCard({
         </div>
       )}
 
-      <div className="p-2 pt-0">
+      <div className="grid grid-cols-2 gap-2 p-2 pt-0">
+        <button
+          onClick={() => onPrintKitchen(group.orders)}
+          title="Imprimir comanda para cocina"
+          className="py-2.5 bg-amber-500/18 hover:bg-amber-500/28 active:scale-95 text-amber-100 border border-amber-400/30 text-xs font-bold rounded-lg transition-all flex items-center justify-center gap-1.5"
+        >
+          <Printer className="w-3.5 h-3.5" />
+          Imprimir
+        </button>
         <button
           onClick={() => onBillTable(group.orders)}
-          className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white text-xs font-bold rounded-lg transition-all flex items-center justify-center gap-1.5 shadow-lg shadow-emerald-900/30"
+          className="py-2.5 bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white text-xs font-bold rounded-lg transition-all flex items-center justify-center gap-1.5 shadow-lg shadow-emerald-900/30"
         >
           <DollarSign className="w-3.5 h-3.5" />
-          Cobrar Mesa {group.tableNumber}
+          Pagar mesa completa
         </button>
       </div>
     </div>
@@ -395,18 +484,24 @@ export function POSTerminal({
   const [loading, setLoading] = useState(true);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [productSearchOpen, setProductSearchOpen] = useState(false);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('cash');
+  const [printReceiptAfterPayment, setPrintReceiptAfterPayment] = useState(true);
   const [discountCode, setDiscountCode] = useState('');
   const [discount, setDiscount] = useState(0);
   const [taxRate, setTaxRate] = useState(0);
+  const [deliveryEnabled, setDeliveryEnabled] = useState(false);
+  const [deliveryFee, setDeliveryFee] = useState(0);
+  const [deliveryZones, setDeliveryZones] = useState<DeliveryZone[]>([]);
+  const [selectedDeliveryZoneId, setSelectedDeliveryZoneId] = useState<string | null>(null);
   const [restaurantName, setRestaurantName] = useState('Restaurante');
   const [restaurantPhone, setRestaurantPhone] = useState<string | null>(null);
   const [restaurantLogo, setRestaurantLogo] = useState<string | undefined>();
 
   // Nuevas características - Modo y selecciones
   const [posMode, setPosMode] = useState<POSMode>('simple');
-  const [posOrderType, setPosOrderType] = useState<'takeaway' | 'pickup'>('takeaway');
+  const [posOrderType, setPosOrderType] = useState<'takeaway' | 'pickup' | 'delivery'>('takeaway');
   const [selectedStaffId, setSelectedStaffId] = useState<string | null>(null);
   const [selectedStaffName, setSelectedStaffName] = useState<string>('');
   const [selectedTableId, setSelectedTableId] = useState<string | null>(null);
@@ -424,11 +519,12 @@ export function POSTerminal({
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const posRootRef = useRef<HTMLDivElement>(null);
-  const [showCartDrawer, setShowCartDrawer] = useState(false);
-  const [showAdminMenu, setShowAdminMenu] = useState(false);
+  const { wakeLockActive, wakeLockSupported, activateWakeLock } = useWakeLock();
   const [showCashClosing, setShowCashClosing] = useState(false);
   const [cashClosingStats, setCashClosingStats] = useState<CashClosingStats | null>(null);
+  const [pendingCashClosingStats, setPendingCashClosingStats] = useState<CashClosingStats | null>(null);
   const [closingLoading, setClosingLoading] = useState(false);
+  const [todayReservations, setTodayReservations] = useState<ReservationSummary[]>([]);
 
   // Incoming Orders for delivery/pickup
   const [incomingOrders, setIncomingOrders] = useState<IncomingOrder[]>([]);
@@ -441,12 +537,16 @@ export function POSTerminal({
   // Find & Pay mode
   const [showFindPayPanel, setShowFindPayPanel] = useState(false);
   const [loadedOrderId, setLoadedOrderId] = useState<string | null>(null);
+  const [loadedOrderContext, setLoadedOrderContext] = useState<LoadedOrderContext | null>(null);
   const [loadedOrderIds, setLoadedOrderIds] = useState<string[]>([]);
   const [billingOrderIds, setBillingOrderIds] = useState<string[]>([]);
   const [expandedTable, setExpandedTable] = useState<number | null>(null);
   const [tip, setTip] = useState(0);
+  const [heldAccounts, setHeldAccounts] = useState<HeldPOSAccount[]>([]);
+  const [showHeldAccountsPanel, setShowHeldAccountsPanel] = useState(false);
   const [mesasView, setMesasView] = useState<'list' | 'map'>('map');
   const [allTables, setAllTables] = useState<RestaurantTable[]>([]);
+  const [androidTapToPayAvailable, setAndroidTapToPayAvailable] = useState(false);
   const [orderNotification, setOrderNotification] = useState<{
     tableNumber: number | null;
     waiter: string | null;
@@ -458,12 +558,63 @@ export function POSTerminal({
   const firstDineInFetchDone = useRef(false);
   const notificationTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const csrfTokenRef = useRef<string>('');
+  const cartRestoredRef = useRef(false);
+  const previousCartLengthRef = useRef(0);
+  const restoredStaffTenantRef = useRef<string | null>(null);
+
+  const persistHeldAccounts = useCallback((nextAccounts: HeldPOSAccount[]) => {
+    setHeldAccounts(nextAccounts);
+    if (typeof window === 'undefined') return;
+
+    const storageKey = `pos-held-accounts-${tenantId}`;
+    if (nextAccounts.length > 0) {
+      localStorage.setItem(storageKey, JSON.stringify(nextAccounts));
+    } else {
+      localStorage.removeItem(storageKey);
+    }
+  }, [tenantId]);
 
   useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    try {
+      const savedAccounts = localStorage.getItem(`pos-held-accounts-${tenantId}`);
+      if (!savedAccounts) {
+        setHeldAccounts([]);
+        return;
+      }
+
+      const parsed = JSON.parse(savedAccounts);
+      const validAccounts = Array.isArray(parsed)
+        ? parsed.filter((account): account is HeldPOSAccount =>
+            Boolean(account)
+            && typeof account.id === 'string'
+            && Array.isArray(account.items)
+          )
+        : [];
+      setHeldAccounts(validAccounts);
+    } catch (error) {
+      console.error('Error restoring held POS accounts:', error);
+      setHeldAccounts([]);
+    }
+  }, [tenantId]);
+
+  useEffect(() => {
+    if (restoredStaffTenantRef.current === tenantId) return;
+    restoredStaffTenantRef.current = tenantId;
+
     const loggedStaff = getLoggedStaffFromBrowser(tenantId);
     if (loggedStaff.staffId && !selectedStaffId) setSelectedStaffId(loggedStaff.staffId);
     if (loggedStaff.staffName && !selectedStaffName) setSelectedStaffName(loggedStaff.staffName);
   }, [tenantId, selectedStaffId, selectedStaffName]);
+
+  const refreshPendingCashClosing = useCallback(async () => {
+    try {
+      setPendingCashClosingStats(await fetchPendingCashClosingStats(tenantId));
+    } catch (error) {
+      console.error('Error checking pending cash closing:', error);
+    }
+  }, [tenantId]);
 
   const refreshOfflinePendingCount = useCallback(async () => {
     try {
@@ -472,6 +623,61 @@ export function POSTerminal({
       console.error('Error counting offline POS orders:', error);
     }
   }, [tenantId]);
+
+  const refreshTodayReservations = useCallback(async () => {
+    try {
+      const today = new Date().toISOString().slice(0, 10);
+      const { data, error } = await supabase
+        .from('reservations')
+        .select('id, customer_name, party_size, reservation_time, status')
+        .eq('tenant_id', tenantId)
+        .eq('reservation_date', today)
+        .in('status', ['pending', 'confirmed'])
+        .order('reservation_time', { ascending: true });
+
+      if (error) throw error;
+      setTodayReservations((data || []) as ReservationSummary[]);
+    } catch (error) {
+      console.error('Error checking POS reservations:', error);
+      setTodayReservations([]);
+    }
+  }, [supabase, tenantId]);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      refreshPendingCashClosing();
+    }, 5000);
+    return () => window.clearTimeout(timer);
+  }, [refreshPendingCashClosing]);
+
+  useEffect(() => {
+    if (!deliveryEnabled && posOrderType === 'delivery') {
+      setPosOrderType('takeaway');
+    }
+  }, [deliveryEnabled, posOrderType]);
+
+  const deliveryOptions = useMemo(() => {
+    if (deliveryZones.length > 0) return deliveryZones;
+    return deliveryFee > 0
+      ? [{ id: 'default', name: 'Tarifa general', fee: deliveryFee, min_order: 0 }]
+      : [];
+  }, [deliveryFee, deliveryZones]);
+
+  const selectedDeliveryZone = useMemo(
+    () => deliveryOptions.find((zone) => zone.id === selectedDeliveryZoneId) || deliveryOptions[0] || null,
+    [deliveryOptions, selectedDeliveryZoneId]
+  );
+
+  useEffect(() => {
+    if (!deliveryEnabled || posOrderType !== 'delivery') return;
+    if (deliveryOptions.length === 0) {
+      setSelectedDeliveryZoneId(null);
+      return;
+    }
+    if (!selectedDeliveryZoneId || !deliveryOptions.some((zone) => zone.id === selectedDeliveryZoneId)) {
+      setSelectedDeliveryZoneId(deliveryOptions[0].id);
+    }
+  }, [deliveryEnabled, deliveryOptions, posOrderType, selectedDeliveryZoneId]);
 
   const syncOfflineSales = useCallback(async (showToast = false) => {
     if (typeof navigator !== 'undefined' && !navigator.onLine) return;
@@ -550,9 +756,51 @@ export function POSTerminal({
     fetch('/api/csrf-token').then(r => r.json()).then(d => { if (d.token) csrfTokenRef.current = d.token; }).catch(() => {});
     fetchMenuData();
     restoreCart();
-    fetchAllTables();
     refreshOfflinePendingCount();
+    refreshTodayReservations();
+  }, [tenantId, refreshOfflinePendingCount, refreshTodayReservations]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const checkBridge = () => {
+      setAndroidTapToPayAvailable(typeof window.EccofoodAndroidTapToPay?.payTable === 'function');
+    };
+
+    const handleTapToPayResult = (event: Event) => {
+      const detail = (event as CustomEvent<{ success?: boolean; error?: string }>).detail || {};
+      setProcessingPayment(false);
+
+      if (detail.success) {
+        setToast({ message: 'Mesa pagada con Tap to Pay', type: 'success' });
+        setCart([]);
+        setBillingOrderIds([]);
+        setSelectedTableId(null);
+        setSelectedTableNumber(null);
+        setSelectedStaffId(null);
+        setSelectedStaffName('');
+        setPosMode('simple');
+        fetchDineInOrders();
+        return;
+      }
+
+      setToast({ message: detail.error || 'No se pudo cobrar con Tap to Pay', type: 'error' });
+    };
+
+    checkBridge();
+    window.addEventListener('eccofood-android-ready', checkBridge);
+    window.addEventListener('eccofood-tap-to-pay-result', handleTapToPayResult as EventListener);
+
+    return () => {
+      window.removeEventListener('eccofood-android-ready', checkBridge);
+      window.removeEventListener('eccofood-tap-to-pay-result', handleTapToPayResult as EventListener);
+    };
   }, [tenantId]);
+
+  useEffect(() => {
+    const interval = window.setInterval(refreshTodayReservations, 60000);
+    return () => window.clearInterval(interval);
+  }, [refreshTodayReservations]);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -579,8 +827,7 @@ export function POSTerminal({
     const handleFullscreenChange = () => {
       const isNowFullscreen = !!document.fullscreenElement;
       setIsFullscreen(isNowFullscreen);
-      // Set data attribute to hide admin panel on fullscreen
-      if (isNowFullscreen) {
+      if (isNowFullscreen && document.fullscreenElement === posRootRef.current) {
         document.documentElement.setAttribute('data-pos-fullscreen', 'true');
       } else {
         document.documentElement.removeAttribute('data-pos-fullscreen');
@@ -588,7 +835,10 @@ export function POSTerminal({
     };
 
     document.addEventListener('fullscreenchange', handleFullscreenChange);
-    return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
+    return () => {
+      document.removeEventListener('fullscreenchange', handleFullscreenChange);
+      document.documentElement.removeAttribute('data-pos-fullscreen');
+    };
   }, []);
 
   // Cleanup fullscreen state when component unmounts
@@ -617,9 +867,49 @@ export function POSTerminal({
     }
   }
 
+  function downloadPOSShortcut() {
+    const origin = window.location.origin;
+    const posUrl = `${origin}/${tenantId}/staff/pos`;
+    const iconUrl = `${origin}/favicon.ico`;
+    const safeRestaurantName = restaurantName
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-zA-Z0-9-_ ]/g, '')
+      .trim()
+      .replace(/\s+/g, '-')
+      .slice(0, 42) || 'Restaurante';
+    const shortcutName = `Eccofood TPV - ${safeRestaurantName}.url`;
+    const encodeBase64 = (value: string) =>
+      btoa(unescape(encodeURIComponent(value)));
+    const installer = [
+      '@echo off',
+      'setlocal',
+      'echo Instalando acceso directo del TPV en el Escritorio...',
+      'echo.',
+      'powershell -NoProfile -ExecutionPolicy Bypass -Command "$ErrorActionPreference = \'Stop\'; $url = [Text.Encoding]::UTF8.GetString([Convert]::FromBase64String(\'' + encodeBase64(posUrl) + '\')); $icon = [Text.Encoding]::UTF8.GetString([Convert]::FromBase64String(\'' + encodeBase64(iconUrl) + '\')); $name = [Text.Encoding]::UTF8.GetString([Convert]::FromBase64String(\'' + encodeBase64(shortcutName) + '\')); $desktop = [Environment]::GetFolderPath(\'Desktop\'); $path = Join-Path $desktop $name; $content = @(\'[InternetShortcut]\', (\'URL=\' + $url), \'IconIndex=0\', (\'IconFile=\' + $icon)); Set-Content -Path $path -Value $content -Encoding ASCII; Write-Host \'Acceso creado:\' $path; Start-Process $path"',
+      'echo.',
+      'echo Si Windows pregunto por permisos, acepta para crear el icono.',
+      'echo Ya puedes abrir el TPV desde el Escritorio.',
+      'pause',
+    ].join('\r\n');
+    const blob = new Blob([installer], { type: 'application/x-msdownload' });
+    const href = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = href;
+    link.download = `Instalar-TPV-${safeRestaurantName}-en-Escritorio.cmd`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(href);
+    setToast({ message: 'Instalador del acceso descargado. Abrelo una vez y dejara el TPV en el Escritorio.', type: 'success' });
+  }
+
   async function handleOpenCashClosing() {
     setClosingLoading(true);
     try {
+      const loggedStaff = getLoggedStaffFromBrowser(tenantId);
+      if (loggedStaff.staffId && !selectedStaffId) setSelectedStaffId(loggedStaff.staffId);
+      if (loggedStaff.staffName && !selectedStaffName) setSelectedStaffName(loggedStaff.staffName);
       const stats = await calculateCashClosingStats(tenantId);
       setCashClosingStats(stats);
       setShowCashClosing(true);
@@ -631,11 +921,39 @@ export function POSTerminal({
     }
   }
 
+  async function handleOpenPendingCashClosing() {
+    setClosingLoading(true);
+    try {
+      const loggedStaff = getLoggedStaffFromBrowser(tenantId);
+      if (loggedStaff.staffId && !selectedStaffId) setSelectedStaffId(loggedStaff.staffId);
+      if (loggedStaff.staffName && !selectedStaffName) setSelectedStaffName(loggedStaff.staffName);
+      const stats = pendingCashClosingStats || await fetchPendingCashClosingStats(tenantId);
+
+      if (!stats) {
+        setToast({ message: 'No hay cierres pendientes anteriores', type: 'success' });
+        setPendingCashClosingStats(null);
+        return;
+      }
+
+      setCashClosingStats(stats);
+      setShowCashClosing(true);
+    } catch (error) {
+      console.error('Error opening pending closing stats:', error);
+      setToast({ message: 'Error al cargar el cierre pendiente', type: 'error' });
+    } finally {
+      setClosingLoading(false);
+    }
+  }
+
   async function handleSaveCashClosing(actualCash: number, notes: string) {
     if (!cashClosingStats) return;
 
     try {
-      await saveCashClosing(tenantId, selectedStaffId, selectedStaffName || 'Sin asignar', {
+      const loggedStaff = getLoggedStaffFromBrowser(tenantId);
+      const closingStaffId = selectedStaffId || loggedStaff.staffId;
+      const closingStaffName = selectedStaffName || loggedStaff.staffName || 'Sin asignar';
+
+      const closing = await saveCashClosing(tenantId, closingStaffId, closingStaffName, {
         ...cashClosingStats,
         actualCashCount: actualCash,
         notes,
@@ -644,6 +962,55 @@ export function POSTerminal({
       setToast({ message: '✓ Caja cerrada exitosamente', type: 'success' });
       setShowCashClosing(false);
       setCashClosingStats(null);
+      await refreshPendingCashClosing();
+
+      void (async () => {
+        try {
+          const { data: settings, error } = await supabase
+            .from('restaurant_settings')
+            .select('default_receipt_printer_id, display_name, phone')
+            .eq('tenant_id', tenantId)
+            .maybeSingle();
+
+          if (error) throw new Error(error.message);
+          if (!settings?.default_receipt_printer_id) {
+            setToast({ message: 'Cierre guardado. No hay impresora de recibos configurada.', type: 'error' });
+            return;
+          }
+
+          await printCashClosingReceipt(tenantId, settings.default_receipt_printer_id, {
+            closingId: closing?.id,
+            restaurantName: settings.display_name || restaurantName,
+            restaurantPhone: settings.phone || restaurantPhone,
+            staffName: closingStaffName,
+            closedAt: closing?.closed_at || new Date().toISOString(),
+            periodStart: cashClosingStats.periodStart,
+            periodEnd: cashClosingStats.periodEnd,
+            cashSales: cashClosingStats.cashSales,
+            cardSales: cashClosingStats.cardSales,
+            otherSales: cashClosingStats.otherSales,
+            totalSales: cashClosingStats.totalSales,
+            totalDeliveryFees: cashClosingStats.totalDeliveryFees,
+            deliveryOrderCount: cashClosingStats.deliveryOrderCount,
+            totalTax: cashClosingStats.totalTax,
+            totalDiscount: cashClosingStats.totalDiscount,
+            expectedCash: cashClosingStats.cashSales,
+            actualCash,
+            difference: cashClosingStats.cashSales - actualCash,
+            transactionCount: cashClosingStats.transactionCount,
+            ordersCompleted: cashClosingStats.ordersCompleted,
+            ordersCancelled: cashClosingStats.ordersCancelled,
+            notes,
+            currencyInfo,
+          });
+          setToast({ message: 'Cierre guardado e impreso', type: 'success' });
+        } catch (printError) {
+          setToast({
+            message: `Cierre guardado. No se pudo imprimir: ${printError instanceof Error ? printError.message : String(printError)}`,
+            type: 'error',
+          });
+        }
+      })();
 
       // Optionally clear cart after successful closing
       setTimeout(() => {
@@ -659,29 +1026,48 @@ export function POSTerminal({
 
   async function handleOrderSelected(order: any) {
     try {
+      const isPaidReceipt = order.payment_status === 'paid';
+      const normalizedPaymentMethod: PaymentMethod =
+        order.payment_method === 'stripe' || order.payment_method === 'card' || order.payment_method === 'tarjeta'
+          ? 'stripe'
+          : 'cash';
       // Convert order items to cart items
       const cartItems = (order.items || []).map((item: any, index: number) => ({
         menu_item_id: item.menu_item_id || item.item_id || item.id || `order-item-${order.id}-${index}`,
         name: item.name,
-        price: item.price,
-        quantity: item.qty || item.quantity || 1,
+        price: Number(item.price || 0),
+        quantity: Number(item.qty ?? item.quantity ?? 1),
+        notes: item.notes || undefined,
+        is_manual: item.is_manual === true || !(item.menu_item_id || item.item_id || item.id),
       }));
 
       setCart(cartItems);
       setLoadedOrderId(order.id);
-      setPaymentMethod('cash');
+      setLoadedOrderContext({
+        id: order.id,
+        orderNumber: order.order_number || null,
+        paymentStatus: order.payment_status || null,
+        status: order.status || null,
+        deliveryFee: Number(order.delivery_fee || 0),
+        originalTotal: Number(order.total || 0),
+        paymentMethod: normalizedPaymentMethod,
+        deliveryType: order.delivery_type || null,
+        tableNumber: order.table_number ?? null,
+      });
+      setPaymentMethod(normalizedPaymentMethod);
       setPosMode('simple');
       setDiscount(0);
       setDiscountCode('');
       setTip(0);
 
-      // Hide Find & Pay and Incoming panels, show cart
+      // Hide Find & Pay and Incoming panels; the built-in right cart panel stays visible.
       setShowFindPayPanel(false);
       setShowIncomingPanel(false);
-      setShowCartDrawer(true);
 
       setToast({
-        message: `Pedido ${order.order_number} cargado - Procede al pago`,
+        message: isPaidReceipt
+          ? `Recibo ${order.order_number} cargado para editar`
+          : `Pedido ${order.order_number} cargado - Procede al pago`,
         type: 'success'
       });
     } catch (error) {
@@ -717,6 +1103,7 @@ export function POSTerminal({
       setIncomingOrders((orders) => orders.filter((order) => order.id !== orderId));
       if (loadedOrderId === orderId) {
         setLoadedOrderId(null);
+        setLoadedOrderContext(null);
         setCart([]);
         setDiscount(0);
         setDiscountCode('');
@@ -770,6 +1157,7 @@ export function POSTerminal({
 
     if (loadedOrderId === order.id) {
       setLoadedOrderId(null);
+      setLoadedOrderContext(null);
       setCart([]);
       setDiscount(0);
       setDiscountCode('');
@@ -780,12 +1168,101 @@ export function POSTerminal({
     return true;
   }
 
-  async function restoreCart() {
-    // Try to restore from Supabase first (more reliable)
-    const supabaseCart = await loadCartFromSupabase(tenantId, supabase);
+  async function removeReceiptItem(order: any, itemIndex: number) {
+    const items = Array.isArray(order.items) ? order.items : [];
+    const item = items[itemIndex];
+    if (!item) return null;
 
-    if (supabaseCart) {
-      // Restore from Supabase
+    const confirmed = window.confirm(`Quitar "${item.name}" del recibo ${order.order_number || ''}?`);
+    if (!confirmed) return null;
+
+    const updatedItems = items.filter((_: any, index: number) => index !== itemIndex);
+    const newSubtotal = updatedItems.reduce(
+      (sum: number, current: any) => sum + Number(current.price || 0) * Number(current.qty ?? current.quantity ?? 1),
+      0
+    );
+    const newTax = Number(order.tax || 0) > 0 && Number(order.subtotal || 0) > 0
+      ? Math.round((newSubtotal * (Number(order.tax || 0) / Number(order.subtotal || 1))) * 100) / 100
+      : 0;
+    const newDeliveryFee = Number(order.delivery_fee || 0);
+    const newTotal = Math.max(0, newSubtotal + newTax + newDeliveryFee);
+
+    const response = await fetch(`/api/orders/${order.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({
+        tenantId,
+        items: updatedItems,
+        subtotal: newSubtotal,
+        tax: newTax,
+        delivery_fee: newDeliveryFee,
+        total: newTotal,
+        edit_reason: selectedStaffName
+          ? `Producto quitado desde TPV por ${selectedStaffName}: ${item.name}`
+          : `Producto quitado desde TPV: ${item.name}`,
+      }),
+    });
+
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      throw new Error(data.error || 'No se pudo modificar el recibo');
+    }
+
+    const updatedOrder = data.order || {
+      ...order,
+      items: updatedItems,
+      subtotal: newSubtotal,
+      tax: newTax,
+      delivery_fee: newDeliveryFee,
+      total: newTotal,
+    };
+
+    if (loadedOrderId === order.id) {
+      setCart(updatedItems.map((current: any, index: number) => ({
+        menu_item_id: current.menu_item_id || current.item_id || current.id || `order-item-${order.id}-${index}`,
+        name: current.name,
+        price: Number(current.price || 0),
+        quantity: Number(current.qty ?? current.quantity ?? 1),
+        notes: current.notes || undefined,
+        is_manual: current.is_manual === true || !(current.menu_item_id || (current as any).item_id || (current as any).id),
+      })));
+    }
+
+    await fetchIncomingOrders();
+    setToast({ message: 'Producto quitado del recibo. Puedes reimprimirlo.', type: 'success' });
+    return updatedOrder;
+  }
+
+  async function restoreCart() {
+    try {
+      if (typeof window !== 'undefined') {
+        const savedCart = localStorage.getItem(`pos-cart-${tenantId}`);
+        const savedDiscount = localStorage.getItem(`pos-discount-${tenantId}`);
+        const savedDiscountCode = localStorage.getItem(`pos-discount-code-${tenantId}`);
+
+        if (savedCart) {
+          try {
+            setCart(JSON.parse(savedCart));
+          } catch (error) {
+            console.error('Error restoring cart from localStorage:', error);
+          }
+        }
+        if (savedDiscount) {
+          try {
+            setDiscount(parseFloat(savedDiscount));
+          } catch (error) {
+            console.error('Error restoring discount:', error);
+          }
+        }
+        if (savedDiscountCode) {
+          setDiscountCode(savedDiscountCode);
+        }
+      }
+
+      const supabaseCart = await loadCartFromSupabase(tenantId, supabase);
+      if (!supabaseCart) return;
+
       setCart(supabaseCart.items);
       setDiscount(supabaseCart.discount);
       setDiscountCode(supabaseCart.discountCode);
@@ -799,39 +1276,29 @@ export function POSTerminal({
       if (supabaseCart.loadedOrderId) {
         setLoadedOrderId(supabaseCart.loadedOrderId);
       }
-    } else if (typeof window !== 'undefined') {
-      // Fallback to localStorage if Supabase fails
-      const savedCart = localStorage.getItem(`pos-cart-${tenantId}`);
-      const savedDiscount = localStorage.getItem(`pos-discount-${tenantId}`);
-      const savedDiscountCode = localStorage.getItem(`pos-discount-code-${tenantId}`);
-
-      if (savedCart) {
-        try {
-          setCart(JSON.parse(savedCart));
-        } catch (error) {
-          console.error('Error restoring cart from localStorage:', error);
-        }
-      }
-      if (savedDiscount) {
-        try {
-          setDiscount(parseFloat(savedDiscount));
-        } catch (error) {
-          console.error('Error restoring discount:', error);
-        }
-      }
-      if (savedDiscountCode) {
-        setDiscountCode(savedDiscountCode);
-      }
+    } finally {
+      cartRestoredRef.current = true;
     }
   }
 
   // Save cart to localStorage AND Supabase whenever it changes
   useEffect(() => {
+    if (!cartRestoredRef.current) {
+      previousCartLengthRef.current = cart.length;
+      return;
+    }
+
     if (typeof window !== 'undefined') {
       // Save to localStorage (quick)
-      localStorage.setItem(`pos-cart-${tenantId}`, JSON.stringify(cart));
-      localStorage.setItem(`pos-discount-${tenantId}`, discount.toString());
-      localStorage.setItem(`pos-discount-code-${tenantId}`, discountCode);
+      if (cart.length > 0) {
+        localStorage.setItem(`pos-cart-${tenantId}`, JSON.stringify(cart));
+        localStorage.setItem(`pos-discount-${tenantId}`, discount.toString());
+        localStorage.setItem(`pos-discount-code-${tenantId}`, discountCode);
+      } else {
+        localStorage.removeItem(`pos-cart-${tenantId}`);
+        localStorage.removeItem(`pos-discount-${tenantId}`);
+        localStorage.removeItem(`pos-discount-code-${tenantId}`);
+      }
     }
 
     // Sync to Supabase in background (doesn't block UI)
@@ -853,7 +1320,12 @@ export function POSTerminal({
       saveCartToSupabase(tenantId, cartData, supabase).catch((err) => {
         console.error('Background cart sync failed (will use localStorage):', err);
       });
+    } else if (tenantId && previousCartLengthRef.current > 0) {
+      abandonCurrentCartSession(tenantId, supabase).catch((err) => {
+        console.error('Background cart cleanup failed:', err);
+      });
     }
+    previousCartLengthRef.current = cart.length;
   }, [cart, discount, discountCode, tip, tenantId, taxRate]);
 
   // Real-time subscription for incoming orders (delivery/pickup)
@@ -877,13 +1349,11 @@ export function POSTerminal({
             if (isNewOrder) {
               playNewOrderSound();
               knownOrderIds.current.add(newOrder.id);
-              setShowIncomingPanel(true);
               await fetchIncomingOrders();
             }
           } else if (newOrder.delivery_type === 'dine-in') {
             await fetchDineInOrders({ notify: false });
             playNewOrderSound();
-            setShowDineInPanel(true);
             const items: any[] = newOrder.items || [];
             setOrderNotification({
               tableNumber: newOrder.table_number ?? null,
@@ -979,11 +1449,14 @@ export function POSTerminal({
         .eq('tenant_id', tenantId)
         .eq('delivery_type', 'dine-in')
         .eq('payment_status', 'pending')
+        .not('status', 'in', '("delivered","cancelled")')
         .order('created_at', { ascending: false })
         .limit(20);
 
       if (!error && data) {
-        const mapped = data as DineInOrder[];
+        const mapped = (data as DineInOrder[]).filter((order) =>
+          (order.items || []).some((item) => getOrderItemQty(item) > 0)
+        );
         const newOrders = mapped.filter((order) => !knownDineInOrderIds.current.has(order.id));
 
         setDineInOrders(mapped);
@@ -992,7 +1465,6 @@ export function POSTerminal({
         if (options.notify && firstDineInFetchDone.current && newOrders.length > 0) {
           const latest = newOrders[0];
           playNewOrderSound();
-          setShowDineInPanel(true);
           setOrderNotification({
             tableNumber: latest.table_number ?? null,
             waiter: latest.waiter_name ?? null,
@@ -1009,22 +1481,138 @@ export function POSTerminal({
     }
   }
 
+  async function printDineInKitchenTicket(tableOrders: DineInOrder[]) {
+    if (!tableOrders.length) return;
+
+    try {
+      const { data: settings, error } = await supabase
+        .from('restaurant_settings')
+        .select('default_receipt_printer_id, kitchen_printer_id, display_name')
+        .eq('tenant_id', tenantId)
+        .maybeSingle();
+
+      if (error) throw new Error(error.message);
+
+      const printerId = settings?.kitchen_printer_id || settings?.default_receipt_printer_id;
+      if (!printerId) {
+        setToast({ message: 'No hay impresora de cocina o recibos configurada', type: 'error' });
+        return;
+      }
+
+      const firstOrder = tableOrders[0];
+      const items = tableOrders.flatMap((order) =>
+        (order.items || []).map((item, index) => ({
+          menu_item_id: item.item_id || `${order.id}-${index}`,
+          name: item.name,
+          quantity: getOrderItemQty(item),
+          notes: (item as any).notes || null,
+        }))
+      );
+
+      await printKitchenTicket(tenantId, printerId, {
+        orderId: firstOrder.id,
+        orderNumber: firstOrder.table_number ? `Mesa ${firstOrder.table_number}` : firstOrder.order_number || 'Comanda salon',
+        restaurantName: settings?.display_name || restaurantName,
+        ticketType: 'kitchen',
+        items,
+        deliveryType: 'dine-in',
+        tableNumber: firstOrder.table_number || undefined,
+        waiterName: firstOrder.waiter_name || undefined,
+        timestamp: new Date().toISOString(),
+      });
+
+      setToast({ message: 'Comanda enviada a cocina', type: 'success' });
+    } catch (error) {
+      setToast({
+        message: `No se pudo imprimir cocina: ${error instanceof Error ? error.message : String(error)}`,
+        type: 'error',
+      });
+    }
+  }
+
   async function voidOrderItem(orderId: string, itemIndex: number) {
     const order = dineInOrders.find(o => o.id === orderId);
     if (!order) return;
 
+    const item = order.items[itemIndex];
+    const confirmed = window.confirm(
+      item
+        ? `Anular "${item.name}" de Mesa ${order.table_number || ''}?`
+        : 'Anular este item?'
+    );
+    if (!confirmed) return;
+
     const updatedItems = order.items.filter((_, i) => i !== itemIndex);
     const newTotal = getOrderItemsTotal(updatedItems);
+    const isEmptyOrder = updatedItems.length === 0;
+
+    try {
+      const response = await fetch(`/api/orders/${orderId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          tenantId,
+          items: updatedItems,
+          subtotal: newTotal,
+          tax: 0,
+          delivery_fee: 0,
+          total: newTotal,
+          status: isEmptyOrder ? 'cancelled' : undefined,
+          cancel_reason: isEmptyOrder
+            ? selectedStaffName
+              ? `Comanda vacia anulada desde TPV por ${selectedStaffName}`
+              : 'Comanda vacia anulada desde TPV'
+            : undefined,
+          edit_reason: selectedStaffName
+            ? `Item anulado desde TPV por ${selectedStaffName}: ${item?.name || 'item'}`
+            : `Item anulado desde TPV: ${item?.name || 'item'}`,
+        }),
+      });
+
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.error || 'No se pudo anular el item');
+
+      await fetchDineInOrders();
+      setToast({
+        message: isEmptyOrder ? 'Comanda vacia anulada' : 'Item anulado',
+        type: 'success'
+      });
+    } catch (error) {
+      setToast({
+        message: error instanceof Error ? error.message : 'No se pudo anular el item',
+        type: 'error',
+      });
+    }
+  }
+    /*
+
+    const orderUpdate: Record<string, any> = {
+      items: updatedItems,
+      subtotal: newTotal,
+      tax: 0,
+      total: newTotal,
+    };
+    if (isEmptyOrder) {
+      orderUpdate.status = 'cancelled';
+      orderUpdate.cancel_reason = selectedStaffName
+        ? `Comanda vacia anulada desde TPV por ${selectedStaffName}`
+        : 'Comanda vacia anulada desde TPV';
+    }
 
     await supabase
       .from('orders')
-      .update({ items: updatedItems, total: newTotal })
+      .update(orderUpdate)
       .eq('id', orderId);
 
     await fetchDineInOrders();
-    setToast({ message: 'Ítem anulado', type: 'success' });
+    setToast({
+      message: isEmptyOrder ? 'Comanda vacia anulada' : 'Ítem anulado',
+      type: 'success'
+    });
   }
 
+    */
   function loadTableToCart(tableOrders: DineInOrder[]) {
     const mergedMap = new Map<string, CartItem>();
     tableOrders.forEach(order => {
@@ -1040,6 +1628,8 @@ export function POSTerminal({
               name: item.name,
               price: item.price,
               quantity,
+              is_manual: (item as any).is_manual === true || !item.item_id,
+              notes: (item as any).notes || undefined,
             });
           }
       });
@@ -1056,42 +1646,64 @@ export function POSTerminal({
     setShowIncomingPanel(false);
   }
 
+  function handleAndroidTapToPayTable() {
+    if (!androidTapToPayAvailable || !window.EccofoodAndroidTapToPay) return;
+    if (billingOrderIds.length === 0 || !selectedTableNumber) {
+      setToast({ message: 'Carga una mesa completa antes de cobrar con Tap to Pay', type: 'error' });
+      return;
+    }
+
+    setProcessingPayment(true);
+    window.EccofoodAndroidTapToPay.payTable(JSON.stringify({
+      tenantId,
+      tenantSlug: tenantSlug || null,
+      orderIds: billingOrderIds,
+      tableNumber: selectedTableNumber,
+      amount: paymentBaseTotal + tip,
+      currency: currencyInfo.code,
+    }));
+  }
+
 
   async function fetchMenuData() {
     try {
-      const [categoriesRes, menuRes, tenantRes, settingsRes] = await Promise.all([
-        supabase
-          .from('menu_categories')
-          .select('*')
-          .eq('tenant_id', tenantId)
-          .eq('active', true),
-        supabase
-          .from('menu_items')
-          .select('*')
-          .eq('tenant_id', tenantId)
-          .eq('available', true),
-        supabase
-          .from('tenants')
-          .select('organization_name, logo_url')
-          .eq('id', tenantId)
-          .maybeSingle(),
-        supabase
-          .from('restaurant_settings')
-          .select('tax_rate, display_name, phone')
-          .eq('tenant_id', tenantId)
-          .maybeSingle(),
-      ]);
+      const response = await fetch(`/api/pos/bootstrap?tenantId=${encodeURIComponent(tenantId)}`, {
+        credentials: 'include',
+        cache: 'no-store',
+      });
 
-      if (categoriesRes.data) setCategories(categoriesRes.data);
-      if (menuRes.data) setMenu(menuRes.data);
-      if (tenantRes.data) {
-        if (tenantRes.data.organization_name) setRestaurantName(tenantRes.data.organization_name);
-        if (tenantRes.data.logo_url) setRestaurantLogo(tenantRes.data.logo_url);
+      if (!response.ok) throw new Error(`POS bootstrap failed: ${response.status}`);
+
+      const data = await response.json();
+      setCategories(data.categories || []);
+      setMenu(data.menu || []);
+      setAllTables(data.tables || []);
+
+      if (data.tenant) {
+        if (data.tenant.organization_name) setRestaurantName(data.tenant.organization_name);
+        if (data.tenant.logo_url) setRestaurantLogo(data.tenant.logo_url);
       }
-      if (settingsRes.data) {
-        setTaxRate(Number(settingsRes.data.tax_rate || 0));
-        if (settingsRes.data.display_name) setRestaurantName(settingsRes.data.display_name);
-        if (settingsRes.data.phone) setRestaurantPhone(settingsRes.data.phone);
+      if (data.settings) {
+        setTaxRate(Number(data.settings.tax_rate || 0));
+        setDeliveryEnabled(data.settings.delivery_enabled === true);
+        setDeliveryFee(Number(data.settings.delivery_fee || 0));
+        setDeliveryZones(
+          Array.isArray(data.settings.delivery_zones)
+            ? data.settings.delivery_zones
+                .map((zone: any) => ({
+                  id: String(zone.id || zone.name || zone.fee),
+                  name: String(zone.name || 'Zona delivery'),
+                  fee: Number(zone.fee || 0),
+                  min_order: Number(zone.min_order || 0),
+                }))
+                .filter((zone: DeliveryZone) => zone.id && zone.fee >= 0)
+            : []
+        );
+        if (data.settings.display_name) setRestaurantName(data.settings.display_name);
+        if (data.settings.phone) setRestaurantPhone(data.settings.phone);
+        if (typeof data.settings.printer_auto_print === 'boolean') {
+          setPrintReceiptAfterPayment(data.settings.printer_auto_print);
+        }
       }
     } catch (error) {
       console.error('Error fetching menu:', error);
@@ -1120,6 +1732,40 @@ export function POSTerminal({
     });
   }
 
+  function addManualItem() {
+    const name = window.prompt('Nombre del articulo manual:', 'Articulo manual');
+    if (name === null) return;
+
+    const cleanName = name.trim();
+    if (!cleanName) {
+      setToast({ message: 'Escribe un nombre para el articulo manual', type: 'error' });
+      return;
+    }
+
+    const rawPrice = window.prompt(`Valor de "${cleanName}":`, '');
+    if (rawPrice === null) return;
+
+    const price = Number(rawPrice.replace(',', '.'));
+    if (!Number.isFinite(price) || price <= 0) {
+      setToast({ message: 'El valor manual debe ser mayor que cero', type: 'error' });
+      return;
+    }
+
+    const manualId = `manual-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+    setCart((prev) => [
+      ...prev,
+      {
+        menu_item_id: manualId,
+        name: cleanName,
+        price,
+        quantity: 1,
+        notes: 'Articulo manual',
+        is_manual: true,
+      },
+    ]);
+    setToast({ message: 'Articulo manual agregado', type: 'success' });
+  }
+
   function removeFromCart(itemId: string) {
     setCart((prev) => prev.filter((c) => c.menu_item_id !== itemId));
   }
@@ -1138,6 +1784,170 @@ export function POSTerminal({
         prev.map((c) => (c.menu_item_id === itemId ? { ...c, quantity } : c))
       );
     }
+  }
+
+  function resetCurrentCartForNextCustomer() {
+    setCart([]);
+    setDiscount(0);
+    setDiscountCode('');
+    setTip(0);
+    setPendingPaymentData(null);
+    setLoadedOrderId(null);
+    setLoadedOrderContext(null);
+    setLoadedOrderIds([]);
+    setBillingOrderIds([]);
+    setPaymentMethod('cash');
+    setSelectedCategory(null);
+    setSearchQuery('');
+    setSelectedTableId(null);
+    setSelectedTableNumber(null);
+    setSelectedStaffId(null);
+    setSelectedStaffName('');
+    setSelectedDeliveryZoneId(null);
+    setPosMode('simple');
+    setPosOrderType('takeaway');
+    setShowIncomingPanel(false);
+    setShowDineInPanel(false);
+    setShowFindPayPanel(false);
+
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem(`pos-cart-${tenantId}`);
+      localStorage.removeItem(`pos-discount-${tenantId}`);
+      localStorage.removeItem(`pos-discount-code-${tenantId}`);
+    }
+
+    setPaymentResetKey((value) => value + 1);
+  }
+
+  function getCurrentAccountLabel() {
+    if (selectedTableNumber) return `Mesa ${selectedTableNumber}`;
+    if (posOrderType === 'delivery') return 'Domicilio';
+    if (posOrderType === 'pickup') return 'Para recoger';
+    return 'Mostrador';
+  }
+
+  function handleHoldCurrentAccount() {
+    if (cart.length === 0) {
+      setToast({ message: 'Agrega productos antes de guardar la cuenta', type: 'error' });
+      return;
+    }
+
+    if (loadedOrderId || billingOrderIds.length > 0) {
+      setToast({ message: 'Termina o cancela el ticket cargado antes de guardar otra cuenta', type: 'error' });
+      return;
+    }
+
+    const heldAccount: HeldPOSAccount = {
+      id: `held-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+      label: getCurrentAccountLabel(),
+      createdAt: new Date().toISOString(),
+      items: cart.map((item) => ({ ...item })),
+      total,
+      discount,
+      discountCode,
+      tip,
+      paymentMethod,
+      posMode,
+      posOrderType,
+      selectedTableId,
+      selectedTableNumber,
+      selectedStaffId,
+      selectedStaffName,
+      selectedDeliveryZoneId,
+    };
+
+    persistHeldAccounts([heldAccount, ...heldAccounts].slice(0, 20));
+    resetCurrentCartForNextCustomer();
+    setShowHeldAccountsPanel(false);
+    setToast({ message: 'Cuenta guardada en espera', type: 'success' });
+  }
+
+  function handleSavedAccountButton() {
+    if (cart.length > 0) {
+      handleHoldCurrentAccount();
+      return;
+    }
+
+    if (heldAccounts.length === 0) {
+      setToast({ message: 'No hay cuentas guardadas para recuperar', type: 'error' });
+      return;
+    }
+
+    if (heldAccounts.length === 1) {
+      handleResumeHeldAccount(heldAccounts[0].id);
+      return;
+    }
+
+    setShowHeldAccountsPanel(true);
+  }
+
+  function handleResumeHeldAccount(accountId: string) {
+    if (cart.length > 0 || loadedOrderId || billingOrderIds.length > 0) {
+      setToast({ message: 'Guarda o cobra la cuenta actual antes de recuperar otra', type: 'error' });
+      return;
+    }
+
+    const account = heldAccounts.find((item) => item.id === accountId);
+    if (!account) {
+      setToast({ message: 'No se encontro la cuenta guardada', type: 'error' });
+      return;
+    }
+
+    const loggedStaff = getLoggedStaffFromBrowser(tenantId);
+    const nextOrderType =
+      account.posOrderType === 'delivery' || account.posOrderType === 'pickup'
+        ? account.posOrderType
+        : 'takeaway';
+
+    setCart(account.items.map((item) => ({ ...item })));
+    setDiscount(Number(account.discount || 0));
+    setDiscountCode(account.discountCode || '');
+    setTip(Number(account.tip || 0));
+    setPaymentMethod(account.paymentMethod === 'stripe' ? 'stripe' : 'cash');
+    setPosMode(account.posMode === 'table' ? 'table' : 'simple');
+    setPosOrderType(nextOrderType);
+    setSelectedTableId(account.selectedTableId || null);
+    setSelectedTableNumber(account.selectedTableNumber || null);
+    setSelectedStaffId(account.selectedStaffId || loggedStaff.staffId || null);
+    setSelectedStaffName(account.selectedStaffName || loggedStaff.staffName || '');
+    setSelectedDeliveryZoneId(account.selectedDeliveryZoneId || null);
+    setPendingPaymentData(null);
+    setLoadedOrderId(null);
+    setLoadedOrderContext(null);
+    setLoadedOrderIds([]);
+    setBillingOrderIds([]);
+    setShowIncomingPanel(false);
+    setShowDineInPanel(false);
+    setShowFindPayPanel(false);
+
+    if (typeof window !== 'undefined') {
+      localStorage.setItem(`pos-cart-${tenantId}`, JSON.stringify(account.items));
+      localStorage.setItem(`pos-discount-${tenantId}`, String(account.discount || 0));
+      localStorage.setItem(`pos-discount-code-${tenantId}`, account.discountCode || '');
+    }
+
+    persistHeldAccounts(heldAccounts.filter((item) => item.id !== accountId));
+    setPaymentResetKey((value) => value + 1);
+    setShowHeldAccountsPanel(false);
+    setToast({ message: 'Cuenta recuperada', type: 'success' });
+  }
+
+  function handleDeleteHeldAccount(accountId: string) {
+    persistHeldAccounts(heldAccounts.filter((item) => item.id !== accountId));
+    setToast({ message: 'Cuenta en espera eliminada', type: 'success' });
+  }
+
+  function selectTableForCurrentCart(tableId: string, tableNumber: number) {
+    setSelectedTableId(tableId);
+    setSelectedTableNumber(tableNumber);
+    setPosMode('table');
+    setBillingOrderIds([]);
+    setLoadedOrderId(null);
+    setLoadedOrderContext(null);
+    setLoadedOrderIds([]);
+    setShowDineInPanel(false);
+    setShowIncomingPanel(false);
+    setShowFindPayPanel(false);
   }
 
   async function applyDiscountCode() {
@@ -1173,7 +1983,7 @@ export function POSTerminal({
     }
   }
 
-  function handleShowReceipt(amountPaid?: number) {
+  function handleShowReceipt(amountPaid?: number, printReceipt = printReceiptAfterPayment) {
     if (cart.length === 0) {
       setToast({ message: 'El carrito está vacío', type: 'error' });
       return;
@@ -1184,33 +1994,170 @@ export function POSTerminal({
       return;
     }
 
-    // Auto-print receipt without modal
     setPendingPaymentData({ amountPaid });
-    processPaymentAfterReceipt(amountPaid);
+    processPaymentAfterReceipt(amountPaid, printReceipt);
   }
 
-  async function processPaymentAfterReceipt(amountPaid?: number) {
+  async function handleSendCartToTable() {
+    if (cart.length === 0) {
+      setToast({ message: 'Agrega productos antes de enviar a mesa', type: 'error' });
+      return;
+    }
+
+    if (!selectedTableNumber) {
+      setToast({ message: 'Selecciona una mesa para enviar la comanda', type: 'error' });
+      return;
+    }
+
+    if (!selectedStaffId) {
+      setToast({ message: 'Selecciona el camarero antes de enviar a mesa', type: 'error' });
+      return;
+    }
+
+    if (typeof navigator !== 'undefined' && !navigator.onLine) {
+      setToast({ message: 'Para enviar productos a mesa necesitas internet', type: 'error' });
+      return;
+    }
+
+    try {
+      setProcessingPayment(true);
+
+      if (!csrfTokenRef.current) {
+        const csrfResponse = await fetch('/api/csrf-token', { credentials: 'include' });
+        const csrfData = await csrfResponse.json().catch(() => null);
+        if (csrfData?.token) csrfTokenRef.current = csrfData.token;
+      }
+
+      const formattedItems = cart.map(item => ({
+        menu_item_id: item.is_manual ? null : item.menu_item_id,
+        is_manual: item.is_manual === true,
+        name: item.name,
+        price: item.price,
+        qty: item.quantity,
+        notes: item.notes || null,
+      }));
+
+      const response = await fetch('/api/orders', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-csrf-token': csrfTokenRef.current },
+        credentials: 'include',
+        body: JSON.stringify({
+          tenantId,
+          tenantSlug: tenantSlug || null,
+          customerInfo: {
+            name: `Mesa ${selectedTableNumber}`,
+            email: null,
+            phone: 'N/A',
+          },
+          items: formattedItems,
+          paymentMethod: 'cash',
+          deliveryType: 'dine-in',
+          deliveryAddress: null,
+          waiterName: selectedStaffName || null,
+          tableNumber: selectedTableNumber,
+          notes: 'Comanda enviada desde TPV',
+          source: 'pos',
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || 'No se pudo enviar la comanda');
+      }
+
+      await abandonCart(tenantId, supabase);
+      await fetchDineInOrders({ notify: false });
+
+      setToast({ message: `Productos enviados a Mesa ${selectedTableNumber}`, type: 'success' });
+      setCart([]);
+      setDiscount(0);
+      setDiscountCode('');
+      setTip(0);
+      setPaymentMethod('cash');
+      setSelectedTableId(null);
+      setSelectedTableNumber(null);
+      setPosMode('simple');
+
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem(`pos-cart-${tenantId}`);
+        localStorage.removeItem(`pos-discount-${tenantId}`);
+        localStorage.removeItem(`pos-discount-code-${tenantId}`);
+      }
+    } catch (error) {
+      console.error('Error sending table order:', error);
+      setToast({
+        message: 'Error al enviar a mesa: ' + (error instanceof Error ? error.message : 'Error desconocido'),
+        type: 'error',
+      });
+    } finally {
+      setProcessingPayment(false);
+    }
+  }
+
+  async function processPaymentAfterReceipt(amountPaid?: number, printCustomerReceipt = printReceiptAfterPayment) {
     try {
       setProcessingPayment(true);
       let receiptOrderId: string | null = null;
       let receiptOrderNumber: string | null = null;
       let savedOfflineSale = false;
       const printerWarnings: string[] = [];
+      let receiptSubtotal = subtotal;
+      let receiptTax = taxAmount;
+      let receiptDeliveryFee = activeDeliveryFee;
+      let receiptTotal = total;
+      let receiptDeliveryType = selectedTableId ? 'dine-in' : posOrderType;
+      let receiptTableNumber: number | undefined = selectedTableNumber || undefined;
+      let receiptPaymentMethod: PaymentMethod = paymentMethod;
+      let shouldOpenCashDrawer = paymentMethod === 'cash';
+      let editedPaidReceipt = false;
 
       if (loadedOrderId) {
         if (typeof navigator !== 'undefined' && !navigator.onLine) {
-          throw new Error('Para cobrar un pedido ya creado necesitas internet. Las ventas nuevas del TPV si pueden cobrarse offline.');
+          throw new Error('Para modificar o cobrar un pedido ya creado necesitas internet. Las ventas nuevas del TPV si pueden cobrarse offline.');
         }
 
-        // Paying for a loaded existing order
+        const formattedItems = cart.map(item => ({
+          menu_item_id: item.is_manual ? null : item.menu_item_id,
+          is_manual: item.is_manual === true,
+          name: item.name,
+          price: item.price,
+          qty: item.quantity,
+          notes: item.notes || null,
+        }));
+        const loadedTaxableSubtotal = Math.max(0, subtotal - discount);
+        const loadedTax = taxRate > 0 ? loadedTaxableSubtotal * (taxRate / 100) : 0;
+        const loadedDeliveryFee = Number(loadedOrderContext?.deliveryFee || 0);
+        const loadedTotal = loadedTaxableSubtotal + loadedTax + loadedDeliveryFee + tip;
+        const wasPaidReceipt = loadedOrderContext?.paymentStatus === 'paid';
+        editedPaidReceipt = wasPaidReceipt;
+        receiptPaymentMethod = paymentMethod;
+        shouldOpenCashDrawer = !wasPaidReceipt && receiptPaymentMethod === 'cash';
+
+        receiptSubtotal = subtotal;
+        receiptTax = loadedTax;
+        receiptDeliveryFee = loadedDeliveryFee;
+        receiptTotal = loadedTotal;
+        receiptDeliveryType = loadedOrderContext?.deliveryType || receiptDeliveryType;
+        receiptTableNumber = loadedOrderContext?.tableNumber ?? receiptTableNumber;
+
+        // Existing orders can be charged or edited from the same cart.
         const response = await fetch(`/api/orders/${loadedOrderId}`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
           credentials: 'include',
           body: JSON.stringify({
             tenantId,
+            items: formattedItems,
+            subtotal,
+            tax: loadedTax,
+            delivery_fee: loadedDeliveryFee,
+            total: loadedTotal,
             payment_status: 'paid',
-            status: 'confirmed',
+            status: wasPaidReceipt ? (loadedOrderContext?.status || undefined) : 'confirmed',
+            payment_method: receiptPaymentMethod,
+            edit_reason: wasPaidReceipt
+              ? (selectedStaffName ? `Recibo editado desde TPV por ${selectedStaffName}` : 'Recibo editado desde TPV')
+              : (selectedStaffName ? `Pedido cobrado desde TPV por ${selectedStaffName}` : 'Pedido cobrado desde TPV'),
           }),
         });
 
@@ -1225,6 +2172,7 @@ export function POSTerminal({
         const paidOrderId = loadedOrderId;
         setIncomingOrders((orders) => orders.filter((order) => order.id !== paidOrderId));
         setLoadedOrderId(null);
+        setLoadedOrderContext(null);
         await fetchIncomingOrders();
       } else if (billingOrderIds.length > 0) {
         if (typeof navigator !== 'undefined' && !navigator.onLine) {
@@ -1234,11 +2182,23 @@ export function POSTerminal({
         // Billing existing table orders — mark as paid, no new order created.
         // Kitchen progress is independent: paying must not remove pending items from KDS.
         const paidTableOrderIds = [...billingOrderIds];
-        await supabase
-          .from('orders')
-          .update({ payment_status: 'paid' })
-          .eq('tenant_id', tenantId)
-          .in('id', billingOrderIds);
+        for (const orderId of billingOrderIds) {
+          const paidResponse = await fetch(`/api/orders/${orderId}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify({
+              tenantId,
+              payment_status: 'paid',
+              payment_method: paymentMethod,
+            }),
+          });
+
+          if (!paidResponse.ok) {
+            const errorData = await paidResponse.json().catch(() => ({}));
+            throw new Error(errorData.error || 'No se pudo marcar la mesa como pagada');
+          }
+        }
         receiptOrderId = paidTableOrderIds[0] || null;
         receiptOrderNumber = selectedTableNumber ? `Mesa ${selectedTableNumber}` : 'Cuenta salon';
         setBillingOrderIds([]);
@@ -1246,7 +2206,8 @@ export function POSTerminal({
       } else {
         // New POS order — create via API
         const formattedItems = cart.map(item => ({
-          menu_item_id: item.menu_item_id,
+          menu_item_id: item.is_manual ? null : item.menu_item_id,
+          is_manual: item.is_manual === true,
           name: item.name,
           price: item.price,
           qty: item.quantity,
@@ -1264,6 +2225,12 @@ export function POSTerminal({
           items: formattedItems,
           paymentMethod,
           deliveryType: selectedTableId ? 'dine-in' : posOrderType,
+          deliveryAddress: posOrderType === 'delivery'
+            ? `Pedido telefonico desde TPV${selectedDeliveryZone?.name ? ` - ${selectedDeliveryZone.name}` : ''}`
+            : null,
+          deliveryFee: activeDeliveryFee,
+          deliveryZoneId: selectedDeliveryZone?.id || null,
+          deliveryZoneName: selectedDeliveryZone?.name || null,
           waiterName: selectedStaffName || null,
           tableNumber: selectedTableNumber || null,
           tip: tip > 0 ? tip : null,
@@ -1282,7 +2249,8 @@ export function POSTerminal({
             paymentMethod,
             deliveryType: selectedTableId ? 'dine-in' : posOrderType,
             items: formattedItems.map((item) => ({
-              menu_item_id: item.menu_item_id,
+              menu_item_id: item.is_manual ? null : item.menu_item_id,
+              is_manual: item.is_manual === true,
               name: item.name,
               price: item.price,
               quantity: item.qty,
@@ -1329,6 +2297,7 @@ export function POSTerminal({
                   tenantId,
                   payment_status: 'paid',
                   status: 'confirmed',
+                  payment_method: paymentMethod,
                 }),
               });
 
@@ -1349,87 +2318,131 @@ export function POSTerminal({
         await abandonCart(tenantId, supabase);
       }
 
-      // Attempt to print receipt if printer is configured
-      let settings: any = null;
-      try {
-        const result = await supabase
-          .from('restaurant_settings')
-          .select('default_receipt_printer_id, printer_auto_print, display_name, phone')
-          .eq('tenant_id', tenantId)
-          .maybeSingle();
+      const receiptSnapshot = {
+        orderId: receiptOrderId,
+        orderNumber: receiptOrderNumber || 'POS',
+        items: cart.map(item => ({ ...item })),
+        subtotal: receiptSubtotal,
+        discount,
+        tax: receiptTax,
+        taxRate,
+        deliveryFee: receiptDeliveryFee,
+        total: receiptTotal,
+        amountPaid: shouldOpenCashDrawer && !editedPaidReceipt ? amountPaid : undefined,
+        change: shouldOpenCashDrawer && !editedPaidReceipt ? (amountPaid || 0) - receiptTotal : 0,
+        currencyInfo,
+        waiterName: selectedStaffName || undefined,
+        tableNumber: receiptTableNumber,
+        paymentMethod: receiptPaymentMethod,
+        openCashDrawer: shouldOpenCashDrawer,
+        deliveryType: receiptDeliveryType,
+        notes: discount > 0 ? `Descuento: $${discount.toFixed(2)}` : null,
+      };
 
-        if (result.error) throw new Error(result.error.message);
-        settings = result.data;
-        if (settings?.default_receipt_printer_id && typeof window !== 'undefined') {
-          localStorage.setItem(`eccofood-pos-printer-settings-${tenantId}`, JSON.stringify(settings));
-        }
-      } catch (settingsError) {
+      const printInBackground = async () => {
+        const backgroundWarnings: string[] = [];
+        let settings: any = null;
+        const printerSettingsKey = `eccofood-pos-printer-settings-${tenantId}`;
         if (typeof window !== 'undefined') {
-          const cachedSettings = localStorage.getItem(`eccofood-pos-printer-settings-${tenantId}`);
-          settings = cachedSettings ? JSON.parse(cachedSettings) : null;
-        }
-        if (!settings) {
-          printerWarnings.push(`No se pudo leer configuracion de impresora: ${settingsError instanceof Error ? settingsError.message : String(settingsError)}`);
-        }
-      }
-
-      let receiptPrintedWithDrawer = false;
-      try {
-        if (!settings?.default_receipt_printer_id) {
-          printerWarnings.push('No hay impresora predeterminada');
-        } else if (!settings?.printer_auto_print) {
-          printerWarnings.push('Auto impresion desactivada');
-        } else if (receiptOrderId) {
-          const { data: order } = savedOfflineSale
-            ? { data: null }
-            : await supabase
-                .from('orders')
-                .select('id, order_number')
-                .eq('id', receiptOrderId)
-                .eq('tenant_id', tenantId)
-                .maybeSingle();
-
           try {
-            await printReceipt(tenantId, settings.default_receipt_printer_id, {
-              orderId: receiptOrderId,
-              orderNumber: order?.order_number || receiptOrderNumber || 'POS',
-              restaurantName: settings?.display_name || restaurantName,
-              restaurantPhone: settings?.phone || restaurantPhone,
-              items: cart,
-              subtotal,
-              discount,
-              tax: taxAmount,
-              taxRate,
-              total,
-              amountPaid: paymentMethod === 'cash' ? amountPaid : undefined,
-              change: paymentMethod === 'cash'
-                ? (amountPaid || 0) - total
-                : 0,
-              currencyInfo,
-              waiterName: selectedStaffName || undefined,
-              tableNumber: selectedTableNumber || undefined,
-              openCashDrawer: paymentMethod === 'cash',
-            });
-            receiptPrintedWithDrawer = paymentMethod === 'cash';
-          } catch (printError) {
-            printerWarnings.push(`Recibo no impreso: ${printError instanceof Error ? printError.message : String(printError)}`);
+            const cachedSettings = localStorage.getItem(printerSettingsKey);
+            settings = cachedSettings ? JSON.parse(cachedSettings) : null;
+          } catch {
+            settings = null;
           }
-        } else {
-          printerWarnings.push('No se pudo identificar el pedido para imprimir');
         }
-      } catch (printFlowError) {
-        printerWarnings.push(`No se pudo preparar el recibo: ${printFlowError instanceof Error ? printFlowError.message : String(printFlowError)}`);
-      }
 
-      if (paymentMethod === 'cash') {
-        try {
-          if (!receiptPrintedWithDrawer) {
-            await openCashDrawer(tenantId);
+        const fetchPrinterSettings = async () => {
+          const result = await supabase
+            .from('restaurant_settings')
+            .select('default_receipt_printer_id, kitchen_printer_id, printer_auto_print, display_name, phone')
+            .eq('tenant_id', tenantId)
+            .maybeSingle();
+
+          if (result.error) throw new Error(result.error.message);
+          if (result.data?.default_receipt_printer_id && typeof window !== 'undefined') {
+            localStorage.setItem(printerSettingsKey, JSON.stringify(result.data));
           }
-        } catch (drawerError) {
-          printerWarnings.push(`Cajon no abierto: ${drawerError instanceof Error ? drawerError.message : String(drawerError)}`);
+          return result.data;
+        };
+
+        if (printCustomerReceipt) {
+          if (settings) {
+            void fetchPrinterSettings().catch(() => {});
+          } else {
+            try {
+              settings = await fetchPrinterSettings();
+            } catch (settingsError) {
+              backgroundWarnings.push(`No se pudo leer configuracion de impresora: ${settingsError instanceof Error ? settingsError.message : String(settingsError)}`);
+            }
+          }
         }
-      }
+
+        let receiptPrintedWithDrawer = false;
+        try {
+          if (!printCustomerReceipt) {
+            // Receipt intentionally skipped for this sale.
+          } else if (!settings?.default_receipt_printer_id) {
+            backgroundWarnings.push('No hay impresora predeterminada');
+          } else if (receiptSnapshot.orderId) {
+            try {
+              await printReceipt(tenantId, settings.default_receipt_printer_id, {
+                orderId: receiptSnapshot.orderId,
+                orderNumber: receiptSnapshot.orderNumber,
+                restaurantName: settings?.display_name || restaurantName,
+                restaurantPhone: settings?.phone || restaurantPhone,
+                items: receiptSnapshot.items,
+                subtotal: receiptSnapshot.subtotal,
+                discount: receiptSnapshot.discount,
+                tax: receiptSnapshot.tax,
+                taxRate: receiptSnapshot.taxRate,
+                deliveryFee: receiptSnapshot.deliveryFee,
+                total: receiptSnapshot.total,
+                amountPaid: receiptSnapshot.amountPaid,
+                change: receiptSnapshot.change,
+                paymentMethod: receiptSnapshot.paymentMethod,
+                currencyInfo: receiptSnapshot.currencyInfo,
+                waiterName: receiptSnapshot.waiterName,
+                tableNumber: receiptSnapshot.tableNumber,
+                openCashDrawer: receiptSnapshot.openCashDrawer,
+              });
+              receiptPrintedWithDrawer = receiptSnapshot.openCashDrawer;
+            } catch (printError) {
+              backgroundWarnings.push(`Recibo no impreso: ${printError instanceof Error ? printError.message : String(printError)}`);
+            }
+          } else {
+            backgroundWarnings.push('No se pudo identificar el pedido para imprimir');
+          }
+        } catch (printFlowError) {
+          backgroundWarnings.push(`No se pudo preparar el recibo: ${printFlowError instanceof Error ? printFlowError.message : String(printFlowError)}`);
+        }
+
+        if (receiptSnapshot.openCashDrawer) {
+          try {
+            if (!receiptPrintedWithDrawer) {
+              await openCashDrawer(tenantId);
+            }
+          } catch (drawerError) {
+            backgroundWarnings.push(`Cajon no abierto: ${drawerError instanceof Error ? drawerError.message : String(drawerError)}`);
+          }
+        }
+
+        if (backgroundWarnings.length > 0) {
+          setToast({
+            message: `Venta guardada. ${backgroundWarnings.slice(0, 2).join(' | ')}`,
+            type: 'error',
+          });
+        } else if (!savedOfflineSale) {
+          setToast({
+            message: printCustomerReceipt
+              ? (receiptSnapshot.openCashDrawer ? 'Recibo impreso y cajon abierto' : 'Recibo impreso')
+              : (receiptSnapshot.openCashDrawer ? 'Venta guardada sin recibo. Cajon abierto' : 'Venta guardada sin recibo'),
+            type: 'success',
+          });
+        }
+      };
+
+      void printInBackground();
 
       // Clear cart and reset all states
       setCart([]);
@@ -1437,6 +2450,8 @@ export function POSTerminal({
       setDiscountCode('');
       setTip(0);
       setPendingPaymentData(null);
+      setLoadedOrderId(null);
+      setLoadedOrderContext(null);
       setPaymentMethod('cash');
       setSelectedCategory(null);
       setSearchQuery('');
@@ -1461,10 +2476,10 @@ export function POSTerminal({
       setToast({
         message: savedOfflineSale
           ? 'Venta cobrada en modo offline. Se subira sola cuando vuelva internet.'
-          : printerWarnings.length > 0
-          ? `Venta guardada. ${printerWarnings.slice(0, 2).join(' | ')}`
-          : 'Orden completada, recibo impreso y cajon abierto',
-        type: savedOfflineSale ? 'success' : printerWarnings.length > 0 ? 'error' : 'success',
+          : printCustomerReceipt
+            ? 'Venta guardada. Imprimiendo recibo...'
+            : (shouldOpenCashDrawer ? 'Venta guardada. Abriendo cajon...' : 'Venta guardada sin imprimir recibo.'),
+        type: 'success',
       });
     } catch (error) {
       console.error('Error processing payment:', error);
@@ -1486,11 +2501,22 @@ export function POSTerminal({
   const subtotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
   const taxableSubtotal = Math.max(0, subtotal - discount);
   const taxAmount = taxRate > 0 ? taxableSubtotal * (taxRate / 100) : 0;
-  const total = taxableSubtotal + taxAmount + tip;
+  const activeDeliveryFee = !selectedTableId && posOrderType === 'delivery' && deliveryEnabled ? Number(selectedDeliveryZone?.fee || deliveryFee || 0) : 0;
+  const loadedOrderDeliveryFee = loadedOrderId ? Number(loadedOrderContext?.deliveryFee || 0) : 0;
+  const cartDeliveryFee = loadedOrderId ? loadedOrderDeliveryFee : activeDeliveryFee;
+  const paymentBaseTotal = taxableSubtotal + taxAmount + cartDeliveryFee;
+  const total = paymentBaseTotal + tip;
+  const editingPaidReceipt = loadedOrderContext?.paymentStatus === 'paid';
+  const editedReceiptDeliveryFee = editingPaidReceipt ? loadedOrderDeliveryFee : cartDeliveryFee;
+  const editedReceiptTotal = taxableSubtotal + taxAmount + editedReceiptDeliveryFee + tip;
+  const editedReceiptDifference = editingPaidReceipt
+    ? Math.round((editedReceiptTotal - Number(loadedOrderContext?.originalTotal || 0)) * 100) / 100
+    : 0;
 
   const tableGroups = useMemo((): TableGroup[] => {
     const groups = new Map<number, DineInOrder[]>();
     dineInOrders.forEach(order => {
+      if (!(order.items || []).some((item) => getOrderItemQty(item) > 0)) return;
       const tableNum = order.table_number ?? 0;
       if (!groups.has(tableNum)) groups.set(tableNum, []);
       groups.get(tableNum)!.push(order);
@@ -1516,6 +2542,15 @@ export function POSTerminal({
     cart.forEach(item => map.set(item.menu_item_id, item.quantity));
     return map;
   }, [cart]);
+  const savedAccountButtonDisabled = cart.length > 0 && (processingPayment || !!loadedOrderId || billingOrderIds.length > 0);
+
+  const openProductSearch = useCallback(() => {
+    setProductSearchOpen(true);
+    window.requestAnimationFrame(() => {
+      searchInputRef.current?.focus();
+      searchInputRef.current?.select();
+    });
+  }, []);
 
   useEffect(() => {
     const isEditableTarget = (target: EventTarget | null) => {
@@ -1541,8 +2576,7 @@ export function POSTerminal({
 
       if (event.key === 'F2' || (!editable && event.key === '/')) {
         event.preventDefault();
-        searchInputRef.current?.focus();
-        searchInputRef.current?.select();
+        openProductSearch();
         return;
       }
 
@@ -1551,9 +2585,19 @@ export function POSTerminal({
           (event.target as HTMLElement).blur();
         }
         setSearchQuery('');
+        setProductSearchOpen(false);
         setShowIncomingPanel(false);
         setShowDineInPanel(false);
         setShowFindPayPanel(false);
+        setShowHeldAccountsPanel(false);
+        return;
+      }
+
+      if (event.ctrlKey && !event.altKey && key === 'g') {
+        event.preventDefault();
+        if (!savedAccountButtonDisabled) {
+          handleSavedAccountButton();
+        }
         return;
       }
 
@@ -1626,7 +2670,14 @@ export function POSTerminal({
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [categories, selectedCategory, filteredMenu, cart, paymentMethod, handleShowReceipt]);
+  }, [categories, selectedCategory, filteredMenu, cart, paymentMethod, handleShowReceipt, openProductSearch, savedAccountButtonDisabled, handleSavedAccountButton]);
+
+  const nextReservationTime = todayReservations[0]?.reservation_time?.slice(0, 5) || null;
+  const compactPOSLayout = true;
+  const heldAccountsPortalTarget =
+    typeof document !== 'undefined'
+      ? (isFullscreen && posRootRef.current ? posRootRef.current : document.body)
+      : null;
 
   if (loading) {
     return (
@@ -1639,27 +2690,58 @@ export function POSTerminal({
   }
 
   return (
-    <div ref={posRootRef} className={`pos-premium ${isFullscreen ? 'fixed inset-0 z-[9999] h-screen w-screen p-0 m-0 overflow-hidden flex flex-col bg-[#020617]' : 'h-full'} text-white flex`}>
-      {/* Fullscreen Header - Logo and Controls - TPV Header with Eccofood Brand */}
-      {isFullscreen && (
-        <div className="pos-panel border-x-0 border-t-0 px-6 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-4">
+    <div ref={posRootRef} className={`pos-premium ${
+      isFullscreen
+        ? 'fixed inset-0 z-[9999] h-[100dvh] w-screen p-0 m-0 overflow-hidden flex flex-col bg-[#020617]'
+        : compactPOSLayout
+          ? 'h-[100dvh] max-h-[100dvh] w-full overflow-hidden bg-[#020617]'
+          : 'min-h-[100dvh]'
+    } text-white flex flex-col`}>
+      {/* Compact Header - Logo and Controls - TPV Header with Eccofood Brand */}
+      {isFullscreen && !compactPOSLayout && (
+        <div className="pos-panel border-x-0 border-t-0 px-6 py-4 flex items-center justify-between gap-4">
+          <div className="flex min-w-0 items-center gap-4">
             <div className="rounded-xl border border-cyan-300/25 bg-cyan-300/10 p-2.5 shadow-lg shadow-cyan-900/20">
               <DollarSign className="w-6 h-6 text-cyan-100" />
             </div>
-            <div>
+            <div className="min-w-0">
               <p className="text-cyan-100/55 text-xs font-black uppercase">Punto de venta</p>
-              <h1 className="text-white font-black text-lg">{restaurantName}</h1>
+              <h1 className="truncate text-white font-black text-lg">{restaurantName}</h1>
             </div>
           </div>
+          <div className="relative hidden min-w-[280px] max-w-xl flex-1 xl:block">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-cyan-100/45 pointer-events-none" />
+            <input
+              ref={searchInputRef}
+              type="text"
+              placeholder="Buscar producto... (/ o F2)"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full rounded-xl py-3 pl-12 pr-4 text-sm font-bold text-white outline-none transition-all"
+            />
+          </div>
           <div className="flex items-center gap-2">
+            <button
+              onClick={() => activateWakeLock()}
+              className={`pos-action-ghost ${wakeLockActive ? 'border-emerald-300/45 bg-emerald-300/12 text-emerald-100' : 'border-amber-300/35 bg-amber-300/10 text-amber-100'}`}
+              title={wakeLockSupported ? 'Mantener la pantalla activa' : 'Tu navegador puede no soportar bloqueo de pantalla'}
+            >
+              <Lock className="w-5 h-5" />
+              <span className="hidden sm:inline">{wakeLockActive ? 'Activa' : 'Bloquear'}</span>
+            </button>
             <button
               onClick={() => syncOfflineSales(true)}
               disabled={!isOnline || syncingOffline}
               className={`pos-action-ghost ${!isOnline ? 'border-amber-300/45 bg-amber-300/12 text-amber-100' : offlinePendingCount > 0 ? 'border-emerald-300/45 bg-emerald-300/12 text-emerald-100' : ''} disabled:opacity-75`}
               title={isOnline ? 'Sincronizar ventas offline' : 'Modo offline activo'}
             >
-              <span className={`h-2.5 w-2.5 rounded-full ${isOnline ? 'bg-emerald-300' : 'bg-amber-300 animate-pulse'}`} />
+              <span
+                className={`h-2.5 w-2.5 rounded-full ${
+                  isOnline
+                    ? 'bg-[#39ff88] shadow-[0_0_8px_#39ff88,0_0_18px_rgba(57,255,136,0.72)]'
+                    : 'animate-pulse bg-[#ff174d] shadow-[0_0_8px_#ff174d,0_0_18px_rgba(255,23,77,0.72)]'
+                }`}
+              />
               <span className="hidden sm:inline">{isOnline ? (syncingOffline ? 'Sync...' : 'Online') : 'Offline'}</span>
               {offlinePendingCount > 0 && (
                 <span className="rounded-full bg-amber-400 px-1.5 py-0.5 text-[10px] font-black text-slate-950">
@@ -1668,12 +2750,53 @@ export function POSTerminal({
               )}
             </button>
             <button
-              onClick={() => setShowAdminMenu(true)}
+              onClick={downloadPOSShortcut}
               className="pos-action-ghost"
-              title="Panel de administración"
+              title="Crear acceso del TPV en el Escritorio"
             >
-              <span>⚙️</span>
-              <span className="hidden sm:inline">Admin</span>
+              <Download className="w-5 h-5" />
+              <span className="hidden sm:inline">Escritorio</span>
+            </button>
+            {todayReservations.length > 0 && (
+              <div
+                className="pos-action-ghost border-amber-300/55 bg-amber-300/14 text-amber-100 shadow-[0_0_18px_rgba(251,191,36,0.22)]"
+                title="Reservas de hoy"
+              >
+                <CalendarDays className="w-5 h-5" />
+                <span className="hidden sm:inline">
+                  {todayReservations.length} reserva{todayReservations.length > 1 ? 's' : ''}
+                </span>
+                <span className="rounded-full bg-amber-300 px-1.5 py-0.5 text-[10px] font-black text-slate-950 sm:hidden">
+                  {todayReservations.length}
+                </span>
+              </div>
+            )}
+            <button
+              onClick={async () => {
+                try {
+                  await openCashDrawer(tenantId);
+                  setToast({ message: 'Cajon abierto', type: 'success' });
+                } catch (error) {
+                  setToast({
+                    message: `No se pudo abrir el cajon: ${error instanceof Error ? error.message : 'Error desconocido'}`,
+                    type: 'error',
+                  });
+                }
+              }}
+              className="pos-action-ghost"
+              title="Abrir cajon de dinero"
+            >
+              <Archive className="w-5 h-5" />
+              <span className="hidden sm:inline">Cajon</span>
+            </button>
+            <button
+              onClick={handleOpenCashClosing}
+              disabled={closingLoading}
+              className="pos-action-danger disabled:cursor-not-allowed disabled:opacity-50"
+              title="Cerrar caja diaria"
+            >
+              <Lock className="w-5 h-5" />
+              <span className="hidden sm:inline">Cerrar</span>
             </button>
             <button
               onClick={toggleFullscreen}
@@ -1687,23 +2810,401 @@ export function POSTerminal({
         </div>
       )}
 
-      <div className={`flex-1 flex flex-col overflow-hidden md:flex-row ${isFullscreen ? 'gap-0' : 'gap-0'}`}>
-        {/* Menu Section */}
-        <div className="min-h-0 flex-1 flex flex-col overflow-hidden">
-          {/* Search and Controls - Sticky Header */}
-          <div className={`pos-panel border-x-0 border-t-0 flex gap-3 items-center sticky top-0 z-10 ${isFullscreen ? 'px-4 py-3' : 'p-4'}`}>
-            <div className="flex-1 relative">
-              <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-cyan-100/45 pointer-events-none" />
-              <input
-                ref={searchInputRef}
-                type="text"
-                placeholder="Buscar producto... (/ o F2)"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-12 pr-4 py-2.5 rounded-xl outline-none text-white text-sm font-bold transition-all"
-              />
+      {!isFullscreen && !compactPOSLayout && (
+        <div className="pos-topbar shrink-0 px-4 py-4">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+            <div className="flex min-w-0 items-center gap-3">
+              <div className="flex size-12 shrink-0 items-center justify-center rounded-xl border border-cyan-300/25 bg-cyan-300/10 shadow-lg shadow-cyan-950/20">
+                <DollarSign className="size-6 text-cyan-100" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-xs font-black uppercase text-cyan-100/55">Punto de venta</p>
+                <h1 className="truncate text-xl font-black tracking-tight text-white">{restaurantName}</h1>
+              </div>
             </div>
-            {!isFullscreen && (
+
+            {!wakeLockActive && (
+              <button
+                onClick={() => activateWakeLock()}
+                className="pos-action-ghost border-amber-300/35 bg-amber-300/10 text-amber-100"
+                title={wakeLockSupported ? 'Mantener pantalla activa' : 'Tu navegador puede no soportar esta funcion'}
+              >
+                <Lock className="size-4" />
+                <span>Bloquear pantalla</span>
+              </button>
+            )}
+
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:min-w-[600px]">
+              <div className="pos-kpi">
+                <span>Reservas hoy</span>
+                <strong>{todayReservations.length}</strong>
+                {nextReservationTime && (
+                  <small className="mt-0.5 truncate text-[10px] font-black uppercase text-[#D4AF37]">
+                    Prox. {nextReservationTime}
+                  </small>
+                )}
+              </div>
+              <div className="pos-kpi">
+                <span>Domicilio</span>
+                <strong>{incomingOrders.length}</strong>
+              </div>
+              <div className="pos-kpi">
+                <span>Total</span>
+                <strong>{formatPriceWithCurrency(total, currencyInfo.code, currencyInfo.locale)}</strong>
+              </div>
+              <div>
+                <div className={`pos-kpi h-full ${showHeldAccountsPanel ? 'border-cyan-300/50 bg-cyan-400/12' : ''}`}>
+                  <div className="flex items-start justify-between gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (cart.length > 0) {
+                          handleHoldCurrentAccount();
+                        } else {
+                          setShowHeldAccountsPanel((value) => !value);
+                        }
+                      }}
+                      disabled={
+                        cart.length > 0
+                          ? processingPayment || !!loadedOrderId || billingOrderIds.length > 0
+                          : heldAccounts.length === 0
+                      }
+                      className="min-w-0 flex-1 text-left disabled:cursor-not-allowed disabled:opacity-45"
+                      title="Guardar la cuenta actual y liberar el TPV"
+                    >
+                      <span>En espera</span>
+                      <strong>{heldAccounts.length}</strong>
+                      <small className="block truncate text-[10px] font-black uppercase text-cyan-100/60">
+                        {cart.length > 0 ? 'Guardar actual' : heldAccounts.length > 0 ? 'Ver guardadas' : 'Sin cuentas'}
+                      </small>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setShowHeldAccountsPanel((value) => !value)}
+                      className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-cyan-300/25 bg-cyan-300/10 text-cyan-100 transition hover:bg-cyan-300/18"
+                      aria-label="Ver cuentas en espera"
+                      title="Ver cuentas en espera"
+                    >
+                      <Clock className="h-4 w-4" />
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showHeldAccountsPanel && heldAccountsPortalTarget ? createPortal(
+        <div
+          className="fixed inset-0 flex items-center justify-center bg-black/60 px-4 py-6 backdrop-blur-sm"
+          style={{ zIndex: 2147483647 }}
+          onClick={() => setShowHeldAccountsPanel(false)}
+        >
+          <div
+            className="flex max-h-[82dvh] w-full max-w-md flex-col overflow-hidden rounded-2xl border border-cyan-300/30 bg-slate-950/96 shadow-2xl shadow-black/55"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="flex items-center justify-between gap-3 border-b border-white/10 px-4 py-3">
+              <div className="min-w-0">
+                <p className="text-xs font-black uppercase text-cyan-100/55">En espera</p>
+                <h2 className="truncate text-lg font-black text-white">
+                  {heldAccounts.length} cuenta{heldAccounts.length === 1 ? '' : 's'} guardada{heldAccounts.length === 1 ? '' : 's'}
+                </h2>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowHeldAccountsPanel(false)}
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-white/10 text-slate-200 transition hover:bg-white/16 hover:text-white"
+                aria-label="Cerrar cuentas en espera"
+                title="Cerrar"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <div className="space-y-2 overflow-y-auto p-3">
+              <button
+                type="button"
+                onClick={handleHoldCurrentAccount}
+                disabled={cart.length === 0 || processingPayment || !!loadedOrderId || billingOrderIds.length > 0}
+                className="flex w-full items-center justify-center gap-2 rounded-xl border border-cyan-300/30 bg-cyan-400/14 px-3 py-2.5 text-xs font-black text-cyan-100 transition hover:bg-cyan-400/22 disabled:cursor-not-allowed disabled:opacity-45"
+              >
+                <Archive className="h-3.5 w-3.5" />
+                Guardar cuenta actual
+              </button>
+
+              {heldAccounts.length === 0 ? (
+                <div className="rounded-xl border border-white/10 bg-white/[0.04] px-3 py-6 text-center text-sm font-bold text-slate-400">
+                  Sin cuentas guardadas
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {heldAccounts.map((account) => {
+                    const itemCount = getHeldAccountItemCount(account);
+                    const previewItems = account.items.slice(0, 6);
+                    const hiddenItems = Math.max(0, account.items.length - previewItems.length);
+                    return (
+                      <div key={account.id} className="rounded-xl border border-white/10 bg-white/[0.04] px-3 py-3">
+                        <div className="flex items-start gap-2">
+                          <Clock className="mt-0.5 h-4 w-4 shrink-0 text-cyan-200" />
+                          <div className="min-w-0 flex-1">
+                            <p className="truncate text-sm font-black text-white">
+                              {account.label} - {itemCount} prod.
+                            </p>
+                            <p className="truncate text-xs font-bold text-slate-400">
+                              {formatHeldAccountTime(account.createdAt, currencyInfo.locale)} - {formatPriceWithCurrency(account.total, currencyInfo.code, currencyInfo.locale)}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="mt-3 rounded-lg border border-white/10 bg-slate-950/35 p-2">
+                          <p className="mb-1.5 text-[10px] font-black uppercase text-cyan-100/45">Productos</p>
+                          {previewItems.length === 0 ? (
+                            <p className="text-xs font-bold text-slate-500">Sin productos</p>
+                          ) : (
+                            <div className="space-y-1">
+                              {previewItems.map((item, index) => (
+                                <div
+                                  key={`${account.id}-${item.menu_item_id}-${index}`}
+                                  className="flex items-start justify-between gap-2 text-xs"
+                                >
+                                  <span className="min-w-0 flex-1 font-bold text-slate-200">
+                                    <span className="text-cyan-200">{item.quantity}x</span>{' '}
+                                    <span className="break-words">{item.name}</span>
+                                  </span>
+                                  <span className="shrink-0 font-black text-emerald-200">
+                                    {formatPriceWithCurrency(item.price * item.quantity, currencyInfo.code, currencyInfo.locale)}
+                                  </span>
+                                </div>
+                              ))}
+                              {hiddenItems > 0 && (
+                                <p className="pt-1 text-[11px] font-black text-cyan-100/55">
+                                  +{hiddenItems} producto{hiddenItems === 1 ? '' : 's'} mas
+                                </p>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                        <div className="mt-3 grid grid-cols-[1fr_auto] gap-2">
+                          <button
+                            type="button"
+                            onClick={() => handleResumeHeldAccount(account.id)}
+                            disabled={cart.length > 0 || processingPayment || !!loadedOrderId || billingOrderIds.length > 0}
+                            className="rounded-lg bg-emerald-400/16 px-3 py-2 text-sm font-black text-emerald-100 transition hover:bg-emerald-400/24 disabled:cursor-not-allowed disabled:opacity-45"
+                          >
+                            Recuperar
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteHeldAccount(account.id)}
+                            className="flex h-10 w-10 items-center justify-center rounded-lg border border-red-400/30 bg-red-500/12 text-red-200 transition hover:bg-red-500/22 hover:text-white"
+                            aria-label="Eliminar cuenta en espera"
+                            title="Eliminar cuenta en espera"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>,
+        heldAccountsPortalTarget
+      ) : null}
+
+      {pendingCashClosingStats && (
+        <div className="shrink-0 border-y border-amber-300/25 bg-amber-400/12 px-4 py-3 text-amber-50">
+          <div className="mx-auto flex max-w-7xl flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="min-w-0">
+              <p className="text-sm font-black">Caja pendiente por cerrar</p>
+              <p className="mt-0.5 text-xs font-semibold text-amber-100/75">
+                Hay {pendingCashClosingStats.transactionCount} venta{pendingCashClosingStats.transactionCount === 1 ? '' : 's'} pagada{pendingCashClosingStats.transactionCount === 1 ? '' : 's'} sin cierre desde un periodo anterior. Total: {formatPriceWithCurrency(pendingCashClosingStats.totalSales, currencyInfo.code, currencyInfo.locale)}.
+              </p>
+            </div>
+            <button
+              onClick={handleOpenPendingCashClosing}
+              disabled={closingLoading}
+              className="rounded-xl border border-amber-200/35 bg-amber-200 px-4 py-2 text-sm font-black text-slate-950 shadow-lg shadow-black/15 transition hover:bg-amber-100 disabled:opacity-60"
+            >
+              Cerrar pendiente
+            </button>
+          </div>
+        </div>
+      )}
+
+      <div className="flex-1 flex min-h-0 flex-col overflow-y-auto lg:overflow-hidden lg:flex-row gap-0">
+        {/* Menu Section */}
+        <div className={`${compactPOSLayout ? 'min-h-0 flex-1' : 'min-h-[44dvh] max-h-[58dvh] lg:min-h-0 lg:max-h-none lg:flex-1'} flex flex-col overflow-hidden`}>
+          {/* Search and Controls - Sticky Header */}
+          <div className={`pos-panel pos-command-bar border-x-0 border-t-0 flex flex-wrap gap-2.5 items-center sticky top-0 z-10 ${compactPOSLayout ? 'px-4 py-3' : 'p-3 sm:p-4 lg:flex-nowrap'}`}>
+            {(productSearchOpen || searchQuery) ? (
+              <div className={`relative min-w-[180px] ${compactPOSLayout ? 'flex-[1_1_240px]' : 'flex-[1_1_260px]'}`}>
+                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-cyan-100/45 pointer-events-none" />
+                <input
+                  ref={searchInputRef}
+                  type="text"
+                  placeholder="Buscar producto..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Escape') {
+                      event.preventDefault();
+                      event.stopPropagation();
+                      setSearchQuery('');
+                      setProductSearchOpen(false);
+                    }
+                  }}
+                  onBlur={() => {
+                    if (!searchQuery.trim()) setProductSearchOpen(false);
+                  }}
+                  className="w-full rounded-xl py-2.5 pl-10 pr-10 text-sm font-bold text-white outline-none transition-all"
+                />
+                <button
+                  type="button"
+                  onMouseDown={(event) => event.preventDefault()}
+                  onClick={() => {
+                    setSearchQuery('');
+                    setProductSearchOpen(false);
+                  }}
+                  className="absolute right-2 top-1/2 grid h-7 w-7 -translate-y-1/2 place-items-center rounded-lg text-cyan-100/65 transition hover:bg-white/10 hover:text-white"
+                  title="Cerrar busqueda"
+                  aria-label="Cerrar busqueda de producto"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={openProductSearch}
+                className="pos-action-ghost"
+                title="Buscar producto"
+                aria-label="Buscar producto"
+              >
+                <Search className="w-5 h-5" />
+              </button>
+            )}
+            <button
+              onClick={addManualItem}
+              className="pos-action"
+              title="Agregar articulo manual con valor libre"
+            >
+              <PencilLine className="w-5 h-5" />
+              <span className="hidden sm:inline">Manual</span>
+            </button>
+            {compactPOSLayout && (
+              <>
+                <button
+                  onClick={() => activateWakeLock()}
+                  className={`pos-action-ghost ${wakeLockActive ? 'border-emerald-300/45 bg-emerald-300/12 text-emerald-100' : 'border-amber-300/35 bg-amber-300/10 text-amber-100'}`}
+                  title={wakeLockSupported ? 'Mantener la pantalla activa' : 'Tu navegador puede no soportar bloqueo de pantalla'}
+                >
+                  <Lock className="w-5 h-5" />
+                  <span className="hidden xl:inline">{wakeLockActive ? 'Activa' : 'Bloquear'}</span>
+                </button>
+                <button
+                  onClick={() => syncOfflineSales(true)}
+                  disabled={!isOnline || syncingOffline}
+                  className={`pos-action-ghost ${!isOnline ? 'border-amber-300/45 bg-amber-300/12 text-amber-100' : offlinePendingCount > 0 ? 'border-emerald-300/45 bg-emerald-300/12 text-emerald-100' : ''} disabled:opacity-75`}
+                  title={isOnline ? 'Sincronizar ventas offline' : 'Modo offline activo'}
+                >
+                  <span
+                    className={`h-2.5 w-2.5 rounded-full ${
+                      isOnline
+                        ? 'bg-[#39ff88] shadow-[0_0_8px_#39ff88,0_0_18px_rgba(57,255,136,0.72)]'
+                        : 'animate-pulse bg-[#ff174d] shadow-[0_0_8px_#ff174d,0_0_18px_rgba(255,23,77,0.72)]'
+                    }`}
+                  />
+                  <span className="hidden xl:inline">{isOnline ? (syncingOffline ? 'Sync...' : 'Online') : 'Offline'}</span>
+                  {offlinePendingCount > 0 && (
+                    <span className="rounded-full bg-amber-400 px-1.5 py-0.5 text-[10px] font-black text-slate-950">
+                      {offlinePendingCount}
+                    </span>
+                  )}
+                </button>
+                <button
+                  onClick={downloadPOSShortcut}
+                  className="pos-action-ghost"
+                  title="Crear acceso del TPV en el Escritorio"
+                >
+                  <Download className="w-5 h-5" />
+                  <span className="hidden xl:inline">Escritorio</span>
+                </button>
+                {todayReservations.length > 0 && (
+                  <div
+                    className="pos-action-ghost border-amber-300/55 bg-amber-300/14 text-amber-100 shadow-[0_0_18px_rgba(251,191,36,0.22)]"
+                    title="Reservas de hoy"
+                  >
+                    <CalendarDays className="w-5 h-5" />
+                    <span className="hidden xl:inline">
+                      {todayReservations.length} reserva{todayReservations.length > 1 ? 's' : ''}
+                    </span>
+                    <span className="rounded-full bg-amber-300 px-1.5 py-0.5 text-[10px] font-black text-slate-950 xl:hidden">
+                      {todayReservations.length}
+                    </span>
+                  </div>
+                )}
+                <button
+                  onClick={async () => {
+                    try {
+                      await openCashDrawer(tenantId);
+                      setToast({ message: 'Cajon abierto', type: 'success' });
+                    } catch (error) {
+                      setToast({
+                        message: `No se pudo abrir el cajon: ${error instanceof Error ? error.message : 'Error desconocido'}`,
+                        type: 'error',
+                      });
+                    }
+                  }}
+                  className="pos-action-ghost"
+                  title="Abrir cajon de dinero"
+                >
+                  <Archive className="w-5 h-5" />
+                  <span className="hidden xl:inline">Cajon</span>
+                </button>
+                <button
+                  onClick={handleOpenCashClosing}
+                  disabled={closingLoading}
+                  className="pos-action-danger disabled:cursor-not-allowed disabled:opacity-50"
+                  title="Cerrar caja diaria"
+                >
+                  <Lock className="w-5 h-5" />
+                  <span className="hidden xl:inline">Cerrar</span>
+                </button>
+                <button
+                  onClick={toggleFullscreen}
+                  className="pos-action-ghost"
+                  title={isFullscreen ? 'Salir de pantalla completa (ESC)' : 'Pantalla completa'}
+                >
+                  {isFullscreen ? <Minimize2 className="w-5 h-5" /> : <Maximize2 className="w-5 h-5" />}
+                  <span className="hidden xl:inline">{isFullscreen ? 'Salir' : 'Completa'}</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSavedAccountButton}
+                  disabled={savedAccountButtonDisabled}
+                  className={`pos-action-ghost disabled:cursor-not-allowed disabled:opacity-45 ${
+                    showHeldAccountsPanel || heldAccounts.length > 0 || cart.length > 0
+                      ? 'border-cyan-300/45 bg-cyan-300/12 text-cyan-50'
+                      : ''
+                  }`}
+                  title={cart.length > 0 ? 'Guardar la cuenta actual (Ctrl+G)' : 'Recuperar cuentas guardadas (Ctrl+G)'}
+                  aria-keyshortcuts="Control+G"
+                >
+                  <Archive className="w-5 h-5" />
+                  <span className="hidden xl:inline">Guardar</span>
+                  {heldAccounts.length > 0 && (
+                    <span className="rounded-full bg-cyan-300 px-1.5 py-0.5 text-[10px] font-black text-slate-950">
+                      {heldAccounts.length}
+                    </span>
+                  )}
+                </button>
+              </>
+            )}
+            {!isFullscreen && !compactPOSLayout && (
               <>
                 <button
                   onClick={() => syncOfflineSales(true)}
@@ -1711,7 +3212,13 @@ export function POSTerminal({
                   className={`pos-action-ghost ${!isOnline ? 'border-amber-300/45 bg-amber-300/12 text-amber-100' : offlinePendingCount > 0 ? 'border-emerald-300/45 bg-emerald-300/12 text-emerald-100' : ''} disabled:opacity-75`}
                   title={isOnline ? 'Sincronizar ventas offline' : 'Modo offline activo'}
                 >
-                  <span className={`h-2.5 w-2.5 rounded-full ${isOnline ? 'bg-emerald-300' : 'bg-amber-300 animate-pulse'}`} />
+                  <span
+                    className={`h-2.5 w-2.5 rounded-full ${
+                      isOnline
+                        ? 'bg-[#39ff88] shadow-[0_0_8px_#39ff88,0_0_18px_rgba(57,255,136,0.72)]'
+                        : 'animate-pulse bg-[#ff174d] shadow-[0_0_8px_#ff174d,0_0_18px_rgba(255,23,77,0.72)]'
+                    }`}
+                  />
                   <span className="hidden sm:inline">
                     {isOnline ? (syncingOffline ? 'Sync...' : 'Online') : 'Offline'}
                   </span>
@@ -1730,6 +3237,14 @@ export function POSTerminal({
                 >
                   <Monitor className="w-5 h-5" />
                   <span className="hidden sm:inline">Cliente</span>
+                </button>
+                <button
+                  onClick={downloadPOSShortcut}
+                  className="pos-action-ghost"
+                  title="Crear acceso del TPV en el Escritorio"
+                >
+                  <Download className="w-5 h-5" />
+                  <span className="hidden sm:inline">Escritorio</span>
                 </button>
                 <button
                   onClick={async () => {
@@ -1771,7 +3286,7 @@ export function POSTerminal({
           </div>
 
           {/* Categories - Sticky */}
-          <div className={`flex gap-2 overflow-x-auto pb-2 sticky z-10 border-b border-white/10 bg-black/24 backdrop-blur-xl scrollbar-none ${isFullscreen ? 'px-4 py-3' : 'px-4 py-2.5'}`}>
+          <div className={`flex gap-2 overflow-x-auto pb-2 sticky z-10 border-b border-white/10 bg-black/24 backdrop-blur-xl scrollbar-none ${compactPOSLayout ? 'px-4 py-3' : 'px-4 py-2.5'}`}>
             <button
               onClick={() => setSelectedCategory(null)}
               title="Alt + flechas cambia categorias"
@@ -1800,8 +3315,8 @@ export function POSTerminal({
           </div>
 
           {/* Menu Grid */}
-          <div className={`flex-1 overflow-y-auto ${isFullscreen ? 'px-4 py-3' : 'p-4'}`}>
-            <div className={`grid gap-3 h-fit ${isFullscreen ? 'grid-cols-2 sm:grid-cols-4 lg:grid-cols-8' : 'grid-cols-2 sm:grid-cols-3 md:grid-cols-5 lg:grid-cols-7'}`}>
+          <div className={`flex-1 min-h-0 overflow-y-scroll overscroll-contain pr-1 [scrollbar-gutter:stable] [scrollbar-width:thin] [scrollbar-color:rgba(103,232,249,0.55)_rgba(15,23,42,0.45)] [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-cyan-300/45 [&::-webkit-scrollbar-track]:bg-white/5 ${compactPOSLayout ? 'px-4 py-3' : 'p-3 sm:p-4'}`}>
+            <div className={`grid gap-3 h-fit ${compactPOSLayout ? 'grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-6' : 'grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6'}`}>
               {filteredMenu.map((item, index) => {
                 const qty = cartQuantityMap.get(item.id);
                 return (
@@ -1809,7 +3324,7 @@ export function POSTerminal({
                     key={item.id}
                     onClick={() => addToCart(item)}
                     title={index < 9 ? `Tecla ${index + 1}: agregar ${item.name}` : `Agregar ${item.name}`}
-                    className={`pos-card relative rounded-xl p-2.5 text-left transition-all duration-200 transform hover:scale-[1.025] active:scale-95 h-fit flex flex-col justify-between group ${
+                    className={`pos-card relative min-h-[164px] rounded-xl p-3 text-left transition-all duration-200 transform hover:scale-[1.025] active:scale-95 flex flex-col justify-between group ${
                       qty
                         ? 'border-2 border-cyan-300/70 bg-cyan-300/14 shadow-lg shadow-cyan-900/30'
                         : ''
@@ -1829,11 +3344,11 @@ export function POSTerminal({
                       <img
                         src={item.image_url}
                         alt={item.name}
-                        className={`w-full object-contain rounded-lg mb-2 group-hover:scale-110 transition-transform duration-200 ${isFullscreen ? 'h-16' : 'max-h-20'}`}
+                        className={`w-full object-contain rounded-lg mb-1 group-hover:scale-110 transition-transform duration-200 ${compactPOSLayout ? 'h-20' : 'h-24'}`}
                       />
                     )}
-                    <p className="font-bold text-xs truncate flex-1 text-white group-hover:text-cyan-200 transition-colors">{item.name}</p>
-                    <p className={`font-black text-xs mt-1 ${qty ? 'text-cyan-200' : 'text-emerald-300'}`}>
+                    <p className="font-black text-base leading-tight line-clamp-2 flex-1 text-white group-hover:text-cyan-200 transition-colors">{item.name}</p>
+                    <p className={`font-black text-base mt-1 ${qty ? 'text-cyan-200' : 'text-emerald-300'}`}>
                       {formatPriceWithCurrency(item.price, currencyInfo.code, currencyInfo.locale)}
                     </p>
                   </button>
@@ -1844,48 +3359,60 @@ export function POSTerminal({
 
           {/* Tables Bottom Strip */}
           {allTables.length > 0 && (
-            <div className="pos-panel border-x-0 border-b-0 px-3 py-2 shrink-0">
-              <p className="text-cyan-100/42 text-xs font-black mb-2 uppercase">Mesas</p>
+            <div className="pos-panel border-x-0 border-b-0 px-3 py-2 shrink-0 bg-white/95">
+              <p className="text-slate-800 text-xs font-black mb-2 uppercase">Mesas</p>
               <div className="flex gap-2 overflow-x-auto scrollbar-none pb-1">
                 {allTables.map(table => {
                   const group = tableGroups.find(g => g.tableNumber === table.table_number);
                   const minutes = group
                     ? Math.floor((Date.now() - new Date(group.oldestOrder.created_at).getTime()) / 60000)
                     : 0;
-                  const isSelected = selectedTableNumber === table.table_number && !group;
+                  const isSelected = selectedTableNumber === table.table_number;
                   return (
                     <button
                       key={table.id}
                       onClick={() => {
-                        if (group) {
-                          loadTableToCart(group.orders);
-                        } else {
-                          setSelectedTableId(table.id);
-                          setSelectedTableNumber(table.table_number);
-                          setPosMode('table');
+                        if (isSelected) {
+                          if (billingOrderIds.length > 0) {
+                            setCart([]);
+                            setBillingOrderIds([]);
+                          }
+                          setSelectedTableId(null);
+                          setSelectedTableNumber(null);
+                          setSelectedStaffId(null);
+                          setSelectedStaffName('');
+                          setLoadedOrderId(null);
+                          setLoadedOrderContext(null);
+                          setPosMode('simple');
+                          return;
                         }
+                        selectTableForCurrentCart(table.id, table.table_number);
                       }}
-                      className={`shrink-0 flex flex-col items-center justify-center rounded-xl px-3 py-2 min-w-[58px] border-2 transition-all duration-200 active:scale-95 ${
+                      className={`shrink-0 flex flex-col items-center justify-center rounded-xl px-3 py-2 min-w-[58px] border-2 shadow-[0_8px_18px_rgba(15,23,42,0.10)] transition-all duration-200 active:scale-95 ${
                         group
-                          ? `${getUrgencyBorder(minutes)} bg-white/10 hover:bg-white/15`
+                          ? isSelected
+                            ? 'border-orange-500 bg-orange-50 shadow-[0_10px_24px_rgba(249,115,22,0.22)]'
+                            : `${getUrgencyBorder(minutes)} bg-white hover:bg-orange-50`
                           : isSelected
-                          ? 'border-cyan-300 bg-cyan-300/16'
-                          : 'border-white/10 bg-white/5 hover:bg-white/10'
+                          ? 'border-orange-500 bg-orange-50 shadow-[0_10px_24px_rgba(249,115,22,0.22)]'
+                          : 'border-slate-300 bg-white hover:border-orange-300 hover:bg-orange-50'
                       }`}
                     >
-                      <span className={`font-black text-sm leading-tight ${group ? 'text-white' : isSelected ? 'text-cyan-200' : 'text-slate-400'}`}>
+                      <span className={`font-black text-sm leading-tight ${isSelected ? 'text-orange-700' : group ? 'text-slate-950' : 'text-slate-700'}`}>
                         {table.table_number}
                       </span>
                       {group ? (
                         <>
-                          <span className={`text-xs font-bold ${getTimerColor(minutes)}`}>{minutes}m</span>
-                          <span className="text-xs text-emerald-400 font-bold tabular-nums leading-tight">
+                          <span className={`text-xs font-bold ${isSelected ? 'text-orange-700' : 'text-slate-600'}`}>
+                            {isSelected ? 'Sel.' : `${minutes}m`}
+                          </span>
+                          <span className="text-xs text-emerald-700 font-bold tabular-nums leading-tight">
                             {formatPriceWithCurrency(group.totalAmount, currencyInfo.code, currencyInfo.locale)}
                           </span>
                         </>
                       ) : (
-                        <span className={`text-xs mt-0.5 ${isSelected ? 'text-cyan-300' : 'text-slate-500'}`}>
-                          {isSelected ? '✓ Sel.' : 'Libre'}
+                        <span className={`text-xs mt-0.5 ${isSelected ? 'text-orange-700' : 'text-slate-500'}`}>
+                          {isSelected ? 'Sel.' : 'Libre'}
                         </span>
                       )}
                     </button>
@@ -1897,8 +3424,8 @@ export function POSTerminal({
         </div>
 
         {/* Cart/Payment Section */}
-        <div className={`${isFullscreen ? 'h-[44vh] md:h-auto md:w-72 xl:w-80' : 'h-[44vh] md:h-auto md:w-80'} pos-panel border-y-0 border-r-0 flex flex-col overflow-hidden`}>
-          {/* Tabs: Cart / Entregas / Salón */}
+        <div className={`${compactPOSLayout ? 'h-[44dvh] min-h-0 overflow-hidden lg:h-auto lg:min-h-0 lg:w-72 xl:w-80' : 'min-h-[520px] flex-none overflow-y-auto pb-6 lg:min-h-0 lg:h-auto lg:w-80 lg:overflow-y-auto lg:pb-0'} pos-panel border-x-0 border-b-0 lg:border-y-0 lg:border-r-0 flex flex-col`}>
+          {/* Tabs: Guardar / Cart / Entregas / Salón */}
           <div className="border-b border-white/10 flex bg-black/20 backdrop-blur-xl">
             <button
               onClick={() => { setShowIncomingPanel(false); setShowDineInPanel(false); setShowFindPayPanel(false); }}
@@ -1942,8 +3469,8 @@ export function POSTerminal({
             >
               <div className="relative">
                 <UtensilsCrossed className="w-4 h-4" />
-                {dineInOrders.length > 0 && (
-                  <span className="absolute -top-1.5 -right-2 bg-emerald-500 text-white rounded-full w-4 h-4 text-[9px] font-black flex items-center justify-center">{dineInOrders.length}</span>
+                {tableGroups.length > 0 && (
+                  <span className="absolute -top-1.5 -right-2 bg-emerald-500 text-white rounded-full w-4 h-4 text-[9px] font-black flex items-center justify-center">{tableGroups.length}</span>
                 )}
               </div>
               <span className="text-[10px] font-bold">Salón</span>
@@ -1976,15 +3503,17 @@ export function POSTerminal({
                     tenantId={tenantId}
                     occupiedTableNumbers={tableGroups.map(g => g.tableNumber)}
                     selectedTableNumber={selectedTableNumber}
+                    onBillTable={(tableNumber) => {
+                      const group = tableGroups.find(g => g.tableNumber === tableNumber);
+                      if (!group) return;
+                      loadTableToCart(group.orders);
+                    }}
                     onSelectTable={(tableId, tableNumber) => {
                       const group = tableGroups.find(g => g.tableNumber === tableNumber);
-                      if (group) {
+                      if (group && cart.length === 0) {
                         loadTableToCart(group.orders);
                       } else {
-                        setSelectedTableId(tableId);
-                        setSelectedTableNumber(tableNumber);
-                        setPosMode('table');
-                        setShowDineInPanel(false);
+                        selectTableForCurrentCart(tableId, tableNumber);
                       }
                     }}
                   />
@@ -2008,6 +3537,7 @@ export function POSTerminal({
                           key={group.tableNumber}
                           group={group}
                           onBillTable={loadTableToCart}
+                          onPrintKitchen={printDineInKitchenTicket}
                           onVoidItem={voidOrderItem}
                           expanded={expandedTable === group.tableNumber}
                           onToggleExpand={() =>
@@ -2030,6 +3560,7 @@ export function POSTerminal({
                 domain={tenantId}
                 onOrderSelected={handleOrderSelected}
                 onVoidOrder={voidCompletedSale}
+                onRemoveItem={removeReceiptItem}
               />
             </div>
           )}
@@ -2038,22 +3569,50 @@ export function POSTerminal({
           {!showIncomingPanel && !showDineInPanel && !showFindPayPanel && (
             <>
               {loadedOrderId && (
-                <div className="mx-2 mt-2 rounded-xl border border-red-400/25 bg-red-500/10 px-3 py-2 flex items-center gap-2">
-                  <Archive className="w-3.5 h-3.5 text-red-200 shrink-0" />
+                <div className={`mx-2 mt-2 rounded-xl border px-3 py-2 flex items-center gap-2 ${
+                  editingPaidReceipt
+                    ? 'border-cyan-300/30 bg-cyan-400/10'
+                    : 'border-red-400/25 bg-red-500/10'
+                }`}>
+                  <Archive className={`w-3.5 h-3.5 shrink-0 ${editingPaidReceipt ? 'text-cyan-200' : 'text-red-200'}`} />
                   <div className="flex-1 min-w-0">
-                    <p className="text-red-100 font-bold text-xs">Ticket de domicilio cargado</p>
-                    <p className="text-red-200/70 text-xs">Puedes cobrarlo o anularlo si el cliente cancelo.</p>
+                    <p className={`font-bold text-xs ${editingPaidReceipt ? 'text-cyan-100' : 'text-red-100'}`}>
+                      {editingPaidReceipt
+                        ? `Editando recibo ${loadedOrderContext.orderNumber || ''}`
+                        : 'Ticket cargado para cobrar'}
+                    </p>
+                    <p className={`text-xs ${editingPaidReceipt ? 'text-cyan-200/75' : 'text-red-200/70'}`}>
+                      {editingPaidReceipt
+                        ? editedReceiptDifference > 0
+                          ? `Diferencia por cobrar: ${formatPriceWithCurrency(editedReceiptDifference, currencyInfo.code, currencyInfo.locale)}`
+                          : editedReceiptDifference < 0
+                            ? `Diferencia a devolver: ${formatPriceWithCurrency(Math.abs(editedReceiptDifference), currencyInfo.code, currencyInfo.locale)}`
+                            : 'Sin diferencia de dinero. Solo guarda los cambios.'
+                        : 'Puedes cobrarlo o anularlo si el cliente cancelo.'}
+                    </p>
                   </div>
-                  <button
-                    onClick={() => {
-                      const order = incomingOrders.find((item) => item.id === loadedOrderId);
-                      cancelIncomingOrder(loadedOrderId, order?.order_number || 'ticket cargado');
-                    }}
-                    disabled={cancellingOrderId === loadedOrderId}
-                    className="shrink-0 text-xs text-red-100 hover:text-white font-bold border border-red-400/40 hover:border-red-300 rounded-lg px-2 py-1 transition disabled:opacity-50"
-                  >
-                    {cancellingOrderId === loadedOrderId ? 'Anulando...' : 'Anular'}
-                  </button>
+                  {editingPaidReceipt ? (
+                    <button
+                      onClick={() => {
+                        resetCurrentCartForNextCustomer();
+                        setToast({ message: 'Edicion cancelada. TPV listo para una venta nueva.', type: 'success' });
+                      }}
+                      className="shrink-0 text-xs text-cyan-100 hover:text-white font-bold border border-cyan-300/35 hover:border-cyan-200 rounded-lg px-2 py-1 transition"
+                    >
+                      Cancelar
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => {
+                        const order = incomingOrders.find((item) => item.id === loadedOrderId);
+                        cancelIncomingOrder(loadedOrderId, order?.order_number || 'ticket cargado');
+                      }}
+                      disabled={cancellingOrderId === loadedOrderId}
+                      className="shrink-0 text-xs text-red-100 hover:text-white font-bold border border-red-400/40 hover:border-red-300 rounded-lg px-2 py-1 transition disabled:opacity-50"
+                    >
+                      {cancellingOrderId === loadedOrderId ? 'Anulando...' : 'Anular'}
+                    </button>
+                  )}
                 </div>
               )}
 
@@ -2065,6 +3624,16 @@ export function POSTerminal({
                 <p className="text-emerald-300 font-bold text-xs">Cobrando Mesa {selectedTableNumber}</p>
                 <p className="text-emerald-400/70 text-xs">{billingOrderIds.length} ronda{billingOrderIds.length > 1 ? 's' : ''} acumulada{billingOrderIds.length > 1 ? 's' : ''}</p>
               </div>
+              {androidTapToPayAvailable && (
+                <button
+                  type="button"
+                  onClick={handleAndroidTapToPayTable}
+                  disabled={processingPayment}
+                  className="shrink-0 rounded-lg border border-cyan-300/35 bg-cyan-400/15 px-2 py-1 text-xs font-black text-cyan-100 transition hover:bg-cyan-400/25 disabled:opacity-50"
+                >
+                  Tap to Pay
+                </button>
+              )}
               <button
                 onClick={() => {
                   setCart([]);
@@ -2083,18 +3652,21 @@ export function POSTerminal({
           )}
 
           {/* Cart Items List */}
-          <div className={`flex-1 min-h-0 ${isFullscreen ? 'overflow-hidden' : 'overflow-y-auto'}`}>
+          <div className={`${compactPOSLayout ? 'flex-1 min-h-0 overflow-y-auto overscroll-contain pr-1 [scrollbar-gutter:stable]' : 'min-h-28 max-h-48 overflow-y-auto'}`}>
             {cart.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-full text-slate-500 py-8">
                 <ShoppingCart className="w-8 h-8 mb-2 opacity-30" />
                 <p className="text-xs">Carrito vacío</p>
               </div>
             ) : (
-              <div className={`${isFullscreen ? 'p-1.5 space-y-1' : 'p-2 space-y-1'}`}>
+              <div className={`${compactPOSLayout ? 'space-y-1 p-1.5 pb-3' : 'p-2 space-y-1'}`}>
                 {cart.map((item) => (
-                  <div key={item.menu_item_id} className={`pos-card flex items-center gap-2 rounded-xl px-2 ${isFullscreen ? 'py-1' : 'py-1.5'}`}>
+                  <div key={item.menu_item_id} className={`pos-card flex items-center gap-2 rounded-xl px-2 ${compactPOSLayout ? 'py-1' : 'py-1.5'}`}>
                     <div className="flex-1 min-w-0">
-                      <p className="text-white text-xs font-semibold truncate">{item.name}</p>
+                      <p className="text-white text-xs font-semibold truncate">
+                        {item.name}
+                        {item.is_manual && <span className="ml-1 text-[10px] font-black uppercase text-cyan-200">Manual</span>}
+                      </p>
                       <p className="text-emerald-300 text-xs font-black">{formatPriceWithCurrency(item.price * item.quantity, currencyInfo.code, currencyInfo.locale)}</p>
                     </div>
                     <div className="flex items-center gap-1 shrink-0">
@@ -2125,7 +3697,7 @@ export function POSTerminal({
           </div>
 
           {/* Discount Code */}
-              <div className={`border-b border-white/10 ${isFullscreen ? 'px-2 py-1' : 'px-2 py-1'} space-y-1 text-xs`}>
+              <div className={`border-b border-white/10 ${compactPOSLayout ? 'px-2 py-1' : 'px-2 py-1'} space-y-1 text-xs`}>
             <div className="flex gap-1">
               <input
                 type="text"
@@ -2147,8 +3719,8 @@ export function POSTerminal({
           </div>
 
           {/* Totals */}
-          <div className={`border-b border-white/10 ${isFullscreen ? 'px-2 py-1.5' : 'px-3 py-2'} ${isFullscreen ? 'space-y-1' : 'space-y-2'} bg-black/18 text-sm backdrop-blur-xl`}>
-            <div className={`${isFullscreen ? 'space-y-1' : 'space-y-1.5'} text-xs`}>
+          <div className={`border-b border-white/10 ${compactPOSLayout ? 'px-2 py-1.5' : 'px-3 py-2'} ${compactPOSLayout ? 'space-y-1' : 'space-y-2'} bg-black/18 text-sm backdrop-blur-xl`}>
+            <div className={`${compactPOSLayout ? 'space-y-1' : 'space-y-1.5'} text-xs`}>
               <div className="flex justify-between">
                 <span className="text-slate-400">Subtotal:</span>
                 <span className="font-semibold text-slate-200">{formatPriceWithCurrency(subtotal, currencyInfo.code, currencyInfo.locale)}</span>
@@ -2165,10 +3737,16 @@ export function POSTerminal({
                   <span className="font-semibold text-slate-200">{formatPriceWithCurrency(taxAmount, currencyInfo.code, currencyInfo.locale)}</span>
                 </div>
               )}
+              {cartDeliveryFee > 0 && (
+                <div className="flex justify-between rounded-lg border border-amber-300/25 bg-amber-300/10 px-2 py-1">
+                  <span className="text-amber-200 font-bold">Domicilio:</span>
+                  <span className="font-black text-amber-100">{formatPriceWithCurrency(cartDeliveryFee, currencyInfo.code, currencyInfo.locale)}</span>
+                </div>
+              )}
             </div>
-            <div className={`pos-total-band flex justify-between font-black px-2 rounded-xl ${isFullscreen ? 'py-1.5 text-sm' : 'pt-2 py-2 text-base'}`}>
+            <div className={`pos-total-band flex justify-between font-black px-2 rounded-xl ${compactPOSLayout ? 'py-1.5 text-sm' : 'pt-2 py-2 text-base'}`}>
               <span className="text-white">Total:</span>
-              <span className={`text-emerald-300 ${isFullscreen ? 'text-base' : 'text-lg'}`}>{formatPriceWithCurrency(total, currencyInfo.code, currencyInfo.locale)}</span>
+              <span className={`text-emerald-300 ${compactPOSLayout ? 'text-base' : 'text-lg'}`}>{formatPriceWithCurrency(total, currencyInfo.code, currencyInfo.locale)}</span>
             </div>
 
           </div>
@@ -2203,14 +3781,23 @@ export function POSTerminal({
                 }}
                 required
               />
+              {billingOrderIds.length === 0 && (
+                <button
+                  onClick={handleSendCartToTable}
+                  disabled={cart.length === 0 || !selectedStaffId || processingPayment}
+                  className="w-full rounded-xl border border-emerald-300/35 bg-emerald-400/16 px-3 py-2.5 text-sm font-black text-emerald-100 transition hover:border-emerald-200 hover:bg-emerald-400/24 disabled:cursor-not-allowed disabled:opacity-45"
+                >
+                  {processingPayment ? 'Enviando...' : `Enviar a Mesa ${selectedTableNumber}`}
+                </button>
+              )}
             </div>
           ) : (
             <div className="border-b border-white/10 px-2 py-2 space-y-1.5">
               <p className="text-cyan-100/42 text-xs font-black uppercase">Tipo de pedido</p>
-              <div className="flex gap-1">
+              <div className="grid grid-cols-2 gap-1">
                 <button
                   onClick={() => setPosOrderType('takeaway')}
-                  className={`flex-1 py-1.5 rounded-lg text-xs font-bold transition ${
+                  className={`py-1.5 rounded-lg text-xs font-bold transition ${
                     posOrderType === 'takeaway'
                       ? 'bg-cyan-300/18 text-cyan-50 border border-cyan-300/35'
                       : 'bg-white/10 text-slate-400 hover:text-slate-100 border border-white/10'
@@ -2220,7 +3807,7 @@ export function POSTerminal({
                 </button>
                 <button
                   onClick={() => setPosOrderType('pickup')}
-                  className={`flex-1 py-1.5 rounded-lg text-xs font-bold transition ${
+                  className={`py-1.5 rounded-lg text-xs font-bold transition ${
                     posOrderType === 'pickup'
                       ? 'bg-cyan-300/18 text-cyan-50 border border-cyan-300/35'
                       : 'bg-white/10 text-slate-400 hover:text-slate-100 border border-white/10'
@@ -2228,25 +3815,143 @@ export function POSTerminal({
                 >
                   🏠 Para recoger
                 </button>
+                {deliveryEnabled && (
+                  <div className="col-span-2 rounded-lg border border-amber-300/20 bg-amber-300/8 p-1.5">
+                    <button
+                      onClick={() => setPosOrderType('delivery')}
+                      className={`flex w-full items-center justify-center gap-1.5 rounded-md py-1.5 text-xs font-bold transition ${
+                        posOrderType === 'delivery'
+                          ? 'bg-amber-300/20 text-amber-50 border border-amber-300/45 shadow-lg shadow-amber-900/20'
+                          : 'bg-white/10 text-slate-400 hover:text-slate-100 border border-white/10'
+                      }`}
+                      title="Pedido por llamada con cobro de domicilio"
+                    >
+                      <Truck className="h-3.5 w-3.5" />
+                      Domicilio {activeDeliveryFee > 0 ? `+ ${formatPriceWithCurrency(activeDeliveryFee, currencyInfo.code, currencyInfo.locale)}` : ''}
+                    </button>
+                    {posOrderType === 'delivery' && deliveryOptions.length > 0 && (
+                      <div className="mt-1.5 grid grid-cols-2 gap-1">
+                        {deliveryOptions.map((zone) => {
+                          const active = selectedDeliveryZone?.id === zone.id;
+                          return (
+                            <button
+                              key={zone.id}
+                              onClick={() => {
+                                setPosOrderType('delivery');
+                                setSelectedDeliveryZoneId(zone.id);
+                              }}
+                              className={`min-h-10 rounded-lg border px-2 py-1 text-left transition ${
+                                active
+                                  ? 'border-amber-200 bg-amber-300/24 text-amber-50'
+                                  : 'border-white/10 bg-black/20 text-slate-300 hover:border-amber-300/35'
+                              }`}
+                            >
+                              <span className="block truncate text-[11px] font-black">{zone.name}</span>
+                              <span className="block text-xs font-black text-amber-200">
+                                {formatPriceWithCurrency(zone.fee, currencyInfo.code, currencyInfo.locale)}
+                              </span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
           )}
 
           {/* Payment Component */}
-              <div className={`${isFullscreen ? 'px-2 py-1' : 'px-2 py-1'}`}>
-                <POSPayment
-                  key={paymentResetKey}
-                  total={taxableSubtotal + taxAmount}
-                  tip={tip}
-                  onTipChange={setTip}
-                  paymentMethod={paymentMethod}
-                  onPaymentMethodChange={setPaymentMethod}
-                  onProceedPayment={handleShowReceipt}
-                  disabled={cart.length === 0 || (!!selectedTableNumber && !selectedStaffId && billingOrderIds.length === 0)}
-                  loading={processingPayment}
-                  country={country}
-                  compact={isFullscreen}
-                />
+              <div className={`${compactPOSLayout ? 'px-2 py-1' : 'px-2 pb-[calc(env(safe-area-inset-bottom)+1.25rem)] pt-1 lg:pb-1'}`}>
+                {editingPaidReceipt ? (
+                  <div className="rounded-xl border border-cyan-300/30 bg-cyan-400/10 p-2">
+                    <div className="mb-2 rounded-lg border border-white/10 bg-black/20 px-3 py-2 text-xs">
+                      <div className="flex justify-between text-slate-300">
+                        <span>Recibo anterior</span>
+                        <strong>{formatPriceWithCurrency(loadedOrderContext?.originalTotal || 0, currencyInfo.code, currencyInfo.locale)}</strong>
+                      </div>
+                      <div className="mt-1 flex justify-between text-cyan-100">
+                        <span>Nuevo total</span>
+                        <strong>{formatPriceWithCurrency(editedReceiptTotal, currencyInfo.code, currencyInfo.locale)}</strong>
+                      </div>
+                    </div>
+                    {editedReceiptDifference !== 0 && (
+                      <div className={`mb-2 rounded-lg px-3 py-2 text-center text-sm font-black ${
+                        editedReceiptDifference > 0
+                          ? 'border border-emerald-300/35 bg-emerald-400/15 text-emerald-100'
+                          : 'border border-amber-300/35 bg-amber-400/15 text-amber-100'
+                      }`}>
+                        {editedReceiptDifference > 0
+                          ? `Ingresa ${formatPriceWithCurrency(editedReceiptDifference, currencyInfo.code, currencyInfo.locale)}`
+                          : `Devolver ${formatPriceWithCurrency(Math.abs(editedReceiptDifference), currencyInfo.code, currencyInfo.locale)}`}
+                      </div>
+                    )}
+                    <div className="mb-2 rounded-lg border border-white/10 bg-black/20 px-3 py-2">
+                      <p className="mb-2 text-[11px] font-black uppercase text-slate-400">Forma de pago</p>
+                      <div className="grid grid-cols-2 gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setPaymentMethod('cash')}
+                          disabled={processingPayment}
+                          className={`flex min-h-10 items-center justify-center gap-1.5 rounded-lg border px-2 py-2 text-xs font-black transition ${
+                            paymentMethod === 'cash'
+                              ? 'border-amber-300 bg-amber-300/20 text-amber-50'
+                              : 'border-white/10 bg-white/10 text-slate-300 hover:text-white'
+                          } disabled:opacity-50`}
+                        >
+                          <DollarSign className="h-4 w-4" />
+                          Efectivo
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setPaymentMethod('stripe')}
+                          disabled={processingPayment}
+                          className={`flex min-h-10 items-center justify-center gap-1.5 rounded-lg border px-2 py-2 text-xs font-black transition ${
+                            paymentMethod === 'stripe'
+                              ? 'border-cyan-300 bg-cyan-300/20 text-cyan-50'
+                              : 'border-white/10 bg-white/10 text-slate-300 hover:text-white'
+                          } disabled:opacity-50`}
+                        >
+                          <CreditCard className="h-4 w-4" />
+                          Tarjeta
+                        </button>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => processPaymentAfterReceipt(undefined, true)}
+                      disabled={cart.length === 0 || processingPayment}
+                      className="w-full rounded-xl bg-gradient-to-r from-cyan-500 to-emerald-500 px-3 py-3 text-sm font-black text-white shadow-lg shadow-cyan-950/30 transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      {processingPayment
+                        ? 'Guardando...'
+                        : editedReceiptDifference > 0
+                          ? `Ingresar ${formatPriceWithCurrency(editedReceiptDifference, currencyInfo.code, currencyInfo.locale)} y guardar`
+                          : editedReceiptDifference < 0
+                            ? `Guardar devolucion ${formatPriceWithCurrency(Math.abs(editedReceiptDifference), currencyInfo.code, currencyInfo.locale)}`
+                            : 'Guardar cambios y reimprimir'}
+                    </button>
+                    <p className="mt-1.5 text-center text-[11px] font-semibold text-cyan-100/70">
+                      Se actualiza el recibo y se reimprime con el nuevo total.
+                    </p>
+                  </div>
+                ) : (
+                  <POSPayment
+                    key={paymentResetKey}
+                    total={paymentBaseTotal}
+                    tip={tip}
+                    onTipChange={setTip}
+                    paymentMethod={paymentMethod}
+                    onPaymentMethodChange={setPaymentMethod}
+                    printReceipt={printReceiptAfterPayment}
+                    onPrintReceiptChange={setPrintReceiptAfterPayment}
+                    onProceedPayment={handleShowReceipt}
+                    disabled={cart.length === 0 || (!!selectedTableNumber && !selectedStaffId && billingOrderIds.length === 0)}
+                    loading={processingPayment}
+                    country={country}
+                    compact={compactPOSLayout}
+                  />
+                )}
               </div>
             </>
           )}
@@ -2342,36 +4047,6 @@ export function POSTerminal({
         />
       )}
 
-
-      {/* Cart Drawer Modal */}
-      <POSCartDrawer
-        isOpen={showCartDrawer}
-        cartItems={cart}
-        subtotal={subtotal}
-        discount={discount}
-        onUpdateQuantity={updateQuantity}
-        onRemoveItem={removeFromCart}
-        onUpdateNotes={updateNotes}
-        onClose={() => setShowCartDrawer(false)}
-        country={country}
-      />
-
-      {/* Admin Menu Drawer Modal */}
-      <AdminMenuDrawer
-        isOpen={showAdminMenu}
-        tenantId={tenantId}
-        navLinks={[
-          { href: `/${tenantId}/admin/dashboard`, label: 'Dashboard', icon: '📊' },
-          { href: `/${tenantId}/admin/pedidos`, label: 'Pedidos', icon: '🛍️' },
-          { href: `/${tenantId}/admin/productos`, label: 'Productos', icon: '🍽️' },
-          { href: `/${tenantId}/admin/reservas`, label: 'Reservas', icon: '📅' },
-          { href: `/${tenantId}/admin/clientes`, label: 'Clientes', icon: '👥' },
-          { href: `/${tenantId}/admin/ventas`, label: 'Ventas', icon: '📈' },
-          { href: `/${tenantId}/admin/configuracion/restaurante`, label: 'Configuración', icon: '⚙️' },
-        ]}
-        onClose={() => setShowAdminMenu(false)}
-      />
-
       {/* Cash Closing Modal */}
       {cashClosingStats && (
         <CashClosingModal
@@ -2383,7 +4058,7 @@ export function POSTerminal({
           onConfirm={handleSaveCashClosing}
           data={{
             ...cashClosingStats,
-            staffName: selectedStaffName || 'Sin asignar',
+            staffName: selectedStaffName || getLoggedStaffFromBrowser(tenantId).staffName || 'Sin asignar',
           }}
           country={country}
           isLoading={closingLoading}

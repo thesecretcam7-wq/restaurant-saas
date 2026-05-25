@@ -34,13 +34,25 @@ export default async function CategoryPage({ params }: CategoryPageProps) {
   const branding = context.branding
   const palette = deriveBrandPalette({
     primary: branding?.primary_color,
+    accent: branding?.accent_color,
     background: branding?.background_color,
     surface: branding?.section_background_color,
+    buttonPrimary: branding?.button_primary_color,
     textPrimary: branding?.text_primary_color,
     textSecondary: branding?.text_secondary_color,
     border: branding?.border_color,
   })
   const primary = palette.primary
+  const sectionBackgroundImage = (branding as any)?.section_background_image_url || ''
+  const pageBackgroundStyle = sectionBackgroundImage
+    ? {
+        backgroundColor: palette.background,
+        backgroundImage: `linear-gradient(rgba(255,255,255,.78), rgba(255,255,255,.78)), url(${sectionBackgroundImage})`,
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+        backgroundAttachment: 'fixed',
+      }
+    : { backgroundColor: palette.background }
   const countryCurrency = getCurrencyByCountry(context.settings?.country_code || context.settings?.country || (context.tenant as any)?.country || 'ES')
   const currencyInfo = context.settings?.currency
     ? { ...countryCurrency, code: context.settings.currency, symbol: context.settings.currency_symbol || countryCurrency.symbol }
@@ -58,7 +70,7 @@ export default async function CategoryPage({ params }: CategoryPageProps) {
   }
 
   return (
-    <div className="min-h-screen" style={{ backgroundColor: palette.background }}>
+    <div className="min-h-screen" style={pageBackgroundStyle}>
       {/* Header */}
       <header className="sticky top-0 z-10 bg-white/90 backdrop-blur border-b">
         <div className="max-w-4xl mx-auto px-4 py-4">
@@ -87,7 +99,7 @@ export default async function CategoryPage({ params }: CategoryPageProps) {
         ) : (
           <div className="space-y-3">
             {items.map(item => (
-              <MenuItemCard key={item.id} item={item} tenantSlug={context.tenant?.slug || domain} branding={branding} currencyInfo={currencyInfo} />
+              <MenuItemCard key={item.id} item={item} tenantSlug={context.tenant?.slug || domain} palette={palette} currencyInfo={currencyInfo} />
             ))}
           </div>
         )}
@@ -96,22 +108,32 @@ export default async function CategoryPage({ params }: CategoryPageProps) {
   )
 }
 
-function MenuItemCard({ item, tenantSlug, branding, currencyInfo }: { item: any; tenantSlug: string; branding: any; currencyInfo: { code: string; locale: string } }) {
+function MenuItemCard({ item, tenantSlug, palette, currencyInfo }: { item: any; tenantSlug: string; palette: ReturnType<typeof deriveBrandPalette>; currencyInfo: { code: string; locale: string } }) {
   return (
-    <div className="bg-white rounded-xl border overflow-hidden flex items-center gap-4 p-3 hover:shadow-md transition-shadow">
+    <div
+      className="rounded-2xl border overflow-hidden flex items-center gap-4 p-3 shadow-sm hover:shadow-xl transition-shadow"
+      style={{
+        backgroundColor: palette.cardSurface,
+        borderColor: palette.border,
+        backgroundImage: `linear-gradient(135deg, ${palette.primary}12, transparent 58%)`,
+      }}
+    >
       {item.image_url ? (
-        <img src={item.image_url} alt={item.name} className="w-20 h-20 rounded-lg object-cover flex-shrink-0" />
+        <div className="relative h-24 w-24 flex-shrink-0 overflow-hidden rounded-xl">
+          <img src={item.image_url} alt={item.name} className="h-full w-full object-cover" />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/38 via-transparent to-transparent" />
+        </div>
       ) : (
-        <div className="w-20 h-20 rounded-lg bg-gray-100 flex items-center justify-center text-2xl flex-shrink-0">🍽️</div>
+        <div className="w-24 h-24 rounded-xl flex items-center justify-center text-2xl flex-shrink-0" style={{ background: `linear-gradient(135deg, ${palette.primary}22, ${palette.accent}18)` }}>🍽️</div>
       )}
       <div className="flex-1 min-w-0">
-        <p className="font-semibold text-gray-900">{item.name}</p>
-        {item.description && <p className="text-sm text-gray-500 mt-0.5 line-clamp-2">{item.description}</p>}
-        <p className="font-bold mt-2" style={{ color: branding?.primary_color || '#E4002B' }}>
+        <p className="font-semibold" style={{ color: palette.text }}>{item.name}</p>
+        {item.description && <p className="text-sm mt-0.5 line-clamp-2" style={{ color: palette.mutedText }}>{item.description}</p>}
+        <p className="font-bold mt-2" style={{ color: palette.accent }}>
           {formatPriceWithCurrency(item.price, currencyInfo.code, currencyInfo.locale)}
         </p>
       </div>
-      <AddToCartButton item={item} tenantId={tenantSlug} color={branding?.button_primary_color || branding?.primary_color} />
+      <AddToCartButton item={item} tenantId={tenantSlug} color={palette.buttonPrimary} />
     </div>
   )
 }

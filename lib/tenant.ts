@@ -1,10 +1,29 @@
 import { Tenant, TenantBranding, RestaurantSettings } from './types'
 import { createServiceClient } from './supabase/server'
+import { getLockedTenantBrandingColors } from './brand-colors'
 
 type CacheEntry<T> = { value: T; expiresAt: number }
 const cache = new Map<string, CacheEntry<unknown>>()
-const CACHE_TTL = 3_000
+const CACHE_TTL = 30_000
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+const BRANDING_PUBLIC_COLUMNS = [
+  'tenant_id',
+  'app_name',
+  'tagline',
+  'description',
+  'favicon_url',
+  'hero_image_url',
+  'instagram_url',
+  'facebook_url',
+  'whatsapp_number',
+  'contact_email',
+  'contact_phone',
+  'booking_description',
+  'delivery_description',
+  'featured_text',
+  'custom_texts',
+  'page_config',
+].join(', ')
 
 function isUuid(value: string) {
   return UUID_RE.test(value)
@@ -20,13 +39,18 @@ async function cached<T>(key: string, fetcher: () => Promise<T>): Promise<T> {
 }
 
 export async function getTenantByDomain(domain: string) {
-  return cached(`tenant:domain:${domain}`, async () => {
+  const cleanDomain = domain.split(':')[0]?.toLowerCase() || domain.toLowerCase()
+  return cached(`tenant:domain:${cleanDomain}`, async () => {
   const supabase = createServiceClient()
+  const candidates = cleanDomain.startsWith('www.')
+    ? [cleanDomain, cleanDomain.slice(4)]
+    : [cleanDomain, `www.${cleanDomain}`]
 
   const { data, error } = await supabase
     .from('tenants')
     .select('*')
-    .eq('primary_domain', domain)
+    .in('primary_domain', candidates)
+    .limit(1)
     .maybeSingle()
 
   if (error) {
@@ -67,7 +91,7 @@ export async function getTenantBranding(tenantId: string) {
     const [brandingRes, tenantRes] = await Promise.all([
       supabase
         .from('tenant_branding')
-        .select('*')
+        .select(BRANDING_PUBLIC_COLUMNS)
         .eq('tenant_id', tenantId)
         .maybeSingle(),
       supabase
@@ -83,10 +107,12 @@ export async function getTenantBranding(tenantId: string) {
     }
 
     const metadataBranding = (tenantRes.data?.metadata || {}) as Record<string, any>
+    const lockedBrandingColors = getLockedTenantBrandingColors()
     return {
       ...(metadataBranding || {}),
-      ...(brandingRes.data || {}),
+      ...((brandingRes.data || {}) as Record<string, any>),
       logo_url: tenantRes.data?.logo_url || metadataBranding.logo_url || null,
+      ...lockedBrandingColors,
     } as TenantBranding
   } catch (error) {
     console.error('Exception in getTenantBranding:', error)

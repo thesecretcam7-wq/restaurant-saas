@@ -1,7 +1,12 @@
 import { getTenantContext } from '@/lib/tenant'
 import { Toaster } from 'react-hot-toast'
 import StoreNavigationLoader from '@/components/store/StoreNavigationLoader'
+import StoreBrandingMemory from '@/components/store/StoreBrandingMemory'
+import TenantAccessGuard from '@/components/TenantAccessGuard'
+import { getTenantAccessInfo } from '@/lib/tenant-access'
+import { getPageConfig } from '@/lib/pageConfig'
 import type { Metadata } from 'next'
+import './(store)/store-premium.css'
 
 export const dynamic = 'force-dynamic'
 
@@ -22,19 +27,20 @@ export async function generateMetadata({
   const { domain } = await params
   const context = await getTenantContext(domain)
   const restaurantName = getRestaurantDisplayName(context)
-  const brandedTitle = `${restaurantName} | Eccofood`
   const tenantSlug = context.tenant?.slug || domain
   const tenantAppleIconUrl = `/${tenantSlug}/apple-touch-icon.png`
-  const iconUrl =
+  const tenantIcon192Url = `/${tenantSlug}/icon-192.png`
+  const tenantIcon512Url = `/${tenantSlug}/icon-512.png`
+  const openGraphImageUrl =
     context.branding?.favicon_url ||
     context.branding?.logo_url ||
     context.tenant?.logo_url ||
-    '/icons/apple-touch-icon.png'
+    tenantIcon512Url
 
   return {
     title: {
-      default: brandedTitle,
-      template: `%s | ${restaurantName} | Eccofood`,
+      default: restaurantName,
+      template: `%s | ${restaurantName}`,
     },
     description: context.branding?.tagline || context.branding?.description || `Tienda online de ${restaurantName}`,
     applicationName: restaurantName,
@@ -44,18 +50,22 @@ export async function generateMetadata({
       statusBarStyle: 'default',
       title: restaurantName,
     },
+    other: {
+      'apple-mobile-web-app-title': restaurantName,
+      'mobile-web-app-capable': 'yes',
+    },
     icons: {
       icon: [
-        { url: iconUrl },
-        { url: '/favicon.ico', sizes: '32x32', type: 'image/png' },
+        { url: tenantIcon192Url, sizes: '192x192', type: 'image/png' },
+        { url: tenantIcon512Url, sizes: '512x512', type: 'image/png' },
       ],
       apple: [{ url: tenantAppleIconUrl, sizes: '180x180', type: 'image/png' }],
     },
     openGraph: {
       type: 'website',
-      title: brandedTitle,
+      title: restaurantName,
       description: context.branding?.tagline || context.branding?.description || `Tienda online de ${restaurantName}`,
-      images: iconUrl ? [{ url: iconUrl }] : undefined,
+      images: openGraphImageUrl ? [{ url: openGraphImageUrl }] : undefined,
     },
   }
 }
@@ -125,22 +135,22 @@ export default async function TenantLayout({
   }
 
   const branding = context.branding
+  const access = getTenantAccessInfo(context.tenant)
 
-  // Eccofood Default Brand Colors - Professional Foundation
-  const eccofoodDefaults = {
-    primary: '#0066FF',
-    secondary: '#10B981',
-    accent: '#F97316',
-    background: '#FFFFFF',
-    fontFamily: 'system-ui, -apple-system, sans-serif',
-  }
-
-  // Tenant custom colors with Eccofood fallbacks
-  const primaryColor = branding?.primary_color || eccofoodDefaults.primary
-  const secondaryColor = branding?.secondary_color || eccofoodDefaults.secondary
-  const accentColor = branding?.accent_color || eccofoodDefaults.accent
-  const backgroundColor = branding?.background_color || eccofoodDefaults.background
-  const fontFamily = branding?.font_family || eccofoodDefaults.fontFamily
+  const fontFamily = branding?.font_family || 'system-ui, -apple-system, sans-serif'
+  const logoUrl = branding?.logo_url || context.tenant?.logo_url || null
+  const restaurantName = getRestaurantDisplayName(context)
+  const pageConfig = getPageConfig((context.tenant as any)?.metadata?.page_config || branding?.page_config)
+  const themeMode = pageConfig.appearance.theme_mode
+  const isLightTheme = themeMode === 'light'
+  const primaryColor = isLightTheme ? '#ff5a00' : '#D4AF37'
+  const secondaryColor = isLightTheme ? '#ff1f1f' : '#D35A37'
+  const accentColor = isLightTheme ? '#ff1f1f' : '#D4AF37'
+  const buttonPrimaryColor = isLightTheme ? primaryColor : '#D35A37'
+  const backgroundColor = isLightTheme ? '#ffffff' : '#0B0E14'
+  const surfaceColor = isLightTheme ? '#ffffff' : '#1A1F2C'
+  const textColor = isLightTheme ? '#07111f' : '#ffffff'
+  const mutedTextColor = isLightTheme ? 'rgba(7, 17, 31, 0.72)' : '#8b97a8'
 
   return (
     <>
@@ -152,6 +162,12 @@ export default async function TenantLayout({
           --secondary-color: ${secondaryColor};
           --accent-color: ${accentColor};
           --background-color: ${backgroundColor};
+          --button-primary-color: ${buttonPrimaryColor};
+          --button-secondary-color: ${isLightTheme ? '#fff3e8' : 'rgba(212, 175, 55, 0.12)'};
+          --price-color: ${accentColor};
+          --brand-surface-color: ${surfaceColor};
+          --brand-text-color: ${textColor};
+          --brand-muted-color: ${mutedTextColor};
           --font-family: ${fontFamily};
 
           /* Admin pages always use Eccofood brand (no tenant override) */
@@ -167,8 +183,15 @@ export default async function TenantLayout({
         }
       `}</style>
       <div className="min-h-full flex flex-col" style={{ backgroundColor }}>
-        {children}
-        <StoreNavigationLoader color={primaryColor} logoUrl={branding?.logo_url} />
+        <TenantAccessGuard
+          access={access}
+          slug={context.tenant.slug}
+          restaurantName={restaurantName}
+        >
+          {children}
+        </TenantAccessGuard>
+        <StoreBrandingMemory appName={restaurantName} logoUrl={logoUrl} primaryColor={primaryColor} themeMode={themeMode} />
+        <StoreNavigationLoader color={primaryColor} logoUrl={logoUrl} themeMode={themeMode} />
         <Toaster position="bottom-right" />
       </div>
     </>

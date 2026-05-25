@@ -18,6 +18,9 @@ const STATUS_OPTIONS = [
   { value: 'maintenance', label: 'Mantenimiento' },
 ];
 
+const fieldClass = 'w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm font-semibold text-slate-950 placeholder:text-slate-400 shadow-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-500/30';
+const smallFieldClass = 'w-full rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-sm font-semibold text-slate-950 placeholder:text-slate-400 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-500/30';
+
 export default function MesasPage() {
   const params = useParams();
   const domain = params.domain as string;
@@ -118,42 +121,42 @@ export default function MesasPage() {
 
       {/* Add form */}
       {showForm && (
-        <div className="mb-5 bg-white border rounded-2xl p-5 space-y-4 shadow-sm">
-          <p className="font-semibold text-gray-900 text-sm">Nueva mesa</p>
+        <div className="mb-5 space-y-4 rounded-2xl border border-slate-200 bg-white p-5 text-slate-950 shadow-sm">
+          <p className="text-sm font-black text-slate-950">Nueva mesa</p>
           <div className="grid grid-cols-3 gap-3">
             <div>
-              <label className="text-xs font-medium text-gray-500 mb-1 block">Número *</label>
+              <label className="mb-1 block text-xs font-black uppercase text-slate-600">Número *</label>
               <input
                 type="number" min="1"
                 value={newNumber}
                 onChange={e => setNewNumber(e.target.value)}
                 placeholder="1"
-                className="w-full px-3 py-2.5 border rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                className={fieldClass}
               />
             </div>
             <div>
-              <label className="text-xs font-medium text-gray-500 mb-1 block">Asientos</label>
+              <label className="mb-1 block text-xs font-black uppercase text-slate-600">Asientos</label>
               <input
                 type="number" min="1"
                 value={newSeats}
                 onChange={e => setNewSeats(e.target.value)}
                 placeholder="4"
-                className="w-full px-3 py-2.5 border rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                className={fieldClass}
               />
             </div>
             <div>
-              <label className="text-xs font-medium text-gray-500 mb-1 block">Zona (opcional)</label>
+              <label className="mb-1 block text-xs font-black uppercase text-slate-600">Zona (opcional)</label>
               <input
                 type="text"
                 value={newLocation}
                 onChange={e => setNewLocation(e.target.value)}
                 placeholder="Terraza, Interior..."
-                className="w-full px-3 py-2.5 border rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                className={fieldClass}
               />
             </div>
           </div>
           <div className="flex gap-2 justify-end">
-            <button onClick={() => setShowForm(false)} className="px-4 py-2 text-gray-500 hover:text-gray-700 text-sm">Cancelar</button>
+            <button onClick={() => setShowForm(false)} className="px-4 py-2 text-sm font-bold text-slate-600 hover:text-slate-950">Cancelar</button>
             <button
               onClick={addTable}
               disabled={saving || !newNumber}
@@ -192,7 +195,7 @@ export default function MesasPage() {
                       type="number" min="1"
                       value={editSeats}
                       onChange={e => setEditSeats(e.target.value)}
-                      className="w-full px-2 py-1.5 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className={smallFieldClass}
                     />
                   </div>
                   <div className="flex items-center gap-1.5">
@@ -202,13 +205,13 @@ export default function MesasPage() {
                       value={editLocation}
                       onChange={e => setEditLocation(e.target.value)}
                       placeholder="Zona"
-                      className="w-full px-2 py-1.5 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className={smallFieldClass}
                     />
                   </div>
                   <select
                     value={editStatus}
                     onChange={e => setEditStatus(e.target.value)}
-                    className="px-2 py-1.5 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-sm font-semibold text-slate-950 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-500/30"
                   >
                     {STATUS_OPTIONS.map(s => (
                       <option key={s.value} value={s.value}>{s.label}</option>

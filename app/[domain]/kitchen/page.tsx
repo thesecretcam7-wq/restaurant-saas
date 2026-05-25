@@ -1,6 +1,7 @@
 import { createServiceClient } from '@/lib/supabase/server'
 import { KitchenClient } from './KitchenClient'
 import { getTenantContext } from '@/lib/tenant'
+import { getPageConfig } from '@/lib/pageConfig'
 
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
@@ -24,6 +25,8 @@ export default async function KitchenPage({ params }: Props) {
   const context = tenant ? await getTenantContext(tenant.slug || slug) : null
   const settings = context?.settings
   const branding = context?.branding
+  const pageConfig = getPageConfig((context?.tenant as any)?.metadata?.page_config || branding?.page_config)
+  const isLightTheme = pageConfig.appearance.theme_mode === 'light'
 
   if (!tenant) {
     return (
@@ -41,15 +44,17 @@ export default async function KitchenPage({ params }: Props) {
       country={settings?.country || tenant.country || 'ES'}
       branding={{
         appName: branding?.app_name || tenant.organization_name,
-        primaryColor: branding?.primary_color || '#15130f',
-        secondaryColor: branding?.secondary_color || '#111827',
-        accentColor: branding?.accent_color || branding?.primary_color || '#e43d30',
-        backgroundColor: branding?.background_color || '#f6f3ed',
-        surfaceColor: branding?.section_background_color || branding?.background_color || '#ffffff',
-        buttonPrimaryColor: branding?.button_primary_color || branding?.primary_color || '#15130f',
-        buttonSecondaryColor: branding?.button_secondary_color || branding?.secondary_color || '#111827',
-        textPrimaryColor: branding?.text_primary_color || '#15130f',
-        textSecondaryColor: branding?.text_secondary_color || '#6b7280',
+        primaryColor: isLightTheme ? '#ff5a00' : '#D4AF37',
+        secondaryColor: isLightTheme ? '#ffffff' : '#1A1F2C',
+        accentColor: isLightTheme ? '#ff1f1f' : '#D35A37',
+        backgroundColor: isLightTheme ? '#ffffff' : '#0B0E14',
+        surfaceColor: isLightTheme ? '#ffffff' : '#1A1F2C',
+        buttonPrimaryColor: isLightTheme ? '#ff5a00' : '#D35A37',
+        buttonSecondaryColor: isLightTheme ? '#ff1f1f' : '#D4AF37',
+        textPrimaryColor: isLightTheme ? '#07111f' : '#ffffff',
+        textSecondaryColor: isLightTheme ? 'rgba(7, 17, 31, 0.70)' : '#8b97a8',
+        borderColor: isLightTheme ? 'rgba(7, 17, 31, 0.12)' : 'rgba(212, 175, 55, 0.18)',
+        isLightTheme,
         logoUrl: branding?.logo_url || null,
       }}
     />

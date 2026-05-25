@@ -1,10 +1,9 @@
 /**
- * Thermal receipt generator for ESC/POS printers
- * Supports 58mm and 80mm paper widths
+ * Thermal receipt generator for ESC/POS printers.
+ * Supports 58mm and 80mm paper widths.
  */
 
-import type { ReceiptData } from '@/types/printer';
-import { formatPriceWithCurrency } from '@/lib/currency';
+import type { CashClosingReceiptData, KitchenTicketData, MonthlyClosingReceiptData, ReceiptData } from '@/types/printer';
 
 interface ReceiptOptions {
   paperWidth: 58 | 80;
@@ -13,178 +12,533 @@ interface ReceiptOptions {
   openCashDrawer?: boolean;
 }
 
-// ESC/POS command constants
 const ESC = '\x1b';
-const GS  = '\x1d';
+const GS = '\x1d';
 
-const SIZE_NORMAL  = `${GS}!\x00`;  // 1x1
-const SIZE_2X      = `${GS}!\x11`;  // 2x wide + 2x tall (confirmed working)
-const BOLD_ON      = `${ESC}E\x01`;
-const BOLD_OFF     = `${ESC}E\x00`;
+const SIZE_NORMAL = `${GS}!\x00`;
+const SIZE_WIDE = `${GS}!\x10`;
+const SIZE_2X = `${GS}!\x11`;
+const BOLD_ON = `${ESC}E\x01`;
+const BOLD_OFF = `${ESC}E\x00`;
+const FONT_A = `${ESC}M\x00`;
+const FONT_B = `${ESC}M\x01`;
 const ALIGN_CENTER = `${ESC}a\x01`;
-const ALIGN_LEFT   = `${ESC}a\x00`;
-const INIT         = `${ESC}@`;
+const ALIGN_LEFT = `${ESC}a\x00`;
+const INIT = `${ESC}@`;
+const CODE_PAGE_PC850 = `${ESC}t\x02`;
+
+type ThermalCurrencyInfo = {
+  code: string;
+  symbol?: string;
+  locale: string;
+};
+
+function normalizeThermalText(value: string | number | null | undefined): string {
+  return String(value ?? '')
+    .replace(/[\u00a0\u202f]/g, ' ')
+    .replace(/\u20ac/g, 'EUR')
+    .replace(/\u00a3/g, 'GBP')
+    .replace(/\u00a5/g, 'JPY')
+    .replace(/\u20b1/g, 'PHP')
+    .replace(/\u20b9/g, 'INR')
+    .replace(/\u20ba/g, 'TRY')
+    .replace(/\u20ab/g, 'VND')
+    .replace(/[\u2018\u2019]/g, "'")
+    .replace(/[\u201c\u201d]/g, '"')
+    .replace(/[\u2013\u2014]/g, '-')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^\x09\x0a\x0d\x20-\x7e]/g, '');
+}
+
+function encodeEscPos(raw: string): Uint8Array {
+  const bytes = new Uint8Array(raw.length);
+  for (let i = 0; i < raw.length; i += 1) {
+    bytes[i] = raw.charCodeAt(i) & 0xff;
+  }
+  return bytes;
+}
+
+function cashDrawerPulseCommands(): string {
+  return `${ESC}p\x00\x32\xfa${ESC}p\x01\x32\xfa`;
+}
+
+function cutCommands(): string {
+  return `${GS}V\x00${ESC}i${GS}V\x42\x00`;
+}
 
 export function generateReceiptESCPOS(data: ReceiptData, options: ReceiptOptions): Uint8Array {
-  // Normal column widths
-  const cols = options.paperWidth === 80 ? 48 : 32;
-  // Body uses SIZE_2X → half the characters per line
-  const bCols = Math.floor(cols / 2);
-
+  const cols = options.paperWidth === 80 ? 42 : 32;
   const bytes: string[] = [];
   const push = (...s: string[]) => bytes.push(...s);
-  const line = (s = '') => bytes.push(s + '\n');
+  const line = (s = '') => bytes.push(normalizeThermalText(s) + '\n');
+  const sep = () => line('-'.repeat(cols));
+  const row = (label: string, value: string) => {
+    const cleanValue = normalizeThermalText(value).substring(0, Math.max(1, cols - 2));
+    const cleanLabel = normalizeThermalText(label).substring(0, Math.max(1, cols - cleanValue.length - 1));
+    line(padR(cleanLabel, cols - cleanValue.length) + cleanValue);
+  };
+  const itemRow = (name: string, value: string) => {
+    const cleanValue = normalizeThermalText(value).substring(0, Math.max(1, cols - 2));
+    const cleanName = normalizeThermalText(name).toUpperCase();
+    const nameWidth = Math.max(1, cols - cleanValue.length - 1);
 
-  // Separator: always printed in SIZE_NORMAL so dashes span full paper width
-  const sep = () => {
-    push(SIZE_NORMAL);
-    line('-'.repeat(cols));
-    push(SIZE_2X);
+    if (cleanName.length <= nameWidth) {
+      line(padR(cleanName, cols - cleanValue.length) + cleanValue);
+      return;
+    }
+
+    line(cleanName.substring(0, cols));
+    line(padR('', cols - cleanValue.length) + cleanValue);
   };
 
-  // ── Init ─────────────────────────────────────────────────────────────────
-  push(INIT);
+  push(INIT, CODE_PAGE_PC850, FONT_A);
 
-  // ── Restaurant name (big centered) ───────────────────────────────────────
-  push(ALIGN_CENTER, SIZE_2X, BOLD_ON);
+  push(ALIGN_CENTER, FONT_A, SIZE_WIDE, BOLD_ON);
+  line('');
   line(data.restaurantName ?? 'Restaurante');
-  push(BOLD_OFF);
+  push(BOLD_OFF, SIZE_NORMAL);
   if (data.restaurantPhone) line(`Tel: ${data.restaurantPhone}`);
-
-  // ── Order number (centered) ───────────────────────────────────────────────
   push(BOLD_ON);
-  line(data.orderNumber);
+  line('RECIBO DE VENTA');
   push(BOLD_OFF);
+  line('');
 
-  // ── Date/time ─────────────────────────────────────────────────────────────
+  push(ALIGN_LEFT, FONT_A, SIZE_NORMAL);
   const ts = data.timestamp ? new Date(data.timestamp) : new Date();
   const receiptLocale = data.currencyInfo?.locale || options.locale || 'es-ES';
-  line(`Fecha: ${ts.toLocaleDateString(receiptLocale, {
-    day: '2-digit', month: '2-digit', year: 'numeric',
-  })}`);
-  line(`Hora: ${ts.toLocaleTimeString(receiptLocale, {
-    hour: '2-digit', minute: '2-digit',
-  })}`);
+  const receiptDate = ts.toLocaleDateString(receiptLocale, {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+  });
+  const receiptTime = ts.toLocaleTimeString(receiptLocale, {
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+  const displayOrderNumber = data.orderNumber
+    ? normalizeThermalText(data.orderNumber).substring(0, Math.max(8, cols - 8))
+    : getReceiptNumber(data.orderNumber);
 
-  // ── Table / waiter ────────────────────────────────────────────────────────
+  row('Pedido:', displayOrderNumber);
+  row('Fecha:', receiptDate);
+  row('Hora:', receiptTime);
   if (data.tableNumber) line(`Mesa: ${data.tableNumber}`);
-  if (data.waiterName)  line(`Mesero: ${data.waiterName}`);
+  if (data.waiterName) row('Atendido Por:', data.waiterName);
 
-  // ── Items ─────────────────────────────────────────────────────────────────
-  push(ALIGN_LEFT);
+  line('');
+  row('Item', 'Precio');
   sep();
 
-  push(BOLD_ON);
-  // Header: product name left, price right (in bCols space)
-  line(padR('Producto', bCols - 8) + padL('Total', 8));
-  push(BOLD_OFF);
-  sep();
-
+  let productCount = 0;
   for (const item of data.items) {
-    const itemTotal = item.price * item.quantity;
-    const priceStr  = formatPrice(itemTotal, data);
-    // Line 1: name + price
-    const nameStr = item.name.substring(0, bCols - priceStr.length - 1);
-    line(padR(nameStr, bCols - priceStr.length) + priceStr);
-    // Line 2: quantity (only if > 1 or price info useful)
-    if (item.quantity > 1) {
-      const unitStr = formatPrice(item.price, data);
-      line(padL(`x${item.quantity} × ${unitStr}`, bCols));
-    }
+    const quantity = Number(item.quantity || 0);
+    const itemTotal = item.price * quantity;
+    productCount += quantity;
+    itemRow(item.name, `${formatPrice(itemTotal, data)} x${formatQuantity(quantity)}`);
+  }
+
+  if ((data.deliveryFee || 0) > 0) {
+    productCount += 1;
+    itemRow('Domicilio', `${formatPrice(data.deliveryFee || 0, data)} x1`);
   }
 
   sep();
+  row('# Productos:', formatQuantity(productCount));
 
-  // ── Subtotal / discount ───────────────────────────────────────────────────
-  if (data.discount > 0 || (data.tax || 0) > 0) {
-    const subStr = formatPrice(data.subtotal, data);
-    line(padR('Subtotal:', bCols - subStr.length) + subStr);
+  const hasBreakdown = data.discount > 0 || (data.tax || 0) > 0;
+  if (hasBreakdown) {
+    line('');
+    row('Subtotal:', formatPrice(data.subtotal, data));
     if (data.discount > 0) {
-      const disStr = '-' + formatPrice(data.discount, data);
-      line(padR('Descuento:', bCols - disStr.length) + disStr);
+      row('Descuento:', `-${formatPrice(data.discount, data)}`);
     }
     if ((data.tax || 0) > 0) {
-      const taxStr = formatPrice(data.tax || 0, data);
       const taxLabel = data.taxRate ? `IVA ${data.taxRate}%:` : 'IVA:';
-      line(padR(taxLabel, bCols - taxStr.length) + taxStr);
+      row(taxLabel, formatPrice(data.tax || 0, data));
     }
   }
 
-  // ── TOTAL (big centered) ──────────────────────────────────────────────────
-  sep();
-  push(ALIGN_CENTER, BOLD_ON);
-  line('TOTAL');
+  line('');
+  push(ALIGN_CENTER, FONT_A, SIZE_WIDE, BOLD_ON);
+  line('Total');
+  push(SIZE_2X);
   line(formatPrice(data.total, data));
+  push(SIZE_NORMAL);
+
+  const paymentLabel = getPaymentMethodLabel(data.paymentMethod);
+  if (paymentLabel) {
+    line(`VENTA ${paymentLabel.toUpperCase()}`);
+  }
   push(BOLD_OFF);
 
-  // ── Payment info ──────────────────────────────────────────────────────────
-  sep();
-  push(ALIGN_LEFT);
   if (data.amountPaid !== undefined) {
-    const paidStr   = formatPrice(data.amountPaid, data);
-    const changeStr = formatPrice(data.change, data);
-    line(padR('Recibido:', bCols - paidStr.length) + paidStr);
-    line(padR('Cambio:', bCols - changeStr.length) + changeStr);
-    sep();
+    line('');
+    push(ALIGN_LEFT);
+    row('Recibido:', formatPrice(data.amountPaid, data));
+    row('Cambio:', formatPrice(data.change, data));
   }
 
-  // ── Footer ────────────────────────────────────────────────────────────────
   push(ALIGN_CENTER);
   line('');
   push(BOLD_ON);
   line('Gracias por su compra');
+  line('Estamos a su servicio');
+  line('');
+  line('PEDIDOS ONLINE');
+  line('www.parrillaburgers.com');
   push(BOLD_OFF);
   line('');
   line('');
-  line('');
 
-  // ── Cut ───────────────────────────────────────────────────────────────────
   if (options.openCashDrawer) {
-    push(`${ESC}p\x00\x19\xfa`);
+    push(cashDrawerPulseCommands());
   }
-  push(`${GS}V\x42\x00`); // Full cut
-  push(ALIGN_LEFT, SIZE_NORMAL);
+  push(cutCommands());
+  push(ALIGN_LEFT, SIZE_NORMAL, FONT_A);
 
-  // ── Assemble & encode ─────────────────────────────────────────────────────
   const receipt = bytes.join('');
-  const copies  = Array(Math.max(1, options.copies)).fill(receipt).join('');
-  return new TextEncoder().encode(copies);
+  const copies = Array(Math.max(1, options.copies)).fill(receipt).join('');
+  return encodeEscPos(copies);
 }
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
-
 function formatPrice(amount: number, data: ReceiptData): string {
-  return formatPriceWithCurrency(amount, data.currencyInfo.code, data.currencyInfo.locale);
+  return formatThermalPrice(amount, data.currencyInfo);
+}
+
+function formatThermalPrice(amount: number, currencyInfo: ThermalCurrencyInfo): string {
+  const code = (currencyInfo.code || 'COP').toUpperCase();
+  const zeroDecimalCurrencies = new Set(['COP', 'CLP', 'JPY', 'KRW', 'VND', 'PYG']);
+  const fractionDigits = zeroDecimalCurrencies.has(code) ? 0 : 2;
+  const locale = currencyInfo.locale || 'es-CO';
+  let number: string;
+  try {
+    number = new Intl.NumberFormat(locale, {
+      style: 'decimal',
+      maximumFractionDigits: fractionDigits,
+      minimumFractionDigits: fractionDigits,
+    }).format(amount);
+  } catch {
+    number = new Intl.NumberFormat('en-US', {
+      style: 'decimal',
+      maximumFractionDigits: fractionDigits,
+      minimumFractionDigits: fractionDigits,
+    }).format(amount);
+  }
+
+  return `${getThermalCurrencyPrefix(code, currencyInfo.symbol)} ${normalizeThermalText(number)}`.trim();
+}
+
+function getThermalCurrencyPrefix(code: string, symbol?: string): string {
+  const cleanSymbol = normalizeThermalText(symbol || '').trim();
+  if (cleanSymbol && /^[A-Za-z0-9$/. -]{1,5}$/.test(cleanSymbol)) {
+    return cleanSymbol;
+  }
+
+  const known: Record<string, string> = {
+    COP: '$',
+    USD: '$',
+    CAD: 'C$',
+    MXN: '$',
+    ARS: '$',
+    CLP: '$',
+    PEN: 'S/',
+    EUR: 'EUR',
+    GBP: 'GBP',
+    BRL: 'R$',
+    JPY: 'JPY',
+    CNY: 'CNY',
+    INR: 'INR',
+    PHP: 'PHP',
+    VND: 'VND',
+    TRY: 'TRY',
+  };
+
+  return known[code] || code;
+}
+
+function getPaymentMethodLabel(method?: string | null): string {
+  if (method === 'cash') return 'Efectivo';
+  if (method === 'stripe' || method === 'card') return 'Tarjeta';
+  return method ? method : '';
+}
+
+function getReceiptNumber(orderNumber?: string | null): string {
+  const clean = normalizeThermalText(orderNumber || '').trim();
+  const digits = clean.replace(/\D/g, '');
+  if (digits.length >= 5) return digits.slice(-6);
+  return clean || 'POS';
+}
+
+function formatQuantity(quantity: number): string {
+  if (Number.isInteger(quantity)) return String(quantity);
+  return new Intl.NumberFormat('es-CO', { maximumFractionDigits: 2 }).format(quantity);
 }
 
 function padR(text: string, width: number): string {
-  return text.substring(0, width).padEnd(width, ' ');
+  return normalizeThermalText(text).substring(0, width).padEnd(width, ' ');
 }
-
-function padL(text: string, width: number): string {
-  return text.substring(0, width).padStart(width, ' ');
-}
-
-// ── Test receipt ──────────────────────────────────────────────────────────────
 
 export function generateTestReceiptESCPOS(paperWidth: 58 | 80): Uint8Array {
   const testData: ReceiptData = {
-    orderId:        'TEST-001',
-    orderNumber:    'TEST-001',
+    orderId: 'TEST-001',
+    orderNumber: 'TEST-001',
     restaurantName: 'Mi Restaurante',
     items: [
-      { menu_item_id: '1', name: 'Hamburguesa Doble', price: 15.5,  quantity: 2 },
-      { menu_item_id: '2', name: 'Coca-Cola 500ml',   price: 3.5,   quantity: 3 },
-      { menu_item_id: '3', name: 'Papas Fritas',      price: 5.0,   quantity: 1 },
+      { menu_item_id: '1', name: 'Hamburguesa Doble', price: 15.5, quantity: 2 },
+      { menu_item_id: '2', name: 'Coca-Cola 500ml', price: 3.5, quantity: 3 },
+      { menu_item_id: '3', name: 'Papas Fritas', price: 5.0, quantity: 1 },
     ],
-    subtotal:     52.0,
-    discount:     0,
-    total:        52.0,
-    amountPaid:   60.0,
-    change:       8.0,
-    currencyInfo: { code: 'COP', symbol: '$', locale: 'es-CO' },
-    timestamp:    new Date().toISOString(),
+    subtotal: 52.0,
+    discount: 0,
+    total: 52.0,
+    amountPaid: 60.0,
+    change: 8.0,
+    currencyInfo: { code: 'EUR', symbol: 'EUR', locale: 'es-ES' },
+    timestamp: new Date().toISOString(),
   };
 
-  return generateReceiptESCPOS(testData, { paperWidth, copies: 1, locale: 'es-CO' });
+  return generateReceiptESCPOS(testData, { paperWidth, copies: 1, locale: 'es-ES' });
+}
+
+export function generateCashClosingReceiptESCPOS(
+  data: CashClosingReceiptData,
+  options: ReceiptOptions
+): Uint8Array {
+  const cols = options.paperWidth === 80 ? 48 : 32;
+  const bytes: string[] = [];
+  const push = (...s: string[]) => bytes.push(...s);
+  const line = (s = '') => bytes.push(normalizeThermalText(s) + '\n');
+  const sep = () => {
+    push(SIZE_NORMAL);
+    line('-'.repeat(cols));
+  };
+  const money = (amount: number) => formatThermalPrice(amount, data.currencyInfo);
+  const row = (label: string, value: string) => {
+    const cleanLabel = label.substring(0, Math.max(1, cols - value.length - 1));
+    line(padR(cleanLabel, cols - value.length) + value);
+  };
+  const ts = data.closedAt ? new Date(data.closedAt) : new Date();
+  const periodStart = new Date(data.periodStart);
+  const periodEnd = new Date(data.periodEnd);
+
+  push(INIT, CODE_PAGE_PC850);
+  push(ALIGN_CENTER, SIZE_2X, BOLD_ON);
+  line(data.restaurantName ?? 'Restaurante');
+  push(BOLD_OFF, SIZE_NORMAL);
+  if (data.restaurantPhone) line(`Tel: ${data.restaurantPhone}`);
+  line('');
+  push(BOLD_ON, SIZE_WIDE);
+  line('CIERRE DE CAJA');
+  push(BOLD_OFF, SIZE_NORMAL);
+  if (data.closingId) line(`ID: ${data.closingId.slice(0, 8)}`);
+  line(`Fecha: ${ts.toLocaleDateString(data.currencyInfo.locale)}`);
+  line(`Hora: ${ts.toLocaleTimeString(data.currencyInfo.locale, { hour: '2-digit', minute: '2-digit' })}`);
+  line(`Empleado: ${data.staffName}`);
+  line('');
+  line('Periodo');
+  line(periodStart.toLocaleString(data.currencyInfo.locale));
+  line(periodEnd.toLocaleString(data.currencyInfo.locale));
+  push(ALIGN_LEFT);
+
+  sep();
+  push(BOLD_ON);
+  line('RESUMEN DE VENTAS');
+  push(BOLD_OFF);
+    row('Efectivo:', money(data.cashSales));
+    row('Tarjeta:', money(data.cardSales));
+    row('Otros:', money(data.otherSales));
+    row('Valor dom.:', money(data.totalDeliveryFees || 0));
+    row('No. domicilios:', String(data.deliveryOrderCount || 0));
+    row('Impuestos:', money(data.totalTax));
+  if (data.totalDiscount > 0) row('Descuentos:', money(data.totalDiscount));
+  sep();
+  push(BOLD_ON);
+  row('TOTAL VENTAS:', money(data.totalSales));
+  push(BOLD_OFF);
+
+  sep();
+  push(BOLD_ON);
+  line('CUADRE DE EFECTIVO');
+  push(BOLD_OFF);
+  row('Esperado:', money(data.expectedCash));
+  row('Contado:', money(data.actualCash));
+  row('Diferencia:', money(data.difference));
+  row('Transacciones:', String(data.transactionCount));
+row('Cobradas:', String(data.ordersCompleted));
+  row('Canceladas:', String(data.ordersCancelled));
+
+  if (data.notes) {
+    sep();
+    line('Notas:');
+    line(data.notes.substring(0, cols * 4));
+  }
+
+  sep();
+  push(ALIGN_CENTER);
+  line('');
+  line('Cierre guardado en Eccofood');
+  line('');
+  line('');
+  push(cutCommands());
+  push(ALIGN_LEFT, SIZE_NORMAL);
+
+  const receipt = bytes.join('');
+  const copies = Array(Math.max(1, options.copies)).fill(receipt).join('');
+  return encodeEscPos(copies);
+}
+
+export function generateMonthlyClosingReceiptESCPOS(
+  data: MonthlyClosingReceiptData,
+  options: ReceiptOptions
+): Uint8Array {
+  const cols = options.paperWidth === 80 ? 48 : 32;
+  const bytes: string[] = [];
+  const push = (...s: string[]) => bytes.push(...s);
+  const line = (s = '') => bytes.push(normalizeThermalText(s) + '\n');
+  const sep = () => {
+    push(SIZE_NORMAL);
+    line('-'.repeat(cols));
+  };
+  const money = (amount: number) => formatThermalPrice(amount, data.currencyInfo);
+  const row = (label: string, value: string) => {
+    const cleanLabel = label.substring(0, Math.max(1, cols - value.length - 1));
+    line(padR(cleanLabel, cols - value.length) + value);
+  };
+  const ts = data.closedAt ? new Date(data.closedAt) : new Date();
+  const periodStart = new Date(data.periodStart);
+  const periodEnd = new Date(data.periodEnd);
+
+  push(INIT, CODE_PAGE_PC850);
+  push(ALIGN_CENTER, SIZE_2X, BOLD_ON);
+  line(data.restaurantName ?? 'Restaurante');
+  push(BOLD_OFF, SIZE_NORMAL);
+  if (data.restaurantPhone) line(`Tel: ${data.restaurantPhone}`);
+  line('');
+  push(BOLD_ON, SIZE_WIDE);
+  line('CIERRE MENSUAL');
+  push(BOLD_OFF, SIZE_NORMAL);
+  if (data.closingId) line(`ID: ${data.closingId.slice(0, 8)}`);
+  line(data.monthLabel);
+  line(`Fecha: ${ts.toLocaleDateString(data.currencyInfo.locale)}`);
+  line(`Hora: ${ts.toLocaleTimeString(data.currencyInfo.locale, { hour: '2-digit', minute: '2-digit' })}`);
+  line(`Responsable: ${data.staffName}`);
+  line('');
+  line('Periodo');
+  line(periodStart.toLocaleString(data.currencyInfo.locale));
+  line(periodEnd.toLocaleString(data.currencyInfo.locale));
+  push(ALIGN_LEFT);
+
+  sep();
+  push(BOLD_ON);
+  line('RESUMEN DEL MES');
+  push(BOLD_OFF);
+  row('Efectivo:', money(data.cashSales));
+  row('Tarjeta:', money(data.cardSales));
+  row('Otros:', money(data.otherSales));
+  row('Valor dom.:', money(data.totalDeliveryFees || 0));
+  row('No. domicilios:', String(data.deliveryOrderCount || 0));
+  row('Impuestos:', money(data.totalTax));
+  if (data.totalDiscount > 0) row('Descuentos:', money(data.totalDiscount));
+  row('Transacciones:', String(data.transactionCount));
+row('Cobradas:', String(data.ordersCompleted));
+  row('Canceladas:', String(data.ordersCancelled));
+  sep();
+  push(BOLD_ON, SIZE_WIDE);
+  row('TOTAL MES:', money(data.totalSales));
+  push(BOLD_OFF, SIZE_NORMAL);
+
+  if (data.notes) {
+    sep();
+    line('Notas:');
+    line(data.notes.substring(0, cols * 4));
+  }
+
+  sep();
+  push(ALIGN_CENTER);
+  line('');
+  line('Cierre mensual guardado');
+  line('en Eccofood');
+  line('');
+  line('');
+  push(cutCommands());
+  push(ALIGN_LEFT, SIZE_NORMAL);
+
+  const receipt = bytes.join('');
+  const copies = Array(Math.max(1, options.copies)).fill(receipt).join('');
+  return encodeEscPos(copies);
+}
+
+export function generateKitchenTicketESCPOS(
+  data: KitchenTicketData,
+  options: ReceiptOptions
+): Uint8Array {
+  const cols = options.paperWidth === 80 ? 48 : 32;
+  const bytes: string[] = [];
+  const push = (...s: string[]) => bytes.push(...s);
+  const line = (s = '') => bytes.push(normalizeThermalText(s) + '\n');
+  const sep = () => {
+    push(SIZE_NORMAL);
+    line('-'.repeat(cols));
+  };
+  const ts = data.timestamp ? new Date(data.timestamp) : new Date();
+  const typeLabel =
+    data.deliveryType === 'dine-in'
+      ? data.tableNumber
+        ? `MESA ${data.tableNumber}`
+        : 'SALON'
+      : data.deliveryType === 'delivery'
+        ? 'DELIVERY'
+        : data.deliveryType === 'pickup'
+          ? 'RECOGER'
+          : 'PARA LLEVAR';
+
+  push(INIT, CODE_PAGE_PC850);
+  push(ALIGN_CENTER, SIZE_2X, BOLD_ON);
+  line('COMANDA');
+  push(SIZE_WIDE);
+  line('COCINA');
+  push(BOLD_OFF, SIZE_NORMAL);
+  if (data.restaurantName) line(data.restaurantName);
+  line('');
+  push(BOLD_ON);
+  line(data.orderNumber || 'POS');
+  line(typeLabel);
+  push(BOLD_OFF);
+  line(`Hora: ${ts.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}`);
+  if (data.waiterName) line(`Empleado: ${data.waiterName}`);
+  if (data.customerName) line(`Cliente: ${data.customerName}`);
+
+  push(ALIGN_LEFT);
+  sep();
+  data.items.forEach((item) => {
+    push(BOLD_ON, SIZE_WIDE);
+    line(`${item.quantity}x ${item.name}`.substring(0, cols));
+    push(BOLD_OFF, SIZE_NORMAL);
+    if (item.notes) {
+      line(`Nota: ${item.notes}`.substring(0, cols));
+    }
+    line('');
+  });
+
+  if (data.notes) {
+    sep();
+    push(BOLD_ON);
+    line('NOTAS');
+    push(BOLD_OFF);
+    line(data.notes.substring(0, cols * 3));
+  }
+
+  sep();
+  push(ALIGN_CENTER);
+  line('');
+  line('Pasar a cocina');
+  line('');
+  line('');
+  push(cutCommands());
+  push(ALIGN_LEFT, SIZE_NORMAL);
+
+  const ticket = bytes.join('');
+  const copies = Array(Math.max(1, options.copies)).fill(ticket).join('');
+  return encodeEscPos(copies);
 }

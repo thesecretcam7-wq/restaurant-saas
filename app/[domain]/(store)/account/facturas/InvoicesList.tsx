@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { PLAN_PRICES } from '@/lib/subscription-pricing'
 
 interface Invoice {
   id: string
@@ -36,7 +37,7 @@ export default function InvoicesList({ tenantId }: { tenantId: string }) {
         {
           id: 'INV-001',
           date: '2026-04-26',
-          amount: 29.99,
+          amount: PLAN_PRICES.basic,
           plan: 'Plan Básico',
           status: 'paid',
           dueDate: '2026-05-26',
@@ -44,7 +45,7 @@ export default function InvoicesList({ tenantId }: { tenantId: string }) {
         {
           id: 'INV-002',
           date: '2026-03-26',
-          amount: 29.99,
+          amount: PLAN_PRICES.basic,
           plan: 'Plan Básico',
           status: 'paid',
           dueDate: '2026-04-26',
@@ -52,7 +53,7 @@ export default function InvoicesList({ tenantId }: { tenantId: string }) {
         {
           id: 'INV-003',
           date: '2026-02-26',
-          amount: 29.99,
+          amount: PLAN_PRICES.basic,
           plan: 'Plan Básico',
           status: 'paid',
           dueDate: '2026-03-26',

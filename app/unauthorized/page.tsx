@@ -7,7 +7,7 @@ export default function UnauthorizedPage() {
   const router = useRouter()
 
   return (
-    <div className="min-h-screen bg-background text-foreground flex items-center justify-center p-4 relative overflow-hidden">
+    <div className="ecco-platform-page min-h-screen flex items-center justify-center p-4 relative overflow-hidden text-white">
       {/* Background blobs */}
       <div className="absolute top-1/4 left-1/2 -translate-x-1/2 w-[500px] h-[300px] bg-destructive/10 rounded-full blur-3xl pointer-events-none" />
       <div className="absolute bottom-0 -right-32 w-[300px] h-[300px] bg-primary/8 rounded-full blur-3xl pointer-events-none" />

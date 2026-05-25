@@ -7,6 +7,8 @@ import { sendWhatsAppOrderConfirmation } from '@/lib/whatsapp'
 import { orderLimiter, checkRateLimit, getClientIp } from '@/lib/ratelimit'
 import { requireTenantAccess, tenantAuthErrorResponse } from '@/lib/tenant-api-auth'
 import { calculateOrderTotals } from '@/lib/order-totals'
+import { syncCustomerFromOrder } from '@/lib/customer-sync'
+import { deriveBrandPalette } from '@/lib/brand-colors'
 
 export async function GET(request: NextRequest) {
   try {
@@ -73,7 +75,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { tenantId: tenantParam, tenantSlug, items, customerInfo, deliveryType, deliveryAddress, notes, paymentMethod, tableNumber, waiterName, amountPaid, source } = body
+    const { tenantId: tenantParam, tenantSlug, items, customerInfo, deliveryType, deliveryAddress, notes, paymentMethod, tableNumber, waiterName, amountPaid, source, deliveryFee: requestedDeliveryFee, deliveryZoneId } = body
 
     if (!tenantParam) {
       return NextResponse.json({ error: 'tenantId is required' }, { status: 400 })
@@ -129,6 +131,7 @@ export async function POST(request: NextRequest) {
 
     const protectedSourceRoles: Record<string, string[]> = {
       pos: ['admin', 'cajero'],
+      'pos-offline': ['admin', 'cajero'],
       comandero: ['admin', 'camarero'],
       kiosk: ['admin', 'cajero', 'camarero', 'cocinero'],
     }
@@ -140,19 +143,27 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Order must include items' }, { status: 400 })
     }
 
+    const canUseManualItems = ['pos', 'pos-offline'].includes(String(source || ''))
     const itemIds = items
+      .filter((item: any) => !(canUseManualItems && item.is_manual === true))
       .map((item: any) => item.menu_item_id || item.item_id || item.id)
       .filter(Boolean)
 
-    if (itemIds.length !== items.length) {
+    const missingCatalogItem = items.some((item: any) => {
+      if (canUseManualItems && item.is_manual === true) return false
+      return !(item.menu_item_id || item.item_id || item.id)
+    })
+    if (missingCatalogItem) {
       return NextResponse.json({ error: 'Every item must include a menu item id' }, { status: 400 })
     }
 
-    const { data: menuRows, error: menuError } = await supabase
-      .from('menu_items')
-      .select('id, name, price, available, variants')
-      .eq('tenant_id', tenantId)
-      .in('id', itemIds)
+    const { data: menuRows, error: menuError } = itemIds.length > 0
+      ? await supabase
+          .from('menu_items')
+          .select('id, name, price, available, variants')
+          .eq('tenant_id', tenantId)
+          .in('id', itemIds)
+      : { data: [], error: null }
 
     if (menuError) {
       console.error('[orders POST] menu validation error:', menuError.message)
@@ -161,6 +172,26 @@ export async function POST(request: NextRequest) {
 
     const menuById = new Map((menuRows || []).map((item: any) => [item.id, item]))
     const sanitizedItems = items.map((item: any) => {
+      if (canUseManualItems && item.is_manual === true) {
+        const manualName = String(item.name || '').trim()
+        const manualPrice = Number(item.price)
+        const qty = Math.max(1, Number(item.qty ?? item.quantity ?? 1))
+
+        if (!manualName || !Number.isFinite(manualPrice) || manualPrice <= 0) {
+          throw new Error('INVALID_MANUAL_ITEM')
+        }
+
+        return {
+          menu_item_id: null,
+          name: manualName,
+          price: manualPrice,
+          qty,
+          notes: item.notes || 'Articulo manual',
+          is_manual: true,
+          requires_kitchen: false,
+        }
+      }
+
       const menuId = item.menu_item_id || item.item_id || item.id
       const menuItem = menuById.get(menuId)
       const qty = Math.max(1, Number(item.qty ?? item.quantity ?? 1))
@@ -190,11 +221,31 @@ export async function POST(request: NextRequest) {
 
     const { data: settings } = await supabase
       .from('restaurant_settings')
-      .select('tax_rate, delivery_fee, delivery_min_order, delivery_enabled, cash_payment_enabled')
+      .select('tax_rate, delivery_fee, delivery_zones, delivery_min_order, delivery_enabled, cash_payment_enabled, kds_enabled')
       .eq('tenant_id', tenantId)
       .single()
 
     const subtotal = sanitizedItems.reduce((sum: number, i: any) => sum + i.price * i.qty, 0)
+    const deliveryZones = Array.isArray(settings?.delivery_zones) ? settings.delivery_zones : []
+    const selectedDeliveryZone = deliveryZoneId
+      ? deliveryZones.find((zone: any) => String(zone.id) === String(deliveryZoneId))
+      : null
+    const submittedDeliveryFee = Number(requestedDeliveryFee)
+    const allowedDeliveryFees = [
+      Number(settings?.delivery_fee || 0),
+      ...deliveryZones.map((zone: any) => Number(zone.fee || 0)),
+    ]
+    const canUseSubmittedDeliveryFee =
+      ['pos', 'pos-offline'].includes(String(source || '')) &&
+      Number.isFinite(submittedDeliveryFee) &&
+      allowedDeliveryFees.some((fee) => Math.abs(fee - submittedDeliveryFee) < 0.01)
+    const deliveryFeeForTotals = deliveryType === 'delivery'
+      ? selectedDeliveryZone
+        ? Number(selectedDeliveryZone.fee || 0)
+        : canUseSubmittedDeliveryFee
+          ? submittedDeliveryFee
+          : Number(settings?.delivery_fee || 0)
+      : 0
 
     if (source === 'store' && paymentMethod === 'cash' && settings?.cash_payment_enabled === false) {
       return NextResponse.json({ error: 'Pago en efectivo no esta habilitado para este restaurante' }, { status: 400 })
@@ -205,7 +256,7 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: 'Delivery no esta habilitado para este restaurante' }, { status: 400 })
       }
 
-      const minOrder = Number(settings?.delivery_min_order || 0)
+      const minOrder = Number(selectedDeliveryZone?.min_order || settings?.delivery_min_order || 0)
       if (minOrder > 0 && subtotal < minOrder) {
         return NextResponse.json(
           { error: `El pedido minimo para delivery es ${minOrder}` },
@@ -218,7 +269,7 @@ export async function POST(request: NextRequest) {
       items: sanitizedItems,
       taxRate: settings?.tax_rate,
       deliveryType,
-      deliveryFee: settings?.delivery_fee,
+      deliveryFee: deliveryFeeForTotals,
     })
     const tax = totals.tax
     const deliveryFee = totals.deliveryFee
@@ -269,11 +320,23 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
 
+    if (source === 'store') {
+      await syncCustomerFromOrder(supabase, {
+        tenantId,
+        name: orderData.customer_name,
+        email: orderData.customer_email,
+        phone: orderData.customer_phone,
+        address: deliveryAddress,
+        total,
+      })
+    }
+
     // Auto-create order_items so KDS can display the order in real-time.
     // Exception: kiosk cash orders skip this — items are created when cashier confirms payment.
     const isKioskCash = source === 'kiosk' && paymentMethod === 'cash'
+    const kdsEnabled = settings?.kds_enabled === true
     const kitchenItems = sanitizedItems.filter((item: any) => item.requires_kitchen !== false)
-    if (!isKioskCash && kitchenItems.length > 0) {
+    if (kdsEnabled && !isKioskCash && kitchenItems.length > 0) {
       const orderItemsData = kitchenItems.map((item: any) => ({
         order_id: order.id,
         tenant_id: tenantId,
@@ -312,8 +375,9 @@ export async function POST(request: NextRequest) {
       .eq('tenant_id', tenantId)
       .maybeSingle()
 
+    const palette = deriveBrandPalette()
     const restaurantName = branding?.app_name || tenantRow?.organization_name || 'Restaurante'
-    const primaryColor = branding?.primary_color || '#3B82F6'
+    const primaryColor = palette.buttonPrimary
     const adminEmail = settings2?.email || tenantRow?.owner_email
 
     if (orderData.customer_email) {
@@ -359,6 +423,12 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ orderId: order.id, orderNumber, displayNumber })
   } catch (err) {
+    if (err instanceof Error && err.message === 'INVALID_MANUAL_ITEM') {
+      return NextResponse.json(
+        { error: 'El articulo manual necesita nombre y valor mayor que cero.' },
+        { status: 400 }
+      )
+    }
     if (err instanceof Error && err.message === 'MENU_ITEM_NOT_AVAILABLE') {
       return NextResponse.json(
         {

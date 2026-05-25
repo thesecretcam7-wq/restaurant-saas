@@ -1,5 +1,6 @@
 import { createServiceClient } from '@/lib/supabase/server'
 import { getTenantIdFromSlug } from '@/lib/tenant'
+import { isInternalCustomerEmail } from '@/lib/customer-sync'
 import Link from 'next/link'
 
 interface Props {
@@ -64,7 +65,7 @@ export default async function ClientesPage({ params, searchParams }: Props) {
                 <div className="flex-1 min-w-0">
                   <p className="font-medium text-gray-900 truncate">{c.name}</p>
                   <div className="flex gap-3 mt-0.5">
-                    {c.email && <p className="text-xs text-gray-500 truncate">{c.email}</p>}
+                    {c.email && !isInternalCustomerEmail(c.email) && <p className="text-xs text-gray-500 truncate">{c.email}</p>}
                     {c.phone && <p className="text-xs text-gray-500">{c.phone}</p>}
                   </div>
                 </div>

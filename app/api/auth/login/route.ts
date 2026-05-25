@@ -4,6 +4,7 @@ import { cookies } from 'next/headers'
 import { NextRequest, NextResponse } from 'next/server'
 import { randomUUID } from 'crypto'
 import { getAuthLimiter, getClientIp, applyRateLimit } from '@/lib/rate-limit'
+import { isOwnerEmail } from '@/lib/owner-auth'
 
 export async function POST(request: NextRequest) {
   try {
@@ -73,6 +74,10 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Credenciales incorrectas' }, { status: 401 })
     }
 
+    if (isOwnerEmail(email)) {
+      return NextResponse.json({ success: true, tenant: null, redirectUrl: '/owner-dashboard' })
+    }
+
     const { data: tenant } = await supabase
       .from('tenants')
       .select('id, slug, primary_domain, status')
@@ -99,9 +104,7 @@ export async function POST(request: NextRequest) {
       session_token: sessionToken,
     }, { onConflict: 'user_key' })
 
-    const ownerEmails = ['thesecretcam7@gmail.com']
-    const isOwner = ownerEmails.includes(email)
-    const redirectUrl = isOwner ? '/owner-dashboard' : `/${tenant.slug}/acceso`
+    const redirectUrl = `/${tenant.slug}/acceso`
 
     const response = NextResponse.json({ success: true, tenant, redirectUrl })
     response.cookies.set('admin_session_token', sessionToken, {
