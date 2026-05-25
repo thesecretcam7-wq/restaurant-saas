@@ -17,3 +17,15 @@ export function createClient(): BrowserSupabaseClient {
 
   return browserClient
 }
+
+export async function signInWithGoogle() {
+  const client = createClient()
+  const { data, error } = await client.auth.signInWithOAuth({
+    provider: 'google',
+    options: {
+      redirectTo: `${window.location.origin}/api/auth/callback`,
+    },
+  })
+  if (error) throw new Error(error.message)
+  return data
+}
