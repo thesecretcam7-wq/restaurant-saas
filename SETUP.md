@@ -89,6 +89,32 @@ The app will be available at `http://localhost:3000`
 3. Go to **Authentication > Templates**
 4. Configure email templates if needed (optional)
 
+### Enable Google OAuth (Optional)
+To enable Google Sign-In:
+
+1. **Create a Google OAuth App**:
+   - Go to [Google Cloud Console](https://console.cloud.google.com)
+   - Create a new project
+   - Enable Google+ API
+   - Go to "Credentials" → Create OAuth 2.0 Client ID
+   - Application type: Web application
+   - Add authorized redirect URIs:
+     - `https://your-project.supabase.co/auth/v1/callback`
+     - For local development: `http://localhost:3000/api/auth/callback`
+   - Copy the Client ID and Client Secret
+
+2. **Enable Google Provider in Supabase**:
+   - Go to **Authentication > Providers** in Supabase
+   - Click "Google"
+   - Paste your Client ID and Client Secret
+   - Click "Save"
+
+3. **Set Redirect URI**:
+   - Ensure redirect URI is set to: `https://your-domain.com/api/auth/callback`
+   - This is where users return after Google authentication
+
+Users can now log in using the "Continuar con Google" button on login pages.
+
 ## 6. Testing
 
 ### Create a Test Tenant

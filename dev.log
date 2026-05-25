@@ -1,0 +1,148 @@
+
+> eccofood@0.1.0 dev
+> node scripts/generate-icons.js && node scripts/generate-screenshots.js && next dev
+
+✓ Generated icon-192.png
+✓ Generated icon-512.png
+✓ Generated shortcut-pedidos.png
+✓ Generated shortcut-producto.png
+
+All icons generated successfully!
+✓ Generated admin-dashboard.png (540x720)
+✓ Generated admin-desktop.png (1280x720)
+
+Screenshot placeholders created. Replace with actual app screenshots for production.
+▲ Next.js 16.2.2 (Turbopack)
+- Local:         http://localhost:3000
+- Network:       http://192.168.0.13:3000
+- Environments: .env.local
+✓ Ready in 341ms
+⚠ The "middleware" file convention is deprecated. Please use "proxy" instead. Learn more: https://nextjs.org/docs/messages/middleware-to-proxy
+- Experiments (use with caution):
+  · clientTraceMetadata
+  · optimizePackageImports
+
+⨯ Error: supabaseKey is required.
+    at middleware (middleware.ts:92:41)
+  90 |     const slug = slugMatch?.[1] || ''
+  91 |
+> 92 |     const serviceSupabase = createClient(
+     |                                         ^
+  93 |       process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  94 |       process.env.SUPABASE_SERVICE_ROLE_KEY!,
+  95 |       { auth: { autoRefreshToken: false, persistSession: false } }
+Exception in getTenantContext: Error: Missing Supabase environment variables: NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY
+    at createServiceClient (lib\supabase\server.ts:42:11)
+    at getTenantById (lib\tenant.ts:22:39)
+    at getTenantContext (lib\tenant.ts:114:24)
+    at TenantLayout (app\[domain]\layout.tsx:17:43)
+  40 |
+  41 |   if (!url || !key) {
+> 42 |     throw new Error('Missing Supabase environment variables: NEXT_PUBLIC_SUPABASE_URL or S...
+     |           ^
+  43 |   }
+  44 |
+  45 |   return createSupabaseClient(
+Exception in getTenantContext: Error: Missing Supabase environment variables: NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY
+    at createServiceClient (lib\supabase\server.ts:42:11)
+    at getTenantById (lib\tenant.ts:22:39)
+    at getTenantContext (lib\tenant.ts:114:24)
+    at TenantLayout (app\[domain]\layout.tsx:17:43)
+  40 |
+  41 |   if (!url || !key) {
+> 42 |     throw new Error('Missing Supabase environment variables: NEXT_PUBLIC_SUPABASE_URL or S...
+     |           ^
+  43 |   }
+  44 |
+  45 |   return createSupabaseClient(
+⨯ Error: Missing Supabase environment variables: NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY
+    at createServiceClient (lib\supabase\server.ts:42:11)
+    at KioskoPage (app\[domain]\kiosko\page.tsx:14:39)
+  40 |
+  41 |   if (!url || !key) {
+> 42 |     throw new Error('Missing Supabase environment variables: NEXT_PUBLIC_SUPABASE_URL or S...
+     |           ^
+  43 |   }
+  44 |
+  45 |   return createSupabaseClient( {
+  digest: '1938266359'
+}
+⨯ Error: Missing Supabase environment variables: NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY
+    at createServiceClient (lib\supabase\server.ts:42:11)
+    at KioskoPage (app\[domain]\kiosko\page.tsx:14:39)
+  40 |
+  41 |   if (!url || !key) {
+> 42 |     throw new Error('Missing Supabase environment variables: NEXT_PUBLIC_SUPABASE_URL or S...
+     |           ^
+  43 |   }
+  44 |
+  45 |   return createSupabaseClient( {
+  digest: '1938266359'
+}
+Exception in getTenantContext: Error: Missing Supabase environment variables: NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY
+    at createServiceClient (lib\supabase\server.ts:42:11)
+    at getTenantById (lib\tenant.ts:22:39)
+    at getTenantContext (lib\tenant.ts:114:24)
+    at TenantLayout (app\[domain]\layout.tsx:17:43)
+  40 |
+  41 |   if (!url || !key) {
+> 42 |     throw new Error('Missing Supabase environment variables: NEXT_PUBLIC_SUPABASE_URL or S...
+     |           ^
+  43 |   }
+  44 |
+  45 |   return createSupabaseClient(
+Exception in getTenantContext: Error: Missing Supabase environment variables: NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY
+    at createServiceClient (lib\supabase\server.ts:42:11)
+    at getTenantById (lib\tenant.ts:22:39)
+    at getTenantContext (lib\tenant.ts:114:24)
+    at HomePage (app\[domain]\page.tsx:24:41)
+  40 |
+  41 |   if (!url || !key) {
+> 42 |     throw new Error('Missing Supabase environment variables: NEXT_PUBLIC_SUPABASE_URL or S...
+     |           ^
+  43 |   }
+  44 |
+  45 |   return createSupabaseClient(
+ GET /elbuenpaladar/admin/dashboard 404 in 1806ms (next.js: -134860µs, proxy.ts: 1702ms, application-code: 239ms)
+ GET /eccofood-logo.png 200 in 1938ms (next.js: 1737ms, proxy.ts: 99ms, application-code: 101ms)
+ GET /elbuenpaladar/kiosko 200 in 1888ms (next.js: 1165ms, proxy.ts: 49ms, application-code: 674ms)
+ GET /lapizzatest/kiosko 200 in 1996ms (next.js: 1214ms, proxy.ts: 100ms, application-code: 681ms)
+ GET /manifest.webmanifest 200 in 422ms (next.js: 403ms, proxy.ts: 7ms, application-code: 12ms)
+ GET /manifest.webmanifest 200 in 22ms (next.js: 10ms, proxy.ts: 6ms, application-code: 6ms)
+ GET /manifest.webmanifest 200 in 40ms (next.js: 16ms, proxy.ts: 17ms, application-code: 6ms)
+Exception in getTenantContext: Error: Missing Supabase environment variables: NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY
+    at createServiceClient (lib\supabase\server.ts:42:11)
+    at getTenantById (lib\tenant.ts:22:39)
+    at getTenantContext (lib\tenant.ts:114:24)
+    at TenantLayout (app\[domain]\layout.tsx:17:43)
+  40 |
+  41 |   if (!url || !key) {
+> 42 |     throw new Error('Missing Supabase environment variables: NEXT_PUBLIC_SUPABASE_URL or S...
+     |           ^
+  43 |   }
+  44 |
+  45 |   return createSupabaseClient(
+Exception in getTenantContext: Error: Missing Supabase environment variables: NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY
+    at createServiceClient (lib\supabase\server.ts:42:11)
+    at getTenantById (lib\tenant.ts:22:39)
+    at getTenantContext (lib\tenant.ts:114:24)
+    at HomePage (app\[domain]\page.tsx:24:41)
+  40 |
+  41 |   if (!url || !key) {
+> 42 |     throw new Error('Missing Supabase environment variables: NEXT_PUBLIC_SUPABASE_URL or S...
+     |           ^
+  43 |   }
+  44 |
+  45 |   return createSupabaseClient(
+ GET /menu 200 in 134ms (next.js: 52ms, proxy.ts: 18ms, application-code: 64ms)
+[browser] Uncaught Error: supabaseKey is required.
+    at middleware (middleware.ts:92:41)
+  90 |     const slug = slugMatch?.[1] || ''
+  91 |
+> 92 |     const serviceSupabase = createClient(
+     |                                         ^
+  93 |       process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  94 |       process.env.SUPABASE_SERVICE_ROLE_KEY!,
+  95 |       { auth: { autoRefreshToken: false, persistSession: false } }
+ GET / 200 in 630ms (next.js: 430ms, proxy.ts: 18ms, application-code: 183ms)
+[?25h
