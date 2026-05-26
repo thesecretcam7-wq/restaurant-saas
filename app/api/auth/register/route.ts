@@ -83,9 +83,19 @@ async function sendWelcomeEmail({
                 </tr>
               </table>
 
-              <p style="margin:0 0 8px;font-size:13px;color:#9ca3af;line-height:1.5;">
-                💡 <em>Puedes crear tu propio personal y cambiar los PINs desde el panel de administración en cualquier momento.</em>
-              </p>
+              <!-- Security warning -->
+              <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:28px;">
+                <tr>
+                  <td style="background:#fff7ed;border:1.5px solid #fed7aa;border-radius:10px;padding:16px 20px;">
+                    <p style="margin:0 0 6px;font-size:14px;font-weight:700;color:#9a3412;">⚠️ Importante — Cambia los PINs antes de abrir</p>
+                    <p style="margin:0;font-size:13px;color:#c2410c;line-height:1.6;">
+                      Estos son PINs genéricos que conoce cualquier persona con acceso a este correo.
+                      <strong>Cámbialos antes de que tu personal empiece a usarlos</strong> para evitar accesos no autorizados.
+                      Puedes hacerlo en <strong>Panel Admin → Personal → editar cada empleado</strong>.
+                    </p>
+                  </td>
+                </tr>
+              </table>
 
               <!-- Buttons -->
               <table width="100%" cellpadding="0" cellspacing="0" style="margin-top:28px;">
