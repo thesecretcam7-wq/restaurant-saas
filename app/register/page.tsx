@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { ArrowRight, BadgeCheck, Building2, Eye, EyeOff, Mail, UserRound } from 'lucide-react'
 import EccofoodLogo from '@/components/EccofoodLogo'
+import SupportButton from '@/components/SupportButton'
 
 const REGISTER_COUNTRIES = [
   { code: 'ES', label: 'Espana', timezone: 'Europe/Madrid' },
@@ -103,6 +104,7 @@ function RegisterForm() {
 
   return (
     <main className="ecco-platform-page min-h-screen text-white">
+      <SupportButton />
       <nav className="border-b border-black/[0.06] bg-white/86 backdrop-blur-xl">
         <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4 sm:px-6">
           <Link href="/" className="flex items-center gap-3">

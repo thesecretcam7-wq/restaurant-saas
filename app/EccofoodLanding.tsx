@@ -6,6 +6,7 @@ import type { ReactNode } from 'react'
 import { motion } from 'framer-motion'
 import EccofoodLogo from '@/components/EccofoodLogo'
 import LanguageSwitcher from '@/components/LanguageSwitcher'
+import SupportButton from '@/components/SupportButton'
 import {
   ArrowRight,
   CalendarCheck,
@@ -125,6 +126,7 @@ function ImagePanel({
 export function EccofoodLanding() {
   return (
     <main className="ecco-landing-jewel min-h-screen overflow-x-hidden bg-[#0B0E14] text-white">
+      <SupportButton />
       <nav className="sticky top-0 z-50 border-b border-white/8 bg-[#0B0E14]/72 backdrop-blur-2xl">
         <div className="mx-auto flex h-[76px] max-w-7xl items-center justify-between gap-2 px-3 sm:px-6">
           <Link href="/" className="flex min-w-0 items-center gap-2 sm:gap-3">
