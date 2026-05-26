@@ -173,6 +173,13 @@ export default function LoginPage() {
                 Crea tu restaurante gratis
               </Link>
             </p>
+
+            <p className="mt-3 text-center text-sm font-semibold text-slate-500">
+              ¿Tienes algún problema?{' '}
+              <Link href="/soporte" className="font-black text-slate-700 hover:text-[#D35A37]">
+                Contactar soporte
+              </Link>
+            </p>
           </div>
         </div>
       </section>

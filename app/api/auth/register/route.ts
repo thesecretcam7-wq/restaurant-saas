@@ -119,6 +119,7 @@ async function sendWelcomeEmail({
           <tr>
             <td style="background-color:#f9fafb;padding:24px 40px;border-top:1px solid #e5e7eb;text-align:center;">
               <p style="margin:0 0 4px;font-size:12px;color:#9ca3af;">Este correo fue enviado a ${email}</p>
+              <p style="margin:0 0 8px;font-size:12px;color:#9ca3af;">¿Necesitas ayuda? <a href="${appUrl}/soporte" style="color:#e63946;text-decoration:none;font-weight:600;">Contactar soporte</a></p>
               <p style="margin:0;font-size:12px;color:#9ca3af;">© 2026 Eccofood · Todos los derechos reservados</p>
             </td>
           </tr>

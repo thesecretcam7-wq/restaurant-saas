@@ -191,6 +191,13 @@ function AdminLoginContent({ params }: Props) {
             </svg>
             {loading ? 'Conectando...' : 'Continuar con Google'}
           </button>
+
+          <p className="mt-5 text-center text-xs font-semibold" style={{ color: 'var(--color-text-tertiary)' }}>
+            ¿Tienes algún problema?{' '}
+            <a href="/soporte" className="font-black underline-offset-2 hover:underline" style={{ color: 'var(--color-text-secondary)' }}>
+              Contactar soporte
+            </a>
+          </p>
         </div>
       </div>
     </div>

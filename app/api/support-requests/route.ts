@@ -59,6 +59,39 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'No se pudo enviar el mensaje.' }, { status: 500 })
     }
 
+    // Notificar al equipo de Eccofood (no-blocking)
+    const resendKey = process.env.RESEND_API_KEY
+    if (resendKey) {
+      const priorityLabel = body.priority === 'urgent' ? '🔴 URGENTE' : '🟡 Normal'
+      fetch('https://api.resend.com/emails', {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${resendKey}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          from: 'Eccofood Soporte <no-reply@eccofoodapp.com>',
+          to: ['thesecretcam7@gmail.com'],
+          subject: `[${priorityLabel}] Nuevo ticket: ${subject}`,
+          html: `<div style="font-family:sans-serif;max-width:600px;margin:0 auto;padding:32px 24px;">
+            <h2 style="margin:0 0 4px;font-size:20px;color:#111827;">Nuevo ticket de soporte</h2>
+            <p style="margin:0 0 24px;font-size:13px;color:#6b7280;">Prioridad: <strong>${priorityLabel}</strong></p>
+            <table style="width:100%;border-collapse:collapse;font-size:14px;">
+              <tr><td style="padding:10px 0;border-bottom:1px solid #f3f4f6;color:#6b7280;width:140px;">Nombre</td><td style="padding:10px 0;border-bottom:1px solid #f3f4f6;font-weight:600;color:#111827;">${contactName}</td></tr>
+              <tr><td style="padding:10px 0;border-bottom:1px solid #f3f4f6;color:#6b7280;">Email</td><td style="padding:10px 0;border-bottom:1px solid #f3f4f6;font-weight:600;color:#111827;">${contactEmail}</td></tr>
+              ${contactPhone ? `<tr><td style="padding:10px 0;border-bottom:1px solid #f3f4f6;color:#6b7280;">Teléfono</td><td style="padding:10px 0;border-bottom:1px solid #f3f4f6;font-weight:600;color:#111827;">${contactPhone}</td></tr>` : ''}
+              ${restaurantName ? `<tr><td style="padding:10px 0;border-bottom:1px solid #f3f4f6;color:#6b7280;">Restaurante</td><td style="padding:10px 0;border-bottom:1px solid #f3f4f6;font-weight:600;color:#111827;">${restaurantName}</td></tr>` : ''}
+              <tr><td style="padding:10px 0;border-bottom:1px solid #f3f4f6;color:#6b7280;">Asunto</td><td style="padding:10px 0;border-bottom:1px solid #f3f4f6;font-weight:600;color:#111827;">${subject}</td></tr>
+            </table>
+            <div style="margin-top:20px;background:#f9fafb;border-radius:10px;padding:16px 20px;">
+              <p style="margin:0 0 8px;font-size:12px;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:0.05em;">Mensaje</p>
+              <p style="margin:0;font-size:14px;color:#111827;white-space:pre-wrap;line-height:1.6;">${message}</p>
+            </div>
+            <div style="margin-top:24px;">
+              <a href="https://eccofoodapp.com/admin/soporte" style="display:inline-block;background:#111827;color:#fff;text-decoration:none;padding:10px 20px;border-radius:8px;font-size:13px;font-weight:700;">Ver en el panel →</a>
+            </div>
+          </div>`,
+        }),
+      }).catch(() => {})
+    }
+
     return NextResponse.json({ success: true })
   } catch (error) {
     console.error('Support request POST error:', error)
