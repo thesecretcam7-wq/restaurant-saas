@@ -5,6 +5,140 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getAuthLimiter, getClientIp, applyRateLimit } from '@/lib/rate-limit'
 import { getLockedTenantBrandingColors } from '@/lib/brand-colors'
 
+async function sendWelcomeEmail({
+  email,
+  ownerName,
+  restaurantName,
+  slug,
+}: {
+  email: string
+  ownerName: string
+  restaurantName: string
+  slug: string
+}) {
+  const resendApiKey = process.env.RESEND_API_KEY
+  if (!resendApiKey) return
+
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://eccofoodapp.com'
+  const dashboardUrl = `${appUrl}/${slug}/admin/dashboard`
+  const staffUrl = `${appUrl}/${slug}/acceso`
+  const displayName = ownerName || 'Bienvenido'
+
+  const html = `<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Bienvenido a Eccofood</title>
+</head>
+<body style="margin:0;padding:0;background-color:#f4f4f5;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#f4f4f5;padding:40px 20px;">
+    <tr>
+      <td align="center">
+        <table width="600" cellpadding="0" cellspacing="0" style="background-color:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.08);">
+
+          <!-- Header -->
+          <tr>
+            <td style="background:linear-gradient(135deg,#e63946 0%,#c1121f 100%);padding:40px 40px 32px;text-align:center;">
+              <p style="margin:0 0 8px;font-size:28px;font-weight:800;color:#ffffff;letter-spacing:-0.5px;">🍽️ Eccofood</p>
+              <p style="margin:0;font-size:16px;color:rgba(255,255,255,0.85);">Tu restaurante ya está listo</p>
+            </td>
+          </tr>
+
+          <!-- Body -->
+          <tr>
+            <td style="padding:40px 40px 32px;">
+              <p style="margin:0 0 8px;font-size:22px;font-weight:700;color:#111827;">¡Hola, ${displayName}! 👋</p>
+              <p style="margin:0 0 24px;font-size:15px;color:#6b7280;line-height:1.6;">
+                Tu restaurante <strong style="color:#111827;">${restaurantName}</strong> ha sido creado con éxito en Eccofood.
+                Para que puedas empezar a explorar la plataforma de inmediato, hemos creado un equipo de personal de prueba con los siguientes accesos:
+              </p>
+
+              <!-- Staff table -->
+              <table width="100%" cellpadding="0" cellspacing="0" style="border-radius:10px;overflow:hidden;border:1px solid #e5e7eb;margin-bottom:28px;">
+                <tr style="background-color:#f9fafb;">
+                  <th style="padding:12px 16px;text-align:left;font-size:12px;font-weight:600;color:#6b7280;text-transform:uppercase;letter-spacing:0.05em;border-bottom:1px solid #e5e7eb;">Nombre</th>
+                  <th style="padding:12px 16px;text-align:left;font-size:12px;font-weight:600;color:#6b7280;text-transform:uppercase;letter-spacing:0.05em;border-bottom:1px solid #e5e7eb;">Rol</th>
+                  <th style="padding:12px 16px;text-align:left;font-size:12px;font-weight:600;color:#6b7280;text-transform:uppercase;letter-spacing:0.05em;border-bottom:1px solid #e5e7eb;">PIN de acceso</th>
+                </tr>
+                <tr style="border-bottom:1px solid #f3f4f6;">
+                  <td style="padding:14px 16px;font-size:14px;color:#111827;font-weight:500;">Admin</td>
+                  <td style="padding:14px 16px;font-size:14px;color:#6b7280;">Administrador</td>
+                  <td style="padding:14px 16px;"><span style="background:#fef3c7;color:#92400e;font-family:monospace;font-size:14px;font-weight:700;padding:3px 10px;border-radius:6px;">000000</span></td>
+                </tr>
+                <tr style="border-bottom:1px solid #f3f4f6;background:#fafafa;">
+                  <td style="padding:14px 16px;font-size:14px;color:#111827;font-weight:500;">Caja</td>
+                  <td style="padding:14px 16px;font-size:14px;color:#6b7280;">Cajero / TPV</td>
+                  <td style="padding:14px 16px;"><span style="background:#fef3c7;color:#92400e;font-family:monospace;font-size:14px;font-weight:700;padding:3px 10px;border-radius:6px;">999999</span></td>
+                </tr>
+                <tr style="border-bottom:1px solid #f3f4f6;">
+                  <td style="padding:14px 16px;font-size:14px;color:#111827;font-weight:500;">Mesero</td>
+                  <td style="padding:14px 16px;font-size:14px;color:#6b7280;">Camarero</td>
+                  <td style="padding:14px 16px;"><span style="background:#fef3c7;color:#92400e;font-family:monospace;font-size:14px;font-weight:700;padding:3px 10px;border-radius:6px;">123456</span></td>
+                </tr>
+                <tr>
+                  <td style="padding:14px 16px;font-size:14px;color:#111827;font-weight:500;">Cocina</td>
+                  <td style="padding:14px 16px;font-size:14px;color:#6b7280;">Cocinero / KDS</td>
+                  <td style="padding:14px 16px;"><span style="background:#fef3c7;color:#92400e;font-family:monospace;font-size:14px;font-weight:700;padding:3px 10px;border-radius:6px;">567890</span></td>
+                </tr>
+              </table>
+
+              <p style="margin:0 0 8px;font-size:13px;color:#9ca3af;line-height:1.5;">
+                💡 <em>Puedes crear tu propio personal y cambiar los PINs desde el panel de administración en cualquier momento.</em>
+              </p>
+
+              <!-- Buttons -->
+              <table width="100%" cellpadding="0" cellspacing="0" style="margin-top:28px;">
+                <tr>
+                  <td style="padding-right:8px;" width="50%">
+                    <a href="${dashboardUrl}" style="display:block;text-align:center;background:linear-gradient(135deg,#e63946,#c1121f);color:#ffffff;text-decoration:none;padding:14px 20px;border-radius:8px;font-size:14px;font-weight:600;">
+                      Ir al Panel Admin
+                    </a>
+                  </td>
+                  <td style="padding-left:8px;" width="50%">
+                    <a href="${staffUrl}" style="display:block;text-align:center;background:#f3f4f6;color:#374151;text-decoration:none;padding:14px 20px;border-radius:8px;font-size:14px;font-weight:600;">
+                      Acceso del Personal
+                    </a>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- Footer -->
+          <tr>
+            <td style="background-color:#f9fafb;padding:24px 40px;border-top:1px solid #e5e7eb;text-align:center;">
+              <p style="margin:0 0 4px;font-size:12px;color:#9ca3af;">Este correo fue enviado a ${email}</p>
+              <p style="margin:0;font-size:12px;color:#9ca3af;">© 2026 Eccofood · Todos los derechos reservados</p>
+            </td>
+          </tr>
+
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`
+
+  try {
+    await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${resendApiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        from: 'Eccofood <no-reply@eccofoodapp.com>',
+        to: [email],
+        subject: `¡Bienvenido a Eccofood, ${restaurantName}! 🍽️`,
+        html,
+      }),
+    })
+  } catch (err) {
+    console.error('⚠️ [Register] Welcome email failed (non-blocking):', err)
+  }
+}
+
 async function insertTenantBranding(
   supabase: any,
   payload: Record<string, any>
@@ -301,6 +435,14 @@ export async function POST(request: NextRequest) {
     if (staffError) {
       console.error('Default staff creation failed:', staffError.message)
     }
+
+    // Send welcome email (non-blocking — never fails the registration)
+    sendWelcomeEmail({
+      email: normalizedEmail,
+      ownerName: ownerName || '',
+      restaurantName,
+      slug,
+    }).catch(() => {})
 
     // Now create authenticated session with SSR client
     const cookieStore = await cookies()
