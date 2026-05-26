@@ -4,6 +4,7 @@ import { Suspense, use, useState, useEffect } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { adminLoginSchema } from '@/lib/validations/forms'
 import { getFieldError, parseValidationError } from '@/lib/validations/utils'
+import SupportButton from '@/components/SupportButton'
 
 interface Props { params: Promise<{ domain: string }> }
 
@@ -73,6 +74,7 @@ function AdminLoginContent({ params }: Props) {
         background: `linear-gradient(to bottom right, var(--color-surface-primary), color-mix(in srgb, var(--color-primary) 5%, white), color-mix(in srgb, var(--color-success) 5%, white))`
       }}
     >
+      <SupportButton />
       {/* Background accents */}
       <div className="absolute -top-40 -right-40 w-96 h-96 rounded-full blur-3xl opacity-30" style={{ backgroundColor: 'var(--color-primary)' }} />
       <div className="absolute -bottom-32 -left-32 w-80 h-80 rounded-full blur-3xl opacity-20" style={{ backgroundColor: 'var(--color-secondary)' }} />

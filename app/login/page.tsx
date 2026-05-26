@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { ArrowRight, Eye, EyeOff, LockKeyhole, Mail, ShieldCheck } from 'lucide-react'
 import EccofoodLogo from '@/components/EccofoodLogo'
+import SupportButton from '@/components/SupportButton'
 
 export default function LoginPage() {
   const router = useRouter()
@@ -41,6 +42,7 @@ export default function LoginPage() {
 
   return (
     <main className="ecco-platform-page min-h-screen overflow-hidden text-white">
+      <SupportButton />
       <nav className="border-b border-black/[0.06] bg-white/86 backdrop-blur-2xl">
         <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4 sm:px-6">
           <Link href="/" className="flex items-center gap-3">
