@@ -1,7 +1,21 @@
+import { formatPlanAmount, PLAN_CATALOG } from '@/lib/subscription-pricing'
+
 interface EmailTemplate {
   subject: string
   html: string
 }
+
+const fullPlanListHtml = `
+        <li><strong>Plan Básico:</strong> €${formatPlanAmount(PLAN_CATALOG.basic.monthlyPrice)}/mes - TPV, comandero y KDS</li>
+        <li><strong>Plan Pro:</strong> €${formatPlanAmount(PLAN_CATALOG.pro.monthlyPrice)}/mes - Todo lo operativo más página web y kiosko</li>
+        <li><strong>Plan Premium:</strong> €${formatPlanAmount(PLAN_CATALOG.premium.monthlyPrice)}/mes - Todas las funciones y diseños exclusivos</li>
+`
+
+const shortPlanListHtml = `
+        <li><strong>Plan Básico:</strong> €${formatPlanAmount(PLAN_CATALOG.basic.monthlyPrice)}/mes - TPV, comandero y KDS</li>
+        <li><strong>Plan Pro:</strong> €${formatPlanAmount(PLAN_CATALOG.pro.monthlyPrice)}/mes - Página web y kiosko</li>
+        <li><strong>Plan Premium:</strong> €${formatPlanAmount(PLAN_CATALOG.premium.monthlyPrice)}/mes - Diseños exclusivos</li>
+`
 
 export function orderConfirmationEmail(
   customerName: string,
@@ -414,9 +428,7 @@ export function trialExpiringEmail(
 
     <p>Puedes elegir entre nuestros planes:</p>
     <ul style="margin: 15px 0; padding-left: 20px;">
-        <li><strong>Plan Básico:</strong> €49.99/mes - TPV, comandero y KDS</li>
-        <li><strong>Plan Pro:</strong> €99.99/mes - Todo lo operativo más página web y kiosko</li>
-        <li><strong>Plan Premium:</strong> €299.99/mes - Todas las funciones y diseños exclusivos</li>
+${fullPlanListHtml}
     </ul>
 
     <div style="text-align: center; margin: 30px 0;">
@@ -541,9 +553,7 @@ export function subscriptionExpiredEmail(
 
     <p>Aún puedes cambiar tu plan a uno que se ajuste mejor a tus necesidades:</p>
     <ul style="margin: 15px 0; padding-left: 20px;">
-        <li><strong>Plan Básico:</strong> €49.99/mes - TPV, comandero y KDS</li>
-        <li><strong>Plan Pro:</strong> €99.99/mes - Página web y kiosko</li>
-        <li><strong>Plan Premium:</strong> €299.99/mes - Diseños exclusivos</li>
+${shortPlanListHtml}
     </ul>
 
     <p style="background: #fef3c7; padding: 15px; border-radius: 6px; border-left: 4px solid #f59e0b;">

@@ -1,17 +1,25 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { ArrowRight, Eye, EyeOff, LockKeyhole, Mail, ShieldCheck } from 'lucide-react'
 import EccofoodLogo from '@/components/EccofoodLogo'
+import { createClient } from '@/lib/supabase/client'
 
 export default function OwnerLoginPage() {
   const router = useRouter()
   const [form, setForm] = useState({ email: '', password: '' })
   const [loading, setLoading] = useState(false)
+  const [googleLoading, setGoogleLoading] = useState(false)
   const [error, setError] = useState('')
   const [showPass, setShowPass] = useState(false)
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    const authError = params.get('error')
+    if (authError) setError(authError)
+  }, [])
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
@@ -42,6 +50,33 @@ export default function OwnerLoginPage() {
       setError('Error de conexion. Intenta de nuevo.')
     } finally {
       setLoading(false)
+    }
+  }
+
+  const handleGoogleSignIn = async () => {
+    setError('')
+    setGoogleLoading(true)
+
+    try {
+      const supabase = createClient()
+      const callbackUrl = new URL('/auth/callback', window.location.origin)
+      callbackUrl.searchParams.set('mode', 'owner')
+      callbackUrl.searchParams.set('next', '/owner-login')
+
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: callbackUrl.toString(),
+        },
+      })
+
+      if (error) {
+        setError('No pudimos abrir el inicio de sesion con Google.')
+        setGoogleLoading(false)
+      }
+    } catch {
+      setError('Error de conexion con Google. Intenta de nuevo.')
+      setGoogleLoading(false)
     }
   }
 
@@ -87,6 +122,22 @@ export default function OwnerLoginPage() {
                 </div>
               )}
 
+              <button
+                type="button"
+                onClick={handleGoogleSignIn}
+                disabled={loading || googleLoading}
+                className="mb-5 inline-flex h-12 w-full items-center justify-center gap-3 rounded-xl border border-slate-200 bg-white text-sm font-black text-[#111827] shadow-sm transition hover:-translate-y-0.5 hover:border-[#D35A37]/30 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                <span className="grid size-6 place-items-center rounded-full border border-slate-200 text-base font-black text-[#4285F4]">G</span>
+                {googleLoading ? 'Abriendo Google...' : 'Continuar con Google'}
+              </button>
+
+              <div className="mb-5 flex items-center gap-3">
+                <span className="h-px flex-1 bg-slate-200" />
+                <span className="text-xs font-black uppercase text-slate-400">o entra con email</span>
+                <span className="h-px flex-1 bg-slate-200" />
+              </div>
+
               <form onSubmit={handleSubmit} className="space-y-5">
                 <label className="block">
                   <span className="mb-2 block text-xs font-black uppercase text-slate-500">Email del dueno</span>
@@ -104,7 +155,12 @@ export default function OwnerLoginPage() {
                 </label>
 
                 <label className="block">
-                  <span className="mb-2 block text-xs font-black uppercase text-slate-500">Contrasena</span>
+                  <span className="mb-2 flex items-center justify-between gap-3">
+                    <span className="text-xs font-black uppercase text-slate-500">Contrasena</span>
+                    <Link href="/forgot-password" className="text-xs font-black text-[#D4AF37] transition hover:text-[#D35A37]">
+                      Olvide mi contrasena
+                    </Link>
+                  </span>
                   <span className="relative block">
                     <LockKeyhole className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-slate-400" />
                     <input
@@ -128,7 +184,7 @@ export default function OwnerLoginPage() {
 
                 <button
                   type="submit"
-                  disabled={loading}
+                  disabled={loading || googleLoading}
                   className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-[#D35A37] text-sm font-black text-white shadow-[0_18px_42px_rgba(230,95,26,0.18)] transition hover:-translate-y-0.5 hover:bg-[#bd4d31] disabled:opacity-60"
                 >
                   {loading ? 'Entrando...' : 'Entrar al panel privado'}

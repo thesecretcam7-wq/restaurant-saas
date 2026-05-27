@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { PLAN_PRICES } from '@/lib/subscription-pricing'
+import { formatPlanAmount, PLAN_CATALOG, PLAN_PRICES } from '@/lib/subscription-pricing'
 
 interface ChangePlanModalProps {
   currentPlan: string
@@ -16,9 +16,9 @@ const planPrices: Record<string, number> = PLAN_PRICES
 
 const planNames: Record<string, string> = {
   trial: 'Período de Prueba',
-  basic: 'Plan Básico',
-  pro: 'Plan Pro',
-  premium: 'Plan Premium',
+  basic: `Plan ${PLAN_CATALOG.basic.name}`,
+  pro: `Plan ${PLAN_CATALOG.pro.name}`,
+  premium: `Plan ${PLAN_CATALOG.premium.name}`,
 }
 
 export default function ChangePlanModal({
@@ -91,7 +91,7 @@ export default function ChangePlanModal({
             <p className="text-sm text-gray-600 mb-1">Plan Actual</p>
             <div className="flex justify-between items-center">
               <span className="font-semibold text-gray-900">{planNames[currentPlan]}</span>
-              <span className="text-gray-600">${currentPrice.toFixed(2)}/mes</span>
+              <span className="text-gray-600">EUR {formatPlanAmount(currentPrice)}/mes</span>
             </div>
           </div>
 
@@ -105,7 +105,7 @@ export default function ChangePlanModal({
             <p className="text-sm text-gray-600 mb-1">Nuevo Plan</p>
             <div className="flex justify-between items-center">
               <span className="font-semibold text-gray-900">{planNames[newPlan]}</span>
-              <span className="text-gray-600">${newPrice.toFixed(2)}/mes</span>
+              <span className="text-gray-600">EUR {formatPlanAmount(newPrice)}/mes</span>
             </div>
           </div>
 
@@ -117,13 +117,13 @@ export default function ChangePlanModal({
                 <div className="flex justify-between">
                   <span>Diferencia de precio:</span>
                   <span className={isUpgrade ? 'text-green-600' : 'text-orange-600'}>
-                    {isUpgrade ? '+' : ''} ${Math.abs(priceDifference).toFixed(2)}
+                    {isUpgrade ? '+' : ''} EUR {formatPlanAmount(Math.abs(priceDifference))}
                   </span>
                 </div>
                 <div className="flex justify-between pt-2 border-t border-blue-200">
                   <span className="font-semibold">Monto a {isUpgrade ? 'cobrar' : 'acreditar'}:</span>
                   <span className={`font-semibold ${isUpgrade ? 'text-green-600' : 'text-orange-600'}`}>
-                    ${Math.abs(proRataAmount).toFixed(2)}
+                    EUR {formatPlanAmount(Math.abs(proRataAmount))}
                   </span>
                 </div>
               </div>
@@ -134,7 +134,7 @@ export default function ChangePlanModal({
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
               <p className="text-sm text-gray-600">Tu período de prueba será reemplazado por</p>
               <p className="text-lg font-semibold text-gray-900 mt-2">{planNames[newPlan]}</p>
-              <p className="text-sm text-gray-600 mt-2">Precio: ${newPrice.toFixed(2)}/mes</p>
+              <p className="text-sm text-gray-600 mt-2">Precio: EUR {formatPlanAmount(newPrice)}/mes</p>
             </div>
           )}
         </div>

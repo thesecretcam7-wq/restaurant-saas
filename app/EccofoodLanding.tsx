@@ -7,6 +7,7 @@ import { motion } from 'framer-motion'
 import EccofoodLogo from '@/components/EccofoodLogo'
 import LanguageSwitcher from '@/components/LanguageSwitcher'
 import SupportButton from '@/components/SupportButton'
+import { LANDING_PLAN_CARDS } from '@/lib/subscription-pricing'
 import {
   ArrowRight,
   CalendarCheck,
@@ -50,37 +51,6 @@ const metrics = [
   { value: '30', label: 'dias gratis', detail: 'sin permanencia mensual' },
   { value: '0%', label: 'comision propia', detail: 'vende desde tu canal' },
   { value: '1', label: 'operacion conectada', detail: 'TPV, QR, KDS y web' },
-]
-
-const plans = [
-  {
-    id: 'basic',
-    name: 'Basic',
-    price: '49.99',
-    annual: '539.89',
-    saving: '60 EUR',
-    description: 'Para empezar a digitalizar la operacion.',
-    features: ['Carta QR incluida', 'TPV / POS', 'Comandero', 'KDS cocina'],
-  },
-  {
-    id: 'pro',
-    name: 'Pro',
-    price: '99.99',
-    annual: '1079.89',
-    saving: '120 EUR',
-    description: 'Para vender en sala, web y autoservicio.',
-    features: ['Todo Basic', 'Pagina web', 'Kiosko autoservicio', 'Pedidos online'],
-    featured: true,
-  },
-  {
-    id: 'premium',
-    name: 'Premium',
-    price: '299.99',
-    annual: '3239.89',
-    saving: '360 EUR',
-    description: 'Para marcas que quieren una experiencia exclusiva.',
-    features: ['Todas las funciones', 'Disenos exclusivos por cliente', 'Acompanamiento premium', 'Configuracion avanzada'],
-  },
 ]
 
 function fadeUp(delay = 0) {
@@ -336,7 +306,7 @@ export function EccofoodLanding() {
           </motion.div>
 
           <div className="mt-12 grid gap-5 lg:grid-cols-3">
-            {plans.map(plan => (
+            {LANDING_PLAN_CARDS.map(plan => (
               <motion.article key={plan.name} {...fadeUp(plan.featured ? 0.08 : 0)} className={`rounded-[1.8rem] border p-6 shadow-[0_28px_100px_rgba(0,0,0,0.22)] ${plan.featured ? 'border-[#D4AF37]/55 bg-[#D4AF37]/10' : 'border-white/8 bg-[#1A1F2C]/70'}`}>
                 {plan.featured && (
                   <p className="mb-4 w-fit rounded-full bg-[#D4AF37] px-3 py-1 text-[11px] font-black uppercase tracking-wide text-[#0B0E14]">Mas elegido</p>

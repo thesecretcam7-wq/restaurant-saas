@@ -10,6 +10,9 @@ const OWNER_EMAILS = ['thesecretcam7@gmail.com', 'johang.musica@gmail.com']
 const PUBLIC_PATHS = new Set([
   '/',
   '/login',
+  '/auth/callback',
+  '/auth/update-password',
+  '/forgot-password',
   '/register',
   '/planes',
   '/owner-login',

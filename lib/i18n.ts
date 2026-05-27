@@ -1,3 +1,5 @@
+import { formatPlanAmount, PLAN_PRICES } from '@/lib/subscription-pricing'
+
 export const SUPPORTED_LOCALES = ['es', 'en', 'fr', 'pt', 'it'] as const
 
 export type Locale = (typeof SUPPORTED_LOCALES)[number]
@@ -58,7 +60,7 @@ export const translations = {
     'landing.compare.after': 'Con Eccofood',
     'landing.pricing.eyebrow': 'Precios',
     'landing.pricing.title': 'Planes pensados para vender desde el primer mes',
-    'landing.pricing.subtitle': 'Desde 49.99 EUR/mes. 30 dias gratis. Sin comisiones abusivas por cada venta.',
+    'landing.pricing.subtitle': `Desde ${formatPlanAmount(PLAN_PRICES.basic)} EUR/mes. 30 dias gratis. Sin comisiones abusivas por cada venta.`,
     'landing.pricing.popular': 'Mas elegido',
     'landing.pricing.annual': 'Pago anual',
     'landing.cta.title': 'Tu restaurante puede empezar a vender directo hoy.',

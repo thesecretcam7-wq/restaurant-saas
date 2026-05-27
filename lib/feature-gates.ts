@@ -7,6 +7,8 @@
  * - UI para mostrar "Premium only" badges
  */
 
+import { PLAN_PRICES, TRIAL_DAYS } from './subscription-pricing'
+
 export type SubscriptionPlan = 'free' | 'basic' | 'pro' | 'premium' | 'trial'
 export type Feature =
   | 'categories'
@@ -24,10 +26,10 @@ export const PLAN_FEATURES: Record<SubscriptionPlan, Record<Feature, boolean>> =
     categories: true,
     items: true,
     orders: true,
-    delivery: false,
-    reservations: false,
-    staff_management: false,
-    analytics: false,
+    delivery: true,
+    reservations: true,
+    staff_management: true,
+    analytics: true,
     custom_domain: false,
     api_access: false,
   },
@@ -46,10 +48,10 @@ export const PLAN_FEATURES: Record<SubscriptionPlan, Record<Feature, boolean>> =
     categories: true,
     items: true,
     orders: true,
-    delivery: true,
+    delivery: false,
     reservations: false,
     staff_management: false,
-    analytics: false,
+    analytics: true,
     custom_domain: false,
     api_access: false,
   },
@@ -152,7 +154,7 @@ export const PLAN_INFO = {
   trial: {
     name: 'Prueba Gratis',
     monthlyPrice: 0,
-    duration: '14 días',
+    duration: `${TRIAL_DAYS} dias`,
     description: 'Prueba completa para empezar',
     cta: 'Registrarse',
     color: 'bg-blue-50 border-blue-200',
@@ -167,24 +169,24 @@ export const PLAN_INFO = {
   },
   basic: {
     name: 'Básico',
-    monthlyPrice: 30,
+    monthlyPrice: PLAN_PRICES.basic,
     duration: 'por mes',
-    description: 'Menú + Delivery',
+    description: 'TPV, carta QR, comandero y KDS',
     cta: 'Comprar',
     color: 'bg-green-50 border-green-200',
   },
   pro: {
     name: 'Profesional',
-    monthlyPrice: 60,
+    monthlyPrice: PLAN_PRICES.pro,
     duration: 'por mes',
-    description: 'Todo lo anterior + Reservas + Staff',
+    description: 'Web, kiosko, reservas, delivery y analytics',
     cta: 'Comprar',
     color: 'bg-purple-50 border-purple-200',
     badge: '⭐ Popular',
   },
   premium: {
     name: 'Premium',
-    monthlyPrice: 120,
+    monthlyPrice: PLAN_PRICES.premium,
     duration: 'por mes',
     description: 'Todo incluido + Analytics + Dominio',
     cta: 'Comprar',

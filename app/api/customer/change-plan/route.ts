@@ -1,7 +1,7 @@
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 import { NextRequest, NextResponse } from 'next/server'
-import { getPlanMonthlyPrice } from '@/lib/subscription-pricing'
+import { getPlanMonthlyPrice, PAID_PLAN_IDS, type PaidPlanId } from '@/lib/subscription-pricing'
 import { requireTenantAccess, tenantAuthErrorResponse } from '@/lib/tenant-api-auth'
 
 export async function POST(request: NextRequest) {
@@ -11,6 +11,10 @@ export async function POST(request: NextRequest) {
 
     if (!tenantId || !newPlan) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
+    }
+
+    if (!PAID_PLAN_IDS.includes(newPlan as PaidPlanId)) {
+      return NextResponse.json({ error: 'Plan invalido' }, { status: 400 })
     }
 
     await requireTenantAccess(tenantId, { staffRoles: [] })
@@ -40,8 +44,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Tenant not found' }, { status: 404 })
     }
 
-    // Calculate pro-rata for upgrades
-    const currentPrice = getPlanMonthlyPrice(currentPlan)
+    const currentPlanName = tenant.subscription_plan || currentPlan
+    const currentPrice = getPlanMonthlyPrice(currentPlanName)
     const newPrice = getPlanMonthlyPrice(newPlan)
     const daysPerMonth = 30
     const dailyRate = (newPrice - currentPrice) / daysPerMonth

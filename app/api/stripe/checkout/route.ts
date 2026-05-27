@@ -3,31 +3,13 @@ import { cookies } from 'next/headers'
 import { NextRequest, NextResponse } from 'next/server'
 import Stripe from 'stripe'
 import { createServiceClient } from '@/lib/supabase/server'
-import { checkRateLimit, getClientIp } from '@/lib/ratelimit'
+import { checkRateLimit, checkoutLimiter, getClientIp } from '@/lib/ratelimit'
 import { getCurrencyByCountry } from '@/lib/currency'
 import { calculateOrderTotals } from '@/lib/order-totals'
 import { canCreateOrder } from '@/lib/checkPlan'
 import { syncCustomerFromOrder } from '@/lib/customer-sync'
 
 const getStripe = () => new Stripe(process.env.STRIPE_SECRET_KEY!)
-
-let checkoutLimiter: any = null
-
-if (process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN) {
-  try {
-    const { Ratelimit } = require('@upstash/ratelimit') as typeof import('@upstash/ratelimit')
-    const { Redis } = require('@upstash/redis') as typeof import('@upstash/redis')
-    checkoutLimiter = new Ratelimit({
-      redis: new Redis({
-        url: process.env.UPSTASH_REDIS_REST_URL,
-        token: process.env.UPSTASH_REDIS_REST_TOKEN,
-      }),
-      limiter: Ratelimit.slidingWindow(20, '1 m'),
-    })
-  } catch (err) {
-    console.warn('Rate limiting not available for checkout:', err)
-  }
-}
 
 export async function POST(request: NextRequest) {
   try {

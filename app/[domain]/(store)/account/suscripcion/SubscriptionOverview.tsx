@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { useParams } from 'next/navigation'
 import { getTrialEndsAt } from '@/lib/trial'
-import { PLAN_PRICES } from '@/lib/subscription-pricing'
+import { formatPlanAmount, PAID_PLAN_IDS, PLAN_CATALOG, type PaidPlanId } from '@/lib/subscription-pricing'
 
 interface Tenant {
   id: string
@@ -14,32 +14,23 @@ interface Tenant {
   status: string
 }
 
-const planDetails: Record<string, { name: string; price: number; description: string; features: string[] }> = {
-  basic: {
-    name: 'Plan Basico',
-    price: PLAN_PRICES.basic,
-    description: 'Carta QR, TPV, comandero y KDS para operar caja, sala y cocina',
-    features: ['Carta QR incluida', 'TPV / POS completo', 'Comandero para meseros', 'KDS cocina incluido', 'Hasta 1.000 pedidos/mes'],
-  },
-  pro: {
-    name: 'Plan Pro',
-    price: PLAN_PRICES.pro,
-    description: 'Operacion completa con pagina web y kiosko',
-    features: ['Todo en Basico', 'Pagina web del restaurante', 'Kiosko autoservicio', 'Reservas y delivery', 'Analytics avanzado'],
-  },
-  premium: {
-    name: 'Plan Premium',
-    price: PLAN_PRICES.premium,
-    description: 'Todas las funciones con disenos exclusivos por cliente',
-    features: ['Todo en Pro', 'Disenos exclusivos para cada cliente', 'Dominio personalizado', 'Multiples sucursales', 'Integraciones personalizadas', 'Soporte 24/7 dedicado'],
-  },
-}
+const planDetails = Object.fromEntries(
+  PAID_PLAN_IDS.map((id) => [
+    id,
+    {
+      name: `Plan ${PLAN_CATALOG[id].name}`,
+      price: PLAN_CATALOG[id].monthlyPrice,
+      description: PLAN_CATALOG[id].pricingDescription,
+      features: PLAN_CATALOG[id].pricingFeatures,
+    },
+  ])
+) as Record<PaidPlanId, { name: string; price: number; description: string; features: string[] }>
 
 export default function SubscriptionOverview({ tenant }: { tenant: Tenant }) {
   const params = useParams() as { domain: string }
   const domain = params.domain
 
-  const currentPlan = tenant.subscription_plan ? planDetails[tenant.subscription_plan] : null
+  const currentPlan = tenant.subscription_plan ? planDetails[tenant.subscription_plan as PaidPlanId] : null
   const now = new Date()
 
   let statusInfo: { label: string; color: string; description: string } | null = null
@@ -128,7 +119,7 @@ export default function SubscriptionOverview({ tenant }: { tenant: Tenant }) {
               <p className="text-gray-600">{currentPlan.description}</p>
             </div>
             <div className="text-right">
-              <div className="text-4xl font-bold text-gray-900">EUR {currentPlan.price}</div>
+              <div className="text-4xl font-bold text-gray-900">EUR {formatPlanAmount(currentPlan.price)}</div>
               <div className="text-sm text-gray-600">por mes</div>
             </div>
           </div>

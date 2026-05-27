@@ -4,6 +4,7 @@ import { use } from 'react'
 import { useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { SubscriptionPlan } from '@/lib/types'
+import { formatPlanAmount, PLAN_CATALOG, type PaidPlanId } from '@/lib/subscription-pricing'
 
 interface Props { params: Promise<{ domain: string }> }
 
@@ -29,36 +30,6 @@ const SYSTEM_FEATURES: SystemFeature[] = [
   { name: 'Pagina Web', icon: 'WEB', description: 'Pagina web del restaurante' },
   { name: 'Kiosko', icon: 'KIO', description: 'Autoservicio en tienda' }
 ]
-
-const planHighlights: { [key: string]: string[] } = {
-  basic: [
-    'TPV / POS completo',
-    'Carta QR incluida',
-    'Comandero para meseros',
-    'KDS cocina incluido',
-    'Hasta 1.000 pedidos/mes',
-    'Soporte por email',
-    'Integracion Stripe'
-  ],
-  pro: [
-    'Todo en Basic',
-    'Pagina web del restaurante',
-    'Kiosko autoservicio',
-    'Pedidos ilimitados',
-    'Reservas y delivery',
-    'Analytics avanzados',
-    'Soporte prioritario'
-  ],
-  premium: [
-    'Todas las funciones del Pro',
-    'Disenos exclusivos para cada cliente',
-    'Dominio personalizado',
-    'Multi-sucursal',
-    'API access + webhooks',
-    'Integraciones personalizadas',
-    'Soporte 24/7 dedicado'
-  ]
-}
 
 export default function PlanesPage({ params }: Props) {
   const { domain: tenantId } = use(params)
@@ -112,28 +83,12 @@ export default function PlanesPage({ params }: Props) {
     }
   }
 
-  const planDescriptions: { [key: string]: string } = {
-    basic: 'TPV, comandero y KDS para operar caja, sala y cocina desde el primer dia.',
-    pro: 'Todo el flujo operativo mas pagina web y kiosko para vender mejor.',
-    premium: 'Todas las funciones, con disenos exclusivos adaptados a cada cliente.'
-  }
+  const formatLocalEstimate = (amount: number) => {
+    if (!currency || currency.currency === 'EUR') return null
 
-  const planSubtitles: { [key: string]: string } = {
-    basic: 'Comienza tu transformación digital',
-    pro: 'Crece con confianza y control',
-    premium: 'Domina tu operación completa'
-  }
-
-  const systemsIncluded: { [key: string]: string[] } = {
-    basic: ['POS', 'Carta QR', 'Comandera', 'KDS'],
-    pro: ['POS', 'Carta QR', 'Comandera', 'KDS', 'Pagina Web', 'Kiosko'],
-    premium: ['POS', 'Carta QR', 'Comandera', 'KDS', 'Pagina Web', 'Kiosko']
-  }
-
-  const formatSubscriptionPrice = (amount: number) => {
     const currencyCode = currency?.currency || 'EUR'
     const rate = currency?.rate || 1
-    const convertedAmount = currencyCode === 'EUR' ? amount : amount * rate
+    const convertedAmount = amount * rate
     const zeroDecimalCurrencies = ['COP', 'CLP', 'JPY', 'VND', 'IDR']
 
     return new Intl.NumberFormat(currencyCode === 'EUR' ? 'es-ES' : 'es-CO', {
@@ -209,11 +164,10 @@ export default function PlanesPage({ params }: Props) {
         <p className="admin-eyebrow">Suscripcion</p>
         <h2 className="admin-title">Planes de Suscripción</h2>
         <p className="admin-subtitle">Elige el plan que mejor se adapta a tu restaurante</p>
-        {currency && (
-          <p className="mt-3 text-sm font-bold text-black/50">
-            Precios mostrados en {currency.name} ({currency.currency}) segun tu pais: {currency.countryCode}.
-          </p>
-        )}
+        <p className="mt-3 text-sm font-bold text-black/50">
+          Precios base en Euro (EUR), iguales a la landing page y Stripe.
+          {currency && currency.currency !== 'EUR' && ` Estimacion local disponible para ${currency.countryCode}.`}
+        </p>
         <div className="mt-5 inline-flex rounded-xl border border-black/10 bg-white p-1 shadow-sm">
           <button
             type="button"
@@ -242,12 +196,14 @@ export default function PlanesPage({ params }: Props) {
         </div>
       )}
 
-      <div className="grid gap-5 xl:grid-cols-3">
+      <div className="grid gap-5 lg:grid-cols-2 min-[1450px]:grid-cols-3">
         {plans.map(plan => {
-          const systems = systemsIncluded[plan.name] || []
-          const highlights = planHighlights[plan.name] || []
+          const planCopy = PLAN_CATALOG[plan.name as PaidPlanId]
+          const systems = planCopy?.systemsIncluded || []
+          const highlights = planCopy?.adminHighlights || []
           const planPrice = getPlanPrice(plan)
           const annualSavings = getAnnualSavings(plan)
+          const localEstimate = formatLocalEstimate(planPrice)
           const canSelectInterval = billingInterval === 'month' || Boolean(plan.stripe_annual_price_id)
           const processingKey = `${plan.name}-${billingInterval}`
 
@@ -264,27 +220,23 @@ export default function PlanesPage({ params }: Props) {
               )}
               <div className="p-6">
                 <h3 className="text-xl font-bold capitalize text-gray-900 mb-1">{plan.name}</h3>
-                <p className="text-sm text-gray-600 mb-6">{planDescriptions[plan.name]}</p>
+                <p className="text-sm text-gray-600 mb-6">{planCopy?.adminDescription || 'Plan de suscripcion Eccofood.'}</p>
 
                 <div className="mb-8 pb-8 border-b">
                   <p className="text-4xl font-bold text-gray-900">
-                    {formatSubscriptionPrice(planPrice)}
+                    {formatPlanAmount(planPrice)} <span className="text-base font-black uppercase text-gray-500">EUR</span>
                   </p>
                   <p className="text-sm text-gray-500">
                     {billingInterval === 'year' ? 'por año' : 'por mes'}
                   </p>
                   {billingInterval === 'year' && annualSavings > 0 && (
                     <p className="mt-2 rounded-full bg-green-50 px-3 py-1 text-xs font-black text-green-700">
-                      Ahorras {formatSubscriptionPrice(annualSavings)} al año
+                      Ahorras {formatPlanAmount(annualSavings)} EUR al año
                     </p>
                   )}
-                  {currency?.currency && currency.currency !== 'EUR' && (
+                  {localEstimate && (
                     <p className="mt-1 text-xs font-semibold text-gray-400">
-                      aprox. desde {planPrice.toLocaleString('es-ES', {
-                        style: 'currency',
-                        currency: 'EUR',
-                        maximumFractionDigits: 0,
-                      })}
+                      estimado en {currency?.currency}: {localEstimate}
                     </p>
                   )}
                 </div>

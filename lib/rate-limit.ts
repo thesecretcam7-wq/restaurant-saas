@@ -2,6 +2,7 @@ import { Ratelimit } from '@upstash/ratelimit'
 import { Redis } from '@upstash/redis'
 
 let redis: Redis | null = null
+type RateLimitWindow = `${number} ${'s' | 'm' | 'h' | 'd'}`
 
 function hasUpstashEnv(): boolean {
   const url = process.env.UPSTASH_REDIS_REST_URL
@@ -17,48 +18,60 @@ function getRedis(): Redis | null {
   return redis
 }
 
-// 500 req/min - general DDoS protection.
-export function getGlobalLimiter() {
+function createLimiter(
+  requests: number,
+  window: RateLimitWindow,
+  prefix: string,
+  analytics = false
+) {
   const redis = getRedis()
   if (!redis) return null
   return new Ratelimit({
     redis,
-    limiter: Ratelimit.slidingWindow(500, '1 m'),
-    prefix: 'eccofood:global',
+    limiter: Ratelimit.slidingWindow(requests, window),
+    prefix,
+    analytics,
   })
+}
+
+// 500 req/min - general DDoS protection.
+export function getGlobalLimiter() {
+  return createLimiter(500, '1 m', 'eccofood:global')
 }
 
 // 5 req/min - login/register brute-force protection.
 export function getAuthLimiter() {
-  const redis = getRedis()
-  if (!redis) return null
-  return new Ratelimit({
-    redis,
-    limiter: Ratelimit.slidingWindow(5, '1 m'),
-    prefix: 'eccofood:auth',
-  })
+  return createLimiter(5, '1 m', 'eccofood:auth')
 }
 
 // 10 req/min - cost protection on AI endpoints.
 export function getAiLimiter() {
-  const redis = getRedis()
-  if (!redis) return null
-  return new Ratelimit({
-    redis,
-    limiter: Ratelimit.slidingWindow(10, '1 m'),
-    prefix: 'eccofood:ai',
-  })
+  return createLimiter(10, '1 m', 'eccofood:ai')
 }
 
 // 20 req/min - order spam protection.
 export function getOrdersLimiter() {
-  const redis = getRedis()
-  if (!redis) return null
-  return new Ratelimit({
-    redis,
-    limiter: Ratelimit.slidingWindow(20, '1 m'),
-    prefix: 'eccofood:orders',
-  })
+  return createLimiter(20, '1 m', 'eccofood:orders')
+}
+
+// 10 req/min - public order creation protection.
+export function getOrderSubmissionLimiter() {
+  return createLimiter(10, '1 m', 'eccofood:order-submissions', true)
+}
+
+// 20 req/min - checkout and customer lookup protection.
+export function getCheckoutLimiter() {
+  return createLimiter(20, '1 m', 'eccofood:checkout', true)
+}
+
+// 5 req/min - public reservations protection.
+export function getReservationLimiter() {
+  return createLimiter(5, '1 m', 'eccofood:reservations', true)
+}
+
+// 30 req/min - analytics endpoint protection.
+export function getAnalyticsLimiter() {
+  return createLimiter(30, '1 m', 'eccofood:analytics', true)
 }
 
 export function getClientIp(request: Request): string {

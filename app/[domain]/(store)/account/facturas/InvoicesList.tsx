@@ -1,15 +1,17 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { PLAN_PRICES } from '@/lib/subscription-pricing'
 
 interface Invoice {
   id: string
   date: string
   amount: number
+  currency?: string
   plan: string
   status: 'paid' | 'pending' | 'failed'
   dueDate?: string
+  hostedInvoiceUrl?: string | null
+  invoicePdf?: string | null
 }
 
 export default function InvoicesList({ tenantId }: { tenantId: string }) {
@@ -32,33 +34,7 @@ export default function InvoicesList({ tenantId }: { tenantId: string }) {
       setError(null)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error desconocido')
-      // For demo, create sample invoices
-      setInvoices([
-        {
-          id: 'INV-001',
-          date: '2026-04-26',
-          amount: PLAN_PRICES.basic,
-          plan: 'Plan Básico',
-          status: 'paid',
-          dueDate: '2026-05-26',
-        },
-        {
-          id: 'INV-002',
-          date: '2026-03-26',
-          amount: PLAN_PRICES.basic,
-          plan: 'Plan Básico',
-          status: 'paid',
-          dueDate: '2026-04-26',
-        },
-        {
-          id: 'INV-003',
-          date: '2026-02-26',
-          amount: PLAN_PRICES.basic,
-          plan: 'Plan Básico',
-          status: 'paid',
-          dueDate: '2026-03-26',
-        },
-      ])
+      setInvoices([])
     } finally {
       setLoading(false)
     }
@@ -71,6 +47,14 @@ export default function InvoicesList({ tenantId }: { tenantId: string }) {
   const totalPaid = invoices
     .filter(inv => inv.status === 'paid')
     .reduce((sum, inv) => sum + inv.amount, 0)
+
+  const formatInvoiceAmount = (amount: number, currency = 'EUR') =>
+    new Intl.NumberFormat('es-ES', {
+      style: 'currency',
+      currency,
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }).format(amount)
 
   const getStatusBadge = (status: string) => {
     const colors: Record<string, string> = {
@@ -109,7 +93,9 @@ export default function InvoicesList({ tenantId }: { tenantId: string }) {
           </div>
           <div>
             <p className="text-sm text-gray-600 mb-2">Total Pagado (Este Año)</p>
-            <p className="text-3xl font-bold text-green-600">${totalPaid.toFixed(2)}</p>
+            <p className="text-3xl font-bold text-green-600">
+              {formatInvoiceAmount(totalPaid, invoices[0]?.currency || 'EUR')}
+            </p>
           </div>
           <div>
             <p className="text-sm text-gray-600 mb-2">Próxima Facturación</p>
@@ -170,16 +156,25 @@ export default function InvoicesList({ tenantId }: { tenantId: string }) {
                     </td>
                     <td className="px-6 py-4 text-sm text-gray-700">{invoice.plan}</td>
                     <td className="px-6 py-4 text-sm font-semibold text-gray-900">
-                      ${invoice.amount.toFixed(2)}
+                      {formatInvoiceAmount(invoice.amount, invoice.currency || 'EUR')}
                     </td>
                     <td className="px-6 py-4">{getStatusBadge(invoice.status)}</td>
                     <td className="px-6 py-4 text-sm text-gray-700">
                       {invoice.dueDate ? new Date(invoice.dueDate).toLocaleDateString('es-CO') : '-'}
                     </td>
                     <td className="px-6 py-4">
-                      <button className="text-blue-600 hover:text-blue-700 font-semibold text-sm">
-                        Ver PDF
-                      </button>
+                      {invoice.invoicePdf || invoice.hostedInvoiceUrl ? (
+                        <a
+                          href={invoice.invoicePdf || invoice.hostedInvoiceUrl || undefined}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="text-blue-600 hover:text-blue-700 font-semibold text-sm"
+                        >
+                          Ver PDF
+                        </a>
+                      ) : (
+                        <span className="text-sm text-gray-500">No disponible</span>
+                      )}
                     </td>
                   </tr>
                 ))}

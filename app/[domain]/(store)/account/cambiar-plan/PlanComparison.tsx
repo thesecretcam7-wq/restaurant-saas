@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import ChangePlanModal from './ChangePlanModal'
-import { PLAN_PRICES } from '@/lib/subscription-pricing'
+import { formatPlanAmount, PAID_PLAN_IDS, PLAN_CATALOG } from '@/lib/subscription-pricing'
 
 interface Tenant {
   id: string
@@ -13,55 +13,15 @@ interface Tenant {
   status: string
 }
 
-const plans = [
-  {
-    id: 'basic',
-    name: 'Basico',
-    price: PLAN_PRICES.basic,
-    description: 'Carta QR, TPV, comandero y KDS para operar caja, sala y cocina',
-    features: [
-      'Carta QR incluida',
-      'TPV / POS completo',
-      'Comandero para meseros',
-      'KDS cocina incluido',
-      'Hasta 1.000 pedidos/mes',
-      'Soporte por email',
-    ],
-    cta: 'Elegir Plan',
-  },
-  {
-    id: 'pro',
-    name: 'Pro',
-    price: PLAN_PRICES.pro,
-    description: 'Operacion completa con pagina web y kiosko',
-    features: [
-      'Todo en Basico',
-      'Pagina web del restaurante',
-      'Kiosko autoservicio',
-      'Pedidos ilimitados',
-      'Reservas y delivery',
-      'Analytics avanzado',
-    ],
-    cta: 'Elegir Plan',
-    popular: true,
-  },
-  {
-    id: 'premium',
-    name: 'Premium',
-    price: PLAN_PRICES.premium,
-    description: 'Todas las funciones con disenos exclusivos',
-    features: [
-      'Todo en Pro',
-      'Disenos exclusivos para cada cliente',
-      'Dominio personalizado',
-      'Multiples sucursales',
-      'Integraciones personalizadas',
-      'API access',
-      'Soporte 24/7 dedicado',
-    ],
-    cta: 'Elegir Plan',
-  },
-]
+const plans = PAID_PLAN_IDS.map((id) => ({
+  id,
+  name: PLAN_CATALOG[id].name,
+  price: PLAN_CATALOG[id].monthlyPrice,
+  description: PLAN_CATALOG[id].pricingDescription,
+  features: PLAN_CATALOG[id].pricingFeatures,
+  cta: 'Elegir Plan',
+  popular: PLAN_CATALOG[id].highlight,
+}))
 
 export default function PlanComparison({ tenant, domain }: { tenant: Tenant; domain: string }) {
   const [selectedPlan, setSelectedPlan] = useState<string | null>(null)
@@ -107,7 +67,7 @@ export default function PlanComparison({ tenant, domain }: { tenant: Tenant; dom
 
                 <div className="mb-6">
                   <div className="text-4xl font-bold text-gray-900">
-                    EUR {plan.price}
+                    EUR {formatPlanAmount(plan.price)}
                     <span className="text-lg font-normal text-gray-600">/mes</span>
                   </div>
                 </div>

@@ -1,6 +1,8 @@
 // Fuente de verdad: limites por plan.
 // Cualquier cambio en los planes solo se hace aqui.
 
+import { formatPlanAmount, PLAN_PRICES } from './subscription-pricing'
+
 export type PlanId = 'trial' | 'basic' | 'pro' | 'premium'
 
 export interface PlanLimits {
@@ -41,7 +43,7 @@ export const PLANS: Record<PlanId, { label: string; price: string; limits: PlanL
   },
   basic: {
     label: 'Basico',
-    price: 'EUR 49.99/mes',
+    price: `EUR ${formatPlanAmount(PLAN_PRICES.basic)}/mes`,
     limits: {
       orders_per_month: 1000,
       qr_menu: true,
@@ -60,7 +62,7 @@ export const PLANS: Record<PlanId, { label: string; price: string; limits: PlanL
   },
   pro: {
     label: 'Pro',
-    price: 'EUR 99.99/mes',
+    price: `EUR ${formatPlanAmount(PLAN_PRICES.pro)}/mes`,
     limits: {
       orders_per_month: Infinity,
       qr_menu: true,
@@ -79,7 +81,7 @@ export const PLANS: Record<PlanId, { label: string; price: string; limits: PlanL
   },
   premium: {
     label: 'Premium',
-    price: 'EUR 299.99/mes',
+    price: `EUR ${formatPlanAmount(PLAN_PRICES.premium)}/mes`,
     limits: {
       orders_per_month: Infinity,
       qr_menu: true,

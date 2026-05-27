@@ -4,63 +4,7 @@ import Link from 'next/link'
 import { useState, useEffect } from 'react'
 import EccofoodLogo from '@/components/EccofoodLogo'
 import LanguageSwitcher, { useI18n } from '@/components/LanguageSwitcher'
-
-const PLANS = [
-  {
-    id: 'basic',
-    name: 'Basic',
-    price: 49.99,
-    desc: 'Operacion interna para caja, meseros y cocina',
-    features: [
-      'TPV / POS completo',
-      'Carta QR incluida',
-      'Comandero para meseros',
-      'KDS cocina incluido',
-      'Hasta 1.000 pedidos/mes',
-      'Soporte por email',
-    ],
-    cta: 'Empezar gratis',
-    highlight: false,
-  },
-  {
-    id: 'pro',
-    name: 'Pro',
-    price: 99.99,
-    desc: 'Para vender tambien desde web y kiosko',
-    features: [
-      'Todo en Basic',
-      'Pedidos ilimitados',
-      'Pagina web del restaurante',
-      'Kiosko autoservicio',
-      'Sistema de reservas',
-      'Delivery integrado',
-      'Analytics avanzado',
-      'Soporte prioritario',
-    ],
-    cta: 'Empezar gratis',
-    highlight: true,
-  },
-  {
-    id: 'premium',
-    name: 'Premium',
-    price: 299.99,
-    desc: 'Todas las funciones con experiencia visual a medida',
-    features: [
-      'Todo en Pro',
-      'Disenos exclusivos para cada cliente',
-      'Dominio personalizado',
-      'Multiples sucursales',
-      'Gestion avanzada de staff',
-      'Programas de lealtad',
-      'API access completo',
-      'Integraciones personalizadas',
-      'Soporte 24/7 dedicado',
-      'Onboarding personalizado',
-    ],
-    cta: 'Empezar gratis',
-    highlight: false,
-  },
-]
+import { PUBLIC_PLAN_CARDS } from '@/lib/subscription-pricing'
 
 interface CurrencyInfo {
   currency: string
@@ -168,7 +112,7 @@ export default function PlanesPage() {
 
           {/* CARDS */}
           <div className="grid md:grid-cols-3 gap-6 mb-12 animate-slide-up" style={{ animationDelay: '100ms' }}>
-            {PLANS.map((plan) => (
+            {PUBLIC_PLAN_CARDS.map((plan) => (
               <div
                 key={plan.id}
                 className={`rounded-2xl p-8 border relative flex flex-col transition-all ${

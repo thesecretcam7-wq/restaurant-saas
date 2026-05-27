@@ -1,25 +1,9 @@
 import { createServiceClient } from '@/lib/supabase/server'
 import { NextRequest, NextResponse } from 'next/server'
 import { checkRateLimit, getClientIp } from '@/lib/ratelimit'
+import { getAnalyticsLimiter } from '@/lib/rate-limit'
 
-let analyticsLimiter: any = null
-
-if (process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN) {
-  try {
-    const { Ratelimit } = require('@upstash/ratelimit') as typeof import('@upstash/ratelimit')
-    const { Redis } = require('@upstash/redis') as typeof import('@upstash/redis')
-    analyticsLimiter = new Ratelimit({
-      redis: new Redis({
-        url: process.env.UPSTASH_REDIS_REST_URL,
-        token: process.env.UPSTASH_REDIS_REST_TOKEN,
-      }),
-      limiter: Ratelimit.slidingWindow(30, '1 m'),
-      analytics: true,
-    })
-  } catch (err) {
-    console.warn('Rate limiting not available:', err)
-  }
-}
+const analyticsLimiter = getAnalyticsLimiter()
 
 export async function GET(request: NextRequest) {
   try {

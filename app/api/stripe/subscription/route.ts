@@ -3,6 +3,7 @@ import { cookies } from 'next/headers'
 import { NextRequest, NextResponse } from 'next/server'
 import Stripe from 'stripe'
 import { requireTenantAccess, tenantAuthErrorResponse } from '@/lib/tenant-api-auth'
+import { PAID_PLAN_IDS, type PaidPlanId } from '@/lib/subscription-pricing'
 
 const getStripe = () => new Stripe(process.env.STRIPE_SECRET_KEY!)
 
@@ -13,6 +14,13 @@ export async function POST(request: NextRequest) {
     if (!tenantId || !planName) {
       return NextResponse.json(
         { error: 'Missing tenantId or planName' },
+        { status: 400 }
+      )
+    }
+
+    if (!PAID_PLAN_IDS.includes(planName as PaidPlanId)) {
+      return NextResponse.json(
+        { error: 'Plan invalido' },
         { status: 400 }
       )
     }

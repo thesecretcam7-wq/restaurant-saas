@@ -1,6 +1,7 @@
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 import { NextResponse } from 'next/server'
+import { PAID_PLAN_IDS, PLAN_CATALOG, type PaidPlanId } from '@/lib/subscription-pricing'
 
 export async function GET() {
   try {
@@ -33,7 +34,21 @@ export async function GET() {
       throw error
     }
 
-    return NextResponse.json(plans || [])
+    const paidPlans = (plans || [])
+      .filter((plan) => PAID_PLAN_IDS.includes(plan.name as PaidPlanId))
+      .sort((a, b) => PAID_PLAN_IDS.indexOf(a.name as PaidPlanId) - PAID_PLAN_IDS.indexOf(b.name as PaidPlanId))
+      .map((plan) => {
+        const planCopy = PLAN_CATALOG[plan.name as PaidPlanId]
+
+        return {
+          ...plan,
+          monthly_price: planCopy.monthlyPrice,
+          annual_price: planCopy.annualPrice,
+          description: plan.description || planCopy.adminDescription,
+        }
+      })
+
+    return NextResponse.json(paidPlans)
   } catch (error) {
     console.error('Error fetching plans:', error)
     return NextResponse.json(

@@ -4,6 +4,7 @@ import { AlertTriangle, ArrowRight, CircleDollarSign, Headphones, Store, UserRou
 import EccofoodLogo from '@/components/EccofoodLogo'
 import { isOwnerEmail } from '@/lib/owner-auth'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
+import { PLAN_PRICES } from '@/lib/subscription-pricing'
 
 export const dynamic = 'force-dynamic'
 
@@ -32,12 +33,6 @@ type SupportRow = {
   status: string
   priority: string
   created_at: string
-}
-
-const planPrices: Record<string, number> = {
-  basic: 49.99,
-  pro: 99.99,
-  premium: 299.99,
 }
 
 const statusText: Record<string, string> = {
@@ -90,7 +85,7 @@ export default async function OwnerDashboard() {
   }).length
   const monthlyEstimate = allTenants.reduce((total, tenant) => {
     if (tenant.status !== 'active' || !tenant.subscription_plan) return total
-    return total + (planPrices[tenant.subscription_plan] || 0)
+    return total + (PLAN_PRICES[tenant.subscription_plan as keyof typeof PLAN_PRICES] || 0)
   }, 0)
   const openSupport = (supportRequests || []).filter(request => request.status === 'open').length
 

@@ -9,6 +9,7 @@ import { uploadTenantMedia } from '@/lib/upload-client'
 import {
   ArrowDown,
   ArrowUp,
+  Check,
   ExternalLink,
   ImagePlus,
   LayoutTemplate,
@@ -237,7 +238,14 @@ export default function PageBuilderPage() {
   }
 
   const updateAppearance = (key: string, value: any) => {
-    setConfig(c => ({ ...c, appearance: { ...c.appearance, [key]: value } }))
+    setConfig(c => ({
+      ...c,
+      appearance: {
+        ...c.appearance,
+        [key]: value,
+        ...(key === 'theme_mode' ? { dark_mode: value === 'dark' } : {}),
+      },
+    }))
     markDirty()
     if (key === 'theme_mode') toast.success('Tema aplicado')
   }
@@ -896,18 +904,25 @@ function ChoiceGrid({ label, value, options, onChange }: {
     <div>
       <p className="mb-2 text-sm font-black uppercase text-black/65">{label}</p>
       <div className="grid gap-2 sm:grid-cols-3">
-        {options.map(option => (
-          <button
-            key={option.id}
-            type="button"
-            onClick={() => onChange(option.id)}
-            className={`rounded-lg border px-3 py-2 text-sm font-black transition ${
-              value === option.id ? 'border-[#e43d30] bg-[#15130f] text-white' : 'border-black/12 bg-white text-[#15130f] hover:border-black/25'
-            }`}
-          >
-            {option.label}
-          </button>
-        ))}
+        {options.map(option => {
+          const selected = value === option.id
+          return (
+            <button
+              key={option.id}
+              type="button"
+              aria-pressed={selected}
+              onClick={() => onChange(option.id)}
+              className={`admin-choice-option inline-flex min-h-9 items-center justify-center gap-2 rounded-lg border px-3 py-2 text-sm font-black transition ${
+                selected
+                  ? 'border-[#d4af37] bg-gradient-to-r from-[#d35a37] to-[#d4af37] text-white shadow-[0_12px_28px_rgba(211,90,55,0.28)]'
+                  : 'border-black/12 bg-white text-[#15130f] hover:border-black/25'
+              }`}
+            >
+              {selected && <Check className="size-4" aria-hidden="true" />}
+              <span>{option.label}</span>
+            </button>
+          )
+        })}
       </div>
     </div>
   )

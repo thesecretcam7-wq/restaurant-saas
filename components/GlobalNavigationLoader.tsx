@@ -94,6 +94,7 @@ export default function GlobalNavigationLoader() {
   const [visible, setVisible] = useState(false);
   const [label, setLabel] = useState('Cargando Eccofood');
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const showTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     setVisible(false);
@@ -103,10 +104,13 @@ export default function GlobalNavigationLoader() {
   useEffect(() => {
     function show(nextPathname: string, fallbackLabel = 'Procesando solicitud') {
       if (isStoreRoute(window.location.pathname) || (nextPathname && isStoreRoute(nextPathname))) return;
-      setLabel(nextPathname ? getLoadingLabel(nextPathname) : fallbackLabel);
-      setVisible(true);
-      if (timeoutRef.current) clearTimeout(timeoutRef.current);
-      timeoutRef.current = setTimeout(() => setVisible(false), 12000);
+      if (showTimerRef.current) clearTimeout(showTimerRef.current);
+      showTimerRef.current = setTimeout(() => {
+        setLabel(nextPathname ? getLoadingLabel(nextPathname) : fallbackLabel);
+        setVisible(true);
+        if (timeoutRef.current) clearTimeout(timeoutRef.current);
+        timeoutRef.current = setTimeout(() => setVisible(false), 12000);
+      }, 0);
     }
 
     function handleClick(event: MouseEvent) {
@@ -142,6 +146,7 @@ export default function GlobalNavigationLoader() {
       document.removeEventListener('click', handleClick, true);
       document.removeEventListener('submit', handleSubmit);
       window.removeEventListener('beforeunload', handleBeforeUnload);
+      if (showTimerRef.current) clearTimeout(showTimerRef.current);
       if (timeoutRef.current) clearTimeout(timeoutRef.current);
     };
   }, []);
