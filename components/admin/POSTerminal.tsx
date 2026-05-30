@@ -7,6 +7,7 @@ import { ShoppingCart, Plus, Minus, Trash2, Search, DollarSign, CreditCard, Maxi
 import { POSStaffSelector } from './POSStaffSelector';
 import { TableMap } from './TableMap';
 import { POSPayment } from './POSPayment';
+import { NumericKeyboard } from './NumericKeyboard';
 import { CashClosingModal } from './CashClosingModal';
 import { Toast } from './Toast';
 import { POSOrderLookup } from './POSOrderLookup';
@@ -542,6 +543,7 @@ export function POSTerminal({
   const [billingOrderIds, setBillingOrderIds] = useState<string[]>([]);
   const [expandedTable, setExpandedTable] = useState<number | null>(null);
   const [tip, setTip] = useState(0);
+  const [showTipKeyboard, setShowTipKeyboard] = useState(false);
   const [heldAccounts, setHeldAccounts] = useState<HeldPOSAccount[]>([]);
   const [showHeldAccountsPanel, setShowHeldAccountsPanel] = useState(false);
   const [mesasView, setMesasView] = useState<'list' | 'map'>('map');
@@ -3039,7 +3041,7 @@ export function POSTerminal({
         {/* Menu Section */}
         <div className={`${compactPOSLayout ? 'min-h-0 flex-1' : 'min-h-[44dvh] max-h-[58dvh] lg:min-h-0 lg:max-h-none lg:flex-1'} flex flex-col overflow-hidden`}>
           {/* Search and Controls - Sticky Header */}
-          <div className={`pos-panel pos-command-bar border-x-0 border-t-0 flex flex-wrap gap-2.5 items-center sticky top-0 z-10 ${compactPOSLayout ? 'px-4 py-3' : 'p-3 sm:p-4 lg:flex-nowrap'}`}>
+          <div className={`pos-panel pos-command-bar border-x-0 border-t-0 flex flex-wrap gap-1.5 items-center sticky top-0 z-10 ${compactPOSLayout ? 'px-3 py-2' : 'p-3 sm:p-4 lg:flex-nowrap'}`}>
             {(productSearchOpen || searchQuery) ? (
               <div className={`relative min-w-[180px] ${compactPOSLayout ? 'flex-[1_1_240px]' : 'flex-[1_1_260px]'}`}>
                 <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-cyan-100/45 pointer-events-none" />
@@ -3424,7 +3426,7 @@ export function POSTerminal({
         </div>
 
         {/* Cart/Payment Section */}
-        <div className={`${compactPOSLayout ? 'h-[44dvh] min-h-0 overflow-hidden lg:h-auto lg:min-h-0 lg:w-72 xl:w-80' : 'min-h-[520px] flex-none overflow-y-auto pb-6 lg:min-h-0 lg:h-auto lg:w-80 lg:overflow-y-auto lg:pb-0'} pos-panel border-x-0 border-b-0 lg:border-y-0 lg:border-r-0 flex flex-col`}>
+        <div className={`${compactPOSLayout ? 'h-[44dvh] min-h-0 overflow-hidden lg:h-auto lg:min-h-0 lg:w-[360px] xl:w-[380px] 2xl:w-[420px]' : 'min-h-[520px] flex-none overflow-y-auto pb-6 lg:min-h-0 lg:h-auto lg:w-80 lg:overflow-y-auto lg:pb-0'} pos-panel border-x-0 border-b-0 lg:border-y-0 lg:border-r-0 flex flex-col`}>
           {/* Tabs: Guardar / Cart / Entregas / Salón */}
           <div className="border-b border-white/10 flex bg-black/20 backdrop-blur-xl">
             <button
@@ -3652,7 +3654,7 @@ export function POSTerminal({
           )}
 
           {/* Cart Items List */}
-          <div className={`${compactPOSLayout ? 'flex-1 min-h-0 overflow-y-auto overscroll-contain pr-1 [scrollbar-gutter:stable]' : 'min-h-28 max-h-48 overflow-y-auto'}`}>
+          <div className={`${compactPOSLayout ? 'min-h-[120px] flex-[1_1_220px] overflow-y-auto overscroll-contain pr-1 [scrollbar-gutter:stable] lg:min-h-[190px] lg:flex-[1_1_250px]' : 'min-h-28 max-h-48 overflow-y-auto'}`}>
             {cart.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-full text-slate-500 py-8">
                 <ShoppingCart className="w-8 h-8 mb-2 opacity-30" />
@@ -3696,22 +3698,51 @@ export function POSTerminal({
             )}
           </div>
 
+          <div className={`${compactPOSLayout ? 'shrink-0 border-t border-white/10' : ''}`}>
           {/* Discount Code */}
               <div className={`border-b border-white/10 ${compactPOSLayout ? 'px-2 py-1' : 'px-2 py-1'} space-y-1 text-xs`}>
-            <div className="flex gap-1">
+            <div className={compactPOSLayout ? 'grid grid-cols-[minmax(0,1fr)_112px] gap-1' : 'flex gap-1'}>
+              <div className="flex min-w-0 gap-1">
               <input
                 type="text"
                 placeholder="Código descuento"
                 value={discountCode}
                 onChange={(e) => setDiscountCode(e.target.value.toUpperCase())}
-                className="flex-1 px-2 py-1 rounded-lg outline-none text-white text-xs"
+                className="min-w-0 flex-1 rounded-lg px-2 py-1 text-xs text-white outline-none"
               />
               <button
                 onClick={applyDiscountCode}
-                className="px-3 py-1 rounded-lg bg-emerald-500/18 hover:bg-emerald-500/26 border border-emerald-400/30 text-emerald-100 font-black text-xs transition"
+                className="shrink-0 rounded-lg border border-emerald-400/30 bg-emerald-500/18 px-2 py-1 text-xs font-black text-emerald-100 transition hover:bg-emerald-500/26"
               >
                 Aplicar
               </button>
+              </div>
+              {compactPOSLayout && (
+                <div className="flex min-w-0 items-center rounded-lg border border-[#D4AF37]/30 bg-[#D4AF37]/12">
+                  <button
+                    type="button"
+                    onClick={() => setShowTipKeyboard(true)}
+                    className="min-w-0 flex-1 px-2 py-0.5 text-left transition hover:text-white"
+                    title="Agregar propina"
+                  >
+                    <span className="block text-[9px] font-black uppercase leading-tight text-slate-400">Propina</span>
+                    <span className="block truncate text-xs font-black text-[#D4AF37]">
+                      {tip > 0 ? formatPriceWithCurrency(tip, currencyInfo.code, currencyInfo.locale) : '+ Agregar'}
+                    </span>
+                  </button>
+                  {tip > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => setTip(0)}
+                      className="grid h-7 w-7 shrink-0 place-items-center text-slate-500 transition hover:text-red-300"
+                      aria-label="Quitar propina"
+                      title="Quitar propina"
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  )}
+                </div>
+              )}
             </div>
             {discount > 0 && (
               <p className="text-green-400 text-xs">Descuento: -{formatPriceWithCurrency(discount, currencyInfo.code, currencyInfo.locale)}</p>
@@ -3792,12 +3823,12 @@ export function POSTerminal({
               )}
             </div>
           ) : (
-            <div className="border-b border-white/10 px-2 py-2 space-y-1.5">
+            <div className="border-b border-white/10 px-2 py-1.5 space-y-1">
               <p className="text-cyan-100/42 text-xs font-black uppercase">Tipo de pedido</p>
-              <div className="grid grid-cols-2 gap-1">
+              <div className={`grid gap-1 ${deliveryEnabled ? 'grid-cols-3' : 'grid-cols-2'}`}>
                 <button
                   onClick={() => setPosOrderType('takeaway')}
-                  className={`py-1.5 rounded-lg text-xs font-bold transition ${
+                  className={`min-w-0 truncate rounded-lg px-1 py-1 text-[11px] font-bold transition ${
                     posOrderType === 'takeaway'
                       ? 'bg-cyan-300/18 text-cyan-50 border border-cyan-300/35'
                       : 'bg-white/10 text-slate-400 hover:text-slate-100 border border-white/10'
@@ -3807,7 +3838,7 @@ export function POSTerminal({
                 </button>
                 <button
                   onClick={() => setPosOrderType('pickup')}
-                  className={`py-1.5 rounded-lg text-xs font-bold transition ${
+                  className={`min-w-0 truncate rounded-lg px-1 py-1 text-[11px] font-bold transition ${
                     posOrderType === 'pickup'
                       ? 'bg-cyan-300/18 text-cyan-50 border border-cyan-300/35'
                       : 'bg-white/10 text-slate-400 hover:text-slate-100 border border-white/10'
@@ -3816,10 +3847,10 @@ export function POSTerminal({
                   🏠 Para recoger
                 </button>
                 {deliveryEnabled && (
-                  <div className="col-span-2 rounded-lg border border-amber-300/20 bg-amber-300/8 p-1.5">
+                  <>
                     <button
                       onClick={() => setPosOrderType('delivery')}
-                      className={`flex w-full items-center justify-center gap-1.5 rounded-md py-1.5 text-xs font-bold transition ${
+                      className={`flex min-w-0 items-center justify-center gap-1 rounded-lg border px-1 py-1 text-[11px] font-bold transition ${
                         posOrderType === 'delivery'
                           ? 'bg-amber-300/20 text-amber-50 border border-amber-300/45 shadow-lg shadow-amber-900/20'
                           : 'bg-white/10 text-slate-400 hover:text-slate-100 border border-white/10'
@@ -3827,10 +3858,10 @@ export function POSTerminal({
                       title="Pedido por llamada con cobro de domicilio"
                     >
                       <Truck className="h-3.5 w-3.5" />
-                      Domicilio {activeDeliveryFee > 0 ? `+ ${formatPriceWithCurrency(activeDeliveryFee, currencyInfo.code, currencyInfo.locale)}` : ''}
+                      <span className="truncate">Domicilio</span>
                     </button>
                     {posOrderType === 'delivery' && deliveryOptions.length > 0 && (
-                      <div className="mt-1.5 grid grid-cols-2 gap-1">
+                      <div className="col-span-3 mt-1 grid grid-cols-2 gap-1 rounded-lg border border-amber-300/20 bg-amber-300/8 p-1">
                         {deliveryOptions.map((zone) => {
                           const active = selectedDeliveryZone?.id === zone.id;
                           return (
@@ -3855,7 +3886,7 @@ export function POSTerminal({
                         })}
                       </div>
                     )}
-                  </div>
+                  </>
                 )}
               </div>
             </div>
@@ -3950,9 +3981,11 @@ export function POSTerminal({
                     loading={processingPayment}
                     country={country}
                     compact={compactPOSLayout}
+                    showTipControl={!compactPOSLayout}
                   />
                 )}
               </div>
+          </div>
             </>
           )}
 
@@ -4036,6 +4069,18 @@ export function POSTerminal({
           >✕</button>
         </div>
       )}
+
+      <NumericKeyboard
+        isOpen={showTipKeyboard}
+        title="Propina"
+        initialValue={tip}
+        onConfirm={(value) => {
+          setTip(value);
+          setShowTipKeyboard(false);
+        }}
+        onCancel={() => setShowTipKeyboard(false)}
+        allowDecimal={true}
+      />
 
       {/* Toast Notifications */}
       {toast && (

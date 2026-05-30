@@ -22,6 +22,7 @@ interface POSPaymentProps {
   loading?: boolean;
   country?: string;
   compact?: boolean;
+  showTipControl?: boolean;
 }
 
 export function POSPayment({
@@ -37,6 +38,7 @@ export function POSPayment({
   loading = false,
   country = 'CO',
   compact = false,
+  showTipControl = true,
 }: POSPaymentProps) {
   const currencyInfo = getCurrencyByCountry(country);
   const isTouchDevice = useTouchDevice();
@@ -73,9 +75,10 @@ export function POSPayment({
   const isValidPayment = paymentMethod === 'stripe' || (paymentMethod === 'cash' && cashAmountForPayment >= totalWithTip);
 
   return (
-    <div className={compact ? 'space-y-1.5 text-xs' : 'space-y-2'}>
+    <div className={compact ? 'space-y-1 text-xs' : 'space-y-2'}>
       {/* Propina */}
-      <div className={`pos-card flex items-center gap-2 rounded-xl ${compact ? 'px-2 py-1.5' : 'px-3 py-2'}`}>
+      {showTipControl && (
+        <div className={`pos-card flex items-center gap-2 rounded-xl ${compact ? 'px-2 py-1' : 'px-3 py-2'}`}>
         <span className="text-slate-400 text-xs flex-1">Propina</span>
         <button
           onClick={() => setShowTipKeyboard(true)}
@@ -86,17 +89,18 @@ export function POSPayment({
         {tip > 0 && (
           <button onClick={() => onTipChange(0)} className="text-gray-500 hover:text-red-400 text-xs transition">✕</button>
         )}
-      </div>
+        </div>
+      )}
 
       {/* Total */}
-      <div className={`pos-total-band rounded-xl text-white ${compact ? 'p-2' : 'p-3'}`}>
+      <div className={`pos-total-band rounded-xl text-white ${compact ? 'p-1.5' : 'p-3'}`}>
         <p className="text-xs text-emerald-100/68 mb-0.5 font-black uppercase">Total a pagar</p>
-        <p className={`${compact ? 'text-xl' : 'text-2xl'} font-black text-emerald-200`}>{formatPriceWithCurrency(totalWithTip, currencyInfo.code, currencyInfo.locale)}</p>
-        {tip > 0 && <p className="text-xs opacity-70">Incl. propina {formatPriceWithCurrency(tip, currencyInfo.code, currencyInfo.locale)}</p>}
+        <p className={`${compact ? 'text-lg' : 'text-2xl'} font-black text-emerald-200`}>{formatPriceWithCurrency(totalWithTip, currencyInfo.code, currencyInfo.locale)}</p>
+        {tip > 0 && !compact && <p className="text-xs opacity-70">Incl. propina {formatPriceWithCurrency(tip, currencyInfo.code, currencyInfo.locale)}</p>}
       </div>
 
       {/* Métodos de Pago */}
-      <div className={`grid grid-cols-2 ${compact ? 'gap-2' : 'gap-3'}`}>
+      <div className={`grid grid-cols-2 ${compact ? 'gap-1' : 'gap-3'}`}>
         <button
           onClick={() => {
             onPaymentMethodChange('cash');
@@ -104,32 +108,32 @@ export function POSPayment({
             setChange(0);
           }}
           disabled={disabled}
-          className={`${compact ? 'py-1.5 text-xs' : 'py-2 text-sm'} rounded-xl font-black flex items-center justify-center gap-1 transition border ${
+          className={`${compact ? 'py-1 text-xs' : 'py-2 text-sm'} rounded-xl font-black flex items-center justify-center gap-1 transition border ${
             paymentMethod === 'cash'
               ? 'bg-[#D4AF37]/16 border-[#D4AF37]/38 text-white'
               : 'bg-white/10 border-white/10 text-slate-400 hover:text-white'
           } ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
         >
-          <DollarSign className="w-5 h-5" />
+          <DollarSign className={compact ? 'h-4 w-4' : 'h-5 w-5'} />
           Efectivo
         </button>
         <button
           onClick={() => onPaymentMethodChange('stripe')}
           disabled={disabled}
-          className={`${compact ? 'py-1.5 text-xs' : 'py-2 text-sm'} rounded-xl font-black flex items-center justify-center gap-1 transition border ${
+          className={`${compact ? 'py-1 text-xs' : 'py-2 text-sm'} rounded-xl font-black flex items-center justify-center gap-1 transition border ${
             paymentMethod === 'stripe'
               ? 'bg-[#D4AF37]/16 border-[#D4AF37]/38 text-white'
               : 'bg-white/10 border-white/10 text-slate-400 hover:text-white'
           } ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
         >
-          <CreditCard className="w-5 h-5" />
+          <CreditCard className={compact ? 'h-4 w-4' : 'h-5 w-5'} />
           Tarjeta
         </button>
       </div>
 
       {/* Ingreso de Efectivo */}
       {paymentMethod === 'cash' && (
-        <div className={`pos-card rounded-xl ${compact ? 'space-y-1.5 p-2' : 'space-y-3 p-4'}`}>
+        <div className={`pos-card rounded-xl ${compact ? 'space-y-1 p-1.5' : 'space-y-3 p-4'}`}>
           <label className="text-xs font-bold text-slate-400">Cantidad recibida</label>
           <div className="flex gap-2">
             <input
@@ -154,13 +158,13 @@ export function POSPayment({
                 }
               }}
               placeholder="0.00"
-              className={`min-w-0 flex-1 rounded-xl border-2 border-[#D4AF37]/30 bg-[#0B0E14]/55 px-3 text-center font-black text-white outline-none transition placeholder:text-[#8b97a8] focus:border-[#D4AF37] focus:bg-[#0B0E14]/72 ${compact ? 'py-1.5 text-base' : 'py-2 text-lg'}`}
+              className={`min-w-0 flex-1 rounded-xl border-2 border-[#D4AF37]/30 bg-[#0B0E14]/55 px-3 text-center font-black text-white outline-none transition placeholder:text-[#8b97a8] focus:border-[#D4AF37] focus:bg-[#0B0E14]/72 ${compact ? 'py-1 text-sm' : 'py-2 text-lg'}`}
               title={isTouchDevice ? 'Usa el teclado interno de Eccofood' : 'Puedes escribir el dinero recibido con teclado'}
             />
             <button
               type="button"
               onClick={() => setShowNumericKeyboard(true)}
-              className={`rounded-xl border border-white/10 bg-white/10 px-3 font-black text-slate-200 transition hover:bg-white/15 ${compact ? 'text-xs' : 'text-sm'}`}
+              className={`rounded-xl border border-white/10 bg-white/10 font-black text-slate-200 transition hover:bg-white/15 ${compact ? 'px-2 text-xs' : 'px-3 text-sm'}`}
               title="Abrir teclado tactil"
             >
               Teclado
@@ -168,15 +172,15 @@ export function POSPayment({
           </div>
 
           {/* Billetes Sugeridos */}
-          <div className={compact ? 'space-y-1.5' : 'space-y-2'}>
+          <div className={compact ? 'space-y-1' : 'space-y-2'}>
             <p className="text-xs font-black uppercase text-slate-400">Billetes sugeridos:</p>
-            <div className={`grid grid-cols-2 ${compact ? 'gap-2' : 'gap-2.5'}`}>
+            <div className={`grid ${compact ? 'grid-cols-3 gap-1' : 'grid-cols-2 gap-2.5'}`}>
               {suggestedAmounts.map((amount) => (
                 <button
                   type="button"
                   key={amount}
                   onClick={() => handleSuggestedAmount(amount)}
-                  className={`${compact ? 'min-h-10 px-2 py-2 text-sm' : 'min-h-11 px-3 py-2 text-sm'} rounded-xl border border-[#D4AF37]/30 bg-[#D4AF37]/12 font-black text-white shadow-sm shadow-black/20 transition hover:bg-[#D4AF37]/20 active:scale-95`}
+                  className={`${compact ? 'min-h-10 px-2 py-1.5 text-sm' : 'min-h-11 px-3 py-2 text-sm'} rounded-xl border border-[#D4AF37]/30 bg-[#D4AF37]/12 font-black text-white shadow-sm shadow-black/20 transition hover:bg-[#D4AF37]/20 active:scale-95`}
                 >
                   {formatPriceWithCurrency(amount, currencyInfo.code, currencyInfo.locale)}
                 </button>
@@ -198,18 +202,18 @@ export function POSPayment({
       )}
 
       {/* Recibo */}
-      <div className={`pos-card flex items-center justify-between gap-2 rounded-xl ${compact ? 'px-2 py-1.5' : 'px-3 py-2'}`}>
+      <div className={`pos-card flex items-center justify-between gap-2 rounded-xl ${compact ? 'px-2 py-1' : 'px-3 py-2'}`}>
         <div className="flex min-w-0 items-center gap-1.5 text-xs font-black uppercase text-slate-400">
           <Printer className="h-4 w-4 shrink-0 text-[#D4AF37]" />
           <span>Recibo</span>
         </div>
-        <div className={`grid grid-cols-2 rounded-lg border border-white/10 bg-black/20 p-0.5 ${compact ? 'w-24' : 'w-28'}`} role="group" aria-label="Imprimir recibo">
+        <div className={`grid grid-cols-2 rounded-lg border border-white/10 bg-black/20 p-0.5 ${compact ? 'w-20' : 'w-28'}`} role="group" aria-label="Imprimir recibo">
           <button
             type="button"
             onClick={() => onPrintReceiptChange(true)}
             disabled={disabled || loading}
             aria-pressed={printReceipt}
-            className={`min-h-8 rounded-md px-2 text-xs font-black transition ${
+            className={`${compact ? 'min-h-7' : 'min-h-8'} rounded-md px-2 text-xs font-black transition ${
               printReceipt
                 ? 'bg-[#D4AF37] text-[#111827]'
                 : 'text-slate-400 hover:text-white'
@@ -222,7 +226,7 @@ export function POSPayment({
             onClick={() => onPrintReceiptChange(false)}
             disabled={disabled || loading}
             aria-pressed={!printReceipt}
-            className={`min-h-8 rounded-md px-2 text-xs font-black transition ${
+            className={`${compact ? 'min-h-7' : 'min-h-8'} rounded-md px-2 text-xs font-black transition ${
               !printReceipt
                 ? 'bg-[#D4AF37] text-[#111827]'
                 : 'text-slate-400 hover:text-white'
@@ -237,7 +241,7 @@ export function POSPayment({
       <button
         onClick={() => onProceedPayment(paymentMethod === 'cash' ? cashAmountForPayment : undefined, printReceipt)}
         disabled={disabled || loading || !isValidPayment}
-        className={`w-full ${compact ? 'min-h-[54px] py-3 text-base' : 'py-4 text-lg'} rounded-xl font-black transition border ${
+        className={`w-full ${compact ? 'min-h-11 py-2 text-sm' : 'py-4 text-lg'} rounded-xl font-black transition border ${
           isValidPayment && !disabled && !loading
             ? 'bg-[#D35A37] hover:bg-[#bd4d31] text-white border-[#D35A37]/40 shadow-lg shadow-black/24'
             : 'bg-white/10 text-slate-500 border-white/10 cursor-not-allowed'
@@ -265,14 +269,16 @@ export function POSPayment({
       />
 
       {/* Teclado propina */}
-      <NumericKeyboard
-        isOpen={showTipKeyboard}
-        title="Propina"
-        initialValue={tip}
-        onConfirm={(value) => { onTipChange(value); setShowTipKeyboard(false); }}
-        onCancel={() => setShowTipKeyboard(false)}
-        allowDecimal={true}
-      />
+      {showTipControl && (
+        <NumericKeyboard
+          isOpen={showTipKeyboard}
+          title="Propina"
+          initialValue={tip}
+          onConfirm={(value) => { onTipChange(value); setShowTipKeyboard(false); }}
+          onCancel={() => setShowTipKeyboard(false)}
+          allowDecimal={true}
+        />
+      )}
     </div>
   );
 }
