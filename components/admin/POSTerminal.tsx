@@ -523,8 +523,10 @@ export function POSTerminal({
   const { wakeLockActive, wakeLockSupported, activateWakeLock } = useWakeLock();
   const [showCashClosing, setShowCashClosing] = useState(false);
   const [cashClosingStats, setCashClosingStats] = useState<CashClosingStats | null>(null);
+  const [cashClosingMode, setCashClosingMode] = useState<'current' | 'pending' | null>(null);
   const [pendingCashClosingStats, setPendingCashClosingStats] = useState<CashClosingStats | null>(null);
   const [closingLoading, setClosingLoading] = useState(false);
+  const hasCashClosingStats = Boolean(cashClosingStats);
   const [todayReservations, setTodayReservations] = useState<ReservationSummary[]>([]);
 
   // Incoming Orders for delivery/pickup
@@ -558,6 +560,7 @@ export function POSTerminal({
   const knownOrderIds = useRef(new Set<string>());
   const knownDineInOrderIds = useRef(new Set<string>());
   const firstDineInFetchDone = useRef(false);
+  const cashClosingRefreshInFlightRef = useRef(false);
   const notificationTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const csrfTokenRef = useRef<string>('');
   const cartRestoredRef = useRef(false);
@@ -618,6 +621,32 @@ export function POSTerminal({
     }
   }, [tenantId]);
 
+  const refreshOpenCashClosingStats = useCallback(async () => {
+    if (!showCashClosing || cashClosingRefreshInFlightRef.current) return;
+
+    cashClosingRefreshInFlightRef.current = true;
+    try {
+      const nextStats = cashClosingMode === 'pending'
+        ? await fetchPendingCashClosingStats(tenantId)
+        : await calculateCashClosingStats(tenantId);
+
+      if (nextStats) {
+        setCashClosingStats((currentStats) => currentStats ? nextStats : currentStats);
+        if (cashClosingMode === 'pending') setPendingCashClosingStats(nextStats);
+      } else if (cashClosingMode === 'pending') {
+        setCashClosingStats(null);
+        setShowCashClosing(false);
+        setCashClosingMode(null);
+        setToast({ message: 'El cierre pendiente ya no tiene ventas por cerrar', type: 'success' });
+        setPendingCashClosingStats(null);
+      }
+    } catch (error) {
+      console.error('Error refreshing open cash closing stats:', error);
+    } finally {
+      cashClosingRefreshInFlightRef.current = false;
+    }
+  }, [cashClosingMode, showCashClosing, tenantId]);
+
   const refreshOfflinePendingCount = useCallback(async () => {
     try {
       setOfflinePendingCount(await countPendingPOSOrders(tenantId));
@@ -651,6 +680,48 @@ export function POSTerminal({
     }, 5000);
     return () => window.clearTimeout(timer);
   }, [refreshPendingCashClosing]);
+
+  useEffect(() => {
+    if (!showCashClosing || !hasCashClosingStats) return;
+
+    const refreshVisibleClosing = () => {
+      void refreshOpenCashClosingStats();
+    };
+    const refreshWhenVisible = () => {
+      if (document.visibilityState !== 'visible') return;
+      refreshVisibleClosing();
+    };
+
+    const subscription = supabase
+      .channel(`cash-closing-orders:${tenantId}`)
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'orders', filter: `tenant_id=eq.${tenantId}` },
+        refreshVisibleClosing
+      )
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'orders', filter: `tenant_id=eq.${tenantId}` },
+        refreshVisibleClosing
+      )
+      .on(
+        'postgres_changes',
+        { event: 'DELETE', schema: 'public', table: 'orders', filter: `tenant_id=eq.${tenantId}` },
+        refreshVisibleClosing
+      )
+      .subscribe();
+
+    const polling = window.setInterval(refreshVisibleClosing, 5000);
+    document.addEventListener('visibilitychange', refreshWhenVisible);
+    window.addEventListener('focus', refreshWhenVisible);
+
+    return () => {
+      window.clearInterval(polling);
+      document.removeEventListener('visibilitychange', refreshWhenVisible);
+      window.removeEventListener('focus', refreshWhenVisible);
+      subscription.unsubscribe();
+    };
+  }, [hasCashClosingStats, refreshOpenCashClosingStats, showCashClosing, supabase, tenantId]);
 
   useEffect(() => {
     if (!deliveryEnabled && posOrderType === 'delivery') {
@@ -914,6 +985,7 @@ export function POSTerminal({
       if (loggedStaff.staffName && !selectedStaffName) setSelectedStaffName(loggedStaff.staffName);
       const stats = await calculateCashClosingStats(tenantId);
       setCashClosingStats(stats);
+      setCashClosingMode('current');
       setShowCashClosing(true);
     } catch (error) {
       console.error('Error calculating closing stats:', error);
@@ -938,6 +1010,7 @@ export function POSTerminal({
       }
 
       setCashClosingStats(stats);
+      setCashClosingMode('pending');
       setShowCashClosing(true);
     } catch (error) {
       console.error('Error opening pending closing stats:', error);
@@ -964,6 +1037,7 @@ export function POSTerminal({
       setToast({ message: '✓ Caja cerrada exitosamente', type: 'success' });
       setShowCashClosing(false);
       setCashClosingStats(null);
+      setCashClosingMode(null);
       await refreshPendingCashClosing();
 
       void (async () => {
@@ -4099,6 +4173,7 @@ export function POSTerminal({
           onClose={() => {
             setShowCashClosing(false);
             setCashClosingStats(null);
+            setCashClosingMode(null);
           }}
           onConfirm={handleSaveCashClosing}
           data={{
