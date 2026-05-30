@@ -78,12 +78,12 @@ export default function TrialExpiredGuard({
             >
               Ver planes de suscripción
             </Link>
-            <a
-              href="mailto:support@eccofood.com"
+            <Link
+              href="/soporte"
               className="block w-full py-3 bg-gray-200 text-gray-900 rounded-lg font-semibold hover:bg-gray-300 transition-colors"
             >
               Contactar soporte
-            </a>
+            </Link>
           </div>
         </div>
       </div>

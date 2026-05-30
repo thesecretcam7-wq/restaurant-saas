@@ -61,13 +61,13 @@ export default function TenantAccessGuard({
             <CreditCard className="size-4" />
             Ver planes
           </Link>
-          <a
-            href="mailto:support@eccofood.com"
+          <Link
+            href="/soporte"
             className="inline-flex h-12 items-center justify-center gap-2 rounded-xl border border-black/10 bg-white px-5 text-sm font-black text-[#15130f] transition hover:bg-black/5"
           >
             <Mail className="size-4" />
             Soporte
-          </a>
+          </Link>
         </div>
       </div>
     </div>
