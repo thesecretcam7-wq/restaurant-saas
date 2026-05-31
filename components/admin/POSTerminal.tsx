@@ -1751,7 +1751,13 @@ export function POSTerminal({
       if (!response.ok) throw new Error(`POS bootstrap failed: ${response.status}`);
 
       const data = await response.json();
-      setCategories(data.categories || []);
+      const loadedCategories: Category[] = data.categories || [];
+      setCategories(loadedCategories);
+      setSelectedCategory((current) =>
+        current && loadedCategories.some((category) => category.id === current)
+          ? current
+          : loadedCategories[0]?.id ?? null
+      );
       setMenu(data.menu || []);
       setAllTables(data.tables || []);
 
@@ -1873,7 +1879,7 @@ export function POSTerminal({
     setLoadedOrderIds([]);
     setBillingOrderIds([]);
     setPaymentMethod('cash');
-    setSelectedCategory(null);
+    setSelectedCategory(categories[0]?.id ?? null);
     setSearchQuery('');
     setSelectedTableId(null);
     setSelectedTableNumber(null);
@@ -2529,7 +2535,7 @@ export function POSTerminal({
       setLoadedOrderId(null);
       setLoadedOrderContext(null);
       setPaymentMethod('cash');
-      setSelectedCategory(null);
+      setSelectedCategory(categories[0]?.id ?? null);
       setSearchQuery('');
       setSelectedTableId(null);
       setSelectedTableNumber(null);
@@ -2569,7 +2575,7 @@ export function POSTerminal({
   }
 
   const filteredMenu = menu.filter((item) => {
-    const matchesCategory = !selectedCategory || item.category_id === selectedCategory;
+    const matchesCategory = selectedCategory ? item.category_id === selectedCategory : categories.length === 0;
     const matchesSearch = item.name.toLowerCase().includes(searchQuery.toLowerCase());
     return matchesCategory && matchesSearch;
   });
@@ -2640,7 +2646,8 @@ export function POSTerminal({
     };
 
     const selectCategoryByOffset = (offset: number) => {
-      const categoryIds = [null, ...categories.map((category) => category.id)];
+      const categoryIds = categories.map((category) => category.id);
+      if (categoryIds.length === 0) return;
       const currentIndex = categoryIds.findIndex((id) => id === selectedCategory);
       const nextIndex = (Math.max(0, currentIndex) + offset + categoryIds.length) % categoryIds.length;
       setSelectedCategory(categoryIds[nextIndex]);
@@ -3362,24 +3369,13 @@ export function POSTerminal({
           </div>
 
           {/* Categories - Sticky */}
-          <div className={`flex gap-2 overflow-x-auto pb-2 sticky z-10 border-b border-white/10 bg-black/24 backdrop-blur-xl scrollbar-none ${compactPOSLayout ? 'px-4 py-3' : 'px-4 py-2.5'}`}>
-            <button
-              onClick={() => setSelectedCategory(null)}
-              title="Alt + flechas cambia categorias"
-              className={`pos-chip px-4 py-2 transition-all duration-200 shrink-0 ${
-                selectedCategory === null
-                  ? 'border-cyan-300/60 bg-cyan-300/16 text-cyan-50 shadow-lg shadow-cyan-900/20'
-                  : 'hover:border-cyan-300/35 hover:text-white'
-              }`}
-            >
-              Todos
-            </button>
+          <div className={`sticky z-10 flex flex-wrap content-start items-center gap-2 border-b border-white/10 bg-black/24 pb-2 backdrop-blur-xl ${compactPOSLayout ? 'px-4 py-3' : 'px-4 py-2.5'}`}>
             {categories.map((cat) => (
               <button
                 key={cat.id}
                 onClick={() => setSelectedCategory(cat.id)}
                 title="Alt + flechas cambia categorias"
-                className={`pos-chip px-4 py-2 transition-all duration-200 shrink-0 ${
+                className={`pos-chip shrink-0 whitespace-nowrap px-4 py-2 transition-all duration-200 ${
                   selectedCategory === cat.id
                     ? 'border-cyan-300/60 bg-cyan-300/16 text-cyan-50 shadow-lg shadow-cyan-900/20'
                     : 'hover:border-cyan-300/35 hover:text-white'

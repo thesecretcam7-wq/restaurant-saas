@@ -193,7 +193,7 @@ export function PrinterDeviceCard({
                 Direccion del puente local
                 <input
                   type="text"
-                  value={device.config?.local_bridge_url || 'http://localhost:17777'}
+                  value={device.config?.local_bridge_url || 'http://127.0.0.1:17777'}
                   disabled={loading}
                   onChange={(event) => onConfigure({ local_bridge_url: event.target.value })}
                   className="mt-1 w-full rounded border border-gray-700 bg-gray-950 px-3 py-2 text-sm text-white"

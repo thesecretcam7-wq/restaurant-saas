@@ -41,11 +41,11 @@ Opcion desde navegador:
 1. Abre Chrome, Edge o Firefox en el mismo computador de la impresora.
 2. Escribe esta direccion:
 
-http://localhost:17777/ping
+http://127.0.0.1:17777/ping
 
 Tambien puede funcionar:
 
-http://127.0.0.1:17777/ping
+http://localhost:17777/ping
 
 3. Si ves una respuesta con "ok": true, el agente esta funcionando.
 
@@ -58,7 +58,7 @@ SI DICE QUE NO RESPONDE
 
 Valores recomendados en Eccofood:
 - Puente local sin vista previa: activo
-- Direccion: http://localhost:17777
+- Direccion: http://127.0.0.1:17777
 - Nombre impresora Windows: default
 - Abrir cajon al cobrar: activo
 

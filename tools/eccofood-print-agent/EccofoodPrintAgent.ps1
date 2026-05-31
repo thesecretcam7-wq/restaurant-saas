@@ -4,8 +4,8 @@ param(
 
 $ErrorActionPreference = "Stop"
 
-$AgentVersion = "1.1.3"
-$PrinterCacheTtlSeconds = 30
+$AgentVersion = "1.1.4"
+$PrinterCacheTtlSeconds = 300
 $script:DefaultPrinterCache = $null
 $script:DefaultPrinterCacheAt = [datetime]::MinValue
 $script:PrinterListCache = $null

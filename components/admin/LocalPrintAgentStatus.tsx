@@ -12,7 +12,26 @@ type AgentState = {
   url?: string | null
 }
 
-const AGENT_URLS = ['http://localhost:17777', 'http://127.0.0.1:17777']
+const AGENT_URLS = ['http://127.0.0.1:17777', 'http://localhost:17777']
+const AGENT_PING_TIMEOUT_MS = 750
+const AGENT_HEALTH_TIMEOUT_MS = 1200
+
+async function fetchAgentJson(url: string, path: string, timeoutMs: number) {
+  const controller = new AbortController()
+  const timeout = window.setTimeout(() => controller.abort(), timeoutMs)
+
+  try {
+    const response = await fetch(`${url}${path}`, {
+      signal: controller.signal,
+      cache: 'no-store',
+    })
+    const data = await response.json().catch(() => ({}))
+    if (!response.ok || data?.ok === false) throw new Error(data?.error || 'Sin respuesta valida')
+    return data
+  } finally {
+    window.clearTimeout(timeout)
+  }
+}
 
 export function LocalPrintAgentStatus() {
   const [state, setState] = useState<AgentState>({
@@ -24,48 +43,30 @@ export function LocalPrintAgentStatus() {
   async function checkAgent() {
     setState((current) => ({ ...current, loading: true }))
     try {
-      for (const url of AGENT_URLS) {
-        const controller = new AbortController()
-        const timeout = window.setTimeout(() => controller.abort(), 2500)
-        try {
-          const response = await fetch(`${url}/ping`, {
-            signal: controller.signal,
-            cache: 'no-store',
-          })
-          const data = await response.json().catch(() => ({}))
-          if (!response.ok || data?.ok === false) throw new Error(data?.error || 'Sin respuesta valida')
+      const agent = await Promise.any(
+        AGENT_URLS.map(async (url) => {
+          const data = await fetchAgentJson(url, '/ping', AGENT_PING_TIMEOUT_MS)
 
           let defaultPrinter = null
           try {
-            const healthController = new AbortController()
-            const healthTimeout = window.setTimeout(() => healthController.abort(), 4500)
-            const healthResponse = await fetch(`${url}/health`, {
-              signal: healthController.signal,
-              cache: 'no-store',
-            })
-            window.clearTimeout(healthTimeout)
-            const health = await healthResponse.json().catch(() => ({}))
-            if (healthResponse.ok && health?.ok !== false) {
-              defaultPrinter = health?.defaultPrinter || null
-            }
+            const health = await fetchAgentJson(url, '/health', AGENT_HEALTH_TIMEOUT_MS)
+            defaultPrinter = health?.defaultPrinter || null
           } catch {
             defaultPrinter = null
           }
 
-          setState({
-            ok: true,
-            loading: false,
-            message: 'Agente local activo en este computador',
-            defaultPrinter,
-            version: data?.version || null,
-            url,
-          })
-          return
-        } finally {
-          window.clearTimeout(timeout)
-        }
-      }
-      throw new Error('Sin respuesta valida')
+          return { url, data, defaultPrinter }
+        })
+      )
+
+      setState({
+        ok: true,
+        loading: false,
+        message: 'Agente local activo en este computador',
+        defaultPrinter: agent.defaultPrinter,
+        version: agent.data?.version || null,
+        url: agent.url,
+      })
     } catch {
       setState({
         ok: false,
