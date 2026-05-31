@@ -3496,7 +3496,7 @@ export function POSTerminal({
         </div>
 
         {/* Cart/Payment Section */}
-        <div className={`${compactPOSLayout ? 'h-[44dvh] min-h-0 overflow-hidden lg:h-auto lg:min-h-0 lg:w-[360px] xl:w-[380px] 2xl:w-[420px]' : 'min-h-[520px] flex-none overflow-y-auto pb-6 lg:min-h-0 lg:h-auto lg:w-80 lg:overflow-y-auto lg:pb-0'} pos-panel border-x-0 border-b-0 lg:border-y-0 lg:border-r-0 flex flex-col`}>
+        <div className={`${compactPOSLayout ? 'h-[44dvh] max-h-[44dvh] min-h-0 overflow-hidden lg:h-full lg:max-h-full lg:min-h-0 lg:w-[360px] xl:w-[380px] 2xl:w-[420px]' : 'min-h-[520px] flex-none overflow-hidden pb-6 lg:h-full lg:max-h-full lg:min-h-0 lg:w-80 lg:pb-0'} pos-panel border-x-0 border-b-0 lg:border-y-0 lg:border-r-0 flex flex-col`}>
           {/* Tabs: Guardar / Cart / Entregas / Salón */}
           <div className="border-b border-white/10 flex bg-black/20 backdrop-blur-xl">
             <button
@@ -3639,7 +3639,7 @@ export function POSTerminal({
 
           {/* Cart Content - Only show when not in any special panel */}
           {!showIncomingPanel && !showDineInPanel && !showFindPayPanel && (
-            <>
+            <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
               {loadedOrderId && (
                 <div className={`mx-2 mt-2 rounded-xl border px-3 py-2 flex items-center gap-2 ${
                   editingPaidReceipt
@@ -3768,7 +3768,7 @@ export function POSTerminal({
             )}
           </div>
 
-          <div className={`${compactPOSLayout ? 'shrink-0 border-t border-white/10' : ''}`}>
+              <div className={`${compactPOSLayout ? 'shrink-0 border-t border-white/10' : ''}`}>
           {/* Discount Code */}
               <div className={`border-b border-white/10 ${compactPOSLayout ? 'px-2 py-1' : 'px-2 py-1'} space-y-1 text-xs`}>
             <div className={compactPOSLayout ? 'grid grid-cols-[minmax(0,1fr)_112px] gap-1' : 'flex gap-1'}>
@@ -3931,7 +3931,7 @@ export function POSTerminal({
                       <span className="truncate">Domicilio</span>
                     </button>
                     {posOrderType === 'delivery' && deliveryOptions.length > 0 && (
-                      <div className="col-span-3 mt-1 grid grid-cols-2 gap-1 rounded-lg border border-amber-300/20 bg-amber-300/8 p-1">
+                      <div className="col-span-3 mt-1 grid max-h-24 grid-cols-2 gap-1 overflow-y-auto rounded-lg border border-amber-300/20 bg-amber-300/8 p-1 pr-1 [scrollbar-width:thin] [scrollbar-color:rgba(251,191,36,0.55)_rgba(15,23,42,0.35)]">
                         {deliveryOptions.map((zone) => {
                           const active = selectedDeliveryZone?.id === zone.id;
                           return (
@@ -4056,7 +4056,7 @@ export function POSTerminal({
                 )}
               </div>
           </div>
-            </>
+            </div>
           )}
 
           {/* Incoming Orders Panel */}
