@@ -2742,18 +2742,11 @@ export function POSTerminal({
         return;
       }
 
-      if (/^[1-9]$/.test(event.key)) {
-        const item = filteredMenu[Number(event.key) - 1];
-        if (item) {
-          event.preventDefault();
-          addToCart(item);
-        }
-      }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [categories, selectedCategory, filteredMenu, cart, paymentMethod, handleShowReceipt, openProductSearch, savedAccountButtonDisabled, handleSavedAccountButton]);
+  }, [categories, selectedCategory, cart, paymentMethod, handleShowReceipt, openProductSearch, savedAccountButtonDisabled, handleSavedAccountButton]);
 
   const nextReservationTime = todayReservations[0]?.reservation_time?.slice(0, 5) || null;
   const compactPOSLayout = true;
@@ -3389,13 +3382,13 @@ export function POSTerminal({
           {/* Menu Grid */}
           <div className={`flex-1 min-h-0 overflow-y-scroll overscroll-contain pr-1 [scrollbar-gutter:stable] [scrollbar-width:thin] [scrollbar-color:rgba(103,232,249,0.55)_rgba(15,23,42,0.45)] [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-cyan-300/45 [&::-webkit-scrollbar-track]:bg-white/5 ${compactPOSLayout ? 'px-4 py-3' : 'p-3 sm:p-4'}`}>
             <div className={`grid gap-3 h-fit ${compactPOSLayout ? 'grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-6' : 'grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6'}`}>
-              {filteredMenu.map((item, index) => {
+              {filteredMenu.map((item) => {
                 const qty = cartQuantityMap.get(item.id);
                 return (
                   <button
                     key={item.id}
                     onClick={() => addToCart(item)}
-                    title={index < 9 ? `Tecla ${index + 1}: agregar ${item.name}` : `Agregar ${item.name}`}
+                    title={`Agregar ${item.name}`}
                     className={`pos-card relative min-h-[164px] rounded-xl p-3 text-left transition-all duration-200 transform hover:scale-[1.025] active:scale-95 flex flex-col justify-between group ${
                       qty
                         ? 'border-2 border-cyan-300/70 bg-cyan-300/14 shadow-lg shadow-cyan-900/30'
@@ -3405,11 +3398,6 @@ export function POSTerminal({
                     {qty && (
                       <span className="absolute top-1.5 right-1.5 bg-cyan-400 text-slate-950 text-xs font-black w-5 h-5 rounded-full flex items-center justify-center z-10 shadow-md ring-2 ring-slate-950">
                         {qty}
-                      </span>
-                    )}
-                    {index < 9 && (
-                      <span className="absolute left-1.5 top-1.5 z-10 rounded-md border border-white/10 bg-black/55 px-1.5 py-0.5 text-[10px] font-black text-cyan-100">
-                        {index + 1}
                       </span>
                     )}
                     {item.image_url && (
@@ -3768,7 +3756,7 @@ export function POSTerminal({
             )}
           </div>
 
-              <div className={`${compactPOSLayout ? 'shrink-0 border-t border-white/10' : ''}`}>
+              <div className={`${compactPOSLayout ? 'min-h-0 flex-[0_1_auto] overflow-y-auto overscroll-contain border-t border-white/10 pb-2 [scrollbar-gutter:stable] [scrollbar-width:thin] [scrollbar-color:rgba(212,175,55,0.55)_rgba(15,23,42,0.35)]' : ''}`}>
           {/* Discount Code */}
               <div className={`border-b border-white/10 ${compactPOSLayout ? 'px-2 py-1' : 'px-2 py-1'} space-y-1 text-xs`}>
             <div className={compactPOSLayout ? 'grid grid-cols-[minmax(0,1fr)_112px] gap-1' : 'flex gap-1'}>
@@ -3963,7 +3951,7 @@ export function POSTerminal({
           )}
 
           {/* Payment Component */}
-              <div className={`${compactPOSLayout ? 'px-2 py-1' : 'px-2 pb-[calc(env(safe-area-inset-bottom)+1.25rem)] pt-1 lg:pb-1'}`}>
+              <div className={`${compactPOSLayout ? 'px-2 pb-2 pt-1' : 'px-2 pb-[calc(env(safe-area-inset-bottom)+1.25rem)] pt-1 lg:pb-1'}`}>
                 {editingPaidReceipt ? (
                   <div className="rounded-xl border border-cyan-300/30 bg-cyan-400/10 p-2">
                     <div className="mb-2 rounded-lg border border-white/10 bg-black/20 px-3 py-2 text-xs">

@@ -238,21 +238,23 @@ export function POSPayment({
       </div>
 
       {/* Botón Pagar */}
-      <button
-        onClick={() => onProceedPayment(paymentMethod === 'cash' ? cashAmountForPayment : undefined, printReceipt)}
-        disabled={disabled || loading || !isValidPayment}
-        className={`w-full ${compact ? 'min-h-11 py-2 text-sm' : 'py-4 text-lg'} rounded-xl font-black transition border ${
-          isValidPayment && !disabled && !loading
-            ? 'bg-[#D35A37] hover:bg-[#bd4d31] text-white border-[#D35A37]/40 shadow-lg shadow-black/24'
-            : 'bg-white/10 text-slate-500 border-white/10 cursor-not-allowed'
-        }`}
-      >
-        {loading
-          ? 'Procesando...'
-          : paymentMethod === 'cash' && !amountPaid
-            ? `PAGAR EXACTO ${formatPriceWithCurrency(totalWithTip, currencyInfo.code, currencyInfo.locale)}`
-            : `PAGAR ${formatPriceWithCurrency(totalWithTip, currencyInfo.code, currencyInfo.locale)}`}
-      </button>
+      <div className={compact ? 'sticky bottom-0 z-10 -mx-2 bg-[#070b12]/96 px-2 pb-1 pt-1 backdrop-blur-xl' : ''}>
+        <button
+          onClick={() => onProceedPayment(paymentMethod === 'cash' ? cashAmountForPayment : undefined, printReceipt)}
+          disabled={disabled || loading || !isValidPayment}
+          className={`w-full ${compact ? 'min-h-11 py-2 text-sm' : 'py-4 text-lg'} rounded-xl font-black transition border ${
+            isValidPayment && !disabled && !loading
+              ? 'bg-[#D35A37] hover:bg-[#bd4d31] text-white border-[#D35A37]/40 shadow-lg shadow-black/24'
+              : 'bg-white/10 text-slate-500 border-white/10 cursor-not-allowed'
+          }`}
+        >
+          {loading
+            ? 'Procesando...'
+            : paymentMethod === 'cash' && !amountPaid
+              ? `PAGAR EXACTO ${formatPriceWithCurrency(totalWithTip, currencyInfo.code, currencyInfo.locale)}`
+              : `PAGAR ${formatPriceWithCurrency(totalWithTip, currencyInfo.code, currencyInfo.locale)}`}
+        </button>
+      </div>
 
       {paymentMethod === 'cash' && paidAmount && change < 0 && (
         <p className="text-xs text-red-400 text-center">El monto no es suficiente</p>
