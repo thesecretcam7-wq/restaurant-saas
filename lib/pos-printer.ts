@@ -48,9 +48,16 @@ const getSupabase = () => {
 };
 
 const LOCAL_BRIDGE_PRINT_TIMEOUT_MS = 3000;
-const LOCAL_BRIDGE_PROBE_TIMEOUT_MS = 750;
 const LOCAL_BRIDGE_DEFAULT_URLS = ['http://127.0.0.1:17777', 'http://localhost:17777'];
+const LOCAL_BRIDGE_URL_CACHE_KEY = 'eccofood-local-print-bridge-url';
 let lastWorkingBridgeUrl: string | null = null;
+
+class LocalBridgeRequestError extends Error {
+  constructor(message: string, public retryable: boolean) {
+    super(message);
+    this.name = 'LocalBridgeRequestError';
+  }
+}
 
 function getCachedPrinterKey(tenantId: string, printerId: string) {
   return `eccofood-printer-${tenantId}-${printerId}`;
@@ -153,15 +160,50 @@ function normalizeBridgeUrl(url: string | null | undefined) {
   return (url || LOCAL_BRIDGE_DEFAULT_URLS[0]).replace(/\/$/, '');
 }
 
+function getStoredBridgeUrl() {
+  if (typeof window === 'undefined') return null;
+  try {
+    const stored = localStorage.getItem(LOCAL_BRIDGE_URL_CACHE_KEY);
+    return stored ? normalizeBridgeUrl(stored) : null;
+  } catch {
+    return null;
+  }
+}
+
+function rememberWorkingBridgeUrl(bridgeUrl: string) {
+  lastWorkingBridgeUrl = bridgeUrl;
+  if (typeof window === 'undefined') return;
+  try {
+    localStorage.setItem(LOCAL_BRIDGE_URL_CACHE_KEY, bridgeUrl);
+  } catch {}
+}
+
+function forgetWorkingBridgeUrl(bridgeUrl: string) {
+  if (lastWorkingBridgeUrl === bridgeUrl) lastWorkingBridgeUrl = null;
+  if (typeof window === 'undefined') return;
+  try {
+    if (normalizeBridgeUrl(localStorage.getItem(LOCAL_BRIDGE_URL_CACHE_KEY)) === bridgeUrl) {
+      localStorage.removeItem(LOCAL_BRIDGE_URL_CACHE_KEY);
+    }
+  } catch {}
+}
+
 function getBridgeUrl(printer: PrinterDevice) {
   return normalizeBridgeUrl(printer.config?.local_bridge_url);
 }
 
 function getBridgeUrls(printer: PrinterDevice) {
   const configured = getBridgeUrl(printer);
+  const configuredIsDefault = LOCAL_BRIDGE_DEFAULT_URLS.map(normalizeBridgeUrl).includes(configured);
   return Array.from(
     new Set(
-      [lastWorkingBridgeUrl, configured, ...LOCAL_BRIDGE_DEFAULT_URLS]
+      [
+        lastWorkingBridgeUrl,
+        getStoredBridgeUrl(),
+        configuredIsDefault ? LOCAL_BRIDGE_DEFAULT_URLS[0] : configured,
+        ...LOCAL_BRIDGE_DEFAULT_URLS,
+        configured,
+      ]
         .filter((url): url is string => Boolean(url))
         .map(normalizeBridgeUrl)
     )
@@ -178,37 +220,6 @@ function canUseBrowserPrintFallback(printer: PrinterDevice) {
 
 function getLocalBridgeError(printer: PrinterDevice) {
   return `No se encontro el puente local de Eccofood en este computador (${getBridgeUrls(printer).join(' o ')}). Revisa Estado-EccofoodPrint o reinstala el agente como administrador.`;
-}
-
-async function probeLocalBridge(bridgeUrl: string): Promise<string> {
-  const controller = new AbortController();
-  const timeout = window.setTimeout(() => controller.abort(), LOCAL_BRIDGE_PROBE_TIMEOUT_MS);
-
-  try {
-    const response = await fetch(`${bridgeUrl}/print`, {
-      method: 'OPTIONS',
-      cache: 'no-store',
-      signal: controller.signal,
-    });
-
-    if (!response.ok) {
-      throw new Error(`Respuesta ${response.status}`);
-    }
-
-    return bridgeUrl;
-  } finally {
-    window.clearTimeout(timeout);
-  }
-}
-
-async function getAvailableBridgeUrl(printer: PrinterDevice): Promise<string> {
-  try {
-    const bridgeUrl = await Promise.any(getBridgeUrls(printer).map(probeLocalBridge));
-    lastWorkingBridgeUrl = bridgeUrl;
-    return bridgeUrl;
-  } catch {
-    throw new Error(getLocalBridgeError(printer));
-  }
 }
 
 async function postToLocalBridge(bridgeUrl: string, printer: PrinterDevice, data: Uint8Array): Promise<void> {
@@ -229,27 +240,39 @@ async function postToLocalBridge(bridgeUrl: string, printer: PrinterDevice, data
     });
   } catch (error) {
     if (error instanceof DOMException && error.name === 'AbortError') {
-      throw new Error('El puente local no respondio a tiempo. Revisa que el agente este activo y la impresora no este bloqueada en Windows.');
+      throw new LocalBridgeRequestError('El puente local no respondio a tiempo. Revisa que el agente este activo y la impresora no este bloqueada en Windows.', true);
     }
-    throw error;
+    throw new LocalBridgeRequestError(error instanceof Error ? error.message : String(error), true);
   } finally {
     window.clearTimeout(timeout);
   }
 
   const payload = await response.json().catch(() => ({}));
   if (!response.ok || payload?.ok === false) {
-    throw new Error(payload?.error || 'No se pudo imprimir con el puente local');
+    const message = payload?.error || 'No se pudo imprimir con el puente local';
+    throw new LocalBridgeRequestError(message, response.status === 404);
   }
 }
 
 async function printViaLocalBridge(printer: PrinterDevice, data: Uint8Array): Promise<void> {
-  const bridgeUrl = await getAvailableBridgeUrl(printer);
-  try {
-    await postToLocalBridge(bridgeUrl, printer, data);
-    lastWorkingBridgeUrl = bridgeUrl;
-  } catch (error) {
-    throw new Error(`${bridgeUrl}: ${error instanceof Error ? error.message : String(error)}`);
+  const errors: string[] = [];
+
+  for (const bridgeUrl of getBridgeUrls(printer)) {
+    try {
+      await postToLocalBridge(bridgeUrl, printer, data);
+      rememberWorkingBridgeUrl(bridgeUrl);
+      return;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      errors.push(`${bridgeUrl}: ${message}`);
+      if (error instanceof LocalBridgeRequestError && !error.retryable) {
+        throw new Error(errors[errors.length - 1]);
+      }
+      forgetWorkingBridgeUrl(bridgeUrl);
+    }
   }
+
+  throw new Error(errors[0] || getLocalBridgeError(printer));
 }
 
 /**
