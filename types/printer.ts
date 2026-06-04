@@ -129,6 +129,46 @@ export interface MonthlyClosingReceiptData {
   transactionCount: number;
   ordersCompleted: number;
   ordersCancelled: number;
+  totalItemsSold?: number;
+  averageTicket?: number;
+  averageItemsPerOrder?: number;
+  firstOrderAt?: string | null;
+  lastOrderAt?: string | null;
+  bestSalesDay?: {
+    date: string;
+    orders: number;
+    total: number;
+  } | null;
+  peakHour?: {
+    hour: number;
+    label: string;
+    orders: number;
+    total: number;
+  } | null;
+  productSales?: Array<{
+    menuItemId?: string | null;
+    name: string;
+    quantity: number;
+    revenue: number;
+    orderCount?: number;
+  }>;
+  paymentBreakdown?: Array<{
+    method: string;
+    label: string;
+    count: number;
+    total: number;
+  }>;
+  orderTypeBreakdown?: Array<{
+    type: string;
+    label: string;
+    count: number;
+    total: number;
+  }>;
+  dailySales?: Array<{
+    date: string;
+    orders: number;
+    total: number;
+  }>;
   notes?: string | null;
   currencyInfo: {
     code: string;

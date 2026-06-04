@@ -31,7 +31,56 @@ interface CashClosing {
   notes?: string | null
 }
 
-interface MonthlyStats {
+interface MonthlyProductSale {
+  menuItemId?: string | null
+  name: string
+  quantity: number
+  revenue: number
+  orderCount?: number
+}
+
+interface MonthlyPaymentBreakdown {
+  method: string
+  label: string
+  count: number
+  total: number
+}
+
+interface MonthlyOrderTypeBreakdown {
+  type: string
+  label: string
+  count: number
+  total: number
+}
+
+interface MonthlyDailySale {
+  date: string
+  orders: number
+  total: number
+}
+
+interface MonthlyPeakHour {
+  hour: number
+  label: string
+  orders: number
+  total: number
+}
+
+interface MonthlyReportDetails {
+  totalItemsSold: number
+  averageTicket: number
+  averageItemsPerOrder: number
+  firstOrderAt: string | null
+  lastOrderAt: string | null
+  bestSalesDay: MonthlyDailySale | null
+  peakHour: MonthlyPeakHour | null
+  productSales: MonthlyProductSale[]
+  paymentBreakdown: MonthlyPaymentBreakdown[]
+  orderTypeBreakdown: MonthlyOrderTypeBreakdown[]
+  dailySales: MonthlyDailySale[]
+}
+
+interface MonthlyStats extends MonthlyReportDetails {
   periodYear: number
   periodMonth: number
   monthLabel: string
@@ -68,6 +117,7 @@ interface MonthlyClosing {
   transaction_count: number
   orders_completed: number
   orders_cancelled: number
+  report_details?: Partial<MonthlyReportDetails> | null
   notes?: string | null
   closed_at: string
 }
@@ -83,6 +133,27 @@ function chunkArray<T>(values: T[], size: number) {
     chunks.push(values.slice(index, index + size))
   }
   return chunks
+}
+
+function normalizeMonthlyReportDetails(details: Partial<MonthlyReportDetails> | null | undefined): MonthlyReportDetails {
+  return {
+    totalItemsSold: Number(details?.totalItemsSold) || 0,
+    averageTicket: Number(details?.averageTicket) || 0,
+    averageItemsPerOrder: Number(details?.averageItemsPerOrder) || 0,
+    firstOrderAt: details?.firstOrderAt || null,
+    lastOrderAt: details?.lastOrderAt || null,
+    bestSalesDay: details?.bestSalesDay || null,
+    peakHour: details?.peakHour || null,
+    productSales: Array.isArray(details?.productSales) ? details.productSales : [],
+    paymentBreakdown: Array.isArray(details?.paymentBreakdown) ? details.paymentBreakdown : [],
+    orderTypeBreakdown: Array.isArray(details?.orderTypeBreakdown) ? details.orderTypeBreakdown : [],
+    dailySales: Array.isArray(details?.dailySales) ? details.dailySales : [],
+  }
+}
+
+function formatQuantity(value: number) {
+  const numberValue = Number(value) || 0
+  return Number.isInteger(numberValue) ? String(numberValue) : numberValue.toFixed(2)
 }
 
 export default function CashClosingsPage() {
@@ -342,6 +413,7 @@ export default function CashClosingsPage() {
 
   function monthlyClosingToStats(closing: MonthlyClosing): MonthlyStats {
     const monthDate = new Date(Date.UTC(closing.period_year, closing.period_month - 1, 1, 12, 0, 0))
+    const details = normalizeMonthlyReportDetails(closing.report_details)
     return {
       periodYear: closing.period_year,
       periodMonth: closing.period_month,
@@ -359,6 +431,7 @@ export default function CashClosingsPage() {
       transactionCount: Number(closing.transaction_count) || 0,
       ordersCompleted: Number(closing.orders_completed) || 0,
       ordersCancelled: Number(closing.orders_cancelled) || 0,
+      ...details,
     }
   }
 
@@ -423,6 +496,17 @@ export default function CashClosingsPage() {
         transactionCount: stats.transactionCount,
         ordersCompleted: stats.ordersCompleted,
         ordersCancelled: stats.ordersCancelled,
+        totalItemsSold: stats.totalItemsSold,
+        averageTicket: stats.averageTicket,
+        averageItemsPerOrder: stats.averageItemsPerOrder,
+        firstOrderAt: stats.firstOrderAt,
+        lastOrderAt: stats.lastOrderAt,
+        bestSalesDay: stats.bestSalesDay,
+        peakHour: stats.peakHour,
+        productSales: stats.productSales,
+        paymentBreakdown: stats.paymentBreakdown,
+        orderTypeBreakdown: stats.orderTypeBreakdown,
+        dailySales: stats.dailySales,
         notes: closing?.notes || null,
         currencyInfo,
       })
@@ -644,12 +728,14 @@ export default function CashClosingsPage() {
 
         {monthlyStats ? (
           <div className="p-5">
-            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-6">
               {[
                 ['Mes', monthlyStats.monthLabel],
                 ['Total ventas', formatPriceWithCurrency(monthlyStats.totalSales, currencyInfo.code, currencyInfo.locale)],
                 ['Transacciones', monthlyStats.transactionCount.toString()],
-                ['Domicilios', formatPriceWithCurrency(monthlyStats.totalDeliveryFees, currencyInfo.code, currencyInfo.locale)],
+                ['Unidades', formatQuantity(monthlyStats.totalItemsSold)],
+                ['Ticket prom.', formatPriceWithCurrency(monthlyStats.averageTicket, currencyInfo.code, currencyInfo.locale)],
+                ['Domicilios', `${formatPriceWithCurrency(monthlyStats.totalDeliveryFees, currencyInfo.code, currencyInfo.locale)} (${monthlyStats.deliveryOrderCount})`],
               ].map(([label, value]) => (
                 <article key={label} className="rounded-xl border border-black/10 bg-white/70 p-4">
                   <p className="text-xs font-black uppercase text-black/42">{label}</p>
@@ -669,6 +755,10 @@ export default function CashClosingsPage() {
                     ['Impuestos', formatPriceWithCurrency(monthlyStats.totalTax, currencyInfo.code, currencyInfo.locale)],
                     ['Pedidos cobrados', monthlyStats.ordersCompleted.toString()],
                     ['Pedidos domicilio', monthlyStats.deliveryOrderCount.toString()],
+                    ['Unidades vendidas', formatQuantity(monthlyStats.totalItemsSold)],
+                    ['Unidades por pedido', formatQuantity(monthlyStats.averageItemsPerOrder)],
+                    ['Mejor dia', monthlyStats.bestSalesDay ? `${monthlyStats.bestSalesDay.date} - ${formatPriceWithCurrency(monthlyStats.bestSalesDay.total, currencyInfo.code, currencyInfo.locale)}` : 'Sin datos'],
+                    ['Hora pico', monthlyStats.peakHour ? `${monthlyStats.peakHour.label} - ${formatPriceWithCurrency(monthlyStats.peakHour.total, currencyInfo.code, currencyInfo.locale)}` : 'Sin datos'],
                   ].map(([label, value]) => (
                     <div key={label} className="flex items-center justify-between gap-3 border-b border-black/8 py-2 text-sm">
                       <span className="font-bold text-black/55">{label}</span>
@@ -701,6 +791,92 @@ export default function CashClosingsPage() {
                   </button>
                 </div>
               </div>
+            </div>
+
+            <div className="mt-4 grid gap-4 xl:grid-cols-[1fr_1fr_1.4fr]">
+              <div className="rounded-xl border border-black/10 bg-white/70 p-4">
+                <h3 className="font-black text-[#15130f]">Formas de pago</h3>
+                <div className="mt-3 space-y-2">
+                  {monthlyStats.paymentBreakdown.length > 0 ? monthlyStats.paymentBreakdown.map(item => (
+                    <div key={item.method || item.label} className="flex items-center justify-between gap-3 border-b border-black/8 py-2 text-sm">
+                      <span className="font-bold text-black/55">{item.label} ({item.count})</span>
+                      <strong className="text-right text-[#15130f]">{formatPriceWithCurrency(item.total, currencyInfo.code, currencyInfo.locale)}</strong>
+                    </div>
+                  )) : (
+                    <p className="text-sm font-semibold text-black/45">Sin ventas cobradas.</p>
+                  )}
+                </div>
+              </div>
+
+              <div className="rounded-xl border border-black/10 bg-white/70 p-4">
+                <h3 className="font-black text-[#15130f]">Tipos de pedido</h3>
+                <div className="mt-3 space-y-2">
+                  {monthlyStats.orderTypeBreakdown.length > 0 ? monthlyStats.orderTypeBreakdown.map(item => (
+                    <div key={item.type || item.label} className="flex items-center justify-between gap-3 border-b border-black/8 py-2 text-sm">
+                      <span className="font-bold text-black/55">{item.label} ({item.count})</span>
+                      <strong className="text-right text-[#15130f]">{formatPriceWithCurrency(item.total, currencyInfo.code, currencyInfo.locale)}</strong>
+                    </div>
+                  )) : (
+                    <p className="text-sm font-semibold text-black/45">Sin pedidos cobrados.</p>
+                  )}
+                </div>
+              </div>
+
+              <div className="rounded-xl border border-black/10 bg-white/70 p-4">
+                <h3 className="font-black text-[#15130f]">Dias del mes</h3>
+                <div className="mt-3 max-h-56 overflow-y-auto pr-1">
+                  {monthlyStats.dailySales.length > 0 ? monthlyStats.dailySales.map(day => (
+                    <div key={day.date} className="grid grid-cols-[1fr_auto_auto] gap-3 border-b border-black/8 py-2 text-sm">
+                      <span className="font-bold text-black/55">{day.date}</span>
+                      <span className="font-bold text-black/45">{day.orders} ped.</span>
+                      <strong className="text-right text-[#15130f]">{formatPriceWithCurrency(day.total, currencyInfo.code, currencyInfo.locale)}</strong>
+                    </div>
+                  )) : (
+                    <p className="text-sm font-semibold text-black/45">Sin dias con ventas cobradas.</p>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-4 rounded-xl border border-black/10 bg-white/70 p-4">
+              <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
+                <div>
+                  <h3 className="font-black text-[#15130f]">Productos vendidos</h3>
+                  <p className="mt-1 text-sm font-semibold text-black/55">
+                    Cada producto vendido en el mes con unidades, pedidos donde aparecio y valor generado.
+                  </p>
+                </div>
+                <p className="text-sm font-black text-[#15130f]">
+                  {monthlyStats.productSales.length} producto{monthlyStats.productSales.length === 1 ? '' : 's'}
+                </p>
+              </div>
+
+              {monthlyStats.productSales.length > 0 ? (
+                <div className="mt-4 max-h-96 overflow-y-auto rounded-xl border border-black/8">
+                  <table className="w-full text-sm">
+                    <thead className="sticky top-0 bg-white">
+                      <tr>
+                        <th className="px-4 py-3 text-left">Producto</th>
+                        <th className="px-4 py-3 text-right">Unidades</th>
+                        <th className="px-4 py-3 text-right">Pedidos</th>
+                        <th className="px-4 py-3 text-right">Valor</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-black/8">
+                      {monthlyStats.productSales.map(product => (
+                        <tr key={product.menuItemId || product.name}>
+                          <td className="px-4 py-3 font-black text-[#15130f]">{product.name}</td>
+                          <td className="px-4 py-3 text-right font-bold text-black/64">{formatQuantity(product.quantity)}</td>
+                          <td className="px-4 py-3 text-right font-bold text-black/64">{product.orderCount || 0}</td>
+                          <td className="px-4 py-3 text-right font-black text-[#15130f]">{formatPriceWithCurrency(product.revenue, currencyInfo.code, currencyInfo.locale)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <div className="admin-empty mt-4">No hay productos vendidos en este mes.</div>
+              )}
             </div>
 
             {monthlyClosings.length > 0 && (

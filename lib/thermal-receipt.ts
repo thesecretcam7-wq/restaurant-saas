@@ -405,6 +405,10 @@ export function generateMonthlyClosingReceiptESCPOS(
     const cleanLabel = label.substring(0, Math.max(1, cols - value.length - 1));
     line(padR(cleanLabel, cols - value.length) + value);
   };
+  const qty = (value: number | undefined) => {
+    const numberValue = Number(value) || 0;
+    return Number.isInteger(numberValue) ? String(numberValue) : numberValue.toFixed(2);
+  };
   const ts = data.closedAt ? new Date(data.closedAt) : new Date();
   const periodStart = new Date(data.periodStart);
   const periodEnd = new Date(data.periodEnd);
@@ -447,6 +451,53 @@ row('Cobradas:', String(data.ordersCompleted));
   push(BOLD_ON, SIZE_WIDE);
   row('TOTAL MES:', money(data.totalSales));
   push(BOLD_OFF, SIZE_NORMAL);
+
+  sep();
+  push(BOLD_ON);
+  line('INDICADORES');
+  push(BOLD_OFF);
+  row('Ticket prom.:', money(data.averageTicket || 0));
+  row('Unidades vend.:', qty(data.totalItemsSold));
+  row('Und. por pedido:', qty(data.averageItemsPerOrder));
+  if (data.bestSalesDay) {
+    row('Mejor dia:', data.bestSalesDay.date);
+    row('Venta dia:', money(data.bestSalesDay.total));
+  }
+  if (data.peakHour) {
+    row('Hora pico:', data.peakHour.label);
+    row('Venta hora:', money(data.peakHour.total));
+  }
+
+  if (data.paymentBreakdown?.length) {
+    sep();
+    push(BOLD_ON);
+    line('FORMAS DE PAGO');
+    push(BOLD_OFF);
+    data.paymentBreakdown.forEach((item) => {
+      row(`${item.label} (${item.count})`, money(item.total));
+    });
+  }
+
+  if (data.orderTypeBreakdown?.length) {
+    sep();
+    push(BOLD_ON);
+    line('TIPOS DE PEDIDO');
+    push(BOLD_OFF);
+    data.orderTypeBreakdown.forEach((item) => {
+      row(`${item.label} (${item.count})`, money(item.total));
+    });
+  }
+
+  if (data.productSales?.length) {
+    sep();
+    push(BOLD_ON);
+    line('PRODUCTOS VENDIDOS');
+    push(BOLD_OFF);
+    data.productSales.forEach((product) => {
+      line(product.name.substring(0, cols));
+      row(`${qty(product.quantity)} und`, money(product.revenue));
+    });
+  }
 
   if (data.notes) {
     sep();

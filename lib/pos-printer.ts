@@ -695,6 +695,10 @@ function printMonthlyClosingViaBrowserAPI(data: MonthlyClosingReceiptData): void
   try {
     const money = (amount: number) =>
       formatPriceWithCurrency(amount, data.currencyInfo.code, data.currencyInfo.locale);
+    const qty = (amount: number | undefined) => {
+      const value = Number(amount) || 0;
+      return Number.isInteger(value) ? String(value) : value.toFixed(2);
+    };
     const safe = (value: string | number | null | undefined) =>
       String(value ?? '')
         .replaceAll('&', '&amp;')
@@ -702,6 +706,17 @@ function printMonthlyClosingViaBrowserAPI(data: MonthlyClosingReceiptData): void
         .replaceAll('>', '&gt;')
         .replaceAll('"', '&quot;')
         .replaceAll("'", '&#39;');
+    const breakdownRows = (items: Array<{ label: string; count: number; total: number }> = []) =>
+      items.map((item) => `
+        <div class="line"><span>${safe(item.label)} (${safe(item.count)})</span><strong>${money(item.total)}</strong></div>
+      `).join('');
+    const productRows = (data.productSales || []).map((product) => `
+      <tr>
+        <td>${safe(product.name)}</td>
+        <td style="text-align:right">${safe(qty(product.quantity))}</td>
+        <td style="text-align:right">${money(product.revenue)}</td>
+      </tr>
+    `).join('');
     const html = `
       <html>
         <head>
@@ -711,9 +726,13 @@ function printMonthlyClosingViaBrowserAPI(data: MonthlyClosingReceiptData): void
             .receipt{max-width:300px;margin:0 auto}
             h1{font-size:18px;text-align:center;margin:0 0 4px}
             h2{font-size:16px;text-align:center;margin:8px 0 12px}
+            h3{font-size:13px;margin:14px 0 6px;border-top:1px solid #111;padding-top:8px}
             .meta{text-align:center;font-size:12px;color:#555;margin-bottom:12px}
             .line{display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px dashed #ddd;font-size:13px}
             .total{font-size:16px;font-weight:800;border-top:2px solid #111;margin-top:8px;padding-top:8px}
+            table{width:100%;border-collapse:collapse;font-size:11px}
+            th,td{border-bottom:1px dashed #ddd;padding:4px 0;vertical-align:top}
+            th{text-align:left;color:#555}
             @media print{body{padding:0}.receipt{max-width:none;width:72mm}}
           </style>
         </head>
@@ -735,6 +754,21 @@ function printMonthlyClosingViaBrowserAPI(data: MonthlyClosingReceiptData): void
             <div class="line"><span>Impuestos</span><strong>${money(data.totalTax)}</strong></div>
             <div class="line"><span>Transacciones</span><strong>${data.transactionCount}</strong></div>
             <div class="line total"><span>Total mes</span><strong>${money(data.totalSales)}</strong></div>
+            <h3>Indicadores</h3>
+            <div class="line"><span>Ticket promedio</span><strong>${money(data.averageTicket || 0)}</strong></div>
+            <div class="line"><span>Unidades vendidas</span><strong>${safe(qty(data.totalItemsSold))}</strong></div>
+            <div class="line"><span>Unid. por pedido</span><strong>${safe(qty(data.averageItemsPerOrder))}</strong></div>
+            ${data.bestSalesDay ? `<div class="line"><span>Mejor dia</span><strong>${safe(data.bestSalesDay.date)} ${money(data.bestSalesDay.total)}</strong></div>` : ''}
+            ${data.peakHour ? `<div class="line"><span>Hora pico</span><strong>${safe(data.peakHour.label)} ${money(data.peakHour.total)}</strong></div>` : ''}
+            ${data.paymentBreakdown?.length ? `<h3>Formas de pago</h3>${breakdownRows(data.paymentBreakdown)}` : ''}
+            ${data.orderTypeBreakdown?.length ? `<h3>Tipos de pedido</h3>${breakdownRows(data.orderTypeBreakdown)}` : ''}
+            ${productRows ? `
+              <h3>Productos vendidos</h3>
+              <table>
+                <thead><tr><th>Producto</th><th style="text-align:right">Und</th><th style="text-align:right">Valor</th></tr></thead>
+                <tbody>${productRows}</tbody>
+              </table>
+            ` : ''}
           </div>
           <script>window.onload=()=>{window.print();setTimeout(()=>window.close(),500)}</script>
         </body>

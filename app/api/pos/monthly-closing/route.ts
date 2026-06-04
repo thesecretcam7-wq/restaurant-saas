@@ -73,6 +73,37 @@ function monthBounds(year: number, month: number, timeZone: string) {
   return { start: start.toISOString(), end: end.toISOString() };
 }
 
+function localDateKey(dateValue: string | null | undefined, timeZone: string) {
+  if (!dateValue) return 'sin-fecha';
+  const parts = getZonedParts(new Date(dateValue), timeZone);
+  return `${parts.year}-${String(parts.month).padStart(2, '0')}-${String(parts.day).padStart(2, '0')}`;
+}
+
+function localHour(dateValue: string | null | undefined, timeZone: string) {
+  if (!dateValue) return 0;
+  return getZonedParts(new Date(dateValue), timeZone).hour || 0;
+}
+
+function orderTypeLabel(type: string) {
+  if (type === 'delivery') return 'Domicilio';
+  if (type === 'pickup') return 'Para recoger';
+  if (type === 'dine-in') return 'Salon / mesa';
+  if (type === 'takeaway') return 'Para llevar';
+  return type || 'Sin tipo';
+}
+
+function paymentMethodLabel(method: string) {
+  if (method === 'cash') return 'Efectivo';
+  if (method === 'stripe' || method === 'card') return 'Tarjeta';
+  if (method === 'wompi') return 'Wompi';
+  return method || 'Otro';
+}
+
+function getOrderItemQuantity(item: any) {
+  const quantity = Number(item?.qty ?? item?.quantity ?? 1);
+  return Number.isFinite(quantity) && quantity > 0 ? quantity : 1;
+}
+
 function statsFromOrders(args: {
   orders: any[];
   year: number;
@@ -80,7 +111,26 @@ function statsFromOrders(args: {
   periodStart: string;
   periodEnd: string;
   locale: string;
+  timeZone: string;
 }) {
+  const countableOrders = args.orders.filter((order) =>
+    order.status !== 'cancelled' && order.payment_status === 'paid'
+  );
+  const productSalesMap = new Map<string, {
+    menuItemId: string | null;
+    name: string;
+    quantity: number;
+    revenue: number;
+    orderCount: number;
+  }>();
+  const paymentBreakdownMap = new Map<string, { method: string; label: string; count: number; total: number }>();
+  const orderTypeBreakdownMap = new Map<string, { type: string; label: string; count: number; total: number }>();
+  const dailySalesMap = new Map<string, { date: string; orders: number; total: number }>();
+  const hourlySalesMap = new Map<number, { hour: number; orders: number; total: number }>();
+  let totalItemsSold = 0;
+  let firstOrderAt: string | null = null;
+  let lastOrderAt: string | null = null;
+
   const stats = {
     periodYear: args.year,
     periodMonth: args.month,
@@ -95,20 +145,45 @@ function statsFromOrders(args: {
     deliveryOrderCount: 0,
     totalTax: 0,
     totalDiscount: 0,
-    transactionCount: args.orders.length,
-    ordersCompleted: args.orders.length,
+    transactionCount: countableOrders.length,
+    ordersCompleted: countableOrders.length,
     ordersCancelled: 0,
+    totalItemsSold: 0,
+    averageTicket: 0,
+    averageItemsPerOrder: 0,
+    firstOrderAt: null as string | null,
+    lastOrderAt: null as string | null,
+    bestSalesDay: null as { date: string; orders: number; total: number } | null,
+    peakHour: null as { hour: number; label: string; orders: number; total: number } | null,
+    productSales: [] as Array<{
+      menuItemId: string | null;
+      name: string;
+      quantity: number;
+      revenue: number;
+      orderCount: number;
+    }>,
+    paymentBreakdown: [] as Array<{ method: string; label: string; count: number; total: number }>,
+    orderTypeBreakdown: [] as Array<{ type: string; label: string; count: number; total: number }>,
+    dailySales: [] as Array<{ date: string; orders: number; total: number }>,
   };
 
   args.orders.forEach((order) => {
+    if (order.status === 'cancelled') {
+      stats.ordersCancelled++;
+    }
+  });
+
+  countableOrders.forEach((order) => {
     const total = Number(order.total) || 0;
     const tax = Number(order.tax ?? order.tax_amount) || 0;
     const discount = Number(order.discount_amount) || 0;
     const deliveryFee = Number(order.delivery_fee) || 0;
+    const paymentMethod = String(order.payment_method || 'other');
+    const orderType = String(order.delivery_type || 'takeaway');
 
-    if (order.payment_method === 'cash') {
+    if (paymentMethod === 'cash') {
       stats.cashSales += total;
-    } else if (order.payment_method === 'stripe' || order.payment_method === 'card' || order.payment_method === 'wompi') {
+    } else if (paymentMethod === 'stripe' || paymentMethod === 'card' || paymentMethod === 'wompi') {
       stats.cardSales += total;
     } else {
       stats.otherSales += total;
@@ -122,10 +197,93 @@ function statsFromOrders(args: {
     if (order.delivery_type === 'delivery' || deliveryFee > 0) {
       stats.deliveryOrderCount++;
     }
-    if (order.status === 'cancelled') {
-      stats.ordersCancelled++;
+
+    const paymentSummary = paymentBreakdownMap.get(paymentMethod) || {
+      method: paymentMethod,
+      label: paymentMethodLabel(paymentMethod),
+      count: 0,
+      total: 0,
+    };
+    paymentSummary.count += 1;
+    paymentSummary.total += total;
+    paymentBreakdownMap.set(paymentMethod, paymentSummary);
+
+    const orderTypeSummary = orderTypeBreakdownMap.get(orderType) || {
+      type: orderType,
+      label: orderTypeLabel(orderType),
+      count: 0,
+      total: 0,
+    };
+    orderTypeSummary.count += 1;
+    orderTypeSummary.total += total;
+    orderTypeBreakdownMap.set(orderType, orderTypeSummary);
+
+    const dateKey = localDateKey(order.created_at, args.timeZone);
+    const dailySummary = dailySalesMap.get(dateKey) || { date: dateKey, orders: 0, total: 0 };
+    dailySummary.orders += 1;
+    dailySummary.total += total;
+    dailySalesMap.set(dateKey, dailySummary);
+
+    const hour = localHour(order.created_at, args.timeZone);
+    const hourlySummary = hourlySalesMap.get(hour) || { hour, orders: 0, total: 0 };
+    hourlySummary.orders += 1;
+    hourlySummary.total += total;
+    hourlySalesMap.set(hour, hourlySummary);
+
+    if (order.created_at) {
+      if (!firstOrderAt || new Date(order.created_at) < new Date(firstOrderAt)) firstOrderAt = order.created_at;
+      if (!lastOrderAt || new Date(order.created_at) > new Date(lastOrderAt)) lastOrderAt = order.created_at;
+    }
+
+    if (Array.isArray(order.items)) {
+      const orderProductKeys = new Set<string>();
+      order.items.forEach((item: any) => {
+        const quantity = getOrderItemQuantity(item);
+        const price = Number(item?.price) || 0;
+        const name = String(item?.name || 'Producto sin nombre').trim() || 'Producto sin nombre';
+        const menuItemId = item?.menu_item_id || item?.item_id || item?.id || null;
+        const key = menuItemId || name.toLowerCase();
+        const current = productSalesMap.get(key) || {
+          menuItemId,
+          name,
+          quantity: 0,
+          revenue: 0,
+          orderCount: 0,
+        };
+        current.quantity += quantity;
+        current.revenue += price * quantity;
+        if (!orderProductKeys.has(key)) {
+          current.orderCount += 1;
+          orderProductKeys.add(key);
+        }
+        productSalesMap.set(key, current);
+        totalItemsSold += quantity;
+      });
     }
   });
+
+  const dailySales = Array.from(dailySalesMap.values()).sort((a, b) => a.date.localeCompare(b.date));
+  const peakHour = Array.from(hourlySalesMap.values()).sort((a, b) => b.total - a.total || b.orders - a.orders)[0] || null;
+
+  stats.totalItemsSold = totalItemsSold;
+  stats.averageTicket = stats.transactionCount > 0 ? stats.totalSales / stats.transactionCount : 0;
+  stats.averageItemsPerOrder = stats.transactionCount > 0 ? totalItemsSold / stats.transactionCount : 0;
+  stats.firstOrderAt = firstOrderAt;
+  stats.lastOrderAt = lastOrderAt;
+  stats.bestSalesDay = dailySales.slice().sort((a, b) => b.total - a.total || b.orders - a.orders)[0] || null;
+  stats.peakHour = peakHour
+    ? {
+        ...peakHour,
+        label: `${String(peakHour.hour).padStart(2, '0')}:00 - ${String((peakHour.hour + 1) % 24).padStart(2, '0')}:00`,
+      }
+    : null;
+  stats.productSales = Array.from(productSalesMap.values())
+    .sort((a, b) => b.quantity - a.quantity || b.revenue - a.revenue || a.name.localeCompare(b.name));
+  stats.paymentBreakdown = Array.from(paymentBreakdownMap.values())
+    .sort((a, b) => b.total - a.total || b.count - a.count);
+  stats.orderTypeBreakdown = Array.from(orderTypeBreakdownMap.values())
+    .sort((a, b) => b.total - a.total || b.count - a.count);
+  stats.dailySales = dailySales;
 
   return stats;
 }
@@ -154,12 +312,10 @@ async function getMonthlyStats(tenantId: string, monthParam: string | null) {
 
   const { data: orders, error: ordersError } = await supabase
     .from('orders')
-    .select('id, total, tax, delivery_fee, delivery_type, payment_method, payment_status, status, created_at')
+    .select('*')
     .eq('tenant_id', tenantId)
     .gte('created_at', bounds.start)
     .lt('created_at', bounds.end)
-    .eq('payment_status', 'paid')
-    .neq('status', 'cancelled')
     .not('payment_method', 'is', null)
     .order('created_at', { ascending: true })
     .limit(5000);
@@ -179,12 +335,18 @@ async function getMonthlyStats(tenantId: string, monthParam: string | null) {
       periodStart: bounds.start,
       periodEnd: bounds.end,
       locale,
+      timeZone,
     }),
   };
 }
 
 function isMissingMonthlyTable(error: any) {
   return error?.code === '42P01' || String(error?.message || '').includes('monthly_closings');
+}
+
+function isMissingMonthlyReportDetailsColumn(error: any) {
+  const text = `${error?.message || ''} ${error?.details || ''} ${error?.hint || ''}`;
+  return error?.code === 'PGRST204' && text.includes('report_details');
 }
 
 export async function GET(request: NextRequest) {
@@ -259,16 +421,41 @@ export async function POST(request: NextRequest) {
       transaction_count: result.stats.transactionCount,
       orders_completed: result.stats.ordersCompleted,
       orders_cancelled: result.stats.ordersCancelled,
+      report_details: {
+        totalItemsSold: result.stats.totalItemsSold,
+        averageTicket: result.stats.averageTicket,
+        averageItemsPerOrder: result.stats.averageItemsPerOrder,
+        firstOrderAt: result.stats.firstOrderAt,
+        lastOrderAt: result.stats.lastOrderAt,
+        bestSalesDay: result.stats.bestSalesDay,
+        peakHour: result.stats.peakHour,
+        productSales: result.stats.productSales,
+        paymentBreakdown: result.stats.paymentBreakdown,
+        orderTypeBreakdown: result.stats.orderTypeBreakdown,
+        dailySales: result.stats.dailySales,
+      },
       notes: notes ? String(notes) : null,
       closed_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     };
 
-    const { data: closing, error: closingError } = await result.supabase
-      .from('monthly_closings')
-      .upsert(row, { onConflict: 'tenant_id,period_year,period_month' })
-      .select()
-      .single();
+    const upsertMonthlyClosing = (includeReportDetails: boolean) => {
+      const payload = includeReportDetails ? row : Object.fromEntries(
+        Object.entries(row).filter(([key]) => key !== 'report_details')
+      );
+      return result.supabase
+        .from('monthly_closings')
+        .upsert(payload, { onConflict: 'tenant_id,period_year,period_month' })
+        .select()
+        .single();
+    };
+
+    let upsertResult = await upsertMonthlyClosing(true);
+    if (upsertResult.error && isMissingMonthlyReportDetailsColumn(upsertResult.error)) {
+      upsertResult = await upsertMonthlyClosing(false);
+    }
+
+    const { data: closing, error: closingError } = upsertResult;
 
     if (closingError) {
       if (isMissingMonthlyTable(closingError)) {
