@@ -8,6 +8,7 @@ import { VoidSaleButton } from '@/components/admin/VoidSaleButton'
 import { ReprintReceiptButton } from '@/components/admin/ReprintReceiptButton'
 import { formatPriceWithCurrency, getCurrencyByCountry } from '@/lib/currency'
 import { EditSaleButton } from '@/components/admin/EditSaleButton'
+import { formatRestaurantDateTime, getRestaurantLocale, getRestaurantTimeZone } from '@/lib/restaurant-time'
 
 interface Props {
   params: Promise<{ domain: string }>
@@ -34,9 +35,16 @@ export default async function VentasPage({ params }: Props) {
     supabase.from('orders').select('total, status').eq('tenant_id', tenantId).gte('created_at', startOf7Days),
     supabase.from('orders').select('items, status').eq('tenant_id', tenantId).gte('created_at', startOfMonth),
     supabase.from('tenants').select('country').eq('id', tenantId).maybeSingle(),
-    supabase.from('restaurant_settings').select('country').eq('tenant_id', tenantId).maybeSingle(),
+    supabase.from('restaurant_settings').select('country, timezone').eq('tenant_id', tenantId).maybeSingle(),
   ])
-  const currencyInfo = getCurrencyByCountry(settingsRes.data?.country || tenantRes.data?.country || 'ES')
+  const restaurantCountry = settingsRes.data?.country || tenantRes.data?.country || 'ES'
+  const restaurantLocale = getRestaurantLocale(restaurantCountry)
+  const restaurantTimeZone = getRestaurantTimeZone({
+    timezone: settingsRes.data?.timezone,
+    settingsCountry: settingsRes.data?.country,
+    tenantCountry: tenantRes.data?.country,
+  })
+  const currencyInfo = getCurrencyByCountry(restaurantCountry)
   const money = (value: number) => formatPriceWithCurrency(Number(value || 0), currencyInfo.code, currencyInfo.locale)
 
   const allOrders = allOrdersRes.data || []
@@ -172,7 +180,7 @@ export default async function VentasPage({ params }: Props) {
       <section className="admin-panel mt-5 overflow-hidden">
         <div className="border-b border-black/10 px-5 py-4">
           <h2 className="font-black text-[#15130f]">Historial de pedidos</h2>
-          <p className="text-xs font-semibold text-black/45">Ultimas 20 transacciones</p>
+          <p className="text-xs font-semibold text-black/45">Ultimas 100 transacciones con hora local del restaurante</p>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
@@ -186,9 +194,18 @@ export default async function VentasPage({ params }: Props) {
               </tr>
             </thead>
             <tbody className="divide-y divide-black/8">
-              {allOrders.slice(0, 20).map((order: any) => (
+              {allOrders.slice(0, 100).map((order: any) => (
                 <tr key={order.id} className="transition hover:bg-white/70">
-                  <td className="px-5 py-3 text-xs font-bold text-black/42">{new Date(order.created_at).toLocaleDateString('es-CO', { day: '2-digit', month: 'short' })}</td>
+                  <td className="px-5 py-3 text-xs font-bold text-black/42">
+                    {formatRestaurantDateTime(order.created_at, {
+                      locale: restaurantLocale,
+                      timeZone: restaurantTimeZone,
+                      day: '2-digit',
+                      month: 'short',
+                      hour: '2-digit',
+                      minute: '2-digit',
+                    })}
+                  </td>
                   <td className="px-5 py-3 font-black text-[#15130f]">{order.order_number || 'Sin numero'}</td>
                   <td className="px-5 py-3">
                     <span className={`rounded-full border px-2.5 py-1 text-xs font-black ${
