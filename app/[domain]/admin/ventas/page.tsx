@@ -8,6 +8,7 @@ import { VoidSaleButton } from '@/components/admin/VoidSaleButton'
 import { ReprintReceiptButton } from '@/components/admin/ReprintReceiptButton'
 import { formatPriceWithCurrency, getCurrencyByCountry } from '@/lib/currency'
 import { EditSaleButton } from '@/components/admin/EditSaleButton'
+import { SalesAutoRefresh } from '@/components/admin/SalesAutoRefresh'
 import {
   addRestaurantLocalDays,
   formatRestaurantDateTime,
@@ -21,6 +22,9 @@ import {
 interface Props {
   params: Promise<{ domain: string }>
 }
+
+export const dynamic = 'force-dynamic'
+export const revalidate = 0
 
 export default async function VentasPage({ params }: Props) {
   const { domain: slug } = await params
@@ -137,6 +141,7 @@ export default async function VentasPage({ params }: Props) {
 
   const analyticsContent = (
     <div className="admin-page">
+      <SalesAutoRefresh />
       <div className="admin-page-header">
         <div>
           <p className="admin-eyebrow">Analitica</p>
