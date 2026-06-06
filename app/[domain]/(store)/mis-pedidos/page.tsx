@@ -4,6 +4,7 @@ import { use, useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
 import type { Order } from '@/lib/types'
 import { formatPriceWithCurrency, getCurrencyByCountry } from '@/lib/currency'
+import { formatRestaurantDateTime, getRestaurantLocale, getRestaurantTimeZone } from '@/lib/restaurant-time'
 
 interface Props { params: Promise<{ domain: string }> }
 
@@ -26,6 +27,10 @@ export default function MisPedidosPage({ params }: Props) {
   const [loading, setLoading] = useState(false)
   const [searched, setSearched] = useState(false)
   const [currencyInfo, setCurrencyInfo] = useState(() => getCurrencyByCountry('ES'))
+  const [dateFormat, setDateFormat] = useState(() => ({
+    locale: getRestaurantLocale('CO'),
+    timeZone: getRestaurantTimeZone({ settingsCountry: 'CO' }),
+  }))
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const activePhoneRef = useRef<string>('')
 
@@ -42,8 +47,16 @@ export default function MisPedidosPage({ params }: Props) {
     fetch(`/api/settings/${tenantSlug}`, { cache: 'no-store' })
       .then(res => res.ok ? res.json() : null)
       .then(settings => {
-        if (settings?.country || settings?.country_code) {
-          setCurrencyInfo(getCurrencyByCountry(settings.country_code || settings.country))
+        const country = settings?.country_code || settings?.country
+        if (country) {
+          setCurrencyInfo(getCurrencyByCountry(country))
+          setDateFormat({
+            locale: getRestaurantLocale(country),
+            timeZone: getRestaurantTimeZone({
+              timezone: settings?.timezone,
+              settingsCountry: country,
+            }),
+          })
         }
       })
       .catch(() => {})
@@ -150,7 +163,14 @@ export default function MisPedidosPage({ params }: Props) {
                       <div>
                         <p className="font-extrabold font-mono text-sm" style={{ color: text }}>{order.order_number}</p>
                         <p className="text-xs font-semibold mt-0.5" style={{ color: muted }}>
-                          {new Date(order.created_at).toLocaleString('es-CO', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                          {formatRestaurantDateTime(order.created_at, {
+                            locale: dateFormat.locale,
+                            timeZone: dateFormat.timeZone,
+                            day: '2-digit',
+                            month: 'short',
+                            hour: '2-digit',
+                            minute: '2-digit',
+                          })}
                         </p>
                       </div>
                       <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold" style={{ backgroundColor: st.bg, color: st.dot }}>

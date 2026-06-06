@@ -22,8 +22,8 @@ export async function GET(_: NextRequest, { params }: { params: Promise<{ tenant
   let { data, error } = await selectSettingsWithPaymentFallback(
     supabase,
     tenantId,
-    'delivery_enabled, delivery_fee, delivery_min_order, delivery_time_minutes, cash_payment_enabled, tax_rate, reservations_enabled, country, printer_settings, online_payment_provider, wompi_enabled, wompi_environment, wompi_public_key',
-    'delivery_enabled, delivery_fee, delivery_min_order, delivery_time_minutes, cash_payment_enabled, tax_rate, reservations_enabled, country, printer_settings'
+    'delivery_enabled, delivery_fee, delivery_min_order, delivery_time_minutes, cash_payment_enabled, tax_rate, reservations_enabled, country, timezone, printer_settings, online_payment_provider, wompi_enabled, wompi_environment, wompi_public_key',
+    'delivery_enabled, delivery_fee, delivery_min_order, delivery_time_minutes, cash_payment_enabled, tax_rate, reservations_enabled, country, timezone, printer_settings'
   )
 
   if (error) {
@@ -39,6 +39,7 @@ export async function GET(_: NextRequest, { params }: { params: Promise<{ tenant
         delivery_time_minutes: null,
         reservations_enabled: false,
         country: null,
+        timezone: null,
       } : null
   }
 
