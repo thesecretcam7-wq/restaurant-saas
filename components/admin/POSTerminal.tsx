@@ -3,7 +3,7 @@
 import { useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { createClient } from '@/lib/supabase/client';
-import { ShoppingCart, Plus, Minus, Trash2, Search, DollarSign, CreditCard, Maximize2, Minimize2, Lock, Clock, Truck, Store, UtensilsCrossed, Archive, Monitor, Printer, CalendarDays, Download, PencilLine, X } from 'lucide-react';
+import { ShoppingCart, Plus, Minus, Trash2, Search, DollarSign, CreditCard, Maximize2, Minimize2, Lock, Clock, Truck, Store, UtensilsCrossed, Archive, Monitor, Printer, CalendarDays, Download, PencilLine, X, Check } from 'lucide-react';
 import { POSStaffSelector } from './POSStaffSelector';
 import { TableMap } from './TableMap';
 import { POSPayment } from './POSPayment';
@@ -527,6 +527,7 @@ export function POSTerminal({
   const [pendingCashClosingStats, setPendingCashClosingStats] = useState<CashClosingStats | null>(null);
   const [closingLoading, setClosingLoading] = useState(false);
   const hasCashClosingStats = Boolean(cashClosingStats);
+  const [registerInPreviousPeriod, setRegisterInPreviousPeriod] = useState(false);
   const [todayReservations, setTodayReservations] = useState<ReservationSummary[]>([]);
 
   // Incoming Orders for delivery/pickup
@@ -566,6 +567,8 @@ export function POSTerminal({
   const cartRestoredRef = useRef(false);
   const previousCartLengthRef = useRef(0);
   const restoredStaffTenantRef = useRef<string | null>(null);
+  const canRegisterInPreviousPeriod =
+    Boolean(pendingCashClosingStats) && !loadedOrderId && billingOrderIds.length === 0 && !selectedTableId;
 
   const persistHeldAccounts = useCallback((nextAccounts: HeldPOSAccount[]) => {
     setHeldAccounts(nextAccounts);
@@ -680,6 +683,12 @@ export function POSTerminal({
     }, 5000);
     return () => window.clearTimeout(timer);
   }, [refreshPendingCashClosing]);
+
+  useEffect(() => {
+    if (!canRegisterInPreviousPeriod && registerInPreviousPeriod) {
+      setRegisterInPreviousPeriod(false);
+    }
+  }, [canRegisterInPreviousPeriod, registerInPreviousPeriod]);
 
   useEffect(() => {
     if (!showCashClosing || !hasCashClosingStats) return;
@@ -1886,6 +1895,7 @@ export function POSTerminal({
     setSelectedStaffId(null);
     setSelectedStaffName('');
     setSelectedDeliveryZoneId(null);
+    setRegisterInPreviousPeriod(false);
     setPosMode('simple');
     setPosOrderType('takeaway');
     setShowIncomingPanel(false);
@@ -2073,6 +2083,12 @@ export function POSTerminal({
 
     if (selectedTableId && !selectedStaffId) {
       setToast({ message: 'Por favor selecciona el camarero', type: 'error' });
+      return;
+    }
+
+    if (registerInPreviousPeriod && !canRegisterInPreviousPeriod) {
+      setToast({ message: 'Solo puedes usar turno anterior cuando hay caja anterior pendiente', type: 'error' });
+      setRegisterInPreviousPeriod(false);
       return;
     }
 
@@ -2319,9 +2335,14 @@ export function POSTerminal({
           notes: discount > 0 ? `Descuento: $${discount.toFixed(2)}` : null,
           amountPaid: paymentMethod === 'cash' ? amountPaid : null,
           source: 'pos',
+          businessDateMode: registerInPreviousPeriod ? 'previous_open_period' : undefined,
         };
 
         const saveSaleOffline = async () => {
+          if (registerInPreviousPeriod) {
+            throw new Error('Para registrar una venta en turno anterior necesitas internet.');
+          }
+
           if (paymentMethod === 'stripe') {
             throw new Error('Stripe necesita internet. Para cobrar sin internet usa efectivo o datafono externo y marca la venta en caja.');
           }
@@ -2398,6 +2419,7 @@ export function POSTerminal({
       // Mark cart as abandoned in Supabase
       if (!savedOfflineSale) {
         await abandonCart(tenantId, supabase);
+        await refreshPendingCashClosing();
       }
 
       const receiptSnapshot = {
@@ -2541,6 +2563,7 @@ export function POSTerminal({
       setSelectedTableNumber(null);
       setSelectedStaffId(null);
       setSelectedStaffName('');
+      setRegisterInPreviousPeriod(false);
       setPosMode('simple');
       setPosOrderType('takeaway');
 
@@ -4025,22 +4048,56 @@ export function POSTerminal({
                     </p>
                   </div>
                 ) : (
-                  <POSPayment
-                    key={paymentResetKey}
-                    total={paymentBaseTotal}
-                    tip={tip}
-                    onTipChange={setTip}
-                    paymentMethod={paymentMethod}
-                    onPaymentMethodChange={setPaymentMethod}
-                    printReceipt={printReceiptAfterPayment}
-                    onPrintReceiptChange={setPrintReceiptAfterPayment}
-                    onProceedPayment={handleShowReceipt}
-                    disabled={cart.length === 0 || (!!selectedTableNumber && !selectedStaffId && billingOrderIds.length === 0)}
-                    loading={processingPayment}
-                    country={country}
-                    compact={compactPOSLayout}
-                    showTipControl={!compactPOSLayout}
-                  />
+                  <>
+                    {canRegisterInPreviousPeriod && (
+                      <label className={`mb-2 flex w-full cursor-pointer items-center justify-between gap-2 rounded-lg border px-3 py-2 transition ${
+                        registerInPreviousPeriod
+                          ? 'border-amber-300 bg-amber-300/18 text-amber-50'
+                          : 'border-white/10 bg-black/20 text-slate-200 hover:border-amber-300/45'
+                      }`}>
+                        <span className="flex min-w-0 items-center gap-2">
+                          <span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded border ${
+                            registerInPreviousPeriod
+                              ? 'border-amber-200 bg-amber-300 text-slate-950'
+                              : 'border-white/25 bg-white/5'
+                          }`}>
+                            {registerInPreviousPeriod && <Check className="h-3.5 w-3.5" />}
+                          </span>
+                          <CalendarDays className="h-4 w-4 shrink-0" />
+                          <span className="min-w-0">
+                            <span className="block truncate text-xs font-black">Venta del turno anterior</span>
+                            <span className="block truncate text-[11px] font-semibold opacity-75">Caja anterior pendiente</span>
+                          </span>
+                        </span>
+                        <input
+                          type="checkbox"
+                          className="sr-only"
+                          checked={registerInPreviousPeriod}
+                          onChange={(event) => setRegisterInPreviousPeriod(event.target.checked)}
+                          disabled={processingPayment}
+                        />
+                        <span className="shrink-0 rounded-full border border-current/25 px-2 py-1 text-[10px] font-black uppercase">
+                          {registerInPreviousPeriod ? 'Activo' : 'Hoy'}
+                        </span>
+                      </label>
+                    )}
+                    <POSPayment
+                      key={paymentResetKey}
+                      total={paymentBaseTotal}
+                      tip={tip}
+                      onTipChange={setTip}
+                      paymentMethod={paymentMethod}
+                      onPaymentMethodChange={setPaymentMethod}
+                      printReceipt={printReceiptAfterPayment}
+                      onPrintReceiptChange={setPrintReceiptAfterPayment}
+                      onProceedPayment={handleShowReceipt}
+                      disabled={cart.length === 0 || (!!selectedTableNumber && !selectedStaffId && billingOrderIds.length === 0)}
+                      loading={processingPayment}
+                      country={country}
+                      compact={compactPOSLayout}
+                      showTipControl={!compactPOSLayout}
+                    />
+                  </>
                 )}
               </div>
           </div>

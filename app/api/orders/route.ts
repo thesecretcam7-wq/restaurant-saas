@@ -9,6 +9,62 @@ import { requireTenantAccess, tenantAuthErrorResponse } from '@/lib/tenant-api-a
 import { calculateOrderTotals } from '@/lib/order-totals'
 import { syncCustomerFromOrder } from '@/lib/customer-sync'
 import { deriveBrandPalette } from '@/lib/brand-colors'
+import { getRestaurantBusinessPeriod, getRestaurantLocale, getRestaurantTimeZone } from '@/lib/restaurant-time'
+
+function parseOperationalCloseMinutes(value?: string | null) {
+  if (!value || !/^\d{1,2}:\d{2}$/.test(value)) return 5 * 60
+  const [hours, minutes] = value.split(':').map(Number)
+  if (hours < 0 || hours > 23 || minutes < 0 || minutes > 59) return 5 * 60
+  return hours * 60 + minutes
+}
+
+function getPreviousOpenPeriodCreatedAt(periodStart: string, operationalCloseTime?: string | null) {
+  const closeMinutes = parseOperationalCloseMinutes(operationalCloseTime)
+  const previousBusinessDateTime = new Date(periodStart)
+  previousBusinessDateTime.setUTCMinutes(previousBusinessDateTime.getUTCMinutes() - closeMinutes - 60)
+  return previousBusinessDateTime.toISOString()
+}
+
+async function hasPendingPreviousCashClosing(supabase: ReturnType<typeof createServiceClient>, tenantId: string, currentPeriodStart: string) {
+  const [ordersRes, closedItemsRes, latestClosingRes] = await Promise.all([
+    supabase
+      .from('orders')
+      .select('id, created_at')
+      .eq('tenant_id', tenantId)
+      .lt('created_at', currentPeriodStart)
+      .neq('payment_method', null)
+      .eq('payment_status', 'paid')
+      .neq('status', 'cancelled')
+      .order('created_at', { ascending: true })
+      .limit(1000),
+    supabase
+      .from('cash_closing_items')
+      .select('order_id')
+      .eq('tenant_id', tenantId)
+      .not('order_id', 'is', null)
+      .limit(2000),
+    supabase
+      .from('cash_closings')
+      .select('closed_at')
+      .eq('tenant_id', tenantId)
+      .order('closed_at', { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+  ])
+
+  if (ordersRes.error) throw ordersRes.error
+
+  const closedOrderIds = new Set((closedItemsRes.error ? [] : closedItemsRes.data || []).map((item: any) => item.order_id))
+  const latestClosingDate = !latestClosingRes.error && latestClosingRes.data?.closed_at
+    ? new Date(latestClosingRes.data.closed_at)
+    : null
+
+  return (ordersRes.data || []).some((order: any) => {
+    if (closedOrderIds.has(order.id)) return false
+    if (latestClosingDate && new Date(order.created_at) <= latestClosingDate) return false
+    return true
+  })
+}
 
 export async function GET(request: NextRequest) {
   try {
@@ -75,7 +131,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { tenantId: tenantParam, tenantSlug, items, customerInfo, deliveryType, deliveryAddress, notes, paymentMethod, tableNumber, waiterName, amountPaid, source, deliveryFee: requestedDeliveryFee, deliveryZoneId } = body
+    const { tenantId: tenantParam, tenantSlug, items, customerInfo, deliveryType, deliveryAddress, notes, paymentMethod, tableNumber, waiterName, amountPaid, source, deliveryFee: requestedDeliveryFee, deliveryZoneId, businessDateMode } = body
 
     if (!tenantParam) {
       return NextResponse.json({ error: 'tenantId is required' }, { status: 400 })
@@ -221,9 +277,46 @@ export async function POST(request: NextRequest) {
 
     const { data: settings } = await supabase
       .from('restaurant_settings')
-      .select('tax_rate, delivery_fee, delivery_zones, delivery_min_order, delivery_enabled, cash_payment_enabled, kds_enabled')
+      .select('tax_rate, delivery_fee, delivery_zones, delivery_min_order, delivery_enabled, cash_payment_enabled, kds_enabled, operating_hours, timezone, country')
       .eq('tenant_id', tenantId)
       .single()
+
+    const registeringPreviousOpenPeriod = businessDateMode === 'previous_open_period'
+    let previousOpenPeriodCreatedAt: string | null = null
+
+    if (businessDateMode && !registeringPreviousOpenPeriod) {
+      return NextResponse.json({ error: 'Modo de fecha no permitido.' }, { status: 400 })
+    }
+
+    if (registeringPreviousOpenPeriod) {
+      if (source !== 'pos') {
+        return NextResponse.json({ error: 'Solo el TPV puede registrar ventas en turno anterior.' }, { status: 403 })
+      }
+
+      const timeZone = getRestaurantTimeZone({
+        timezone: settings?.timezone,
+        settingsCountry: settings?.country,
+      })
+      const locale = getRestaurantLocale(settings?.country)
+      const currentPeriod = getRestaurantBusinessPeriod({
+        operatingHours: settings?.operating_hours,
+        timeZone,
+        locale,
+      })
+      const previousClosingStillOpen = await hasPendingPreviousCashClosing(supabase, tenantId, currentPeriod.periodStart)
+
+      if (!previousClosingStillOpen) {
+        return NextResponse.json(
+          { error: 'No hay una caja anterior pendiente. No se puede registrar la venta en el dia anterior.' },
+          { status: 400 }
+        )
+      }
+
+      previousOpenPeriodCreatedAt = getPreviousOpenPeriodCreatedAt(
+        currentPeriod.periodStart,
+        currentPeriod.operationalCloseTime
+      )
+    }
 
     const subtotal = sanitizedItems.reduce((sum: number, i: any) => sum + i.price * i.qty, 0)
     const deliveryZones = Array.isArray(settings?.delivery_zones) ? settings.delivery_zones : []
@@ -287,6 +380,11 @@ export async function POST(request: NextRequest) {
       .gte('created_at', todayStart.toISOString())
     const displayNumber = (todayCount ?? 0) + 1
 
+    const orderNotes = [
+      notes || null,
+      registeringPreviousOpenPeriod ? 'Venta registrada manualmente en turno anterior desde TPV' : null,
+    ].filter(Boolean).join(' | ') || null
+
     const orderData: any = {
       tenant_id: tenantId,
       order_number: orderNumber,
@@ -304,9 +402,14 @@ export async function POST(request: NextRequest) {
       delivery_address: deliveryAddress || null,
       table_number: tableNumber || null,
       waiter_name: waiterName || null,
-      notes: notes || null,
+      notes: orderNotes,
       status: 'pending',
       display_number: displayNumber,
+    }
+
+    if (previousOpenPeriodCreatedAt) {
+      orderData.created_at = previousOpenPeriodCreatedAt
+      orderData.updated_at = previousOpenPeriodCreatedAt
     }
 
     const { data: order, error } = await supabase
@@ -336,7 +439,7 @@ export async function POST(request: NextRequest) {
     const isKioskCash = source === 'kiosk' && paymentMethod === 'cash'
     const kdsEnabled = settings?.kds_enabled === true
     const kitchenItems = sanitizedItems.filter((item: any) => item.requires_kitchen !== false)
-    if (kdsEnabled && !isKioskCash && kitchenItems.length > 0) {
+    if (kdsEnabled && !isKioskCash && !registeringPreviousOpenPeriod && kitchenItems.length > 0) {
       const orderItemsData = kitchenItems.map((item: any) => ({
         order_id: order.id,
         tenant_id: tenantId,
@@ -394,7 +497,7 @@ export async function POST(request: NextRequest) {
         deliveryType,
         deliveryAddress: deliveryAddress || undefined,
         paymentMethod,
-        notes: notes || undefined,
+        notes: orderNotes || undefined,
       }).catch(e => console.error('[email] order confirmation:', e))
     }
 
