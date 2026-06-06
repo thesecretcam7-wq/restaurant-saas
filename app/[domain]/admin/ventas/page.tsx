@@ -70,7 +70,7 @@ export default async function VentasPage({ params }: Props) {
   const startOf7Days = getRestaurantLocalDateStartUtc(chartDateKeys[0], restaurantTimeZone)?.toISOString() || new Date(now.getTime() - 6 * 24 * 60 * 60 * 1000).toISOString()
 
   const [allOrdersRes, monthOrdersRes, lastMonthRes, weekOrdersRes, topItemsRes, closedItemsRes, latestClosingRes] = await Promise.all([
-    supabase.from('orders').select('id, order_number, total, payment_status, status, created_at').eq('tenant_id', tenantId).order('created_at', { ascending: false }).limit(1000),
+    supabase.from('orders').select('id, order_number, total, payment_status, payment_method, status, created_at').eq('tenant_id', tenantId).order('created_at', { ascending: false }).limit(1000),
     supabase.from('orders').select('id, total, status, created_at').eq('tenant_id', tenantId).gte('created_at', startOfMonth),
     supabase.from('orders').select('id, total, status, created_at').eq('tenant_id', tenantId).gte('created_at', startOfLastMonth).lt('created_at', startOfMonth),
     supabase.from('orders').select('id, total, status, created_at').eq('tenant_id', tenantId).gte('created_at', startOf7Days),
