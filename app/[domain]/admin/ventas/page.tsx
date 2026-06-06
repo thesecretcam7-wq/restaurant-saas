@@ -65,13 +65,14 @@ export default async function VentasPage({ params }: Props) {
   const startOfLastMonth = getRestaurantLocalDateStartUtc(lastMonthStartKey, restaurantTimeZone)?.toISOString() || new Date(now.getFullYear(), now.getMonth() - 1, 1).toISOString()
   const startOf7Days = getRestaurantLocalDateStartUtc(chartDateKeys[0], restaurantTimeZone)?.toISOString() || new Date(now.getTime() - 6 * 24 * 60 * 60 * 1000).toISOString()
 
-  const [allOrdersRes, monthOrdersRes, lastMonthRes, weekOrdersRes, topItemsRes, closedItemsRes] = await Promise.all([
+  const [allOrdersRes, monthOrdersRes, lastMonthRes, weekOrdersRes, topItemsRes, closedItemsRes, latestClosingRes] = await Promise.all([
     supabase.from('orders').select('id, order_number, total, payment_status, status, created_at').eq('tenant_id', tenantId).order('created_at', { ascending: false }).limit(1000),
     supabase.from('orders').select('id, total, status, created_at').eq('tenant_id', tenantId).gte('created_at', startOfMonth),
     supabase.from('orders').select('id, total, status, created_at').eq('tenant_id', tenantId).gte('created_at', startOfLastMonth).lt('created_at', startOfMonth),
     supabase.from('orders').select('id, total, status, created_at').eq('tenant_id', tenantId).gte('created_at', startOf7Days),
     supabase.from('orders').select('id, items, status, created_at').eq('tenant_id', tenantId).gte('created_at', startOfMonth),
     supabase.from('cash_closing_items').select('order_id').eq('tenant_id', tenantId).not('order_id', 'is', null).limit(10000),
+    supabase.from('cash_closings').select('closed_at').eq('tenant_id', tenantId).order('closed_at', { ascending: false }).limit(1).maybeSingle(),
   ])
 
   const allOrders = allOrdersRes.data || []
@@ -79,10 +80,13 @@ export default async function VentasPage({ params }: Props) {
   const lastMonthOrders = lastMonthRes.data || []
   const weekOrders = weekOrdersRes.data || []
   const closedOrderIds = new Set((closedItemsRes.data || []).map((item: any) => item.order_id).filter(Boolean))
+  const latestClosingDate = latestClosingRes.data?.closed_at ? new Date(latestClosingRes.data.closed_at) : null
   const isCountableOrder = (order: { id?: string | null; status?: string | null; created_at?: string | null }) => {
     if (order.status === 'cancelled' || !order.id) return false
     if (closedOrderIds.has(order.id)) return true
-    return Boolean(order.created_at && new Date(order.created_at) < currentPeriodStart)
+    if (!order.created_at) return false
+    const orderDate = new Date(order.created_at)
+    return orderDate < currentPeriodStart && (!latestClosingDate || orderDate > latestClosingDate)
   }
   const allCountableOrders = allOrders.filter(isCountableOrder)
   const monthRevenue = monthOrders.filter(isCountableOrder).reduce((s, o) => s + Number(o.total), 0)

@@ -307,13 +307,11 @@ export async function calculatePendingPreviousCashClosingStats(tenantId: string)
       console.warn('No se pudo consultar el ultimo cierre de caja:', latestClosingError.message || latestClosingError);
     }
 
-    const closedItemRows = closedItems || [];
-    const closedOrderIds = new Set(closedItemRows.map((item: any) => item.order_id));
-    const hasClosingItemLedger = closedItemRows.length > 0;
+    const closedOrderIds = new Set((closedItems || []).map((item: any) => item.order_id));
     const latestClosingDate = latestClosing?.closed_at ? new Date(latestClosing.closed_at) : null;
     const pendingOrders = orders.filter((order: any) => {
       if (closedOrderIds.has(order.id)) return false;
-      if (!hasClosingItemLedger && latestClosingDate && new Date(order.created_at) <= latestClosingDate) return false;
+      if (latestClosingDate && new Date(order.created_at) <= latestClosingDate) return false;
       return true;
     });
 

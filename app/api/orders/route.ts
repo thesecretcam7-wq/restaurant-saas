@@ -54,16 +54,14 @@ async function hasPendingPreviousCashClosing(supabase: ReturnType<typeof createS
 
   if (ordersRes.error) throw ordersRes.error
 
-  const closedItems = closedItemsRes.error ? [] : closedItemsRes.data || []
-  const closedOrderIds = new Set(closedItems.map((item: any) => item.order_id))
-  const hasClosingItemLedger = closedItems.length > 0
+  const closedOrderIds = new Set((closedItemsRes.error ? [] : closedItemsRes.data || []).map((item: any) => item.order_id))
   const latestClosingDate = !latestClosingRes.error && latestClosingRes.data?.closed_at
     ? new Date(latestClosingRes.data.closed_at)
     : null
 
   return (ordersRes.data || []).some((order: any) => {
     if (closedOrderIds.has(order.id)) return false
-    if (!hasClosingItemLedger && latestClosingDate && new Date(order.created_at) <= latestClosingDate) return false
+    if (latestClosingDate && new Date(order.created_at) <= latestClosingDate) return false
     return true
   })
 }
