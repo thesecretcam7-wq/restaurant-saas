@@ -114,6 +114,18 @@ export default async function VentasPage({ params }: Props) {
     }
   }
   const topProducts = Object.values(productCounts).sort((a, b) => b.qty - a.qty).slice(0, 5)
+  const getPaymentLabel = (method?: string | null) => {
+    const normalized = String(method || '').toLowerCase()
+    if (normalized === 'cash' || normalized === 'efectivo') return 'Efectivo'
+    if (['stripe', 'card', 'tarjeta', 'wompi'].includes(normalized)) return 'Tarjeta'
+    return method ? String(method) : 'Sin pago'
+  }
+  const getPaymentBadgeClass = (method?: string | null) => {
+    const normalized = String(method || '').toLowerCase()
+    if (normalized === 'cash' || normalized === 'efectivo') return 'border-emerald-200 bg-emerald-50 text-emerald-700'
+    if (['stripe', 'card', 'tarjeta', 'wompi'].includes(normalized)) return 'border-sky-200 bg-sky-50 text-sky-700'
+    return 'border-slate-200 bg-slate-50 text-slate-600'
+  }
   const formatChartMoney = (value: number) => {
     if (value >= 1000000) return `${currencyInfo.symbol}${(value / 1000000).toFixed(value >= 10000000 ? 0 : 1)}M`
     if (value >= 1000) return `${currencyInfo.symbol}${Math.round(value / 1000)}k`
@@ -238,6 +250,7 @@ export default async function VentasPage({ params }: Props) {
                 <th className="px-5 py-3 text-left">Fecha</th>
                 <th className="px-5 py-3 text-left">Pedido</th>
                 <th className="px-5 py-3 text-left">Estado</th>
+                <th className="px-5 py-3 text-left">Pago</th>
                 <th className="px-5 py-3 text-right">Total</th>
                 <th className="px-5 py-3 text-right">Acciones</th>
               </tr>
@@ -263,6 +276,11 @@ export default async function VentasPage({ params }: Props) {
                       'border-amber-200 bg-amber-50 text-amber-700'
                     }`}>
                       {order.status === 'delivered' ? 'Entregado' : order.status === 'cancelled' ? 'Cancelado' : 'En proceso'}
+                    </span>
+                  </td>
+                  <td className="px-5 py-3">
+                    <span className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-black ${getPaymentBadgeClass(order.payment_method)}`}>
+                      {getPaymentLabel(order.payment_method)}
                     </span>
                   </td>
                   <td className="px-5 py-3 text-right font-black text-[#15130f]">{money(Number(order.total))}</td>
