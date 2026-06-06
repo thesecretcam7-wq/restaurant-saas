@@ -58,19 +58,22 @@ export default async function VentasPage({ params }: Props) {
   const startOfLastMonth = getRestaurantLocalDateStartUtc(lastMonthStartKey, restaurantTimeZone)?.toISOString() || new Date(now.getFullYear(), now.getMonth() - 1, 1).toISOString()
   const startOf7Days = getRestaurantLocalDateStartUtc(chartDateKeys[0], restaurantTimeZone)?.toISOString() || new Date(now.getTime() - 6 * 24 * 60 * 60 * 1000).toISOString()
 
-  const [allOrdersRes, monthOrdersRes, lastMonthRes, weekOrdersRes, topItemsRes] = await Promise.all([
-    supabase.from('orders').select('id, order_number, total, payment_status, status, created_at').eq('tenant_id', tenantId).order('created_at', { ascending: false }).limit(500),
-    supabase.from('orders').select('total, status').eq('tenant_id', tenantId).gte('created_at', startOfMonth),
-    supabase.from('orders').select('total, status').eq('tenant_id', tenantId).gte('created_at', startOfLastMonth).lt('created_at', startOfMonth),
-    supabase.from('orders').select('total, status, created_at').eq('tenant_id', tenantId).gte('created_at', startOf7Days),
-    supabase.from('orders').select('items, status').eq('tenant_id', tenantId).gte('created_at', startOfMonth),
+  const [allOrdersRes, monthOrdersRes, lastMonthRes, weekOrdersRes, topItemsRes, closedItemsRes] = await Promise.all([
+    supabase.from('orders').select('id, order_number, total, payment_status, status, created_at').eq('tenant_id', tenantId).order('created_at', { ascending: false }).limit(1000),
+    supabase.from('orders').select('id, total, status').eq('tenant_id', tenantId).gte('created_at', startOfMonth),
+    supabase.from('orders').select('id, total, status').eq('tenant_id', tenantId).gte('created_at', startOfLastMonth).lt('created_at', startOfMonth),
+    supabase.from('orders').select('id, total, status, created_at').eq('tenant_id', tenantId).gte('created_at', startOf7Days),
+    supabase.from('orders').select('id, items, status').eq('tenant_id', tenantId).gte('created_at', startOfMonth),
+    supabase.from('cash_closing_items').select('order_id').eq('tenant_id', tenantId).not('order_id', 'is', null).limit(10000),
   ])
 
   const allOrders = allOrdersRes.data || []
   const monthOrders = monthOrdersRes.data || []
   const lastMonthOrders = lastMonthRes.data || []
   const weekOrders = weekOrdersRes.data || []
-  const isCountableOrder = (order: { status?: string | null }) => order.status !== 'cancelled'
+  const closedOrderIds = new Set((closedItemsRes.data || []).map((item: any) => item.order_id).filter(Boolean))
+  const isCountableOrder = (order: { id?: string | null; status?: string | null }) =>
+    order.status !== 'cancelled' && Boolean(order.id && closedOrderIds.has(order.id))
   const allCountableOrders = allOrders.filter(isCountableOrder)
   const monthRevenue = monthOrders.filter(isCountableOrder).reduce((s, o) => s + Number(o.total), 0)
   const lastMonthRevenue = lastMonthOrders.filter(isCountableOrder).reduce((s, o) => s + Number(o.total), 0)
@@ -82,7 +85,7 @@ export default async function VentasPage({ params }: Props) {
   const growthPct = lastMonthRevenue > 0 ? ((monthRevenue - lastMonthRevenue) / lastMonthRevenue * 100) : null
 
   const productCounts: Record<string, { name: string; qty: number; revenue: number }> = {}
-  for (const order of (topItemsRes.data as (Pick<Order, 'items'> & { status?: string | null })[]) || []) {
+  for (const order of (topItemsRes.data as (Pick<Order, 'items'> & { id?: string | null; status?: string | null })[]) || []) {
     if (!isCountableOrder(order)) continue
     for (const item of order.items || []) {
       const productKey = item.item_id || (item as any).menu_item_id || item.name
