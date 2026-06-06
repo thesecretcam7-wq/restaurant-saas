@@ -30,6 +30,7 @@ interface POSOrderLookupProps {
 }
 
 type PaymentMethod = 'cash' | 'stripe';
+type TicketScope = 'current_period' | 'pending_previous';
 
 function normalizePaymentMethod(method?: string | null): PaymentMethod {
   return method === 'stripe' || method === 'card' || method === 'tarjeta' || method === 'wompi'
@@ -49,11 +50,13 @@ export function POSOrderLookup({ domain, onOrderSelected, onVoidOrder, onRemoveI
   const [removingItem, setRemovingItem] = useState<{ orderId: string; itemIndex: number } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [searched, setSearched] = useState(false);
-  const [showingToday, setShowingToday] = useState(false);
-  const [todayTicketCount, setTodayTicketCount] = useState(0);
-  const [todayPaidCount, setTodayPaidCount] = useState(0);
+  const [showingTurn, setShowingTurn] = useState(false);
+  const [turnTicketCount, setTurnTicketCount] = useState(0);
+  const [turnPaidCount, setTurnPaidCount] = useState(0);
+  const [ticketScope, setTicketScope] = useState<TicketScope>('current_period');
+  const [ticketScopeLabel, setTicketScopeLabel] = useState('Turno actual');
 
-  const loadTodayOrders = useCallback(async () => {
+  const loadTurnOrders = useCallback(async () => {
     setLoading(true);
     setError(null);
 
@@ -63,25 +66,27 @@ export function POSOrderLookup({ domain, onOrderSelected, onVoidOrder, onRemoveI
         { credentials: 'include', cache: 'no-store' }
       );
 
-      if (!response.ok) throw new Error('Error al cargar tickets del dia');
+      if (!response.ok) throw new Error('Error al cargar tickets del turno');
 
       const data = await response.json();
       setResults(data.orders || []);
-      setTodayTicketCount(typeof data.count === 'number' ? data.count : (data.orders || []).length);
-      setTodayPaidCount(typeof data.paidCount === 'number' ? data.paidCount : 0);
+      setTurnTicketCount(typeof data.count === 'number' ? data.count : (data.orders || []).length);
+      setTurnPaidCount(typeof data.paidCount === 'number' ? data.paidCount : 0);
+      setTicketScope(data.scope === 'pending_previous' ? 'pending_previous' : 'current_period');
+      setTicketScopeLabel(typeof data.label === 'string' ? data.label : 'Turno actual');
       setSearched(false);
-      setShowingToday(true);
+      setShowingTurn(true);
     } catch (err) {
-      setError('No se pudieron cargar los tickets del dia.');
-      console.error('Today orders error:', err);
+      setError('No se pudieron cargar los tickets del turno.');
+      console.error('Turn orders error:', err);
     } finally {
       setLoading(false);
     }
   }, [domain]);
 
   useEffect(() => {
-    loadTodayOrders();
-  }, [loadTodayOrders]);
+    loadTurnOrders();
+  }, [loadTurnOrders]);
 
   async function handleSearch(e: React.FormEvent) {
     e.preventDefault();
@@ -94,9 +99,9 @@ export function POSOrderLookup({ domain, onOrderSelected, onVoidOrder, onRemoveI
     setLoading(true);
     setError(null);
     setResults([]);
-    setTodayTicketCount(0);
-    setTodayPaidCount(0);
-    setShowingToday(false);
+    setTurnTicketCount(0);
+    setTurnPaidCount(0);
+    setShowingTurn(false);
 
     try {
       const response = await fetch(
@@ -215,19 +220,22 @@ export function POSOrderLookup({ domain, onOrderSelected, onVoidOrder, onRemoveI
             Buscar
           </button>
         </form>
-        {showingToday && (
+        {showingTurn && (
           <div className="mt-3 flex items-center justify-between gap-2 text-xs">
             <div className="flex min-w-0 flex-wrap gap-x-3 gap-y-1 font-semibold text-gray-400">
-              <span>
-                Ventas cobradas del turno: <strong className="text-white">{todayPaidCount}</strong>
+              <span className={ticketScope === 'pending_previous' ? 'text-amber-200' : 'text-gray-400'}>
+                {ticketScopeLabel}
               </span>
               <span>
-                Tickets del turno: <strong className="text-white">{todayTicketCount}</strong>
+                Ventas cobradas del turno: <strong className="text-white">{turnPaidCount}</strong>
+              </span>
+              <span>
+                Tickets del turno: <strong className="text-white">{turnTicketCount}</strong>
               </span>
             </div>
             <button
               type="button"
-              onClick={loadTodayOrders}
+              onClick={loadTurnOrders}
               disabled={loading}
               className="rounded-lg border border-gray-700 px-2 py-1 font-bold text-gray-300 transition hover:border-blue-500 hover:text-white disabled:opacity-50"
             >
@@ -383,7 +391,7 @@ export function POSOrderLookup({ domain, onOrderSelected, onVoidOrder, onRemoveI
           </div>
         )}
 
-        {!searched && !showingToday && !loading && (
+        {!searched && !showingTurn && !loading && (
           <div className="flex h-full items-center justify-center text-gray-500">
             <div className="text-center">
               <p className="text-sm font-medium">Busca un numero de pedido para cargar</p>
@@ -392,10 +400,14 @@ export function POSOrderLookup({ domain, onOrderSelected, onVoidOrder, onRemoveI
           </div>
         )}
 
-        {showingToday && results.length === 0 && !error && !loading && (
+        {showingTurn && results.length === 0 && !error && !loading && (
           <div className="flex h-full items-center justify-center text-gray-500">
             <div className="px-6 text-center">
-              <p className="text-sm font-medium">No hay tickets registrados hoy</p>
+              <p className="text-sm font-medium">
+                {ticketScope === 'pending_previous'
+                  ? 'No hay tickets en la caja pendiente'
+                  : 'No hay tickets registrados en este turno'}
+              </p>
               <p className="mt-1 text-xs text-gray-600">Tambien puedes buscar por numero de pedido.</p>
             </div>
           </div>

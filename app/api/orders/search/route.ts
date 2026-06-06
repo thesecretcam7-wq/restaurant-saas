@@ -3,6 +3,98 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requireTenantAccess, tenantAuthErrorResponse } from '@/lib/tenant-api-auth'
 import { getRestaurantBusinessPeriod, getRestaurantLocale, getRestaurantTimeZone } from '@/lib/restaurant-time'
 
+const ORDER_FIELDS = 'id, order_number, customer_name, customer_phone, subtotal, tax, delivery_fee, total, payment_status, payment_method, status, items, created_at, delivery_type, table_number'
+
+async function getPendingPreviousTicketScope({
+  supabase,
+  tenantId,
+  currentPeriod,
+  locale,
+  timeZone,
+  limit,
+}: {
+  supabase: ReturnType<typeof createServiceClient>
+  tenantId: string
+  currentPeriod: ReturnType<typeof getRestaurantBusinessPeriod>
+  locale: string
+  timeZone: string
+  limit: number
+}) {
+  const currentPeriodStart = new Date(currentPeriod.periodStart)
+
+  const [ordersRes, closedItemsRes, latestClosingRes] = await Promise.all([
+    supabase
+      .from('orders')
+      .select(ORDER_FIELDS)
+      .eq('tenant_id', tenantId)
+      .lt('created_at', currentPeriodStart.toISOString())
+      .neq('payment_method', null)
+      .eq('payment_status', 'paid')
+      .neq('status', 'cancelled')
+      .order('created_at', { ascending: false })
+      .limit(1000),
+    supabase
+      .from('cash_closing_items')
+      .select('order_id')
+      .eq('tenant_id', tenantId)
+      .not('order_id', 'is', null)
+      .limit(2000),
+    supabase
+      .from('cash_closings')
+      .select('closed_at')
+      .eq('tenant_id', tenantId)
+      .order('closed_at', { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+  ])
+
+  if (ordersRes.error) throw ordersRes.error
+
+  if (closedItemsRes.error) {
+    console.warn('No se pudieron consultar items de cierres anteriores:', closedItemsRes.error.message || closedItemsRes.error)
+  }
+
+  if (latestClosingRes.error) {
+    console.warn('No se pudo consultar el ultimo cierre de caja:', latestClosingRes.error.message || latestClosingRes.error)
+  }
+
+  const closedOrderIds = new Set((closedItemsRes.error ? [] : closedItemsRes.data || []).map((item: any) => item.order_id))
+  const latestClosingDate = !latestClosingRes.error && latestClosingRes.data?.closed_at
+    ? new Date(latestClosingRes.data.closed_at)
+    : null
+
+  const pendingOrders = (ordersRes.data || []).filter((order: any) => {
+    if (closedOrderIds.has(order.id)) return false
+    if (latestClosingDate && new Date(order.created_at) <= latestClosingDate) return false
+    return true
+  })
+
+  if (pendingOrders.length === 0) return null
+
+  const earliestPendingOrder = pendingOrders[pendingOrders.length - 1]
+  const pendingBusinessDate = new Date(currentPeriod.periodStart)
+  pendingBusinessDate.setUTCMinutes(pendingBusinessDate.getUTCMinutes() - 1)
+
+  return {
+    orders: pendingOrders.slice(0, limit),
+    count: pendingOrders.length,
+    paidCount: pendingOrders.length,
+    scope: 'pending_previous',
+    label: 'Caja pendiente',
+    period: {
+      periodStart: earliestPendingOrder?.created_at || currentPeriod.periodStart,
+      periodEnd: currentPeriod.periodStart,
+      businessDateLabel: pendingBusinessDate.toLocaleDateString(locale, {
+        weekday: 'long',
+        day: '2-digit',
+        month: 'long',
+        timeZone,
+      }),
+      operationalCloseTime: currentPeriod.operationalCloseTime,
+    },
+  }
+}
+
 export async function GET(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams
@@ -44,6 +136,8 @@ export async function GET(request: NextRequest) {
       const onlyDigits = rawSearch.replace(/\D/g, '')
       const maybeTableNumber = Number(onlyDigits || rawSearch)
       let todayPeriod: ReturnType<typeof getRestaurantBusinessPeriod> | null = null
+      const ticketScope = 'current_period'
+      const ticketScopeLabel = 'Turno actual'
 
       if (todayOnly && !rawSearch) {
         const { data: settings, error: settingsError } = await supabase
@@ -68,12 +162,24 @@ export async function GET(request: NextRequest) {
           timeZone,
           locale,
         })
+
+        const pendingPreviousScope = await getPendingPreviousTicketScope({
+          supabase,
+          tenantId,
+          currentPeriod: todayPeriod,
+          locale,
+          timeZone,
+          limit,
+        })
+
+        if (pendingPreviousScope) {
+          return NextResponse.json(pendingPreviousScope)
+        }
       }
 
-      const orderFields = 'id, order_number, customer_name, customer_phone, subtotal, tax, delivery_fee, total, payment_status, payment_method, status, items, created_at, delivery_type, table_number'
       let query = todayPeriod
-        ? supabase.from('orders').select(orderFields, { count: 'exact' })
-        : supabase.from('orders').select(orderFields)
+        ? supabase.from('orders').select(ORDER_FIELDS, { count: 'exact' })
+        : supabase.from('orders').select(ORDER_FIELDS)
 
       query = query
         .eq('tenant_id', tenantId)
@@ -134,6 +240,8 @@ export async function GET(request: NextRequest) {
         orders: orders || [],
         count: count ?? orders?.length ?? 0,
         paidCount,
+        scope: ticketScope,
+        label: ticketScopeLabel,
         period: todayPeriod,
       })
     } catch (authError) {
