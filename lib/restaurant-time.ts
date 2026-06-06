@@ -63,6 +63,59 @@ function getZonedParts(date: Date, timeZone: string) {
   return values as { year: number; month: number; day: number; hour: number; minute: number; second: number }
 }
 
+function formatLocalDateKey(parts: { year: number; month: number; day: number }) {
+  return [
+    parts.year.toString().padStart(4, '0'),
+    parts.month.toString().padStart(2, '0'),
+    parts.day.toString().padStart(2, '0'),
+  ].join('-')
+}
+
+function parseLocalDateKey(dateKey: string) {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(dateKey)
+  if (!match) return null
+
+  const [, year, month, day] = match
+  return {
+    year: Number(year),
+    month: Number(month),
+    day: Number(day),
+  }
+}
+
+export function getRestaurantLocalDateKey(value: string | number | Date, timeZone = 'America/Bogota') {
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return ''
+  return formatLocalDateKey(getZonedParts(date, timeZone))
+}
+
+export function addRestaurantLocalDays(dateKey: string, days: number) {
+  const parts = parseLocalDateKey(dateKey)
+  if (!parts) return dateKey
+
+  const date = new Date(Date.UTC(parts.year, parts.month - 1, parts.day, 12, 0, 0, 0))
+  date.setUTCDate(date.getUTCDate() + days)
+  return formatLocalDateKey({
+    year: date.getUTCFullYear(),
+    month: date.getUTCMonth() + 1,
+    day: date.getUTCDate(),
+  })
+}
+
+export function getRestaurantLocalDateStartUtc(dateKey: string, timeZone = 'America/Bogota') {
+  const parts = parseLocalDateKey(dateKey)
+  if (!parts) return null
+
+  return zonedLocalToUtc(
+    {
+      ...parts,
+      hour: 0,
+      minute: 0,
+    },
+    timeZone
+  )
+}
+
 function zonedLocalToUtc(
   value: { year: number; month: number; day: number; hour: number; minute: number },
   timeZone: string

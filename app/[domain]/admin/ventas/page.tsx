@@ -8,7 +8,14 @@ import { VoidSaleButton } from '@/components/admin/VoidSaleButton'
 import { ReprintReceiptButton } from '@/components/admin/ReprintReceiptButton'
 import { formatPriceWithCurrency, getCurrencyByCountry } from '@/lib/currency'
 import { EditSaleButton } from '@/components/admin/EditSaleButton'
-import { formatRestaurantDateTime, getRestaurantLocale, getRestaurantTimeZone } from '@/lib/restaurant-time'
+import {
+  addRestaurantLocalDays,
+  formatRestaurantDateTime,
+  getRestaurantLocalDateKey,
+  getRestaurantLocalDateStartUtc,
+  getRestaurantLocale,
+  getRestaurantTimeZone,
+} from '@/lib/restaurant-time'
 
 interface Props {
   params: Promise<{ domain: string }>
@@ -22,18 +29,8 @@ export default async function VentasPage({ params }: Props) {
   }
 
   const supabase = createServiceClient()
-  const planInfo = await getTenantPlanInfo(tenantId)
-  const now = new Date()
-  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString()
-  const startOfLastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1).toISOString()
-  const startOf7Days = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString()
-
-  const [allOrdersRes, monthOrdersRes, lastMonthRes, weekOrdersRes, topItemsRes, tenantRes, settingsRes] = await Promise.all([
-    supabase.from('orders').select('id, order_number, total, payment_status, status, created_at').eq('tenant_id', tenantId).order('created_at', { ascending: false }).limit(500),
-    supabase.from('orders').select('total, status').eq('tenant_id', tenantId).gte('created_at', startOfMonth),
-    supabase.from('orders').select('total, status').eq('tenant_id', tenantId).gte('created_at', startOfLastMonth).lt('created_at', startOfMonth),
-    supabase.from('orders').select('total, status').eq('tenant_id', tenantId).gte('created_at', startOf7Days),
-    supabase.from('orders').select('items, status').eq('tenant_id', tenantId).gte('created_at', startOfMonth),
+  const [planInfo, tenantRes, settingsRes] = await Promise.all([
+    getTenantPlanInfo(tenantId),
     supabase.from('tenants').select('country').eq('id', tenantId).maybeSingle(),
     supabase.from('restaurant_settings').select('country, timezone').eq('tenant_id', tenantId).maybeSingle(),
   ])
@@ -46,6 +43,28 @@ export default async function VentasPage({ params }: Props) {
   })
   const currencyInfo = getCurrencyByCountry(restaurantCountry)
   const money = (value: number) => formatPriceWithCurrency(Number(value || 0), currencyInfo.code, currencyInfo.locale)
+  const now = new Date()
+  const todayKey = getRestaurantLocalDateKey(now, restaurantTimeZone)
+  const [localYear, localMonth] = todayKey.split('-').map(Number)
+  const monthStartKey = `${localYear.toString().padStart(4, '0')}-${localMonth.toString().padStart(2, '0')}-01`
+  const lastMonthDate = new Date(Date.UTC(localYear, localMonth - 2, 1, 12, 0, 0, 0))
+  const lastMonthStartKey = [
+    lastMonthDate.getUTCFullYear().toString().padStart(4, '0'),
+    (lastMonthDate.getUTCMonth() + 1).toString().padStart(2, '0'),
+    '01',
+  ].join('-')
+  const chartDateKeys = Array.from({ length: 7 }, (_, index) => addRestaurantLocalDays(todayKey, index - 6))
+  const startOfMonth = getRestaurantLocalDateStartUtc(monthStartKey, restaurantTimeZone)?.toISOString() || new Date(now.getFullYear(), now.getMonth(), 1).toISOString()
+  const startOfLastMonth = getRestaurantLocalDateStartUtc(lastMonthStartKey, restaurantTimeZone)?.toISOString() || new Date(now.getFullYear(), now.getMonth() - 1, 1).toISOString()
+  const startOf7Days = getRestaurantLocalDateStartUtc(chartDateKeys[0], restaurantTimeZone)?.toISOString() || new Date(now.getTime() - 6 * 24 * 60 * 60 * 1000).toISOString()
+
+  const [allOrdersRes, monthOrdersRes, lastMonthRes, weekOrdersRes, topItemsRes] = await Promise.all([
+    supabase.from('orders').select('id, order_number, total, payment_status, status, created_at').eq('tenant_id', tenantId).order('created_at', { ascending: false }).limit(500),
+    supabase.from('orders').select('total, status').eq('tenant_id', tenantId).gte('created_at', startOfMonth),
+    supabase.from('orders').select('total, status').eq('tenant_id', tenantId).gte('created_at', startOfLastMonth).lt('created_at', startOfMonth),
+    supabase.from('orders').select('total, status, created_at').eq('tenant_id', tenantId).gte('created_at', startOf7Days),
+    supabase.from('orders').select('items, status').eq('tenant_id', tenantId).gte('created_at', startOfMonth),
+  ])
 
   const allOrders = allOrdersRes.data || []
   const monthOrders = monthOrdersRes.data || []
@@ -80,15 +99,23 @@ export default async function VentasPage({ params }: Props) {
     return money(value)
   }
 
-  const dayLabels: string[] = []
-  const dayRevenue: number[] = []
-  for (let i = 6; i >= 0; i--) {
-    const d = new Date(now.getTime() - i * 24 * 60 * 60 * 1000)
-    dayLabels.push(d.toLocaleDateString('es-CO', { weekday: 'short', day: 'numeric' }))
-    dayRevenue.push(allOrders
-        .filter(o => new Date(o.created_at).toDateString() === d.toDateString() && isCountableOrder(o))
-      .reduce((s, o) => s + Number(o.total), 0))
+  const revenueByLocalDay = new Map(chartDateKeys.map((dateKey) => [dateKey, 0]))
+  for (const order of weekOrders) {
+    if (!isCountableOrder(order)) continue
+    const dateKey = getRestaurantLocalDateKey(order.created_at, restaurantTimeZone)
+    if (!revenueByLocalDay.has(dateKey)) continue
+    revenueByLocalDay.set(dateKey, (revenueByLocalDay.get(dateKey) || 0) + Number(order.total))
   }
+  const dayLabels = chartDateKeys.map((dateKey) => {
+    const dayStart = getRestaurantLocalDateStartUtc(dateKey, restaurantTimeZone)
+    return formatRestaurantDateTime(dayStart || `${dateKey}T12:00:00Z`, {
+      locale: restaurantLocale,
+      timeZone: restaurantTimeZone,
+      weekday: 'short',
+      day: 'numeric',
+    })
+  })
+  const dayRevenue = chartDateKeys.map((dateKey) => revenueByLocalDay.get(dateKey) || 0)
   const maxDay = Math.max(...dayRevenue, 1)
 
   const analyticsContent = (
