@@ -678,6 +678,7 @@ export function POSTerminal({
   }, [supabase, tenantId]);
 
   useEffect(() => {
+    void refreshPendingCashClosing();
     const timer = window.setTimeout(() => {
       refreshPendingCashClosing();
     }, 5000);
@@ -1036,9 +1037,23 @@ export function POSTerminal({
       const loggedStaff = getLoggedStaffFromBrowser(tenantId);
       const closingStaffId = selectedStaffId || loggedStaff.staffId;
       const closingStaffName = selectedStaffName || loggedStaff.staffName || 'Sin asignar';
+      const latestStats = cashClosingMode === 'pending'
+        ? await fetchPendingCashClosingStats(tenantId)
+        : await calculateCashClosingStats(tenantId);
+
+      if (!latestStats) {
+        setShowCashClosing(false);
+        setCashClosingStats(null);
+        setCashClosingMode(null);
+        setPendingCashClosingStats(null);
+        setToast({ message: 'No hay ventas pendientes para cerrar', type: 'success' });
+        return;
+      }
+
+      setCashClosingStats(latestStats);
 
       const closing = await saveCashClosing(tenantId, closingStaffId, closingStaffName, {
-        ...cashClosingStats,
+        ...latestStats,
         actualCashCount: actualCash,
         notes,
       });
@@ -1069,22 +1084,22 @@ export function POSTerminal({
             restaurantPhone: settings.phone || restaurantPhone,
             staffName: closingStaffName,
             closedAt: closing?.closed_at || new Date().toISOString(),
-            periodStart: cashClosingStats.periodStart,
-            periodEnd: cashClosingStats.periodEnd,
-            cashSales: cashClosingStats.cashSales,
-            cardSales: cashClosingStats.cardSales,
-            otherSales: cashClosingStats.otherSales,
-            totalSales: cashClosingStats.totalSales,
-            totalDeliveryFees: cashClosingStats.totalDeliveryFees,
-            deliveryOrderCount: cashClosingStats.deliveryOrderCount,
-            totalTax: cashClosingStats.totalTax,
-            totalDiscount: cashClosingStats.totalDiscount,
-            expectedCash: cashClosingStats.cashSales,
+            periodStart: latestStats.periodStart,
+            periodEnd: latestStats.periodEnd,
+            cashSales: latestStats.cashSales,
+            cardSales: latestStats.cardSales,
+            otherSales: latestStats.otherSales,
+            totalSales: latestStats.totalSales,
+            totalDeliveryFees: latestStats.totalDeliveryFees,
+            deliveryOrderCount: latestStats.deliveryOrderCount,
+            totalTax: latestStats.totalTax,
+            totalDiscount: latestStats.totalDiscount,
+            expectedCash: latestStats.cashSales,
             actualCash,
-            difference: cashClosingStats.cashSales - actualCash,
-            transactionCount: cashClosingStats.transactionCount,
-            ordersCompleted: cashClosingStats.ordersCompleted,
-            ordersCancelled: cashClosingStats.ordersCancelled,
+            difference: latestStats.cashSales - actualCash,
+            transactionCount: latestStats.transactionCount,
+            ordersCompleted: latestStats.ordersCompleted,
+            ordersCancelled: latestStats.ordersCancelled,
             notes,
             currencyInfo,
           });

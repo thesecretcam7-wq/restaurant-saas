@@ -245,13 +245,15 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ stats: null });
     }
 
-    const closedOrderIds = new Set((closedItemsRes.error ? [] : closedItemsRes.data || []).map((item: any) => item.order_id));
+    const closedItems = closedItemsRes.error ? [] : closedItemsRes.data || [];
+    const closedOrderIds = new Set(closedItems.map((item: any) => item.order_id));
+    const hasClosingItemLedger = closedItems.length > 0;
     const latestClosingDate = !latestClosingRes.error && latestClosingRes.data?.closed_at
       ? new Date(latestClosingRes.data.closed_at)
       : null;
     const pendingOrders = orders.filter((order: any) => {
       if (closedOrderIds.has(order.id)) return false;
-      if (latestClosingDate && new Date(order.created_at) <= latestClosingDate) return false;
+      if (!hasClosingItemLedger && latestClosingDate && new Date(order.created_at) <= latestClosingDate) return false;
       return true;
     });
 
