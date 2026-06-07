@@ -429,15 +429,15 @@ export default async function DashboardPage({ params }: DashboardProps) {
           </div>
           <div className="mt-5 grid gap-3 sm:grid-cols-2">
             {aiActions.map(({ title, value, text, icon: Icon }) => (
-              <article key={title} className="rounded-2xl border border-black/8 bg-white/60 p-4">
+              <article key={title} className="dashboard-readable-card rounded-2xl border p-4">
                 <div className="flex items-start gap-3">
-                  <div className="grid size-10 flex-shrink-0 place-items-center rounded-xl bg-[#15130f] text-white">
-                    <Icon className="size-5" />
+                  <div className="dashboard-readable-icon grid size-10 flex-shrink-0 place-items-center rounded-xl">
+                    <Icon className="size-5 text-current" />
                   </div>
                   <div className="min-w-0">
-                    <p className="text-xs font-black uppercase text-black/38">{title}</p>
+                    <p className="dashboard-readable-label text-xs font-black uppercase">{title}</p>
                     <p className="mt-1 line-clamp-2 text-base font-black text-[#15130f]">{value}</p>
-                    <p className="mt-2 text-xs font-semibold leading-5 text-black/50">{text}</p>
+                    <p className="dashboard-readable-description mt-2 text-xs font-semibold leading-5">{text}</p>
                   </div>
                 </div>
               </article>
@@ -459,10 +459,10 @@ export default async function DashboardPage({ params }: DashboardProps) {
               ['Personal sugerido', recommendedStaff, 'personas en turno'],
               ['Prep. promedio', avgPrepTime || 'N/D', avgPrepTime ? 'minutos' : 'sin datos KDS'],
             ].map(([label, value, detail]) => (
-              <div key={String(label)} className="rounded-2xl border border-black/8 bg-white/60 p-4">
-                <p className="text-xs font-black uppercase text-black/38">{String(label)}</p>
+              <div key={String(label)} className="dashboard-readable-card rounded-2xl border p-4">
+                <p className="dashboard-readable-label text-xs font-black uppercase">{String(label)}</p>
                 <p className="mt-2 text-3xl font-black text-[#15130f]">{String(value)}</p>
-                <p className="mt-1 text-xs font-semibold text-black/45">{String(detail)}</p>
+                <p className="dashboard-readable-description mt-1 text-xs font-semibold">{String(detail)}</p>
               </div>
             ))}
           </div>

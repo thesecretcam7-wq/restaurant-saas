@@ -28,6 +28,19 @@ function qrTable(qr?: TableQr | null) {
   return Array.isArray(qr.tables) ? qr.tables[0] || null : qr.tables;
 }
 
+function normalizeBaseUrl(value: string) {
+  return value.trim().replace(/\/+$/, '');
+}
+
+function isLocalUrl(value: string) {
+  try {
+    const url = new URL(value);
+    return ['localhost', '127.0.0.1', '::1'].includes(url.hostname);
+  } catch {
+    return false;
+  }
+}
+
 export default function QRCodesPage() {
   const params = useParams();
   const domain = String(params.domain || '');
@@ -39,6 +52,7 @@ export default function QRCodesPage() {
   const [generatingTableId, setGeneratingTableId] = useState<string | null>(null);
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [qrBaseUrl, setQrBaseUrl] = useState('');
 
   const qrByTableId = useMemo(() => {
     const map = new Map<string, TableQr>();
@@ -47,6 +61,45 @@ export default function QRCodesPage() {
     });
     return map;
   }, [qrCodes]);
+
+  const effectiveQrBaseUrl = useMemo(() => normalizeBaseUrl(qrBaseUrl), [qrBaseUrl]);
+  const usingLocalhost = useMemo(() => isLocalUrl(effectiveQrBaseUrl), [effectiveQrBaseUrl]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function resolveQrBaseUrl() {
+      const configuredUrl = process.env.NEXT_PUBLIC_TABLE_QR_BASE_URL || process.env.NEXT_PUBLIC_APP_URL || '';
+      const storedUrl = window.localStorage.getItem('eccofood-table-qr-base-url') || '';
+      const preferredUrl = [storedUrl, configuredUrl].find((value) => value && !isLocalUrl(value));
+
+      if (preferredUrl) {
+        setQrBaseUrl(normalizeBaseUrl(preferredUrl));
+        return;
+      }
+
+      if (isLocalUrl(window.location.origin)) {
+        try {
+          const response = await fetch('/api/local-network-url', { cache: 'no-store' });
+          const payload = await response.json();
+          if (!cancelled && response.ok && payload.baseUrl) {
+            setQrBaseUrl(normalizeBaseUrl(payload.baseUrl));
+            return;
+          }
+        } catch {
+          // Keep localhost as the fallback when the local network address cannot be detected.
+        }
+      }
+
+      if (!cancelled) setQrBaseUrl(normalizeBaseUrl(configuredUrl || storedUrl || window.location.origin));
+    }
+
+    resolveQrBaseUrl();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     if (!tenantId) return;
@@ -81,6 +134,20 @@ export default function QRCodesPage() {
     }
   }
 
+  function updateQrBaseUrl(value: string) {
+    setQrBaseUrl(value);
+    const normalized = normalizeBaseUrl(value);
+    if (normalized) {
+      window.localStorage.setItem('eccofood-table-qr-base-url', normalized);
+    } else {
+      window.localStorage.removeItem('eccofood-table-qr-base-url');
+    }
+  }
+
+  function getQrBaseUrl() {
+    return effectiveQrBaseUrl || window.location.origin;
+  }
+
   async function generateQRForTable(tableId: string) {
     if (!tenantId) return;
     setGeneratingTableId(tableId);
@@ -94,7 +161,7 @@ export default function QRCodesPage() {
         body: JSON.stringify({
           tenantId,
           tableId,
-          siteUrl: window.location.origin,
+          siteUrl: getQrBaseUrl(),
         }),
       });
 
@@ -122,7 +189,7 @@ export default function QRCodesPage() {
   }
 
   async function copyLink(qr: TableQr) {
-    const url = `${window.location.origin}/order/${qr.unique_code}`;
+    const url = `${getQrBaseUrl()}/order/${qr.unique_code}`;
     await navigator.clipboard.writeText(url);
     setCopiedCode(qr.unique_code);
     window.setTimeout(() => setCopiedCode(null), 1800);
@@ -160,6 +227,26 @@ export default function QRCodesPage() {
         </div>
       )}
 
+      <section className="admin-panel p-4">
+        <label className="block">
+          <span className="text-xs font-black uppercase tracking-wide text-slate-500">URL para celular</span>
+          <input
+            value={qrBaseUrl}
+            onChange={(event) => updateQrBaseUrl(event.target.value)}
+            placeholder="http://IP-DE-TU-PC:3002"
+            className="mt-2 h-11 w-full rounded-xl border border-slate-700/20 bg-white px-3 text-sm font-bold text-slate-900 outline-none focus:border-orange-400 focus:ring-2 focus:ring-orange-200"
+          />
+        </label>
+        <p className="mt-2 text-xs font-semibold text-slate-500">
+          Para probar con celular, usa la direccion de este computador en el Wi-Fi. Los QR nuevos y actualizados usaran esta URL.
+        </p>
+        {usingLocalhost && (
+          <p className="mt-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-black text-amber-800">
+            Cambia localhost por la IP del computador; en el celular localhost apunta al propio telefono.
+          </p>
+        )}
+      </section>
+
       {tables.length === 0 ? (
         <section className="admin-panel p-8 text-center">
           <QrCode className="mx-auto size-12 text-slate-400" />
@@ -177,7 +264,7 @@ export default function QRCodesPage() {
           {tables.map((table) => {
             const qr = qrByTableId.get(table.id);
             const relatedTable = qrTable(qr) || table;
-            const orderUrl = qr ? `/order/${qr.unique_code}` : '';
+            const orderUrl = qr ? `${effectiveQrBaseUrl || ''}/order/${qr.unique_code}` : '';
             const busy = generatingTableId === table.id;
 
             return (
@@ -231,6 +318,15 @@ export default function QRCodesPage() {
                           Abrir
                         </Link>
                       </div>
+                      <button
+                        type="button"
+                        onClick={() => generateQRForTable(table.id)}
+                        disabled={busy}
+                        className="mt-2 inline-flex h-10 w-full items-center justify-center gap-2 rounded-xl border border-orange-500/30 bg-orange-50 text-xs font-black text-orange-700 disabled:opacity-50"
+                      >
+                        <RefreshCw className="size-4" />
+                        {busy ? 'Actualizando...' : 'Actualizar QR con esta URL'}
+                      </button>
                     </>
                   ) : (
                     <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-6 text-center">

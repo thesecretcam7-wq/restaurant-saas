@@ -1,9 +1,19 @@
 // COMPLETE REBUILD - Force Vercel to discard all cache and rebuild from scratch
 import type { NextConfig } from "next";
 import { withSentryConfig } from "@sentry/nextjs";
+import { networkInterfaces } from "os";
 
 // Force complete rebuild - branding colors not syncing to API, clear all cache
+function getLocalDevOrigins() {
+  return Object.values(networkInterfaces())
+    .flatMap((items) => items || [])
+    .filter((item) => item.family === "IPv4" && !item.internal && !item.address.startsWith("169.254."))
+    .map((item) => item.address);
+}
+
 const nextConfig: NextConfig = {
+  allowedDevOrigins: getLocalDevOrigins(),
+
   images: {
     remotePatterns: [
       { protocol: "https", hostname: "images.unsplash.com" },

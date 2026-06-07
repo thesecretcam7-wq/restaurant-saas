@@ -84,6 +84,8 @@ export default function TableOrderPage() {
 
   useEffect(() => {
     let cancelled = false;
+    const controller = new AbortController();
+    const timeoutId = window.setTimeout(() => controller.abort(), 12000);
 
     async function load() {
       setLoading(true);
@@ -91,8 +93,8 @@ export default function TableOrderPage() {
 
       try {
         const [qrResponse, csrfResponse] = await Promise.all([
-          fetch(`/api/table-qr?code=${encodeURIComponent(code)}`, { cache: 'no-store' }),
-          fetch('/api/csrf-token', { credentials: 'include', cache: 'no-store' }).catch(() => null),
+          fetch(`/api/table-qr?code=${encodeURIComponent(code)}`, { cache: 'no-store', signal: controller.signal }),
+          fetch('/api/csrf-token', { credentials: 'include', cache: 'no-store', signal: controller.signal }).catch(() => null),
         ]);
 
         const qrPayload = await qrResponse.json();
@@ -108,16 +110,28 @@ export default function TableOrderPage() {
         }
       } catch (err) {
         if (!cancelled) {
-          setError(err instanceof Error ? err.message : 'Error al cargar la carta');
+          setError(err instanceof DOMException && err.name === 'AbortError'
+            ? 'La carta esta tardando en responder. Revisa la conexion y vuelve a escanear el QR.'
+            : err instanceof Error ? err.message : 'Error al cargar la carta');
         }
       } finally {
+        window.clearTimeout(timeoutId);
         if (!cancelled) setLoading(false);
       }
     }
 
-    if (code) load();
+    if (code) {
+      load();
+    } else {
+      window.clearTimeout(timeoutId);
+      setError('Codigo QR invalido');
+      setLoading(false);
+    }
+
     return () => {
       cancelled = true;
+      window.clearTimeout(timeoutId);
+      controller.abort();
     };
   }, [code]);
 

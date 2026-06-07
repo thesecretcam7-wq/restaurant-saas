@@ -173,7 +173,28 @@ export async function POST(request: NextRequest) {
       .maybeSingle();
 
     if (existingQR) {
-      return NextResponse.json(existingQR);
+      const qrUrl = `${normalizeSiteUrl(siteUrl)}/order/${existingQR.unique_code}`;
+      const qrCodeDataUrl = await QRCode.toDataURL(qrUrl, {
+        width: 720,
+        margin: 2,
+        color: {
+          dark: '#07111f',
+          light: '#ffffff',
+        },
+      });
+
+      const { data: updatedQR, error: updateError } = await supabase
+        .from('table_qr_codes')
+        .update({ qr_code_data: qrCodeDataUrl })
+        .eq('id', existingQR.id)
+        .select('id, tenant_id, table_id, unique_code, qr_code_data, is_active, tables(id, table_number, seats, location, status)')
+        .single();
+
+      if (updateError) {
+        return NextResponse.json({ error: updateError.message }, { status: 500 });
+      }
+
+      return NextResponse.json(updatedQR);
     }
 
     let uniqueCode = generateUniqueCode();

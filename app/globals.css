@@ -1589,7 +1589,7 @@ body {
   --admin-app-sidebar: #0b0e14;
   --admin-app-sidebar-soft: #1a1f2c;
   --admin-app-text: #f8fafc;
-  --admin-app-muted: #c7d2e1;
+  --admin-app-muted: #dbe3ee;
   --admin-app-warning: #f8c55f;
   --admin-app-danger: #ffb4a2;
   --admin-app-success: #86efac;
@@ -1665,12 +1665,12 @@ body:has(.admin-app-shell) {
 }
 
 .admin-app-shell .admin-eyebrow {
-  color: var(--admin-app-primary) !important;
+  color: var(--admin-app-warning) !important;
   letter-spacing: 0.08em;
 }
 
 .admin-app-shell .admin-subtitle,
-.admin-app-shell .admin-page :where(.text-black\/35, .text-black\/40, .text-black\/42, .text-black\/45, .text-black\/48, .text-black\/50, .text-black\/52, .text-black\/55, .text-black\/56, .text-black\/58, .text-black\/60, .text-black\/62, .text-black\/65, .text-black\/70, .text-black\/75, .text-gray-400, .text-gray-500, .text-gray-600, .text-slate-400, .text-slate-500, .text-slate-600, .text-zinc-400, .text-zinc-500, .text-zinc-600, .text-neutral-400, .text-neutral-500, .text-neutral-600) {
+.admin-app-shell .admin-page :where(.text-black\/35, .text-black\/38, .text-black\/40, .text-black\/42, .text-black\/45, .text-black\/48, .text-black\/50, .text-black\/52, .text-black\/55, .text-black\/56, .text-black\/58, .text-black\/60, .text-black\/62, .text-black\/65, .text-black\/70, .text-black\/75, .text-gray-400, .text-gray-500, .text-gray-600, .text-slate-400, .text-slate-500, .text-slate-600, .text-zinc-400, .text-zinc-500, .text-zinc-600, .text-neutral-400, .text-neutral-500, .text-neutral-600) {
   color: var(--admin-app-muted) !important;
 }
 
@@ -1857,6 +1857,55 @@ body:has(.admin-app-shell) {
 
 .admin-app-shell .admin-dark-insight :where(.text-\[\#15130f\]) {
   color: #111827 !important;
+}
+
+.admin-app-shell .dashboard-readable-card {
+  border-color: rgba(248, 197, 95, 0.22) !important;
+  background:
+    linear-gradient(135deg, rgba(248, 197, 95, 0.10), rgba(26, 31, 44, 0.88)) !important;
+  box-shadow:
+    0 18px 42px rgba(0, 0, 0, 0.22),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06) !important;
+}
+
+.admin-app-shell .dashboard-readable-icon {
+  border: 1px solid rgba(248, 197, 95, 0.36);
+  background: rgba(248, 197, 95, 0.14);
+  color: #fde68a;
+}
+
+.admin-app-shell .dashboard-readable-label {
+  color: #fde68a !important;
+  letter-spacing: 0;
+}
+
+.admin-app-shell .dashboard-readable-description {
+  color: #e5edf7 !important;
+}
+
+.admin-app-shell .admin-filter-button {
+  border: 1px solid transparent;
+  border-radius: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  color: #dbe3ee !important;
+  font-size: 0.875rem;
+  font-weight: 900;
+  background: rgba(255, 255, 255, 0.04);
+  transition: background 160ms ease, border-color 160ms ease, color 160ms ease;
+}
+
+.admin-app-shell .admin-filter-button:hover {
+  border-color: rgba(248, 197, 95, 0.32);
+  color: #ffffff !important;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.admin-app-shell .admin-filter-button-active,
+.admin-app-shell .admin-filter-button-active:hover {
+  border-color: rgba(248, 197, 95, 0.72) !important;
+  color: #ffffff !important;
+  background: linear-gradient(135deg, rgba(211, 90, 55, 0.92), rgba(212, 175, 55, 0.70)) !important;
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.22);
 }
 
 /* Final POS premium contrast pass. Keep this near the end so old utility
