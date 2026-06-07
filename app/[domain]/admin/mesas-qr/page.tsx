@@ -1,82 +1,96 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { createClient } from '@/lib/supabase/client';
-import { QrCode, Download, RefreshCw } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
+import Link from 'next/link';
+import { useParams } from 'next/navigation';
+import { useTenantResolver } from '@/lib/hooks/useTenantResolver';
+import { Check, Copy, Download, ExternalLink, QrCode, RefreshCw } from 'lucide-react';
 
-const supabase = createClient();
-
-interface QRCode {
+interface Table {
   id: string;
+  table_number: number;
+  seats: number;
+  location: string | null;
+  status: string;
+}
+
+interface TableQr {
+  id: string;
+  table_id: string;
   unique_code: string;
   qr_code_data: string;
   is_active: boolean;
-  tables?: {
-    table_number: number;
-  };
+  tables?: Table | Table[] | null;
+}
+
+function qrTable(qr?: TableQr | null) {
+  if (!qr?.tables) return null;
+  return Array.isArray(qr.tables) ? qr.tables[0] || null : qr.tables;
 }
 
 export default function QRCodesPage() {
-  const router = useRouter();
-  const [qrCodes, setQrCodes] = useState<QRCode[]>([]);
+  const params = useParams();
+  const domain = String(params.domain || '');
+  const { tenantId, loading: resolvingTenant } = useTenantResolver(domain);
+
+  const [tables, setTables] = useState<Table[]>([]);
+  const [qrCodes, setQrCodes] = useState<TableQr[]>([]);
   const [loading, setLoading] = useState(true);
-  const [tenantId, setTenantId] = useState<string>('');
+  const [generatingTableId, setGeneratingTableId] = useState<string | null>(null);
+  const [copiedCode, setCopiedCode] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const qrByTableId = useMemo(() => {
+    const map = new Map<string, TableQr>();
+    qrCodes.forEach((qr) => {
+      if (qr.table_id) map.set(qr.table_id, qr);
+    });
+    return map;
+  }, [qrCodes]);
 
   useEffect(() => {
-    async function init() {
-      try {
-        const {
-          data: { session },
-        } = await supabase.auth.getSession();
+    if (!tenantId) return;
+    fetchData();
+  }, [tenantId]);
 
-        if (!session) {
-          router.push('/login');
-          return;
-        }
+  async function fetchData() {
+    if (!tenantId) return;
+    setLoading(true);
+    setError(null);
 
-        const { data: tenant } = await supabase
-          .from('tenants')
-          .select('id')
-          .eq('owner_id', session.user.id)
-          .single();
-
-        if (tenant) {
-          setTenantId(tenant.id);
-          fetchQRCodes(tenant.id);
-        }
-      } catch (error) {
-        console.error('Error initializing:', error);
-        router.push('/login');
-      }
-    }
-
-    init();
-  }, [router]);
-
-  async function fetchQRCodes(id: string) {
     try {
-      const { data, error } = await supabase
-        .from('table_qr_codes')
-        .select('*, tables(*)')
-        .eq('tenant_id', id);
+      const [tablesResponse, qrResponse] = await Promise.all([
+        fetch(`/api/tables?tenantId=${encodeURIComponent(tenantId)}`, { credentials: 'include', cache: 'no-store' }),
+        fetch(`/api/table-qr?tenantId=${encodeURIComponent(tenantId)}`, { credentials: 'include', cache: 'no-store' }),
+      ]);
 
-      if (error) throw error;
+      const [tablesPayload, qrPayload] = await Promise.all([
+        tablesResponse.json(),
+        qrResponse.json(),
+      ]);
 
-      setQrCodes(data || []);
-    } catch (error) {
-      console.error('Error fetching QR codes:', error);
+      if (!tablesResponse.ok) throw new Error(tablesPayload.error || 'Error al cargar mesas');
+      if (!qrResponse.ok) throw new Error(qrPayload.error || 'Error al cargar codigos QR');
+
+      setTables(tablesPayload || []);
+      setQrCodes(qrPayload || []);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Error al cargar codigos QR');
     } finally {
       setLoading(false);
     }
   }
 
   async function generateQRForTable(tableId: string) {
+    if (!tenantId) return;
+    setGeneratingTableId(tableId);
+    setError(null);
+
     try {
       const response = await fetch('/api/table-qr', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           tenantId,
           tableId,
@@ -84,78 +98,161 @@ export default function QRCodesPage() {
         }),
       });
 
-      if (!response.ok) throw new Error('Failed to generate QR');
+      const payload = await response.json();
+      if (!response.ok) throw new Error(payload.error || 'No se pudo generar el QR');
 
-      const newQR = await response.json();
-      setQrCodes((prev) => {
-        const filtered = prev.filter((qr) => qr.id !== newQR.id);
-        return [newQR, ...filtered];
-      });
-    } catch (error) {
-      console.error('Error generating QR:', error);
+      setQrCodes((current) => [
+        payload,
+        ...current.filter((qr) => qr.id !== payload.id && qr.table_id !== payload.table_id),
+      ]);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Error al generar QR');
+    } finally {
+      setGeneratingTableId(null);
     }
   }
 
-  async function downloadQR(qr: QRCode) {
+  function downloadQR(qr: TableQr, table: Table) {
     const link = document.createElement('a');
     link.href = qr.qr_code_data;
-    link.download = `mesa-${qr.tables?.table_number || qr.unique_code}.png`;
+    link.download = `qr-mesa-${table.table_number}.png`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
   }
 
-  if (loading) {
+  async function copyLink(qr: TableQr) {
+    const url = `${window.location.origin}/order/${qr.unique_code}`;
+    await navigator.clipboard.writeText(url);
+    setCopiedCode(qr.unique_code);
+    window.setTimeout(() => setCopiedCode(null), 1800);
+  }
+
+  if (resolvingTenant || loading) {
     return (
-      <div className="flex items-center justify-center h-screen">
-        <p className="text-gray-600">Cargando...</p>
+      <div className="admin-panel p-6">
+        <p className="text-sm font-bold text-slate-500">Cargando codigos QR...</p>
       </div>
     );
   }
 
   return (
-    <div className="p-8">
-      <div className="max-w-6xl mx-auto">
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Códigos QR de Mesas</h1>
-          <p className="text-gray-600">Genera y gestiona códigos QR para que los clientes puedan pedir desde sus mesas</p>
+    <div className="space-y-6">
+      <div className="admin-page-header">
+        <div>
+          <p className="admin-eyebrow">Autoservicio</p>
+          <h1 className="admin-title">QR de mesas</h1>
+          <p className="admin-subtitle">Cada mesa abre una carta para pedir directo al POS y cocina.</p>
         </div>
-
-        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
-          {qrCodes.map((qr) => (
-            <div
-              key={qr.id}
-              className="bg-white rounded-lg shadow-md p-4 text-center hover:shadow-lg transition"
-            >
-              <div className="mb-3">
-                {qr.qr_code_data ? (
-                  <img src={qr.qr_code_data} alt={`Mesa ${qr.tables?.table_number}`} />
-                ) : (
-                  <div className="w-full h-32 bg-gray-200 rounded flex items-center justify-center">
-                    <QrCode className="w-12 h-12 text-gray-400" />
-                  </div>
-                )}
-              </div>
-              <h3 className="font-bold text-gray-900 mb-2">
-                Mesa {qr.tables?.table_number || 'N/A'}
-              </h3>
-              <p className="text-xs text-gray-500 mb-3 break-all">{qr.unique_code}</p>
-              <button
-                onClick={() => downloadQR(qr)}
-                className="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 rounded text-sm font-semibold flex items-center justify-center gap-1 mb-2 transition"
-              >
-                <Download className="w-4 h-4" /> Descargar
-              </button>
-              <button
-                onClick={() => generateQRForTable(String(qr.tables?.table_number || ''))}
-                className="w-full bg-gray-200 hover:bg-gray-300 text-gray-700 py-2 rounded text-sm font-semibold flex items-center justify-center gap-1 transition"
-              >
-                <RefreshCw className="w-4 h-4" /> Regenerar
-              </button>
-            </div>
-          ))}
-        </div>
+        <button
+          type="button"
+          onClick={fetchData}
+          className="inline-flex h-11 items-center gap-2 rounded-xl border border-slate-700/20 bg-white px-4 text-sm font-black text-slate-800 transition hover:bg-slate-50"
+        >
+          <RefreshCw className="size-4" />
+          Actualizar
+        </button>
       </div>
+
+      {error && (
+        <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-bold text-red-700">
+          {error}
+        </div>
+      )}
+
+      {tables.length === 0 ? (
+        <section className="admin-panel p-8 text-center">
+          <QrCode className="mx-auto size-12 text-slate-400" />
+          <h2 className="mt-4 text-lg font-black text-slate-950">No hay mesas configuradas</h2>
+          <p className="mt-2 text-sm font-semibold text-slate-500">Primero crea las mesas del restaurante.</p>
+          <Link
+            href={`/${domain}/admin/configuracion/mesas`}
+            className="mt-5 inline-flex h-11 items-center rounded-xl bg-slate-950 px-5 text-sm font-black text-white"
+          >
+            Configurar mesas
+          </Link>
+        </section>
+      ) : (
+        <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+          {tables.map((table) => {
+            const qr = qrByTableId.get(table.id);
+            const relatedTable = qrTable(qr) || table;
+            const orderUrl = qr ? `/order/${qr.unique_code}` : '';
+            const busy = generatingTableId === table.id;
+
+            return (
+              <article key={table.id} className="admin-panel overflow-hidden">
+                <div className="flex items-center justify-between border-b border-slate-800/10 p-4">
+                  <div>
+                    <p className="text-xs font-black uppercase tracking-wide text-slate-500">Mesa</p>
+                    <h2 className="text-2xl font-black text-slate-950">{table.table_number}</h2>
+                  </div>
+                  <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-black text-slate-600">
+                    {table.location || `${table.seats} asientos`}
+                  </span>
+                </div>
+
+                <div className="p-4">
+                  {qr ? (
+                    <>
+                      <div className="rounded-2xl border border-slate-200 bg-white p-3">
+                        <img
+                          src={qr.qr_code_data}
+                          alt={`QR Mesa ${relatedTable.table_number}`}
+                          className="mx-auto aspect-square w-full max-w-[240px] object-contain"
+                        />
+                      </div>
+                      <p className="mt-3 break-all rounded-xl bg-slate-100 px-3 py-2 text-xs font-bold text-slate-500">
+                        {orderUrl}
+                      </p>
+                      <div className="mt-3 grid grid-cols-3 gap-2">
+                        <button
+                          type="button"
+                          onClick={() => downloadQR(qr, table)}
+                          className="inline-flex h-10 items-center justify-center gap-1 rounded-xl bg-orange-600 text-xs font-black text-white"
+                        >
+                          <Download className="size-4" />
+                          QR
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => copyLink(qr)}
+                          className="inline-flex h-10 items-center justify-center gap-1 rounded-xl bg-slate-100 text-xs font-black text-slate-700"
+                        >
+                          {copiedCode === qr.unique_code ? <Check className="size-4 text-emerald-600" /> : <Copy className="size-4" />}
+                          Link
+                        </button>
+                        <Link
+                          href={orderUrl}
+                          target="_blank"
+                          className="inline-flex h-10 items-center justify-center gap-1 rounded-xl bg-slate-950 text-xs font-black text-white"
+                        >
+                          <ExternalLink className="size-4" />
+                          Abrir
+                        </Link>
+                      </div>
+                    </>
+                  ) : (
+                    <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-6 text-center">
+                      <QrCode className="mx-auto size-12 text-slate-400" />
+                      <p className="mt-3 text-sm font-black text-slate-800">Sin QR generado</p>
+                      <button
+                        type="button"
+                        onClick={() => generateQRForTable(table.id)}
+                        disabled={busy}
+                        className="mt-4 inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-orange-600 px-5 text-sm font-black text-white disabled:opacity-50"
+                      >
+                        <QrCode className="size-4" />
+                        {busy ? 'Generando...' : 'Generar QR'}
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </article>
+            );
+          })}
+        </section>
+      )}
     </div>
   );
 }

@@ -1,20 +1,18 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useParams } from 'next/navigation';
-import { createClient } from '@/lib/supabase/client';
-import { Plus, Minus, X, CheckCircle } from 'lucide-react';
+import { AlertCircle, CheckCircle, Minus, Plus, ReceiptText, ShoppingBag, Utensils, X } from 'lucide-react';
 import { formatPriceWithCurrency, getCurrencyByCountry } from '@/lib/currency';
-
-const supabase = createClient();
 
 interface MenuItem {
   id: string;
+  tenant_id: string;
   name: string;
   price: number;
-  description?: string;
-  image_url?: string;
-  category_id?: string;
+  description?: string | null;
+  image_url?: string | null;
+  category_id?: string | null;
 }
 
 interface Category {
@@ -27,329 +25,519 @@ interface CartItem {
   name: string;
   price: number;
   quantity: number;
+  image_url?: string | null;
+}
+
+interface TableQrPayload {
+  qrCode: {
+    id: string;
+    uniqueCode: string;
+    tableId: string;
+  };
+  tenant: {
+    id: string;
+    slug: string;
+    name: string;
+    logoUrl?: string | null;
+    country?: string | null;
+  };
+  table: {
+    id: string;
+    table_number: number;
+    seats?: number | null;
+    location?: string | null;
+    status?: string | null;
+  };
+  menu: MenuItem[];
+  categories: Category[];
+  settings: {
+    country?: string | null;
+    country_code?: string | null;
+    currency?: string | null;
+    currency_symbol?: string | null;
+    tax_rate?: number | null;
+  };
+  branding: {
+    app_name?: string | null;
+    logo_url?: string | null;
+    primary_color?: string | null;
+    button_primary_color?: string | null;
+    background_color?: string | null;
+    text_primary_color?: string | null;
+  };
 }
 
 export default function TableOrderPage() {
   const params = useParams();
-  const code = params.code as string;
+  const code = String(params.code || '');
 
-  const [menu, setMenu] = useState<MenuItem[]>([]);
-  const [categories, setCategories] = useState<Category[]>([]);
+  const [data, setData] = useState<TableQrPayload | null>(null);
+  const [csrfToken, setCsrfToken] = useState('');
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
   const [cart, setCart] = useState<CartItem[]>([]);
+  const [orderNotes, setOrderNotes] = useState('');
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
-  const [qrData, setQrData] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
   const [showCart, setShowCart] = useState(false);
-  const [orderDone, setOrderDone] = useState(false);
-  const [currencyInfo, setCurrencyInfo] = useState(() => getCurrencyByCountry('ES'));
+  const [orderDone, setOrderDone] = useState<{ orderNumber?: string } | null>(null);
 
-  useEffect(() => { fetchQRData(); }, [code]);
+  useEffect(() => {
+    let cancelled = false;
 
-  async function fetchQRData() {
-    try {
-      const { data: qrCodeData, error: qrError } = await supabase
-        .from('table_qr_codes')
-        .select('*, tables(*), tenants(id)')
-        .eq('unique_code', code)
-        .single();
+    async function load() {
+      setLoading(true);
+      setError(null);
 
-      if (qrError || !qrCodeData) { setError('Código QR inválido'); return; }
-      setQrData(qrCodeData);
+      try {
+        const [qrResponse, csrfResponse] = await Promise.all([
+          fetch(`/api/table-qr?code=${encodeURIComponent(code)}`, { cache: 'no-store' }),
+          fetch('/api/csrf-token', { credentials: 'include', cache: 'no-store' }).catch(() => null),
+        ]);
 
-      const [menuRes, catRes, settingsRes] = await Promise.all([
-        supabase.from('menu_items').select('*').eq('tenant_id', qrCodeData.tenant_id).eq('available', true).order('category_id, name'),
-        supabase.from('menu_categories').select('id, name').eq('tenant_id', qrCodeData.tenant_id).order('name'),
-        supabase
-          .from('restaurant_settings')
-          .select('currency, currency_symbol, country, country_code')
-          .eq('tenant_id', qrCodeData.tenant_id)
-          .maybeSingle(),
-      ]);
+        const qrPayload = await qrResponse.json();
+        if (!qrResponse.ok) throw new Error(qrPayload.error || 'Codigo QR invalido');
 
-      setMenu(menuRes.data || []);
-      setCategories(catRes.data || []);
-      const settings = settingsRes.data as any;
-      const country = settings?.country_code || settings?.country || 'ES';
-      const countryCurrency = getCurrencyByCountry(country);
-      setCurrencyInfo(settings?.currency
-        ? { ...countryCurrency, code: settings.currency, symbol: settings.currency_symbol || countryCurrency.symbol }
-        : countryCurrency
-      );
-    } catch {
-      setError('Error al cargar el menú');
-    } finally {
-      setLoading(false);
+        const csrfPayload = csrfResponse ? await csrfResponse.json().catch(() => null) : null;
+        const token = csrfPayload?.token || csrfResponse?.headers.get('x-csrf-token') || '';
+
+        if (!cancelled) {
+          setData(qrPayload);
+          setCsrfToken(token);
+          setActiveCategory(qrPayload.categories?.[0]?.id || null);
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setError(err instanceof Error ? err.message : 'Error al cargar la carta');
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
     }
-  }
+
+    if (code) load();
+    return () => {
+      cancelled = true;
+    };
+  }, [code]);
+
+  const theme = useMemo(() => {
+    const primary = data?.branding?.button_primary_color || data?.branding?.primary_color || '#f97316';
+    return {
+      primary,
+      accent: '#16a34a',
+      pageBg: data?.branding?.background_color || '#f8fafc',
+      text: data?.branding?.text_primary_color || '#0f172a',
+    };
+  }, [data]);
+
+  const currencyInfo = useMemo(() => {
+    const country = data?.settings?.country_code || data?.settings?.country || data?.tenant?.country || 'CO';
+    const countryCurrency = getCurrencyByCountry(country);
+    return data?.settings?.currency
+      ? {
+          ...countryCurrency,
+          code: data.settings.currency,
+          symbol: data.settings.currency_symbol || countryCurrency.symbol,
+        }
+      : countryCurrency;
+  }, [data]);
+
+  const menu = data?.menu || [];
+  const categories = data?.categories || [];
+  const filteredMenu = activeCategory ? menu.filter((item) => item.category_id === activeCategory) : menu;
+  const tableNumber = data?.table?.table_number;
+  const restaurantName = data?.branding?.app_name || data?.tenant?.name || 'Restaurante';
+  const logoUrl = data?.branding?.logo_url || data?.tenant?.logoUrl || null;
+  const total = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
+  const cartCount = cart.reduce((sum, item) => sum + item.quantity, 0);
+  const money = (value: number) => formatPriceWithCurrency(Number(value || 0), currencyInfo.code, currencyInfo.locale);
 
   function addToCart(item: MenuItem) {
-    setCart(prev => {
-      const existing = prev.find(c => c.menu_item_id === item.id);
-      if (existing) return prev.map(c => c.menu_item_id === item.id ? { ...c, quantity: c.quantity + 1 } : c);
-      return [...prev, { menu_item_id: item.id, name: item.name, price: item.price, quantity: 1 }];
+    setCart((current) => {
+      const existing = current.find((cartItem) => cartItem.menu_item_id === item.id);
+      if (existing) {
+        return current.map((cartItem) =>
+          cartItem.menu_item_id === item.id
+            ? { ...cartItem, quantity: cartItem.quantity + 1 }
+            : cartItem
+        );
+      }
+      return [
+        ...current,
+        {
+          menu_item_id: item.id,
+          name: item.name,
+          price: Number(item.price || 0),
+          quantity: 1,
+          image_url: item.image_url,
+        },
+      ];
     });
   }
 
   function removeFromCart(itemId: string) {
-    setCart(prev => {
-      const existing = prev.find(c => c.menu_item_id === itemId);
-      if (!existing) return prev;
-      if (existing.quantity === 1) return prev.filter(c => c.menu_item_id !== itemId);
-      return prev.map(c => c.menu_item_id === itemId ? { ...c, quantity: c.quantity - 1 } : c);
+    setCart((current) => {
+      const existing = current.find((cartItem) => cartItem.menu_item_id === itemId);
+      if (!existing) return current;
+      if (existing.quantity <= 1) return current.filter((cartItem) => cartItem.menu_item_id !== itemId);
+      return current.map((cartItem) =>
+        cartItem.menu_item_id === itemId
+          ? { ...cartItem, quantity: cartItem.quantity - 1 }
+          : cartItem
+      );
     });
   }
 
   async function submitOrder() {
-    if (cart.length === 0) return;
+    if (!data || cart.length === 0 || submitting) return;
+
+    if (!csrfToken) {
+      setError('Cargando seguridad del pedido. Intenta de nuevo.');
+      return;
+    }
+
     setSubmitting(true);
     setError(null);
+
     try {
-      const sessionId = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-      const response = await fetch('/api/table-orders', {
+      const response = await fetch('/api/orders', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-csrf-token': csrfToken,
+        },
         body: JSON.stringify({
-          tenantId: qrData.tenant_id,
-          tableId: qrData.table_id,
-          sessionId,
-          uniqueCode: code,
-          orderItems: cart,
+          tenantId: data.tenant.id,
+          tenantSlug: data.tenant.slug,
+          source: 'table-qr',
+          tableId: data.table.id,
+          tableQrCode: code,
+          tableNumber: data.table.table_number,
+          deliveryType: 'dine-in',
+          paymentMethod: null,
+          customerInfo: {
+            name: `Mesa ${data.table.table_number}`,
+            phone: null,
+            email: null,
+          },
+          notes: orderNotes.trim() || null,
+          items: cart.map((item) => ({
+            item_id: item.menu_item_id,
+            menu_item_id: item.menu_item_id,
+            name: item.name,
+            price: item.price,
+            qty: item.quantity,
+            quantity: item.quantity,
+          })),
         }),
       });
-      if (!response.ok) throw new Error();
+
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || 'No se pudo enviar el pedido');
+
       setCart([]);
+      setOrderNotes('');
       setShowCart(false);
-      setOrderDone(true);
-    } catch {
-      setError('Error al enviar el pedido. Intenta de nuevo.');
+      setOrderDone({ orderNumber: result.orderNumber });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Error al enviar el pedido');
     } finally {
       setSubmitting(false);
     }
   }
 
-  const total = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
-  const cartCount = cart.reduce((sum, item) => sum + item.quantity, 0);
-  const filteredMenu = activeCategory ? menu.filter(i => i.category_id === activeCategory) : menu;
-  const money = (value: number) => formatPriceWithCurrency(Number(value || 0), currencyInfo.code, currencyInfo.locale);
-  const tableNumber = qrData?.tables?.table_number ?? '—';
-
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-screen bg-white">
+      <div className="grid min-h-screen place-items-center bg-slate-50 px-6">
         <div className="text-center">
-          <div className="w-10 h-10 border-2 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
-          <p className="text-gray-400 text-sm">Cargando menú...</p>
+          <div className="mx-auto h-10 w-10 animate-spin rounded-full border-2 border-slate-300 border-t-orange-500" />
+          <p className="mt-4 text-sm font-bold text-slate-500">Cargando carta...</p>
         </div>
       </div>
     );
   }
 
-  if (error && menu.length === 0) {
+  if (error && !data) {
     return (
-      <div className="flex items-center justify-center h-screen bg-white p-6">
-        <p className="text-red-500 font-medium text-center">{error}</p>
+      <div className="grid min-h-screen place-items-center bg-slate-50 px-6">
+        <div className="max-w-sm rounded-2xl border border-red-100 bg-white p-6 text-center shadow-sm">
+          <AlertCircle className="mx-auto h-10 w-10 text-red-500" />
+          <p className="mt-4 text-sm font-bold text-slate-900">{error}</p>
+        </div>
       </div>
     );
   }
 
   if (orderDone) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-screen bg-white p-6 text-center">
-        <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mb-5">
-          <CheckCircle className="w-10 h-10 text-green-500" />
+      <div className="grid min-h-screen place-items-center px-6 text-center" style={{ backgroundColor: theme.pageBg }}>
+        <div className="w-full max-w-sm rounded-3xl border border-white/70 bg-white p-7 shadow-xl">
+          <div className="mx-auto grid h-20 w-20 place-items-center rounded-full bg-emerald-100">
+            <CheckCircle className="h-11 w-11 text-emerald-600" />
+          </div>
+          <p className="mt-6 text-xs font-black uppercase tracking-wide text-emerald-700">Pedido enviado</p>
+          <h1 className="mt-2 text-2xl font-black text-slate-950">Mesa {tableNumber}</h1>
+          {orderDone.orderNumber && (
+            <p className="mt-2 text-sm font-bold text-slate-500">{orderDone.orderNumber}</p>
+          )}
+          <button
+            type="button"
+            onClick={() => setOrderDone(null)}
+            className="mt-7 h-12 w-full rounded-2xl text-sm font-black text-white shadow-lg active:scale-95"
+            style={{ backgroundColor: theme.primary }}
+          >
+            Pedir algo mas
+          </button>
         </div>
-        <h2 className="text-2xl font-black text-gray-900 mb-2">¡Pedido enviado!</h2>
-        <p className="text-gray-400 text-sm mb-8">El personal te atenderá en la mesa {tableNumber}.</p>
-        <button
-          onClick={() => setOrderDone(false)}
-          className="bg-blue-600 text-white font-bold px-8 py-3 rounded-2xl text-base"
-        >
-          Agregar más items
-        </button>
       </div>
     );
   }
 
   return (
-    <div className="flex flex-col h-screen bg-gray-50 overflow-hidden">
-      {/* Header */}
-      <div className="bg-white border-b border-gray-100 px-4 pt-safe-top pb-3 flex-shrink-0">
-        <p className="text-xs text-gray-400 font-medium uppercase tracking-widest">Mesa</p>
-        <h1 className="text-xl font-black text-gray-900 leading-tight">{tableNumber}</h1>
-      </div>
+    <div className="min-h-screen pb-28" style={{ backgroundColor: theme.pageBg, color: theme.text }}>
+      <header className="sticky top-0 z-30 border-b border-black/5 bg-white/95 px-4 py-3 shadow-sm backdrop-blur">
+        <div className="mx-auto flex max-w-2xl items-center gap-3">
+          {logoUrl ? (
+            <img src={logoUrl} alt="" className="h-12 w-14 rounded-xl object-contain" />
+          ) : (
+            <div className="grid h-12 w-12 place-items-center rounded-xl text-white" style={{ backgroundColor: theme.primary }}>
+              <Utensils className="h-6 w-6" />
+            </div>
+          )}
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-base font-black text-slate-950">{restaurantName}</p>
+            <p className="text-sm font-bold text-slate-500">Mesa {tableNumber}</p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setShowCart(true)}
+            className="relative grid h-11 w-11 place-items-center rounded-full bg-slate-100 text-slate-900"
+          >
+            <ShoppingBag className="h-5 w-5" />
+            {cartCount > 0 && (
+              <span className="absolute -right-1 -top-1 grid h-5 min-w-5 place-items-center rounded-full px-1 text-[11px] font-black text-white" style={{ backgroundColor: theme.accent }}>
+                {cartCount}
+              </span>
+            )}
+          </button>
+        </div>
+      </header>
 
-      {/* Categories */}
       {categories.length > 0 && (
-        <div className="bg-white border-b border-gray-100 flex-shrink-0">
-          <div className="flex gap-2 px-4 py-2.5 overflow-x-auto scrollbar-hide">
+        <div className="sticky top-[69px] z-20 border-b border-black/5 bg-white/90 px-4 py-3 backdrop-blur">
+          <div className="mx-auto flex max-w-2xl gap-2 overflow-x-auto">
             <button
+              type="button"
               onClick={() => setActiveCategory(null)}
-              className={`px-3.5 py-1.5 rounded-full text-sm font-semibold whitespace-nowrap flex-shrink-0 transition-colors ${
-                !activeCategory ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-600'
-              }`}
+              className="h-10 flex-shrink-0 rounded-full border px-4 text-xs font-black"
+              style={{
+                backgroundColor: activeCategory === null ? theme.primary : '#f8fafc',
+                borderColor: activeCategory === null ? theme.primary : '#e2e8f0',
+                color: activeCategory === null ? '#ffffff' : '#334155',
+              }}
             >
               Todo
             </button>
-            {categories.map(cat => (
-              <button
-                key={cat.id}
-                onClick={() => setActiveCategory(cat.id)}
-                className={`px-3.5 py-1.5 rounded-full text-sm font-semibold whitespace-nowrap flex-shrink-0 transition-colors ${
-                  activeCategory === cat.id ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-600'
-                }`}
-              >
-                {cat.name}
-              </button>
-            ))}
+            {categories.map((category) => {
+              const active = activeCategory === category.id;
+              return (
+                <button
+                  key={category.id}
+                  type="button"
+                  onClick={() => setActiveCategory(category.id)}
+                  className="h-10 flex-shrink-0 rounded-full border px-4 text-xs font-black"
+                  style={{
+                    backgroundColor: active ? theme.primary : '#f8fafc',
+                    borderColor: active ? theme.primary : '#e2e8f0',
+                    color: active ? '#ffffff' : '#334155',
+                  }}
+                >
+                  {category.name}
+                </button>
+              );
+            })}
           </div>
         </div>
       )}
 
-      {/* Menu items */}
-      <div className="flex-1 overflow-y-auto pb-24">
-        <div className="divide-y divide-gray-100">
-          {filteredMenu.map(item => {
-            const inCart = cart.find(c => c.menu_item_id === item.id);
-            return (
-              <div key={item.id} className="bg-white flex items-center gap-3 px-4 py-3 active:bg-gray-50">
-                {item.image_url ? (
-                  <img src={item.image_url} alt={item.name} className="w-16 h-16 rounded-xl object-cover flex-shrink-0" />
-                ) : (
-                  <div className="w-16 h-16 rounded-xl bg-gray-100 flex items-center justify-center text-2xl flex-shrink-0">
-                    🍽️
-                  </div>
-                )}
-                <div className="flex-1 min-w-0">
-                  <p className="font-semibold text-gray-900 text-sm leading-tight">{item.name}</p>
-                  {item.description && (
-                    <p className="text-gray-400 text-xs mt-0.5 line-clamp-1">{item.description}</p>
-                  )}
-                  <p className="text-blue-600 font-bold text-sm mt-1">{money(item.price)}</p>
-                </div>
-                <div className="flex items-center gap-1.5 flex-shrink-0">
-                  {inCart ? (
-                    <>
-                      <button
-                        onClick={() => removeFromCart(item.id)}
-                        className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center active:scale-95 transition-transform"
-                      >
-                        <Minus className="w-3.5 h-3.5 text-gray-600" />
-                      </button>
-                      <span className="w-5 text-center font-bold text-sm text-gray-900">{inCart.quantity}</span>
-                      <button
-                        onClick={() => addToCart(item)}
-                        className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center active:scale-95 transition-transform"
-                      >
-                        <Plus className="w-3.5 h-3.5 text-white" />
-                      </button>
-                    </>
-                  ) : (
-                    <button
-                      onClick={() => addToCart(item)}
-                      className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center active:scale-95 transition-transform"
-                    >
-                      <Plus className="w-3.5 h-3.5 text-white" />
-                    </button>
-                  )}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </div>
+      <main className="mx-auto max-w-2xl px-4 py-4">
+        {error && (
+          <div className="mb-4 flex items-start gap-2 rounded-2xl border border-red-100 bg-red-50 p-3 text-sm font-bold text-red-700">
+            <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+            <span>{error}</span>
+          </div>
+        )}
 
-      {/* Sticky Cart Bar */}
+        {filteredMenu.length === 0 ? (
+          <div className="rounded-3xl border border-slate-200 bg-white p-8 text-center text-sm font-bold text-slate-500">
+            No hay productos disponibles.
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {filteredMenu.map((item) => {
+              const inCart = cart.find((cartItem) => cartItem.menu_item_id === item.id);
+              return (
+                <article key={item.id} className="flex gap-3 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
+                  {item.image_url ? (
+                    <img src={item.image_url} alt={item.name} className="h-20 w-20 flex-shrink-0 rounded-xl object-cover" />
+                  ) : (
+                    <div className="grid h-20 w-20 flex-shrink-0 place-items-center rounded-xl bg-orange-50 text-orange-600">
+                      <Utensils className="h-7 w-7" />
+                    </div>
+                  )}
+                  <div className="min-w-0 flex-1">
+                    <h2 className="line-clamp-2 text-sm font-black text-slate-950">{item.name}</h2>
+                    {item.description && (
+                      <p className="mt-1 line-clamp-2 text-xs font-semibold text-slate-500">{item.description}</p>
+                    )}
+                    <p className="mt-2 text-sm font-black" style={{ color: theme.primary }}>{money(item.price)}</p>
+                  </div>
+                  <div className="flex flex-shrink-0 flex-col items-center justify-center gap-2">
+                    {inCart ? (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => addToCart(item)}
+                          className="grid h-9 w-9 place-items-center rounded-full text-white shadow-sm active:scale-95"
+                          style={{ backgroundColor: theme.primary }}
+                        >
+                          <Plus className="h-4 w-4" />
+                        </button>
+                        <span className="text-sm font-black text-slate-950">{inCart.quantity}</span>
+                        <button
+                          type="button"
+                          onClick={() => removeFromCart(item.id)}
+                          className="grid h-9 w-9 place-items-center rounded-full bg-slate-100 text-slate-700 active:scale-95"
+                        >
+                          <Minus className="h-4 w-4" />
+                        </button>
+                      </>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => addToCart(item)}
+                        className="grid h-10 w-10 place-items-center rounded-full text-white shadow-sm active:scale-95"
+                        style={{ backgroundColor: theme.primary }}
+                      >
+                        <Plus className="h-5 w-5" />
+                      </button>
+                    )}
+                  </div>
+                </article>
+              );
+            })}
+          </div>
+        )}
+      </main>
+
       {cartCount > 0 && (
-        <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-100 px-4 py-3 pb-safe-bottom">
+        <div className="fixed bottom-0 left-0 right-0 z-40 border-t border-black/10 bg-white px-4 py-3 shadow-[0_-12px_40px_rgba(15,23,42,0.12)]">
           <button
+            type="button"
             onClick={() => setShowCart(true)}
-            className="w-full bg-blue-600 active:bg-blue-700 text-white rounded-2xl py-3.5 px-4 flex items-center justify-between font-bold transition-colors"
+            className="mx-auto flex h-14 w-full max-w-2xl items-center justify-between rounded-2xl px-4 font-black text-white active:scale-[0.99]"
+            style={{ backgroundColor: theme.primary }}
           >
-            <span className="bg-blue-500 rounded-lg px-2.5 py-0.5 text-sm font-bold min-w-[2rem] text-center">
-              {cartCount}
-            </span>
-            <span className="text-base">Ver pedido</span>
-            <span className="text-base">{money(total)}</span>
+            <span className="grid h-8 min-w-8 place-items-center rounded-full bg-white/20 px-2 text-sm">{cartCount}</span>
+            <span>Ver pedido</span>
+            <span>{money(total)}</span>
           </button>
         </div>
       )}
 
-      {/* Cart Bottom Sheet */}
       {showCart && (
-        <div className="fixed inset-0 z-50 flex flex-col justify-end">
-          <div
-            className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+        <div className="fixed inset-0 z-50 flex items-end">
+          <button
+            type="button"
+            aria-label="Cerrar carrito"
+            className="absolute inset-0 bg-slate-950/55 backdrop-blur-sm"
             onClick={() => setShowCart(false)}
           />
-          <div className="relative bg-white rounded-t-3xl max-h-[85vh] flex flex-col shadow-2xl">
-            {/* Handle */}
-            <div className="flex justify-center pt-3 pb-1 flex-shrink-0">
-              <div className="w-10 h-1 bg-gray-200 rounded-full" />
-            </div>
-
-            {/* Sheet Header */}
-            <div className="flex items-center justify-between px-4 pb-3 pt-1 flex-shrink-0">
-              <div>
-                <h2 className="text-lg font-black text-gray-900">Tu pedido</h2>
-                <p className="text-xs text-gray-400">Mesa {tableNumber}</p>
-              </div>
-              <button
-                onClick={() => setShowCart(false)}
-                className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center"
-              >
-                <X className="w-4 h-4 text-gray-600" />
-              </button>
-            </div>
-
-            <div className="border-t border-gray-100" />
-
-            {/* Cart Items */}
-            <div className="flex-1 overflow-y-auto px-4 py-3 space-y-4">
-              {cart.map(item => (
-                <div key={item.menu_item_id} className="flex items-center gap-3">
-                  <div className="flex items-center gap-2 flex-shrink-0">
-                    <button
-                      onClick={() => removeFromCart(item.menu_item_id)}
-                      className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center active:scale-95 transition-transform"
-                    >
-                      <Minus className="w-3 h-3 text-gray-600" />
-                    </button>
-                    <span className="w-5 text-center font-black text-sm text-gray-900">{item.quantity}</span>
-                    <button
-                      onClick={() => { const m = menu.find(mi => mi.id === item.menu_item_id); if (m) addToCart(m); }}
-                      className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center active:scale-95 transition-transform"
-                    >
-                      <Plus className="w-3 h-3 text-blue-600" />
-                    </button>
-                  </div>
-                  <span className="flex-1 text-sm font-semibold text-gray-900">{item.name}</span>
-                  <span className="text-sm font-bold text-gray-700 flex-shrink-0">
-                    {money(item.price * item.quantity)}
-                  </span>
+          <section className="relative max-h-[88vh] w-full overflow-hidden rounded-t-3xl bg-white shadow-2xl">
+            <div className="mx-auto max-w-2xl">
+              <div className="flex items-center justify-between border-b border-slate-100 px-4 py-4">
+                <div>
+                  <p className="text-lg font-black text-slate-950">Tu pedido</p>
+                  <p className="text-xs font-bold text-slate-500">Mesa {tableNumber}</p>
                 </div>
-              ))}
-            </div>
-
-            {/* Total + Submit */}
-            <div className="px-4 pt-3 pb-safe-bottom border-t border-gray-100 flex-shrink-0">
-              <div className="flex justify-between items-center mb-4">
-                <span className="text-base font-semibold text-gray-700">Total</span>
-                <span className="text-2xl font-black text-gray-900">{money(total)}</span>
+                <button
+                  type="button"
+                  onClick={() => setShowCart(false)}
+                  className="grid h-10 w-10 place-items-center rounded-full bg-slate-100 text-slate-700"
+                >
+                  <X className="h-5 w-5" />
+                </button>
               </div>
-              {error && (
-                <p className="text-red-500 text-sm mb-3 text-center">{error}</p>
-              )}
-              <button
-                onClick={submitOrder}
-                disabled={submitting}
-                className="w-full bg-blue-600 disabled:bg-gray-300 active:bg-blue-700 text-white font-black py-4 rounded-2xl text-base transition-colors mb-2"
-              >
-                {submitting ? 'Enviando...' : '🔔 Enviar a cocina'}
-              </button>
+
+              <div className="max-h-[48vh] overflow-y-auto px-4 py-3">
+                {cart.length === 0 ? (
+                  <div className="py-10 text-center text-sm font-bold text-slate-500">El pedido esta vacio.</div>
+                ) : (
+                  <div className="space-y-3">
+                    {cart.map((item) => (
+                      <div key={item.menu_item_id} className="flex items-center gap-3 rounded-2xl bg-slate-50 p-3">
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => removeFromCart(item.menu_item_id)}
+                            className="grid h-8 w-8 place-items-center rounded-full bg-white text-slate-700"
+                          >
+                            <Minus className="h-4 w-4" />
+                          </button>
+                          <span className="w-5 text-center text-sm font-black text-slate-950">{item.quantity}</span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const menuItem = menu.find((entry) => entry.id === item.menu_item_id);
+                              if (menuItem) addToCart(menuItem);
+                            }}
+                            className="grid h-8 w-8 place-items-center rounded-full text-white"
+                            style={{ backgroundColor: theme.primary }}
+                          >
+                            <Plus className="h-4 w-4" />
+                          </button>
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-sm font-black text-slate-950">{item.name}</p>
+                          <p className="text-xs font-bold text-slate-500">{money(item.price * item.quantity)}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                <label className="mt-4 block">
+                  <span className="text-xs font-black uppercase tracking-wide text-slate-500">Notas</span>
+                  <textarea
+                    value={orderNotes}
+                    onChange={(event) => setOrderNotes(event.target.value)}
+                    rows={2}
+                    placeholder="Sin cebolla, alergias, indicaciones..."
+                    className="mt-2 w-full resize-none rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-950 outline-none focus:border-orange-400 focus:ring-2 focus:ring-orange-200"
+                  />
+                </label>
+              </div>
+
+              <div className="border-t border-slate-100 px-4 py-4">
+                <div className="mb-4 flex items-center justify-between">
+                  <span className="text-sm font-bold text-slate-500">Total</span>
+                  <span className="text-2xl font-black text-slate-950">{money(total)}</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={submitOrder}
+                  disabled={submitting || cart.length === 0}
+                  className="flex h-14 w-full items-center justify-center gap-2 rounded-2xl text-sm font-black text-white shadow-lg transition active:scale-[0.99] disabled:bg-slate-300"
+                  style={submitting || cart.length === 0 ? undefined : { backgroundColor: theme.accent }}
+                >
+                  <ReceiptText className="h-5 w-5" />
+                  {submitting ? 'Enviando...' : 'Enviar pedido'}
+                </button>
+              </div>
             </div>
-          </div>
+          </section>
         </div>
       )}
     </div>

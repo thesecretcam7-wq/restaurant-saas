@@ -131,7 +131,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { tenantId: tenantParam, tenantSlug, items, customerInfo, deliveryType, deliveryAddress, notes, paymentMethod, tableNumber, waiterName, amountPaid, source, deliveryFee: requestedDeliveryFee, deliveryZoneId, businessDateMode } = body
+    const { tenantId: tenantParam, tenantSlug, items, customerInfo, deliveryType, deliveryAddress, notes, paymentMethod, tableNumber, tableId, tableQrCode, waiterName, amountPaid, source, deliveryFee: requestedDeliveryFee, deliveryZoneId, businessDateMode } = body
 
     if (!tenantParam) {
       return NextResponse.json({ error: 'tenantId is required' }, { status: 400 })
@@ -184,6 +184,13 @@ export async function POST(request: NextRequest) {
     }
 
     const tenantId = tenant.id
+    let normalizedCustomerInfo = customerInfo || {}
+    let normalizedDeliveryType = deliveryType
+    let normalizedDeliveryAddress = deliveryAddress || null
+    let normalizedPaymentMethod = paymentMethod ?? null
+    let normalizedTableNumber = tableNumber || null
+    let normalizedWaiterName = waiterName || null
+    let normalizedNotes = notes || null
 
     const protectedSourceRoles: Record<string, string[]> = {
       pos: ['admin', 'cajero'],
@@ -193,6 +200,58 @@ export async function POST(request: NextRequest) {
     }
     if (source && protectedSourceRoles[source]) {
       await requireTenantAccess(tenantId, { staffRoles: protectedSourceRoles[source] })
+    }
+
+    if (source === 'table-qr') {
+      const qrCodeValue = String(tableQrCode || '').trim()
+
+      if (!qrCodeValue) {
+        return NextResponse.json({ error: 'Codigo QR de mesa requerido.' }, { status: 400 })
+      }
+
+      const { data: qrCode, error: qrError } = await supabase
+        .from('table_qr_codes')
+        .select('table_id, tables!inner(id, table_number, status)')
+        .eq('tenant_id', tenantId)
+        .eq('unique_code', qrCodeValue)
+        .eq('is_active', true)
+        .maybeSingle()
+
+      if (qrError) {
+        console.error('[orders POST] table QR validation error:', qrError.message)
+        return NextResponse.json({ error: 'Error validando el QR de la mesa.' }, { status: 500 })
+      }
+
+      const qrTable = Array.isArray((qrCode as any)?.tables)
+        ? (qrCode as any).tables[0]
+        : (qrCode as any)?.tables
+
+      if (!qrCode || !qrTable) {
+        return NextResponse.json({ error: 'Codigo QR de mesa invalido.' }, { status: 403 })
+      }
+
+      if (tableId && qrCode.table_id !== tableId) {
+        return NextResponse.json({ error: 'El QR no corresponde a esta mesa.' }, { status: 403 })
+      }
+
+      if (qrTable.status === 'maintenance') {
+        return NextResponse.json({ error: 'Esta mesa no esta disponible para pedidos.' }, { status: 400 })
+      }
+
+      normalizedDeliveryType = 'dine-in'
+      normalizedDeliveryAddress = null
+      normalizedPaymentMethod = null
+      normalizedTableNumber = qrTable.table_number
+      normalizedWaiterName = 'QR mesa'
+      normalizedCustomerInfo = {
+        name: normalizedCustomerInfo.name || `Mesa ${qrTable.table_number}`,
+        phone: normalizedCustomerInfo.phone || null,
+        email: normalizedCustomerInfo.email || null,
+      }
+      normalizedNotes = [
+        normalizedNotes,
+        `Pedido realizado por QR de Mesa ${qrTable.table_number}`,
+      ].filter(Boolean).join(' | ') || null
     }
 
     if (!Array.isArray(items) || items.length === 0) {
@@ -332,7 +391,7 @@ export async function POST(request: NextRequest) {
       ['pos', 'pos-offline'].includes(String(source || '')) &&
       Number.isFinite(submittedDeliveryFee) &&
       allowedDeliveryFees.some((fee) => Math.abs(fee - submittedDeliveryFee) < 0.01)
-    const deliveryFeeForTotals = deliveryType === 'delivery'
+    const deliveryFeeForTotals = normalizedDeliveryType === 'delivery'
       ? selectedDeliveryZone
         ? Number(selectedDeliveryZone.fee || 0)
         : canUseSubmittedDeliveryFee
@@ -340,11 +399,11 @@ export async function POST(request: NextRequest) {
           : Number(settings?.delivery_fee || 0)
       : 0
 
-    if (source === 'store' && paymentMethod === 'cash' && settings?.cash_payment_enabled === false) {
+    if (source === 'store' && normalizedPaymentMethod === 'cash' && settings?.cash_payment_enabled === false) {
       return NextResponse.json({ error: 'Pago en efectivo no esta habilitado para este restaurante' }, { status: 400 })
     }
 
-    if (deliveryType === 'delivery') {
+    if (normalizedDeliveryType === 'delivery') {
       if (settings?.delivery_enabled === false) {
         return NextResponse.json({ error: 'Delivery no esta habilitado para este restaurante' }, { status: 400 })
       }
@@ -361,7 +420,7 @@ export async function POST(request: NextRequest) {
     const totals = calculateOrderTotals({
       items: sanitizedItems,
       taxRate: settings?.tax_rate,
-      deliveryType,
+      deliveryType: normalizedDeliveryType,
       deliveryFee: deliveryFeeForTotals,
     })
     const tax = totals.tax
@@ -381,27 +440,27 @@ export async function POST(request: NextRequest) {
     const displayNumber = (todayCount ?? 0) + 1
 
     const orderNotes = [
-      notes || null,
+      normalizedNotes || null,
       registeringPreviousOpenPeriod ? 'Venta registrada manualmente en turno anterior desde TPV' : null,
     ].filter(Boolean).join(' | ') || null
 
     const orderData: any = {
       tenant_id: tenantId,
       order_number: orderNumber,
-      customer_name: customerInfo.name,
-      customer_email: customerInfo.email || null,
-      customer_phone: customerInfo.phone,
+      customer_name: normalizedCustomerInfo.name,
+      customer_email: normalizedCustomerInfo.email || null,
+      customer_phone: normalizedCustomerInfo.phone || null,
       items: sanitizedItems,
       subtotal,
       tax,
       delivery_fee: deliveryFee,
       total,
-      payment_method: paymentMethod,
+      payment_method: normalizedPaymentMethod,
       payment_status: 'pending',
-      delivery_type: deliveryType,
-      delivery_address: deliveryAddress || null,
-      table_number: tableNumber || null,
-      waiter_name: waiterName || null,
+      delivery_type: normalizedDeliveryType,
+      delivery_address: normalizedDeliveryAddress,
+      table_number: normalizedTableNumber,
+      waiter_name: normalizedWaiterName,
       notes: orderNotes,
       status: 'pending',
       display_number: displayNumber,
@@ -429,7 +488,7 @@ export async function POST(request: NextRequest) {
         name: orderData.customer_name,
         email: orderData.customer_email,
         phone: orderData.customer_phone,
-        address: deliveryAddress,
+        address: normalizedDeliveryAddress,
         total,
       })
     }
@@ -494,9 +553,9 @@ export async function POST(request: NextRequest) {
         tax,
         deliveryFee,
         total,
-        deliveryType,
-        deliveryAddress: deliveryAddress || undefined,
-        paymentMethod,
+        deliveryType: normalizedDeliveryType,
+        deliveryAddress: normalizedDeliveryAddress || undefined,
+        paymentMethod: normalizedPaymentMethod,
         notes: orderNotes || undefined,
       }).catch(e => console.error('[email] order confirmation:', e))
     }
@@ -519,7 +578,7 @@ export async function POST(request: NextRequest) {
         orderNumber,
         customerName: orderData.customer_name,
         total,
-        deliveryType,
+        deliveryType: normalizedDeliveryType,
         items: sanitizedItems.map((i: any) => ({ name: i.name, qty: i.qty })),
       }).catch(e => console.error('[email] admin notification:', e))
     }

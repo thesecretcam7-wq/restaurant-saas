@@ -81,6 +81,7 @@ const icons: Record<string, ComponentType<{ className?: string }>> = {
   staffAccess: UsersRound,
   personal: UsersRound,
   qr: QrCode,
+  tableQr: QrCode,
   audit: ShieldCheck,
   ai: Brain,
   health: Activity,
