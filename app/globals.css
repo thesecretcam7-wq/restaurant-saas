@@ -1244,6 +1244,26 @@ body {
   color: #e43d30 !important;
 }
 
+/* Override arbitrary text color classes for light admin theme */
+.admin-shell :where(
+  .text-\[\#1c8b5f\],
+  .text-\[\#6d5dfc\],
+  .text-\[\#c47a16\]
+) {
+  color: #111827 !important;
+  font-weight: 600 !important;
+}
+
+.admin-shell :where(.text-\[\#e43d30\]) {
+  color: #dc2626 !important;
+  font-weight: 600 !important;
+}
+
+.admin-shell :where(.text-\[\#f4b860\]) {
+  color: #b45309 !important;
+  font-weight: 600 !important;
+}
+
 .admin-panel,
 .admin-card,
 .admin-shell :where(.bg-white, .bg-gray-50, .bg-card, .bg-card\/50, .rounded-xl.border, .rounded-2xl.border) {
@@ -1298,6 +1318,17 @@ body {
   background: #111827 !important;
   color: #ffffff !important;
   border: 1px solid #111827 !important;
+}
+
+/* Style arbitrary background colors for light admin theme */
+.admin-shell :where(.bg-\[\#1c8b5f\]) {
+  background: #dcfce7 !important;
+  color: #166534 !important;
+}
+
+.admin-shell :where(.bg-\[\#e43d30\]) {
+  background: #fee2e2 !important;
+  color: #991b1b !important;
 }
 
 .admin-shell aside,
