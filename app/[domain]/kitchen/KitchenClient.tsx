@@ -615,22 +615,28 @@ export function KitchenClient({ tenantId, tenantSlug, tenantName, country, brand
         color: brand.primaryText,
       }}
     >
-      <header className="border-b px-4 py-3 shadow-2xl shadow-black/20" style={{ backgroundColor: brand.isLightTheme ? '#ffffff' : brand.secondary, borderColor: brand.border, color: brand.isLightTheme ? brand.surfaceText : readableText(brand.secondary) }}>
-        <div className="flex items-center justify-between gap-3">
-          <div className="flex min-w-0 items-center gap-3">
-            {brand.logoUrl ? (
-              <img src={brand.logoUrl} alt={brand.appName} className="h-11 w-11 flex-shrink-0 object-contain" />
-            ) : (
-              <div className="grid h-11 w-11 flex-shrink-0 place-items-center rounded-2xl" style={{ backgroundColor: brand.isLightTheme ? '#fff3e8' : '#ffffff', color: brand.primary }}>
-                <ClipboardList className="h-6 w-6" />
+      <header className="border-b px-3 py-2 shadow-2xl shadow-black/20 sm:px-4 sm:py-3" style={{ backgroundColor: brand.isLightTheme ? '#ffffff' : brand.secondary, borderColor: brand.border, color: brand.isLightTheme ? brand.surfaceText : readableText(brand.secondary) }}>
+        <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between md:gap-3">
+          <div className="flex min-w-0 items-center justify-between gap-3 md:flex-1 md:justify-start">
+            <div className="flex min-w-0 items-center gap-3">
+              {brand.logoUrl ? (
+                <img src={brand.logoUrl} alt={brand.appName} className="h-11 w-11 flex-shrink-0 object-contain" />
+              ) : (
+                <div className="grid h-11 w-11 flex-shrink-0 place-items-center rounded-2xl" style={{ backgroundColor: brand.isLightTheme ? '#fff3e8' : '#ffffff', color: brand.primary }}>
+                  <ClipboardList className="h-6 w-6" />
+                </div>
+              )}
+              <div className="min-w-0">
+                <p className="truncate text-base font-black">Comandero</p>
+                <p className="truncate text-xs font-bold opacity-65">{brand.appName}</p>
               </div>
-            )}
-            <div className="min-w-0">
-              <p className="truncate text-base font-black">Comandero</p>
-              <p className="truncate text-xs font-bold opacity-65">{brand.appName}</p>
             </div>
+            <button onClick={() => setCartOpen(true)} className="relative grid h-11 w-11 flex-shrink-0 place-items-center rounded-xl md:hidden" style={{ backgroundColor: brand.button, color: brand.buttonText }}>
+              <ShoppingCart className="h-5 w-5" />
+              {cartCount > 0 && <span className="absolute -right-1 -top-1 grid h-5 min-w-5 place-items-center rounded-full bg-red-500 px-1 text-[10px] font-black">{cartCount}</span>}
+            </button>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex w-full min-w-0 items-center justify-end gap-2 overflow-x-auto pb-0.5 md:w-auto md:overflow-visible md:pb-0">
             <label className="hidden min-w-0 items-center gap-2 rounded-2xl px-3 py-2 lg:flex" style={{ backgroundColor: brand.isLightTheme ? '#f8fafc' : 'rgba(255,255,255,.08)', color: brand.mutedText }}>
               <UserRound className="h-4 w-4" />
               <input
@@ -663,10 +669,6 @@ export function KitchenClient({ tenantId, tenantSlug, tenantName, country, brand
               <ReceiptText className="h-4 w-4" />
             </button>
             <LanguageSwitcher compact className={brand.isLightTheme ? 'border-black/10 bg-white text-gray-900' : 'border-white/18 bg-black/35 text-white'} />
-            <button onClick={() => setCartOpen(true)} className="relative grid h-10 w-10 place-items-center rounded-xl md:hidden" style={{ backgroundColor: brand.button, color: brand.buttonText }}>
-              <ShoppingCart className="h-5 w-5" />
-              {cartCount > 0 && <span className="absolute -right-1 -top-1 grid h-5 min-w-5 place-items-center rounded-full bg-red-500 px-1 text-[10px] font-black">{cartCount}</span>}
-            </button>
           </div>
         </div>
       </header>
@@ -794,10 +796,12 @@ export function KitchenClient({ tenantId, tenantSlug, tenantName, country, brand
       {servicePendingCount > 0 && (
         <a
           href={`/${tenantSlug}/staff/entregas`}
-          className="fixed right-3 z-30 flex h-12 items-center gap-2 rounded-full px-4 text-sm font-black text-white shadow-2xl shadow-black/25 transition active:scale-95 md:right-5"
+          className="fixed right-3 z-30 flex h-12 items-center gap-2 rounded-full border px-4 text-sm font-black shadow-2xl shadow-black/25 transition active:scale-95 md:right-5"
           style={{
             bottom: cartCount > 0 ? '9.25rem' : '1rem',
-            backgroundColor: '#0891b2',
+            backgroundColor: brand.button,
+            borderColor: brand.isLightTheme ? brand.button : brand.border,
+            color: brand.buttonText,
           }}
         >
           <Truck className="h-5 w-5" />
