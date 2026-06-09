@@ -451,7 +451,7 @@ export function KitchenClient({ tenantId, tenantSlug, tenantName, country, brand
 
   const CartPanel = ({ isMobile = false }: { isMobile?: boolean }) => (
     <div
-      className={`flex h-full min-h-0 flex-col ${isMobile ? '' : 'border-l'}`}
+      className={`flex h-full min-h-0 w-full flex-col ${isMobile ? '' : 'border-l'}`}
       style={{ background: panelBackground, borderColor: brand.border, color: panelText }}
     >
       <div className={`flex-shrink-0 border-b ${isMobile ? 'p-3' : 'p-4'}`} style={{ borderColor: brand.border }}>
