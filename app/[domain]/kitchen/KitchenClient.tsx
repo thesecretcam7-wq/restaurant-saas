@@ -5,6 +5,7 @@ import Image from 'next/image';
 import { createClient } from '@/lib/supabase/client';
 import { formatPriceWithCurrency, getCurrencyByCountry } from '@/lib/currency';
 import { formatStaffOrderNumber } from '@/lib/order-display';
+import { ServiceDeliveryWidget } from '@/components/admin/ServiceDeliveryScreen';
 import LanguageSwitcher, { useI18n } from '@/components/LanguageSwitcher';
 import {
   CheckCircle,
@@ -101,6 +102,7 @@ export function KitchenClient({ tenantId, tenantSlug, tenantName, country, brand
   const [noteText, setNoteText] = useState('');
   const [cartOpen, setCartOpen] = useState(false);
   const [accountOpen, setAccountOpen] = useState(false);
+  const [serviceDeliveryOpen, setServiceDeliveryOpen] = useState(false);
   const [accountTableNumber, setAccountTableNumber] = useState('');
   const [openTableOrders, setOpenTableOrders] = useState<OpenTableOrder[]>([]);
   const [loadingAccount, setLoadingAccount] = useState(false);
@@ -800,8 +802,9 @@ export function KitchenClient({ tenantId, tenantSlug, tenantName, country, brand
       )}
 
       {servicePendingCount > 0 && (
-        <a
-          href={`/${tenantSlug}/staff/entregas`}
+        <button
+          type="button"
+          onClick={() => setServiceDeliveryOpen(true)}
           className="fixed right-3 z-30 flex h-12 items-center gap-2 rounded-full border px-4 text-sm font-black shadow-2xl shadow-black/25 transition active:scale-95 md:right-5"
           style={{
             bottom: cartCount > 0 ? '9.25rem' : '1rem',
@@ -815,7 +818,28 @@ export function KitchenClient({ tenantId, tenantSlug, tenantName, country, brand
           <span className="grid h-6 min-w-6 place-items-center rounded-full bg-white/20 px-1 text-xs">
             {servicePendingCount}
           </span>
-        </a>
+        </button>
+      )}
+
+      {serviceDeliveryOpen && (
+        <ServiceDeliveryWidget
+          tenantId={tenantId}
+          theme={{
+            isLightTheme: brand.isLightTheme,
+            primaryColor: brand.primary,
+            accentColor: brand.accent,
+            backgroundColor: brand.background,
+            surfaceColor: brand.surface,
+            buttonPrimaryColor: brand.button,
+            textPrimaryColor: brand.primaryText,
+            textSecondaryColor: brand.mutedText,
+            borderColor: brand.border,
+          }}
+          onClose={() => {
+            setServiceDeliveryOpen(false);
+            void fetchServiceDeliveries();
+          }}
+        />
       )}
 
       {accountOpen && (

@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ArrowLeft, CheckCircle2, Clock, Loader2, PackageCheck, RefreshCw, Truck, UserRound } from 'lucide-react';
+import { ArrowLeft, CheckCircle2, Clock, Loader2, PackageCheck, RefreshCw, Truck, UserRound, X } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { formatStaffOrderNumber } from '@/lib/order-display';
 
@@ -88,6 +88,30 @@ function isDark(hex: string) {
 
 function readableText(background: string, dark = '#15130f', light = '#ffffff') {
   return isDark(background) ? light : dark;
+}
+
+function useDeliveryBrand(theme?: ServiceDeliveryTheme) {
+  return useMemo<DeliveryBrand>(() => {
+    const isLightTheme = theme?.isLightTheme !== false;
+    const primary = theme?.primaryColor || (isLightTheme ? '#ff5a00' : '#D4AF37');
+    const background = theme?.backgroundColor || (isLightTheme ? '#f4f4f5' : '#0B0E14');
+    const surface = theme?.surfaceColor || (isLightTheme ? '#ffffff' : '#1A1F2C');
+    const button = theme?.buttonPrimaryColor || primary;
+
+    return {
+      isLightTheme,
+      primary,
+      accent: theme?.accentColor || (isLightTheme ? '#ff1f1f' : '#D35A37'),
+      background,
+      surface,
+      soft: `${primary}14`,
+      button,
+      buttonText: readableText(button),
+      text: theme?.textPrimaryColor || (isLightTheme ? '#07111f' : '#ffffff'),
+      muted: theme?.textSecondaryColor || (isLightTheme ? 'rgba(7,17,31,.70)' : '#8b97a8'),
+      border: theme?.borderColor || (isLightTheme ? 'rgba(7,17,31,.12)' : 'rgba(212,175,55,.18)'),
+    };
+  }, [theme]);
 }
 
 function useElapsedMinutes(createdAt: string) {
@@ -251,27 +275,7 @@ export function ServiceDeliveryScreen({
   const [error, setError] = useState<string | null>(null);
   const [updatingItemIds, setUpdatingItemIds] = useState<Set<string>>(new Set());
   const firstFetchDone = useRef(false);
-  const brand = useMemo<DeliveryBrand>(() => {
-    const isLightTheme = theme?.isLightTheme !== false;
-    const primary = theme?.primaryColor || (isLightTheme ? '#ff5a00' : '#D4AF37');
-    const background = theme?.backgroundColor || (isLightTheme ? '#f4f4f5' : '#0B0E14');
-    const surface = theme?.surfaceColor || (isLightTheme ? '#ffffff' : '#1A1F2C');
-    const button = theme?.buttonPrimaryColor || primary;
-
-    return {
-      isLightTheme,
-      primary,
-      accent: theme?.accentColor || (isLightTheme ? '#ff1f1f' : '#D35A37'),
-      background,
-      surface,
-      soft: `${primary}14`,
-      button,
-      buttonText: readableText(button),
-      text: theme?.textPrimaryColor || (isLightTheme ? '#07111f' : '#ffffff'),
-      muted: theme?.textSecondaryColor || (isLightTheme ? 'rgba(7,17,31,.70)' : '#8b97a8'),
-      border: theme?.borderColor || (isLightTheme ? 'rgba(7,17,31,.12)' : 'rgba(212,175,55,.18)'),
-    };
-  }, [theme]);
+  const brand = useDeliveryBrand(theme);
 
   const fetchItems = useCallback(async (silent = false) => {
     if (!silent) setRefreshing(true);
@@ -359,6 +363,16 @@ export function ServiceDeliveryScreen({
     }
   }, [setItemsUpdating, tenantId]);
 
+  const deliveryContent = (
+    <DeliveryOrdersContent
+      error={error}
+      orders={orders}
+      updatingItemIds={updatingItemIds}
+      onDeliverItems={markDelivered}
+      brand={brand}
+    />
+  );
+
   if (loading && !firstFetchDone.current) {
     return (
       <main className="flex min-h-screen items-center justify-center" style={{ backgroundColor: brand.background, color: brand.text }}>
@@ -404,32 +418,220 @@ export function ServiceDeliveryScreen({
           </button>
         </div>
       </header>
+      {deliveryContent}
+    </main>
+  );
+}
 
-      <section className="mx-auto max-w-5xl space-y-3 p-3 sm:p-4">
-        {error && (
-          <div className="rounded-lg border border-red-400/25 bg-red-500/10 px-4 py-3 text-sm font-bold text-red-700">
-            {error}
-          </div>
-        )}
+export function ServiceDeliveryWidget({
+  tenantId,
+  theme,
+  onClose,
+}: {
+  tenantId: string;
+  theme?: ServiceDeliveryTheme;
+  onClose: () => void;
+}) {
+  const [items, setItems] = useState<ServiceItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [showSecondLoading, setShowSecondLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [updatingItemIds, setUpdatingItemIds] = useState<Set<string>>(new Set());
+  const brand = useDeliveryBrand(theme);
 
-        {orders.length === 0 ? (
-          <div className="mt-14 rounded-xl border px-6 py-14 text-center shadow-xl shadow-black/5" style={{ backgroundColor: brand.surface, borderColor: brand.border }}>
-            <PackageCheck className="mx-auto size-12" style={{ color: brand.primary }} />
-            <p className="mt-4 text-lg font-black" style={{ color: brand.text }}>Sin entregas pendientes</p>
-            <p className="mt-1 text-sm font-semibold" style={{ color: brand.muted }}>Las bebidas y platos listos apareceran aqui.</p>
+  const fetchItems = useCallback(async (silent = false) => {
+    if (!silent) setRefreshing(true);
+
+    try {
+      const res = await fetch(`/api/order-items?tenantId=${tenantId}&status=ready`);
+      if (!res.ok) throw new Error('No se pudieron cargar las entregas');
+      const data: ServiceItem[] = await res.json();
+      setItems(data);
+      setError(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'No se pudieron cargar las entregas');
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }, [tenantId]);
+
+  useEffect(() => {
+    fetchItems();
+    const loaderTimer = window.setTimeout(() => setShowSecondLoading(false), 650);
+
+    const subscription = supabase
+      .channel(`service-delivery-widget:${tenantId}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'order_items', filter: `tenant_id=eq.${tenantId}` },
+        () => fetchItems(true)
+      )
+      .subscribe();
+
+    const interval = window.setInterval(() => fetchItems(true), 5000);
+
+    return () => {
+      window.clearTimeout(loaderTimer);
+      window.clearInterval(interval);
+      subscription.unsubscribe();
+    };
+  }, [fetchItems, tenantId]);
+
+  const orders = useMemo(() => groupItemsByOrder(items), [items]);
+
+  const setItemsUpdating = useCallback((itemIds: string[], updating: boolean) => {
+    setUpdatingItemIds((current) => {
+      const next = new Set(current);
+      itemIds.forEach((itemId) => {
+        if (updating) next.add(itemId);
+        else next.delete(itemId);
+      });
+      return next;
+    });
+  }, []);
+
+  const markDelivered = useCallback(async (targetItems: ServiceItem[]) => {
+    const itemIds = targetItems.map((item) => item.id);
+    if (itemIds.length === 0) return;
+
+    const itemIdSet = new Set(itemIds);
+    const deliveredBy = sessionStorage.getItem('staff_name') || 'Camarero';
+
+    setItemsUpdating(itemIds, true);
+    setItems((current) => current.filter((item) => !itemIdSet.has(item.id)));
+
+    try {
+      const res = await fetch('/api/order-items', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          tenantId,
+          itemIds,
+          status: 'delivered',
+          prepared_by: deliveredBy,
+          deliveryConfirmation: true,
+        }),
+      });
+
+      if (!res.ok) {
+        const body = await res.json().catch(() => null);
+        throw new Error(body?.error || 'No se pudo confirmar la entrega');
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'No se pudo confirmar la entrega');
+      setItems((current) => restoreItems(current, targetItems));
+    } finally {
+      setItemsUpdating(itemIds, false);
+    }
+  }, [setItemsUpdating, tenantId]);
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/38 p-3 backdrop-blur-sm sm:items-center">
+      <div
+        className="flex max-h-[82dvh] w-full max-w-md flex-col overflow-hidden rounded-2xl border shadow-2xl shadow-black/30"
+        style={{ backgroundColor: brand.background, borderColor: brand.border, color: brand.text }}
+      >
+        <div className="flex items-center justify-between border-b px-4 py-3" style={{ backgroundColor: brand.surface, borderColor: brand.border }}>
+          <div className="flex min-w-0 items-center gap-3">
+            <span className="grid size-10 shrink-0 place-items-center rounded-xl border" style={{ backgroundColor: brand.soft, borderColor: brand.primary, color: brand.primary }}>
+              <Truck className="size-5" />
+            </span>
+            <div className="min-w-0">
+              <p className="truncate text-base font-black" style={{ color: brand.text }}>Entregas</p>
+              <p className="text-xs font-semibold" style={{ color: brand.muted }}>{items.length} productos listos</p>
+            </div>
           </div>
-        ) : (
-          orders.map((order) => (
-            <OrderDeliveryCard
-              key={order.orderId}
-              order={order}
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => fetchItems()}
+              className="grid size-10 place-items-center rounded-lg border"
+              style={{ backgroundColor: brand.surface, borderColor: brand.border, color: brand.text }}
+              aria-label="Actualizar"
+              title="Actualizar"
+            >
+              <RefreshCw className={`size-5 ${refreshing ? 'animate-spin' : ''}`} />
+            </button>
+            <button
+              type="button"
+              onClick={onClose}
+              className="grid size-10 place-items-center rounded-lg border text-xl font-black"
+              style={{ backgroundColor: brand.surface, borderColor: brand.border, color: brand.text }}
+              aria-label="Cerrar"
+              title="Cerrar"
+            >
+              <X className="size-5" />
+            </button>
+          </div>
+        </div>
+
+        <div className="min-h-0 flex-1 overflow-y-auto">
+          {loading || showSecondLoading ? (
+            <div className="grid min-h-52 place-items-center p-6 text-center">
+              <div>
+                <Loader2 className="mx-auto size-10 animate-spin" style={{ color: brand.primary }} />
+                <p className="mt-4 text-sm font-black" style={{ color: brand.text }}>Cargando entregas</p>
+                <p className="mt-1 text-xs font-semibold" style={{ color: brand.muted }}>Buscando pedidos listos...</p>
+              </div>
+            </div>
+          ) : (
+            <DeliveryOrdersContent
+              error={error}
+              orders={orders}
               updatingItemIds={updatingItemIds}
               onDeliverItems={markDelivered}
               brand={brand}
+              emptyClassName="mt-2"
             />
-          ))
-        )}
-      </section>
-    </main>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function DeliveryOrdersContent({
+  error,
+  orders,
+  updatingItemIds,
+  onDeliverItems,
+  brand,
+  emptyClassName = 'mt-14',
+}: {
+  error: string | null;
+  orders: ServiceOrder[];
+  updatingItemIds: Set<string>;
+  onDeliverItems: (items: ServiceItem[]) => void;
+  brand: DeliveryBrand;
+  emptyClassName?: string;
+}) {
+  return (
+    <section className="mx-auto max-w-5xl space-y-3 p-3 sm:p-4">
+      {error && (
+        <div className="rounded-lg border border-red-400/25 bg-red-500/10 px-4 py-3 text-sm font-bold text-red-700">
+          {error}
+        </div>
+      )}
+
+      {orders.length === 0 ? (
+        <div className={`${emptyClassName} rounded-xl border px-6 py-14 text-center shadow-xl shadow-black/5`} style={{ backgroundColor: brand.surface, borderColor: brand.border }}>
+          <PackageCheck className="mx-auto size-12" style={{ color: brand.primary }} />
+          <p className="mt-4 text-lg font-black" style={{ color: brand.text }}>Sin entregas pendientes</p>
+          <p className="mt-1 text-sm font-semibold" style={{ color: brand.muted }}>Las bebidas y platos listos apareceran aqui.</p>
+        </div>
+      ) : (
+        orders.map((order) => (
+          <OrderDeliveryCard
+            key={order.orderId}
+            order={order}
+            updatingItemIds={updatingItemIds}
+            onDeliverItems={onDeliverItems}
+            brand={brand}
+          />
+        ))
+      )}
+    </section>
   );
 }
