@@ -779,11 +779,34 @@ export function KitchenClient({ tenantId, tenantSlug, tenantName, country, brand
 
       {cartCount > 0 && (
         <div className="fixed inset-x-0 bottom-0 z-20 p-3 md:hidden" style={{ background: `linear-gradient(180deg, transparent, ${brand.background} 24%, ${brand.background})` }}>
-          <button onClick={() => setCartOpen(true)} className="flex h-16 w-full items-center justify-between rounded-[1.4rem] px-4 font-black shadow-2xl shadow-black/20 active:scale-[0.98]" style={{ backgroundColor: brand.button, color: brand.buttonText }}>
-            <span className="grid h-9 min-w-9 place-items-center rounded-full bg-white/15 px-2 text-sm">{cartCount}</span>
-            <span className="flex items-center gap-2"><ShoppingCart className="h-5 w-5" /> {tr('kitchen.viewOrder')}</span>
-            <span>{money(total)}</span>
-          </button>
+          <div className={`grid gap-2 ${servicePendingCount > 0 ? 'grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]' : 'grid-cols-1'}`}>
+            {servicePendingCount > 0 && (
+              <button
+                type="button"
+                onClick={() => setServiceDeliveryOpen(true)}
+                className="flex h-16 min-w-0 items-center justify-center gap-1.5 rounded-[1.4rem] border px-2 text-sm font-black shadow-xl shadow-black/10 active:scale-[0.98]"
+                style={{
+                  backgroundColor: brand.surface,
+                  borderColor: brand.button,
+                  color: brand.button,
+                }}
+              >
+                <Truck className="h-5 w-5 flex-shrink-0" />
+                <span className="truncate">Entregar</span>
+                <span
+                  className="grid h-7 min-w-7 flex-shrink-0 place-items-center rounded-full px-1 text-xs"
+                  style={{ backgroundColor: brand.button, color: brand.buttonText }}
+                >
+                  {servicePendingCount}
+                </span>
+              </button>
+            )}
+            <button onClick={() => setCartOpen(true)} className="grid h-16 min-w-0 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 rounded-[1.4rem] px-3 text-sm font-black shadow-2xl shadow-black/20 active:scale-[0.98]" style={{ backgroundColor: brand.button, color: brand.buttonText }}>
+              <span className="grid h-9 min-w-9 place-items-center rounded-full bg-white/15 px-2 text-sm">{cartCount}</span>
+              <span className="flex min-w-0 items-center justify-center gap-2"><ShoppingCart className="h-5 w-5 flex-shrink-0" /> <span className="truncate">{tr('kitchen.viewOrder')}</span></span>
+              <span className="flex-shrink-0">{money(total)}</span>
+            </button>
+          </div>
           <div className="mt-2 rounded-2xl px-4 py-3 text-sm font-black shadow-lg shadow-black/10" style={{ backgroundColor: brand.surface, color: brand.surfaceText }}>
             <div className="flex items-center justify-between">
               <span>{tr('kitchen.subtotal')}:</span>
@@ -805,9 +828,9 @@ export function KitchenClient({ tenantId, tenantSlug, tenantName, country, brand
         <button
           type="button"
           onClick={() => setServiceDeliveryOpen(true)}
-          className="fixed right-3 z-30 flex h-12 items-center gap-2 rounded-full border px-4 text-sm font-black shadow-2xl shadow-black/25 transition active:scale-95 md:right-5"
+          className={`fixed right-3 z-30 h-12 items-center gap-2 rounded-full border px-4 text-sm font-black shadow-2xl shadow-black/25 transition active:scale-95 md:right-5 ${cartCount > 0 ? 'hidden md:flex' : 'flex'}`}
           style={{
-            bottom: cartCount > 0 ? '9.25rem' : '1rem',
+            bottom: '1rem',
             backgroundColor: brand.button,
             borderColor: brand.isLightTheme ? brand.button : brand.border,
             color: brand.buttonText,
