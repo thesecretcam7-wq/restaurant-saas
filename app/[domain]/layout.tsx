@@ -2,6 +2,7 @@ import { getTenantContext } from '@/lib/tenant'
 import { Toaster } from 'react-hot-toast'
 import StoreNavigationLoader from '@/components/store/StoreNavigationLoader'
 import StoreBrandingMemory from '@/components/store/StoreBrandingMemory'
+import TenantPwaManifestLink from '@/components/TenantPwaManifestLink'
 import TenantAccessGuard from '@/components/TenantAccessGuard'
 import { getTenantAccessInfo } from '@/lib/tenant-access'
 import { getPageConfig } from '@/lib/pageConfig'
@@ -151,9 +152,46 @@ export default async function TenantLayout({
   const surfaceColor = isLightTheme ? '#ffffff' : '#1A1F2C'
   const textColor = isLightTheme ? '#07111f' : '#ffffff'
   const mutedTextColor = isLightTheme ? 'rgba(7, 17, 31, 0.72)' : '#8b97a8'
+  const operationalPwaScript = `
+    (function () {
+      var tenantSlug = ${JSON.stringify(context.tenant.slug)};
+      var restaurantName = ${JSON.stringify(restaurantName)};
+      var base = '/' + tenantSlug;
+      var path = window.location.pathname;
+      var screen = null;
+      var title = restaurantName;
+      if (path === base + '/kitchen' || path.indexOf(base + '/kitchen/') === 0) {
+        screen = 'waiter';
+        title = restaurantName + ' Camarero';
+      } else if (path === base + '/staff/entregas' || path.indexOf(base + '/staff/entregas/') === 0) {
+        screen = 'deliveries';
+        title = restaurantName + ' Entregas';
+      } else if (path === base + '/acceso/apk/camarero' || path.indexOf(base + '/acceso/apk/camarero/') === 0) {
+        screen = 'waiterAccess';
+        title = restaurantName + ' Camarero';
+      }
+      var href = base + '/manifest.webmanifest' + (screen ? '?screen=' + screen : '');
+      var link = document.querySelector('link[rel="manifest"]');
+      if (!link) {
+        link = document.createElement('link');
+        link.rel = 'manifest';
+        document.head.appendChild(link);
+      }
+      link.setAttribute('href', href);
+      var meta = document.querySelector('meta[name="apple-mobile-web-app-title"]');
+      if (!meta) {
+        meta = document.createElement('meta');
+        meta.name = 'apple-mobile-web-app-title';
+        document.head.appendChild(meta);
+      }
+      meta.setAttribute('content', title);
+      if (screen) document.title = title;
+    })();
+  `
 
   return (
     <>
+      <script dangerouslySetInnerHTML={{ __html: operationalPwaScript }} />
       <style>{`
         :root {
           /* Multi-Tenant Branding with Eccofood Defaults */
@@ -190,6 +228,7 @@ export default async function TenantLayout({
         >
           {children}
         </TenantAccessGuard>
+        <TenantPwaManifestLink tenantSlug={context.tenant.slug} restaurantName={restaurantName} />
         <StoreBrandingMemory appName={restaurantName} logoUrl={logoUrl} primaryColor={primaryColor} themeMode={themeMode} />
         <StoreNavigationLoader color={primaryColor} logoUrl={logoUrl} themeMode={themeMode} />
         <Toaster position="bottom-right" />

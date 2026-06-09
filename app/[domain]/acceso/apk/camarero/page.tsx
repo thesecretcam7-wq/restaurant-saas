@@ -1,10 +1,41 @@
 import { createServiceClient } from '@/lib/supabase/server'
 import { deriveBrandPalette } from '@/lib/brand-colors'
 import { ApkWaiterLoginClient } from './ApkWaiterLoginClient'
+import type { Metadata } from 'next'
 
 interface Props {
   params: Promise<{ domain: string }>
   searchParams: Promise<{ staffId?: string; pin?: string; submit?: string }>
+}
+
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
+  const { domain: slug } = await params
+  const supabase = createServiceClient()
+  const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(slug)
+
+  const { data: tenant } = await supabase
+    .from('tenants')
+    .select('organization_name, slug')
+    .eq(isUUID ? 'id' : 'slug', slug)
+    .single()
+
+  const tenantSlug = tenant?.slug || slug
+  const restaurantName = tenant?.organization_name || 'Restaurante'
+
+  return {
+    title: `Acceso camarero | ${restaurantName}`,
+    applicationName: `${restaurantName} Camarero`,
+    manifest: `/${tenantSlug}/manifest.webmanifest?screen=waiterAccess`,
+    appleWebApp: {
+      capable: true,
+      statusBarStyle: 'default',
+      title: `${restaurantName} Camarero`,
+    },
+    other: {
+      'apple-mobile-web-app-title': `${restaurantName} Camarero`,
+      'mobile-web-app-capable': 'yes',
+    },
+  }
 }
 
 export default async function ApkWaiterLoginPage({ params, searchParams }: Props) {

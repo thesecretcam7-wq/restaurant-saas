@@ -35,18 +35,41 @@ export async function GET(
     !PLATFORM_HOSTS.has(cleanHost) &&
     (!cleanHost.includes(BASE_DOMAIN) || cleanHost.startsWith(`${tenantSlug}.`))
   const appScope = isTenantHost ? '/' : `/${tenantSlug}/`
+  const screen = new URL(request.url).searchParams.get('screen') || 'store'
+  const operationalScreens: Record<string, { label: string; startPath: string; description: string }> = {
+    waiter: {
+      label: 'Camarero',
+      startPath: 'kitchen',
+      description: `Comandero de sala de ${restaurantName}`,
+    },
+    deliveries: {
+      label: 'Entregas',
+      startPath: 'staff/entregas',
+      description: `Entregas pendientes de ${restaurantName}`,
+    },
+    waiterAccess: {
+      label: 'Camarero',
+      startPath: 'acceso/apk/camarero',
+      description: `Acceso de camareros de ${restaurantName}`,
+    },
+  }
+  const operationalScreen = operationalScreens[screen]
+  const startUrl = operationalScreen ? `${appScope}${operationalScreen.startPath}` : appScope
+  const appLabel = operationalScreen ? `${restaurantName} ${operationalScreen.label}` : restaurantName
   const icon192Url = isTenantHost ? '/icon-192.png' : `/${tenantSlug}/icon-192.png`
   const icon512Url = isTenantHost ? '/icon-512.png' : `/${tenantSlug}/icon-512.png`
 
   return NextResponse.json(
     {
-      name: restaurantName,
-      short_name: restaurantName,
+      id: operationalScreen ? `${appScope}${screen}` : appScope,
+      name: appLabel,
+      short_name: operationalScreen?.label || restaurantName,
       description:
+        operationalScreen?.description ||
         context.branding?.tagline ||
         context.branding?.description ||
         `Tienda online de ${restaurantName}`,
-      start_url: appScope,
+      start_url: startUrl,
       scope: appScope,
       display: 'standalone',
       background_color: backgroundColor,
@@ -70,6 +93,22 @@ export async function GET(
       ],
       categories: ['food', 'shopping'],
       prefer_related_applications: false,
+      shortcuts: operationalScreen
+        ? [
+            {
+              name: 'Comandero',
+              short_name: 'Comandero',
+              url: `${appScope}kitchen`,
+              icons: [{ src: icon192Url, sizes: '192x192', type: 'image/png' }],
+            },
+            {
+              name: 'Entregas',
+              short_name: 'Entregas',
+              url: `${appScope}staff/entregas`,
+              icons: [{ src: icon192Url, sizes: '192x192', type: 'image/png' }],
+            },
+          ]
+        : undefined,
     },
     {
       headers: {

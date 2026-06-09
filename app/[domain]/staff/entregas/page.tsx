@@ -2,9 +2,40 @@ import { createServiceClient } from '@/lib/supabase/server';
 import { ServiceDeliveryScreen } from '@/components/admin/ServiceDeliveryScreen';
 import { getTenantContext } from '@/lib/tenant';
 import { getPageConfig } from '@/lib/pageConfig';
+import type { Metadata } from 'next';
 
 interface StaffDeliveriesPageProps {
   params: Promise<{ domain: string }>;
+}
+
+export async function generateMetadata({ params }: StaffDeliveriesPageProps): Promise<Metadata> {
+  const { domain: slug } = await params;
+  const supabase = createServiceClient();
+  const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(slug);
+
+  const { data: tenant } = await supabase
+    .from('tenants')
+    .select('organization_name, slug')
+    .eq(isUUID ? 'id' : 'slug', slug)
+    .single();
+
+  const tenantSlug = tenant?.slug || slug;
+  const restaurantName = tenant?.organization_name || 'Restaurante';
+
+  return {
+    title: `Entregas | ${restaurantName}`,
+    applicationName: `${restaurantName} Entregas`,
+    manifest: `/${tenantSlug}/manifest.webmanifest?screen=deliveries`,
+    appleWebApp: {
+      capable: true,
+      statusBarStyle: 'default',
+      title: `${restaurantName} Entregas`,
+    },
+    other: {
+      'apple-mobile-web-app-title': `${restaurantName} Entregas`,
+      'mobile-web-app-capable': 'yes',
+    },
+  };
 }
 
 export default async function StaffDeliveriesPage({ params }: StaffDeliveriesPageProps) {
