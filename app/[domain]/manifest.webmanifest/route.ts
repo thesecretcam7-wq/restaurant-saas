@@ -49,8 +49,8 @@ export async function GET(
     },
     waiterAccess: {
       label: 'Camarero',
-      startPath: 'acceso/apk/camarero',
-      description: `Acceso de camareros de ${restaurantName}`,
+      startPath: 'kitchen',
+      description: `Comandero de sala de ${restaurantName}`,
     },
   }
   const operationalScreen = operationalScreens[screen]

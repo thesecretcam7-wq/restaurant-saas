@@ -14,6 +14,8 @@ type WindowWithWebkitAudio = Window & {
   webkitAudioContext?: typeof AudioContext;
 };
 
+const SERVICE_ALERT_VOLUME = 1;
+
 export function useServiceReadyAlert({ autoUnlock = true }: { autoUnlock?: boolean } = {}) {
   const audioCtxRef = useRef<AudioContext | null>(null);
   const alertAudioRef = useRef<HTMLAudioElement | null>(null);
@@ -35,7 +37,7 @@ export function useServiceReadyAlert({ autoUnlock = true }: { autoUnlock?: boole
     if (!alertAudioRef.current) {
       const audio = new Audio('/sounds/kds-alert.wav');
       audio.preload = 'auto';
-      audio.volume = 1;
+      audio.volume = SERVICE_ALERT_VOLUME;
       alertAudioRef.current = audio;
     }
   }, []);
@@ -59,7 +61,7 @@ export function useServiceReadyAlert({ autoUnlock = true }: { autoUnlock?: boole
 
       const master = ctx.createGain();
       master.gain.setValueAtTime(0.001, ctx.currentTime);
-      master.gain.exponentialRampToValueAtTime(0.34, ctx.currentTime + 0.03);
+      master.gain.exponentialRampToValueAtTime(SERVICE_ALERT_VOLUME, ctx.currentTime + 0.03);
       master.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.92);
       master.connect(ctx.destination);
 
@@ -117,6 +119,7 @@ export function useServiceReadyAlert({ autoUnlock = true }: { autoUnlock?: boole
     if (!played) {
       const audio = alertAudioRef.current;
       if (audio) {
+        audio.volume = SERVICE_ALERT_VOLUME;
         audio.currentTime = 0;
         void audio.play().catch(() => undefined);
       }

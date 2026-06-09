@@ -72,7 +72,8 @@ function getStaffSession(request: NextRequest): StaffSession | null {
   const raw = request.cookies.get('staff_session')?.value
   if (!raw) return null
   try {
-    return JSON.parse(raw) as StaffSession
+    const value = raw.trim().startsWith('{') ? raw : decodeURIComponent(raw)
+    return JSON.parse(value) as StaffSession
   } catch {
     return null
   }
@@ -97,6 +98,17 @@ function withStoreHeaders(request: NextRequest, slug: string) {
 
 function getTenantRouteSegment(tenant: TenantRoute, fallback?: string) {
   return tenant.slug || fallback || tenant.id
+}
+
+function getWaiterRootRedirect(request: NextRequest, tenant: TenantRoute, targetPathname: string) {
+  const staffSession = getStaffSession(request)
+  if (staffCanAccessTenant(staffSession, tenant.id) && staffSession?.role === 'camarero') {
+    const redirectUrl = request.nextUrl.clone()
+    redirectUrl.pathname = targetPathname
+    redirectUrl.search = ''
+    return NextResponse.redirect(redirectUrl)
+  }
+  return null
 }
 
 function isTenantPwaIdentityPath(pathname: string) {
@@ -158,6 +170,8 @@ export async function proxy(request: NextRequest) {
     const tenant = await getTenantBySlug(earlySubdomain)
     if (tenant) {
       const tenantSegment = getTenantRouteSegment(tenant, earlySubdomain)
+      const waiterRedirect = getWaiterRootRedirect(request, tenant, '/kitchen')
+      if (waiterRedirect) return waiterRedirect
       url.pathname = `/${tenantSegment}`
       return NextResponse.rewrite(url, { request: { headers: withStoreHeaders(request, tenantSegment) } })
     }
@@ -169,6 +183,8 @@ export async function proxy(request: NextRequest) {
     const tenant = await getTenantByDomain(hostname)
     if (tenant) {
       const tenantSegment = getTenantRouteSegment(tenant)
+      const waiterRedirect = getWaiterRootRedirect(request, tenant, '/kitchen')
+      if (waiterRedirect) return waiterRedirect
       url.pathname = `/${tenantSegment}`
       return NextResponse.rewrite(url, { request: { headers: withStoreHeaders(request, tenantSegment) } })
     }
@@ -494,6 +510,10 @@ export async function proxy(request: NextRequest) {
     if (tenant) {
       const restPath = pathname.slice(slug.length + 1) || '/'
       const tenantSegment = getTenantRouteSegment(tenant, slug)
+      if (restPath === '/') {
+        const waiterRedirect = getWaiterRootRedirect(request, tenant, `/${tenantSegment}/kitchen`)
+        if (waiterRedirect) return waiterRedirect
+      }
       url.pathname = `/${tenantSegment}${restPath}`
       return NextResponse.rewrite(url, { request: { headers: withStoreHeaders(request, tenantSegment) } })
     }
