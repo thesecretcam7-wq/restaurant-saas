@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { CheckCircle2, Clock, Loader2, PackageCheck, RefreshCw, Truck, UserRound } from 'lucide-react';
+import { ArrowLeft, CheckCircle2, Clock, Loader2, PackageCheck, RefreshCw, Truck, UserRound } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 
 const supabase = createClient();
@@ -41,6 +41,52 @@ type ServiceOrder = {
   createdAt: string;
   items: ServiceItem[];
 };
+
+type ServiceDeliveryTheme = {
+  isLightTheme?: boolean;
+  primaryColor?: string;
+  accentColor?: string;
+  backgroundColor?: string;
+  surfaceColor?: string;
+  buttonPrimaryColor?: string;
+  textPrimaryColor?: string;
+  textSecondaryColor?: string;
+  borderColor?: string;
+};
+
+type DeliveryBrand = {
+  isLightTheme: boolean;
+  primary: string;
+  accent: string;
+  background: string;
+  surface: string;
+  soft: string;
+  button: string;
+  buttonText: string;
+  text: string;
+  muted: string;
+  border: string;
+};
+
+function hexToRgb(hex: string) {
+  const normalized = hex.replace('#', '').trim();
+  if (!/^[0-9a-fA-F]{6}$/.test(normalized)) return null;
+  return {
+    r: parseInt(normalized.slice(0, 2), 16),
+    g: parseInt(normalized.slice(2, 4), 16),
+    b: parseInt(normalized.slice(4, 6), 16),
+  };
+}
+
+function isDark(hex: string) {
+  const rgb = hexToRgb(hex);
+  if (!rgb) return true;
+  return (0.299 * rgb.r + 0.587 * rgb.g + 0.114 * rgb.b) / 255 < 0.55;
+}
+
+function readableText(background: string, dark = '#15130f', light = '#ffffff') {
+  return isDark(background) ? light : dark;
+}
 
 function useElapsedMinutes(createdAt: string) {
   const [minutes, setMinutes] = useState(() =>
@@ -95,10 +141,12 @@ function OrderDeliveryCard({
   order,
   updatingItemIds,
   onDeliverItems,
+  brand,
 }: {
   order: ServiceOrder;
   updatingItemIds: Set<string>;
   onDeliverItems: (items: ServiceItem[]) => void;
+  brand: DeliveryBrand;
 }) {
   const minutes = useElapsedMinutes(order.createdAt);
   const meta = order.deliveryType === 'delivery'
@@ -111,17 +159,17 @@ function OrderDeliveryCard({
   const canDeliverAll = order.items.some((item) => !updatingItemIds.has(item.id));
 
   return (
-    <article className="overflow-hidden rounded-xl border border-white/10 bg-slate-900 shadow-xl shadow-black/20">
-      <div className="border-b border-white/10 bg-slate-950 px-4 py-3">
+    <article className="overflow-hidden rounded-xl border shadow-xl shadow-black/10" style={{ backgroundColor: brand.surface, borderColor: brand.border }}>
+      <div className="border-b px-4 py-3" style={{ backgroundColor: brand.isLightTheme ? '#ffffff' : '#07111f', borderColor: brand.border }}>
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2">
-              <p className="truncate text-lg font-black text-white">{order.orderNumber}</p>
-              <span className="rounded-md border border-cyan-300/20 bg-cyan-400/10 px-2 py-1 text-[11px] font-black uppercase tracking-wide text-cyan-100">
+              <p className="truncate text-lg font-black" style={{ color: brand.text }}>{order.orderNumber}</p>
+              <span className="rounded-md border px-2 py-1 text-[11px] font-black uppercase tracking-wide" style={{ backgroundColor: brand.soft, borderColor: brand.primary, color: brand.primary }}>
                 {meta}
               </span>
             </div>
-            <div className="mt-1 flex flex-wrap items-center gap-2 text-xs font-semibold text-slate-400">
+            <div className="mt-1 flex flex-wrap items-center gap-2 text-xs font-semibold" style={{ color: brand.muted }}>
               {order.customerName && (
                 <span className="inline-flex items-center gap-1">
                   <UserRound className="size-3.5" />
@@ -131,7 +179,7 @@ function OrderDeliveryCard({
               {order.waiterName && <span>{order.waiterName}</span>}
             </div>
           </div>
-          <div className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-amber-300/25 bg-amber-400/10 px-2.5 py-1.5 text-sm font-black text-amber-100">
+          <div className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-sm font-black" style={{ backgroundColor: '#fef3c7', borderColor: '#f59e0b', color: '#92400e' }}>
             <Clock className="size-4" />
             {minutes}m
           </div>
@@ -143,19 +191,20 @@ function OrderDeliveryCard({
           const updating = updatingItemIds.has(item.id);
 
           return (
-            <div key={item.id} className="flex items-start gap-2 rounded-lg border border-white/10 bg-white/[0.05] p-2.5">
-              <span className="shrink-0 rounded-md bg-white/10 px-2 py-1 text-sm font-black text-white">
+            <div key={item.id} className="flex items-start gap-2 rounded-lg border p-2.5" style={{ backgroundColor: brand.isLightTheme ? '#f8fafc' : 'rgba(255,255,255,0.06)', borderColor: brand.border }}>
+              <span className="shrink-0 rounded-md px-2 py-1 text-sm font-black" style={{ backgroundColor: brand.soft, color: brand.text }}>
                 x{item.quantity}
               </span>
               <div className="min-w-0 flex-1">
-                <p className="text-sm font-bold leading-snug text-white">{item.name}</p>
-                {item.notes && <p className="mt-1 text-xs font-semibold text-amber-200">{item.notes}</p>}
+                <p className="text-sm font-bold leading-snug" style={{ color: brand.text }}>{item.name}</p>
+                {item.notes && <p className="mt-1 text-xs font-semibold" style={{ color: brand.accent }}>{item.notes}</p>}
               </div>
               <button
                 type="button"
                 disabled={updating}
                 onClick={() => onDeliverItems([item])}
-                className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-lg bg-emerald-500 px-3 text-xs font-black text-white shadow-lg shadow-emerald-950/30 transition hover:bg-emerald-400 active:scale-95 disabled:opacity-60"
+                className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-lg px-3 text-xs font-black shadow-lg shadow-black/10 transition active:scale-95 disabled:opacity-60"
+                style={{ backgroundColor: brand.button, color: brand.buttonText }}
               >
                 {updating ? <Loader2 className="size-4 animate-spin" /> : <CheckCircle2 className="size-4" />}
                 Entregado
@@ -165,12 +214,13 @@ function OrderDeliveryCard({
         })}
       </div>
 
-      <div className="border-t border-white/10 p-3">
+      <div className="border-t p-3" style={{ borderColor: brand.border }}>
         <button
           type="button"
           disabled={!canDeliverAll}
           onClick={() => onDeliverItems(order.items)}
-          className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-lg bg-cyan-500 text-sm font-black uppercase tracking-wide text-slate-950 transition hover:bg-cyan-300 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-50"
+          className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-lg text-sm font-black uppercase tracking-wide transition active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-50"
+          style={{ backgroundColor: brand.button, color: brand.buttonText }}
         >
           <PackageCheck className="size-5" />
           Entregar todo
@@ -180,13 +230,42 @@ function OrderDeliveryCard({
   );
 }
 
-export function ServiceDeliveryScreen({ tenantId }: { tenantId: string }) {
+export function ServiceDeliveryScreen({
+  tenantId,
+  tenantSlug,
+  theme,
+}: {
+  tenantId: string;
+  tenantSlug: string;
+  theme?: ServiceDeliveryTheme;
+}) {
   const [items, setItems] = useState<ServiceItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [updatingItemIds, setUpdatingItemIds] = useState<Set<string>>(new Set());
   const firstFetchDone = useRef(false);
+  const brand = useMemo<DeliveryBrand>(() => {
+    const isLightTheme = theme?.isLightTheme !== false;
+    const primary = theme?.primaryColor || (isLightTheme ? '#ff5a00' : '#D4AF37');
+    const background = theme?.backgroundColor || (isLightTheme ? '#f4f4f5' : '#0B0E14');
+    const surface = theme?.surfaceColor || (isLightTheme ? '#ffffff' : '#1A1F2C');
+    const button = theme?.buttonPrimaryColor || primary;
+
+    return {
+      isLightTheme,
+      primary,
+      accent: theme?.accentColor || (isLightTheme ? '#ff1f1f' : '#D35A37'),
+      background,
+      surface,
+      soft: `${primary}14`,
+      button,
+      buttonText: readableText(button),
+      text: theme?.textPrimaryColor || (isLightTheme ? '#07111f' : '#ffffff'),
+      muted: theme?.textSecondaryColor || (isLightTheme ? 'rgba(7,17,31,.70)' : '#8b97a8'),
+      border: theme?.borderColor || (isLightTheme ? 'rgba(7,17,31,.12)' : 'rgba(212,175,55,.18)'),
+    };
+  }, [theme]);
 
   const fetchItems = useCallback(async (silent = false) => {
     if (!silent) setRefreshing(true);
@@ -276,32 +355,42 @@ export function ServiceDeliveryScreen({ tenantId }: { tenantId: string }) {
 
   if (loading && !firstFetchDone.current) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-slate-950 text-white">
+      <main className="flex min-h-screen items-center justify-center" style={{ backgroundColor: brand.background, color: brand.text }}>
         <div className="text-center">
-          <Loader2 className="mx-auto size-10 animate-spin text-cyan-300" />
-          <p className="mt-4 text-sm font-black uppercase tracking-wide text-slate-300">Cargando entregas</p>
+          <Loader2 className="mx-auto size-10 animate-spin" style={{ color: brand.primary }} />
+          <p className="mt-4 text-sm font-black uppercase tracking-wide" style={{ color: brand.muted }}>Cargando entregas</p>
         </div>
       </main>
     );
   }
 
   return (
-    <main className="min-h-screen bg-slate-950 text-white">
-      <header className="sticky top-0 z-20 border-b border-white/10 bg-slate-950/95 px-4 py-3 shadow-xl shadow-black/20 backdrop-blur">
-        <div className="mx-auto flex max-w-5xl items-center justify-between gap-3">
-          <div className="flex min-w-0 items-center gap-3">
-            <span className="grid size-11 shrink-0 place-items-center rounded-xl border border-cyan-300/20 bg-cyan-400/10 text-cyan-100">
+    <main className="min-h-screen" style={{ backgroundColor: brand.background, backgroundImage: brand.isLightTheme ? 'linear-gradient(180deg, #ffffff 0%, #f4f4f5 58%, #e5e7eb 100%)' : `linear-gradient(135deg, ${brand.background} 0%, ${brand.surface} 54%, ${brand.background} 100%)`, color: brand.text }}>
+      <header className="sticky top-0 z-20 border-b px-3 py-3 shadow-xl shadow-black/10 backdrop-blur" style={{ backgroundColor: brand.isLightTheme ? 'rgba(255,255,255,0.95)' : 'rgba(11,14,20,0.95)', borderColor: brand.border }}>
+        <div className="mx-auto flex max-w-5xl items-center justify-between gap-2">
+          <a
+            href={`/${tenantSlug}/kitchen`}
+            className="grid size-10 shrink-0 place-items-center rounded-lg border transition active:scale-95"
+            style={{ backgroundColor: brand.surface, borderColor: brand.border, color: brand.text }}
+            aria-label="Volver"
+            title="Volver"
+          >
+            <ArrowLeft className="size-5" />
+          </a>
+          <div className="flex min-w-0 flex-1 items-center gap-3">
+            <span className="grid size-11 shrink-0 place-items-center rounded-xl border" style={{ backgroundColor: brand.soft, borderColor: brand.primary, color: brand.primary }}>
               <Truck className="size-5" />
             </span>
             <div className="min-w-0">
-              <p className="truncate text-lg font-black tracking-wide">Entregas de sala</p>
-              <p className="text-xs font-semibold text-slate-400">{items.length} productos listos</p>
+              <p className="truncate text-lg font-black tracking-wide" style={{ color: brand.text }}>Entregas de sala</p>
+              <p className="text-xs font-semibold" style={{ color: brand.muted }}>{items.length} productos listos</p>
             </div>
           </div>
           <button
             type="button"
             onClick={() => fetchItems()}
-            className="grid size-10 place-items-center rounded-lg border border-white/10 bg-white/10 text-white transition hover:bg-white/20"
+            className="grid size-10 shrink-0 place-items-center rounded-lg border transition"
+            style={{ backgroundColor: brand.surface, borderColor: brand.border, color: brand.text }}
             title="Actualizar"
             aria-label="Actualizar"
           >
@@ -312,16 +401,16 @@ export function ServiceDeliveryScreen({ tenantId }: { tenantId: string }) {
 
       <section className="mx-auto max-w-5xl space-y-3 p-3 sm:p-4">
         {error && (
-          <div className="rounded-lg border border-red-400/25 bg-red-500/10 px-4 py-3 text-sm font-bold text-red-100">
+          <div className="rounded-lg border border-red-400/25 bg-red-500/10 px-4 py-3 text-sm font-bold text-red-700">
             {error}
           </div>
         )}
 
         {orders.length === 0 ? (
-          <div className="mt-14 rounded-xl border border-white/10 bg-white/[0.04] px-6 py-14 text-center">
-            <PackageCheck className="mx-auto size-12 text-slate-500" />
-            <p className="mt-4 text-lg font-black text-white">Sin entregas pendientes</p>
-            <p className="mt-1 text-sm font-semibold text-slate-500">Las bebidas y productos directos apareceran aqui.</p>
+          <div className="mt-14 rounded-xl border px-6 py-14 text-center shadow-xl shadow-black/5" style={{ backgroundColor: brand.surface, borderColor: brand.border }}>
+            <PackageCheck className="mx-auto size-12" style={{ color: brand.primary }} />
+            <p className="mt-4 text-lg font-black" style={{ color: brand.text }}>Sin entregas pendientes</p>
+            <p className="mt-1 text-sm font-semibold" style={{ color: brand.muted }}>Las bebidas y productos directos apareceran aqui.</p>
           </div>
         ) : (
           orders.map((order) => (
@@ -330,6 +419,7 @@ export function ServiceDeliveryScreen({ tenantId }: { tenantId: string }) {
               order={order}
               updatingItemIds={updatingItemIds}
               onDeliverItems={markDelivered}
+              brand={brand}
             />
           ))
         )}
