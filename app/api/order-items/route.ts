@@ -1,34 +1,9 @@
 import { createClient } from '@supabase/supabase-js';
 import { NextRequest, NextResponse } from 'next/server';
 import { requireTenantAccess, tenantAuthErrorResponse } from '@/lib/tenant-api-auth';
+import { syncOrderStatusFromItems } from '@/lib/order-status-sync';
 
 const validStatuses = ['pending', 'confirmed', 'preparing', 'ready', 'delivered', 'cancelled'];
-
-async function syncOrderStatus(supabase: any, orderId: string) {
-  const { data: siblings } = await supabase
-    .from('order_items')
-    .select('status')
-    .eq('order_id', orderId)
-    .neq('status', 'cancelled');
-
-  if (!siblings || siblings.length === 0) return;
-
-  const priority: Record<string, number> = {
-    pending: 0,
-    confirmed: 1,
-    preparing: 2,
-    ready: 3,
-    delivered: 4,
-  };
-  const minStatus = siblings.reduce((min: string, item: { status: string }) => {
-    return (priority[item.status] ?? 0) < (priority[min] ?? 0) ? item.status : min;
-  }, siblings[0].status);
-
-  await supabase
-    .from('orders')
-    .update({ status: minStatus, updated_at: new Date().toISOString() })
-    .eq('id', orderId);
-}
 
 export async function GET(request: NextRequest) {
   const supabase = createClient(
@@ -212,6 +187,28 @@ export async function PATCH(request: NextRequest) {
     if (completed_at) updateData.completed_at = completed_at;
     if (prepared_by) updateData.prepared_by = prepared_by;
 
+    let targetOrderIds: string[] = orderId ? [orderId] : [];
+    if (Array.isArray(itemIds) && itemIds.length > 0) {
+      const { data: targetItems, error: targetItemsError } = await supabase
+        .from('order_items')
+        .select('order_id')
+        .eq('tenant_id', tenantId)
+        .in('id', itemIds);
+
+      if (targetItemsError) {
+        console.error('Error resolving target order items:', targetItemsError);
+        return NextResponse.json({ error: targetItemsError.message }, { status: 500 });
+      }
+
+      targetOrderIds = Array.from(
+        new Set(
+          (targetItems || [])
+            .map((item: { order_id?: string }) => item.order_id)
+            .filter((targetOrderId: string | undefined): targetOrderId is string => Boolean(targetOrderId))
+        )
+      );
+    }
+
     let query = supabase
       .from('order_items')
       .update(updateData)
@@ -236,16 +233,17 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    const affectedOrderIds = Array.from(
-      new Set(
-        (data || [])
-          .map((item: { order_id?: string }) => item.order_id)
-          .filter((affectedOrderId: string | undefined): affectedOrderId is string => Boolean(affectedOrderId))
-      )
-    );
+    const changedOrderIds = (data || [])
+      .map((item: { order_id?: string }) => item.order_id)
+      .filter((affectedOrderId: string | undefined): affectedOrderId is string => Boolean(affectedOrderId));
+    const affectedOrderIds = Array.from(new Set([...targetOrderIds, ...changedOrderIds]));
 
     if (shouldSyncOrderStatus !== false) {
-      await Promise.all(affectedOrderIds.map((affectedOrderId) => syncOrderStatus(supabase, affectedOrderId)));
+      await Promise.all(
+        affectedOrderIds.map((affectedOrderId) =>
+          syncOrderStatusFromItems(supabase, { orderId: affectedOrderId, tenantId })
+        )
+      );
     }
 
     return NextResponse.json(data || []);

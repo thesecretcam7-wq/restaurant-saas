@@ -7,6 +7,7 @@ import { writeAuditLog } from '@/lib/audit-log'
 import { applyRecipeStockMovement } from '@/lib/inventory-recipes'
 import { deriveBrandPalette } from '@/lib/brand-colors'
 import { buildOrderItemRows } from '@/lib/order-item-routing'
+import { syncOrderDeliveredIfAllItemsDelivered } from '@/lib/order-status-sync'
 
 function getOrderItemKey(item: any) {
   return String(item?.menu_item_id || item?.item_id || item?.id || item?.name || '').trim()
@@ -323,6 +324,21 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       }
     }
 
+    let responseOrder = order
+    if (payment_status === 'paid' && status !== 'delivered' && order.tenant_id) {
+      try {
+        const syncedStatus = await syncOrderDeliveredIfAllItemsDelivered(supabase, {
+          orderId,
+          tenantId: order.tenant_id,
+        })
+        if (syncedStatus === 'delivered') {
+          responseOrder = { ...order, status: 'delivered' }
+        }
+      } catch (syncError) {
+        console.error('[orders PATCH] delivered parent sync error:', syncError)
+      }
+    }
+
     // Payment and kitchen progress are separate flows: paying should not mark KDS items ready.
     if (status === 'delivered' && order.tenant_id) {
       const itemUpdate: Record<string, any> = {
@@ -458,7 +474,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       }
     }
 
-    return NextResponse.json({ order })
+    return NextResponse.json({ order: responseOrder })
   } catch (err) {
     if (err instanceof Error && ['Unauthorized', 'Forbidden'].includes(err.message)) {
       return tenantAuthErrorResponse(err)

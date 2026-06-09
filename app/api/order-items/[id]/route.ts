@@ -1,6 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 import { NextRequest, NextResponse } from 'next/server';
 import { requireTenantAccess, tenantAuthErrorResponse } from '@/lib/tenant-api-auth';
+import { syncOrderStatusFromItems } from '@/lib/order-status-sync';
 
 export async function PATCH(
   request: NextRequest,
@@ -63,27 +64,8 @@ export async function PATCH(
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    // Cascade: recalculate orders.status from all non-cancelled items
     if (data.order_id) {
-      const { data: siblings } = await supabase
-        .from('order_items')
-        .select('status')
-        .eq('order_id', data.order_id)
-        .neq('status', 'cancelled');
-
-      if (siblings && siblings.length > 0) {
-        const PRIORITY: Record<string, number> = {
-          pending: 0, confirmed: 1, preparing: 2, ready: 3, delivered: 4,
-        };
-        const minStatus = siblings.reduce((min: string, item: { status: string }) => {
-          return (PRIORITY[item.status] ?? 0) < (PRIORITY[min] ?? 0) ? item.status : min;
-        }, siblings[0].status);
-
-        await supabase
-          .from('orders')
-          .update({ status: minStatus, updated_at: new Date().toISOString() })
-          .eq('id', data.order_id);
-      }
+      await syncOrderStatusFromItems(supabase, { orderId: data.order_id, tenantId });
     }
 
     return NextResponse.json(data);
