@@ -6,6 +6,7 @@ import { requireTenantAccess, tenantAuthErrorResponse } from '@/lib/tenant-api-a
 import { writeAuditLog } from '@/lib/audit-log'
 import { applyRecipeStockMovement } from '@/lib/inventory-recipes'
 import { deriveBrandPalette } from '@/lib/brand-colors'
+import { buildOrderItemRows } from '@/lib/order-item-routing'
 
 function getOrderItemKey(item: any) {
   return String(item?.menu_item_id || item?.item_id || item?.id || item?.name || '').trim()
@@ -291,7 +292,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       }
     }
 
-    // When confirming an order, ensure order_items exist for KDS visibility.
+    // When confirming an order, ensure order_items exist for kitchen/service visibility.
     // Kiosk cash orders skip order_items at creation time, so we create them here.
     if (status === 'confirmed' && Array.isArray(order.items) && order.items.length > 0) {
       const { data: settings } = await supabase
@@ -300,27 +301,23 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
         .eq('tenant_id', order.tenant_id)
         .maybeSingle()
 
-      if (settings?.kds_enabled !== true) {
-        return NextResponse.json({ order })
-      }
-
-      const kitchenItems = order.items.filter((item: any) => item.requires_kitchen !== false)
       const { count } = await supabase
         .from('order_items')
         .select('*', { count: 'exact', head: true })
         .eq('order_id', orderId)
 
-      if ((count ?? 0) === 0 && kitchenItems.length > 0) {
-        const orderItemsData = kitchenItems.map((item: any) => ({
-          order_id: orderId,
-          tenant_id: order.tenant_id,
-          menu_item_id: item.menu_item_id || null,
-          name: item.name,
-          quantity: item.qty ?? item.quantity ?? 1,
-          price: item.price,
-          notes: item.notes || null,
-          status: 'pending',
-        }))
+      if ((count ?? 0) === 0) {
+        const orderItemsData = buildOrderItemRows({
+          orderId,
+          tenantId: order.tenant_id,
+          items: order.items,
+          includeKitchenItems: settings?.kds_enabled === true,
+        })
+
+        if (orderItemsData.length === 0) {
+          return NextResponse.json({ order })
+        }
+
         const { error: itemsError } = await supabase.from('order_items').insert(orderItemsData)
         if (itemsError) console.error('[orders PATCH] order_items creation error:', itemsError.message)
       }

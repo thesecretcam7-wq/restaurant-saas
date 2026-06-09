@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import { NextRequest, NextResponse } from 'next/server';
+import { buildOrderItemRows } from '@/lib/order-item-routing';
 
 export async function GET(request: NextRequest) {
   const supabase = createClient(
@@ -106,19 +107,18 @@ export async function POST(request: NextRequest) {
       .eq('tenant_id', tenantId)
       .maybeSingle();
 
-    // Create order items for KDS only when kitchen display is enabled.
-    if (order && settings?.kds_enabled === true) {
-      const orderItemsData = orderItems.map((item: any) => ({
-        order_id: order.id,
-        tenant_id: tenantId,
-        name: item.name,
-        quantity: item.quantity,
-        price: item.price,
-        notes: item.notes,
-        status: 'pending',
-      }));
+    // Create order items for kitchen/service routing.
+    if (order) {
+      const orderItemsData = buildOrderItemRows({
+        orderId: order.id,
+        tenantId,
+        items: orderItems,
+        includeKitchenItems: settings?.kds_enabled === true,
+      });
 
-      await supabase.from('order_items').insert(orderItemsData);
+      if (orderItemsData.length > 0) {
+        await supabase.from('order_items').insert(orderItemsData);
+      }
     }
 
     return NextResponse.json(data, { status: 201 });

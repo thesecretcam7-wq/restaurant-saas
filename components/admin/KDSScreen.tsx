@@ -35,6 +35,8 @@ interface OrderItemWithOrder {
   completed_at?: string | null;
   prepared_by?: string | null;
   created_at: string;
+  updated_at?: string | null;
+  requires_kitchen?: boolean | null;
   orders: {
     order_number: string;
     table_number: number | null;
@@ -57,6 +59,51 @@ interface KDSOrder {
   createdAt: string;
   items: OrderItemWithOrder[];
   kdsStatus: 'pending' | 'preparing' | 'ready';
+}
+
+type KDSItemStatus = OrderItemWithOrder['status'];
+
+const visibleKdsStatuses = new Set<KDSItemStatus>([
+  'pending',
+  'confirmed',
+  'preparing',
+  'ready',
+]);
+
+function applyStatusToItem(
+  item: OrderItemWithOrder,
+  status: KDSItemStatus,
+  timestamp = new Date().toISOString()
+): OrderItemWithOrder {
+  return {
+    ...item,
+    status,
+    updated_at: timestamp,
+    started_at: status === 'preparing' ? (item.started_at || timestamp) : item.started_at,
+    completed_at: status === 'ready' || status === 'delivered' ? timestamp : item.completed_at,
+  };
+}
+
+function applyPendingStatuses(
+  data: OrderItemWithOrder[],
+  pendingStatuses: Map<string, KDSItemStatus>
+) {
+  return data.flatMap((item) => {
+    const pendingStatus = pendingStatuses.get(item.id);
+    if (!pendingStatus) return [item];
+    if (!visibleKdsStatuses.has(pendingStatus)) return [];
+    return [applyStatusToItem(item, pendingStatus)];
+  });
+}
+
+function restoreOrderItems(
+  currentItems: OrderItemWithOrder[],
+  previousItems: OrderItemWithOrder[]
+) {
+  const previousIds = new Set(previousItems.map((item) => item.id));
+  return [...currentItems.filter((item) => !previousIds.has(item.id)), ...previousItems].sort(
+    (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+  );
 }
 
 // Timer Hook
@@ -563,7 +610,7 @@ function KDSColumn({
   headerColor,
   icon,
   onAction,
-  loading,
+  updatingOrderIds,
   onPlayTestSound,
 }: {
   title: string;
@@ -573,7 +620,7 @@ function KDSColumn({
   headerColor: string;
   icon: React.ReactNode;
   onAction: (order: KDSOrder) => void;
-  loading: boolean;
+  updatingOrderIds: Set<string>;
   onPlayTestSound?: () => void;
 }) {
   const { tr } = useI18n();
@@ -612,7 +659,7 @@ function KDSColumn({
                 onAction={onAction}
                 actionLabel={actionLabel}
                 actionColor={actionColor}
-                loading={loading}
+                loading={updatingOrderIds.has(order.orderId)}
                 onPlayTestSound={onPlayTestSound}
               />
             </div>
@@ -628,10 +675,11 @@ export function KDSScreen({ tenantId }: { tenantId: string }) {
   const { tr } = useI18n();
   const [items, setItems] = useState<OrderItemWithOrder[]>([]);
   const [loading, setLoading] = useState(true);
-  const [actionLoading, setActionLoading] = useState(false);
+  const [updatingOrderIds, setUpdatingOrderIds] = useState<Set<string>>(new Set());
   const [isFullscreen, setIsFullscreen] = useState(false);
   const { wakeLockActive, activateWakeLock } = useWakeLock();
   const delayedAlertedOrders = useRef(new Map<string, number>());
+  const pendingStatusByItemId = useRef(new Map<string, KDSItemStatus>());
   const {
     soundEnabled,
     setSoundEnabled,
@@ -643,6 +691,23 @@ export function KDSScreen({ tenantId }: { tenantId: string }) {
     initAudio,
   } = useSound();
   const knownOrderIds = useRef(new Set<string>());
+
+  const setOrderUpdating = useCallback((orderId: string, isUpdating: boolean) => {
+    setUpdatingOrderIds((prev) => {
+      const next = new Set(prev);
+      if (isUpdating) next.add(orderId);
+      else next.delete(orderId);
+      return next;
+    });
+  }, []);
+
+  const clearPendingItemStatuses = useCallback((itemIds: string[], status: KDSItemStatus) => {
+    itemIds.forEach((itemId) => {
+      if (pendingStatusByItemId.current.get(itemId) === status) {
+        pendingStatusByItemId.current.delete(itemId);
+      }
+    });
+  }, []);
 
   // Fullscreen
   useEffect(() => {
@@ -693,7 +758,7 @@ export function KDSScreen({ tenantId }: { tenantId: string }) {
   const fetchOrderItems = useCallback(async () => {
     try {
       const res = await fetch(
-        `/api/order-items?tenantId=${tenantId}&status=pending,confirmed,preparing,ready`
+        `/api/order-items?tenantId=${tenantId}&status=pending,confirmed,preparing,ready&requiresKitchen=true`
       );
       if (!res.ok) throw new Error('Failed to fetch');
       const data: OrderItemWithOrder[] = await res.json();
@@ -713,7 +778,7 @@ export function KDSScreen({ tenantId }: { tenantId: string }) {
         playNewOrder();
       }
 
-      setItems(data);
+      setItems(applyPendingStatuses(data, pendingStatusByItemId.current));
     } catch (err) {
       console.error('KDS fetch error:', err);
     } finally {
@@ -740,17 +805,34 @@ export function KDSScreen({ tenantId }: { tenantId: string }) {
             playNewOrder();
             knownOrderIds.current.add(newItem.order_id);
           }
-  // Fetch
           await fetchOrderItems();
         }
       )
       .on(
         'postgres_changes',
         { event: 'UPDATE', schema: 'public', table: 'order_items', filter: `tenant_id=eq.${tenantId}` },
-        async (payload) => {
+        (payload) => {
           console.log('[KDS] Order item updated:', payload.new);
-  // Fetch
-          await fetchOrderItems();
+          const updatedItem = payload.new as OrderItemWithOrder;
+          const pendingStatus = pendingStatusByItemId.current.get(updatedItem.id);
+          const nextItem = pendingStatus
+            ? applyStatusToItem(updatedItem, pendingStatus)
+            : updatedItem;
+
+          setItems((prev) => {
+            if (!visibleKdsStatuses.has(nextItem.status)) {
+              return prev.filter((item) => item.id !== nextItem.id);
+            }
+
+            const existing = prev.find((item) => item.id === nextItem.id);
+            if (!existing) return prev;
+
+            return prev.map((item) =>
+              item.id === nextItem.id
+                ? { ...item, ...nextItem, orders: nextItem.orders ?? item.orders }
+                : item
+            );
+          });
         }
       )
       .on(
@@ -782,30 +864,57 @@ export function KDSScreen({ tenantId }: { tenantId: string }) {
   }, [fetchOrderItems]);
 
   // Update all items in an order
-  async function updateOrderStatus(order: KDSOrder, targetStatus: string) {
+  async function updateOrderStatus(order: KDSOrder, targetStatus: KDSItemStatus) {
     const activeItems = order.items.filter(
       (i) => i.status !== 'cancelled' && i.status !== 'delivered'
     );
     if (activeItems.length === 0) return;
 
-    setActionLoading(true);
-    try {
-      await Promise.all(
-        activeItems.map((item) =>
-          fetch(`/api/order-items/${item.id}`, {
-            method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ tenantId, status: targetStatus }),
-          })
-        )
+    const activeItemIds = activeItems.map((item) => item.id);
+    const activeItemIdSet = new Set(activeItemIds);
+
+    activeItemIds.forEach((itemId) => {
+      pendingStatusByItemId.current.set(itemId, targetStatus);
+    });
+
+    setItems((prev) => {
+      if (!visibleKdsStatuses.has(targetStatus)) {
+        return prev.filter((item) => !activeItemIdSet.has(item.id));
+      }
+
+      const timestamp = new Date().toISOString();
+      return prev.map((item) =>
+        activeItemIdSet.has(item.id)
+          ? applyStatusToItem(item, targetStatus, timestamp)
+          : item
       );
-      console.log('[KDS] Status updated successfully, refetching...');
-  // Fetch
-      await fetchOrderItems();
+    });
+
+    setOrderUpdating(order.orderId, true);
+    try {
+      const res = await fetch('/api/order-items', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          tenantId,
+          orderId: order.orderId,
+          itemIds: activeItemIds,
+          status: targetStatus,
+        }),
+      });
+
+      if (!res.ok) {
+        const body = await res.json().catch(() => null);
+        throw new Error(body?.error || 'No se pudo actualizar el pedido');
+      }
+
+      window.setTimeout(() => clearPendingItemStatuses(activeItemIds, targetStatus), 5000);
     } catch (err) {
       console.error('KDS update error:', err);
+      clearPendingItemStatuses(activeItemIds, targetStatus);
+      setItems((prev) => restoreOrderItems(prev, activeItems));
     } finally {
-      setActionLoading(false);
+      setOrderUpdating(order.orderId, false);
     }
   }
 
@@ -1005,7 +1114,7 @@ export function KDSScreen({ tenantId }: { tenantId: string }) {
           headerColor="bg-gradient-to-r from-blue-500/20 to-cyan-400/10 border-l-4 border-blue-400"
           icon={<Flame className="h-5 w-5 text-blue-200" />}
           onAction={(o) => updateOrderStatus(o, 'preparing')}
-          loading={actionLoading}
+          updatingOrderIds={updatingOrderIds}
           onPlayTestSound={playNewOrder}
         />
 
@@ -1017,7 +1126,7 @@ export function KDSScreen({ tenantId }: { tenantId: string }) {
           headerColor="bg-gradient-to-r from-amber-500/20 to-orange-400/10 border-l-4 border-amber-400"
           icon={<Timer className="h-5 w-5 text-amber-100" />}
           onAction={(o) => updateOrderStatus(o, 'ready')}
-          loading={actionLoading}
+          updatingOrderIds={updatingOrderIds}
           onPlayTestSound={playNewOrder}
         />
 
@@ -1029,7 +1138,7 @@ export function KDSScreen({ tenantId }: { tenantId: string }) {
           headerColor="bg-gradient-to-r from-emerald-500/20 to-teal-400/10 border-l-4 border-emerald-400"
           icon={<CheckCircle2 className="w-5 h-5 text-emerald-100" />}
           onAction={(o) => updateOrderStatus(o, 'delivered')}
-          loading={actionLoading}
+          updatingOrderIds={updatingOrderIds}
           onPlayTestSound={playNewOrder}
         />
       </div>

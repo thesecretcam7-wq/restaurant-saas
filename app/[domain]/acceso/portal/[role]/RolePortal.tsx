@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { ChefHat, Monitor, ClipboardList, CreditCard, LogOut } from 'lucide-react';
+import { ChefHat, Monitor, ClipboardList, CreditCard, LogOut, Truck } from 'lucide-react';
 
 interface Props {
   tenantId: string;
@@ -14,7 +14,7 @@ interface Props {
 
 const ROLE_CONFIG = {
   cocinero: { label: 'Cocinero',  tools: ['kds'] },
-  camarero: { label: 'Camarero',  tools: ['comandero', 'kds', 'tpv'] },
+  camarero: { label: 'Camarero',  tools: ['comandero', 'entregas', 'kds', 'tpv'] },
   cajero:   { label: 'Cajero',    tools: ['tpv'] },
 };
 
@@ -32,6 +32,13 @@ const TOOL_CONFIG = {
     icon: <ClipboardList className="w-10 h-10" />,
     color: 'from-emerald-600 to-emerald-700',
     href: (slug: string) => `/${slug}/kitchen`,
+  },
+  entregas: {
+    label: 'Entregas',
+    desc: 'Bebidas y productos directos',
+    icon: <Truck className="w-10 h-10" />,
+    color: 'from-cyan-500 to-blue-600',
+    href: (slug: string) => `/${slug}/staff/entregas`,
   },
   tpv: {
     label: 'TPV',

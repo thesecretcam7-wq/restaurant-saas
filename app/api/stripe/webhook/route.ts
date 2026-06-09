@@ -4,6 +4,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import Stripe from 'stripe'
 import { applyRecipeStockMovement } from '@/lib/inventory-recipes'
 import { getStripeConnectStatus } from '@/lib/stripe-connect'
+import { buildOrderItemRows } from '@/lib/order-item-routing'
 
 const getStripe = () => new Stripe(process.env.STRIPE_SECRET_KEY!)
 
@@ -146,26 +147,25 @@ export async function POST(request: NextRequest) {
           .eq('tenant_id', tenant_id)
           .maybeSingle()
 
-        // Create order_items so KDS receives the order immediately on payment.
-        if (settings?.kds_enabled === true && updatedOrder && Array.isArray(updatedOrder.items) && updatedOrder.items.length > 0) {
+        // Create order_items so kitchen/service screens receive the order immediately on payment.
+        if (updatedOrder && Array.isArray(updatedOrder.items) && updatedOrder.items.length > 0) {
           const { count } = await supabase
             .from('order_items')
             .select('*', { count: 'exact', head: true })
             .eq('order_id', order_id)
 
           if ((count ?? 0) === 0) {
-            const orderItemsData = updatedOrder.items.map((item: any) => ({
-              order_id,
-              tenant_id,
-              menu_item_id: item.menu_item_id || null,
-              name: item.name,
-              quantity: item.qty ?? item.quantity ?? 1,
-              price: item.price,
-              notes: item.notes || null,
-              status: 'pending',
-            }))
-            const { error: itemsError } = await supabase.from('order_items').insert(orderItemsData)
-            if (itemsError) console.error('[webhook] order_items creation error:', itemsError.message)
+            const orderItemsData = buildOrderItemRows({
+              orderId: order_id,
+              tenantId: tenant_id,
+              items: updatedOrder.items,
+              includeKitchenItems: settings?.kds_enabled === true,
+            })
+
+            if (orderItemsData.length > 0) {
+              const { error: itemsError } = await supabase.from('order_items').insert(orderItemsData)
+              if (itemsError) console.error('[webhook] order_items creation error:', itemsError.message)
+            }
           }
         }
         break

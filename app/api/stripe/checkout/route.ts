@@ -80,7 +80,7 @@ export async function POST(request: NextRequest) {
 
     const { data: menuRows, error: menuError } = await supabase
       .from('menu_items')
-      .select('id, name, price, available')
+      .select('id, name, price, available, variants')
       .eq('tenant_id', tenantId)
       .in('id', itemIds)
 
@@ -104,6 +104,7 @@ export async function POST(request: NextRequest) {
         price: Number(menuItem.price) || 0,
         qty,
         notes: item.notes || null,
+        requires_kitchen: menuItem.variants?.requires_kitchen !== false,
       }
     })
 
@@ -117,6 +118,7 @@ export async function POST(request: NextRequest) {
       price: number
       qty: number
       notes: string | null
+      requires_kitchen: boolean
     }>
 
     const { data: settings } = await supabase

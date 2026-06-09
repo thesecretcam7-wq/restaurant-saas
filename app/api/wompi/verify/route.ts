@@ -4,6 +4,7 @@ import { applyRecipeStockMovement } from '@/lib/inventory-recipes'
 import { getWompiApiBase, normalizeWompiStatus } from '@/lib/wompi'
 import { decryptServerSecret } from '@/lib/server-secret-box'
 import { getPaymentConfig, selectSettingsWithPaymentFallback } from '@/lib/payment-settings'
+import { buildOrderItemRows } from '@/lib/order-item-routing'
 
 async function createKitchenItemsIfNeeded(supabase: any, order: any) {
   if (!Array.isArray(order.items) || order.items.length === 0) return
@@ -14,8 +15,6 @@ async function createKitchenItemsIfNeeded(supabase: any, order: any) {
     .eq('tenant_id', order.tenant_id)
     .maybeSingle()
 
-  if (settings?.kds_enabled !== true) return
-
   const { count } = await supabase
     .from('order_items')
     .select('*', { count: 'exact', head: true })
@@ -23,16 +22,14 @@ async function createKitchenItemsIfNeeded(supabase: any, order: any) {
 
   if ((count ?? 0) > 0) return
 
-  const orderItemsData = order.items.map((item: any) => ({
-    order_id: order.id,
-    tenant_id: order.tenant_id,
-    menu_item_id: item.menu_item_id || null,
-    name: item.name,
-    quantity: item.qty ?? item.quantity ?? 1,
-    price: item.price,
-    notes: item.notes || null,
-    status: 'pending',
-  }))
+  const orderItemsData = buildOrderItemRows({
+    orderId: order.id,
+    tenantId: order.tenant_id,
+    items: order.items,
+    includeKitchenItems: settings?.kds_enabled === true,
+  })
+
+  if (orderItemsData.length === 0) return
 
   const { error } = await supabase.from('order_items').insert(orderItemsData)
   if (error) console.error('[wompi/verify] order_items creation error:', error.message)

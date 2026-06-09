@@ -10,6 +10,7 @@ import { calculateOrderTotals } from '@/lib/order-totals'
 import { syncCustomerFromOrder } from '@/lib/customer-sync'
 import { deriveBrandPalette } from '@/lib/brand-colors'
 import { getRestaurantBusinessPeriod, getRestaurantLocale, getRestaurantTimeZone } from '@/lib/restaurant-time'
+import { buildOrderItemRows } from '@/lib/order-item-routing'
 
 function parseOperationalCloseMinutes(value?: string | null) {
   if (!value || !/^\d{1,2}:\d{2}$/.test(value)) return 5 * 60
@@ -493,30 +494,25 @@ export async function POST(request: NextRequest) {
       })
     }
 
-    // Auto-create order_items so KDS can display the order in real-time.
-    // Exception: kiosk cash orders skip this — items are created when cashier confirms payment.
+    // Auto-create order_items so kitchen and service screens receive work in real time.
+    // Exception: kiosk cash orders skip this - items are created when cashier confirms payment.
     const isKioskCash = source === 'kiosk' && paymentMethod === 'cash'
     const kdsEnabled = settings?.kds_enabled === true
-    const kitchenItems = sanitizedItems.filter((item: any) => item.requires_kitchen !== false)
-    if (kdsEnabled && !isKioskCash && !registeringPreviousOpenPeriod && kitchenItems.length > 0) {
-      const orderItemsData = kitchenItems.map((item: any) => ({
-        order_id: order.id,
-        tenant_id: tenantId,
-        menu_item_id: item.menu_item_id || null,
-        name: item.name,
-        quantity: item.qty ?? item.quantity ?? 1,
-        price: item.price,
-        notes: item.notes || null,
-        status: 'pending',
-      }))
+    const orderItemsData = buildOrderItemRows({
+      orderId: order.id,
+      tenantId,
+      items: sanitizedItems,
+      includeKitchenItems: kdsEnabled,
+    })
 
+    if (!isKioskCash && !registeringPreviousOpenPeriod && orderItemsData.length > 0) {
       const { error: itemsError } = await supabase
         .from('order_items')
         .insert(orderItemsData)
 
       if (itemsError) {
         // Non-blocking: order is already saved, just log the error
-        console.error('Error creating order_items for KDS:', itemsError.message)
+        console.error('Error creating order_items for routing:', itemsError.message)
       }
     }
 
