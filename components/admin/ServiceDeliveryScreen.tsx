@@ -1,9 +1,10 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ArrowLeft, CheckCircle2, Clock, Loader2, PackageCheck, RefreshCw, Truck, UserRound, X } from 'lucide-react';
+import { ArrowLeft, BellRing, CheckCircle2, Clock, Loader2, PackageCheck, RefreshCw, Truck, UserRound, X } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { formatStaffOrderNumber } from '@/lib/order-display';
+import { useServiceReadyAlert } from '@/lib/hooks/useServiceReadyAlert';
 
 const supabase = createClient();
 
@@ -276,6 +277,7 @@ export function ServiceDeliveryScreen({
   const [updatingItemIds, setUpdatingItemIds] = useState<Set<string>>(new Set());
   const firstFetchDone = useRef(false);
   const brand = useDeliveryBrand(theme);
+  const { alertsReady, trackReadyItems, triggerServiceAlert, unlockAlerts } = useServiceReadyAlert();
 
   const fetchItems = useCallback(async (silent = false) => {
     if (!silent) setRefreshing(true);
@@ -284,6 +286,7 @@ export function ServiceDeliveryScreen({
       const res = await fetch(`/api/order-items?tenantId=${tenantId}&status=ready`);
       if (!res.ok) throw new Error('No se pudieron cargar las entregas');
       const data: ServiceItem[] = await res.json();
+      trackReadyItems(data);
       setItems(data);
       setError(null);
     } catch (err) {
@@ -293,7 +296,7 @@ export function ServiceDeliveryScreen({
       setRefreshing(false);
       firstFetchDone.current = true;
     }
-  }, [tenantId]);
+  }, [tenantId, trackReadyItems]);
 
   useEffect(() => {
     fetchItems();
@@ -406,18 +409,53 @@ export function ServiceDeliveryScreen({
               <p className="text-xs font-semibold" style={{ color: brand.muted }}>{items.length} productos listos</p>
             </div>
           </div>
-          <button
-            type="button"
-            onClick={() => fetchItems()}
-            className="grid size-10 shrink-0 place-items-center rounded-lg border transition"
-            style={{ backgroundColor: brand.surface, borderColor: brand.border, color: brand.text }}
-            title="Actualizar"
-            aria-label="Actualizar"
-          >
-            <RefreshCw className={`size-5 ${refreshing ? 'animate-spin' : ''}`} />
-          </button>
+          <div className="flex shrink-0 items-center gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                void unlockAlerts();
+                window.setTimeout(triggerServiceAlert, 160);
+              }}
+              className="grid size-10 place-items-center rounded-lg border transition active:scale-95"
+              style={{
+                backgroundColor: alertsReady ? brand.soft : brand.surface,
+                borderColor: alertsReady ? brand.primary : brand.border,
+                color: alertsReady ? brand.primary : brand.text,
+              }}
+              title={alertsReady ? 'Probar alerta' : 'Activar alertas'}
+              aria-label={alertsReady ? 'Probar alerta' : 'Activar alertas'}
+            >
+              <BellRing className={`size-5 ${alertsReady ? '' : 'animate-pulse'}`} />
+            </button>
+            <button
+              type="button"
+              onClick={() => fetchItems()}
+              className="grid size-10 place-items-center rounded-lg border transition"
+              style={{ backgroundColor: brand.surface, borderColor: brand.border, color: brand.text }}
+              title="Actualizar"
+              aria-label="Actualizar"
+            >
+              <RefreshCw className={`size-5 ${refreshing ? 'animate-spin' : ''}`} />
+            </button>
+          </div>
         </div>
       </header>
+      {!alertsReady && (
+        <div className="border-b px-3 py-2" style={{ backgroundColor: brand.surface, borderColor: brand.border }}>
+          <button
+            type="button"
+            onClick={() => {
+              void unlockAlerts();
+              window.setTimeout(triggerServiceAlert, 160);
+            }}
+            className="mx-auto flex h-10 w-full max-w-5xl items-center justify-center gap-2 rounded-lg border text-sm font-black transition active:scale-[0.99]"
+            style={{ backgroundColor: brand.soft, borderColor: brand.primary, color: brand.primary }}
+          >
+            <BellRing className="size-4" />
+            Activar sonido y vibracion
+          </button>
+        </div>
+      )}
       {deliveryContent}
     </main>
   );

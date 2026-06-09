@@ -5,6 +5,7 @@ import Image from 'next/image';
 import { createClient } from '@/lib/supabase/client';
 import { formatPriceWithCurrency, getCurrencyByCountry } from '@/lib/currency';
 import { formatStaffOrderNumber } from '@/lib/order-display';
+import { useServiceReadyAlert } from '@/lib/hooks/useServiceReadyAlert';
 import { ServiceDeliveryWidget } from '@/components/admin/ServiceDeliveryScreen';
 import LanguageSwitcher, { useI18n } from '@/components/LanguageSwitcher';
 import {
@@ -113,6 +114,7 @@ export function KitchenClient({ tenantId, tenantSlug, tenantName, country, brand
   const [selectedToppings, setSelectedToppings] = useState<Topping[]>([]);
   const [customQty, setCustomQty] = useState(1);
   const [servicePendingCount, setServicePendingCount] = useState(0);
+  const { trackReadyItems } = useServiceReadyAlert();
   const currencyInfo = useMemo(() => getCurrencyByCountry(country), [country]);
   const money = useCallback(
     (value: number) => formatPriceWithCurrency(value, currencyInfo.code, currencyInfo.locale),
@@ -158,6 +160,9 @@ export function KitchenClient({ tenantId, tenantSlug, tenantName, country, brand
         return;
       }
       const data = await res.json();
+      if (Array.isArray(data)) {
+        trackReadyItems(data.filter((item): item is { id: string } => typeof item?.id === 'string'));
+      }
       const count = Array.isArray(data)
         ? data.reduce((sum, item) => sum + Math.max(1, Number(item.quantity || 1)), 0)
         : 0;
@@ -165,7 +170,7 @@ export function KitchenClient({ tenantId, tenantSlug, tenantName, country, brand
     } catch {
       setServicePendingCount(0);
     }
-  }, [tenantId]);
+  }, [tenantId, trackReadyItems]);
 
   useEffect(() => {
     try {
