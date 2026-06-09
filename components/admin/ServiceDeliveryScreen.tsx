@@ -343,6 +343,7 @@ export function ServiceDeliveryScreen({
           itemIds,
           status: 'delivered',
           prepared_by: deliveredBy,
+          deliveryConfirmation: true,
         }),
       });
 

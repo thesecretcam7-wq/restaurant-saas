@@ -164,7 +164,17 @@ export async function PATCH(request: NextRequest) {
 
   try {
     const body = await request.json();
-    const { tenantId, orderId, itemIds, status, started_at, completed_at, prepared_by, syncOrderStatus: shouldSyncOrderStatus = true } = body;
+    const {
+      tenantId,
+      orderId,
+      itemIds,
+      status,
+      started_at,
+      completed_at,
+      prepared_by,
+      deliveryConfirmation,
+      syncOrderStatus: shouldSyncOrderStatus = true,
+    } = body;
 
     if (!tenantId || !status || (!orderId && (!Array.isArray(itemIds) || itemIds.length === 0))) {
       return NextResponse.json(
@@ -178,6 +188,13 @@ export async function PATCH(request: NextRequest) {
     }
 
     await requireTenantAccess(tenantId, { staffRoles: ['admin', 'cajero', 'camarero', 'cocinero'] });
+
+    if (status === 'delivered' && deliveryConfirmation !== true) {
+      return NextResponse.json(
+        { error: 'La entrega debe confirmarse desde la pantalla de Entregas.' },
+        { status: 409 }
+      );
+    }
 
     const timestamp = new Date().toISOString();
     const updateData: Record<string, any> = {

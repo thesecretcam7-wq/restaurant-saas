@@ -13,7 +13,7 @@ export async function PATCH(
     );
     const { id } = await params;
     const body = await request.json();
-    const { tenantId, status, started_at, completed_at, prepared_by } = body;
+    const { tenantId, status, started_at, completed_at, prepared_by, deliveryConfirmation } = body;
 
     if (!tenantId || !status) {
       return NextResponse.json(
@@ -26,6 +26,13 @@ export async function PATCH(
     const validStatuses = ['pending', 'confirmed', 'preparing', 'ready', 'delivered', 'cancelled'];
     if (!validStatuses.includes(status)) {
       return NextResponse.json({ error: 'Invalid status' }, { status: 400 });
+    }
+
+    if (status === 'delivered' && deliveryConfirmation !== true) {
+      return NextResponse.json(
+        { error: 'La entrega debe confirmarse desde la pantalla de Entregas.' },
+        { status: 409 }
+      );
     }
 
     const updateData: Record<string, any> = {
