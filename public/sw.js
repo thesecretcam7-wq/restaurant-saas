@@ -1,4 +1,4 @@
-const CACHE_NAME = 'eccofood-v13';
+const CACHE_NAME = 'eccofood-v14';
 const STATIC_ASSETS = [
   '/favicon.ico',
   '/icons/icon.svg',
@@ -160,4 +160,50 @@ self.addEventListener('message', (event) => {
   if (event.data && event.data.type === 'SKIP_WAITING') {
     self.skipWaiting();
   }
+});
+
+self.addEventListener('push', (event) => {
+  let data = {};
+  try {
+    data = event.data ? event.data.json() : {};
+  } catch {
+    data = {};
+  }
+
+  const title = data.title || 'Pedido listo';
+  const targetUrl = data.url || '/';
+  const options = {
+    body: data.body || 'Hay productos listos para entregar.',
+    icon: data.icon || '/icons/icon-192.png',
+    badge: data.badge || '/icons/icon-192.png',
+    tag: data.tag || 'eccofood-service-ready',
+    renotify: true,
+    requireInteraction: true,
+    vibrate: [180, 70, 180, 70, 260],
+    data: {
+      url: targetUrl,
+    },
+  };
+
+  event.waitUntil(self.registration.showNotification(title, options));
+});
+
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+
+  const targetUrl = new URL(event.notification.data?.url || '/', self.location.origin).href;
+
+  event.waitUntil(
+    clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
+      for (const client of clientList) {
+        if ('focus' in client && client.url === targetUrl) {
+          return client.focus();
+        }
+      }
+      if (clients.openWindow) {
+        return clients.openWindow(targetUrl);
+      }
+      return undefined;
+    })
+  );
 });

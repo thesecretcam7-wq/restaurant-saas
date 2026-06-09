@@ -2,6 +2,7 @@ import { createClient } from '@supabase/supabase-js';
 import { NextRequest, NextResponse } from 'next/server';
 import { requireTenantAccess, tenantAuthErrorResponse } from '@/lib/tenant-api-auth';
 import { syncOrderStatusFromItems } from '@/lib/order-status-sync';
+import { sendServiceReadyPushNotifications } from '@/lib/push-server';
 
 const validStatuses = ['pending', 'confirmed', 'preparing', 'ready', 'delivered', 'cancelled'];
 
@@ -187,27 +188,40 @@ export async function PATCH(request: NextRequest) {
     if (completed_at) updateData.completed_at = completed_at;
     if (prepared_by) updateData.prepared_by = prepared_by;
 
-    let targetOrderIds: string[] = orderId ? [orderId] : [];
+    let targetItemsQuery = supabase
+      .from('order_items')
+      .select('id, order_id, status')
+      .eq('tenant_id', tenantId)
+      .neq('status', 'cancelled')
+      .neq('status', 'delivered');
+
     if (Array.isArray(itemIds) && itemIds.length > 0) {
-      const { data: targetItems, error: targetItemsError } = await supabase
-        .from('order_items')
-        .select('order_id')
-        .eq('tenant_id', tenantId)
-        .in('id', itemIds);
-
-      if (targetItemsError) {
-        console.error('Error resolving target order items:', targetItemsError);
-        return NextResponse.json({ error: targetItemsError.message }, { status: 500 });
-      }
-
-      targetOrderIds = Array.from(
-        new Set(
-          (targetItems || [])
-            .map((item: { order_id?: string }) => item.order_id)
-            .filter((targetOrderId: string | undefined): targetOrderId is string => Boolean(targetOrderId))
-        )
-      );
+      targetItemsQuery = targetItemsQuery.in('id', itemIds);
+    } else {
+      targetItemsQuery = targetItemsQuery.eq('order_id', orderId);
     }
+
+    const { data: targetItems, error: targetItemsError } = await targetItemsQuery;
+
+    if (targetItemsError) {
+      console.error('Error resolving target order items:', targetItemsError);
+      return NextResponse.json({ error: targetItemsError.message }, { status: 500 });
+    }
+
+    const targetOrderIds = Array.from(
+      new Set(
+        (targetItems || [])
+          .map((item: { order_id?: string }) => item.order_id)
+          .filter((targetOrderId: string | undefined): targetOrderId is string => Boolean(targetOrderId))
+      )
+    );
+    const itemIdsEligibleForReadyPush = new Set(
+      status === 'ready'
+        ? (targetItems || [])
+            .filter((item: { id?: string; status?: string }) => item.id && item.status !== 'ready')
+            .map((item: { id: string }) => item.id)
+        : []
+    );
 
     let query = supabase
       .from('order_items')
@@ -244,6 +258,16 @@ export async function PATCH(request: NextRequest) {
           syncOrderStatusFromItems(supabase, { orderId: affectedOrderId, tenantId })
         )
       );
+    }
+
+    const readyItemIds = status === 'ready'
+      ? (data || [])
+          .filter((item: { id?: string }) => item.id && itemIdsEligibleForReadyPush.has(item.id))
+          .map((item: { id: string }) => item.id)
+      : [];
+
+    if (readyItemIds.length > 0) {
+      await sendServiceReadyPushNotifications(supabase, { tenantId, itemIds: readyItemIds });
     }
 
     return NextResponse.json(data || []);

@@ -2,6 +2,7 @@ import { createClient } from '@supabase/supabase-js';
 import { NextRequest, NextResponse } from 'next/server';
 import { requireTenantAccess, tenantAuthErrorResponse } from '@/lib/tenant-api-auth';
 import { syncOrderStatusFromItems } from '@/lib/order-status-sync';
+import { sendServiceReadyPushNotifications } from '@/lib/push-server';
 
 export async function PATCH(
   request: NextRequest,
@@ -51,6 +52,17 @@ export async function PATCH(
     if (completed_at) updateData.completed_at = completed_at;
     if (prepared_by) updateData.prepared_by = prepared_by;
 
+    let previousStatus: string | null = null;
+    if (status === 'ready') {
+      const { data: previousItem } = await supabase
+        .from('order_items')
+        .select('status')
+        .eq('id', id)
+        .eq('tenant_id', tenantId)
+        .maybeSingle();
+      previousStatus = previousItem?.status || null;
+    }
+
     const { data, error } = await supabase
       .from('order_items')
       .update(updateData)
@@ -66,6 +78,10 @@ export async function PATCH(
 
     if (data.order_id) {
       await syncOrderStatusFromItems(supabase, { orderId: data.order_id, tenantId });
+    }
+
+    if (status === 'ready' && previousStatus !== 'ready') {
+      await sendServiceReadyPushNotifications(supabase, { tenantId, itemIds: [data.id] });
     }
 
     return NextResponse.json(data);

@@ -24,7 +24,8 @@ export class TenantAuthError extends Error {
 function parseStaffSession(value?: string | null) {
   if (!value) return null
   try {
-    const session = JSON.parse(value)
+    const raw = value.trim().startsWith('{') ? value : decodeURIComponent(value)
+    const session = JSON.parse(raw)
     if (!session?.tenantId || !session?.staffId || !session?.role) return null
     return session as {
       tenantId: string

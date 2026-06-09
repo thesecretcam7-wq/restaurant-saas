@@ -5,6 +5,7 @@ import { ArrowLeft, BellRing, CheckCircle2, Clock, Loader2, PackageCheck, Refres
 import { createClient } from '@/lib/supabase/client';
 import { formatStaffOrderNumber } from '@/lib/order-display';
 import { useServiceReadyAlert } from '@/lib/hooks/useServiceReadyAlert';
+import { useWaiterPushNotifications } from '@/lib/hooks/useWaiterPushNotifications';
 
 const supabase = createClient();
 
@@ -278,6 +279,7 @@ export function ServiceDeliveryScreen({
   const firstFetchDone = useRef(false);
   const brand = useDeliveryBrand(theme);
   const { alertsReady, trackReadyItems, triggerServiceAlert, unlockAlerts } = useServiceReadyAlert();
+  const { enablePushNotifications } = useWaiterPushNotifications({ tenantId });
 
   const fetchItems = useCallback(async (silent = false) => {
     if (!silent) setRefreshing(true);
@@ -414,6 +416,7 @@ export function ServiceDeliveryScreen({
               type="button"
               onClick={() => {
                 void unlockAlerts();
+                void enablePushNotifications();
                 window.setTimeout(triggerServiceAlert, 160);
               }}
               className="grid size-10 place-items-center rounded-lg border transition active:scale-95"
@@ -446,6 +449,7 @@ export function ServiceDeliveryScreen({
             type="button"
             onClick={() => {
               void unlockAlerts();
+              void enablePushNotifications();
               window.setTimeout(triggerServiceAlert, 160);
             }}
             className="mx-auto flex h-10 w-full max-w-5xl items-center justify-center gap-2 rounded-lg border text-sm font-black transition active:scale-[0.99]"

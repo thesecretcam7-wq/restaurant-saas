@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/client';
 import { formatPriceWithCurrency, getCurrencyByCountry } from '@/lib/currency';
 import { formatStaffOrderNumber } from '@/lib/order-display';
 import { useServiceReadyAlert } from '@/lib/hooks/useServiceReadyAlert';
+import { useWaiterPushNotifications } from '@/lib/hooks/useWaiterPushNotifications';
 import { ServiceDeliveryWidget } from '@/components/admin/ServiceDeliveryScreen';
 import LanguageSwitcher, { useI18n } from '@/components/LanguageSwitcher';
 import {
@@ -115,6 +116,7 @@ export function KitchenClient({ tenantId, tenantSlug, tenantName, country, brand
   const [customQty, setCustomQty] = useState(1);
   const [servicePendingCount, setServicePendingCount] = useState(0);
   const { trackReadyItems } = useServiceReadyAlert();
+  useWaiterPushNotifications({ tenantId });
   const currencyInfo = useMemo(() => getCurrencyByCountry(country), [country]);
   const money = useCallback(
     (value: number) => formatPriceWithCurrency(value, currencyInfo.code, currencyInfo.locale),
