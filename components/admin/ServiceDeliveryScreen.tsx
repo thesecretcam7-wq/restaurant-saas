@@ -277,7 +277,7 @@ export function ServiceDeliveryScreen({
     if (!silent) setRefreshing(true);
 
     try {
-      const res = await fetch(`/api/order-items?tenantId=${tenantId}&status=ready&requiresKitchen=false`);
+      const res = await fetch(`/api/order-items?tenantId=${tenantId}&status=ready`);
       if (!res.ok) throw new Error('No se pudieron cargar las entregas');
       const data: ServiceItem[] = await res.json();
       setItems(data);
@@ -343,7 +343,6 @@ export function ServiceDeliveryScreen({
           itemIds,
           status: 'delivered',
           prepared_by: deliveredBy,
-          syncOrderStatus: false,
         }),
       });
 
@@ -416,7 +415,7 @@ export function ServiceDeliveryScreen({
           <div className="mt-14 rounded-xl border px-6 py-14 text-center shadow-xl shadow-black/5" style={{ backgroundColor: brand.surface, borderColor: brand.border }}>
             <PackageCheck className="mx-auto size-12" style={{ color: brand.primary }} />
             <p className="mt-4 text-lg font-black" style={{ color: brand.text }}>Sin entregas pendientes</p>
-            <p className="mt-1 text-sm font-semibold" style={{ color: brand.muted }}>Las bebidas y productos directos apareceran aqui.</p>
+            <p className="mt-1 text-sm font-semibold" style={{ color: brand.muted }}>Las bebidas y platos listos apareceran aqui.</p>
           </div>
         ) : (
           orders.map((order) => (

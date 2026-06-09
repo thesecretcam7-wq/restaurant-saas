@@ -35,7 +35,7 @@ const TOOL_CONFIG = {
   },
   entregas: {
     label: 'Entregas',
-    desc: 'Bebidas y productos directos',
+    desc: 'Bebidas y platos listos',
     icon: <Truck className="w-10 h-10" />,
     color: 'from-cyan-500 to-blue-600',
     href: (slug: string) => `/${slug}/staff/entregas`,

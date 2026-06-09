@@ -148,7 +148,7 @@ export function KitchenClient({ tenantId, tenantSlug, tenantName, country, brand
 
   const fetchServiceDeliveries = useCallback(async () => {
     try {
-      const res = await fetch(`/api/order-items?tenantId=${tenantId}&status=ready&requiresKitchen=false`, {
+      const res = await fetch(`/api/order-items?tenantId=${tenantId}&status=ready`, {
         cache: 'no-store',
       });
       if (!res.ok) {

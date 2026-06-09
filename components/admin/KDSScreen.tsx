@@ -476,9 +476,9 @@ function OrderCard({
   onPlayTestSound,
 }: {
   order: KDSOrder;
-  onAction: (order: KDSOrder) => void;
-  actionLabel: string;
-  actionColor: string;
+  onAction?: (order: KDSOrder) => void;
+  actionLabel?: string;
+  actionColor?: string;
   loading: boolean;
   onPlayTestSound?: () => void;
 }) {
@@ -573,6 +573,17 @@ function OrderCard({
           {urgency.label}
         </div>
 
+        {order.kdsStatus === 'ready' && (
+          <div className="rounded-xl border border-emerald-300/35 bg-emerald-400/15 px-3 py-3 text-center">
+            <p className="text-[11px] font-black uppercase tracking-[0.18em] text-emerald-100">
+              Esperando retiro de sala
+            </p>
+            <p className="mt-1 text-3xl font-black leading-none text-white">
+              {order.tableNumber ? `${tr('kds.table')} ${order.tableNumber}` : 'Sala'}
+            </p>
+          </div>
+        )}
+
         {/* Items List */}
         <div className="flex-1 space-y-1.5 border-t border-white/10 pt-2.5">
           {order.items
@@ -595,13 +606,19 @@ function OrderCard({
         </div>
 
         {/* Action Button */}
-        <button
-          onClick={() => onAction(order)}
-          disabled={loading}
-          className={`w-full py-2.5 rounded-lg font-black text-white text-sm tracking-[0.12em] transition-all duration-200 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed hover:shadow-lg ${actionColor}`}
-        >
-          {actionLabel}
-        </button>
+        {onAction && actionLabel ? (
+          <button
+            onClick={() => onAction(order)}
+            disabled={loading}
+            className={`w-full py-2.5 rounded-lg font-black text-white text-sm tracking-[0.12em] transition-all duration-200 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed hover:shadow-lg ${actionColor || ''}`}
+          >
+            {actionLabel}
+          </button>
+        ) : (
+          <div className="rounded-lg border border-emerald-300/25 bg-emerald-400/10 px-3 py-2.5 text-center text-xs font-black uppercase tracking-[0.12em] text-emerald-100">
+            Sala confirma entrega
+          </div>
+        )}
       </div>
     </div>
   );
@@ -621,11 +638,11 @@ function KDSColumn({
 }: {
   title: string;
   orders: KDSOrder[];
-  actionLabel: string;
-  actionColor: string;
+  actionLabel?: string;
+  actionColor?: string;
   headerColor: string;
   icon: React.ReactNode;
-  onAction: (order: KDSOrder) => void;
+  onAction?: (order: KDSOrder) => void;
   updatingOrderIds: Set<string>;
   onPlayTestSound?: () => void;
 }) {
@@ -1139,11 +1156,8 @@ export function KDSScreen({ tenantId }: { tenantId: string }) {
         <KDSColumn
           title={tr('kds.ready').toUpperCase()}
           orders={readyOrders}
-          actionLabel={tr('kds.delivered').toUpperCase()}
-          actionColor="bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 shadow-emerald-500/30"
           headerColor="bg-gradient-to-r from-emerald-500/20 to-teal-400/10 border-l-4 border-emerald-400"
           icon={<CheckCircle2 className="w-5 h-5 text-emerald-100" />}
-          onAction={(o) => updateOrderStatus(o, 'delivered')}
           updatingOrderIds={updatingOrderIds}
           onPlayTestSound={playNewOrder}
         />
