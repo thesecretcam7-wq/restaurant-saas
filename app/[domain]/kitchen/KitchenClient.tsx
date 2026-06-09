@@ -16,6 +16,7 @@ import {
   Send,
   ShoppingCart,
   Trash2,
+  Truck,
   UserRound,
   X,
 } from 'lucide-react';
@@ -107,6 +108,7 @@ export function KitchenClient({ tenantId, tenantSlug, tenantName, country, brand
   const [customizingItem, setCustomizingItem] = useState<MenuItem | null>(null);
   const [selectedToppings, setSelectedToppings] = useState<Topping[]>([]);
   const [customQty, setCustomQty] = useState(1);
+  const [servicePendingCount, setServicePendingCount] = useState(0);
   const currencyInfo = useMemo(() => getCurrencyByCountry(country), [country]);
   const money = useCallback(
     (value: number) => formatPriceWithCurrency(value, currencyInfo.code, currencyInfo.locale),
@@ -142,6 +144,25 @@ export function KitchenClient({ tenantId, tenantSlug, tenantName, country, brand
     };
   }, [branding, tenantName]);
 
+  const fetchServiceDeliveries = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/order-items?tenantId=${tenantId}&status=ready&requiresKitchen=false`, {
+        cache: 'no-store',
+      });
+      if (!res.ok) {
+        setServicePendingCount(0);
+        return;
+      }
+      const data = await res.json();
+      const count = Array.isArray(data)
+        ? data.reduce((sum, item) => sum + Math.max(1, Number(item.quantity || 1)), 0)
+        : 0;
+      setServicePendingCount(count);
+    } catch {
+      setServicePendingCount(0);
+    }
+  }, [tenantId]);
+
   useEffect(() => {
     try {
       const saved = localStorage.getItem(CART_KEY(tenantId));
@@ -156,6 +177,26 @@ export function KitchenClient({ tenantId, tenantSlug, tenantName, country, brand
       }
     } catch {}
   }, [tenantId]);
+
+  useEffect(() => {
+    fetchServiceDeliveries();
+
+    const subscription = supabase
+      .channel(`kitchen-service-deliveries:${tenantId}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'order_items', filter: `tenant_id=eq.${tenantId}` },
+        () => fetchServiceDeliveries()
+      )
+      .subscribe();
+
+    const interval = window.setInterval(fetchServiceDeliveries, 5000);
+
+    return () => {
+      window.clearInterval(interval);
+      subscription.unsubscribe();
+    };
+  }, [fetchServiceDeliveries, tenantId]);
 
   useEffect(() => {
     try { localStorage.setItem(CART_KEY(tenantId), JSON.stringify({ cart })); } catch {}
@@ -377,6 +418,7 @@ export function KitchenClient({ tenantId, tenantSlug, tenantName, country, brand
       setCartOpen(false);
       setAccountOpen(false);
       try { localStorage.removeItem(CART_KEY(tenantId)); } catch {}
+      void fetchServiceDeliveries();
       setTimeout(() => setSuccess(false), 3200);
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Error desconocido';
@@ -747,6 +789,23 @@ export function KitchenClient({ tenantId, tenantSlug, tenantName, country, brand
             </div>
           </div>
         </div>
+      )}
+
+      {servicePendingCount > 0 && (
+        <a
+          href={`/${tenantSlug}/staff/entregas`}
+          className="fixed right-3 z-30 flex h-12 items-center gap-2 rounded-full px-4 text-sm font-black text-white shadow-2xl shadow-black/25 transition active:scale-95 md:right-5"
+          style={{
+            bottom: cartCount > 0 ? '9.25rem' : '1rem',
+            backgroundColor: '#0891b2',
+          }}
+        >
+          <Truck className="h-5 w-5" />
+          <span>Entregar</span>
+          <span className="grid h-6 min-w-6 place-items-center rounded-full bg-white/20 px-1 text-xs">
+            {servicePendingCount}
+          </span>
+        </a>
       )}
 
       {accountOpen && (
