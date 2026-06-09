@@ -13,6 +13,7 @@ import {
   CheckCircle,
   ChefHat,
   ClipboardList,
+  BellRing,
   ReceiptText,
   Minus,
   Plus,
@@ -115,8 +116,10 @@ export function KitchenClient({ tenantId, tenantSlug, tenantName, country, brand
   const [selectedToppings, setSelectedToppings] = useState<Topping[]>([]);
   const [customQty, setCustomQty] = useState(1);
   const [servicePendingCount, setServicePendingCount] = useState(0);
+  const [pushRequesting, setPushRequesting] = useState(false);
   const { trackReadyItems } = useServiceReadyAlert();
-  useWaiterPushNotifications({ tenantId });
+  const { pushStatus, enablePushNotifications } = useWaiterPushNotifications({ tenantId, autoRequest: false });
+  const canShowPushButton = pushStatus !== 'subscribed' && pushStatus !== 'unsupported';
   const currencyInfo = useMemo(() => getCurrencyByCountry(country), [country]);
   const money = useCallback(
     (value: number) => formatPriceWithCurrency(value, currencyInfo.code, currencyInfo.locale),
@@ -683,6 +686,30 @@ export function KitchenClient({ tenantId, tenantSlug, tenantName, country, brand
             >
               <ReceiptText className="h-4 w-4" />
             </button>
+            {canShowPushButton && (
+              <button
+                type="button"
+                onClick={async () => {
+                  setPushRequesting(true);
+                  try {
+                    await enablePushNotifications();
+                  } finally {
+                    setPushRequesting(false);
+                  }
+                }}
+                disabled={pushRequesting}
+                title={pushStatus === 'denied' ? 'Activa notificaciones en ajustes del iPhone' : 'Activar avisos'}
+                className="flex h-10 flex-shrink-0 items-center gap-1.5 rounded-xl border px-3 text-xs font-black transition active:scale-95 disabled:opacity-60"
+                style={{
+                  backgroundColor: pushStatus === 'denied' ? brand.soft : brand.primary,
+                  borderColor: pushStatus === 'denied' ? brand.border : brand.primary,
+                  color: pushStatus === 'denied' ? brand.mutedText : readableText(brand.primary),
+                }}
+              >
+                <BellRing className={`h-4 w-4 ${pushRequesting ? 'animate-pulse' : ''}`} />
+                <span>{pushStatus === 'denied' ? 'Bloqueado' : pushRequesting ? 'Activando' : 'Avisos'}</span>
+              </button>
+            )}
             <LanguageSwitcher compact className={brand.isLightTheme ? 'border-black/10 bg-white text-gray-900' : 'border-white/18 bg-black/35 text-white'} />
           </div>
         </div>
