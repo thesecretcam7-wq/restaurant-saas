@@ -552,8 +552,12 @@ export function KitchenClient({ tenantId, tenantSlug, tenantName, country, brand
                       onChange={e => setNoteText(e.target.value)}
                       onKeyDown={e => { if (e.key === 'Enter') saveNote(item.line_id); }}
                       placeholder="Sin cebolla, bien cocido..."
-                      className="min-w-0 flex-1 rounded-2xl border px-3 py-2 text-xs font-semibold outline-none"
-                      style={{ backgroundColor: 'rgba(255,255,255,0.07)', borderColor: 'rgba(246,185,47,0.16)', color: '#fff7df' }}
+                      className="min-w-0 flex-1 rounded-2xl border px-3 py-2 text-xs font-semibold outline-none placeholder:opacity-60"
+                      style={{
+                        backgroundColor: brand.isLightTheme ? '#ffffff' : 'rgba(255,255,255,0.07)',
+                        borderColor: brand.isLightTheme ? brand.primary : 'rgba(246,185,47,0.16)',
+                        color: panelText,
+                      }}
                     />
                     <button onClick={() => saveNote(item.line_id)} className="rounded-2xl px-4 text-xs font-black" style={{ backgroundColor: brand.button, color: brand.buttonText }}>OK</button>
                   </div>
