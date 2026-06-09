@@ -1,6 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 import { NextRequest, NextResponse } from 'next/server';
 import { buildOrderItemRows } from '@/lib/order-item-routing';
+import { sendServiceReadyPushNotifications } from '@/lib/push-server';
 
 export async function GET(request: NextRequest) {
   const supabase = createClient(
@@ -117,7 +118,22 @@ export async function POST(request: NextRequest) {
       });
 
       if (orderItemsData.length > 0) {
-        await supabase.from('order_items').insert(orderItemsData);
+        const { data: insertedOrderItems, error: orderItemsError } = await supabase
+          .from('order_items')
+          .insert(orderItemsData)
+          .select('id, status, requires_kitchen');
+
+        if (orderItemsError) throw orderItemsError;
+
+        const directReadyItemIds = (insertedOrderItems || [])
+          .filter((item: { id?: string; status?: string; requires_kitchen?: boolean }) =>
+            item.id && item.status === 'ready' && item.requires_kitchen === false
+          )
+          .map((item: { id: string }) => item.id);
+
+        if (directReadyItemIds.length > 0) {
+          await sendServiceReadyPushNotifications(supabase, { tenantId, itemIds: directReadyItemIds });
+        }
       }
     }
 

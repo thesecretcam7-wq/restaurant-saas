@@ -11,6 +11,7 @@ import { syncCustomerFromOrder } from '@/lib/customer-sync'
 import { deriveBrandPalette } from '@/lib/brand-colors'
 import { getRestaurantBusinessPeriod, getRestaurantLocale, getRestaurantTimeZone } from '@/lib/restaurant-time'
 import { buildOrderItemRows } from '@/lib/order-item-routing'
+import { sendServiceReadyPushNotifications } from '@/lib/push-server'
 
 function parseOperationalCloseMinutes(value?: string | null) {
   if (!value || !/^\d{1,2}:\d{2}$/.test(value)) return 5 * 60
@@ -506,13 +507,24 @@ export async function POST(request: NextRequest) {
     })
 
     if (!isKioskCash && !registeringPreviousOpenPeriod && orderItemsData.length > 0) {
-      const { error: itemsError } = await supabase
+      const { data: insertedOrderItems, error: itemsError } = await supabase
         .from('order_items')
         .insert(orderItemsData)
+        .select('id, status, requires_kitchen')
 
       if (itemsError) {
         // Non-blocking: order is already saved, just log the error
         console.error('Error creating order_items for routing:', itemsError.message)
+      } else if (normalizedDeliveryType === 'dine-in') {
+        const directReadyItemIds = (insertedOrderItems || [])
+          .filter((item: { id?: string; status?: string; requires_kitchen?: boolean }) =>
+            item.id && item.status === 'ready' && item.requires_kitchen === false
+          )
+          .map((item: { id: string }) => item.id)
+
+        if (directReadyItemIds.length > 0) {
+          await sendServiceReadyPushNotifications(supabase, { tenantId, itemIds: directReadyItemIds })
+        }
       }
     }
 

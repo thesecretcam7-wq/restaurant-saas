@@ -72,6 +72,10 @@ function buildReadyBody(items: ReadyItemRow[]) {
     return `Mesa ${firstOrder.table_number} - ${quantity} ${itemWord} listos`;
   }
 
+  if (firstOrder?.customer_name?.toLowerCase().startsWith('mesa ')) {
+    return `${firstOrder.customer_name} - ${quantity} ${itemWord} listos`;
+  }
+
   const orderNumber = compactOrderNumber(firstOrder?.order_number, firstOrder?.display_number);
   if (orderNumber) {
     return `Pedido ${orderNumber} - ${quantity} ${itemWord} listos`;
