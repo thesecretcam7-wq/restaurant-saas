@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ArrowLeft, CheckCircle2, Clock, Loader2, PackageCheck, RefreshCw, Truck, UserRound } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
+import { formatStaffOrderNumber } from '@/lib/order-display';
 
 const supabase = createClient();
 
@@ -21,6 +22,7 @@ type ServiceItem = {
   requires_kitchen?: boolean | null;
   orders: {
     order_number: string;
+    display_number?: number | string | null;
     table_number: number | null;
     waiter_name: string | null;
     created_at: string;
@@ -111,7 +113,11 @@ function groupItemsByOrder(items: ServiceItem[]) {
     if (!grouped.has(item.order_id)) {
       grouped.set(item.order_id, {
         orderId: item.order_id,
-        orderNumber: item.orders?.order_number || `#${item.order_id.slice(0, 8)}`,
+        orderNumber: formatStaffOrderNumber({
+          display_number: item.orders?.display_number,
+          order_number: item.orders?.order_number,
+          id: item.order_id,
+        }),
         tableNumber: item.orders?.table_number ?? null,
         waiterName: item.orders?.waiter_name ?? null,
         deliveryType: item.orders?.delivery_type ?? null,

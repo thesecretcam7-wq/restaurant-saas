@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 import { useWakeLock } from '@/lib/hooks/useWakeLock';
 import LanguageSwitcher, { useI18n } from '@/components/LanguageSwitcher';
+import { formatStaffOrderNumber } from '@/lib/order-display';
 
 const supabase = createClient();
 
@@ -39,6 +40,7 @@ interface OrderItemWithOrder {
   requires_kitchen?: boolean | null;
   orders: {
     order_number: string;
+    display_number?: number | string | null;
     table_number: number | null;
     waiter_name: string | null;
     created_at: string;
@@ -153,7 +155,11 @@ function groupItemsByOrder(items: OrderItemWithOrder[]): KDSOrder[] {
     if (!orderMap.has(item.order_id)) {
       orderMap.set(item.order_id, {
         orderId: item.order_id,
-        orderNumber: item.orders?.order_number ?? `#${item.order_id.slice(0, 8)}`,
+        orderNumber: formatStaffOrderNumber({
+          display_number: item.orders?.display_number,
+          order_number: item.orders?.order_number,
+          id: item.order_id,
+        }),
         tableNumber: item.orders?.table_number ?? null,
         waiterName: item.orders?.waiter_name ?? null,
         deliveryType: item.orders?.delivery_type ?? null,

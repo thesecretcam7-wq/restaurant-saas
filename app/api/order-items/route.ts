@@ -54,6 +54,7 @@ export async function GET(request: NextRequest) {
         *,
         orders (
           order_number,
+          display_number,
           table_number,
           waiter_name,
           created_at,

@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import Image from 'next/image';
 import { createClient } from '@/lib/supabase/client';
 import { formatPriceWithCurrency, getCurrencyByCountry } from '@/lib/currency';
+import { formatStaffOrderNumber } from '@/lib/order-display';
 import LanguageSwitcher, { useI18n } from '@/components/LanguageSwitcher';
 import {
   CheckCircle,
@@ -31,6 +32,7 @@ interface Table { id: string; table_number: number; seats: number; status: strin
 interface OpenTableOrder {
   id: string;
   order_number: string;
+  display_number?: number | string | null;
   table_number: number | null;
   waiter_name: string | null;
   subtotal?: number | null;
@@ -889,7 +891,7 @@ export function KitchenClient({ tenantId, tenantSlug, tenantName, country, brand
                   {openTableOrders.map((order) => (
                     <div key={order.id} className="rounded-2xl border p-3" style={{ backgroundColor: panelSubtle, borderColor: brand.border }}>
                       <div className="mb-2 flex items-center justify-between gap-2">
-                        <p className="text-sm font-black" style={{ color: panelText }}>#{order.order_number}</p>
+                        <p className="text-sm font-black" style={{ color: panelText }}>{formatStaffOrderNumber(order)}</p>
                         <p className="text-sm font-black" style={{ color: panelAccent }}>{money(getServedOrderTotal(order))}</p>
                       </div>
                       {order.waiter_name && <p className="mb-2 text-xs font-bold" style={{ color: panelMuted }}>Camarero: {order.waiter_name}</p>}

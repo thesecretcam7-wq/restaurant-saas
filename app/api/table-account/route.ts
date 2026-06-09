@@ -54,7 +54,7 @@ export async function GET(request: NextRequest) {
 
     const { data, error } = await supabase
       .from('orders')
-      .select('id, order_number, table_number, waiter_name, subtotal, tax, total, created_at, items, payment_status, status, delivery_type')
+      .select('id, order_number, display_number, table_number, waiter_name, subtotal, tax, total, created_at, items, payment_status, status, delivery_type')
       .eq('tenant_id', tenantId)
       .eq('delivery_type', 'dine-in')
       .eq('table_number', table)
