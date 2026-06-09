@@ -135,6 +135,16 @@ export default function TableOrderPage() {
     };
   }, [code]);
 
+  useEffect(() => {
+    if (!orderDone) return;
+
+    const timer = window.setTimeout(() => {
+      setOrderDone(null);
+    }, 4500);
+
+    return () => window.clearTimeout(timer);
+  }, [orderDone]);
+
   const theme = useMemo(() => {
     const primary = data?.branding?.button_primary_color || data?.branding?.primary_color || '#f97316';
     return {
