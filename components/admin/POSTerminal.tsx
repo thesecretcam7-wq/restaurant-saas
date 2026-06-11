@@ -12,7 +12,7 @@ import { CashClosingModal } from './CashClosingModal';
 import { Toast } from './Toast';
 import { POSOrderLookup } from './POSOrderLookup';
 import { saveCartToSupabase, loadCartFromSupabase, abandonCart, abandonCurrentCartSession, loadOrderToCart } from '@/lib/pos-cart-sync';
-import { calculateCashClosingStats, saveCashClosing, CashClosingStats } from '@/lib/cash-closing';
+import type { CashClosingStats } from '@/lib/cash-closing';
 import { getCurrencyByCountry, formatPriceWithCurrency } from '@/lib/currency';
 import { printCashClosingReceipt, printKitchenTicket, printReceipt, savePrinterLog, openCashDrawer } from '@/lib/pos-printer';
 import { countPendingPOSOrders, isNetworkPaymentError, saveOfflinePOSOrder, syncOfflinePOSOrders } from '@/lib/offline/pos-sync';
@@ -42,6 +42,7 @@ interface Category {
 
 type POSMode = 'simple' | 'table';
 type PaymentMethod = 'cash' | 'stripe';
+type CashClosingMode = 'current' | 'pending';
 
 declare global {
   interface Window {
@@ -169,7 +170,7 @@ function formatHeldAccountTime(createdAt: string, locale: string) {
 }
 
 async function fetchPendingCashClosingStats(tenantId: string): Promise<CashClosingStats | null> {
-  const response = await fetch(`/api/pos/cash-closing/pending?tenantId=${encodeURIComponent(tenantId)}`, {
+  const response = await fetch(`/api/pos/cash-closing?tenantId=${encodeURIComponent(tenantId)}&mode=pending`, {
     cache: 'no-store',
   });
 
@@ -183,6 +184,43 @@ async function fetchPendingCashClosingStats(tenantId: string): Promise<CashClosi
 }
 
 // ─── Timer Hook ───────────────────────────────────────────────────────────────
+async function fetchCurrentCashClosingStats(tenantId: string): Promise<CashClosingStats> {
+  const response = await fetch(`/api/pos/cash-closing?tenantId=${encodeURIComponent(tenantId)}&mode=current`, {
+    cache: 'no-store',
+  });
+
+  if (!response.ok) {
+    const payload = await response.json().catch(() => ({}));
+    throw new Error(payload.error || 'No se pudo consultar el cierre actual');
+  }
+
+  const payload = await response.json();
+  return payload.stats;
+}
+
+async function saveCashClosingViaApi(args: {
+  tenantId: string;
+  mode: CashClosingMode;
+  staffId: string | null;
+  staffName: string;
+  actualCashCount: number;
+  notes: string;
+}): Promise<{ closing: any; stats: CashClosingStats }> {
+  const response = await fetch('/api/pos/cash-closing', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    body: JSON.stringify(args),
+  });
+
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new Error(payload.error || 'No se pudo guardar el cierre de caja');
+  }
+
+  return { closing: payload.closing, stats: payload.stats };
+}
+
 function useElapsedMinutes(createdAt: string): number {
   const [minutes, setMinutes] = useState(() =>
     Math.floor((Date.now() - new Date(createdAt).getTime()) / 60000)
@@ -523,7 +561,7 @@ export function POSTerminal({
   const { wakeLockActive, wakeLockSupported, activateWakeLock } = useWakeLock();
   const [showCashClosing, setShowCashClosing] = useState(false);
   const [cashClosingStats, setCashClosingStats] = useState<CashClosingStats | null>(null);
-  const [cashClosingMode, setCashClosingMode] = useState<'current' | 'pending' | null>(null);
+  const [cashClosingMode, setCashClosingMode] = useState<CashClosingMode | null>(null);
   const [pendingCashClosingStats, setPendingCashClosingStats] = useState<CashClosingStats | null>(null);
   const [closingLoading, setClosingLoading] = useState(false);
   const hasCashClosingStats = Boolean(cashClosingStats);
@@ -631,7 +669,7 @@ export function POSTerminal({
     try {
       const nextStats = cashClosingMode === 'pending'
         ? await fetchPendingCashClosingStats(tenantId)
-        : await calculateCashClosingStats(tenantId);
+        : await fetchCurrentCashClosingStats(tenantId);
 
       if (nextStats) {
         setCashClosingStats((currentStats) => currentStats ? nextStats : currentStats);
@@ -993,7 +1031,7 @@ export function POSTerminal({
       const loggedStaff = getLoggedStaffFromBrowser(tenantId);
       if (loggedStaff.staffId && !selectedStaffId) setSelectedStaffId(loggedStaff.staffId);
       if (loggedStaff.staffName && !selectedStaffName) setSelectedStaffName(loggedStaff.staffName);
-      const stats = await calculateCashClosingStats(tenantId);
+      const stats = await fetchCurrentCashClosingStats(tenantId);
       setCashClosingStats(stats);
       setCashClosingMode('current');
       setShowCashClosing(true);
@@ -1039,7 +1077,7 @@ export function POSTerminal({
       const closingStaffName = selectedStaffName || loggedStaff.staffName || 'Sin asignar';
       const latestStats = cashClosingMode === 'pending'
         ? await fetchPendingCashClosingStats(tenantId)
-        : await calculateCashClosingStats(tenantId);
+        : await fetchCurrentCashClosingStats(tenantId);
 
       if (!latestStats) {
         setShowCashClosing(false);
@@ -1052,11 +1090,16 @@ export function POSTerminal({
 
       setCashClosingStats(latestStats);
 
-      const closing = await saveCashClosing(tenantId, closingStaffId, closingStaffName, {
-        ...latestStats,
+      const { closing, stats: savedStats } = await saveCashClosingViaApi({
+        tenantId,
+        mode: cashClosingMode || 'current',
+        staffId: closingStaffId,
+        staffName: closingStaffName,
         actualCashCount: actualCash,
         notes,
       });
+
+      setCashClosingStats(savedStats);
 
       setToast({ message: '✓ Caja cerrada exitosamente', type: 'success' });
       setShowCashClosing(false);
@@ -1084,22 +1127,22 @@ export function POSTerminal({
             restaurantPhone: settings.phone || restaurantPhone,
             staffName: closingStaffName,
             closedAt: closing?.closed_at || new Date().toISOString(),
-            periodStart: latestStats.periodStart,
-            periodEnd: latestStats.periodEnd,
-            cashSales: latestStats.cashSales,
-            cardSales: latestStats.cardSales,
-            otherSales: latestStats.otherSales,
-            totalSales: latestStats.totalSales,
-            totalDeliveryFees: latestStats.totalDeliveryFees,
-            deliveryOrderCount: latestStats.deliveryOrderCount,
-            totalTax: latestStats.totalTax,
-            totalDiscount: latestStats.totalDiscount,
-            expectedCash: latestStats.cashSales,
+            periodStart: savedStats.periodStart,
+            periodEnd: savedStats.periodEnd,
+            cashSales: savedStats.cashSales,
+            cardSales: savedStats.cardSales,
+            otherSales: savedStats.otherSales,
+            totalSales: savedStats.totalSales,
+            totalDeliveryFees: savedStats.totalDeliveryFees,
+            deliveryOrderCount: savedStats.deliveryOrderCount,
+            totalTax: savedStats.totalTax,
+            totalDiscount: savedStats.totalDiscount,
+            expectedCash: savedStats.cashSales,
             actualCash,
-            difference: latestStats.cashSales - actualCash,
-            transactionCount: latestStats.transactionCount,
-            ordersCompleted: latestStats.ordersCompleted,
-            ordersCancelled: latestStats.ordersCancelled,
+            difference: savedStats.cashSales - actualCash,
+            transactionCount: savedStats.transactionCount,
+            ordersCompleted: savedStats.ordersCompleted,
+            ordersCancelled: savedStats.ordersCancelled,
             notes,
             currencyInfo,
           });
@@ -4238,6 +4281,7 @@ export function POSTerminal({
           }}
           country={country}
           isLoading={closingLoading}
+          mode={cashClosingMode || 'current'}
         />
       )}
     </div>

@@ -32,6 +32,7 @@ interface CashClosingModalProps {
   data: CashClosingData;
   country?: string;
   isLoading?: boolean;
+  mode?: 'current' | 'pending';
 }
 
 export function CashClosingModal({
@@ -41,6 +42,7 @@ export function CashClosingModal({
   data,
   country = 'CO',
   isLoading = false,
+  mode = 'current',
 }: CashClosingModalProps) {
   const [actualCash, setActualCash] = useState<string>('');
   const [notes, setNotes] = useState('');
@@ -50,11 +52,12 @@ export function CashClosingModal({
 
   const currencyInfo = getCurrencyByCountry(country);
   const expectedTotal = data.cashSales;
-  const paymentSalesTotal = data.cashSales + data.cardSales;
+  const paymentSalesTotal = data.totalSales;
   const difference = expectedTotal - Number(actualCash);
   const isBalanced = Math.abs(difference) < 0.01;
   const isDifferenceSignificant = Math.abs(difference) > 5;
   const isBusy = isSubmitting || isLoading;
+  const isPendingClosing = mode === 'pending';
 
   const statCard =
     'rounded-2xl border border-slate-200 bg-white p-4 shadow-[0_10px_24px_rgba(15,23,42,0.06)]';
@@ -83,7 +86,9 @@ export function CashClosingModal({
         <div className="sticky top-0 z-10 flex items-center justify-between border-b border-slate-200 bg-white p-6 backdrop-blur-xl">
           <div>
             <p className="text-xs font-black uppercase tracking-[0.24em] text-orange-600">Caja</p>
-            <h2 className="mt-1 text-2xl font-black text-slate-950">Cierre de Caja</h2>
+            <h2 className="mt-1 text-2xl font-black text-slate-950">
+              {isPendingClosing ? 'Cierre Pendiente' : 'Cierre de Caja'}
+            </h2>
           </div>
           <button
             onClick={onClose}
@@ -98,7 +103,12 @@ export function CashClosingModal({
         <div className="space-y-6 p-6">
           <div className="rounded-2xl border border-orange-200 bg-orange-50 p-4">
             <p className="text-xs font-black uppercase tracking-[0.2em] text-orange-700">Dia operativo</p>
-            <p className="mt-2 text-lg font-black capitalize text-slate-950">{data.businessDateLabel}</p>
+            <div className="mt-2 flex flex-wrap items-center gap-2">
+              <p className="text-lg font-black capitalize text-slate-950">{data.businessDateLabel}</p>
+              <span className="rounded-full border border-orange-200 bg-white px-2.5 py-1 text-[11px] font-black uppercase tracking-[0.12em] text-orange-700">
+                {isPendingClosing ? 'Pendiente' : 'Actual'}
+              </span>
+            </div>
             <p className="mt-2 text-sm font-semibold text-slate-600">
               Cuenta ventas desde{' '}
               {new Date(data.periodStart).toLocaleString('es-ES', { dateStyle: 'short', timeStyle: 'short' })}{' '}
@@ -119,19 +129,27 @@ export function CashClosingModal({
                 </p>
               </div>
               <div className={statCard}>
-                <p className="text-sm font-black text-[#70f7c2]">Ventas con Tarjeta</p>
-                <p className="mt-2 text-2xl font-black text-[#70f7c2]">
+                <p className="text-sm font-black text-sky-700">Ventas con Tarjeta</p>
+                <p className="mt-2 text-2xl font-black text-sky-800">
                   {formatPriceWithCurrency(data.cardSales, currencyInfo.code, currencyInfo.locale)}
                 </p>
               </div>
+              {data.otherSales > 0 && (
+                <div className={statCard}>
+                  <p className="text-sm font-black text-violet-700">Otros pagos</p>
+                  <p className="mt-2 text-2xl font-black text-violet-800">
+                    {formatPriceWithCurrency(data.otherSales, currencyInfo.code, currencyInfo.locale)}
+                  </p>
+                </div>
+              )}
               <div className="rounded-2xl border border-orange-200 bg-orange-50 p-4 sm:col-span-2">
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
                   <div>
                     <p className="text-sm font-black uppercase tracking-[0.16em] text-orange-700">
-                      Total efectivo + tarjeta
+                      Total vendido
                     </p>
                     <p className="mt-1 text-xs font-bold text-slate-600">
-                      Suma de las ventas cobradas en caja y por tarjeta
+                      Ventas cobradas dentro de este cierre
                     </p>
                   </div>
                   <p className="text-3xl font-black text-slate-950">
@@ -139,30 +157,30 @@ export function CashClosingModal({
                   </p>
                 </div>
               </div>
-              <div className="rounded-2xl border border-[#38bdf8]/32 bg-[#38bdf8]/10 p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] sm:col-span-2">
+              <div className="rounded-2xl border border-sky-200 bg-sky-50 p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] sm:col-span-2">
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
                   <div>
-                    <p className="text-sm font-black uppercase tracking-[0.16em] text-[#7dd3fc]">
+                    <p className="text-sm font-black uppercase tracking-[0.16em] text-sky-800">
                       Domicilios cobrados
                     </p>
                     <p className="mt-1 text-xs font-bold text-slate-600">
                       {data.deliveryOrderCount || 0} pedido{(data.deliveryOrderCount || 0) === 1 ? '' : 's'} con cobro de domicilio
                     </p>
                   </div>
-                  <p className="text-3xl font-black text-[#e0f2fe]">
+                  <p className="text-3xl font-black text-sky-950">
                     {formatPriceWithCurrency(data.totalDeliveryFees || 0, currencyInfo.code, currencyInfo.locale)}
                   </p>
                 </div>
               </div>
               <div className={statCard}>
-                <p className="text-sm font-black text-[#bda7ff]">Impuestos</p>
-                <p className="mt-2 text-2xl font-black text-[#c7b8ff]">
+                <p className="text-sm font-black text-violet-700">Impuestos</p>
+                <p className="mt-2 text-2xl font-black text-violet-800">
                   {formatPriceWithCurrency(data.totalTax, currencyInfo.code, currencyInfo.locale)}
                 </p>
               </div>
               <div className={statCard}>
-                <p className="text-sm font-black text-[#ff8f8f]">Descuentos</p>
-                <p className="mt-2 text-2xl font-black text-[#ff9d9d]">
+                <p className="text-sm font-black text-red-700">Descuentos</p>
+                <p className="mt-2 text-2xl font-black text-red-800">
                   {formatPriceWithCurrency(-data.totalDiscount, currencyInfo.code, currencyInfo.locale)}
                 </p>
               </div>

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServiceClient } from '@/lib/supabase/server';
+import { requireTenantAccess, tenantAuthErrorResponse } from '@/lib/tenant-api-auth';
 
 type CashClosingPeriod = {
   periodStart: string;
@@ -193,6 +194,8 @@ export async function GET(request: NextRequest) {
   }
 
   try {
+    await requireTenantAccess(tenantId, { staffRoles: ['admin', 'cajero'] });
+
     const supabase = createServiceClient();
 
     const { data: settings, error: settingsError } = await supabase
@@ -274,6 +277,10 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({ stats: statsFromOrders(period, pendingOrders) });
   } catch (error) {
+    if (error instanceof Error && ['Unauthorized', 'Forbidden'].includes(error.message)) {
+      return tenantAuthErrorResponse(error);
+    }
+
     return NextResponse.json(
       { error: error instanceof Error ? error.message : 'Server error' },
       { status: 500 }
