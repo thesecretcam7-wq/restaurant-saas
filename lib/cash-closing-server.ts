@@ -37,7 +37,7 @@ type CashClosingPeriod = {
   operationalCloseTime: string;
 };
 
-const ORDER_SELECT = 'id, order_number, total, tax, tax_amount, discount_amount, delivery_fee, delivery_type, payment_method, payment_status, status, created_at';
+const ORDER_SELECT = 'id, order_number, total, tax, delivery_fee, delivery_type, payment_method, payment_status, status, created_at';
 
 function emptyStats(period: CashClosingPeriod): CashClosingStats {
   return {
@@ -93,7 +93,7 @@ function statsFromOrders(period: CashClosingPeriod, orders: any[] = []): CashClo
 
     const total = Number(order.total) || 0;
     const deliveryFee = Number(order.delivery_fee || 0);
-    const tax = Number(order.tax ?? order.tax_amount) || 0;
+    const tax = Number(order.tax) || 0;
     const discount = Number(order.discount_amount) || 0;
 
     if (order.payment_method === 'cash') {
