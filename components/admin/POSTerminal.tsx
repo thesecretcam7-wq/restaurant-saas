@@ -1031,6 +1031,14 @@ export function POSTerminal({
       const loggedStaff = getLoggedStaffFromBrowser(tenantId);
       if (loggedStaff.staffId && !selectedStaffId) setSelectedStaffId(loggedStaff.staffId);
       if (loggedStaff.staffName && !selectedStaffName) setSelectedStaffName(loggedStaff.staffName);
+      const pendingStats = pendingCashClosingStats || await fetchPendingCashClosingStats(tenantId);
+      if (pendingStats) {
+        setPendingCashClosingStats(pendingStats);
+        setCashClosingStats(pendingStats);
+        setCashClosingMode('pending');
+        setShowCashClosing(true);
+        return;
+      }
       const stats = await fetchCurrentCashClosingStats(tenantId);
       setCashClosingStats(stats);
       setCashClosingMode('current');

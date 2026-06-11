@@ -22,12 +22,12 @@ async function getPendingPreviousTicketScope({
 }) {
   const currentPeriodStart = new Date(currentPeriod.periodStart)
 
-  const [ordersRes, closedItemsRes, latestClosingRes] = await Promise.all([
+  const [ordersRes, closedItemsRes] = await Promise.all([
     supabase
       .from('orders')
       .select(ORDER_FIELDS)
       .eq('tenant_id', tenantId)
-      .lt('created_at', currentPeriodStart.toISOString())
+      .lt('created_at', currentPeriod.periodEnd)
       .neq('payment_method', null)
       .eq('payment_status', 'paid')
       .neq('status', 'cancelled')
@@ -39,13 +39,6 @@ async function getPendingPreviousTicketScope({
       .eq('tenant_id', tenantId)
       .not('order_id', 'is', null)
       .limit(2000),
-    supabase
-      .from('cash_closings')
-      .select('closed_at')
-      .eq('tenant_id', tenantId)
-      .order('closed_at', { ascending: false })
-      .limit(1)
-      .maybeSingle(),
   ])
 
   if (ordersRes.error) throw ordersRes.error
@@ -54,22 +47,17 @@ async function getPendingPreviousTicketScope({
     console.warn('No se pudieron consultar items de cierres anteriores:', closedItemsRes.error.message || closedItemsRes.error)
   }
 
-  if (latestClosingRes.error) {
-    console.warn('No se pudo consultar el ultimo cierre de caja:', latestClosingRes.error.message || latestClosingRes.error)
-  }
-
   const closedOrderIds = new Set((closedItemsRes.error ? [] : closedItemsRes.data || []).map((item: any) => item.order_id))
-  const latestClosingDate = !latestClosingRes.error && latestClosingRes.data?.closed_at
-    ? new Date(latestClosingRes.data.closed_at)
-    : null
-
   const pendingOrders = (ordersRes.data || []).filter((order: any) => {
     if (closedOrderIds.has(order.id)) return false
-    if (latestClosingDate && new Date(order.created_at) <= latestClosingDate) return false
     return true
   })
 
   if (pendingOrders.length === 0) return null
+  const hasPreviousPeriodOrders = pendingOrders.some((order: any) =>
+    new Date(order.created_at) < currentPeriodStart
+  )
+  if (!hasPreviousPeriodOrders) return null
 
   const earliestPendingOrder = pendingOrders[pendingOrders.length - 1]
   const pendingBusinessDate = new Date(currentPeriod.periodStart)
@@ -83,7 +71,7 @@ async function getPendingPreviousTicketScope({
     label: 'Caja pendiente',
     period: {
       periodStart: earliestPendingOrder?.created_at || currentPeriod.periodStart,
-      periodEnd: currentPeriod.periodStart,
+      periodEnd: currentPeriod.periodEnd,
       businessDateLabel: pendingBusinessDate.toLocaleDateString(locale, {
         weekday: 'long',
         day: '2-digit',

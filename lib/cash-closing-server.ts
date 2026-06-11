@@ -167,23 +167,6 @@ async function getClosedOrderIds(supabase: SupabaseServiceClient, tenantId: stri
   return new Set((data || []).map((item: any) => item.order_id).filter(Boolean));
 }
 
-async function getLatestClosingDate(supabase: SupabaseServiceClient, tenantId: string) {
-  const { data, error } = await supabase
-    .from('cash_closings')
-    .select('closed_at')
-    .eq('tenant_id', tenantId)
-    .order('closed_at', { ascending: false })
-    .limit(1)
-    .maybeSingle();
-
-  if (error) {
-    console.warn('No se pudo consultar el ultimo cierre de caja:', error.message || error);
-    return null;
-  }
-
-  return data?.closed_at ? new Date(data.closed_at) : null;
-}
-
 export async function calculateCurrentCashClosingStats(
   supabase: SupabaseServiceClient,
   tenantId: string
@@ -210,10 +193,8 @@ export async function calculateCurrentCashClosingStats(
     tenantId,
     orderRows.map((order: any) => order.id).filter(Boolean)
   );
-  const latestClosingDate = await getLatestClosingDate(supabase, tenantId);
   const openOrders = orderRows.filter((order: any) => {
     if (closedOrderIds.has(order.id)) return false;
-    if (latestClosingDate && new Date(order.created_at) <= latestClosingDate) return false;
     return true;
   });
 
@@ -232,7 +213,7 @@ export async function calculatePendingPreviousCashClosingStats(
     .from('orders')
     .select(ORDER_SELECT)
     .eq('tenant_id', tenantId)
-    .lt('created_at', currentPeriodStart.toISOString())
+    .lt('created_at', currentPeriod.periodEnd)
     .not('payment_method', 'is', null)
     .eq('payment_status', 'paid')
     .neq('status', 'cancelled')
@@ -243,19 +224,21 @@ export async function calculatePendingPreviousCashClosingStats(
   if (!orders?.length) return null;
 
   const closedOrderIds = await getClosedOrderIds(supabase, tenantId);
-  const latestClosingDate = await getLatestClosingDate(supabase, tenantId);
   const pendingOrders = orders.filter((order: any) => {
     if (closedOrderIds.has(order.id)) return false;
-    if (latestClosingDate && new Date(order.created_at) <= latestClosingDate) return false;
     return true;
   });
 
   if (pendingOrders.length === 0) return null;
+  const hasPreviousPeriodOrders = pendingOrders.some((order: any) =>
+    new Date(order.created_at) < currentPeriodStart
+  );
+  if (!hasPreviousPeriodOrders) return null;
 
   const firstOrderDate = new Date(pendingOrders[0].created_at);
   const period: CashClosingPeriod = {
     periodStart: firstOrderDate.toISOString(),
-    periodEnd: currentPeriodStart.toISOString(),
+    periodEnd: currentPeriod.periodEnd,
     businessDateLabel: `pendiente hasta ${currentPeriodStart.toLocaleDateString('es-ES', {
       weekday: 'long',
       day: '2-digit',

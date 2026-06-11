@@ -212,12 +212,12 @@ export async function GET(request: NextRequest) {
     const currentPeriod = calculateBusinessPeriod(findOperationalCloseMinutes(settings?.operating_hours), timeZone);
     const currentPeriodStart = new Date(currentPeriod.periodStart);
 
-    const [ordersRes, closedItemsRes, latestClosingRes] = await Promise.all([
+    const [ordersRes, closedItemsRes] = await Promise.all([
       supabase
         .from('orders')
         .select('id, order_number, total, tax, delivery_fee, delivery_type, payment_method, payment_status, status, created_at')
         .eq('tenant_id', tenantId)
-        .lt('created_at', currentPeriodStart.toISOString())
+        .lt('created_at', currentPeriod.periodEnd)
         .neq('payment_method', null)
         .eq('payment_status', 'paid')
         .neq('status', 'cancelled')
@@ -229,13 +229,6 @@ export async function GET(request: NextRequest) {
         .eq('tenant_id', tenantId)
         .not('order_id', 'is', null)
         .limit(2000),
-      supabase
-        .from('cash_closings')
-        .select('closed_at')
-        .eq('tenant_id', tenantId)
-        .order('closed_at', { ascending: false })
-        .limit(1)
-        .maybeSingle(),
     ]);
 
     const firstError = ordersRes.error;
@@ -249,23 +242,25 @@ export async function GET(request: NextRequest) {
     }
 
     const closedOrderIds = new Set((closedItemsRes.error ? [] : closedItemsRes.data || []).map((item: any) => item.order_id));
-    const latestClosingDate = !latestClosingRes.error && latestClosingRes.data?.closed_at
-      ? new Date(latestClosingRes.data.closed_at)
-      : null;
     const pendingOrders = orders.filter((order: any) => {
       if (closedOrderIds.has(order.id)) return false;
-      if (latestClosingDate && new Date(order.created_at) <= latestClosingDate) return false;
       return true;
     });
 
     if (pendingOrders.length === 0) {
       return NextResponse.json({ stats: null });
     }
+    const hasPreviousPeriodOrders = pendingOrders.some((order: any) =>
+      new Date(order.created_at) < currentPeriodStart
+    );
+    if (!hasPreviousPeriodOrders) {
+      return NextResponse.json({ stats: null });
+    }
 
     const firstOrderDate = new Date(pendingOrders[0].created_at);
     const period: CashClosingPeriod = {
       periodStart: firstOrderDate.toISOString(),
-      periodEnd: currentPeriodStart.toISOString(),
+      periodEnd: currentPeriod.periodEnd,
       businessDateLabel: `pendiente hasta ${currentPeriodStart.toLocaleDateString('es-ES', {
         weekday: 'long',
         day: '2-digit',
