@@ -21,13 +21,14 @@ async function getPendingPreviousTicketScope({
   limit: number
 }) {
   const currentPeriodStart = new Date(currentPeriod.periodStart)
+  const closingMoment = new Date()
 
   const [ordersRes, closedItemsRes] = await Promise.all([
     supabase
       .from('orders')
       .select(ORDER_FIELDS)
       .eq('tenant_id', tenantId)
-      .lt('created_at', currentPeriod.periodEnd)
+      .lte('created_at', closingMoment.toISOString())
       .neq('payment_method', null)
       .eq('payment_status', 'paid')
       .neq('status', 'cancelled')
@@ -71,7 +72,7 @@ async function getPendingPreviousTicketScope({
     label: 'Caja pendiente',
     period: {
       periodStart: earliestPendingOrder?.created_at || currentPeriod.periodStart,
-      periodEnd: currentPeriod.periodEnd,
+      periodEnd: closingMoment.toISOString(),
       businessDateLabel: pendingBusinessDate.toLocaleDateString(locale, {
         weekday: 'long',
         day: '2-digit',

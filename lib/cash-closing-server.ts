@@ -210,12 +210,13 @@ export async function calculatePendingPreviousCashClosingStats(
 ): Promise<CashClosingStats | null> {
   const currentPeriod = await getCurrentOperationalPeriod(supabase, tenantId);
   const currentPeriodStart = new Date(currentPeriod.periodStart);
+  const closingMoment = new Date();
 
   const { data: orders, error } = await supabase
     .from('orders')
     .select(ORDER_SELECT)
     .eq('tenant_id', tenantId)
-    .lt('created_at', currentPeriod.periodEnd)
+    .lte('created_at', closingMoment.toISOString())
     .not('payment_method', 'is', null)
     .eq('payment_status', 'paid')
     .neq('status', 'cancelled')
@@ -240,7 +241,7 @@ export async function calculatePendingPreviousCashClosingStats(
   const firstOrderDate = new Date(pendingOrders[0].created_at);
   const period: CashClosingPeriod = {
     periodStart: firstOrderDate.toISOString(),
-    periodEnd: currentPeriod.periodEnd,
+    periodEnd: closingMoment.toISOString(),
     businessDateLabel: `pendiente hasta ${currentPeriodStart.toLocaleDateString('es-ES', {
       weekday: 'long',
       day: '2-digit',

@@ -211,13 +211,14 @@ export async function GET(request: NextRequest) {
     const timeZone = settings?.timezone || COUNTRY_TIMEZONE[String(settings?.country || 'CO').toUpperCase()] || 'America/Bogota';
     const currentPeriod = calculateBusinessPeriod(findOperationalCloseMinutes(settings?.operating_hours), timeZone);
     const currentPeriodStart = new Date(currentPeriod.periodStart);
+    const closingMoment = new Date();
 
     const [ordersRes, closedItemsRes] = await Promise.all([
       supabase
         .from('orders')
         .select('id, order_number, total, tax, delivery_fee, delivery_type, payment_method, payment_status, status, created_at')
         .eq('tenant_id', tenantId)
-        .lt('created_at', currentPeriod.periodEnd)
+        .lte('created_at', closingMoment.toISOString())
         .neq('payment_method', null)
         .eq('payment_status', 'paid')
         .neq('status', 'cancelled')
@@ -260,7 +261,7 @@ export async function GET(request: NextRequest) {
     const firstOrderDate = new Date(pendingOrders[0].created_at);
     const period: CashClosingPeriod = {
       periodStart: firstOrderDate.toISOString(),
-      periodEnd: currentPeriod.periodEnd,
+      periodEnd: closingMoment.toISOString(),
       businessDateLabel: `pendiente hasta ${currentPeriodStart.toLocaleDateString('es-ES', {
         weekday: 'long',
         day: '2-digit',
