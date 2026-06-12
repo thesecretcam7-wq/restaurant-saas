@@ -1,10 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { createClient } from '@/lib/supabase/client';
-import { Brain, TrendingUp, Users, Clock } from 'lucide-react';
-
-const supabase = createClient();
+import { Brain, Clock, CreditCard, RefreshCw, Sparkles, Target, TrendingUp, Users } from 'lucide-react';
 
 interface ForecastData {
   hour: number;
@@ -18,244 +15,249 @@ interface Recommendation {
   name: string;
   quantity?: number;
   revenue?: number;
+  action?: string;
+}
+
+interface Advice {
+  title: string;
+  text: string;
+  priority: 'high' | 'medium' | 'low';
+}
+
+interface CurrencyInfo {
+  code: string;
+  locale: string;
+}
+
+function money(value: number, currency?: CurrencyInfo | null) {
+  return new Intl.NumberFormat(currency?.locale || 'es-ES', {
+    style: 'currency',
+    currency: currency?.code || 'EUR',
+    maximumFractionDigits: 0,
+  }).format(Number(value || 0));
+}
+
+function priorityClass(priority: Advice['priority']) {
+  if (priority === 'high') return 'border-red-200 bg-red-50 text-red-900';
+  if (priority === 'medium') return 'border-amber-200 bg-amber-50 text-amber-900';
+  return 'border-sky-200 bg-sky-50 text-sky-900';
+}
+
+function trendLabel(trend: ForecastData['demandTrend']) {
+  if (trend === 'high') return 'Alta';
+  if (trend === 'medium') return 'Media';
+  return 'Baja';
 }
 
 export function AIInsights({ tenantId }: { tenantId: string }) {
   const [forecast, setForecast] = useState<ForecastData[]>([]);
   const [recommendations, setRecommendations] = useState<Recommendation[]>([]);
   const [insights, setInsights] = useState<any>(null);
+  const [advice, setAdvice] = useState<Advice[]>([]);
+  const [currency, setCurrency] = useState<CurrencyInfo | null>(null);
   const [loading, setLoading] = useState(true);
-  const [tab, setTab] = useState<'demand' | 'recommendations'>('demand');
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    fetchAIData();
+    void fetchAIData();
   }, [tenantId]);
 
   async function fetchAIData() {
     setLoading(true);
+    setError(null);
     try {
       const [forecastRes, recsRes] = await Promise.all([
-        fetch(`/api/ai/demand-forecast?tenantId=${tenantId}`, { credentials: 'include' }),
+        fetch(`/api/ai/demand-forecast?tenantId=${tenantId}`, { credentials: 'include', cache: 'no-store' }),
         fetch(`/api/ai/recommendations?tenantId=${tenantId}&type=popular`, {
           credentials: 'include',
+          cache: 'no-store',
         }),
       ]);
 
-      if (forecastRes.ok) {
-        const data = await forecastRes.json();
-        setForecast(data.forecast);
-        setInsights(data.insights);
-      }
+      if (!forecastRes.ok) throw new Error('No se pudo cargar el analisis operativo');
+      const forecastData = await forecastRes.json();
+      setForecast(forecastData.forecast || []);
+      setInsights(forecastData.insights || null);
+      setAdvice(forecastData.advice || []);
+      setCurrency(forecastData.currency || null);
 
       if (recsRes.ok) {
-        const data = await recsRes.json();
-        setRecommendations(data.recommendations);
+        const recData = await recsRes.json();
+        setRecommendations(recData.recommendations || []);
       }
-    } catch (error) {
-      console.error('Error fetching AI data:', error);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'No se pudo cargar IA Insights');
     } finally {
       setLoading(false);
     }
   }
 
-  const getTrendColor = (trend: string) => {
-    switch (trend) {
-      case 'high':
-        return 'bg-red-100 text-red-900';
-      case 'medium':
-        return 'bg-yellow-100 text-yellow-900';
-      case 'low':
-        return 'bg-green-100 text-green-900';
-      default:
-        return 'bg-gray-100 text-gray-900';
-    }
-  };
+  const peakForecast = forecast
+    .filter(item => item.predictedOrders > 0)
+    .sort((a, b) => b.predictedOrders - a.predictedOrders)
+    .slice(0, 6);
 
   if (loading) {
-    return <div className="p-8 text-center">Cargando análisis de IA...</div>;
+    return <div className="admin-empty m-6">Analizando ventas reales...</div>;
   }
 
   return (
-    <div className="p-8 bg-gray-50 min-h-screen">
-      <div className="max-w-7xl mx-auto">
-        <div className="mb-8 flex items-center gap-3">
-          <Brain className="w-8 h-8 text-purple-600" />
-          <h1 className="text-3xl font-bold text-gray-900">Inteligencia Artificial</h1>
+    <div className="admin-page">
+      <div className="admin-page-header">
+        <div>
+          <p className="admin-eyebrow">IA Insights</p>
+          <h1 className="admin-title">Recomendaciones para vender mejor</h1>
+          <p className="admin-subtitle">
+            Lectura accionable basada en tickets pagados, productos vendidos y horarios reales.
+          </p>
         </div>
+        <button
+          type="button"
+          onClick={fetchAIData}
+          className="admin-button-secondary inline-flex items-center gap-2"
+        >
+          <RefreshCw className="size-4" />
+          Actualizar
+        </button>
+      </div>
 
-        {/* Key Insights */}
-        {insights && (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-            <div className="bg-white rounded-lg shadow p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-gray-600 text-sm font-semibold">Promedio por Día</p>
-                  <p className="text-3xl font-bold text-gray-900">{insights.avgOrdersPerDay}</p>
-                  <p className="text-sm text-gray-600 mt-1">órdenes</p>
-                </div>
-                <TrendingUp className="w-12 h-12 text-blue-600 opacity-10" />
-              </div>
+      {error && (
+        <div className="mb-5 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-bold text-red-800">
+          {error}
+        </div>
+      )}
+
+      {insights && (
+        <section className="admin-dark-insight overflow-hidden rounded-[1.4rem] border border-black/10 bg-[#15130f] p-5 text-white shadow-2xl shadow-black/10 sm:p-7">
+          <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-white/12 bg-white/10 px-3 py-1.5 text-xs font-black uppercase text-[#f4b860]">
+            <Brain className="size-4" />
+            Resumen del dueno
+          </div>
+          <div className="grid gap-4 lg:grid-cols-4">
+            <div className="rounded-2xl border border-white/10 bg-white/[0.07] p-4">
+              <p className="text-xs font-black uppercase text-white/45">
+                {insights.turnLabel || 'Ventas del turno'}
+              </p>
+              <p className="mt-3 text-3xl font-black">{money(insights.todayRevenue, currency)}</p>
+              <p className="mt-1 text-sm font-bold text-white/60">{insights.todayOrders || 0} pedidos pagados</p>
             </div>
-
-            <div className="bg-white rounded-lg shadow p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-gray-600 text-sm font-semibold">Ingresos Diarios Promedio</p>
-                  <p className="text-3xl font-bold text-gray-900">${insights.avgRevenuePerDay}</p>
-                </div>
-                <Clock className="w-12 h-12 text-green-600 opacity-10" />
-              </div>
+            <div className="rounded-2xl border border-white/10 bg-white/[0.07] p-4">
+              <p className="text-xs font-black uppercase text-white/45">Ticket medio</p>
+              <p className="mt-3 text-3xl font-black">{money(insights.avgTicket, currency)}</p>
+              <p className="mt-1 text-sm font-bold text-white/60">Hoy: {money(insights.todayAvgTicket, currency)}</p>
             </div>
-
-            <div className="bg-white rounded-lg shadow p-6">
-              <div>
-                <p className="text-gray-600 text-sm font-semibold">Horarios Pico</p>
-                <p className="text-xl font-bold text-gray-900 mt-2">{insights.bestHours}</p>
-              </div>
+            <div className="rounded-2xl border border-white/10 bg-white/[0.07] p-4">
+              <p className="text-xs font-black uppercase text-white/45">Mejores horas</p>
+              <p className="mt-3 text-2xl font-black">{insights.bestHours || 'Sin datos'}</p>
+              <p className="mt-1 text-sm font-bold text-white/60">Segun ultimos 30 dias</p>
+            </div>
+            <div className="rounded-2xl border border-white/10 bg-white/[0.07] p-4">
+              <p className="text-xs font-black uppercase text-white/45">Pago digital</p>
+              <p className="mt-3 text-3xl font-black">{insights.cardShare || 0}%</p>
+              <p className="mt-1 text-sm font-bold text-white/60">Tarjeta / datáfono / Wompi</p>
             </div>
           </div>
-        )}
+        </section>
+      )}
 
-        {/* Tabs */}
-        <div className="flex gap-4 mb-8 border-b">
-          <button
-            onClick={() => setTab('demand')}
-            className={`px-6 py-3 font-semibold border-b-2 transition ${
-              tab === 'demand'
-                ? 'border-blue-600 text-blue-600'
-                : 'border-transparent text-gray-600 hover:text-gray-900'
-            }`}
-          >
-            <Clock className="w-5 h-5 inline mr-2" /> Pronóstico de Demanda
-          </button>
-          <button
-            onClick={() => setTab('recommendations')}
-            className={`px-6 py-3 font-semibold border-b-2 transition ${
-              tab === 'recommendations'
-                ? 'border-blue-600 text-blue-600'
-                : 'border-transparent text-gray-600 hover:text-gray-900'
-            }`}
-          >
-            <TrendingUp className="w-5 h-5 inline mr-2" /> Recomendaciones
-          </button>
-        </div>
+      <section className="mt-5 grid gap-5 xl:grid-cols-[1.05fr_0.95fr]">
+        <div className="admin-card p-5">
+          <div className="mb-4 flex items-center justify-between gap-3">
+            <div>
+              <p className="admin-eyebrow">Acciones sugeridas</p>
+              <h2 className="text-2xl font-black text-[#15130f]">Que hacer ahora</h2>
+            </div>
+            <Sparkles className="size-6 text-[#e43d30]" />
+          </div>
 
-        {/* Demand Forecast Tab */}
-        {tab === 'demand' && (
-          <div className="grid gap-6">
-            {/* Hourly Forecast */}
-            <div className="bg-white rounded-lg shadow p-6">
-              <h2 className="text-xl font-bold text-gray-900 mb-6">Pronóstico por Hora</h2>
-              <div className="space-y-3">
-                {forecast.map((hour) => (
-                  <div key={hour.hour} className="flex items-center gap-4 p-4 border rounded-lg">
-                    <div className="w-12 font-bold text-gray-900 text-center">
-                      {String(hour.hour).padStart(2, '0')}:00
-                    </div>
-
-                    <div className="flex-1">
-                      <div className="flex justify-between mb-2">
-                        <span className="text-sm font-semibold text-gray-700">
-                          Órdenes Estimadas
-                        </span>
-                        <span className="text-sm font-bold text-gray-900">
-                          {hour.predictedOrders}
-                        </span>
-                      </div>
-                      <div className="w-full bg-gray-200 rounded-full h-2">
-                        <div
-                          className="bg-blue-600 h-2 rounded-full"
-                          style={{
-                            width: `${(hour.predictedOrders / 10) * 100}%`,
-                          }}
-                        ></div>
-                      </div>
-                    </div>
-
-                    <div className="text-right">
-                      <p className="text-sm text-gray-600">Demanda</p>
-                      <span
-                        className={`inline-block px-3 py-1 rounded text-sm font-semibold ${getTrendColor(
-                          hour.demandTrend
-                        )}`}
-                      >
-                        {hour.demandTrend === 'high' && 'Alta'}
-                        {hour.demandTrend === 'medium' && 'Media'}
-                        {hour.demandTrend === 'low' && 'Baja'}
-                      </span>
-                    </div>
-
-                    <div className="text-right">
-                      <p className="text-sm text-gray-600">Personal Sugerido</p>
-                      <p className="font-bold text-gray-900 flex items-center gap-1">
-                        <Users className="w-4 h-4" /> {hour.recommendedStaff}
-                      </p>
+          {advice.length === 0 ? (
+            <div className="admin-empty">Aun faltan ventas pagadas para generar recomendaciones fuertes.</div>
+          ) : (
+            <div className="space-y-3">
+              {advice.map((item, index) => (
+                <article key={`${item.title}-${index}`} className={`rounded-xl border p-4 ${priorityClass(item.priority)}`}>
+                  <div className="flex items-start gap-3">
+                    <Target className="mt-0.5 size-5 shrink-0" />
+                    <div>
+                      <h3 className="font-black">{item.title}</h3>
+                      <p className="mt-1 text-sm font-semibold leading-6 opacity-80">{item.text}</p>
                     </div>
                   </div>
-                ))}
-              </div>
+                </article>
+              ))}
             </div>
+          )}
+        </div>
 
-            {/* Peak Hours Summary */}
-            <div className="bg-white rounded-lg shadow p-6">
-              <h2 className="text-xl font-bold text-gray-900 mb-4">Análisis de Horarios</h2>
-              <div className="bg-blue-50 border-l-4 border-blue-600 p-4 rounded">
-                <p className="text-blue-900">
-                  <span className="font-bold">💡 Recomendación:</span> Aumenta tu personal durante
-                  los horarios picos para mejorar la velocidad de servicio y reducir tiempos de
-                  espera. Considera promociones en horarios de baja demanda para equilibrar la carga.
-                </p>
-              </div>
+        <div className="admin-card p-5">
+          <div className="mb-4 flex items-center justify-between gap-3">
+            <div>
+              <p className="admin-eyebrow">Productos reales</p>
+              <h2 className="text-2xl font-black text-[#15130f]">Top ventas</h2>
             </div>
+            <TrendingUp className="size-6 text-[#1c8b5f]" />
           </div>
-        )}
 
-        {/* Recommendations Tab */}
-        {tab === 'recommendations' && (
-          <div>
-            <div className="bg-white rounded-lg shadow p-6">
-              <h2 className="text-xl font-bold text-gray-900 mb-4">Productos Más Populares</h2>
-
-              {recommendations.length === 0 ? (
-                <p className="text-gray-600 text-center py-8">
-                  No hay datos suficientes para hacer recomendaciones
-                </p>
-              ) : (
-                <div className="space-y-4">
-                  {recommendations.map((rec, index) => (
-                    <div key={index} className="flex items-center justify-between p-4 border rounded-lg">
-                      <div className="flex items-center gap-4">
-                        <div className="w-8 h-8 bg-blue-600 text-white rounded-full flex items-center justify-center font-bold">
-                          {index + 1}
-                        </div>
-                        <div>
-                          <p className="font-bold text-gray-900">{rec.name}</p>
-                          {rec.quantity && (
-                            <p className="text-sm text-gray-600">
-                              {rec.quantity} unidades vendidas
-                            </p>
-                          )}
-                        </div>
-                      </div>
-                      {rec.revenue && (
-                        <p className="font-bold text-blue-600">${rec.revenue.toFixed(2)}</p>
-                      )}
+          {recommendations.length === 0 ? (
+            <div className="admin-empty">Sin productos vendidos suficientes.</div>
+          ) : (
+            <div className="space-y-3">
+              {recommendations.slice(0, 6).map((rec, index) => (
+                <article key={`${rec.name}-${index}`} className="rounded-xl border border-black/8 bg-white p-4">
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="min-w-0">
+                      <p className="font-black text-[#15130f]">{index + 1}. {rec.name}</p>
+                      <p className="mt-1 text-sm font-bold text-black/50">
+                        {rec.quantity || 0} unidades · {money(rec.revenue || 0, currency)}
+                      </p>
                     </div>
-                  ))}
-                </div>
-              )}
-
-              <div className="bg-green-50 border-l-4 border-green-600 p-4 rounded mt-6">
-                <p className="text-green-900">
-                  <span className="font-bold">💡 Recomendación:</span> Destaca estos productos en
-                  tu menú y promociona en puntos estratégicos del restaurante. Considera crear
-                  combos o ofertas que incluyan estos artículos populares.
-                </p>
-              </div>
+                    <CreditCard className="size-5 shrink-0 text-black/25" />
+                  </div>
+                  {rec.action && <p className="mt-3 text-sm font-semibold leading-6 text-black/62">{rec.action}</p>}
+                </article>
+              ))}
             </div>
+          )}
+        </div>
+      </section>
+
+      <section className="mt-5 admin-card p-5">
+        <div className="mb-4 flex items-center justify-between">
+          <div>
+            <p className="admin-eyebrow">Demanda</p>
+            <h2 className="text-2xl font-black text-[#15130f]">Horas donde conviene estar listo</h2>
+          </div>
+          <Clock className="size-6 text-[#6d5dfc]" />
+        </div>
+
+        {peakForecast.length === 0 ? (
+          <div className="admin-empty">Todavia no hay suficientes ventas para detectar horarios pico.</div>
+        ) : (
+          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+            {peakForecast.map((hour) => (
+              <article key={hour.hour} className="rounded-xl border border-black/8 bg-white p-4">
+                <div className="flex items-start justify-between">
+                  <div>
+                    <p className="text-2xl font-black text-[#15130f]">{String(hour.hour).padStart(2, '0')}:00</p>
+                    <p className="mt-1 text-sm font-bold text-black/52">Demanda {trendLabel(hour.demandTrend).toLowerCase()}</p>
+                  </div>
+                  <Users className="size-5 text-black/28" />
+                </div>
+                <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
+                  <div className="rounded-lg bg-black/[0.035] p-3">
+                    <p className="font-black text-black/45">Pedidos</p>
+                    <p className="mt-1 text-lg font-black text-[#15130f]">{hour.predictedOrders}</p>
+                  </div>
+                  <div className="rounded-lg bg-black/[0.035] p-3">
+                    <p className="font-black text-black/45">Personal</p>
+                    <p className="mt-1 text-lg font-black text-[#15130f]">{hour.recommendedStaff}</p>
+                  </div>
+                </div>
+              </article>
+            ))}
           </div>
         )}
-      </div>
+      </section>
     </div>
   );
 }

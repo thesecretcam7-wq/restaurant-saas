@@ -3,6 +3,14 @@ import type { createServiceClient } from '@/lib/supabase/server';
 
 export type CashClosingMode = 'current' | 'pending';
 
+export type CashClosingOrder = {
+  id: string;
+  order_number?: string | null;
+  total: number;
+  payment_method?: string | null;
+  created_at?: string | null;
+};
+
 export interface CashClosingStats {
   cashSales: number;
   cardSales: number;
@@ -19,13 +27,7 @@ export interface CashClosingStats {
   periodEnd: string;
   businessDateLabel: string;
   operationalCloseTime: string;
-  closingOrders: {
-    id: string;
-    order_number?: string | null;
-    total: number;
-    payment_method?: string | null;
-    created_at?: string | null;
-  }[];
+  closingOrders: CashClosingOrder[];
 }
 
 type SupabaseServiceClient = ReturnType<typeof createServiceClient>;
