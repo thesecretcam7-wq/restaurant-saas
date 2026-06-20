@@ -904,18 +904,17 @@ export function POSTerminal({
   }, [deliveryFee, deliveryZones]);
 
   const selectedDeliveryZone = useMemo(
-    () => deliveryOptions.find((zone) => zone.id === selectedDeliveryZoneId) || deliveryOptions[0] || null,
+    () => deliveryOptions.find((zone) => zone.id === selectedDeliveryZoneId) || null,
     [deliveryOptions, selectedDeliveryZoneId]
   );
 
   useEffect(() => {
-    if (!deliveryEnabled || posOrderType !== 'delivery') return;
-    if (deliveryOptions.length === 0) {
+    if (!deliveryEnabled || posOrderType !== 'delivery') {
       setSelectedDeliveryZoneId(null);
       return;
     }
-    if (!selectedDeliveryZoneId || !deliveryOptions.some((zone) => zone.id === selectedDeliveryZoneId)) {
-      setSelectedDeliveryZoneId(deliveryOptions[0].id);
+    if (selectedDeliveryZoneId && !deliveryOptions.some((zone) => zone.id === selectedDeliveryZoneId)) {
+      setSelectedDeliveryZoneId(null);
     }
   }, [deliveryEnabled, deliveryOptions, posOrderType, selectedDeliveryZoneId]);
 
@@ -2276,6 +2275,11 @@ export function POSTerminal({
       return;
     }
 
+    if (!loadedOrderId && !selectedTableId && posOrderType === 'delivery' && deliveryEnabled && !selectedDeliveryZone) {
+      setToast({ message: 'Selecciona el valor del domicilio antes de terminar la venta', type: 'error' });
+      return;
+    }
+
     setPendingPaymentData({ amountPaid });
     processPaymentAfterReceipt(amountPaid, printReceipt);
   }
@@ -2378,6 +2382,10 @@ export function POSTerminal({
 
   async function processPaymentAfterReceipt(amountPaid?: number, printCustomerReceipt = printReceiptAfterPayment) {
     if (paymentInFlightRef.current) return;
+    if (!loadedOrderId && !selectedTableId && posOrderType === 'delivery' && deliveryEnabled && !selectedDeliveryZone) {
+      setToast({ message: 'Selecciona el valor del domicilio antes de terminar la venta', type: 'error' });
+      return;
+    }
     paymentInFlightRef.current = true;
     let releasePaymentLockDelay = 0;
 
@@ -2821,6 +2829,7 @@ export function POSTerminal({
       setRegisterInPreviousPeriod(false);
       setPosMode('simple');
       setPosOrderType('takeaway');
+      setSelectedDeliveryZoneId(null);
 
       // Clear localStorage
       if (typeof window !== 'undefined') {
@@ -2830,7 +2839,7 @@ export function POSTerminal({
       }
 
       // Force remount of POSPayment component to reset its internal state
-      setPaymentResetKey(paymentResetKey + 1);
+      setPaymentResetKey((value) => value + 1);
 
       // Show success toast (auto-closes after 3 seconds)
       setToast({
@@ -2865,7 +2874,9 @@ export function POSTerminal({
   const subtotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
   const taxableSubtotal = Math.max(0, subtotal - discount);
   const taxAmount = taxRate > 0 ? taxableSubtotal * (taxRate / 100) : 0;
-  const activeDeliveryFee = !selectedTableId && posOrderType === 'delivery' && deliveryEnabled ? Number(selectedDeliveryZone?.fee || deliveryFee || 0) : 0;
+  const needsDeliveryZone = !loadedOrderId && !selectedTableId && posOrderType === 'delivery' && deliveryEnabled;
+  const hasRequiredDeliveryZone = !needsDeliveryZone || Boolean(selectedDeliveryZone);
+  const activeDeliveryFee = needsDeliveryZone ? Number(selectedDeliveryZone?.fee || 0) : 0;
   const loadedOrderDeliveryFee = loadedOrderId ? Number(loadedOrderContext?.deliveryFee || 0) : 0;
   const cartDeliveryFee = loadedOrderId ? loadedOrderDeliveryFee : activeDeliveryFee;
   const paymentBaseTotal = taxableSubtotal + taxAmount + cartDeliveryFee;
@@ -4185,7 +4196,10 @@ export function POSTerminal({
                 {deliveryEnabled && (
                   <>
                     <button
-                      onClick={() => setPosOrderType('delivery')}
+                      onClick={() => {
+                        setPosOrderType('delivery');
+                        setSelectedDeliveryZoneId(null);
+                      }}
                       className={`flex min-w-0 items-center justify-center gap-1 rounded-lg border px-1 py-1 text-[11px] font-bold transition ${
                         posOrderType === 'delivery'
                           ? 'bg-amber-300/20 text-amber-50 border border-amber-300/45 shadow-lg shadow-amber-900/20'
@@ -4205,7 +4219,7 @@ export function POSTerminal({
                               key={zone.id}
                               onClick={() => {
                                 setPosOrderType('delivery');
-                                setSelectedDeliveryZoneId(zone.id);
+                                setSelectedDeliveryZoneId(active ? null : zone.id);
                               }}
                               className={`min-h-10 rounded-lg border px-2 py-1 text-left transition ${
                                 active
@@ -4220,7 +4234,22 @@ export function POSTerminal({
                             </button>
                           );
                         })}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setPosOrderType('takeaway');
+                            setSelectedDeliveryZoneId(null);
+                          }}
+                          className="col-span-2 min-h-9 rounded-lg border border-red-300/25 bg-red-400/10 px-2 py-1 text-center text-[11px] font-black text-red-100 transition hover:border-red-200/50 hover:bg-red-400/18"
+                        >
+                          Quitar domicilio
+                        </button>
                       </div>
+                    )}
+                    {posOrderType === 'delivery' && deliveryOptions.length > 0 && !selectedDeliveryZone && (
+                      <p className="col-span-3 text-center text-[11px] font-bold text-amber-100">
+                        Selecciona el valor del domicilio
+                      </p>
                     )}
                   </>
                 )}
@@ -4346,7 +4375,7 @@ export function POSTerminal({
                       printReceipt={printReceiptAfterPayment}
                       onPrintReceiptChange={setPrintReceiptAfterPayment}
                       onProceedPayment={handleShowReceipt}
-                      disabled={cart.length === 0 || (!!selectedTableNumber && !selectedStaffId && billingOrderIds.length === 0)}
+                      disabled={cart.length === 0 || !hasRequiredDeliveryZone || (!!selectedTableNumber && !selectedStaffId && billingOrderIds.length === 0)}
                       loading={processingPayment}
                       country={country}
                       compact={compactPOSLayout}
