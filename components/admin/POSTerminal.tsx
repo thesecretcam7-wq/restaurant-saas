@@ -4223,14 +4223,29 @@ export function POSTerminal({
                               }}
                               className={`min-h-10 rounded-lg border px-2 py-1 text-left transition ${
                                 active
-                                  ? 'border-amber-200 bg-amber-300/24 text-amber-50'
+                                  ? 'border-amber-100 bg-amber-300/30 text-amber-50 ring-1 ring-amber-100/60'
                                   : 'border-white/10 bg-black/20 text-slate-300 hover:border-amber-300/35'
                               }`}
+                              title={active ? 'Quitar este valor de domicilio' : 'Seleccionar valor de domicilio'}
                             >
-                              <span className="block truncate text-[11px] font-black">{zone.name}</span>
-                              <span className="block text-xs font-black text-amber-200">
-                                {formatPriceWithCurrency(zone.fee, currencyInfo.code, currencyInfo.locale)}
+                              <span className="flex items-center justify-between gap-2">
+                                <span className="min-w-0">
+                                  <span className="block truncate text-[11px] font-black">{zone.name}</span>
+                                  <span className="block text-xs font-black text-amber-200">
+                                    {formatPriceWithCurrency(zone.fee, currencyInfo.code, currencyInfo.locale)}
+                                  </span>
+                                </span>
+                                {active && (
+                                  <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-red-500 text-white">
+                                    <X className="h-3.5 w-3.5" />
+                                  </span>
+                                )}
                               </span>
+                              {active && (
+                                <span className="mt-0.5 block text-[10px] font-black uppercase text-red-100">
+                                  Toca para quitar
+                                </span>
+                              )}
                             </button>
                           );
                         })}
