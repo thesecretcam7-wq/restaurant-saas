@@ -2056,6 +2056,19 @@ export function POSTerminal({
     }
   }
 
+  function removeDeliveryFromLoadedReceipt() {
+    setLoadedOrderContext((current) =>
+      current
+        ? {
+            ...current,
+            deliveryFee: 0,
+          }
+        : current
+    );
+    setSelectedDeliveryZoneId(null);
+    setToast({ message: 'Domicilio quitado del recibo. Guarda los cambios para aplicar.', type: 'success' });
+  }
+
   function resetCurrentCartForNextCustomer() {
     setCart([]);
     setDiscount(0);
@@ -4281,6 +4294,22 @@ export function POSTerminal({
                         <span>Recibo anterior</span>
                         <strong>{formatPriceWithCurrency(loadedOrderContext?.originalTotal || 0, currencyInfo.code, currencyInfo.locale)}</strong>
                       </div>
+                      {loadedOrderDeliveryFee > 0 && (
+                        <div className="mt-1 flex items-center justify-between gap-2 rounded-lg border border-amber-300/25 bg-amber-300/10 px-2 py-1 text-amber-100">
+                          <span className="min-w-0 truncate font-bold">
+                            Domicilio {formatPriceWithCurrency(loadedOrderDeliveryFee, currencyInfo.code, currencyInfo.locale)}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={removeDeliveryFromLoadedReceipt}
+                            disabled={processingPayment}
+                            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-red-500 text-white transition hover:bg-red-400 disabled:opacity-50"
+                            title="Quitar domicilio del recibo"
+                          >
+                            <X className="h-4 w-4" />
+                          </button>
+                        </div>
+                      )}
                       <div className="mt-1 flex justify-between text-cyan-100">
                         <span>Nuevo total</span>
                         <strong>{formatPriceWithCurrency(editedReceiptTotal, currencyInfo.code, currencyInfo.locale)}</strong>
