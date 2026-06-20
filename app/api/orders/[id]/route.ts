@@ -49,6 +49,11 @@ function normalizePaymentBreakdown(value: unknown, orderTotal: number, paymentMe
   return payments
 }
 
+function isMissingPaymentBreakdownColumn(error: any) {
+  const text = `${error?.message || ''} ${error?.details || ''} ${error?.hint || ''}`
+  return text.includes('payment_breakdown') && (error?.code === '42703' || error?.code === 'PGRST204')
+}
+
 function getPaymentMethodLabel(method: string | null | undefined) {
   switch (normalizePaymentMethod(method) || method) {
     case 'cash':
@@ -182,11 +187,19 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
 
     const supabase = createServiceClient()
 
-    const { data: existingOrder, error: existingError } = await supabase
+    const fetchExistingOrder = (select: string) => supabase
       .from('orders')
-      .select('id, tenant_id, order_number, status, payment_status, payment_method, payment_breakdown, total, notes, items')
+      .select(select)
       .eq('id', orderId)
       .single()
+
+    let existingResult = await fetchExistingOrder('id, tenant_id, order_number, status, payment_status, payment_method, payment_breakdown, total, notes, items')
+    if (existingResult.error && isMissingPaymentBreakdownColumn(existingResult.error)) {
+      existingResult = await fetchExistingOrder('id, tenant_id, order_number, status, payment_status, payment_method, total, notes, items')
+    }
+
+    const existingOrder = existingResult.data as any
+    const existingError = existingResult.error
 
     if (existingError || !existingOrder) {
       return NextResponse.json({ error: 'Order not found' }, { status: 404 })
@@ -309,12 +322,21 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       }
     }
 
-    const { data: order, error } = await supabase
+    const updateOrder = (payload: Record<string, any>) => supabase
       .from('orders')
-      .update(updateData)
+      .update(payload)
       .eq('id', orderId)
       .select()
       .single()
+
+    let updateResult = await updateOrder(updateData)
+    if (updateResult.error && isMissingPaymentBreakdownColumn(updateResult.error)) {
+      const fallbackUpdateData = { ...updateData }
+      delete fallbackUpdateData.payment_breakdown
+      updateResult = await updateOrder(fallbackUpdateData)
+    }
+
+    const { data: order, error } = updateResult
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 })

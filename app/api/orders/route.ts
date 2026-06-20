@@ -44,6 +44,11 @@ function normalizePaymentBreakdown(value: unknown, orderTotal: number, paymentMe
   return payments
 }
 
+function isMissingPaymentBreakdownColumn(error: any) {
+  const text = `${error?.message || ''} ${error?.details || ''} ${error?.hint || ''}`
+  return text.includes('payment_breakdown') && (error?.code === '42703' || error?.code === 'PGRST204')
+}
+
 function parseOperationalCloseMinutes(value?: string | null) {
   if (!value || !/^\d{1,2}:\d{2}$/.test(value)) return 5 * 60
   const [hours, minutes] = value.split(':').map(Number)
@@ -65,9 +70,8 @@ async function hasPendingPreviousCashClosing(supabase: ReturnType<typeof createS
       .select('id, created_at')
       .eq('tenant_id', tenantId)
       .lt('created_at', currentPeriodStart)
-      .neq('payment_method', null)
+      .not('payment_method', 'is', null)
       .eq('payment_status', 'paid')
-      .neq('status', 'cancelled')
       .order('created_at', { ascending: true })
       .limit(1000),
     supabase
@@ -92,7 +96,9 @@ async function hasPendingPreviousCashClosing(supabase: ReturnType<typeof createS
     ? new Date(latestClosingRes.data.closed_at)
     : null
 
+  const cancelledStatuses = new Set(['cancelled', 'canceled', 'voided', 'deleted', 'anulado', 'cancelado'])
   return (ordersRes.data || []).some((order: any) => {
+    if (cancelledStatuses.has(String(order?.status || '').trim().toLowerCase())) return false
     if (closedOrderIds.has(order.id)) return false
     if (latestClosingDate && new Date(order.created_at) <= latestClosingDate) return false
     return true
@@ -510,11 +516,20 @@ export async function POST(request: NextRequest) {
       orderData.updated_at = previousOpenPeriodCreatedAt
     }
 
-    const { data: order, error } = await supabase
+    const insertOrder = (payload: Record<string, any>) => supabase
       .from('orders')
-      .insert(orderData)
+      .insert(payload)
       .select()
       .single()
+
+    let insertResult = await insertOrder(orderData)
+    if (insertResult.error && isMissingPaymentBreakdownColumn(insertResult.error)) {
+      const fallbackOrderData = { ...orderData }
+      delete fallbackOrderData.payment_breakdown
+      insertResult = await insertOrder(fallbackOrderData)
+    }
+
+    const { data: order, error } = insertResult
 
     if (error) {
       console.error('[orders POST] insert error:', error.message, error.details, error.hint)
