@@ -78,32 +78,23 @@ export function generateReceiptESCPOS(data: ReceiptData, options: ReceiptOptions
     const cleanLabel = normalizeThermalText(label).substring(0, Math.max(1, cols - cleanValue.length - 1));
     line(padR(cleanLabel, cols - cleanValue.length) + cleanValue);
   };
-  const itemRow = (name: string, value: string) => {
-    const cleanValue = normalizeThermalText(value).substring(0, Math.max(1, cols - 2));
-    const cleanName = normalizeThermalText(name).toUpperCase();
-    const nameWidth = Math.max(1, cols - cleanValue.length - 1);
-
-    if (cleanName.length <= nameWidth) {
-      line(padR(cleanName, cols - cleanValue.length) + cleanValue);
-      return;
-    }
-
-    line(cleanName.substring(0, cols));
-    line(padR('', cols - cleanValue.length) + cleanValue);
+  const itemRow = (name: string, quantity: number, unitPrice: number, total: number) => {
+    const cleanName = normalizeThermalText(name).substring(0, cols);
+    push(BOLD_ON);
+    line(cleanName);
+    push(BOLD_OFF);
+    row(`  ${formatQuantity(quantity)} x ${formatPrice(unitPrice, data)}`, formatPrice(total, data));
   };
 
   push(INIT, CODE_PAGE_PC850, FONT_A);
 
   push(ALIGN_CENTER, FONT_A, SIZE_WIDE, BOLD_ON);
-  line('');
   line(data.restaurantName ?? 'Restaurante');
   push(BOLD_OFF, SIZE_NORMAL);
   if (data.restaurantPhone) line(`Tel: ${data.restaurantPhone}`);
   push(BOLD_ON);
   line('RECIBO DE VENTA');
   push(BOLD_OFF);
-  line('');
-
   push(ALIGN_LEFT, FONT_A, SIZE_NORMAL);
   const ts = data.timestamp ? new Date(data.timestamp) : new Date();
   const receiptLocale = data.currencyInfo?.locale || options.locale || 'es-ES';
@@ -126,27 +117,17 @@ export function generateReceiptESCPOS(data: ReceiptData, options: ReceiptOptions
   if (data.tableNumber) line(`Mesa: ${data.tableNumber}`);
   if (data.waiterName) row('Atendido Por:', data.waiterName);
 
-  line('');
-  row('Item', 'Precio');
-  sep();
+  push(BOLD_ON);
+  line('Detalle del pedido');
+  push(BOLD_OFF);
 
-  let productCount = 0;
   for (const item of data.items) {
     const quantity = Number(item.quantity || 0);
     const itemTotal = item.price * quantity;
-    productCount += quantity;
-    itemRow(item.name, `${formatPrice(itemTotal, data)} x${formatQuantity(quantity)}`);
+    itemRow(item.name, quantity, item.price, itemTotal);
   }
 
-  if ((data.deliveryFee || 0) > 0) {
-    productCount += 1;
-    itemRow('Domicilio', `${formatPrice(data.deliveryFee || 0, data)} x1`);
-  }
-
-  sep();
-  row('# Productos:', formatQuantity(productCount));
-
-  const hasBreakdown = data.discount > 0 || (data.tax || 0) > 0;
+  const hasBreakdown = data.discount > 0 || (data.tax || 0) > 0 || (data.deliveryFee || 0) > 0;
   if (hasBreakdown) {
     line('');
     row('Subtotal:', formatPrice(data.subtotal, data));
@@ -157,23 +138,17 @@ export function generateReceiptESCPOS(data: ReceiptData, options: ReceiptOptions
       const taxLabel = data.taxRate ? `IVA ${data.taxRate}%:` : 'IVA:';
       row(taxLabel, formatPrice(data.tax || 0, data));
     }
+    if ((data.deliveryFee || 0) > 0) {
+      row('Domicilio:', formatPrice(data.deliveryFee || 0, data));
+    }
   }
 
-  line('');
   push(ALIGN_CENTER, FONT_A, SIZE_WIDE, BOLD_ON);
-  line('Total');
-  push(SIZE_2X);
+  line('TOTAL A PAGAR');
   line(formatPrice(data.total, data));
-  push(SIZE_NORMAL);
-
-  const paymentLabel = getPaymentMethodLabel(data.paymentMethod);
-  if (paymentLabel) {
-    line(`VENTA ${paymentLabel.toUpperCase()}`);
-  }
-  push(BOLD_OFF);
+  push(BOLD_OFF, SIZE_NORMAL);
 
   if (data.amountPaid !== undefined) {
-    line('');
     push(ALIGN_LEFT);
     if (data.paymentBreakdown?.length) {
       data.paymentBreakdown.forEach((payment) => {
@@ -185,16 +160,15 @@ export function generateReceiptESCPOS(data: ReceiptData, options: ReceiptOptions
     }
   }
 
-  push(ALIGN_CENTER);
-  line('');
-  push(BOLD_ON);
+  const paymentLabel = getPaymentMethodLabel(data.paymentMethod);
+  if (paymentLabel) {
+    push(ALIGN_LEFT);
+    row('Metodo:', paymentLabel);
+  }
+
+  push(ALIGN_CENTER, BOLD_ON);
   line('Gracias por su compra');
-  line('Estamos a su servicio');
-  line('');
-  line('PEDIDOS ONLINE');
-  line('www.parrillaburgers.com');
   push(BOLD_OFF);
-  line('');
   line('');
 
   if (options.openCashDrawer) {
