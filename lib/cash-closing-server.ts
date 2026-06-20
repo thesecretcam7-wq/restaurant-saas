@@ -41,6 +41,7 @@ type CashClosingPeriod = {
 };
 
 const ORDER_SELECT = 'id, order_number, total, tax, delivery_fee, delivery_type, payment_method, payment_breakdown, payment_status, status, created_at';
+const ORDER_SELECT_WITHOUT_PAYMENT_BREAKDOWN = 'id, order_number, total, tax, delivery_fee, delivery_type, payment_method, payment_status, status, created_at';
 
 const CANCELLED_ORDER_STATUSES = new Set(['cancelled', 'canceled', 'voided', 'deleted', 'anulado', 'cancelado']);
 
@@ -165,6 +166,11 @@ function isMissingDeliveryClosingColumns(error: any) {
   );
 }
 
+function isMissingPaymentBreakdownColumn(error: any) {
+  const text = `${error?.message || ''} ${error?.details || ''} ${error?.hint || ''}`;
+  return text.includes('payment_breakdown') && (error?.code === '42703' || error?.code === 'PGRST204');
+}
+
 async function getCurrentOperationalPeriod(supabase: SupabaseServiceClient, tenantId: string) {
   const { data: settings, error } = await supabase
     .from('restaurant_settings')
@@ -216,9 +222,9 @@ export async function calculateCurrentCashClosingStats(
   const startDate = new Date(period.periodStart);
   const endDate = new Date(period.periodEnd);
 
-  const { data: orders, error } = await supabase
+  const buildOrdersQuery = (select: string) => supabase
     .from('orders')
-    .select(ORDER_SELECT)
+    .select(select)
     .eq('tenant_id', tenantId)
     .gte('created_at', startDate.toISOString())
     .lt('created_at', endDate.toISOString())
@@ -226,9 +232,14 @@ export async function calculateCurrentCashClosingStats(
     .order('created_at', { ascending: true })
     .limit(2000);
 
-  if (error) throw error;
+  let ordersResult = await buildOrdersQuery(ORDER_SELECT);
+  if (ordersResult.error && isMissingPaymentBreakdownColumn(ordersResult.error)) {
+    ordersResult = await buildOrdersQuery(ORDER_SELECT_WITHOUT_PAYMENT_BREAKDOWN);
+  }
 
-  const orderRows = orders || [];
+  if (ordersResult.error) throw ordersResult.error;
+
+  const orderRows: any[] = ordersResult.data || [];
   const closedOrderIds = await getClosedOrderIds(
     supabase,
     tenantId,
@@ -251,9 +262,9 @@ export async function calculatePendingPreviousCashClosingStats(
   const currentPeriodStart = new Date(currentPeriod.periodStart);
   const closingMoment = new Date();
 
-  const { data: orders, error } = await supabase
+  const buildOrdersQuery = (select: string) => supabase
     .from('orders')
-    .select(ORDER_SELECT)
+    .select(select)
     .eq('tenant_id', tenantId)
     .lte('created_at', closingMoment.toISOString())
     .not('payment_method', 'is', null)
@@ -261,11 +272,17 @@ export async function calculatePendingPreviousCashClosingStats(
     .order('created_at', { ascending: true })
     .limit(2000);
 
-  if (error) throw error;
-  if (!orders?.length) return null;
+  let ordersResult = await buildOrdersQuery(ORDER_SELECT);
+  if (ordersResult.error && isMissingPaymentBreakdownColumn(ordersResult.error)) {
+    ordersResult = await buildOrdersQuery(ORDER_SELECT_WITHOUT_PAYMENT_BREAKDOWN);
+  }
+
+  if (ordersResult.error) throw ordersResult.error;
+  const orderRows: any[] = ordersResult.data || [];
+  if (!orderRows.length) return null;
 
   const closedOrderIds = await getClosedOrderIds(supabase, tenantId);
-  const pendingOrders = orders.filter((order: any) => {
+  const pendingOrders = orderRows.filter((order: any) => {
     if (isCancelledOrder(order)) return false;
     if (closedOrderIds.has(order.id)) return false;
     return true;

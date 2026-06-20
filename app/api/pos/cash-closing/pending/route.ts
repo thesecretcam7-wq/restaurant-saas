@@ -10,6 +10,8 @@ type CashClosingPeriod = {
 };
 
 const DEFAULT_OPERATIONAL_CLOSE_MINUTES = 5 * 60;
+const ORDER_SELECT = 'id, order_number, total, tax, delivery_fee, delivery_type, payment_method, payment_breakdown, payment_status, status, created_at';
+const ORDER_SELECT_WITHOUT_PAYMENT_BREAKDOWN = 'id, order_number, total, tax, delivery_fee, delivery_type, payment_method, payment_status, status, created_at';
 
 const COUNTRY_TIMEZONE: Record<string, string> = {
   CO: 'America/Bogota',
@@ -136,6 +138,11 @@ function calculateBusinessPeriod(closeMinutes: number, timeZone: string, now = n
   };
 }
 
+function isMissingPaymentBreakdownColumn(error: any) {
+  const text = `${error?.message || ''} ${error?.details || ''} ${error?.hint || ''}`;
+  return text.includes('payment_breakdown') && (error?.code === '42703' || error?.code === 'PGRST204');
+}
+
 function statsFromOrders(period: CashClosingPeriod, orders: any[] = []) {
   const countableOrders = orders.filter((order: any) =>
     !['cancelled', 'canceled', 'voided', 'deleted', 'anulado', 'cancelado'].includes(String(order?.status || '').trim().toLowerCase()) &&
@@ -242,16 +249,18 @@ export async function GET(request: NextRequest) {
     const currentPeriodStart = new Date(currentPeriod.periodStart);
     const closingMoment = new Date();
 
-    const [ordersRes, closedItemsRes] = await Promise.all([
-      supabase
-        .from('orders')
-        .select('id, order_number, total, tax, delivery_fee, delivery_type, payment_method, payment_breakdown, payment_status, status, created_at')
-        .eq('tenant_id', tenantId)
-        .lte('created_at', closingMoment.toISOString())
-        .not('payment_method', 'is', null)
-        .eq('payment_status', 'paid')
-        .order('created_at', { ascending: true })
-        .limit(1000),
+    const buildOrdersQuery = (select: string) => supabase
+      .from('orders')
+      .select(select)
+      .eq('tenant_id', tenantId)
+      .lte('created_at', closingMoment.toISOString())
+      .not('payment_method', 'is', null)
+      .eq('payment_status', 'paid')
+      .order('created_at', { ascending: true })
+      .limit(1000);
+
+    const [initialOrdersRes, closedItemsRes] = await Promise.all([
+      buildOrdersQuery(ORDER_SELECT),
       supabase
         .from('cash_closing_items')
         .select('order_id')
@@ -260,12 +269,16 @@ export async function GET(request: NextRequest) {
         .limit(2000),
     ]);
 
-    const firstError = ordersRes.error;
-    if (firstError) {
-      return NextResponse.json({ error: firstError.message }, { status: 500 });
+    let ordersRes = initialOrdersRes;
+    if (ordersRes.error && isMissingPaymentBreakdownColumn(ordersRes.error)) {
+      ordersRes = await buildOrdersQuery(ORDER_SELECT_WITHOUT_PAYMENT_BREAKDOWN);
     }
 
-    const orders = ordersRes.data || [];
+    if (ordersRes.error) {
+      return NextResponse.json({ error: ordersRes.error.message }, { status: 500 });
+    }
+
+    const orders: any[] = ordersRes.data || [];
     if (orders.length === 0) {
       return NextResponse.json({ stats: null });
     }
