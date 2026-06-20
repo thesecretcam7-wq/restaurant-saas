@@ -248,9 +248,8 @@ export async function GET(request: NextRequest) {
         .select('id, order_number, total, tax, delivery_fee, delivery_type, payment_method, payment_breakdown, payment_status, status, created_at')
         .eq('tenant_id', tenantId)
         .lte('created_at', closingMoment.toISOString())
-        .neq('payment_method', null)
+        .not('payment_method', 'is', null)
         .eq('payment_status', 'paid')
-        .neq('status', 'cancelled')
         .order('created_at', { ascending: true })
         .limit(1000),
       supabase
@@ -273,6 +272,7 @@ export async function GET(request: NextRequest) {
 
     const closedOrderIds = new Set((closedItemsRes.error ? [] : closedItemsRes.data || []).map((item: any) => item.order_id));
     const pendingOrders = orders.filter((order: any) => {
+      if (['cancelled', 'canceled', 'voided', 'deleted', 'anulado', 'cancelado'].includes(String(order?.status || '').trim().toLowerCase())) return false;
       if (closedOrderIds.has(order.id)) return false;
       return true;
     });

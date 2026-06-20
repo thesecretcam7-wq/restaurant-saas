@@ -258,7 +258,6 @@ export async function calculatePendingPreviousCashClosingStats(
     .lte('created_at', closingMoment.toISOString())
     .not('payment_method', 'is', null)
     .eq('payment_status', 'paid')
-    .neq('status', 'cancelled')
     .order('created_at', { ascending: true })
     .limit(2000);
 
@@ -267,6 +266,7 @@ export async function calculatePendingPreviousCashClosingStats(
 
   const closedOrderIds = await getClosedOrderIds(supabase, tenantId);
   const pendingOrders = orders.filter((order: any) => {
+    if (isCancelledOrder(order)) return false;
     if (closedOrderIds.has(order.id)) return false;
     return true;
   });

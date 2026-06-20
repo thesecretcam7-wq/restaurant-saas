@@ -224,7 +224,7 @@ export async function calculateCashClosingStats(
       .eq('tenant_id', tenantId)
       .gte('created_at', startDate.toISOString())
       .lt('created_at', endDate.toISOString())
-      .neq('payment_method', null);
+      .not('payment_method', 'is', null);
 
     if (error) {
       console.error('Error fetching orders:', error);
@@ -305,9 +305,8 @@ export async function calculatePendingPreviousCashClosingStats(tenantId: string)
       .select('*')
       .eq('tenant_id', tenantId)
       .lt('created_at', currentPeriodStart.toISOString())
-      .neq('payment_method', null)
+      .not('payment_method', 'is', null)
       .eq('payment_status', 'paid')
-      .neq('status', 'cancelled')
       .order('created_at', { ascending: true })
       .limit(1000);
 
@@ -344,6 +343,7 @@ export async function calculatePendingPreviousCashClosingStats(tenantId: string)
     const closedOrderIds = new Set((closedItems || []).map((item: any) => item.order_id));
     const latestClosingDate = latestClosing?.closed_at ? new Date(latestClosing.closed_at) : null;
     const pendingOrders = orders.filter((order: any) => {
+      if (isCancelledOrder(order)) return false;
       if (closedOrderIds.has(order.id)) return false;
       if (latestClosingDate && new Date(order.created_at) <= latestClosingDate) return false;
       return true;
