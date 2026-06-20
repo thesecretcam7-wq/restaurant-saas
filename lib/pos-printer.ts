@@ -966,6 +966,10 @@ function generateReceiptHTML(data: ReceiptData): string {
           border-top: 1px dashed #000;
           margin: 5px 0;
         }
+        .header-divider {
+          border-top: 2px solid #000;
+          margin: 8px 0 6px;
+        }
         .ticket-line {
           align-items: flex-start;
           font-size: 15px;
@@ -1071,6 +1075,7 @@ function generateReceiptHTML(data: ReceiptData): string {
       ${data.tableNumber ? `<div class="meta-row"><span>Mesa:</span><strong>${safe(data.tableNumber)}</strong></div>` : ''}
       ${data.waiterName ? `<div class="meta-row"><span>Atendido Por:</span><strong>${safe(data.waiterName)}</strong></div>` : ''}
 
+      <div class="header-divider"></div>
       <div class="table-head"><span>Item</span><span>Precio</span></div>
       <div class="divider"></div>
       <div class="items">${itemsHTML}${deliveryHTML}</div>
