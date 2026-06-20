@@ -22,6 +22,7 @@ export interface CashClosingStats {
     order_number?: string | null;
     total: number;
     payment_method?: string | null;
+    payment_breakdown?: any[] | null;
     created_at?: string | null;
   }[];
 }
@@ -69,6 +70,34 @@ function isCountableClosingOrder(order: any) {
   return !isCancelledOrder(order) && isPaidOrder(order);
 }
 
+function normalizePaymentBreakdown(order: any) {
+  const total = Number(order?.total) || 0;
+  const rows = Array.isArray(order?.payment_breakdown) ? order.payment_breakdown : [];
+  const payments = rows
+    .map((payment: any) => ({
+      method: String(payment?.method || '').trim().toLowerCase(),
+      amount: Number(payment?.amount) || 0,
+    }))
+    .filter((payment: { method: string; amount: number }) => payment.method && payment.amount > 0);
+
+  if (payments.length > 0) return payments;
+  if (!order?.payment_method || total <= 0) return [];
+
+  return [{ method: String(order.payment_method).trim().toLowerCase(), amount: total }];
+}
+
+function addPaymentTotals(stats: CashClosingStats, order: any) {
+  normalizePaymentBreakdown(order).forEach((payment: { method: string; amount: number }) => {
+    if (payment.method === 'cash') {
+      stats.cashSales += payment.amount;
+    } else if (payment.method === 'stripe' || payment.method === 'card' || payment.method === 'wompi') {
+      stats.cardSales += payment.amount;
+    } else {
+      stats.otherSales += payment.amount;
+    }
+  });
+}
+
 function statsFromOrders(period: CashClosingPeriod, orders: any[] = []): CashClosingStats {
   const countableOrders = orders.filter(isCountableClosingOrder);
 
@@ -89,6 +118,7 @@ function statsFromOrders(period: CashClosingPeriod, orders: any[] = []): CashClo
       order_number: order.order_number,
       total: Number(order.total) || 0,
       payment_method: order.payment_method,
+      payment_breakdown: Array.isArray(order.payment_breakdown) ? order.payment_breakdown : null,
       created_at: order.created_at,
     })),
     ...period,
@@ -106,14 +136,7 @@ function statsFromOrders(period: CashClosingPeriod, orders: any[] = []): CashClo
     const tax = Number(order.tax ?? order.tax_amount) || 0;
     const discount = Number(order.discount_amount) || 0;
 
-    if (order.payment_method === 'cash') {
-      stats.cashSales += total;
-    } else if (order.payment_method === 'stripe' || order.payment_method === 'card' || order.payment_method === 'wompi') {
-      stats.cardSales += total;
-    } else {
-      stats.otherSales += total;
-    }
-
+    addPaymentTotals(stats, order);
     stats.totalSales += total;
     stats.totalDeliveryFees += deliveryFee;
     if (deliveryFee > 0 || order.delivery_type === 'delivery') {
@@ -229,6 +252,7 @@ export async function calculateCashClosingStats(
         order_number: order.order_number,
         total: Number(order.total) || 0,
         payment_method: order.payment_method,
+        payment_breakdown: Array.isArray(order.payment_breakdown) ? order.payment_breakdown : null,
         created_at: order.created_at,
       })),
       ...period,
@@ -247,13 +271,7 @@ export async function calculateCashClosingStats(
       const discount = Number(order.discount_amount) || 0;
 
       // Desglose por método de pago
-      if (order.payment_method === 'cash') {
-        stats.cashSales += total;
-      } else if (order.payment_method === 'stripe' || order.payment_method === 'card' || order.payment_method === 'wompi') {
-        stats.cardSales += total;
-      } else {
-        stats.otherSales += total;
-      }
+      addPaymentTotals(stats, order);
 
       stats.totalSales += total;
       stats.totalDeliveryFees += deliveryFee;

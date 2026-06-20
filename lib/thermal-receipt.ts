@@ -175,8 +175,14 @@ export function generateReceiptESCPOS(data: ReceiptData, options: ReceiptOptions
   if (data.amountPaid !== undefined) {
     line('');
     push(ALIGN_LEFT);
-    row('Recibido:', formatPrice(data.amountPaid, data));
-    row('Cambio:', formatPrice(data.change, data));
+    if (data.paymentBreakdown?.length) {
+      data.paymentBreakdown.forEach((payment) => {
+        row(`${getPaymentMethodLabel(payment.method)}:`, formatPrice(payment.amount, data));
+      });
+    } else {
+      row('Recibido:', formatPrice(data.amountPaid, data));
+      row('Cambio:', formatPrice(data.change, data));
+    }
   }
 
   push(ALIGN_CENTER);
@@ -260,6 +266,8 @@ function getThermalCurrencyPrefix(code: string, symbol?: string): string {
 function getPaymentMethodLabel(method?: string | null): string {
   if (method === 'cash') return 'Efectivo';
   if (method === 'stripe' || method === 'card') return 'Tarjeta';
+  if (method === 'mixed') return 'Mixta';
+  if (method === 'wompi') return 'Wompi';
   return method ? method : '';
 }
 

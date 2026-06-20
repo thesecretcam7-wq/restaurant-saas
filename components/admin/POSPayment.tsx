@@ -7,7 +7,7 @@ import { getCurrencyByCountry, formatPriceWithCurrency } from '@/lib/currency';
 import { useTouchDevice } from '@/lib/hooks/useTouchDevice';
 import { NumericKeyboard } from './NumericKeyboard';
 
-type PaymentMethod = 'cash' | 'stripe';
+type PaymentMethod = 'cash' | 'stripe' | 'mixed';
 
 interface POSPaymentProps {
   total: number;
@@ -43,6 +43,7 @@ export function POSPayment({
   const currencyInfo = getCurrencyByCountry(country);
   const isTouchDevice = useTouchDevice();
   const [amountPaid, setAmountPaid] = useState<string>('');
+  const [mixedCashAmount, setMixedCashAmount] = useState<string>('');
   const [change, setChange] = useState<number>(0);
   const [showNumericKeyboard, setShowNumericKeyboard] = useState(false);
   const [showTipKeyboard, setShowTipKeyboard] = useState(false);
@@ -51,6 +52,8 @@ export function POSPayment({
   const suggestedAmounts = getSuggestedBillAmounts(totalWithTip, currencyInfo.code);
   const paidAmount = amountPaid ? Number(amountPaid) : 0;
   const cashAmountForPayment = amountPaid ? paidAmount : totalWithTip;
+  const mixedCashValue = mixedCashAmount ? Number(mixedCashAmount) : 0;
+  const mixedCardAmount = Math.max(0, Math.round((totalWithTip - mixedCashValue) * 100) / 100);
 
   const handleAmountChange = (value: string) => {
     setAmountPaid(value);
@@ -67,12 +70,19 @@ export function POSPayment({
   };
 
   const handleConfirmPaymentAmount = (value: number) => {
-    setAmountPaid(value.toString());
-    setChange(calculateChange(totalWithTip, value));
+    if (paymentMethod === 'mixed') {
+      setMixedCashAmount(value.toString());
+    } else {
+      setAmountPaid(value.toString());
+      setChange(calculateChange(totalWithTip, value));
+    }
     setShowNumericKeyboard(false);
   };
 
-  const isValidPayment = paymentMethod === 'stripe' || (paymentMethod === 'cash' && cashAmountForPayment >= totalWithTip);
+  const isValidPayment =
+    paymentMethod === 'stripe' ||
+    (paymentMethod === 'cash' && cashAmountForPayment >= totalWithTip) ||
+    (paymentMethod === 'mixed' && mixedCashValue > 0 && mixedCashValue < totalWithTip);
 
   return (
     <div className={compact ? 'space-y-1 text-xs' : 'space-y-2'}>
@@ -100,11 +110,12 @@ export function POSPayment({
       </div>
 
       {/* Métodos de Pago */}
-      <div className={`grid grid-cols-2 ${compact ? 'gap-1' : 'gap-3'}`}>
+      <div className={`grid grid-cols-3 ${compact ? 'gap-1' : 'gap-3'}`}>
         <button
           onClick={() => {
             onPaymentMethodChange('cash');
             setAmountPaid('');
+            setMixedCashAmount('');
             setChange(0);
           }}
           disabled={disabled}
@@ -118,7 +129,12 @@ export function POSPayment({
           Efectivo
         </button>
         <button
-          onClick={() => onPaymentMethodChange('stripe')}
+          onClick={() => {
+            onPaymentMethodChange('stripe');
+            setAmountPaid('');
+            setMixedCashAmount('');
+            setChange(0);
+          }}
           disabled={disabled}
           className={`${compact ? 'py-1 text-xs' : 'py-2 text-sm'} rounded-xl font-black flex items-center justify-center gap-1 transition border ${
             paymentMethod === 'stripe'
@@ -128,6 +144,23 @@ export function POSPayment({
         >
           <CreditCard className={compact ? 'h-4 w-4' : 'h-5 w-5'} />
           Tarjeta
+        </button>
+        <button
+          onClick={() => {
+            onPaymentMethodChange('mixed');
+            setAmountPaid('');
+            setMixedCashAmount('');
+            setChange(0);
+          }}
+          disabled={disabled}
+          className={`${compact ? 'py-1 text-xs' : 'py-2 text-sm'} rounded-xl font-black flex items-center justify-center gap-1 transition border ${
+            paymentMethod === 'mixed'
+              ? 'bg-[#D4AF37]/16 border-[#D4AF37]/38 text-white'
+              : 'bg-white/10 border-white/10 text-slate-400 hover:text-white'
+          } ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
+        >
+          <CreditCard className={compact ? 'h-4 w-4' : 'h-5 w-5'} />
+          Mixto
         </button>
       </div>
 
@@ -201,6 +234,52 @@ export function POSPayment({
         </div>
       )}
 
+      {paymentMethod === 'mixed' && (
+        <div className={`pos-card rounded-xl ${compact ? 'space-y-1 p-1.5' : 'space-y-3 p-4'}`}>
+          <label className="text-xs font-bold text-slate-400">Parte en efectivo</label>
+          <div className="flex gap-2">
+            <input
+              type="number"
+              inputMode={isTouchDevice ? 'none' : 'decimal'}
+              min="0"
+              step="0.01"
+              value={mixedCashAmount}
+              readOnly={isTouchDevice}
+              onPointerDown={(event) => {
+                if (!isTouchDevice) return;
+                event.preventDefault();
+                setShowNumericKeyboard(true);
+              }}
+              onFocus={() => {
+                if (isTouchDevice) setShowNumericKeyboard(true);
+              }}
+              onChange={(event) => setMixedCashAmount(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter' && isValidPayment && !disabled && !loading) {
+                  onProceedPayment(mixedCashValue, printReceipt);
+                }
+              }}
+              placeholder="0.00"
+              className={`min-w-0 flex-1 rounded-xl border-2 border-[#D4AF37]/30 bg-[#0B0E14]/55 px-3 text-center font-black text-white outline-none transition placeholder:text-[#8b97a8] focus:border-[#D4AF37] focus:bg-[#0B0E14]/72 ${compact ? 'py-1 text-sm' : 'py-2 text-lg'}`}
+            />
+            <button
+              type="button"
+              onClick={() => setShowNumericKeyboard(true)}
+              className={`rounded-xl border border-white/10 bg-white/10 font-black text-slate-200 transition hover:bg-white/15 ${compact ? 'px-2 text-xs' : 'px-3 text-sm'}`}
+            >
+              Teclado
+            </button>
+          </div>
+          <div className="rounded-xl border border-cyan-300/25 bg-cyan-400/10 p-3">
+            <div className="flex items-center justify-between gap-3 text-sm font-black text-cyan-100">
+              <span>Tarjeta</span>
+              <strong>{formatPriceWithCurrency(mixedCardAmount, currencyInfo.code, currencyInfo.locale)}</strong>
+            </div>
+            <p className="mt-1 text-xs font-semibold text-cyan-100/70">El resto se marca como tarjeta/datáfono.</p>
+          </div>
+        </div>
+      )}
+
       {/* Recibo */}
       <div className={`pos-card flex items-center justify-between gap-2 rounded-xl ${compact ? 'px-2 py-1' : 'px-3 py-2'}`}>
         <div className="flex min-w-0 items-center gap-1.5 text-xs font-black uppercase text-slate-400">
@@ -240,7 +319,10 @@ export function POSPayment({
       {/* Botón Pagar */}
       <div className={compact ? 'sticky bottom-0 z-10 -mx-2 bg-[#070b12]/96 px-2 pb-1 pt-1 backdrop-blur-xl' : ''}>
         <button
-          onClick={() => onProceedPayment(paymentMethod === 'cash' ? cashAmountForPayment : undefined, printReceipt)}
+          onClick={() => onProceedPayment(
+            paymentMethod === 'cash' ? cashAmountForPayment : paymentMethod === 'mixed' ? mixedCashValue : undefined,
+            printReceipt
+          )}
           disabled={disabled || loading || !isValidPayment}
           className={`w-full ${compact ? 'min-h-11 py-2 text-sm' : 'py-4 text-lg'} rounded-xl font-black transition border ${
             isValidPayment && !disabled && !loading
@@ -252,6 +334,8 @@ export function POSPayment({
             ? 'Procesando...'
             : paymentMethod === 'cash' && !amountPaid
               ? `PAGAR EXACTO ${formatPriceWithCurrency(totalWithTip, currencyInfo.code, currencyInfo.locale)}`
+              : paymentMethod === 'mixed'
+                ? `COBRAR MIXTO ${formatPriceWithCurrency(totalWithTip, currencyInfo.code, currencyInfo.locale)}`
               : `PAGAR ${formatPriceWithCurrency(totalWithTip, currencyInfo.code, currencyInfo.locale)}`}
         </button>
       </div>
@@ -263,8 +347,8 @@ export function POSPayment({
       {/* Teclado efectivo */}
       <NumericKeyboard
         isOpen={showNumericKeyboard}
-        title="Cantidad Recibida"
-        initialValue={amountPaid ? Number(amountPaid) : 0}
+        title={paymentMethod === 'mixed' ? 'Parte en efectivo' : 'Cantidad Recibida'}
+        initialValue={paymentMethod === 'mixed' ? (mixedCashAmount ? Number(mixedCashAmount) : 0) : (amountPaid ? Number(amountPaid) : 0)}
         onConfirm={handleConfirmPaymentAmount}
         onCancel={() => setShowNumericKeyboard(false)}
         allowDecimal={true}

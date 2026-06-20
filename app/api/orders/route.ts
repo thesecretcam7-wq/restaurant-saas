@@ -13,6 +13,37 @@ import { getRestaurantBusinessPeriod, getRestaurantLocale, getRestaurantTimeZone
 import { buildOrderItemRows } from '@/lib/order-item-routing'
 import { sendServiceReadyPushNotifications } from '@/lib/push-server'
 
+function normalizePaymentMethodValue(method: unknown) {
+  if (typeof method !== 'string') return null
+  const value = method.trim().toLowerCase()
+  if (value === 'tarjeta' || value === 'card') return 'stripe'
+  if (['cash', 'stripe', 'wompi', 'mixed'].includes(value)) return value
+  return null
+}
+
+function normalizePaymentBreakdown(value: unknown, orderTotal: number, paymentMethod: string | null) {
+  const total = Math.max(0, Number(orderTotal) || 0)
+  const rows = Array.isArray(value) ? value : []
+  const payments = rows
+    .map((payment: any) => ({
+      method: normalizePaymentMethodValue(payment?.method),
+      amount: Math.round((Number(payment?.amount) || 0) * 100) / 100,
+    }))
+    .filter((payment: { method: string | null; amount: number }): payment is { method: string; amount: number } =>
+      Boolean(payment.method) && payment.amount > 0
+    )
+
+  if (paymentMethod !== 'mixed') return null
+  if (payments.length < 2) return null
+
+  const paymentTotal = Math.round(payments.reduce((sum, payment) => sum + payment.amount, 0) * 100) / 100
+  if (Math.abs(paymentTotal - total) > 0.01) return null
+  if (!payments.some((payment) => payment.method === 'cash')) return null
+  if (!payments.some((payment) => payment.method !== 'cash')) return null
+
+  return payments
+}
+
 function parseOperationalCloseMinutes(value?: string | null) {
   if (!value || !/^\d{1,2}:\d{2}$/.test(value)) return 5 * 60
   const [hours, minutes] = value.split(':').map(Number)
@@ -133,7 +164,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { tenantId: tenantParam, tenantSlug, items, customerInfo, deliveryType, deliveryAddress, notes, paymentMethod, tableNumber, tableId, tableQrCode, waiterName, amountPaid, source, deliveryFee: requestedDeliveryFee, deliveryZoneId, businessDateMode } = body
+    const { tenantId: tenantParam, tenantSlug, items, customerInfo, deliveryType, deliveryAddress, notes, paymentMethod, paymentBreakdown, tableNumber, tableId, tableQrCode, waiterName, amountPaid, source, deliveryFee: requestedDeliveryFee, deliveryZoneId, businessDateMode } = body
 
     if (!tenantParam) {
       return NextResponse.json({ error: 'tenantId is required' }, { status: 400 })
@@ -189,7 +220,7 @@ export async function POST(request: NextRequest) {
     let normalizedCustomerInfo = customerInfo || {}
     let normalizedDeliveryType = deliveryType
     let normalizedDeliveryAddress = deliveryAddress || null
-    let normalizedPaymentMethod = paymentMethod ?? null
+    let normalizedPaymentMethod = normalizePaymentMethodValue(paymentMethod)
     let normalizedTableNumber = tableNumber || null
     let normalizedWaiterName = waiterName || null
     let normalizedNotes = notes || null
@@ -428,6 +459,11 @@ export async function POST(request: NextRequest) {
     const tax = totals.tax
     const deliveryFee = totals.deliveryFee
     const total = totals.total
+    const normalizedPaymentBreakdown = normalizePaymentBreakdown(paymentBreakdown, total, normalizedPaymentMethod)
+
+    if (normalizedPaymentMethod === 'mixed' && !normalizedPaymentBreakdown) {
+      return NextResponse.json({ error: 'El pago mixto debe incluir efectivo y tarjeta por el total exacto.' }, { status: 400 })
+    }
 
     const orderNumber = `ORD-${Date.now()}`
 
@@ -458,6 +494,7 @@ export async function POST(request: NextRequest) {
       delivery_fee: deliveryFee,
       total,
       payment_method: normalizedPaymentMethod,
+      payment_breakdown: normalizedPaymentBreakdown,
       payment_status: 'pending',
       delivery_type: normalizedDeliveryType,
       delivery_address: normalizedDeliveryAddress,
@@ -563,7 +600,7 @@ export async function POST(request: NextRequest) {
         total,
         deliveryType: normalizedDeliveryType,
         deliveryAddress: normalizedDeliveryAddress || undefined,
-        paymentMethod: normalizedPaymentMethod,
+        paymentMethod: normalizedPaymentMethod || '',
         notes: orderNotes || undefined,
       }).catch(e => console.error('[email] order confirmation:', e))
     }

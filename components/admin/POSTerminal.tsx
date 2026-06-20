@@ -13,6 +13,7 @@ import { Toast } from './Toast';
 import { POSOrderLookup } from './POSOrderLookup';
 import { saveCartToSupabase, loadCartFromSupabase, abandonCart, abandonCurrentCartSession, loadOrderToCart } from '@/lib/pos-cart-sync';
 import type { CashClosingStats } from '@/lib/cash-closing';
+import type { ReceiptData } from '@/types/printer';
 import { getCurrencyByCountry, formatPriceWithCurrency } from '@/lib/currency';
 import { printCashClosingReceipt, printKitchenTicket, printReceipt, savePrinterLog, openCashDrawer } from '@/lib/pos-printer';
 import { countPendingPOSOrders, isNetworkPaymentError, saveOfflinePOSOrder, syncOfflinePOSOrders } from '@/lib/offline/pos-sync';
@@ -41,7 +42,7 @@ interface Category {
 }
 
 type POSMode = 'simple' | 'table';
-type PaymentMethod = 'cash' | 'stripe';
+type PaymentMethod = 'cash' | 'stripe' | 'mixed';
 type CashClosingMode = 'current' | 'pending';
 
 declare global {
@@ -124,6 +125,10 @@ interface LoadedOrderContext {
   tableNumber?: number | null;
 }
 
+type LastSaleReceipt = ReceiptData & {
+  savedAt: string;
+};
+
 interface HeldPOSAccount {
   id: string;
   label: string;
@@ -167,6 +172,24 @@ function formatHeldAccountTime(createdAt: string, locale: string) {
   const date = new Date(createdAt);
   if (Number.isNaN(date.getTime())) return '';
   return date.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' });
+}
+
+function normalizePOSPaymentMethod(value: unknown): PaymentMethod {
+  return value === 'stripe' || value === 'mixed' ? value : 'cash';
+}
+
+function buildPaymentBreakdown(method: PaymentMethod, total: number, cashAmount?: number) {
+  const roundedTotal = Math.round((Number(total) || 0) * 100) / 100;
+  if (method !== 'mixed') return null;
+
+  const cash = Math.round((Number(cashAmount) || 0) * 100) / 100;
+  const card = Math.round((roundedTotal - cash) * 100) / 100;
+  if (cash <= 0 || card <= 0) return null;
+
+  return [
+    { method: 'cash', amount: cash },
+    { method: 'stripe', amount: card },
+  ];
 }
 
 async function fetchPendingCashClosingStats(tenantId: string): Promise<CashClosingStats | null> {
@@ -527,6 +550,7 @@ export function POSTerminal({
   const searchInputRef = useRef<HTMLInputElement>(null);
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('cash');
   const [printReceiptAfterPayment, setPrintReceiptAfterPayment] = useState(true);
+  const lastSaleReceiptRef = useRef<LastSaleReceipt | null>(null);
   const [discountCode, setDiscountCode] = useState('');
   const [discount, setDiscount] = useState(0);
   const [taxRate, setTaxRate] = useState(0);
@@ -588,6 +612,7 @@ export function POSTerminal({
   const [heldAccounts, setHeldAccounts] = useState<HeldPOSAccount[]>([]);
   const [showHeldAccountsPanel, setShowHeldAccountsPanel] = useState(false);
   const [mesasView, setMesasView] = useState<'list' | 'map'>('map');
+  const lastSaleReceiptStorageKey = `eccofood-pos-last-sale-receipt-${tenantId}`;
   const [allTables, setAllTables] = useState<RestaurantTable[]>([]);
   const [androidTapToPayAvailable, setAndroidTapToPayAvailable] = useState(false);
   const [orderNotification, setOrderNotification] = useState<{
@@ -600,6 +625,8 @@ export function POSTerminal({
   const knownDineInOrderIds = useRef(new Set<string>());
   const firstDineInFetchDone = useRef(false);
   const cashClosingRefreshInFlightRef = useRef(false);
+  const paymentInFlightRef = useRef(false);
+  const autoPrintedReceiptIdsRef = useRef(new Map<string, number>());
   const notificationTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const csrfTokenRef = useRef<string>('');
   const cartRestoredRef = useRef(false);
@@ -653,6 +680,98 @@ export function POSTerminal({
     if (loggedStaff.staffId && !selectedStaffId) setSelectedStaffId(loggedStaff.staffId);
     if (loggedStaff.staffName && !selectedStaffName) setSelectedStaffName(loggedStaff.staffName);
   }, [tenantId, selectedStaffId, selectedStaffName]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    try {
+      const storedReceipt = localStorage.getItem(lastSaleReceiptStorageKey);
+      const parsedReceipt = storedReceipt ? JSON.parse(storedReceipt) : null;
+      if (parsedReceipt?.orderId && Array.isArray(parsedReceipt.items)) {
+        lastSaleReceiptRef.current = parsedReceipt;
+      } else {
+        lastSaleReceiptRef.current = null;
+      }
+    } catch {
+      lastSaleReceiptRef.current = null;
+    }
+  }, [lastSaleReceiptStorageKey]);
+
+  const rememberLastSaleReceipt = useCallback((receipt: ReceiptData) => {
+    const nextReceipt: LastSaleReceipt = {
+      ...receipt,
+      openCashDrawer: false,
+      savedAt: new Date().toISOString(),
+    };
+
+    lastSaleReceiptRef.current = nextReceipt;
+
+    if (typeof window === 'undefined') return;
+    try {
+      localStorage.setItem(lastSaleReceiptStorageKey, JSON.stringify(nextReceipt));
+    } catch (error) {
+      console.warn('No se pudo guardar el ultimo recibo:', error);
+    }
+  }, [lastSaleReceiptStorageKey]);
+
+  const fetchReceiptPrinterSettings = useCallback(async () => {
+    const printerSettingsKey = `eccofood-pos-printer-settings-${tenantId}`;
+    let cachedSettings: any = null;
+
+    if (typeof window !== 'undefined') {
+      try {
+        const storedSettings = localStorage.getItem(printerSettingsKey);
+        cachedSettings = storedSettings ? JSON.parse(storedSettings) : null;
+      } catch {
+        cachedSettings = null;
+      }
+    }
+
+    if (cachedSettings?.default_receipt_printer_id) return cachedSettings;
+
+    const result = await supabase
+      .from('restaurant_settings')
+      .select('default_receipt_printer_id, kitchen_printer_id, printer_auto_print, display_name, phone')
+      .eq('tenant_id', tenantId)
+      .maybeSingle();
+
+    if (result.error) throw new Error(result.error.message);
+    if (result.data?.default_receipt_printer_id && typeof window !== 'undefined') {
+      localStorage.setItem(printerSettingsKey, JSON.stringify(result.data));
+    }
+
+    return result.data;
+  }, [supabase, tenantId]);
+
+  const reprintLastSaleReceipt = useCallback(async () => {
+    const receipt = lastSaleReceiptRef.current;
+    if (!receipt) {
+      setToast({ message: 'Todavia no hay un ultimo recibo para imprimir', type: 'error' });
+      return;
+    }
+
+    try {
+      const settings = await fetchReceiptPrinterSettings();
+      if (!settings?.default_receipt_printer_id) {
+        setToast({ message: 'No hay impresora de recibos configurada', type: 'error' });
+        return;
+      }
+
+      await printReceipt(tenantId, settings.default_receipt_printer_id, {
+        ...receipt,
+        restaurantName: receipt.restaurantName || settings.display_name || restaurantName,
+        restaurantPhone: receipt.restaurantPhone ?? settings.phone ?? restaurantPhone,
+        openCashDrawer: false,
+      });
+
+      setToast({ message: `Recibo ${receipt.orderNumber || 'POS'} reimpreso`, type: 'success' });
+    } catch (error) {
+      setToast({
+        message: `No se pudo reimprimir el recibo: ${error instanceof Error ? error.message : String(error)}`,
+        type: 'error',
+      });
+    }
+  }, [fetchReceiptPrinterSettings, restaurantName, restaurantPhone, tenantId]);
 
   const refreshPendingCashClosing = useCallback(async () => {
     try {
@@ -1178,10 +1297,7 @@ export function POSTerminal({
   async function handleOrderSelected(order: any) {
     try {
       const isPaidReceipt = order.payment_status === 'paid';
-      const normalizedPaymentMethod: PaymentMethod =
-        order.payment_method === 'stripe' || order.payment_method === 'card' || order.payment_method === 'tarjeta'
-          ? 'stripe'
-          : 'cash';
+      const normalizedPaymentMethod = normalizePOSPaymentMethod(order.payment_method);
       // Convert order items to cart items
       const cartItems = (order.items || []).map((item: any, index: number) => ({
         menu_item_id: item.menu_item_id || item.item_id || item.id || `order-item-${order.id}-${index}`,
@@ -1417,7 +1533,7 @@ export function POSTerminal({
       setCart(supabaseCart.items);
       setDiscount(supabaseCart.discount);
       setDiscountCode(supabaseCart.discountCode);
-      setPaymentMethod(supabaseCart.paymentMethod);
+      setPaymentMethod(normalizePOSPaymentMethod(supabaseCart.paymentMethod));
       setPosMode(supabaseCart.posMode);
       const loggedStaff = getLoggedStaffFromBrowser(tenantId);
       setSelectedStaffId(loggedStaff.staffId || supabaseCart.selectedStaffId);
@@ -1858,9 +1974,7 @@ export function POSTerminal({
         );
         if (data.settings.display_name) setRestaurantName(data.settings.display_name);
         if (data.settings.phone) setRestaurantPhone(data.settings.phone);
-        if (typeof data.settings.printer_auto_print === 'boolean') {
-          setPrintReceiptAfterPayment(data.settings.printer_auto_print);
-        }
+        setPrintReceiptAfterPayment(true);
       }
     } catch (error) {
       console.error('Error fetching menu:', error);
@@ -2061,7 +2175,7 @@ export function POSTerminal({
     setDiscount(Number(account.discount || 0));
     setDiscountCode(account.discountCode || '');
     setTip(Number(account.tip || 0));
-    setPaymentMethod(account.paymentMethod === 'stripe' ? 'stripe' : 'cash');
+    setPaymentMethod(normalizePOSPaymentMethod(account.paymentMethod));
     setPosMode(account.posMode === 'table' ? 'table' : 'simple');
     setPosOrderType(nextOrderType);
     setSelectedTableId(account.selectedTableId || null);
@@ -2142,6 +2256,10 @@ export function POSTerminal({
   }
 
   function handleShowReceipt(amountPaid?: number, printReceipt = printReceiptAfterPayment) {
+    if (paymentInFlightRef.current || processingPayment) {
+      return;
+    }
+
     if (cart.length === 0) {
       setToast({ message: 'El carrito está vacío', type: 'error' });
       return;
@@ -2259,6 +2377,10 @@ export function POSTerminal({
   }
 
   async function processPaymentAfterReceipt(amountPaid?: number, printCustomerReceipt = printReceiptAfterPayment) {
+    if (paymentInFlightRef.current) return;
+    paymentInFlightRef.current = true;
+    let releasePaymentLockDelay = 0;
+
     try {
       setProcessingPayment(true);
       let receiptOrderId: string | null = null;
@@ -2272,7 +2394,7 @@ export function POSTerminal({
       let receiptDeliveryType = selectedTableId ? 'dine-in' : posOrderType;
       let receiptTableNumber: number | undefined = selectedTableNumber || undefined;
       let receiptPaymentMethod: PaymentMethod = paymentMethod;
-      let shouldOpenCashDrawer = paymentMethod === 'cash';
+      let shouldOpenCashDrawer = paymentMethod === 'cash' || paymentMethod === 'mixed';
       let editedPaidReceipt = false;
 
       if (loadedOrderId) {
@@ -2295,7 +2417,7 @@ export function POSTerminal({
         const wasPaidReceipt = loadedOrderContext?.paymentStatus === 'paid';
         editedPaidReceipt = wasPaidReceipt;
         receiptPaymentMethod = paymentMethod;
-        shouldOpenCashDrawer = !wasPaidReceipt && receiptPaymentMethod === 'cash';
+        shouldOpenCashDrawer = !wasPaidReceipt && (receiptPaymentMethod === 'cash' || receiptPaymentMethod === 'mixed');
 
         receiptSubtotal = subtotal;
         receiptTax = loadedTax;
@@ -2303,6 +2425,7 @@ export function POSTerminal({
         receiptTotal = loadedTotal;
         receiptDeliveryType = loadedOrderContext?.deliveryType || receiptDeliveryType;
         receiptTableNumber = loadedOrderContext?.tableNumber ?? receiptTableNumber;
+        const loadedPaymentBreakdown = buildPaymentBreakdown(receiptPaymentMethod, loadedTotal, amountPaid);
 
         // Existing orders can be charged or edited from the same cart.
         const response = await fetch(`/api/orders/${loadedOrderId}`, {
@@ -2319,6 +2442,7 @@ export function POSTerminal({
             payment_status: 'paid',
             status: wasPaidReceipt ? (loadedOrderContext?.status || undefined) : 'confirmed',
             payment_method: receiptPaymentMethod,
+            payment_breakdown: loadedPaymentBreakdown,
             edit_reason: wasPaidReceipt
               ? (selectedStaffName ? `Recibo editado desde TPV por ${selectedStaffName}` : 'Recibo editado desde TPV')
               : (selectedStaffName ? `Pedido cobrado desde TPV por ${selectedStaffName}` : 'Pedido cobrado desde TPV'),
@@ -2346,7 +2470,24 @@ export function POSTerminal({
         // Billing existing table orders — mark as paid, no new order created.
         // Kitchen progress is independent: paying must not remove pending items from KDS.
         const paidTableOrderIds = [...billingOrderIds];
-        for (const orderId of billingOrderIds) {
+        const paidTableOrders = paidTableOrderIds
+          .map((orderId) => dineInOrders.find((order) => order.id === orderId))
+          .filter((order): order is DineInOrder => Boolean(order));
+        const tableCashTotal = paymentMethod === 'mixed'
+          ? Math.round((Number(amountPaid) || 0) * 100) / 100
+          : 0;
+        let remainingTableCash = tableCashTotal;
+
+        for (let index = 0; index < billingOrderIds.length; index++) {
+          const orderId = billingOrderIds[index];
+          const tableOrder = paidTableOrders.find((order) => order.id === orderId);
+          const orderTotal = Number(tableOrder?.total || 0);
+          const isLastOrder = index === billingOrderIds.length - 1;
+          const orderCash = paymentMethod === 'mixed'
+            ? Math.min(orderTotal, isLastOrder ? remainingTableCash : Math.round((tableCashTotal * (orderTotal / Math.max(1, receiptTotal))) * 100) / 100)
+            : 0;
+          remainingTableCash = Math.round((remainingTableCash - orderCash) * 100) / 100;
+
           const paidResponse = await fetch(`/api/orders/${orderId}`, {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
@@ -2355,6 +2496,9 @@ export function POSTerminal({
               tenantId,
               payment_status: 'paid',
               payment_method: paymentMethod,
+              payment_breakdown: paymentMethod === 'mixed'
+                ? buildPaymentBreakdown(paymentMethod, orderTotal, orderCash)
+                : null,
             }),
           });
 
@@ -2388,6 +2532,7 @@ export function POSTerminal({
           },
           items: formattedItems,
           paymentMethod,
+          paymentBreakdown: buildPaymentBreakdown(paymentMethod, total, amountPaid),
           deliveryType: selectedTableId ? 'dine-in' : posOrderType,
           deliveryAddress: posOrderType === 'delivery'
             ? `Pedido telefonico desde TPV${selectedDeliveryZone?.name ? ` - ${selectedDeliveryZone.name}` : ''}`
@@ -2399,7 +2544,7 @@ export function POSTerminal({
           tableNumber: selectedTableNumber || null,
           tip: tip > 0 ? tip : null,
           notes: discount > 0 ? `Descuento: $${discount.toFixed(2)}` : null,
-          amountPaid: paymentMethod === 'cash' ? amountPaid : null,
+          amountPaid: paymentMethod === 'cash' || paymentMethod === 'mixed' ? amountPaid : null,
           source: 'pos',
           businessDateMode: registerInPreviousPeriod ? 'previous_open_period' : undefined,
         };
@@ -2411,6 +2556,9 @@ export function POSTerminal({
 
           if (paymentMethod === 'stripe') {
             throw new Error('Stripe necesita internet. Para cobrar sin internet usa efectivo o datafono externo y marca la venta en caja.');
+          }
+          if (paymentMethod === 'mixed') {
+            throw new Error('El pago mixto necesita internet para quedar dividido correctamente en el cierre.');
           }
 
           const offlineOrder = await saveOfflinePOSOrder({
@@ -2467,6 +2615,7 @@ export function POSTerminal({
                   payment_status: 'paid',
                   status: 'confirmed',
                   payment_method: paymentMethod,
+                  payment_breakdown: orderPayload.paymentBreakdown,
                 }),
               });
 
@@ -2499,15 +2648,42 @@ export function POSTerminal({
         deliveryFee: receiptDeliveryFee,
         total: receiptTotal,
         amountPaid: shouldOpenCashDrawer && !editedPaidReceipt ? amountPaid : undefined,
-        change: shouldOpenCashDrawer && !editedPaidReceipt ? (amountPaid || 0) - receiptTotal : 0,
+        change: receiptPaymentMethod === 'cash' && shouldOpenCashDrawer && !editedPaidReceipt ? (amountPaid || 0) - receiptTotal : 0,
         currencyInfo,
         waiterName: selectedStaffName || undefined,
         tableNumber: receiptTableNumber,
         paymentMethod: receiptPaymentMethod,
+        paymentBreakdown: buildPaymentBreakdown(receiptPaymentMethod, receiptTotal, amountPaid) || undefined,
         openCashDrawer: shouldOpenCashDrawer,
         deliveryType: receiptDeliveryType,
         notes: discount > 0 ? `Descuento: $${discount.toFixed(2)}` : null,
       };
+
+      if (receiptSnapshot.orderId) {
+        rememberLastSaleReceipt({
+          orderId: receiptSnapshot.orderId,
+          orderNumber: receiptSnapshot.orderNumber,
+          restaurantName,
+          restaurantPhone,
+          items: receiptSnapshot.items,
+          subtotal: receiptSnapshot.subtotal,
+          discount: receiptSnapshot.discount,
+          tax: receiptSnapshot.tax,
+          taxRate: receiptSnapshot.taxRate,
+          deliveryFee: receiptSnapshot.deliveryFee,
+          total: receiptSnapshot.total,
+          amountPaid: receiptSnapshot.amountPaid,
+          change: receiptSnapshot.change,
+          paymentMethod: receiptSnapshot.paymentMethod,
+          paymentBreakdown: receiptSnapshot.paymentBreakdown,
+          currencyInfo: receiptSnapshot.currencyInfo,
+          timestamp: new Date().toISOString(),
+          waiterName: receiptSnapshot.waiterName,
+          tableNumber: receiptSnapshot.tableNumber,
+          notes: receiptSnapshot.notes,
+          openCashDrawer: false,
+        });
+      }
 
       const printInBackground = async () => {
         const backgroundWarnings: string[] = [];
@@ -2556,6 +2732,17 @@ export function POSTerminal({
             backgroundWarnings.push('No hay impresora predeterminada');
           } else if (receiptSnapshot.orderId) {
             try {
+              const now = Date.now();
+              for (const [orderId, printedAt] of autoPrintedReceiptIdsRef.current.entries()) {
+                if (now - printedAt > 30000) autoPrintedReceiptIdsRef.current.delete(orderId);
+              }
+
+              const lastPrintedAt = autoPrintedReceiptIdsRef.current.get(receiptSnapshot.orderId);
+              if (lastPrintedAt && now - lastPrintedAt < 10000) {
+                return;
+              }
+              autoPrintedReceiptIdsRef.current.set(receiptSnapshot.orderId, now);
+
               await printReceipt(tenantId, settings.default_receipt_printer_id, {
                 orderId: receiptSnapshot.orderId,
                 orderNumber: receiptSnapshot.orderNumber,
@@ -2571,6 +2758,7 @@ export function POSTerminal({
                 amountPaid: receiptSnapshot.amountPaid,
                 change: receiptSnapshot.change,
                 paymentMethod: receiptSnapshot.paymentMethod,
+                paymentBreakdown: receiptSnapshot.paymentBreakdown,
                 currencyInfo: receiptSnapshot.currencyInfo,
                 waiterName: receiptSnapshot.waiterName,
                 tableNumber: receiptSnapshot.tableNumber,
@@ -2623,6 +2811,7 @@ export function POSTerminal({
       setLoadedOrderId(null);
       setLoadedOrderContext(null);
       setPaymentMethod('cash');
+      setPrintReceiptAfterPayment(true);
       setSelectedCategory(categories[0]?.id ?? null);
       setSearchQuery('');
       setSelectedTableId(null);
@@ -2652,6 +2841,7 @@ export function POSTerminal({
             : (shouldOpenCashDrawer ? 'Venta guardada. Abriendo cajon...' : 'Venta guardada sin imprimir recibo.'),
         type: 'success',
       });
+      releasePaymentLockDelay = 750;
     } catch (error) {
       console.error('Error processing payment:', error);
       setToast({
@@ -2660,6 +2850,9 @@ export function POSTerminal({
       });
     } finally {
       setProcessingPayment(false);
+      window.setTimeout(() => {
+        paymentInFlightRef.current = false;
+      }, releasePaymentLockDelay);
     }
   }
 
@@ -2799,11 +2992,7 @@ export function POSTerminal({
 
       if (event.key === 'F9') {
         event.preventDefault();
-        if (paymentMethod === 'stripe') {
-          handleShowReceipt();
-        } else {
-          setToast({ message: 'Escribe el dinero recibido y presiona Enter para cobrar.', type: 'error' });
-        }
+        void reprintLastSaleReceipt();
         return;
       }
 
@@ -2835,7 +3024,7 @@ export function POSTerminal({
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [categories, selectedCategory, cart, paymentMethod, handleShowReceipt, openProductSearch, savedAccountButtonDisabled, handleSavedAccountButton]);
+  }, [categories, selectedCategory, cart, paymentMethod, handleShowReceipt, openProductSearch, reprintLastSaleReceipt, savedAccountButtonDisabled, handleSavedAccountButton]);
 
   const nextReservationTime = todayReservations[0]?.reservation_time?.slice(0, 5) || null;
   const compactPOSLayout = true;

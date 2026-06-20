@@ -6,6 +6,10 @@ Eccofood Print Agent permite que el TPV imprima tickets directamente en la
 impresora de Windows y abra el cajon monedero sin mostrar la vista previa del
 navegador.
 
+Desde la version 1.2 el agente recibe el ticket y lo deja en una cola local.
+Asi Eccofood puede terminar la venta de inmediato, aunque Windows o la
+impresora tarden unos segundos en sacar el papel.
+
 Debe instalarse SOLO en el computador donde estan conectados:
 - La impresora de tickets
 - El cajon monedero
@@ -36,6 +40,7 @@ COMPROBAR QUE FUNCIONA
 Opcion facil:
 1. Ejecuta Estado-EccofoodPrint.bat.
 2. Debe decir "Activo" y mostrar la impresora predeterminada.
+3. Si hay trabajos pendientes, se imprimiran en orden desde la cola local.
 
 Opcion desde navegador:
 1. Abre Chrome, Edge o Firefox en el mismo computador de la impresora.

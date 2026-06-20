@@ -47,7 +47,7 @@ const getSupabase = () => {
   return _supabase;
 };
 
-const LOCAL_BRIDGE_PRINT_TIMEOUT_MS = 3000;
+const LOCAL_BRIDGE_PRINT_TIMEOUT_MS = 1200;
 const LOCAL_BRIDGE_DEFAULT_URLS = ['http://127.0.0.1:17777', 'http://localhost:17777'];
 const LOCAL_BRIDGE_URL_CACHE_KEY = 'eccofood-local-print-bridge-url';
 let lastWorkingBridgeUrl: string | null = null;
@@ -858,6 +858,11 @@ function generateReceiptHTML(data: ReceiptData): string {
       .replaceAll('>', '&gt;')
       .replaceAll('"', '&quot;')
       .replaceAll("'", '&#39;');
+  const paymentBreakdownRows = data.paymentBreakdown?.length
+    ? data.paymentBreakdown.map((payment) =>
+        `<div class="cash-row"><span>${safe(getPaymentMethodLabel(payment.method))}</span><strong>${money(payment.amount)}</strong></div>`
+      ).join('')
+    : '';
   const ticketLine = (name: string, value: string, className = '') =>
     `<div class="ticket-line ${className}">
       <span class="line-name">${safe(name).toUpperCase()}</span>
@@ -1094,10 +1099,10 @@ function generateReceiptHTML(data: ReceiptData): string {
         ${paymentLabel ? `<div class="sale-type">VENTA ${safe(paymentLabel).toUpperCase()}</div>` : ''}
       </div>
       ${
-        data.amountPaid !== undefined
+        paymentBreakdownRows || data.amountPaid !== undefined
           ? `<div class="payment">
-        <div class="cash-row"><span>Recibido:</span><strong>${money(data.amountPaid)}</strong></div>
-        <div class="cash-row"><span>Cambio:</span><strong>${money(data.change)}</strong></div>
+        ${paymentBreakdownRows || `<div class="cash-row"><span>Recibido:</span><strong>${money(Number(data.amountPaid) || 0)}</strong></div>
+        <div class="cash-row"><span>Cambio:</span><strong>${money(data.change)}</strong></div>`}
       </div>`
           : ''
       }
@@ -1116,6 +1121,8 @@ function generateReceiptHTML(data: ReceiptData): string {
 function getPaymentMethodLabel(method?: string | null): string {
   if (method === 'cash') return 'Efectivo';
   if (method === 'stripe' || method === 'card') return 'Tarjeta';
+  if (method === 'mixed') return 'Mixta';
+  if (method === 'wompi') return 'Wompi';
   return method ? method : '';
 }
 

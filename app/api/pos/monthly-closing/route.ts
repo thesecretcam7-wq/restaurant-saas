@@ -96,6 +96,7 @@ function paymentMethodLabel(method: string) {
   if (method === 'cash') return 'Efectivo';
   if (method === 'stripe' || method === 'card') return 'Tarjeta';
   if (method === 'wompi') return 'Wompi';
+  if (method === 'mixed') return 'Mixto';
   return method || 'Otro';
 }
 
@@ -116,6 +117,21 @@ function isCancelledOrder(order: any) {
 
 function isPaidOrder(order: any) {
   return normalizeStatus(order?.payment_status) === 'paid';
+}
+
+function paymentRowsForOrder(order: any) {
+  const total = Number(order?.total) || 0;
+  const rows = Array.isArray(order?.payment_breakdown) ? order.payment_breakdown : [];
+  const payments = rows
+    .map((payment: any) => ({
+      method: String(payment?.method || '').trim().toLowerCase(),
+      amount: Number(payment?.amount) || 0,
+    }))
+    .filter((payment: { method: string; amount: number }) => payment.method && payment.amount > 0);
+
+  if (payments.length > 0) return payments;
+  if (!order?.payment_method || total <= 0) return [];
+  return [{ method: String(order.payment_method).trim().toLowerCase(), amount: total }];
 }
 
 function statsFromOrders(args: {
@@ -193,13 +209,15 @@ function statsFromOrders(args: {
     const paymentMethod = String(order.payment_method || 'other');
     const orderType = String(order.delivery_type || 'takeaway');
 
-    if (paymentMethod === 'cash') {
-      stats.cashSales += total;
-    } else if (paymentMethod === 'stripe' || paymentMethod === 'card' || paymentMethod === 'wompi') {
-      stats.cardSales += total;
-    } else {
-      stats.otherSales += total;
-    }
+    paymentRowsForOrder(order).forEach((payment: { method: string; amount: number }) => {
+      if (payment.method === 'cash') {
+        stats.cashSales += payment.amount;
+      } else if (payment.method === 'stripe' || payment.method === 'card' || payment.method === 'wompi') {
+        stats.cardSales += payment.amount;
+      } else {
+        stats.otherSales += payment.amount;
+      }
+    });
 
     stats.totalSales += total;
     stats.totalTax += tax;
@@ -210,15 +228,17 @@ function statsFromOrders(args: {
       stats.deliveryOrderCount++;
     }
 
-    const paymentSummary = paymentBreakdownMap.get(paymentMethod) || {
-      method: paymentMethod,
-      label: paymentMethodLabel(paymentMethod),
-      count: 0,
-      total: 0,
-    };
-    paymentSummary.count += 1;
-    paymentSummary.total += total;
-    paymentBreakdownMap.set(paymentMethod, paymentSummary);
+    paymentRowsForOrder(order).forEach((payment: { method: string; amount: number }) => {
+      const paymentSummary = paymentBreakdownMap.get(payment.method) || {
+        method: payment.method,
+        label: paymentMethodLabel(payment.method),
+        count: 0,
+        total: 0,
+      };
+      paymentSummary.count += 1;
+      paymentSummary.total += payment.amount;
+      paymentBreakdownMap.set(payment.method, paymentSummary);
+    });
 
     const orderTypeSummary = orderTypeBreakdownMap.get(orderType) || {
       type: orderType,

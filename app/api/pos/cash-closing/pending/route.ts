@@ -142,6 +142,21 @@ function statsFromOrders(period: CashClosingPeriod, orders: any[] = []) {
     String(order?.payment_status || '').trim().toLowerCase() === 'paid'
   );
 
+  const paymentRowsForOrder = (order: any) => {
+    const total = Number(order?.total) || 0;
+    const rows = Array.isArray(order?.payment_breakdown) ? order.payment_breakdown : [];
+    const payments = rows
+      .map((payment: any) => ({
+        method: String(payment?.method || '').trim().toLowerCase(),
+        amount: Number(payment?.amount) || 0,
+      }))
+      .filter((payment: { method: string; amount: number }) => payment.method && payment.amount > 0);
+
+    if (payments.length > 0) return payments;
+    if (!order?.payment_method || total <= 0) return [];
+    return [{ method: String(order.payment_method).trim().toLowerCase(), amount: total }];
+  };
+
   const stats = {
     cashSales: 0,
     cardSales: 0,
@@ -159,6 +174,7 @@ function statsFromOrders(period: CashClosingPeriod, orders: any[] = []) {
       order_number: order.order_number,
       total: Number(order.total) || 0,
       payment_method: order.payment_method,
+      payment_breakdown: Array.isArray(order.payment_breakdown) ? order.payment_breakdown : null,
       created_at: order.created_at,
     })),
     ...period,
@@ -176,13 +192,15 @@ function statsFromOrders(period: CashClosingPeriod, orders: any[] = []) {
     const discount = Number(order.discount_amount) || 0;
     const deliveryFee = Number(order.delivery_fee) || 0;
 
-    if (order.payment_method === 'cash') {
-      stats.cashSales += total;
-  } else if (order.payment_method === 'stripe' || order.payment_method === 'card' || order.payment_method === 'wompi') {
-      stats.cardSales += total;
-    } else {
-      stats.otherSales += total;
-    }
+    paymentRowsForOrder(order).forEach((payment: { method: string; amount: number }) => {
+      if (payment.method === 'cash') {
+        stats.cashSales += payment.amount;
+      } else if (payment.method === 'stripe' || payment.method === 'card' || payment.method === 'wompi') {
+        stats.cardSales += payment.amount;
+      } else {
+        stats.otherSales += payment.amount;
+      }
+    });
 
     stats.totalSales += total;
     stats.totalDeliveryFees += deliveryFee;
@@ -227,7 +245,7 @@ export async function GET(request: NextRequest) {
     const [ordersRes, closedItemsRes] = await Promise.all([
       supabase
         .from('orders')
-        .select('id, order_number, total, tax, delivery_fee, delivery_type, payment_method, payment_status, status, created_at')
+        .select('id, order_number, total, tax, delivery_fee, delivery_type, payment_method, payment_breakdown, payment_status, status, created_at')
         .eq('tenant_id', tenantId)
         .lte('created_at', closingMoment.toISOString())
         .neq('payment_method', null)

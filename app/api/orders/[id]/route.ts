@@ -22,8 +22,31 @@ function normalizePaymentMethod(method: unknown) {
   if (typeof method !== 'string') return null
   const value = method.trim().toLowerCase()
   if (value === 'tarjeta' || value === 'card') return 'stripe'
-  if (value === 'cash' || value === 'stripe' || value === 'wompi') return value
+  if (value === 'cash' || value === 'stripe' || value === 'wompi' || value === 'mixed') return value
   return null
+}
+
+function normalizePaymentBreakdown(value: unknown, orderTotal: number, paymentMethod: string | null) {
+  const total = Math.max(0, Number(orderTotal) || 0)
+  const rows = Array.isArray(value) ? value : []
+  const payments = rows
+    .map((payment: any) => ({
+      method: normalizePaymentMethod(payment?.method),
+      amount: Math.round((Number(payment?.amount) || 0) * 100) / 100,
+    }))
+    .filter((payment: { method: string | null; amount: number }): payment is { method: string; amount: number } =>
+      Boolean(payment.method) && payment.amount > 0
+    )
+
+  if (paymentMethod !== 'mixed') return null
+  if (payments.length < 2) return null
+
+  const paymentTotal = Math.round(payments.reduce((sum, payment) => sum + payment.amount, 0) * 100) / 100
+  if (Math.abs(paymentTotal - total) > 0.01) return null
+  if (!payments.some((payment) => payment.method === 'cash')) return null
+  if (!payments.some((payment) => payment.method !== 'cash')) return null
+
+  return payments
 }
 
 function getPaymentMethodLabel(method: string | null | undefined) {
@@ -34,6 +57,8 @@ function getPaymentMethodLabel(method: string | null | undefined) {
       return 'Tarjeta'
     case 'wompi':
       return 'Wompi'
+    case 'mixed':
+      return 'Mixto'
     default:
       return method || 'Sin metodo'
   }
@@ -138,15 +163,17 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     const orderId = id
     const body = await request.json()
     const { status, payment_status, payment_method, payment_method_reason, cancel_reason, items, subtotal, tax, delivery_fee, total, edit_reason } = body
+    const requestedPaymentBreakdown = body.payment_breakdown ?? body.paymentBreakdown
     const hasPaymentMethod = Object.prototype.hasOwnProperty.call(body, 'payment_method')
+    const hasPaymentBreakdown = Object.prototype.hasOwnProperty.call(body, 'payment_breakdown') || Object.prototype.hasOwnProperty.call(body, 'paymentBreakdown')
     const normalizedPaymentMethod = hasPaymentMethod ? normalizePaymentMethod(payment_method) : null
 
     if (!orderId) {
       return NextResponse.json({ error: 'Order ID is required' }, { status: 400 })
     }
 
-    if (!status && !payment_status && !hasPaymentMethod && !Array.isArray(items)) {
-      return NextResponse.json({ error: 'Status, payment_status, payment_method or items is required' }, { status: 400 })
+    if (!status && !payment_status && !hasPaymentMethod && !hasPaymentBreakdown && !Array.isArray(items)) {
+      return NextResponse.json({ error: 'Status, payment_status, payment_method, payment_breakdown or items is required' }, { status: 400 })
     }
 
     if (hasPaymentMethod && !normalizedPaymentMethod) {
@@ -157,7 +184,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
 
     const { data: existingOrder, error: existingError } = await supabase
       .from('orders')
-      .select('id, tenant_id, order_number, status, payment_status, payment_method, total, notes, items')
+      .select('id, tenant_id, order_number, status, payment_status, payment_method, payment_breakdown, total, notes, items')
       .eq('id', orderId)
       .single()
 
@@ -180,6 +207,14 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     if (status) updateData.status = status
     if (payment_status) updateData.payment_status = payment_status
     if (hasPaymentMethod) updateData.payment_method = normalizedPaymentMethod
+    if (hasPaymentBreakdown) {
+      const paymentTotal = Number(total ?? existingOrder.total) || 0
+      const breakdown = normalizePaymentBreakdown(requestedPaymentBreakdown, paymentTotal, normalizedPaymentMethod || existingOrder.payment_method)
+      if ((normalizedPaymentMethod || existingOrder.payment_method) === 'mixed' && !breakdown) {
+        return NextResponse.json({ error: 'El pago mixto debe incluir efectivo y tarjeta por el total exacto.' }, { status: 400 })
+      }
+      updateData.payment_breakdown = breakdown
+    }
     if (Array.isArray(items)) {
       const sanitizedItems = items
         .map((item: any) => ({

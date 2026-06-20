@@ -4,7 +4,7 @@ param(
 
 $ErrorActionPreference = "Stop"
 
-$AgentVersion = "1.1.4"
+$AgentVersion = "1.2.0"
 $PrinterCacheTtlSeconds = 300
 $script:DefaultPrinterCache = $null
 $script:DefaultPrinterCacheAt = [datetime]::MinValue
@@ -14,7 +14,10 @@ $script:StartedAt = Get-Date
 
 Add-Type -TypeDefinition @"
 using System;
+using System.Collections.Concurrent;
+using System.IO;
 using System.Runtime.InteropServices;
+using System.Threading;
 
 public class RawPrinterHelper
 {
@@ -75,6 +78,74 @@ public class RawPrinterHelper
       ClosePrinter(hPrinter);
     }
     return ok;
+  }
+}
+
+public class EccofoodPrintJob
+{
+  public string Id;
+  public string PrinterName;
+  public byte[] Bytes;
+}
+
+public static class EccofoodPrintQueue
+{
+  private static readonly BlockingCollection<EccofoodPrintJob> Queue = new BlockingCollection<EccofoodPrintJob>();
+  private static readonly Thread Worker;
+
+  static EccofoodPrintQueue()
+  {
+    Worker = new Thread(ProcessQueue);
+    Worker.IsBackground = true;
+    Worker.Name = "EccofoodPrintQueue";
+    Worker.Start();
+  }
+
+  public static string Enqueue(string printerName, byte[] bytes)
+  {
+    string id = Guid.NewGuid().ToString("N");
+    Queue.Add(new EccofoodPrintJob { Id = id, PrinterName = printerName, Bytes = bytes });
+    Log("Trabajo encolado " + id + " para " + printerName + " (" + bytes.Length + " bytes)");
+    return id;
+  }
+
+  public static int Count()
+  {
+    return Queue.Count;
+  }
+
+  private static void ProcessQueue()
+  {
+    foreach (EccofoodPrintJob job in Queue.GetConsumingEnumerable())
+    {
+      try
+      {
+        bool ok = RawPrinterHelper.SendBytesToPrinter(job.PrinterName, job.Bytes);
+        if (ok)
+        {
+          Log("Trabajo impreso " + job.Id + " en " + job.PrinterName + " (" + job.Bytes.Length + " bytes)");
+        }
+        else
+        {
+          Log("Windows rechazo trabajo " + job.Id + " en " + job.PrinterName);
+        }
+      }
+      catch (Exception ex)
+      {
+        Log("Error imprimiendo trabajo " + job.Id + ": " + ex.Message);
+      }
+    }
+  }
+
+  private static void Log(string message)
+  {
+    try
+    {
+      string dir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData), "EccofoodPrint");
+      Directory.CreateDirectory(dir);
+      File.AppendAllText(Path.Combine(dir, "agent.log"), "[" + DateTime.Now.ToString("s") + "] " + message + Environment.NewLine);
+    }
+    catch {}
   }
 }
 "@
@@ -202,8 +273,17 @@ while ($listener.IsListening) {
         app = "Eccofood Print Agent"
         version = $AgentVersion
         defaultPrinter = Get-DefaultPrinterName
+        queuedJobs = [EccofoodPrintQueue]::Count()
         pid = $PID
         uptimeSeconds = [int]((Get-Date) - $script:StartedAt).TotalSeconds
+      }
+      continue
+    }
+
+    if ($path -eq "/queue") {
+      Send-Json $context 200 @{
+        ok = $true
+        queuedJobs = [EccofoodPrintQueue]::Count()
       }
       continue
     }
@@ -233,14 +313,14 @@ while ($listener.IsListening) {
     }
 
     $bytes = [Convert]::FromBase64String([string]$payload.dataBase64)
-    $ok = [RawPrinterHelper]::SendBytesToPrinter($printerName, $bytes)
+    $jobId = [EccofoodPrintQueue]::Enqueue($printerName, $bytes)
 
-    if ($ok) {
-      Write-AgentLog "Impresion enviada a $printerName ($($bytes.Length) bytes)"
-      Send-Json $context 200 @{ ok = $true; printerName = $printerName }
-    } else {
-      Write-AgentLog "Windows rechazo impresion en $printerName"
-      Send-Json $context 500 @{ ok = $false; error = "Windows no acepto el trabajo de impresion"; printerName = $printerName }
+    Send-Json $context 202 @{
+      ok = $true
+      queued = $true
+      jobId = $jobId
+      printerName = $printerName
+      queuedJobs = [EccofoodPrintQueue]::Count()
     }
   } catch {
     Write-AgentLog "Error: $($_.Exception.Message)"

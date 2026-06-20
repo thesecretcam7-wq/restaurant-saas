@@ -11,7 +11,7 @@ interface CartData {
   }>;
   discount: number;
   discountCode: string;
-  paymentMethod: 'cash' | 'stripe';
+  paymentMethod: 'cash' | 'stripe' | 'mixed';
   posMode: 'simple' | 'table';
   selectedStaffId: string | null;
   selectedStaffName: string;
