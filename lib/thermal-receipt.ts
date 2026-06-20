@@ -130,6 +130,7 @@ export function generateReceiptESCPOS(data: ReceiptData, options: ReceiptOptions
   pairRow('Fecha:', receiptDate, 'Hora:', receiptTime);
   if (data.waiterName) row('Atendido Por:', data.waiterName);
 
+  sep();
   push(BOLD_ON);
   line('Detalle del pedido');
   push(BOLD_OFF);
