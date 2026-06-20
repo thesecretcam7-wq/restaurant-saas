@@ -182,6 +182,9 @@ export function generateReceiptESCPOS(data: ReceiptData, options: ReceiptOptions
   line('Gracias por su compra');
   push(BOLD_OFF);
   line('');
+  line('');
+  line('');
+  line('');
 
   if (options.openCashDrawer) {
     push(cashDrawerPulseCommands());
