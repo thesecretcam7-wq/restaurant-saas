@@ -2821,7 +2821,16 @@ export function POSTerminal({
         }
       };
 
-      void printInBackground();
+      const startPrintInBackground = () => {
+        if (typeof window !== 'undefined') {
+          window.setTimeout(() => {
+            void printInBackground();
+          }, 0);
+          return;
+        }
+
+        void printInBackground();
+      };
 
       // Clear cart and reset all states
       setCart([]);
@@ -2863,7 +2872,7 @@ export function POSTerminal({
             : (shouldOpenCashDrawer ? 'Venta guardada. Abriendo cajon...' : 'Venta guardada sin imprimir recibo.'),
         type: 'success',
       });
-      releasePaymentLockDelay = 750;
+      startPrintInBackground();
     } catch (error) {
       console.error('Error processing payment:', error);
       setToast({
