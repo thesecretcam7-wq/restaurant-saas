@@ -78,6 +78,17 @@ export function generateReceiptESCPOS(data: ReceiptData, options: ReceiptOptions
     const cleanLabel = normalizeThermalText(label).substring(0, Math.max(1, cols - cleanValue.length - 1));
     line(padR(cleanLabel, cols - cleanValue.length) + cleanValue);
   };
+  const pairRow = (leftLabel: string, leftValue: string, rightLabel: string, rightValue: string) => {
+    const left = `${normalizeThermalText(leftLabel)} ${normalizeThermalText(leftValue)}`.trim();
+    const right = `${normalizeThermalText(rightLabel)} ${normalizeThermalText(rightValue)}`.trim();
+    const gap = cols - left.length - right.length;
+    if (gap >= 1) {
+      line(left + ' '.repeat(gap) + right);
+    } else {
+      row(leftLabel, leftValue);
+      row(rightLabel, rightValue);
+    }
+  };
   const itemRow = (name: string, quantity: number, unitPrice: number, total: number) => {
     const cleanName = normalizeThermalText(name).substring(0, cols);
     push(BOLD_ON);
@@ -111,10 +122,12 @@ export function generateReceiptESCPOS(data: ReceiptData, options: ReceiptOptions
     ? normalizeThermalText(data.orderNumber).substring(0, Math.max(8, cols - 8))
     : getReceiptNumber(data.orderNumber);
 
-  row('Pedido:', displayOrderNumber);
-  row('Fecha:', receiptDate);
-  row('Hora:', receiptTime);
-  if (data.tableNumber) line(`Mesa: ${data.tableNumber}`);
+  if (data.tableNumber) {
+    pairRow('Ped:', displayOrderNumber, 'Mesa:', String(data.tableNumber));
+  } else {
+    row('Ped:', displayOrderNumber);
+  }
+  pairRow('Fecha:', receiptDate, 'Hora:', receiptTime);
   if (data.waiterName) row('Atendido Por:', data.waiterName);
 
   push(BOLD_ON);
@@ -129,7 +142,6 @@ export function generateReceiptESCPOS(data: ReceiptData, options: ReceiptOptions
 
   const hasBreakdown = data.discount > 0 || (data.tax || 0) > 0 || (data.deliveryFee || 0) > 0;
   if (hasBreakdown) {
-    line('');
     row('Subtotal:', formatPrice(data.subtotal, data));
     if (data.discount > 0) {
       row('Descuento:', `-${formatPrice(data.discount, data)}`);
@@ -144,8 +156,7 @@ export function generateReceiptESCPOS(data: ReceiptData, options: ReceiptOptions
   }
 
   push(ALIGN_CENTER, FONT_A, SIZE_WIDE, BOLD_ON);
-  line('TOTAL A PAGAR');
-  line(formatPrice(data.total, data));
+  line(`TOTAL ${formatPrice(data.total, data)}`);
   push(BOLD_OFF, SIZE_NORMAL);
 
   if (data.amountPaid !== undefined) {
@@ -300,55 +311,60 @@ export function generateCashClosingReceiptESCPOS(
     const cleanLabel = label.substring(0, Math.max(1, cols - value.length - 1));
     line(padR(cleanLabel, cols - value.length) + value);
   };
+  const pairRow = (leftLabel: string, leftValue: string, rightLabel: string, rightValue: string) => {
+    const left = `${normalizeThermalText(leftLabel)} ${normalizeThermalText(leftValue)}`.trim();
+    const right = `${normalizeThermalText(rightLabel)} ${normalizeThermalText(rightValue)}`.trim();
+    const gap = cols - left.length - right.length;
+    if (gap >= 1) {
+      line(left + ' '.repeat(gap) + right);
+    } else {
+      row(leftLabel, leftValue);
+      row(rightLabel, rightValue);
+    }
+  };
   const ts = data.closedAt ? new Date(data.closedAt) : new Date();
   const periodStart = new Date(data.periodStart);
   const periodEnd = new Date(data.periodEnd);
 
   push(INIT, CODE_PAGE_PC850);
-  push(ALIGN_CENTER, SIZE_2X, BOLD_ON);
+  push(ALIGN_CENTER, SIZE_WIDE, BOLD_ON);
   line(data.restaurantName ?? 'Restaurante');
   push(BOLD_OFF, SIZE_NORMAL);
   if (data.restaurantPhone) line(`Tel: ${data.restaurantPhone}`);
-  line('');
-  push(BOLD_ON, SIZE_WIDE);
+  push(BOLD_ON);
   line('CIERRE DE CAJA');
   push(BOLD_OFF, SIZE_NORMAL);
-  if (data.closingId) line(`ID: ${data.closingId.slice(0, 8)}`);
-  line(`Fecha: ${ts.toLocaleDateString(data.currencyInfo.locale)}`);
-  line(`Hora: ${ts.toLocaleTimeString(data.currencyInfo.locale, { hour: '2-digit', minute: '2-digit' })}`);
-  line(`Empleado: ${data.staffName}`);
-  line('');
-  line('Periodo');
-  line(periodStart.toLocaleString(data.currencyInfo.locale));
-  line(periodEnd.toLocaleString(data.currencyInfo.locale));
+  pairRow('Fecha:', ts.toLocaleDateString(data.currencyInfo.locale), 'Hora:', ts.toLocaleTimeString(data.currencyInfo.locale, { hour: '2-digit', minute: '2-digit' }));
+  if (data.closingId) pairRow('ID:', data.closingId.slice(0, 8), 'Resp:', data.staffName);
+  else row('Resp:', data.staffName);
+  row('Desde:', periodStart.toLocaleString(data.currencyInfo.locale, { dateStyle: 'short', timeStyle: 'short' }));
+  row('Hasta:', periodEnd.toLocaleString(data.currencyInfo.locale, { dateStyle: 'short', timeStyle: 'short' }));
   push(ALIGN_LEFT);
 
   sep();
   push(BOLD_ON);
-  line('RESUMEN DE VENTAS');
+  line('RESUMEN');
   push(BOLD_OFF);
-    row('Efectivo:', money(data.cashSales));
-    row('Tarjeta:', money(data.cardSales));
-    row('Otros:', money(data.otherSales));
-    row('Valor dom.:', money(data.totalDeliveryFees || 0));
-    row('No. domicilios:', String(data.deliveryOrderCount || 0));
-    row('Impuestos:', money(data.totalTax));
+  row('Efectivo:', money(data.cashSales));
+  row('Tarjeta:', money(data.cardSales));
+  if (data.otherSales > 0) row('Otros:', money(data.otherSales));
+  pairRow('Dom:', money(data.totalDeliveryFees || 0), 'Cant:', String(data.deliveryOrderCount || 0));
+  if (data.totalTax > 0) row('Impuestos:', money(data.totalTax));
   if (data.totalDiscount > 0) row('Descuentos:', money(data.totalDiscount));
   sep();
   push(BOLD_ON);
-  row('TOTAL VENTAS:', money(data.totalSales));
+  row('TOTAL:', money(data.totalSales));
   push(BOLD_OFF);
 
   sep();
   push(BOLD_ON);
-  line('CUADRE DE EFECTIVO');
+  line('CUADRE');
   push(BOLD_OFF);
   row('Esperado:', money(data.expectedCash));
   row('Contado:', money(data.actualCash));
   row('Diferencia:', money(data.difference));
-  row('Transacciones:', String(data.transactionCount));
-row('Cobradas:', String(data.ordersCompleted));
-  row('Canceladas:', String(data.ordersCancelled));
+  pairRow('Trans:', String(data.transactionCount), 'Cobr:', String(data.ordersCompleted));
+  if (data.ordersCancelled > 0) row('Canceladas:', String(data.ordersCancelled));
 
   if (data.notes) {
     sep();
@@ -358,9 +374,7 @@ row('Cobradas:', String(data.ordersCompleted));
 
   sep();
   push(ALIGN_CENTER);
-  line('');
-  line('Cierre guardado en Eccofood');
-  line('');
+  line('Cierre guardado');
   line('');
   push(cutCommands());
   push(ALIGN_LEFT, SIZE_NORMAL);
@@ -387,6 +401,17 @@ export function generateMonthlyClosingReceiptESCPOS(
     const cleanLabel = label.substring(0, Math.max(1, cols - value.length - 1));
     line(padR(cleanLabel, cols - value.length) + value);
   };
+  const pairRow = (leftLabel: string, leftValue: string, rightLabel: string, rightValue: string) => {
+    const left = `${normalizeThermalText(leftLabel)} ${normalizeThermalText(leftValue)}`.trim();
+    const right = `${normalizeThermalText(rightLabel)} ${normalizeThermalText(rightValue)}`.trim();
+    const gap = cols - left.length - right.length;
+    if (gap >= 1) {
+      line(left + ' '.repeat(gap) + right);
+    } else {
+      row(leftLabel, leftValue);
+      row(rightLabel, rightValue);
+    }
+  };
   const qty = (value: number | undefined) => {
     const numberValue = Number(value) || 0;
     return Number.isInteger(numberValue) ? String(numberValue) : numberValue.toFixed(2);
@@ -396,42 +421,36 @@ export function generateMonthlyClosingReceiptESCPOS(
   const periodEnd = new Date(data.periodEnd);
 
   push(INIT, CODE_PAGE_PC850);
-  push(ALIGN_CENTER, SIZE_2X, BOLD_ON);
+  push(ALIGN_CENTER, SIZE_WIDE, BOLD_ON);
   line(data.restaurantName ?? 'Restaurante');
   push(BOLD_OFF, SIZE_NORMAL);
   if (data.restaurantPhone) line(`Tel: ${data.restaurantPhone}`);
-  line('');
-  push(BOLD_ON, SIZE_WIDE);
+  push(BOLD_ON);
   line('CIERRE MENSUAL');
   push(BOLD_OFF, SIZE_NORMAL);
-  if (data.closingId) line(`ID: ${data.closingId.slice(0, 8)}`);
   line(data.monthLabel);
-  line(`Fecha: ${ts.toLocaleDateString(data.currencyInfo.locale)}`);
-  line(`Hora: ${ts.toLocaleTimeString(data.currencyInfo.locale, { hour: '2-digit', minute: '2-digit' })}`);
-  line(`Responsable: ${data.staffName}`);
-  line('');
-  line('Periodo');
-  line(periodStart.toLocaleString(data.currencyInfo.locale));
-  line(periodEnd.toLocaleString(data.currencyInfo.locale));
+  pairRow('Fecha:', ts.toLocaleDateString(data.currencyInfo.locale), 'Hora:', ts.toLocaleTimeString(data.currencyInfo.locale, { hour: '2-digit', minute: '2-digit' }));
+  if (data.closingId) pairRow('ID:', data.closingId.slice(0, 8), 'Resp:', data.staffName);
+  else row('Resp:', data.staffName);
+  row('Desde:', periodStart.toLocaleString(data.currencyInfo.locale, { dateStyle: 'short', timeStyle: 'short' }));
+  row('Hasta:', periodEnd.toLocaleString(data.currencyInfo.locale, { dateStyle: 'short', timeStyle: 'short' }));
   push(ALIGN_LEFT);
 
   sep();
   push(BOLD_ON);
-  line('RESUMEN DEL MES');
+  line('RESUMEN');
   push(BOLD_OFF);
   row('Efectivo:', money(data.cashSales));
   row('Tarjeta:', money(data.cardSales));
-  row('Otros:', money(data.otherSales));
-  row('Valor dom.:', money(data.totalDeliveryFees || 0));
-  row('No. domicilios:', String(data.deliveryOrderCount || 0));
-  row('Impuestos:', money(data.totalTax));
+  if (data.otherSales > 0) row('Otros:', money(data.otherSales));
+  pairRow('Dom:', money(data.totalDeliveryFees || 0), 'Cant:', String(data.deliveryOrderCount || 0));
+  if (data.totalTax > 0) row('Impuestos:', money(data.totalTax));
   if (data.totalDiscount > 0) row('Descuentos:', money(data.totalDiscount));
-  row('Transacciones:', String(data.transactionCount));
-row('Cobradas:', String(data.ordersCompleted));
-  row('Canceladas:', String(data.ordersCancelled));
+  pairRow('Trans:', String(data.transactionCount), 'Cobr:', String(data.ordersCompleted));
+  if (data.ordersCancelled > 0) row('Canceladas:', String(data.ordersCancelled));
   sep();
-  push(BOLD_ON, SIZE_WIDE);
-  row('TOTAL MES:', money(data.totalSales));
+  push(BOLD_ON);
+  row('TOTAL:', money(data.totalSales));
   push(BOLD_OFF, SIZE_NORMAL);
 
   sep();
@@ -489,10 +508,7 @@ row('Cobradas:', String(data.ordersCompleted));
 
   sep();
   push(ALIGN_CENTER);
-  line('');
   line('Cierre mensual guardado');
-  line('en Eccofood');
-  line('');
   line('');
   push(cutCommands());
   push(ALIGN_LEFT, SIZE_NORMAL);

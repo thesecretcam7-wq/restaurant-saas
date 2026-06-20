@@ -294,7 +294,7 @@ export async function printReceipt(
     // 2. Generate ESC/POS commands
     const escPosData = generateReceiptESCPOS(data, {
       paperWidth: printer.config?.paper_width || 80,
-      copies: printer.config?.copies || 1,
+      copies: 1,
       locale: data.currencyInfo.locale,
       openCashDrawer: data.openCashDrawer === true && printer.config?.cash_drawer_enabled !== false,
     });
@@ -362,7 +362,7 @@ export async function printCashClosingReceipt(
 
     const escPosData = generateCashClosingReceiptESCPOS(data, {
       paperWidth: printer.config?.paper_width || 80,
-      copies: printer.config?.copies || 1,
+      copies: 1,
       locale: data.currencyInfo.locale,
     });
 
@@ -424,7 +424,7 @@ export async function printMonthlyClosingReceipt(
 
     const escPosData = generateMonthlyClosingReceiptESCPOS(data, {
       paperWidth: printer.config?.paper_width || 80,
-      copies: printer.config?.copies || 1,
+      copies: 1,
       locale: data.currencyInfo.locale,
     });
 
