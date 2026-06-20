@@ -104,6 +104,20 @@ function getOrderItemQuantity(item: any) {
   return Number.isFinite(quantity) && quantity > 0 ? quantity : 1;
 }
 
+const CANCELLED_ORDER_STATUSES = new Set(['cancelled', 'canceled', 'voided', 'deleted', 'anulado', 'cancelado']);
+
+function normalizeStatus(value: unknown) {
+  return String(value || '').trim().toLowerCase();
+}
+
+function isCancelledOrder(order: any) {
+  return CANCELLED_ORDER_STATUSES.has(normalizeStatus(order?.status));
+}
+
+function isPaidOrder(order: any) {
+  return normalizeStatus(order?.payment_status) === 'paid';
+}
+
 function statsFromOrders(args: {
   orders: any[];
   year: number;
@@ -113,9 +127,7 @@ function statsFromOrders(args: {
   locale: string;
   timeZone: string;
 }) {
-  const countableOrders = args.orders.filter((order) =>
-    order.status !== 'cancelled' && order.payment_status === 'paid'
-  );
+  const countableOrders = args.orders.filter((order) => !isCancelledOrder(order) && isPaidOrder(order));
   const productSalesMap = new Map<string, {
     menuItemId: string | null;
     name: string;
@@ -168,7 +180,7 @@ function statsFromOrders(args: {
   };
 
   args.orders.forEach((order) => {
-    if (order.status === 'cancelled') {
+    if (isCancelledOrder(order)) {
       stats.ordersCancelled++;
     }
   });

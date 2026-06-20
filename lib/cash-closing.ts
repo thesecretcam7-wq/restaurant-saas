@@ -51,10 +51,26 @@ type CashClosingPeriod = {
   operationalCloseTime: string;
 };
 
+const CANCELLED_ORDER_STATUSES = new Set(['cancelled', 'canceled', 'voided', 'deleted', 'anulado', 'cancelado']);
+
+function normalizeStatus(value: unknown) {
+  return String(value || '').trim().toLowerCase();
+}
+
+function isCancelledOrder(order: any) {
+  return CANCELLED_ORDER_STATUSES.has(normalizeStatus(order?.status));
+}
+
+function isPaidOrder(order: any) {
+  return normalizeStatus(order?.payment_status) === 'paid';
+}
+
+function isCountableClosingOrder(order: any) {
+  return !isCancelledOrder(order) && isPaidOrder(order);
+}
+
 function statsFromOrders(period: CashClosingPeriod, orders: any[] = []): CashClosingStats {
-  const countableOrders = orders.filter((order: any) =>
-    order.status !== 'cancelled' && order.payment_status === 'paid'
-  );
+  const countableOrders = orders.filter(isCountableClosingOrder);
 
   const stats = {
     cashSales: 0,
@@ -79,11 +95,11 @@ function statsFromOrders(period: CashClosingPeriod, orders: any[] = []): CashClo
   };
 
   orders.forEach((order: any) => {
-    if (order.status === 'cancelled') {
+    if (isCancelledOrder(order)) {
       stats.ordersCancelled++;
       return;
     }
-    if (order.payment_status !== 'paid') return;
+    if (!isPaidOrder(order)) return;
 
     const total = Number(order.total) || 0;
     const deliveryFee = Number(order.delivery_fee || 0);
@@ -193,7 +209,7 @@ export async function calculateCashClosingStats(
     }
 
     const countableOrders = (orders || []).filter((order: any) =>
-      order.status !== 'cancelled' && order.payment_status === 'paid'
+      isCountableClosingOrder(order)
     );
 
     const stats = {
@@ -219,11 +235,11 @@ export async function calculateCashClosingStats(
     };
 
     orders?.forEach((order: any) => {
-      if (order.status === 'cancelled') {
+      if (isCancelledOrder(order)) {
         stats.ordersCancelled++;
         return;
       }
-      if (order.payment_status !== 'paid') return;
+      if (!isPaidOrder(order)) return;
 
       const total = Number(order.total) || 0;
       const deliveryFee = Number(order.delivery_fee || 0);

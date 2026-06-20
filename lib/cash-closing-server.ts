@@ -41,6 +41,24 @@ type CashClosingPeriod = {
 
 const ORDER_SELECT = 'id, order_number, total, tax, delivery_fee, delivery_type, payment_method, payment_status, status, created_at';
 
+const CANCELLED_ORDER_STATUSES = new Set(['cancelled', 'canceled', 'voided', 'deleted', 'anulado', 'cancelado']);
+
+function normalizeStatus(value: unknown) {
+  return String(value || '').trim().toLowerCase();
+}
+
+function isCancelledOrder(order: any) {
+  return CANCELLED_ORDER_STATUSES.has(normalizeStatus(order?.status));
+}
+
+function isPaidOrder(order: any) {
+  return normalizeStatus(order?.payment_status) === 'paid';
+}
+
+function isCountableClosingOrder(order: any) {
+  return !isCancelledOrder(order) && isPaidOrder(order);
+}
+
 function emptyStats(period: CashClosingPeriod): CashClosingStats {
   return {
     cashSales: 0,
@@ -60,9 +78,7 @@ function emptyStats(period: CashClosingPeriod): CashClosingStats {
 }
 
 function statsFromOrders(period: CashClosingPeriod, orders: any[] = []): CashClosingStats {
-  const countableOrders = orders.filter((order: any) =>
-    order.status !== 'cancelled' && order.payment_status === 'paid'
-  );
+  const countableOrders = orders.filter(isCountableClosingOrder);
 
   const stats: CashClosingStats = {
     cashSales: 0,
@@ -87,11 +103,11 @@ function statsFromOrders(period: CashClosingPeriod, orders: any[] = []): CashClo
   };
 
   orders.forEach((order: any) => {
-    if (order.status === 'cancelled') {
+    if (isCancelledOrder(order)) {
       stats.ordersCancelled++;
       return;
     }
-    if (order.payment_status !== 'paid') return;
+    if (!isPaidOrder(order)) return;
 
     const total = Number(order.total) || 0;
     const deliveryFee = Number(order.delivery_fee || 0);

@@ -137,6 +137,11 @@ function calculateBusinessPeriod(closeMinutes: number, timeZone: string, now = n
 }
 
 function statsFromOrders(period: CashClosingPeriod, orders: any[] = []) {
+  const countableOrders = orders.filter((order: any) =>
+    !['cancelled', 'canceled', 'voided', 'deleted', 'anulado', 'cancelado'].includes(String(order?.status || '').trim().toLowerCase()) &&
+    String(order?.payment_status || '').trim().toLowerCase() === 'paid'
+  );
+
   const stats = {
     cashSales: 0,
     cardSales: 0,
@@ -146,10 +151,10 @@ function statsFromOrders(period: CashClosingPeriod, orders: any[] = []) {
     deliveryOrderCount: 0,
     totalTax: 0,
     totalDiscount: 0,
-    transactionCount: orders.length,
-    ordersCompleted: orders.length,
+    transactionCount: countableOrders.length,
+    ordersCompleted: countableOrders.length,
     ordersCancelled: 0,
-    closingOrders: orders.map((order: any) => ({
+    closingOrders: countableOrders.map((order: any) => ({
       id: order.id,
       order_number: order.order_number,
       total: Number(order.total) || 0,
@@ -160,6 +165,12 @@ function statsFromOrders(period: CashClosingPeriod, orders: any[] = []) {
   };
 
   orders.forEach((order: any) => {
+    if (['cancelled', 'canceled', 'voided', 'deleted', 'anulado', 'cancelado'].includes(String(order?.status || '').trim().toLowerCase())) {
+      stats.ordersCancelled++;
+      return;
+    }
+    if (String(order?.payment_status || '').trim().toLowerCase() !== 'paid') return;
+
     const total = Number(order.total) || 0;
     const tax = Number(order.tax ?? order.tax_amount) || 0;
     const discount = Number(order.discount_amount) || 0;
