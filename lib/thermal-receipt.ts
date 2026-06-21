@@ -127,8 +127,9 @@ export function generateReceiptESCPOS(data: ReceiptData, options: ReceiptOptions
   } else {
     row('Ped:', displayOrderNumber);
   }
-  pairRow('Fecha:', receiptDate, 'Hora:', receiptTime);
-  if (data.waiterName) row('Atendido Por:', data.waiterName);
+  row('Fecha:', receiptDate);
+  row('Hora:', receiptTime);
+  if (data.waiterName) row('Atendido:', data.waiterName);
 
   push(BOLD_ON);
   line('='.repeat(cols));
