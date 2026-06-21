@@ -99,6 +99,7 @@ export async function POST(request: NextRequest) {
       updateData = {
         trial_ends_at: newTrialEndsAt.toISOString(),
         status: 'trial', // Ensure it's in trial status
+        trial_expiration_notified: false,
       }
     } else if (action === 'activate_subscription' || action === 'timed_subscription') {
       // Manual subscription with expiration.
@@ -109,6 +110,7 @@ export async function POST(request: NextRequest) {
         trial_ends_at: null,
         subscription_plan: plan,
         subscription_expires_at: subscriptionEndsAt.toISOString(),
+        subscription_expiration_notified: false,
         metadata: {
           ...(tenant.metadata || {}),
           billing_source: 'manual',

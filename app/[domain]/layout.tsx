@@ -7,6 +7,7 @@ import TenantAccessGuard from '@/components/TenantAccessGuard'
 import { getTenantAccessInfo } from '@/lib/tenant-access'
 import { getPageConfig } from '@/lib/pageConfig'
 import type { Metadata } from 'next'
+import Script from 'next/script'
 import './(store)/store-premium.css'
 
 export const dynamic = 'force-dynamic'
@@ -191,7 +192,11 @@ export default async function TenantLayout({
 
   return (
     <>
-      <script dangerouslySetInnerHTML={{ __html: operationalPwaScript }} />
+      <Script
+        id={`tenant-operational-pwa-${context.tenant.slug}`}
+        strategy="afterInteractive"
+        dangerouslySetInnerHTML={{ __html: operationalPwaScript }}
+      />
       <style>{`
         :root {
           /* Multi-Tenant Branding with Eccofood Defaults */

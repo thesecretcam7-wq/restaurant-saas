@@ -3,7 +3,7 @@ import { cookies } from 'next/headers'
 import { NextRequest, NextResponse } from 'next/server'
 import Stripe from 'stripe'
 import { requireTenantAccess, tenantAuthErrorResponse } from '@/lib/tenant-api-auth'
-import { PAID_PLAN_IDS, type PaidPlanId } from '@/lib/subscription-pricing'
+import { PAID_PLAN_IDS, PLAN_CATALOG, type PaidPlanId } from '@/lib/subscription-pricing'
 
 const getStripe = () => new Stripe(process.env.STRIPE_SECRET_KEY!)
 
@@ -109,16 +109,10 @@ export async function POST(request: NextRequest) {
     const origin = request.headers.get('origin') || process.env.NEXT_PUBLIC_APP_URL || `https://eccofoodapp.com`
     const baseUrl = origin.endsWith('/') ? origin.slice(0, -1) : origin
 
-    const priceId = billingInterval === 'year'
-      ? plan.stripe_annual_price_id
-      : plan.stripe_price_id
-
-    if (!priceId) {
-      return NextResponse.json(
-        { error: billingInterval === 'year' ? 'El pago anual no esta configurado para este plan' : 'El pago mensual no esta configurado para este plan' },
-        { status: 400 }
-      )
-    }
+    const planCatalogEntry = PLAN_CATALOG[planName as PaidPlanId]
+    const checkoutAmount = billingInterval === 'year'
+      ? planCatalogEntry.annualPrice
+      : planCatalogEntry.monthlyPrice
 
     const trialEndsAt = tenant.status === 'trial' && tenant.trial_ends_at
       ? new Date(tenant.trial_ends_at)
@@ -133,7 +127,18 @@ export async function POST(request: NextRequest) {
       customer: customerId,
       line_items: [
         {
-          price: priceId,
+          price_data: {
+            currency: 'eur',
+            recurring: { interval: billingInterval },
+            ...(plan.stripe_product_id
+              ? { product: plan.stripe_product_id }
+              : {
+                  product_data: {
+                    name: `Eccofood ${planCatalogEntry.name}`,
+                  },
+                }),
+            unit_amount: Math.round(checkoutAmount * 100),
+          },
           quantity: 1,
         },
       ],

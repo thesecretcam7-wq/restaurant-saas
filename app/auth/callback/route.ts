@@ -15,13 +15,21 @@ function safePath(value: string | null, fallback = '/login') {
 }
 
 function redirectWithError(request: Request, path: string, message: string) {
-  const url = new URL(path, request.url)
+  const requestUrl = new URL(request.url)
+  if (requestUrl.hostname === '0.0.0.0') {
+    requestUrl.hostname = 'localhost'
+  }
+  const url = new URL(path, requestUrl)
   url.searchParams.set('error', message)
   return NextResponse.redirect(url)
 }
 
 function redirectTo(request: Request, path: string) {
-  return NextResponse.redirect(new URL(path, request.url))
+  const requestUrl = new URL(request.url)
+  if (requestUrl.hostname === '0.0.0.0') {
+    requestUrl.hostname = 'localhost'
+  }
+  return NextResponse.redirect(new URL(path, requestUrl))
 }
 
 function getOAuthErrorMessage(requestUrl: URL) {

@@ -8,7 +8,10 @@ import {
 } from '@/lib/email/templates'
 import { sendEmail } from '@/lib/email/send'
 
-export async function POST(request: NextRequest) {
+const NOTIFICATION_DAYS_BEFORE_EXPIRY = 5
+const DAY_MS = 24 * 60 * 60 * 1000
+
+async function handleSendNotifications(request: NextRequest) {
   try {
     // Verify this is a valid cron request (check for authorization header in production)
     const authHeader = request.headers.get('authorization')
@@ -31,17 +34,17 @@ export async function POST(request: NextRequest) {
     )
 
     const now = new Date()
-    const sevenDaysFromNow = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000)
+    const notificationCutoff = new Date(now.getTime() + NOTIFICATION_DAYS_BEFORE_EXPIRY * DAY_MS)
     let sentCount = 0
     let errorCount = 0
 
-    // 1. Find trials expiring in 7 days
+    // 1. Find trials expiring in the next 5 days
     const { data: expiringTrials } = await supabase
       .from('tenants')
       .select('id, organization_name, owner_email, trial_ends_at, status')
       .eq('status', 'trial')
       .gte('trial_ends_at', now.toISOString())
-      .lte('trial_ends_at', sevenDaysFromNow.toISOString())
+      .lte('trial_ends_at', notificationCutoff.toISOString())
       .eq('trial_expiration_notified', false)
 
     if (expiringTrials) {
@@ -76,13 +79,13 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // 2. Find subscriptions expiring in 7 days
+    // 2. Find subscriptions expiring in the next 5 days
     const { data: expiringSubscriptions } = await supabase
       .from('tenants')
       .select('id, organization_name, owner_email, subscription_expires_at, subscription_plan, status')
       .eq('status', 'active')
       .gte('subscription_expires_at', now.toISOString())
-      .lte('subscription_expires_at', sevenDaysFromNow.toISOString())
+      .lte('subscription_expires_at', notificationCutoff.toISOString())
       .eq('subscription_expiration_notified', false)
 
     if (expiringSubscriptions) {
@@ -160,6 +163,7 @@ export async function POST(request: NextRequest) {
       message: `Cron job completed: ${sentCount} emails sent, ${errorCount} errors`,
       sentCount,
       errorCount,
+      notificationDaysBeforeExpiry: NOTIFICATION_DAYS_BEFORE_EXPIRY,
     })
   } catch (error) {
     console.error('Cron job error:', error)
@@ -168,4 +172,12 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     )
   }
+}
+
+export async function GET(request: NextRequest) {
+  return handleSendNotifications(request)
+}
+
+export async function POST(request: NextRequest) {
+  return handleSendNotifications(request)
 }

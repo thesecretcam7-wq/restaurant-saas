@@ -3,9 +3,9 @@ export const ANNUAL_DISCOUNT_RATE = 0.9
 
 export const PLAN_PRICES = {
   trial: 0,
-  basic: 49.99,
-  pro: 99.99,
-  premium: 299.99,
+  basic: 19.99,
+  pro: 49.99,
+  premium: 99.99,
   free: 0,
 } as const
 

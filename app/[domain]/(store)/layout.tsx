@@ -95,7 +95,7 @@ export default async function StoreLayout({ children, params }: Props) {
       />
       {children}
       <BottomNav tenantId={tenantSlug} primaryColor={isLightTheme ? '#ff5a00' : palette.buttonPrimary} themeMode={themeMode} />
-      <WhatsAppFloat whatsapp={whatsappLink} restaurantName={restaurantName} primaryColor="#25D366" />
+      <WhatsAppFloat whatsapp={whatsappLink} restaurantName={restaurantName} />
     </div>
   )
 }

@@ -54,7 +54,10 @@ export default function LoginPage() {
 
     try {
       const supabase = createClient()
-      const callbackUrl = new URL('/auth/callback', window.location.origin)
+      const origin = window.location.hostname === '0.0.0.0'
+        ? window.location.origin.replace('0.0.0.0', 'localhost')
+        : window.location.origin
+      const callbackUrl = new URL('/auth/callback', origin)
       callbackUrl.searchParams.set('next', '/login')
 
       const { error } = await supabase.auth.signInWithOAuth({

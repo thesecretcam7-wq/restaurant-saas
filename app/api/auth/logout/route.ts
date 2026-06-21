@@ -50,7 +50,13 @@ export async function POST(request: Request) {
     } catch {}
   }
 
-  const response = NextResponse.redirect(new URL('/login', request.url), { status: 303 })
+  const requestUrl = new URL(request.url)
+  if (requestUrl.hostname === '0.0.0.0') {
+    requestUrl.hostname = 'localhost'
+  }
+  const nextPath = requestUrl.searchParams.get('next')
+  const redirectPath = nextPath?.startsWith('/') && !nextPath.startsWith('//') ? nextPath : '/login'
+  const response = NextResponse.redirect(new URL(redirectPath, requestUrl), { status: 303 })
   response.cookies.delete('admin_session_token')
   response.cookies.delete('staff_session')
   return response

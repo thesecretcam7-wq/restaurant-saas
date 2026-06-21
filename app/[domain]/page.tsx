@@ -23,7 +23,7 @@ import BottomNav from '@/components/store/BottomNav'
 import LanguageSwitcher from '@/components/LanguageSwitcher'
 import { formatPriceWithCurrency, getCurrencyByCountry } from '@/lib/currency'
 import { normalizeLocale, translate } from '@/lib/i18n'
-import { ArrowRight, Bell, Camera, ChefHat, Globe, Heart, Leaf, Menu, MessageCircle, Play, Users, Wine } from 'lucide-react'
+import { ArrowRight, Bell, CalendarCheck, Camera, ChefHat, Globe, Heart, Leaf, Menu, MessageCircle, Users, Wine } from 'lucide-react'
 
 interface HomePageProps {
   params: Promise<{ domain: string }>
@@ -314,12 +314,13 @@ export default async function HomePage({ params }: HomePageProps) {
               >
                 {hero.cta_primary_text || tr('store.viewMenu')}
                 <ArrowRight className="h-5 w-5" />
-              </Link>
-              {settings?.reservations_enabled && (
-                <Link href={`${tenantBasePath}/reservas`} className="store-app-play-button inline-flex size-14 items-center justify-center rounded-full border border-[#D4AF37]/55 bg-black/30 text-[#D4AF37] backdrop-blur-md transition hover:bg-[#D4AF37]/10 active:scale-[0.98]" aria-label={hero.cta_secondary_text || tr('store.reserve')}>
-                  <Play className="ml-0.5 h-5 w-5 fill-current" />
                 </Link>
-              )}
+                {settings?.reservations_enabled && (
+                  <Link href={`${tenantBasePath}/reservas`} className="store-app-play-button inline-flex h-14 min-w-14 items-center justify-center gap-2 rounded-full border border-[#D4AF37]/55 bg-black/30 px-4 text-[#D4AF37] backdrop-blur-md transition hover:bg-[#D4AF37]/10 active:scale-[0.98]" aria-label={hero.cta_secondary_text || tr('store.reserve')}>
+                    <CalendarCheck className="h-5 w-5" />
+                    <span className="hidden text-sm font-black sm:inline">{hero.cta_secondary_text || tr('store.reserve')}</span>
+                  </Link>
+                )}
             </div>
             <div className="mt-10 flex items-center gap-3 text-sm font-black" style={{ color: storePrimary }}>
               <span>01</span>
@@ -344,7 +345,7 @@ export default async function HomePage({ params }: HomePageProps) {
                       )}
                       <span className="min-w-0 flex-1">
                         <span className="block truncate text-sm font-black" style={{ color: isLightTheme ? themeColors.text : '#fff7df' }}>{item.name}</span>
-                        <span className="mt-1 block text-sm font-black" style={{ color: storePrice }}>{formatMoney(item.price)}</span>
+                        <span className="mt-1 block text-sm font-black" style={{ color: isLightTheme ? '#07111f' : '#ffefb0' }}>{formatMoney(item.price)}</span>
                       </span>
                     </Link>
                   ))}
@@ -416,7 +417,7 @@ export default async function HomePage({ params }: HomePageProps) {
       </footer>
 
       <BottomNav tenantId={tenant.slug} primaryColor={storeButton} basePath={tenantBasePath} themeMode={themeMode} />
-      <WhatsAppFloat whatsapp={whatsappLink} restaurantName={appName} primaryColor="#25D366" />
+      <WhatsAppFloat whatsapp={whatsappLink} restaurantName={appName} />
     </div>
   )
 }

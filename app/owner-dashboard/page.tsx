@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
-import { AlertTriangle, ArrowRight, CircleDollarSign, Headphones, Store, UserRoundCheck } from 'lucide-react'
+import { AlertTriangle, ArrowRight, CircleDollarSign, Headphones, LogOut, Store, UserRoundCheck } from 'lucide-react'
 import EccofoodLogo from '@/components/EccofoodLogo'
 import { isOwnerEmail } from '@/lib/owner-auth'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
@@ -103,9 +103,21 @@ export default async function OwnerDashboard() {
           <Link href="/" className="flex items-center gap-2.5">
             <EccofoodLogo size="sm" textClassName="font-bold text-foreground text-lg tracking-tight" />
           </Link>
-          <div className="text-right">
-            <p className="text-xs text-muted-foreground">Dueno de Eccofood</p>
-            <p className="text-sm font-semibold text-foreground">{user?.email}</p>
+          <div className="flex items-center gap-3">
+            <div className="hidden text-right sm:block">
+              <p className="text-xs text-muted-foreground">Dueno de Eccofood</p>
+              <p className="max-w-[260px] truncate text-sm font-semibold text-foreground">{user?.email}</p>
+            </div>
+            <form action="/api/auth/logout?next=/owner-login" method="POST">
+              <button
+                type="submit"
+                className="inline-flex h-10 items-center gap-2 rounded-xl border border-border bg-card/80 px-3 text-sm font-black text-foreground transition hover:border-primary/50 hover:bg-primary/10 hover:text-primary"
+                title="Cerrar sesion"
+              >
+                <LogOut className="size-4" />
+                <span className="hidden sm:inline">Cerrar sesion</span>
+              </button>
+            </form>
           </div>
         </div>
       </nav>
