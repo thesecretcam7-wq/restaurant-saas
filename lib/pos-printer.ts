@@ -1036,14 +1036,11 @@ function generateReceiptHTML(data: ReceiptData): string {
         .footer p {
           margin: 2px 0;
         }
-        .online-orders {
-          margin-top: 10px;
-          font-size: 15px;
-          font-weight: 900;
-        }
-        .online-url {
-          font-size: 14px;
-          font-weight: 900;
+        .powered-by {
+          margin-top: 8px;
+          font-size: 10px;
+          font-weight: 700;
+          color: #333;
         }
         @media print {
           html, body {
@@ -1114,8 +1111,7 @@ function generateReceiptHTML(data: ReceiptData): string {
       <div class="footer">
         <p>Gracias por su compra</p>
         <p>Estamos a su servicio</p>
-        <p class="online-orders">PEDIDOS ONLINE</p>
-        <p class="online-url">www.parrillaburgers.com</p>
+        <p class="powered-by">POS y menu digital: eccofoodapp.com</p>
       </div>
       </div>
     </body>

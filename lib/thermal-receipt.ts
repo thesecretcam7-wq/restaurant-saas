@@ -184,6 +184,10 @@ export function generateReceiptESCPOS(data: ReceiptData, options: ReceiptOptions
   push(ALIGN_CENTER, BOLD_ON);
   line('Gracias por su compra');
   push(BOLD_OFF);
+  push(FONT_B);
+  line('POS y menu digital:');
+  line('eccofoodapp.com');
+  push(FONT_A);
   line('');
   line('');
   line('');
