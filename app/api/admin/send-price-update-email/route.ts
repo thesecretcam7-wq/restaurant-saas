@@ -25,7 +25,7 @@ function buildPriceUpdateEmail({
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://eccofoodapp.com'
   const loginUrl = `${appUrl}/login`
   const plansUrl = `${appUrl}/planes`
-  const subject = 'Nuevos precios en Eccofood y mejoras de experiencia'
+  const subject = 'Actualizacion de precios y mejoras en Eccofood'
 
   const html = `<!doctype html>
 <html lang="es">
@@ -42,19 +42,20 @@ function buildPriceUpdateEmail({
           <tr>
             <td style="background:#111827;padding:28px;text-align:left;">
               <p style="margin:0;color:#facc15;font-size:13px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;">Eccofood</p>
-              <h1 style="margin:10px 0 0;color:#ffffff;font-size:26px;line-height:1.2;">Bajamos los precios y mejoramos la experiencia</h1>
+              <h1 style="margin:10px 0 0;color:#ffffff;font-size:26px;line-height:1.2;">Nuevos precios y mejoras para tu restaurante</h1>
             </td>
           </tr>
           <tr>
             <td style="padding:28px;">
               <p style="margin:0 0 16px;font-size:16px;line-height:1.6;">Hola, <strong>${greetingName}</strong>.</p>
-              <p style="margin:0 0 16px;font-size:16px;line-height:1.6;">Queríamos avisarte que actualizamos Eccofood para que sea más fácil empezar y seguir usando la plataforma en el día a día de <strong>${safeRestaurantName}</strong>.</p>
+              <p style="margin:0 0 16px;font-size:16px;line-height:1.6;">Queremos informarte que hemos actualizado los precios de Eccofood para que sea mas accesible empezar, probar la plataforma y mantenerla activa en el dia a dia de <strong>${safeRestaurantName}</strong>.</p>
+              <p style="margin:0 0 16px;font-size:16px;line-height:1.6;">La actualizacion mantiene las herramientas principales para gestionar tu restaurante, pedidos, caja y menu digital, con una estructura de planes mas simple y competitiva.</p>
               <div style="background:#fff7ed;border:1px solid #fed7aa;border-radius:12px;padding:18px;margin:22px 0;">
-                <p style="margin:0 0 10px;font-size:15px;font-weight:700;color:#9a3412;">Nuevos precios mensuales</p>
-                <p style="margin:0;font-size:15px;line-height:1.7;color:#7c2d12;">Basic: <strong>19,99 €/mes</strong><br>Pro: <strong>49,99 €/mes</strong><br>Premium: <strong>99,99 €/mes</strong></p>
+                <p style="margin:0 0 10px;font-size:15px;font-weight:700;color:#9a3412;">Precios mensuales actualizados</p>
+                <p style="margin:0;font-size:15px;line-height:1.7;color:#7c2d12;">Plan Basico: <strong>19,99 &euro;/mes</strong><br>Plan Pro: <strong>49,99 &euro;/mes</strong><br>Plan Premium: <strong>99,99 &euro;/mes</strong></p>
               </div>
-              <p style="margin:0 0 16px;font-size:16px;line-height:1.6;">También mejoramos detalles de la experiencia visual y de uso para que tu restaurante se vea mejor y sea más cómodo para tus clientes.</p>
-              <p style="margin:0 0 24px;font-size:16px;line-height:1.6;">Puedes entrar cuando quieras y revisar tu cuenta desde el panel.</p>
+              <p style="margin:0 0 16px;font-size:16px;line-height:1.6;">Tambien hemos realizado mejoras en la experiencia de uso para que la pagina de tu restaurante se vea mas clara, sea mas comoda para tus clientes y ayude a recibir pedidos con menos friccion.</p>
+              <p style="margin:0 0 24px;font-size:16px;line-height:1.6;">Puedes entrar a tu cuenta para revisar tu plan actual, conocer las opciones disponibles y continuar configurando tu restaurante.</p>
               <table cellpadding="0" cellspacing="0" style="margin:24px 0;">
                 <tr>
                   <td style="padding-right:10px;">
@@ -65,12 +66,12 @@ function buildPriceUpdateEmail({
                   </td>
                 </tr>
               </table>
-              <p style="margin:22px 0 0;font-size:14px;line-height:1.6;color:#6b7280;">Si tienes alguna duda o quieres que te ayudemos a dejarlo listo, responde a este correo y te acompañamos.</p>
+              <p style="margin:22px 0 0;font-size:14px;line-height:1.6;color:#6b7280;">Si tienes alguna duda o quieres que revisemos tu configuracion contigo, responde a este correo y con gusto te ayudamos.</p>
             </td>
           </tr>
           <tr>
             <td style="background:#f9fafb;border-top:1px solid #e5e7eb;padding:18px 28px;text-align:center;">
-              <p style="margin:0;font-size:12px;color:#6b7280;">Eccofood · Software para restaurantes</p>
+              <p style="margin:0;font-size:12px;color:#6b7280;">Eccofood &middot; Software para restaurantes</p>
             </td>
           </tr>
         </table>
