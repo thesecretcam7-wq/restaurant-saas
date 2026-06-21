@@ -31,6 +31,8 @@ export default function AccountsContent({ initialTenants }: AccountsContentProps
   const [filterStatus, setFilterStatus] = useState<string>(initialStatus)
   const [selectedTenant, setSelectedTenant] = useState<Tenant | null>(null)
   const [showUnlockModal, setShowUnlockModal] = useState(false)
+  const [sendingEmailId, setSendingEmailId] = useState<string | null>(null)
+  const [emailMessage, setEmailMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null)
 
   const filteredTenants = tenants.filter(tenant => {
     const matchesSearch =
@@ -44,6 +46,31 @@ export default function AccountsContent({ initialTenants }: AccountsContentProps
 
   const handleUnlockSuccess = () => {
     window.location.reload()
+  }
+
+  const handleSendPriceUpdateEmail = async (tenant: Tenant) => {
+    setEmailMessage(null)
+    setSendingEmailId(tenant.id)
+
+    try {
+      const response = await fetch('/api/admin/send-price-update-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tenantId: tenant.id }),
+      })
+      const data = await response.json().catch(() => ({ error: 'No pudimos leer la respuesta del servidor' }))
+
+      if (!response.ok) {
+        setEmailMessage({ type: 'error', text: data.error || 'No se pudo enviar el correo' })
+        return
+      }
+
+      setEmailMessage({ type: 'success', text: `Correo enviado a ${tenant.owner_email}` })
+    } catch {
+      setEmailMessage({ type: 'error', text: 'Error de conexion al enviar el correo' })
+    } finally {
+      setSendingEmailId(null)
+    }
   }
 
   const getStatusBadge = (tenant: Tenant) => {
@@ -79,6 +106,15 @@ export default function AccountsContent({ initialTenants }: AccountsContentProps
     <>
       <div className="bg-white rounded-2xl shadow-lg overflow-hidden">
         <div className="p-6 border-b border-gray-200">
+          {emailMessage && (
+            <div className={`mb-4 rounded-lg border px-4 py-3 text-sm font-semibold ${
+              emailMessage.type === 'success'
+                ? 'border-green-200 bg-green-50 text-green-800'
+                : 'border-red-200 bg-red-50 text-red-800'
+            }`}>
+              {emailMessage.text}
+            </div>
+          )}
           <div className="flex flex-col sm:flex-row gap-4">
             <div className="flex-1">
               <input
@@ -154,15 +190,24 @@ export default function AccountsContent({ initialTenants }: AccountsContentProps
                       {new Date(tenant.created_at).toLocaleDateString('es-CO')}
                     </td>
                     <td className="px-6 py-4">
-                      <button
-                        onClick={() => {
-                          setSelectedTenant(tenant)
-                          setShowUnlockModal(true)
-                        }}
-                        className="px-3 py-1 bg-blue-600 text-white rounded text-xs font-semibold hover:bg-blue-700 transition-colors"
-                      >
-                        Gestionar
-                      </button>
+                      <div className="flex flex-wrap gap-2">
+                        <button
+                          onClick={() => {
+                            setSelectedTenant(tenant)
+                            setShowUnlockModal(true)
+                          }}
+                          className="px-3 py-1 bg-blue-600 text-white rounded text-xs font-semibold hover:bg-blue-700 transition-colors"
+                        >
+                          Gestionar
+                        </button>
+                        <button
+                          onClick={() => handleSendPriceUpdateEmail(tenant)}
+                          disabled={sendingEmailId === tenant.id}
+                          className="px-3 py-1 bg-amber-500 text-white rounded text-xs font-semibold transition-colors hover:bg-amber-600 disabled:cursor-not-allowed disabled:opacity-60"
+                        >
+                          {sendingEmailId === tenant.id ? 'Enviando...' : 'Enviar aviso'}
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))
