@@ -439,16 +439,18 @@ export default function PageBuilderPage() {
                 <StatCard label="Portada" value={config.hero.image_url ? 'Con imagen' : 'Sin imagen'} />
                 <StatCard label="Modo" value={labelFor(config.appearance.theme_mode, themeModeOptions)} />
               </div>
-              <Panel title="Logo del restaurante" desc="Este logo se usa en la tienda, carta QR, kiosko, bienvenida y accesos del restaurante.">
-                <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_240px] lg:items-center">
-                  <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-bold leading-6 text-amber-950">
-                    Sube una imagen cuadrada o con fondo transparente para que se vea limpia en todos los accesos.
+              <Panel title="Subir o cambiar logo" desc="Logo visible para clientes y empleados.">
+                <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_260px] lg:items-center">
+                  <div className="rounded-xl border border-[#e43d30]/25 bg-[#fff4ef] px-4 py-4 text-sm font-bold leading-6 text-[#4a1f16]">
+                    <p className="text-base font-black text-[#15130f]">Logo del restaurante</p>
+                    <p className="mt-1">Usa este bloque para cargar el logo que aparece en la carta QR, kiosko, tienda, bienvenida y accesos del personal.</p>
                   </div>
                   <ImageUploader
                     label="Logo"
                     imageUrl={brandFallbacks.logoUrl}
                     loading={uploadingImage === 'logo'}
                     fit="contain"
+                    uploadText="Subir o cambiar logo"
                     onFile={uploadLogo}
                   />
                 </div>
@@ -463,6 +465,7 @@ export default function PageBuilderPage() {
               </Panel>
               <Panel title="¿Qué quieres cambiar?" desc="Elige una acción rápida. Todo queda guardado solo cuando presionas Guardar.">
                 <div className="grid gap-3 md:grid-cols-2">
+                  <QuickButton title="Subir logo" desc="Logo del restaurante" onClick={() => setTab('home')} />
                   <QuickButton title="Cambiar foto principal" desc="Imagen grande de entrada" onClick={() => setTab('hero')} />
                   <QuickButton title="Subir fotos" desc="Galeria del local y platos" onClick={() => openSectionEditor('gallery')} />
                   <QuickButton title="Ordenar secciones" desc="Mostrar u ocultar bloques" onClick={() => setTab('sections')} />
@@ -982,12 +985,13 @@ function RangeField({ label, value, min, max, onChange }: {
   )
 }
 
-function ImageUploader({ label, imageUrl, loading, onFile, fit = 'cover' }: {
+function ImageUploader({ label, imageUrl, loading, onFile, fit = 'cover', uploadText = 'Subir imagen' }: {
   label: string
   imageUrl?: string
   loading: boolean
   onFile: (file: File) => void
   fit?: 'cover' | 'contain'
+  uploadText?: string
 }) {
   return (
     <div>
@@ -1002,7 +1006,7 @@ function ImageUploader({ label, imageUrl, loading, onFile, fit = 'cover' }: {
         )}
         <label className="flex cursor-pointer items-center justify-center gap-2 border-t border-black/10 px-4 py-3 text-sm font-black text-[#e43d30] transition hover:bg-red-50">
           <ImagePlus className="size-4" />
-          {loading ? 'Subiendo...' : 'Subir imagen'}
+          {loading ? 'Subiendo...' : uploadText}
           <input type="file" accept="image/*" className="hidden" onChange={e => {
             const file = e.target.files?.[0]
             if (file) onFile(file)
