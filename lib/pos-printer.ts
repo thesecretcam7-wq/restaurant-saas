@@ -47,13 +47,17 @@ const getSupabase = () => {
   return _supabase;
 };
 
-const LOCAL_BRIDGE_PRINT_TIMEOUT_MS = 1200;
+const LOCAL_BRIDGE_PRINT_TIMEOUT_MS = 5000;
 const LOCAL_BRIDGE_DEFAULT_URLS = ['http://127.0.0.1:17777', 'http://localhost:17777'];
 const LOCAL_BRIDGE_URL_CACHE_KEY = 'eccofood-local-print-bridge-url';
 let lastWorkingBridgeUrl: string | null = null;
 
 class LocalBridgeRequestError extends Error {
-  constructor(message: string, public retryable: boolean) {
+  constructor(
+    message: string,
+    public retryable: boolean,
+    public mayHavePrinted = false
+  ) {
     super(message);
     this.name = 'LocalBridgeRequestError';
   }
@@ -240,7 +244,11 @@ async function postToLocalBridge(bridgeUrl: string, printer: PrinterDevice, data
     });
   } catch (error) {
     if (error instanceof DOMException && error.name === 'AbortError') {
-      throw new LocalBridgeRequestError('El puente local no respondio a tiempo. Revisa que el agente este activo y la impresora no este bloqueada en Windows.', true);
+      throw new LocalBridgeRequestError(
+        'El puente local no confirmo la impresion a tiempo. No se reintenta para evitar recibos duplicados; revisa si el ticket salio antes de repetir.',
+        false,
+        true
+      );
     }
     throw new LocalBridgeRequestError(error instanceof Error ? error.message : String(error), true);
   } finally {
@@ -252,6 +260,10 @@ async function postToLocalBridge(bridgeUrl: string, printer: PrinterDevice, data
     const message = payload?.error || 'No se pudo imprimir con el puente local';
     throw new LocalBridgeRequestError(message, response.status === 404);
   }
+}
+
+function mayHavePrinted(error: unknown) {
+  return error instanceof LocalBridgeRequestError && error.mayHavePrinted;
 }
 
 async function printViaLocalBridge(printer: PrinterDevice, data: Uint8Array): Promise<void> {
@@ -266,7 +278,7 @@ async function printViaLocalBridge(printer: PrinterDevice, data: Uint8Array): Pr
       const message = error instanceof Error ? error.message : String(error);
       errors.push(`${bridgeUrl}: ${message}`);
       if (error instanceof LocalBridgeRequestError && !error.retryable) {
-        throw new Error(errors[errors.length - 1]);
+        throw error;
       }
       forgetWorkingBridgeUrl(bridgeUrl);
     }
@@ -305,6 +317,9 @@ export async function printReceipt(
         await printViaLocalBridge(printer, escPosData);
       } catch (bridgeError) {
         console.warn('Local print bridge unavailable:', bridgeError);
+        if (mayHavePrinted(bridgeError)) {
+          throw bridgeError;
+        }
         if (canUseBrowserPrintFallback(printer)) {
           printViaBrowserAPI(data);
         } else {
@@ -371,6 +386,9 @@ export async function printCashClosingReceipt(
         await printViaLocalBridge(printer, escPosData);
       } catch (bridgeError) {
         console.warn('Local print bridge unavailable:', bridgeError);
+        if (mayHavePrinted(bridgeError)) {
+          throw bridgeError;
+        }
         if (canUseBrowserPrintFallback(printer)) {
           printCashClosingViaBrowserAPI(data);
         } else {
@@ -433,6 +451,9 @@ export async function printMonthlyClosingReceipt(
         await printViaLocalBridge(printer, escPosData);
       } catch (bridgeError) {
         console.warn('Local print bridge unavailable:', bridgeError);
+        if (mayHavePrinted(bridgeError)) {
+          throw bridgeError;
+        }
         if (canUseBrowserPrintFallback(printer)) {
           printMonthlyClosingViaBrowserAPI(data);
         } else {
@@ -496,6 +517,9 @@ export async function printKitchenTicket(
         await printViaLocalBridge(printer, escPosData);
       } catch (bridgeError) {
         console.warn('Local print bridge unavailable:', bridgeError);
+        if (mayHavePrinted(bridgeError)) {
+          throw bridgeError;
+        }
         if (canUseBrowserPrintFallback(printer)) {
           printKitchenTicketViaBrowserAPI(data);
         } else {
@@ -1180,6 +1204,9 @@ export async function testPrinterConnection(
         await printViaLocalBridge(printer, testData);
       } catch (bridgeError) {
         console.warn('Local print bridge unavailable:', bridgeError);
+        if (mayHavePrinted(bridgeError)) {
+          throw bridgeError;
+        }
         if (canUseBrowserPrintFallback(printer)) {
           printViaBrowserAPI({
             orderId: 'test',
