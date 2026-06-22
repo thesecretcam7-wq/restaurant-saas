@@ -139,7 +139,7 @@ function statsFromOrders(period: CashClosingPeriod, orders: any[] = []): CashClo
     addPaymentTotals(stats, order);
     stats.totalSales += total;
     stats.totalDeliveryFees += deliveryFee;
-    if (deliveryFee > 0 || order.delivery_type === 'delivery') {
+    if (deliveryFee > 0) {
       stats.deliveryOrderCount++;
     }
     stats.totalTax += tax;
@@ -275,7 +275,7 @@ export async function calculateCashClosingStats(
 
       stats.totalSales += total;
       stats.totalDeliveryFees += deliveryFee;
-      if (deliveryFee > 0 || order.delivery_type === 'delivery') {
+      if (deliveryFee > 0) {
         stats.deliveryOrderCount++;
       }
       stats.totalTax += tax;

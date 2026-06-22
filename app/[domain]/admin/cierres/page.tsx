@@ -244,7 +244,7 @@ export default function CashClosingsPage() {
       }
       const deliveryFee = Number(order.delivery_fee) || 0
       summary.totalDeliveryFees += deliveryFee
-      if (deliveryFee > 0 || order.delivery_type === 'delivery') {
+      if (deliveryFee > 0) {
         summary.deliveryOrderCount += 1
       }
       recalculated.set(item.cash_closing_id, summary)
@@ -381,7 +381,7 @@ export default function CashClosingsPage() {
         if (order.status === 'cancelled' || order.payment_status !== 'paid') return summary
         const deliveryFee = Number(order.delivery_fee) || 0
         summary.totalDeliveryFees += deliveryFee
-        if (deliveryFee > 0 || order.delivery_type === 'delivery') {
+        if (deliveryFee > 0) {
           summary.deliveryOrderCount += 1
         }
         return summary

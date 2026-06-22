@@ -224,7 +224,7 @@ function statsFromOrders(args: {
     stats.totalDiscount += discount;
     stats.totalDeliveryFees += deliveryFee;
 
-    if (order.delivery_type === 'delivery' || deliveryFee > 0) {
+    if (deliveryFee > 0) {
       stats.deliveryOrderCount++;
     }
 
