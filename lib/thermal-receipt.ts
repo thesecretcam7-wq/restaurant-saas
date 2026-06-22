@@ -361,6 +361,9 @@ export function generateCashClosingReceiptESCPOS(
   row('Efectivo:', money(data.cashSales));
   row('Tarjeta:', money(data.cardSales));
   if (data.otherSales > 0) row('Otros:', money(data.otherSales));
+  if ((data.billPaymentsTotal || 0) > 0) {
+    row('Facturas:', `-${money(data.billPaymentsTotal || 0)}`);
+  }
   pairRow('Dom:', money(data.totalDeliveryFees || 0), 'Cant:', String(data.deliveryOrderCount || 0));
   if (data.totalTax > 0) row('Impuestos:', money(data.totalTax));
   if (data.totalDiscount > 0) row('Descuentos:', money(data.totalDiscount));

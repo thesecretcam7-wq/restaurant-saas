@@ -11,6 +11,8 @@ interface CashClosingData {
   cardSales: number;
   otherSales: number;
   totalSales: number;
+  billPaymentsTotal: number;
+  billPaymentsCount: number;
   totalDeliveryFees?: number;
   deliveryOrderCount?: number;
   totalTax: number;
@@ -51,7 +53,7 @@ export function CashClosingModal({
   const isTouchDevice = useTouchDevice();
 
   const currencyInfo = getCurrencyByCountry(country);
-  const expectedTotal = data.cashSales;
+  const expectedTotal = Math.max(0, data.cashSales - (Number(data.billPaymentsTotal) || 0));
   const paymentSalesTotal = data.totalSales;
   const difference = expectedTotal - Number(actualCash);
   const isBalanced = Math.abs(difference) < 0.01;
@@ -142,6 +144,23 @@ export function CashClosingModal({
                   </p>
                 </div>
               )}
+              {(data.billPaymentsTotal || 0) > 0 && (
+                <div className="rounded-2xl border border-red-200 bg-red-50 p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] sm:col-span-2">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+                    <div>
+                      <p className="text-sm font-black uppercase tracking-[0.16em] text-red-700">
+                        Facturas pagadas desde caja
+                      </p>
+                      <p className="mt-1 text-xs font-bold text-slate-600">
+                        {data.billPaymentsCount || 0} salida{(data.billPaymentsCount || 0) === 1 ? '' : 's'} de efectivo registrada{(data.billPaymentsCount || 0) === 1 ? '' : 's'}
+                      </p>
+                    </div>
+                    <p className="text-3xl font-black text-red-800">
+                      -{formatPriceWithCurrency(data.billPaymentsTotal || 0, currencyInfo.code, currencyInfo.locale)}
+                    </p>
+                  </div>
+                </div>
+              )}
               <div className="rounded-2xl border border-orange-200 bg-orange-50 p-4 sm:col-span-2">
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
                   <div>
@@ -149,7 +168,7 @@ export function CashClosingModal({
                       Total vendido
                     </p>
                     <p className="mt-1 text-xs font-bold text-slate-600">
-                      Ventas cobradas dentro de este cierre
+                      Ventas cobradas dentro de este cierre antes de salidas
                     </p>
                   </div>
                   <p className="text-3xl font-black text-slate-950">
@@ -207,6 +226,11 @@ export function CashClosingModal({
 
           <section className="rounded-2xl border border-orange-200 bg-orange-50 p-4">
             <p className="text-sm font-black uppercase tracking-[0.16em] text-orange-700">Monto esperado en efectivo</p>
+            {(data.billPaymentsTotal || 0) > 0 && (
+              <p className="mt-1 text-xs font-bold text-slate-600">
+                Efectivo vendido menos facturas pagadas desde caja
+              </p>
+            )}
             <p className="mt-2 text-3xl font-black text-slate-950">
               {formatPriceWithCurrency(expectedTotal, currencyInfo.code, currencyInfo.locale)}
             </p>

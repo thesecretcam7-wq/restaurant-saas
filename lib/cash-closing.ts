@@ -6,6 +6,8 @@ export interface CashClosingStats {
   cardSales: number;
   otherSales: number;
   totalSales: number;
+  billPaymentsTotal: number;
+  billPaymentsCount: number;
   totalDeliveryFees: number;
   deliveryOrderCount: number;
   totalTax: number;
@@ -17,6 +19,16 @@ export interface CashClosingStats {
   periodEnd: string;
   businessDateLabel: string;
   operationalCloseTime: string;
+  billPayments: {
+    id: string;
+    supplier_name: string;
+    concept?: string | null;
+    invoice_number?: string | null;
+    amount: number;
+    staff_name?: string | null;
+    paid_at?: string | null;
+    notes?: string | null;
+  }[];
   closingOrders: {
     id: string;
     order_number?: string | null;
@@ -33,6 +45,8 @@ function emptyStats(period: CashClosingPeriod): CashClosingStats {
     cardSales: 0,
     otherSales: 0,
     totalSales: 0,
+    billPaymentsTotal: 0,
+    billPaymentsCount: 0,
     totalDeliveryFees: 0,
     deliveryOrderCount: 0,
     totalTax: 0,
@@ -41,6 +55,7 @@ function emptyStats(period: CashClosingPeriod): CashClosingStats {
     ordersCompleted: 0,
     ordersCancelled: 0,
     closingOrders: [],
+    billPayments: [],
     ...period,
   };
 }
@@ -98,14 +113,26 @@ function addPaymentTotals(stats: CashClosingStats, order: any) {
   });
 }
 
-function statsFromOrders(period: CashClosingPeriod, orders: any[] = []): CashClosingStats {
+function statsFromOrders(period: CashClosingPeriod, orders: any[] = [], billPayments: any[] = []): CashClosingStats {
   const countableOrders = orders.filter(isCountableClosingOrder);
+  const normalizedBillPayments = billPayments.map((payment: any) => ({
+    id: payment.id,
+    supplier_name: payment.supplier_name,
+    concept: payment.concept,
+    invoice_number: payment.invoice_number,
+    amount: Number(payment.amount) || 0,
+    staff_name: payment.staff_name,
+    paid_at: payment.paid_at,
+    notes: payment.notes,
+  }));
 
   const stats = {
     cashSales: 0,
     cardSales: 0,
     otherSales: 0,
     totalSales: 0,
+    billPaymentsTotal: normalizedBillPayments.reduce((sum, payment) => sum + payment.amount, 0),
+    billPaymentsCount: normalizedBillPayments.length,
     totalDeliveryFees: 0,
     deliveryOrderCount: 0,
     totalTax: 0,
@@ -121,6 +148,7 @@ function statsFromOrders(period: CashClosingPeriod, orders: any[] = []): CashClo
       payment_breakdown: Array.isArray(order.payment_breakdown) ? order.payment_breakdown : null,
       created_at: order.created_at,
     })),
+    billPayments: normalizedBillPayments,
     ...period,
   };
 
@@ -156,6 +184,32 @@ function isMissingDeliveryClosingColumns(error: any) {
     error?.code === 'PGRST204' &&
     (text.includes('total_delivery_fees') || text.includes('delivery_order_count'))
   );
+}
+
+function isMissingBillPaymentsTable(error: any) {
+  const text = `${error?.message || ''} ${error?.details || ''} ${error?.hint || ''}`;
+  return text.includes('cash_bill_payments') || error?.code === '42P01' || error?.code === 'PGRST205';
+}
+
+async function getOpenBillPayments(tenantId: string, periodStart: string, periodEnd: string) {
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from('cash_bill_payments')
+    .select('id, supplier_name, concept, invoice_number, amount, staff_name, paid_at, notes')
+    .eq('tenant_id', tenantId)
+    .eq('status', 'active')
+    .is('cash_closing_id', null)
+    .gte('paid_at', periodStart)
+    .lt('paid_at', periodEnd)
+    .order('paid_at', { ascending: true })
+    .limit(500);
+
+  if (error) {
+    if (isMissingBillPaymentsTable(error)) return [];
+    throw error;
+  }
+
+  return data || [];
 }
 
 async function getCurrentOperationalPeriod(tenantId: string) {
@@ -226,9 +280,11 @@ export async function calculateCashClosingStats(
       .lt('created_at', endDate.toISOString())
       .not('payment_method', 'is', null);
 
+    const billPayments = await getOpenBillPayments(tenantId, period.periodStart, period.periodEnd);
+
     if (error) {
       console.error('Error fetching orders:', error);
-      return emptyStats(period);
+      return statsFromOrders(period, [], billPayments);
     }
 
     const countableOrders = (orders || []).filter((order: any) =>
@@ -240,6 +296,8 @@ export async function calculateCashClosingStats(
       cardSales: 0,
       otherSales: 0,
       totalSales: 0,
+      billPaymentsTotal: billPayments.reduce((sum: number, payment: any) => sum + (Number(payment.amount) || 0), 0),
+      billPaymentsCount: billPayments.length,
       totalDeliveryFees: 0,
       deliveryOrderCount: 0,
       totalTax: 0,
@@ -247,6 +305,16 @@ export async function calculateCashClosingStats(
       transactionCount: countableOrders.length,
       ordersCompleted: countableOrders.length,
       ordersCancelled: 0,
+      billPayments: billPayments.map((payment: any) => ({
+        id: payment.id,
+        supplier_name: payment.supplier_name,
+        concept: payment.concept,
+        invoice_number: payment.invoice_number,
+        amount: Number(payment.amount) || 0,
+        staff_name: payment.staff_name,
+        paid_at: payment.paid_at,
+        notes: payment.notes,
+      })),
       closingOrders: countableOrders.map((order: any) => ({
         id: order.id,
         order_number: order.order_number,
@@ -359,7 +427,8 @@ export async function calculatePendingPreviousCashClosingStats(tenantId: string)
       operationalCloseTime: currentPeriod.operationalCloseTime,
     };
 
-    return statsFromOrders(period, pendingOrders);
+    const billPayments = await getOpenBillPayments(tenantId, period.periodStart, period.periodEnd);
+    return statsFromOrders(period, pendingOrders, billPayments);
   } catch (error) {
     console.warn('No se pudo calcular cierres pendientes anteriores:', error instanceof Error ? error.message : error);
     return null;
@@ -380,7 +449,7 @@ export async function saveCashClosing(
 ) {
   const supabase = createClient();
 
-  const expectedTotal = closingData.cashSales;
+  const expectedTotal = Math.max(0, closingData.cashSales - (Number(closingData.billPaymentsTotal) || 0));
   const difference = expectedTotal - closingData.actualCashCount;
   const periodNote = `Periodo operativo: ${new Date(closingData.periodStart).toLocaleString('es-ES')} - ${new Date(closingData.periodEnd).toLocaleString('es-ES')}`;
   const notes = closingData.notes ? `${periodNote}\n${closingData.notes}` : periodNote;
@@ -451,6 +520,18 @@ export async function saveCashClosing(
 
       if (itemsError) {
         console.error('Error saving cash closing items:', itemsError);
+      }
+    }
+
+    if (closingData.billPayments?.length) {
+      const { error: billPaymentsError } = await supabase
+        .from('cash_bill_payments')
+        .update({ cash_closing_id: data.id, updated_at: new Date().toISOString() })
+        .eq('tenant_id', tenantId)
+        .in('id', closingData.billPayments.map(payment => payment.id));
+
+      if (billPaymentsError && !isMissingBillPaymentsTable(billPaymentsError)) {
+        console.error('Error saving bill payments in closing:', billPaymentsError);
       }
     }
 

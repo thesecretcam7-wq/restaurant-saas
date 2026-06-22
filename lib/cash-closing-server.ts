@@ -12,11 +12,24 @@ export type CashClosingOrder = {
   created_at?: string | null;
 };
 
+export type CashBillPayment = {
+  id: string;
+  supplier_name: string;
+  concept?: string | null;
+  invoice_number?: string | null;
+  amount: number;
+  staff_name?: string | null;
+  paid_at?: string | null;
+  notes?: string | null;
+};
+
 export interface CashClosingStats {
   cashSales: number;
   cardSales: number;
   otherSales: number;
   totalSales: number;
+  billPaymentsTotal: number;
+  billPaymentsCount: number;
   totalDeliveryFees: number;
   deliveryOrderCount: number;
   totalTax: number;
@@ -29,6 +42,7 @@ export interface CashClosingStats {
   businessDateLabel: string;
   operationalCloseTime: string;
   closingOrders: CashClosingOrder[];
+  billPayments: CashBillPayment[];
 }
 
 type SupabaseServiceClient = ReturnType<typeof createServiceClient>;
@@ -95,6 +109,8 @@ function emptyStats(period: CashClosingPeriod): CashClosingStats {
     cardSales: 0,
     otherSales: 0,
     totalSales: 0,
+    billPaymentsTotal: 0,
+    billPaymentsCount: 0,
     totalDeliveryFees: 0,
     deliveryOrderCount: 0,
     totalTax: 0,
@@ -103,18 +119,31 @@ function emptyStats(period: CashClosingPeriod): CashClosingStats {
     ordersCompleted: 0,
     ordersCancelled: 0,
     closingOrders: [],
+    billPayments: [],
     ...period,
   };
 }
 
-function statsFromOrders(period: CashClosingPeriod, orders: any[] = []): CashClosingStats {
+function statsFromOrders(period: CashClosingPeriod, orders: any[] = [], billPayments: any[] = []): CashClosingStats {
   const countableOrders = orders.filter(isCountableClosingOrder);
+  const normalizedBillPayments = billPayments.map((payment: any) => ({
+    id: payment.id,
+    supplier_name: payment.supplier_name,
+    concept: payment.concept,
+    invoice_number: payment.invoice_number,
+    amount: Number(payment.amount) || 0,
+    staff_name: payment.staff_name,
+    paid_at: payment.paid_at,
+    notes: payment.notes,
+  }));
 
   const stats: CashClosingStats = {
     cashSales: 0,
     cardSales: 0,
     otherSales: 0,
     totalSales: 0,
+    billPaymentsTotal: normalizedBillPayments.reduce((sum, payment) => sum + payment.amount, 0),
+    billPaymentsCount: normalizedBillPayments.length,
     totalDeliveryFees: 0,
     deliveryOrderCount: 0,
     totalTax: 0,
@@ -130,6 +159,7 @@ function statsFromOrders(period: CashClosingPeriod, orders: any[] = []): CashClo
       payment_breakdown: Array.isArray(order.payment_breakdown) ? order.payment_breakdown : null,
       created_at: order.created_at,
     })),
+    billPayments: normalizedBillPayments,
     ...period,
   };
 
@@ -171,6 +201,11 @@ function isMissingPaymentBreakdownColumn(error: any) {
   return text.includes('payment_breakdown') && (error?.code === '42703' || error?.code === 'PGRST204');
 }
 
+function isMissingBillPaymentsTable(error: any) {
+  const text = `${error?.message || ''} ${error?.details || ''} ${error?.hint || ''}`;
+  return text.includes('cash_bill_payments') || error?.code === '42P01' || error?.code === 'PGRST205';
+}
+
 async function getCurrentOperationalPeriod(supabase: SupabaseServiceClient, tenantId: string) {
   const { data: settings, error } = await supabase
     .from('restaurant_settings')
@@ -193,6 +228,13 @@ async function getCurrentOperationalPeriod(supabase: SupabaseServiceClient, tena
   });
 }
 
+export async function getCurrentCashClosingPeriodWithServiceClient(
+  supabase: SupabaseServiceClient,
+  tenantId: string
+) {
+  return getCurrentOperationalPeriod(supabase, tenantId);
+}
+
 async function getClosedOrderIds(supabase: SupabaseServiceClient, tenantId: string, orderIds?: string[]) {
   if (orderIds && orderIds.length === 0) return new Set<string>();
 
@@ -212,6 +254,31 @@ async function getClosedOrderIds(supabase: SupabaseServiceClient, tenantId: stri
   }
 
   return new Set((data || []).map((item: any) => item.order_id).filter(Boolean));
+}
+
+async function getOpenBillPayments(
+  supabase: SupabaseServiceClient,
+  tenantId: string,
+  periodStart: string,
+  periodEnd: string
+) {
+  const { data, error } = await supabase
+    .from('cash_bill_payments')
+    .select('id, supplier_name, concept, invoice_number, amount, staff_name, paid_at, notes')
+    .eq('tenant_id', tenantId)
+    .eq('status', 'active')
+    .is('cash_closing_id', null)
+    .gte('paid_at', periodStart)
+    .lt('paid_at', periodEnd)
+    .order('paid_at', { ascending: true })
+    .limit(500);
+
+  if (error) {
+    if (isMissingBillPaymentsTable(error)) return [];
+    throw error;
+  }
+
+  return data || [];
 }
 
 export async function calculateCurrentCashClosingStats(
@@ -250,8 +317,9 @@ export async function calculateCurrentCashClosingStats(
     return true;
   });
 
-  if (openOrders.length === 0) return emptyStats(period);
-  return statsFromOrders(period, openOrders);
+  const billPayments = await getOpenBillPayments(supabase, tenantId, period.periodStart, period.periodEnd);
+  if (openOrders.length === 0 && billPayments.length === 0) return emptyStats(period);
+  return statsFromOrders(period, openOrders, billPayments);
 }
 
 export async function calculatePendingPreviousCashClosingStats(
@@ -306,7 +374,8 @@ export async function calculatePendingPreviousCashClosingStats(
     operationalCloseTime: currentPeriod.operationalCloseTime,
   };
 
-  return statsFromOrders(period, pendingOrders);
+  const billPayments = await getOpenBillPayments(supabase, tenantId, period.periodStart, period.periodEnd);
+  return statsFromOrders(period, pendingOrders, billPayments);
 }
 
 export async function calculateCashClosingStatsByMode(
@@ -329,7 +398,7 @@ export async function saveCashClosingWithServiceClient(
     notes: string;
   }
 ) {
-  const expectedTotal = closingData.cashSales;
+  const expectedTotal = Math.max(0, closingData.cashSales - (Number(closingData.billPaymentsTotal) || 0));
   const difference = expectedTotal - closingData.actualCashCount;
   const periodNote = `Periodo operativo: ${new Date(closingData.periodStart).toLocaleString('es-ES')} - ${new Date(closingData.periodEnd).toLocaleString('es-ES')}`;
   const notes = closingData.notes ? `${periodNote}\n${closingData.notes}` : periodNote;
@@ -396,6 +465,16 @@ export async function saveCashClosingWithServiceClient(
       })));
 
     if (itemsError) throw itemsError;
+  }
+
+  if (closingData.billPayments?.length) {
+    const { error: billPaymentsError } = await supabase
+      .from('cash_bill_payments')
+      .update({ cash_closing_id: data.id, updated_at: new Date().toISOString() })
+      .eq('tenant_id', tenantId)
+      .in('id', closingData.billPayments.map(payment => payment.id));
+
+    if (billPaymentsError && !isMissingBillPaymentsTable(billPaymentsError)) throw billPaymentsError;
   }
 
   return data;

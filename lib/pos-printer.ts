@@ -692,6 +692,7 @@ function printCashClosingViaBrowserAPI(data: CashClosingReceiptData): void {
               <div class="line"><span>Efectivo</span><strong>${money(data.cashSales)}</strong></div>
               <div class="line"><span>Tarjeta</span><strong>${money(data.cardSales)}</strong></div>
               <div class="line"><span>Otros</span><strong>${money(data.otherSales)}</strong></div>
+              ${(data.billPaymentsTotal || 0) > 0 ? `<div class="line"><span>Facturas pagadas</span><strong>-${money(data.billPaymentsTotal || 0)}</strong></div>` : ''}
               <div class="line"><span>Valor domicilios</span><strong>${money(data.totalDeliveryFees || 0)}</strong></div>
               <div class="line"><span>Numero domicilios</span><strong>${data.deliveryOrderCount || 0}</strong></div>
               <div class="line"><span>Esperado caja</span><strong>${money(data.expectedCash)}</strong></div>

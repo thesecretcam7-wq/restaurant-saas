@@ -3,12 +3,13 @@
 import { useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { createClient } from '@/lib/supabase/client';
-import { ShoppingCart, Plus, Minus, Trash2, Search, DollarSign, CreditCard, Maximize2, Minimize2, Lock, Clock, Truck, Store, UtensilsCrossed, Archive, Monitor, Printer, CalendarDays, Download, PencilLine, X, Check } from 'lucide-react';
+import { ShoppingCart, Plus, Minus, Trash2, Search, DollarSign, CreditCard, Maximize2, Minimize2, Lock, Clock, Truck, Store, UtensilsCrossed, Archive, Monitor, Printer, CalendarDays, Download, PencilLine, X, Check, ReceiptText } from 'lucide-react';
 import { POSStaffSelector } from './POSStaffSelector';
 import { TableMap } from './TableMap';
 import { POSPayment } from './POSPayment';
 import { NumericKeyboard } from './NumericKeyboard';
 import { CashClosingModal } from './CashClosingModal';
+import { BillPaymentModal } from './BillPaymentModal';
 import { Toast } from './Toast';
 import { POSOrderLookup } from './POSOrderLookup';
 import { saveCartToSupabase, loadCartFromSupabase, abandonCart, abandonCurrentCartSession, loadOrderToCart } from '@/lib/pos-cart-sync';
@@ -243,6 +244,31 @@ async function saveCashClosingViaApi(args: {
   }
 
   return { closing: payload.closing, stats: payload.stats };
+}
+
+async function saveBillPaymentViaApi(args: {
+  tenantId: string;
+  staffId: string | null;
+  staffName: string;
+  supplierName: string;
+  concept: string;
+  invoiceNumber: string;
+  amount: number;
+  notes: string;
+}) {
+  const response = await fetch('/api/pos/bill-payments', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    body: JSON.stringify(args),
+  });
+
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new Error(payload.error || 'No se pudo registrar el pago de factura');
+  }
+
+  return payload.payment;
 }
 
 function useElapsedMinutes(createdAt: string): number {
@@ -586,6 +612,7 @@ export function POSTerminal({
   const posRootRef = useRef<HTMLDivElement>(null);
   const { wakeLockActive, wakeLockSupported, activateWakeLock } = useWakeLock();
   const [showCashClosing, setShowCashClosing] = useState(false);
+  const [showBillPayment, setShowBillPayment] = useState(false);
   const [cashClosingStats, setCashClosingStats] = useState<CashClosingStats | null>(null);
   const [cashClosingMode, setCashClosingMode] = useState<CashClosingMode | null>(null);
   const [pendingCashClosingStats, setPendingCashClosingStats] = useState<CashClosingStats | null>(null);
@@ -1196,6 +1223,44 @@ export function POSTerminal({
     }
   }
 
+  async function handleSaveBillPayment(data: {
+    supplierName: string;
+    concept: string;
+    invoiceNumber: string;
+    amount: number;
+    notes: string;
+  }) {
+    try {
+      const loggedStaff = getLoggedStaffFromBrowser(tenantId);
+      const cashierStaffId = selectedStaffId || loggedStaff.staffId;
+      const cashierStaffName = selectedStaffName || loggedStaff.staffName || 'Sin asignar';
+
+      await saveBillPaymentViaApi({
+        tenantId,
+        staffId: cashierStaffId,
+        staffName: cashierStaffName,
+        ...data,
+      });
+
+      setShowBillPayment(false);
+      setToast({ message: 'Factura pagada y salida registrada en caja', type: 'success' });
+      await refreshOpenCashClosingStats();
+      await refreshPendingCashClosing();
+
+      try {
+        await openCashDrawer(tenantId);
+      } catch (drawerError) {
+        console.warn('No se pudo abrir el cajon despues de pagar factura:', drawerError);
+      }
+    } catch (error) {
+      console.error('Error saving bill payment:', error);
+      setToast({
+        message: error instanceof Error ? error.message : 'Error al registrar el pago de factura',
+        type: 'error',
+      });
+    }
+  }
+
   async function handleSaveCashClosing(actualCash: number, notes: string) {
     if (!cashClosingStats) return;
 
@@ -1249,6 +1314,8 @@ export function POSTerminal({
             return;
           }
 
+          const expectedCash = Math.max(0, savedStats.cashSales - (Number(savedStats.billPaymentsTotal) || 0));
+
           await printCashClosingReceipt(tenantId, settings.default_receipt_printer_id, {
             closingId: closing?.id,
             restaurantName: settings.display_name || restaurantName,
@@ -1261,13 +1328,15 @@ export function POSTerminal({
             cardSales: savedStats.cardSales,
             otherSales: savedStats.otherSales,
             totalSales: savedStats.totalSales,
+            billPaymentsTotal: savedStats.billPaymentsTotal,
+            billPaymentsCount: savedStats.billPaymentsCount,
             totalDeliveryFees: savedStats.totalDeliveryFees,
             deliveryOrderCount: savedStats.deliveryOrderCount,
             totalTax: savedStats.totalTax,
             totalDiscount: savedStats.totalDiscount,
-            expectedCash: savedStats.cashSales,
+            expectedCash,
             actualCash,
-            difference: savedStats.cashSales - actualCash,
+            difference: expectedCash - actualCash,
             transactionCount: savedStats.transactionCount,
             ordersCompleted: savedStats.ordersCompleted,
             ordersCancelled: savedStats.ordersCancelled,
@@ -3165,6 +3234,14 @@ export function POSTerminal({
               </div>
             )}
             <button
+              onClick={() => setShowBillPayment(true)}
+              className="pos-action-ghost border-sky-300/45 bg-sky-300/12 text-sky-50"
+              title="Pagar factura y registrar salida de caja"
+            >
+              <ReceiptText className="w-5 h-5" />
+              <span className="hidden sm:inline">Factura</span>
+            </button>
+            <button
               onClick={async () => {
                 try {
                   await openCashDrawer(tenantId);
@@ -3541,6 +3618,14 @@ export function POSTerminal({
                   </div>
                 )}
                 <button
+                  onClick={() => setShowBillPayment(true)}
+                  className="pos-action-ghost border-sky-300/45 bg-sky-300/12 text-sky-50"
+                  title="Pagar factura y registrar salida de caja"
+                >
+                  <ReceiptText className="w-5 h-5" />
+                  <span className="hidden xl:inline">Factura</span>
+                </button>
+                <button
                   onClick={async () => {
                     try {
                       await openCashDrawer(tenantId);
@@ -3638,6 +3723,14 @@ export function POSTerminal({
                 >
                   <Download className="w-5 h-5" />
                   <span className="hidden sm:inline">Escritorio</span>
+                </button>
+                <button
+                  onClick={() => setShowBillPayment(true)}
+                  className="pos-action-ghost border-sky-300/45 bg-sky-300/12 text-sky-50"
+                  title="Pagar factura y registrar salida de caja"
+                >
+                  <ReceiptText className="w-5 h-5" />
+                  <span className="hidden sm:inline">Factura</span>
                 </button>
                 <button
                   onClick={async () => {
@@ -4569,6 +4662,13 @@ export function POSTerminal({
           mode={cashClosingMode || 'current'}
         />
       )}
+
+      <BillPaymentModal
+        isOpen={showBillPayment}
+        onClose={() => setShowBillPayment(false)}
+        onConfirm={handleSaveBillPayment}
+        country={country}
+      />
     </div>
   );
 }

@@ -96,6 +96,8 @@ export interface CashClosingReceiptData {
   cardSales: number;
     otherSales: number;
     totalSales: number;
+    billPaymentsTotal?: number;
+    billPaymentsCount?: number;
     totalDeliveryFees?: number;
     deliveryOrderCount?: number;
     totalTax: number;
