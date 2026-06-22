@@ -5,6 +5,7 @@ import { useSearchParams } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { Clock, Lock, Maximize2, Minimize2, ReceiptText, ShieldCheck, ShoppingBag, UtensilsCrossed } from 'lucide-react';
 import { getCurrencyByCountry, formatPriceWithCurrency } from '@/lib/currency';
+import { calculateTaxAmount, isTaxIncludedCountry } from '@/lib/order-totals';
 import { deriveBrandPalette, readableTextColor } from '@/lib/brand-colors';
 
 interface CartItem {
@@ -55,6 +56,7 @@ function CustomerDisplayContent() {
   const tenantId = searchParams.get('tid');
   const country = searchParams.get('country') || 'CO';
   const currencyInfo = getCurrencyByCountry(country);
+  const taxIncluded = isTaxIncludedCountry(country);
 
   const [cart, setCart] = useState<PosCart | null>(null);
   const [branding, setBranding] = useState<DisplayBranding | null>(null);
@@ -229,7 +231,7 @@ function CustomerDisplayContent() {
   const hasItems = !!cart?.items?.length;
   const itemCount = cart?.items.reduce((sum, item) => sum + item.quantity, 0) || 0;
   const taxableSubtotal = cart ? Math.max(0, Number(cart.subtotal || 0) - Number(cart.discount || 0)) : 0;
-  const taxAmount = taxRate > 0 ? taxableSubtotal * (taxRate / 100) : 0;
+  const taxAmount = calculateTaxAmount(taxableSubtotal, taxRate, taxIncluded);
   const updatedLabel = cart?.updated_at
     ? new Date(cart.updated_at).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })
     : time.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
@@ -381,7 +383,7 @@ function CustomerDisplayContent() {
                   )}
                   {taxRate > 0 && (
                     <div className="flex items-center justify-between text-lg">
-                      <span className="opacity-70">IVA {taxRate}%</span>
+                      <span className="opacity-70">{taxIncluded ? 'IVA incluido' : 'IVA'} {taxRate}%</span>
                       <span className="font-black tabular-nums">{fmt(taxAmount)}</span>
                     </div>
                   )}

@@ -1113,7 +1113,7 @@ function generateReceiptHTML(data: ReceiptData): string {
         }
         ${
           (data.tax || 0) > 0
-            ? `<div class="summary-row"><span>IVA${data.taxRate ? ` ${data.taxRate}%` : ''}:</span><strong>${money(data.tax || 0)}</strong></div>`
+            ? `<div class="summary-row"><span>${data.taxIncluded ? 'IVA incluido' : 'IVA'}${data.taxRate ? ` ${data.taxRate}%` : ''}:</span><strong>${money(data.tax || 0)}</strong></div>`
             : ''
         }
       </div>`

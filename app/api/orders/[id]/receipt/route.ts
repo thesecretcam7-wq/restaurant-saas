@@ -1,5 +1,6 @@
 import { createServiceClient } from '@/lib/supabase/server'
 import { getCurrencyByCountry } from '@/lib/currency'
+import { isTaxIncludedCountry } from '@/lib/order-totals'
 import { requireTenantAccess, tenantAuthErrorResponse } from '@/lib/tenant-api-auth'
 import { NextRequest, NextResponse } from 'next/server'
 
@@ -44,6 +45,7 @@ export async function GET(
 
     const country = settings?.country || tenant?.country || 'CO'
     const currencyInfo = getCurrencyByCountry(country)
+    const taxIncluded = isTaxIncludedCountry(country)
     const total = Number(order.total || 0)
     const amountPaid = total
 
@@ -64,6 +66,7 @@ export async function GET(
         discount: 0,
         tax: Number(order.tax || 0),
         taxRate: Number(settings?.tax_rate || 0),
+        taxIncluded,
         deliveryFee: Number(order.delivery_fee || 0),
         total,
         amountPaid,

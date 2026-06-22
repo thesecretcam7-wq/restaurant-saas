@@ -205,7 +205,7 @@ export default function RestauranteConfigPage({ params }: Props) {
               className="w-40 px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
               placeholder="0"
             />
-            <p className="text-xs text-gray-400 mt-1">Porcentaje que se suma al subtotal. Pon 0 para no cobrar impuesto.</p>
+            <p className="text-xs text-gray-400 mt-1">En Espana se muestra como IVA incluido: no sube el precio final de carta.</p>
           </div>
         </div>
 

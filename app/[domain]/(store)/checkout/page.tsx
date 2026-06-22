@@ -6,6 +6,7 @@ import { useCartStore } from '@/lib/store/cart'
 import { checkoutSchema, type CheckoutInput } from '@/lib/validations/forms'
 import { getFieldError, parseValidationError } from '@/lib/validations/utils'
 import { formatPriceWithCurrency, getCurrencyByCountry } from '@/lib/currency'
+import { calculateTaxAmount, isTaxIncludedCountry } from '@/lib/order-totals'
 import Link from 'next/link'
 import toast from 'react-hot-toast'
 
@@ -150,9 +151,10 @@ export default function CheckoutPage({ params }: Props) {
 
   const subtotal = total()
   const taxRate = settings?.tax_rate || 0
-  const tax = subtotal * (taxRate / 100)
+  const taxIncluded = isTaxIncludedCountry(settings?.country || 'ES')
+  const tax = calculateTaxAmount(subtotal, taxRate, taxIncluded)
   const deliveryFee = form.delivery_type === 'delivery' ? (settings?.delivery_fee || 0) : 0
-  const finalTotal = subtotal + tax + deliveryFee
+  const finalTotal = subtotal + (taxIncluded ? 0 : tax) + deliveryFee
   const currencyInfo = getCurrencyByCountry(settings?.country || 'ES')
   const formatMoney = (amount: number) => formatPriceWithCurrency(amount, currencyInfo.code, currencyInfo.locale)
   const deliveryMinOrder = Number(settings?.delivery_min_order || 0)
@@ -455,7 +457,7 @@ export default function CheckoutPage({ params }: Props) {
             ))}
             <div className="border-t border-gray-100 pt-2 mt-2 space-y-1.5">
               <div className="flex justify-between text-sm text-gray-500"><span>Subtotal</span><span>{formatMoney(subtotal)}</span></div>
-              {tax > 0 && <div className="flex justify-between text-sm text-gray-500"><span>Impuestos ({taxRate}%)</span><span>{formatMoney(tax)}</span></div>}
+              {tax > 0 && <div className="flex justify-between text-sm text-gray-500"><span>{taxIncluded ? 'IVA incluido' : 'Impuestos'} ({taxRate}%)</span><span>{formatMoney(tax)}</span></div>}
               {deliveryFee > 0 && <div className="flex justify-between text-sm text-gray-500"><span>Envío</span><span>{formatMoney(deliveryFee)}</span></div>}
               <div className="flex justify-between font-extrabold text-gray-900 text-base pt-1 border-t border-gray-100">
                 <span>Total</span><span>{formatMoney(finalTotal)}</span>

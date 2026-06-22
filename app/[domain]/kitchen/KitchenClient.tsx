@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import Image from 'next/image';
 import { createClient } from '@/lib/supabase/client';
 import { formatPriceWithCurrency, getCurrencyByCountry } from '@/lib/currency';
+import { calculateTaxAmount, isTaxIncludedCountry } from '@/lib/order-totals';
 import { formatStaffOrderNumber } from '@/lib/order-display';
 import { useServiceReadyAlert } from '@/lib/hooks/useServiceReadyAlert';
 import { useWaiterPushNotifications } from '@/lib/hooks/useWaiterPushNotifications';
@@ -121,6 +122,7 @@ export function KitchenClient({ tenantId, tenantSlug, tenantName, country, brand
   const { pushStatus, enablePushNotifications } = useWaiterPushNotifications({ tenantId, autoRequest: false });
   const canShowPushButton = pushStatus !== 'subscribed' && pushStatus !== 'unsupported';
   const currencyInfo = useMemo(() => getCurrencyByCountry(country), [country]);
+  const taxIncluded = isTaxIncludedCountry(country);
   const money = useCallback(
     (value: number) => formatPriceWithCurrency(value, currencyInfo.code, currencyInfo.locale),
     [currencyInfo]
@@ -326,8 +328,8 @@ export function KitchenClient({ tenantId, tenantSlug, tenantName, country, brand
   const getQty = (id: string) => cart.filter(c => c.menu_item_id === id).reduce((sum, item) => sum + item.quantity, 0);
   const cartCount = cart.reduce((sum, item) => sum + item.quantity, 0);
   const subtotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
-  const taxAmount = taxRate > 0 ? subtotal * (taxRate / 100) : 0;
-  const total = subtotal + taxAmount;
+  const taxAmount = calculateTaxAmount(subtotal, taxRate, taxIncluded);
+  const total = subtotal + (taxIncluded ? 0 : taxAmount);
   const getServedOrderSubtotal = useCallback((order: OpenTableOrder) => {
     if (typeof order.subtotal === 'number' && order.subtotal > 0) return order.subtotal;
     return (order.items || []).reduce((itemSum, item) => itemSum + Number(item.price || 0) * (item.qty ?? item.quantity ?? 1), 0);
@@ -335,13 +337,13 @@ export function KitchenClient({ tenantId, tenantSlug, tenantName, country, brand
   const getServedOrderTax = useCallback((order: OpenTableOrder) => {
     if (typeof order.tax === 'number' && order.tax > 0) return order.tax;
     const orderSubtotal = getServedOrderSubtotal(order);
-    return taxRate > 0 ? orderSubtotal * (taxRate / 100) : 0;
-  }, [getServedOrderSubtotal, taxRate]);
+    return calculateTaxAmount(orderSubtotal, taxRate, taxIncluded);
+  }, [getServedOrderSubtotal, taxIncluded, taxRate]);
   const getServedOrderTotal = useCallback((order: OpenTableOrder) => {
     const savedTotal = Number(order.total || 0);
     if (savedTotal > 0) return savedTotal;
-    return getServedOrderSubtotal(order) + getServedOrderTax(order);
-  }, [getServedOrderSubtotal, getServedOrderTax]);
+    return getServedOrderSubtotal(order) + (taxIncluded ? 0 : getServedOrderTax(order));
+  }, [getServedOrderSubtotal, getServedOrderTax, taxIncluded]);
   const openTableSubtotal = openTableOrders.reduce((sum, order) => sum + getServedOrderSubtotal(order), 0);
   const openTableTax = openTableOrders.reduce((sum, order) => sum + getServedOrderTax(order), 0);
   const openTableTotal = openTableOrders.reduce((sum, order) => sum + getServedOrderTotal(order), 0);
@@ -600,7 +602,7 @@ export function KitchenClient({ tenantId, tenantSlug, tenantName, country, brand
               <span>{money(subtotal)}</span>
             </div>
             <div className="flex items-center justify-between">
-              <span>{tr('kitchen.tax')} {taxRate > 0 ? `${taxRate}%` : '0%'}:</span>
+              <span>{taxIncluded ? 'IVA incluido' : tr('kitchen.tax')} {taxRate > 0 ? `${taxRate}%` : '0%'}:</span>
               <span>{money(taxAmount)}</span>
             </div>
             <div className="flex items-end justify-between border-t pt-2" style={{ borderColor: brand.border }}>
@@ -847,7 +849,7 @@ export function KitchenClient({ tenantId, tenantSlug, tenantName, country, brand
               <span>{money(subtotal)}</span>
             </div>
             <div className="mt-1 flex items-center justify-between">
-              <span>{tr('kitchen.tax')} {taxRate > 0 ? `${taxRate}%` : '0%'}:</span>
+              <span>{taxIncluded ? 'IVA incluido' : tr('kitchen.tax')} {taxRate > 0 ? `${taxRate}%` : '0%'}:</span>
               <span>{money(taxAmount)}</span>
             </div>
             <div className="mt-1 flex items-center justify-between border-t pt-2" style={{ color: brand.primary, borderColor: brand.border }}>
@@ -1006,7 +1008,7 @@ export function KitchenClient({ tenantId, tenantSlug, tenantName, country, brand
                   </div>
                   {taxRate > 0 && (
                     <div className="flex justify-between text-sm font-bold" style={{ color: panelMuted }}>
-                      <span>IVA servido</span>
+                      <span>{taxIncluded ? 'IVA incluido servido' : 'IVA servido'}</span>
                       <span>{money(openTableTax)}</span>
                     </div>
                   )}

@@ -151,7 +151,8 @@ export function generateReceiptESCPOS(data: ReceiptData, options: ReceiptOptions
       row('Descuento:', `-${formatPrice(data.discount, data)}`);
     }
     if ((data.tax || 0) > 0) {
-      const taxLabel = data.taxRate ? `IVA ${data.taxRate}%:` : 'IVA:';
+      const taxPrefix = data.taxIncluded ? 'IVA incluido' : 'IVA';
+      const taxLabel = data.taxRate ? `${taxPrefix} ${data.taxRate}%:` : `${taxPrefix}:`;
       row(taxLabel, formatPrice(data.tax || 0, data));
     }
     if ((data.deliveryFee || 0) > 0) {

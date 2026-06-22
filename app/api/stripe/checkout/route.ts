@@ -146,6 +146,7 @@ export async function POST(request: NextRequest) {
     const totals = calculateOrderTotals({
       items: sanitizedItems,
       taxRate: settings?.tax_rate,
+      country: settings?.country || tenant.country,
       deliveryType,
       deliveryFee: settings?.delivery_fee,
     })
@@ -211,7 +212,7 @@ export async function POST(request: NextRequest) {
             },
             quantity: item.qty,
           })),
-          ...(tax > 0 ? [{
+          ...(tax > 0 && !totals.taxIncluded ? [{
             price_data: {
               currency: stripeCurrency,
               product_data: { name: `Impuestos (${settings?.tax_rate}%)` },

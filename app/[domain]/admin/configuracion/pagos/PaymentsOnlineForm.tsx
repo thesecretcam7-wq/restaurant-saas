@@ -303,7 +303,7 @@ export function PaymentsOnlineForm({ tenantId, mode = 'full' }: Props) {
               onChange={e => setForm(f => ({ ...f, tax_rate: e.target.value }))}
               className="mt-3 w-full rounded-xl border border-black/10 bg-white px-4 py-3 text-sm font-black text-[#15130f] outline-none transition focus:border-[#15130f]"
             />
-            <span className="mt-1 block text-xs font-semibold text-black/35">Ej: 21 para IVA de Espana. 0 = sin impuestos.</span>
+            <span className="mt-1 block text-xs font-semibold text-black/35">Ej: 10 para hosteleria en Espana. En Espana se muestra como IVA incluido y no sube el precio final.</span>
           </label>
         </div>
       </section>

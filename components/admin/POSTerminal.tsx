@@ -15,6 +15,7 @@ import { saveCartToSupabase, loadCartFromSupabase, abandonCart, abandonCurrentCa
 import type { CashClosingStats } from '@/lib/cash-closing';
 import type { ReceiptData } from '@/types/printer';
 import { getCurrencyByCountry, formatPriceWithCurrency } from '@/lib/currency';
+import { calculateTaxAmount, isTaxIncludedCountry } from '@/lib/order-totals';
 import { printCashClosingReceipt, printKitchenTicket, printReceipt, savePrinterLog, openCashDrawer } from '@/lib/pos-printer';
 import { countPendingPOSOrders, isNetworkPaymentError, saveOfflinePOSOrder, syncOfflinePOSOrders } from '@/lib/offline/pos-sync';
 import { useWakeLock } from '@/lib/hooks/useWakeLock';
@@ -536,6 +537,7 @@ export function POSTerminal({
   country?: string;
 }) {
   const currencyInfo = getCurrencyByCountry(country);
+  const taxIncluded = isTaxIncludedCountry(country);
 
   // Initialize Supabase client once inside component for proper type compatibility
   const supabase = useMemo(() => createClient(), []);
@@ -1451,7 +1453,7 @@ export function POSTerminal({
       ? Math.round((newSubtotal * (Number(order.tax || 0) / Number(order.subtotal || 1))) * 100) / 100
       : 0;
     const newDeliveryFee = Number(order.delivery_fee || 0);
-    const newTotal = Math.max(0, newSubtotal + newTax + newDeliveryFee);
+    const newTotal = Math.max(0, newSubtotal + (taxIncluded ? 0 : newTax) + newDeliveryFee);
 
     const response = await fetch(`/api/orders/${order.id}`, {
       method: 'PATCH',
@@ -2432,9 +2434,9 @@ export function POSTerminal({
           notes: item.notes || null,
         }));
         const loadedTaxableSubtotal = Math.max(0, subtotal - discount);
-        const loadedTax = taxRate > 0 ? loadedTaxableSubtotal * (taxRate / 100) : 0;
+        const loadedTax = calculateTaxAmount(loadedTaxableSubtotal, taxRate, taxIncluded);
         const loadedDeliveryFee = Number(loadedOrderContext?.deliveryFee || 0);
-        const loadedTotal = loadedTaxableSubtotal + loadedTax + loadedDeliveryFee + tip;
+        const loadedTotal = loadedTaxableSubtotal + (taxIncluded ? 0 : loadedTax) + loadedDeliveryFee + tip;
         const wasPaidReceipt = loadedOrderContext?.paymentStatus === 'paid';
         editedPaidReceipt = wasPaidReceipt;
         receiptPaymentMethod = paymentMethod;
@@ -2666,6 +2668,7 @@ export function POSTerminal({
         discount,
         tax: receiptTax,
         taxRate,
+        taxIncluded,
         deliveryFee: receiptDeliveryFee,
         total: receiptTotal,
         amountPaid: shouldOpenCashDrawer && !editedPaidReceipt ? amountPaid : undefined,
@@ -2691,6 +2694,7 @@ export function POSTerminal({
           discount: receiptSnapshot.discount,
           tax: receiptSnapshot.tax,
           taxRate: receiptSnapshot.taxRate,
+          taxIncluded: receiptSnapshot.taxIncluded,
           deliveryFee: receiptSnapshot.deliveryFee,
           total: receiptSnapshot.total,
           amountPaid: receiptSnapshot.amountPaid,
@@ -2774,6 +2778,7 @@ export function POSTerminal({
                 discount: receiptSnapshot.discount,
                 tax: receiptSnapshot.tax,
                 taxRate: receiptSnapshot.taxRate,
+                taxIncluded: receiptSnapshot.taxIncluded,
                 deliveryFee: receiptSnapshot.deliveryFee,
                 total: receiptSnapshot.total,
                 amountPaid: receiptSnapshot.amountPaid,
@@ -2895,17 +2900,17 @@ export function POSTerminal({
 
   const subtotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
   const taxableSubtotal = Math.max(0, subtotal - discount);
-  const taxAmount = taxRate > 0 ? taxableSubtotal * (taxRate / 100) : 0;
+  const taxAmount = calculateTaxAmount(taxableSubtotal, taxRate, taxIncluded);
   const needsDeliveryZone = !loadedOrderId && !selectedTableId && posOrderType === 'delivery' && deliveryEnabled;
   const hasRequiredDeliveryZone = !needsDeliveryZone || Boolean(selectedDeliveryZone);
   const activeDeliveryFee = needsDeliveryZone ? Number(selectedDeliveryZone?.fee || 0) : 0;
   const loadedOrderDeliveryFee = loadedOrderId ? Number(loadedOrderContext?.deliveryFee || 0) : 0;
   const cartDeliveryFee = loadedOrderId ? loadedOrderDeliveryFee : activeDeliveryFee;
-  const paymentBaseTotal = taxableSubtotal + taxAmount + cartDeliveryFee;
+  const paymentBaseTotal = taxableSubtotal + (taxIncluded ? 0 : taxAmount) + cartDeliveryFee;
   const total = paymentBaseTotal + tip;
   const editingPaidReceipt = loadedOrderContext?.paymentStatus === 'paid';
   const editedReceiptDeliveryFee = editingPaidReceipt ? loadedOrderDeliveryFee : cartDeliveryFee;
-  const editedReceiptTotal = taxableSubtotal + taxAmount + editedReceiptDeliveryFee + tip;
+  const editedReceiptTotal = taxableSubtotal + (taxIncluded ? 0 : taxAmount) + editedReceiptDeliveryFee + tip;
   const editedReceiptDifference = editingPaidReceipt
     ? Math.round((editedReceiptTotal - Number(loadedOrderContext?.originalTotal || 0)) * 100) / 100
     : 0;
@@ -2923,7 +2928,8 @@ export function POSTerminal({
       orders,
       totalAmount: orders.reduce((sum, order) => {
         const orderSubtotal = getOrderItemsTotal(order.items || []);
-        return sum + orderSubtotal + (taxRate > 0 ? orderSubtotal * (taxRate / 100) : 0);
+        const orderTax = calculateTaxAmount(orderSubtotal, taxRate, taxIncluded);
+        return sum + orderSubtotal + (taxIncluded ? 0 : orderTax);
       }, 0),
       itemCount: orders.reduce((sum, order) => sum + (order.items || []).reduce((s, item) => s + getOrderItemQty(item), 0), 0),
       waiters: [...new Set(orders.map(o => o.waiter_name).filter((w): w is string => Boolean(w)))],
@@ -2932,7 +2938,7 @@ export function POSTerminal({
       ),
       allItems: orders.flatMap(o => o.items || []),
     }));
-  }, [dineInOrders, taxRate]);
+  }, [dineInOrders, taxIncluded, taxRate]);
 
   const cartQuantityMap = useMemo(() => {
     const map = new Map<string, number>();
@@ -4133,7 +4139,7 @@ export function POSTerminal({
               )}
               {taxRate > 0 && (
                 <div className="flex justify-between">
-                  <span className="text-slate-400">IVA ({taxRate}%):</span>
+                  <span className="text-slate-400">{taxIncluded ? 'IVA incluido' : 'IVA'} ({taxRate}%):</span>
                   <span className="font-semibold text-slate-200">{formatPriceWithCurrency(taxAmount, currencyInfo.code, currencyInfo.locale)}</span>
                 </div>
               )}

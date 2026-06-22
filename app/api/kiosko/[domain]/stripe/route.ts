@@ -1,6 +1,8 @@
 import { createServiceClient } from '@/lib/supabase/server'
 import { NextRequest, NextResponse } from 'next/server'
 import Stripe from 'stripe'
+import { getCurrencyByCountry } from '@/lib/currency'
+import { calculateOrderTotals } from '@/lib/order-totals'
 
 export async function POST(
   request: NextRequest,
@@ -18,7 +20,7 @@ export async function POST(
 
     const { data: tenant } = await supabase
       .from('tenants')
-      .select('id, stripe_account_id, slug')
+      .select('id, stripe_account_id, slug, country')
       .eq('slug', domain)
       .single()
 
@@ -29,14 +31,21 @@ export async function POST(
 
     const { data: settings } = await supabase
       .from('restaurant_settings')
-      .select('tax_rate')
+      .select('tax_rate, country')
       .eq('tenant_id', tenant.id)
       .single()
 
-    const subtotal = items.reduce((sum: number, i: any) => sum + i.price * i.qty, 0)
-    const taxRate = settings?.tax_rate ?? 0
-    const tax = taxRate ? subtotal * (taxRate / 100) : 0
-    const total = subtotal + tax
+    const totals = calculateOrderTotals({
+      items,
+      taxRate: settings?.tax_rate,
+      country: settings?.country || tenant.country,
+    })
+    const subtotal = totals.subtotal
+    const taxRate = totals.taxRate
+    const tax = totals.tax
+    const total = totals.total
+    const currencyInfo = getCurrencyByCountry(settings?.country || tenant.country || 'ES')
+    const stripeCurrency = currencyInfo.code.toLowerCase()
 
     // Daily sequential display number
     const todayStart = new Date()
@@ -87,16 +96,16 @@ export async function POST(
         line_items: [
           ...items.map((item: any) => ({
             price_data: {
-              currency: 'cop',
+              currency: stripeCurrency,
               product_data: { name: item.name },
               unit_amount: Math.round(item.price * 100),
             },
             quantity: item.qty,
           })),
-          ...(tax > 0
+          ...(tax > 0 && !totals.taxIncluded
             ? [{
                 price_data: {
-                  currency: 'cop',
+                  currency: stripeCurrency,
                   product_data: { name: `Impuestos (${taxRate}%)` },
                   unit_amount: Math.round(tax * 100),
                 },

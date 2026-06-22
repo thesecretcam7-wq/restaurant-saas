@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { formatPriceWithCurrency } from '@/lib/currency'
+import { calculateTaxAmount } from '@/lib/order-totals'
 import LanguageSwitcher, { useI18n } from '@/components/LanguageSwitcher'
 import { useWakeLock } from '@/lib/hooks/useWakeLock'
 
@@ -714,8 +715,9 @@ export default function KioskoClient({
 
   const cartTotal = cart.reduce((s, i) => s + i.price * i.qty, 0)
   const cartCount = cart.reduce((s, i) => s + i.qty, 0)
-  const tax = taxRate ? cartTotal * (taxRate / 100) : 0
-  const grandTotal = cartTotal + tax
+  const taxIncluded = currencyCode.toUpperCase() === 'EUR'
+  const tax = calculateTaxAmount(cartTotal, taxRate, taxIncluded)
+  const grandTotal = cartTotal + (taxIncluded ? 0 : tax)
   const recommendedItems = useMemo(() => {
     const cartItemIds = new Set(cart.map(item => item.menu_item_id))
     const upsellItems = menuItems.filter(item => item.available && item.variants?.show_in_upsell && !cartItemIds.has(item.id))
@@ -1006,7 +1008,7 @@ export default function KioskoClient({
                 </div>
                 {taxRate > 0 && (
                   <div className="flex justify-between text-base font-black" style={{ color: surfaceTextColor }}>
-                    <span>{tr('kitchen.tax')} {taxRate}%</span>
+                    <span>{taxIncluded ? 'IVA incluido' : tr('kitchen.tax')} {taxRate}%</span>
                     <span style={{ color: kioskAccentColor }}>{fmt(tax, currencyCode, currencyLocale)}</span>
                   </div>
                 )}
@@ -1186,7 +1188,7 @@ export default function KioskoClient({
                       <span>{tr('kitchen.subtotal')}</span><span style={{ color: kioskAccentColor }}>{fmt(cartTotal, currencyCode, currencyLocale)}</span>
                     </div>
                     <div className="flex justify-between text-sm" style={{ color: surfaceMutedTextColor }}>
-                      <span>{tr('kitchen.tax')} {taxRate}%</span><span style={{ color: kioskAccentColor }}>{fmt(tax, currencyCode, currencyLocale)}</span>
+                      <span>{taxIncluded ? 'IVA incluido' : tr('kitchen.tax')} {taxRate}%</span><span style={{ color: kioskAccentColor }}>{fmt(tax, currencyCode, currencyLocale)}</span>
                     </div>
                   </div>
                 )}
@@ -1569,7 +1571,7 @@ export default function KioskoClient({
               <p className="text-3xl font-black leading-none" style={{ color: kioskAccentColor }}>{fmt(grandTotal, currencyCode, currencyLocale)}</p>
               {taxRate > 0 && (
                 <p className="mt-1 text-xs font-semibold" style={{ color: surfaceMutedTextColor }}>
-                  Incluye IVA {taxRate}%: <span style={{ color: kioskAccentColor }}>{fmt(tax, currencyCode, currencyLocale)}</span>
+                  {taxIncluded ? 'Incluye IVA' : 'Impuestos'} {taxRate}%: <span style={{ color: kioskAccentColor }}>{fmt(tax, currencyCode, currencyLocale)}</span>
                 </p>
               )}
             </div>

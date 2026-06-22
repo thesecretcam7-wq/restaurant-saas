@@ -62,11 +62,15 @@ export function calculateOrderTotals(
   items: Array<{ price: number; quantity: number }>,
   taxRate: number = 0,
   deliveryFee: number = 0,
-  discount: number = 0
+  discount: number = 0,
+  taxIncluded: boolean = false
 ): OrderTotals {
   const subtotal = items.reduce((sum, item) => sum + item.price * item.quantity, 0);
-  const tax = Math.round((subtotal * taxRate) / 100 * 100) / 100;
-  const total = Math.round((subtotal + tax + deliveryFee - discount) * 100) / 100;
+  const taxableSubtotal = Math.max(0, subtotal - discount);
+  const tax = taxRate > 0
+    ? Math.round((taxIncluded ? taxableSubtotal - taxableSubtotal / (1 + taxRate / 100) : taxableSubtotal * taxRate / 100) * 100) / 100
+    : 0;
+  const total = Math.round((taxableSubtotal + (taxIncluded ? 0 : tax) + deliveryFee) * 100) / 100;
 
   return {
     subtotal: Math.round(subtotal * 100) / 100,

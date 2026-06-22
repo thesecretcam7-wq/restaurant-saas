@@ -145,6 +145,7 @@ export async function POST(request: NextRequest) {
     const totals = calculateOrderTotals({
       items: orderItems,
       taxRate: settings?.tax_rate,
+      country: settings?.country,
       deliveryType,
       deliveryFee: settings?.delivery_fee,
     })
