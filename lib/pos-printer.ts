@@ -902,8 +902,9 @@ function generateReceiptHTML(data: ReceiptData): string {
     ? ticketLine('Domicilio', `${money(data.deliveryFee || 0)} x1`, 'delivery-line')
     : '';
   const productCount = data.items.reduce((sum, item) => sum + Number(item.quantity || 0), 0) + ((data.deliveryFee || 0) > 0 ? 1 : 0);
-  const hasBreakdown = data.discount > 0 || (data.tax || 0) > 0;
-  const extraRows = (data.discount > 0 ? 1 : 0) + ((data.tax || 0) > 0 ? 1 : 0);
+  const showTax = (data.tax || 0) > 0 && (data.taxRate || 0) > 0;
+  const hasBreakdown = data.discount > 0 || showTax;
+  const extraRows = (data.discount > 0 ? 1 : 0) + (showTax ? 1 : 0);
   const minHeightMm = Math.max(92, 70 + (data.items.length + ((data.deliveryFee || 0) > 0 ? 1 : 0)) * 8 + extraRows * 6);
 
   return `
@@ -1112,7 +1113,7 @@ function generateReceiptHTML(data: ReceiptData): string {
             : ''
         }
         ${
-          (data.tax || 0) > 0
+          showTax
             ? `<div class="summary-row"><span>${data.taxIncluded ? 'IVA incluido' : 'IVA'}${data.taxRate ? ` ${data.taxRate}%` : ''}:</span><strong>${money(data.tax || 0)}</strong></div>`
             : ''
         }

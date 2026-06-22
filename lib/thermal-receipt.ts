@@ -144,13 +144,14 @@ export function generateReceiptESCPOS(data: ReceiptData, options: ReceiptOptions
     itemRow(item.name, quantity, item.price, itemTotal);
   }
 
-  const hasBreakdown = data.discount > 0 || (data.tax || 0) > 0 || (data.deliveryFee || 0) > 0;
+  const showTax = (data.tax || 0) > 0 && (data.taxRate || 0) > 0;
+  const hasBreakdown = data.discount > 0 || showTax || (data.deliveryFee || 0) > 0;
   if (hasBreakdown) {
     row('Subtotal:', formatPrice(data.subtotal, data));
     if (data.discount > 0) {
       row('Descuento:', `-${formatPrice(data.discount, data)}`);
     }
-    if ((data.tax || 0) > 0) {
+    if (showTax) {
       const taxPrefix = data.taxIncluded ? 'IVA incluido' : 'IVA';
       const taxLabel = data.taxRate ? `${taxPrefix} ${data.taxRate}%:` : `${taxPrefix}:`;
       row(taxLabel, formatPrice(data.tax || 0, data));
