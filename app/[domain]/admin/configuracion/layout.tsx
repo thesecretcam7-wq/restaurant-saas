@@ -18,7 +18,7 @@ import {
 } from 'lucide-react'
 
 const sections = [
-  { href: 'pagina', label: 'Editor de secciones', desc: 'Orden y portada de la tienda', Icon: LayoutTemplate, hidden: true },
+  { href: 'pagina', label: 'Logo y pagina', desc: 'Logo, portada y secciones publicas', Icon: LayoutTemplate },
   { href: 'restaurante', label: 'Restaurante', desc: 'Nombre, ubicacion y datos publicos', Icon: Store },
   { href: 'personal', label: 'Personal', desc: 'Empleados, roles y PINs', Icon: UsersRound },
   { href: 'horarios', label: 'Horarios', desc: 'Dias y horas de atencion', Icon: Clock3 },
