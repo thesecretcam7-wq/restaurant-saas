@@ -167,7 +167,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     const { id } = await params
     const orderId = id
     const body = await request.json()
-    const { status, payment_status, payment_method, payment_method_reason, cancel_reason, items, subtotal, tax, delivery_fee, total, edit_reason } = body
+    const { status, payment_status, payment_method, payment_method_reason, cancel_reason, items, subtotal, tax, delivery_fee, total, edit_reason, delivery_type } = body
     const requestedPaymentBreakdown = body.payment_breakdown ?? body.paymentBreakdown
     const hasPaymentMethod = Object.prototype.hasOwnProperty.call(body, 'payment_method')
     const hasPaymentBreakdown = Object.prototype.hasOwnProperty.call(body, 'payment_breakdown') || Object.prototype.hasOwnProperty.call(body, 'paymentBreakdown')
@@ -249,6 +249,9 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       updateData.tax = Math.max(0, Number(tax ?? 0))
       updateData.delivery_fee = Math.max(0, Number(delivery_fee ?? 0))
       updateData.total = Math.max(0, Number(total ?? updateData.subtotal + updateData.tax + updateData.delivery_fee))
+      if (typeof delivery_type === 'string' && ['delivery', 'pickup', 'takeaway', 'dine-in'].includes(delivery_type)) {
+        updateData.delivery_type = delivery_type
+      }
       if (sanitizedItems.length === 0 && !status) {
         updateData.status = 'cancelled'
       }

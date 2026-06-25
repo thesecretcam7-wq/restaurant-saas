@@ -121,6 +121,8 @@ interface LoadedOrderContext {
   paymentStatus?: string | null;
   status?: string | null;
   deliveryFee: number;
+  deliveryZoneId?: string | null;
+  deliveryZoneName?: string | null;
   originalTotal: number;
   paymentMethod?: PaymentMethod;
   deliveryType?: string | null;
@@ -1386,11 +1388,18 @@ export function POSTerminal({
         paymentStatus: order.payment_status || null,
         status: order.status || null,
         deliveryFee: Number(order.delivery_fee || 0),
+        deliveryZoneId: order.delivery_zone_id || null,
+        deliveryZoneName: order.delivery_zone_name || null,
         originalTotal: Number(order.total || 0),
         paymentMethod: normalizedPaymentMethod,
         deliveryType: order.delivery_type || null,
         tableNumber: order.table_number ?? null,
       });
+      setPosOrderType(order.delivery_type === 'delivery' ? 'delivery' : 'takeaway');
+      const matchingDeliveryZone = deliveryOptions.find(
+        (zone) => Math.abs(Number(zone.fee || 0) - Number(order.delivery_fee || 0)) < 0.01
+      );
+      setSelectedDeliveryZoneId(order.delivery_type === 'delivery' ? matchingDeliveryZone?.id || null : null);
       setPaymentMethod(normalizedPaymentMethod);
       setPosMode('simple');
       setDiscount(0);
@@ -2133,11 +2142,35 @@ export function POSTerminal({
         ? {
             ...current,
             deliveryFee: 0,
+            deliveryZoneId: null,
+            deliveryZoneName: null,
+            deliveryType: current.tableNumber ? current.deliveryType : 'takeaway',
           }
         : current
     );
     setSelectedDeliveryZoneId(null);
     setToast({ message: 'Domicilio quitado del recibo. Guarda los cambios para aplicar.', type: 'success' });
+  }
+
+  function applyDeliveryZoneToLoadedReceipt(zone: DeliveryZone | null) {
+    setSelectedDeliveryZoneId(zone?.id || null);
+    setLoadedOrderContext((current) =>
+      current
+        ? {
+            ...current,
+            deliveryFee: zone ? Number(zone.fee || 0) : 0,
+            deliveryZoneId: zone?.id || null,
+            deliveryZoneName: zone?.name || null,
+            deliveryType: zone ? 'delivery' : (current.tableNumber ? current.deliveryType : 'takeaway'),
+          }
+        : current
+    );
+    setToast({
+      message: zone
+        ? `Domicilio ${formatPriceWithCurrency(zone.fee, currencyInfo.code, currencyInfo.locale)} agregado al recibo. Guarda los cambios para aplicar.`
+        : 'Domicilio quitado del recibo. Guarda los cambios para aplicar.',
+      type: 'success',
+    });
   }
 
   function resetCurrentCartForNextCustomer() {
@@ -2531,6 +2564,7 @@ export function POSTerminal({
             tax: loadedTax,
             delivery_fee: loadedDeliveryFee,
             total: loadedTotal,
+            delivery_type: receiptDeliveryType,
             payment_status: 'paid',
             status: wasPaidReceipt ? (loadedOrderContext?.status || undefined) : 'confirmed',
             payment_method: receiptPaymentMethod,
@@ -4340,7 +4374,11 @@ export function POSTerminal({
                               key={zone.id}
                               onClick={() => {
                                 setPosOrderType('delivery');
-                                setSelectedDeliveryZoneId(active ? null : zone.id);
+                                if (editingPaidReceipt) {
+                                  applyDeliveryZoneToLoadedReceipt(active ? null : zone);
+                                } else {
+                                  setSelectedDeliveryZoneId(active ? null : zone.id);
+                                }
                               }}
                               className={`min-h-10 rounded-lg border px-2 py-1 text-left transition ${
                                 active
@@ -4374,7 +4412,11 @@ export function POSTerminal({
                           type="button"
                           onClick={() => {
                             setPosOrderType('takeaway');
-                            setSelectedDeliveryZoneId(null);
+                            if (editingPaidReceipt) {
+                              applyDeliveryZoneToLoadedReceipt(null);
+                            } else {
+                              setSelectedDeliveryZoneId(null);
+                            }
                           }}
                           className="col-span-2 min-h-9 rounded-lg border border-red-300/25 bg-red-400/10 px-2 py-1 text-center text-[11px] font-black text-red-100 transition hover:border-red-200/50 hover:bg-red-400/18"
                         >
