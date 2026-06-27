@@ -150,12 +150,23 @@ if ($scheduledTaskCreated) {
 }
 
 $ready = Test-AgentReady -Attempts 10 -DelayMs 900
+if (-not $ready) {
+  Write-Host "Aviso: Windows creo el arranque, pero el agente aun no responde. Intentare abrirlo directo una vez mas." -ForegroundColor Yellow
+  try {
+    Start-Process powershell.exe -WindowStyle Hidden -WorkingDirectory $installDir -ArgumentList "-NoProfile -ExecutionPolicy Bypass -File `"$startupPath`" -Port $Port"
+    $ready = Test-AgentReady -Attempts 6 -DelayMs 1000
+  } catch {
+    Write-Host "Aviso: no pude hacer el segundo arranque: $($_.Exception.Message)" -ForegroundColor Yellow
+  }
+}
+
 if ($ready) {
   Write-Host "Agente activo en segundo plano. Version: $($ready.version)" -ForegroundColor Green
   Write-Host "Chequeo local: $($ready.url)" -ForegroundColor Green
 } else {
   Write-Host "Aviso: el agente quedo programado, pero todavia no respondio al chequeo inicial." -ForegroundColor Yellow
   Write-Host "Espera unos segundos y ejecuta Estado-EccofoodPrint.bat. Si no responde, reinstala como administrador." -ForegroundColor Yellow
+  Write-Host "Tambien puedes probar en este TPV: http://127.0.0.1:$Port/ping y http://localhost:$Port/ping" -ForegroundColor Yellow
 }
 
 Write-Host ""

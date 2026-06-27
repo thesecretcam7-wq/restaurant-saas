@@ -81,24 +81,37 @@ export default function PrintersConfigPage({ params }: Props) {
 
   const checkBridgeStatus = async () => {
     setBridgeStatus('checking');
-    const controller = new AbortController();
-    const timeout = window.setTimeout(() => controller.abort(), 2500);
+    const bridgeUrls = ['http://127.0.0.1:17777', 'http://localhost:17777'];
+    const errors: string[] = [];
 
     try {
-      const response = await fetch('http://127.0.0.1:17777/health', {
-        signal: controller.signal,
-      });
-      const payload = await response.json().catch(() => ({}));
-      if (!response.ok || payload?.ok === false) {
-        throw new Error(payload?.error || 'Puente local sin respuesta');
+      for (const bridgeUrl of bridgeUrls) {
+        const controller = new AbortController();
+        const timeout = window.setTimeout(() => controller.abort(), 3500);
+
+        try {
+          const response = await fetch(`${bridgeUrl}/health`, {
+            signal: controller.signal,
+            cache: 'no-store',
+          });
+          const payload = await response.json().catch(() => ({}));
+          if (!response.ok || payload?.ok === false) {
+            throw new Error(payload?.error || 'Puente local sin respuesta');
+          }
+          setBridgeStatus('online');
+          showToast(`Puente activo${payload.version ? ` v${payload.version}` : ''}${payload.defaultPrinter ? `: ${payload.defaultPrinter}` : ''}`, 'success');
+          return;
+        } catch (error) {
+          errors.push(`${bridgeUrl}: ${error instanceof Error ? error.message : 'sin respuesta'}`);
+        } finally {
+          window.clearTimeout(timeout);
+        }
       }
-      setBridgeStatus('online');
-      showToast(`Puente activo${payload.version ? ` v${payload.version}` : ''}${payload.defaultPrinter ? `: ${payload.defaultPrinter}` : ''}`, 'success');
-    } catch {
+
+      throw new Error(errors.join(' | '));
+    } catch (error) {
       setBridgeStatus('offline');
-      showToast('Puente local no detectado. Ejecuta Estado-EccofoodPrint o reinstala el agente como administrador.', 'error');
-    } finally {
-      window.clearTimeout(timeout);
+      showToast(`Puente local no detectado en este TPV. Ejecuta Estado-EccofoodPrint o reinstala como administrador. ${error instanceof Error ? error.message : ''}`, 'error');
     }
   };
 
