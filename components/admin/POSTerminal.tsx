@@ -17,7 +17,7 @@ import type { CashClosingStats } from '@/lib/cash-closing';
 import type { ReceiptData } from '@/types/printer';
 import { getCurrencyByCountry, formatPriceWithCurrency } from '@/lib/currency';
 import { calculateTaxAmount, isTaxIncludedCountry } from '@/lib/order-totals';
-import { printCashClosingReceipt, printKitchenTicket, printReceipt, savePrinterLog, openCashDrawer } from '@/lib/pos-printer';
+import { preloadPrinterForPrint, printCashClosingReceipt, printKitchenTicket, printReceipt, savePrinterLog, openCashDrawer } from '@/lib/pos-printer';
 import { countPendingPOSOrders, isNetworkPaymentError, saveOfflinePOSOrder, syncOfflinePOSOrders } from '@/lib/offline/pos-sync';
 import { useWakeLock } from '@/lib/hooks/useWakeLock';
 
@@ -663,6 +663,7 @@ export function POSTerminal({
   const cartRestoredRef = useRef(false);
   const previousCartLengthRef = useRef(0);
   const restoredStaffTenantRef = useRef<string | null>(null);
+  const warmedReceiptPrinterIdRef = useRef<string | null>(null);
   const canRegisterInPreviousPeriod =
     Boolean(pendingCashClosingStats) && !loadedOrderId && billingOrderIds.length === 0 && !selectedTableId;
 
@@ -803,6 +804,32 @@ export function POSTerminal({
       });
     }
   }, [fetchReceiptPrinterSettings, restaurantName, restaurantPhone, tenantId]);
+
+  useEffect(() => {
+    if (cart.length === 0 || !printReceiptAfterPayment) {
+      warmedReceiptPrinterIdRef.current = null;
+      return;
+    }
+
+    let cancelled = false;
+
+    void fetchReceiptPrinterSettings()
+      .then((settings) => {
+        const printerId = settings?.default_receipt_printer_id;
+        if (cancelled || !printerId || warmedReceiptPrinterIdRef.current === printerId) return;
+        warmedReceiptPrinterIdRef.current = printerId;
+        void preloadPrinterForPrint(tenantId, printerId).catch(() => {
+          if (warmedReceiptPrinterIdRef.current === printerId) {
+            warmedReceiptPrinterIdRef.current = null;
+          }
+        });
+      })
+      .catch(() => {});
+
+    return () => {
+      cancelled = true;
+    };
+  }, [cart.length, fetchReceiptPrinterSettings, printReceiptAfterPayment, tenantId]);
 
   const refreshPendingCashClosing = useCallback(async () => {
     try {

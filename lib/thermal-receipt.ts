@@ -64,7 +64,7 @@ function cashDrawerPulseCommands(): string {
 }
 
 function cutCommands(): string {
-  return `${GS}V\x00${ESC}i${GS}V\x42\x00`;
+  return `${GS}V\x00`;
 }
 
 export function generateReceiptESCPOS(data: ReceiptData, options: ReceiptOptions): Uint8Array {

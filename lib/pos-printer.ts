@@ -147,6 +147,10 @@ async function getPrinterForPrint(tenantId: string, printerId: string, cacheAsDe
   return printer;
 }
 
+export async function preloadPrinterForPrint(tenantId: string, printerId: string): Promise<void> {
+  await getPrinterForPrint(tenantId, printerId, true);
+}
+
 function isBrowserDriverPrinter(printer: PrinterDevice) {
   return printer.config?.connection_mode === 'browser_driver' || (!printer.vendor_id && !printer.product_id);
 }
