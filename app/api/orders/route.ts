@@ -170,7 +170,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { tenantId: tenantParam, tenantSlug, items, customerInfo, deliveryType, deliveryAddress, notes, paymentMethod, paymentBreakdown, tableNumber, tableId, tableQrCode, waiterName, amountPaid, source, deliveryFee: requestedDeliveryFee, deliveryZoneId, businessDateMode } = body
+    const { tenantId: tenantParam, tenantSlug, items, customerInfo, deliveryType, deliveryAddress, notes, paymentMethod, paymentBreakdown, tableNumber, tableId, tableQrCode, waiterName, amountPaid, source, deliveryFee: requestedDeliveryFee, deliveryZoneId, businessDateMode, skipOrderItems } = body
 
     if (!tenantParam) {
       return NextResponse.json({ error: 'tenantId is required' }, { status: 400 })
@@ -489,6 +489,8 @@ export async function POST(request: NextRequest) {
       registeringPreviousOpenPeriod ? 'Venta registrada manualmente en turno anterior desde TPV' : null,
     ].filter(Boolean).join(' | ') || null
 
+    const isImmediatePaidPOSOrder = source === 'pos' && Boolean(normalizedPaymentMethod)
+
     const orderData: any = {
       tenant_id: tenantId,
       order_number: orderNumber,
@@ -502,13 +504,13 @@ export async function POST(request: NextRequest) {
       total,
       payment_method: normalizedPaymentMethod,
       payment_breakdown: normalizedPaymentBreakdown,
-      payment_status: 'pending',
+      payment_status: isImmediatePaidPOSOrder ? 'paid' : 'pending',
       delivery_type: normalizedDeliveryType,
       delivery_address: normalizedDeliveryAddress,
       table_number: normalizedTableNumber,
       waiter_name: normalizedWaiterName,
       notes: orderNotes,
-      status: 'pending',
+      status: isImmediatePaidPOSOrder ? 'confirmed' : 'pending',
       display_number: displayNumber,
     }
 
@@ -559,7 +561,9 @@ export async function POST(request: NextRequest) {
       includeKitchenItems: kdsEnabled,
     })
 
-    if (!isKioskCash && !registeringPreviousOpenPeriod && orderItemsData.length > 0) {
+    const shouldSkipOrderItems = source === 'pos' && skipOrderItems === true
+
+    if (!isKioskCash && !registeringPreviousOpenPeriod && !shouldSkipOrderItems && orderItemsData.length > 0) {
       const { data: insertedOrderItems, error: itemsError } = await supabase
         .from('order_items')
         .insert(orderItemsData)
@@ -581,67 +585,69 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Send emails (non-blocking)
-    const { data: branding } = await supabase
-      .from('tenant_branding')
-      .select('app_name, primary_color')
-      .eq('tenant_id', tenantId)
-      .maybeSingle()
-    const { data: tenantRow } = await supabase
-      .from('tenants')
-      .select('organization_name, owner_email')
-      .eq('id', tenantId)
-      .maybeSingle()
-    const { data: settings2 } = await supabase
-      .from('restaurant_settings')
-      .select('email')
-      .eq('tenant_id', tenantId)
-      .maybeSingle()
+    if (source !== 'pos') {
+      // Send emails (non-blocking)
+      const { data: branding } = await supabase
+        .from('tenant_branding')
+        .select('app_name, primary_color')
+        .eq('tenant_id', tenantId)
+        .maybeSingle()
+      const { data: tenantRow } = await supabase
+        .from('tenants')
+        .select('organization_name, owner_email')
+        .eq('id', tenantId)
+        .maybeSingle()
+      const { data: settings2 } = await supabase
+        .from('restaurant_settings')
+        .select('email')
+        .eq('tenant_id', tenantId)
+        .maybeSingle()
 
-    const palette = deriveBrandPalette()
-    const restaurantName = branding?.app_name || tenantRow?.organization_name || 'Restaurante'
-    const primaryColor = palette.buttonPrimary
-    const adminEmail = settings2?.email || tenantRow?.owner_email
+      const palette = deriveBrandPalette()
+      const restaurantName = branding?.app_name || tenantRow?.organization_name || 'Restaurante'
+      const primaryColor = palette.buttonPrimary
+      const adminEmail = settings2?.email || tenantRow?.owner_email
 
-    if (orderData.customer_email) {
-      sendOrderConfirmation(orderData.customer_email, {
-        restaurantName,
-        primaryColor,
-        orderNumber,
-        customerName: orderData.customer_name,
-        items: sanitizedItems.map((i: any) => ({ name: i.name, qty: i.qty, price: i.price })),
-        subtotal,
-        tax,
-        deliveryFee,
-        total,
-        deliveryType: normalizedDeliveryType,
-        deliveryAddress: normalizedDeliveryAddress || undefined,
-        paymentMethod: normalizedPaymentMethod || '',
-        notes: orderNotes || undefined,
-      }).catch(e => console.error('[email] order confirmation:', e))
-    }
+      if (orderData.customer_email) {
+        sendOrderConfirmation(orderData.customer_email, {
+          restaurantName,
+          primaryColor,
+          orderNumber,
+          customerName: orderData.customer_name,
+          items: sanitizedItems.map((i: any) => ({ name: i.name, qty: i.qty, price: i.price })),
+          subtotal,
+          tax,
+          deliveryFee,
+          total,
+          deliveryType: normalizedDeliveryType,
+          deliveryAddress: normalizedDeliveryAddress || undefined,
+          paymentMethod: normalizedPaymentMethod || '',
+          notes: orderNotes || undefined,
+        }).catch(e => console.error('[email] order confirmation:', e))
+      }
 
-    // WhatsApp confirmation (non-blocking)
-    if (orderData.customer_phone) {
-      sendWhatsAppOrderConfirmation(orderData.customer_phone, {
-        restaurantName,
-        orderNumber,
-        customerName: orderData.customer_name,
-        total,
-        items: sanitizedItems.map((i: any) => ({ name: i.name, qty: i.qty })),
-      }).catch(e => console.error('[whatsapp] order confirmation:', e))
-    }
+      // WhatsApp confirmation (non-blocking)
+      if (orderData.customer_phone) {
+        sendWhatsAppOrderConfirmation(orderData.customer_phone, {
+          restaurantName,
+          orderNumber,
+          customerName: orderData.customer_name,
+          total,
+          items: sanitizedItems.map((i: any) => ({ name: i.name, qty: i.qty })),
+        }).catch(e => console.error('[whatsapp] order confirmation:', e))
+      }
 
-    if (adminEmail) {
-      sendNewOrderNotification(adminEmail, {
-        restaurantName,
-        primaryColor,
-        orderNumber,
-        customerName: orderData.customer_name,
-        total,
-        deliveryType: normalizedDeliveryType,
-        items: sanitizedItems.map((i: any) => ({ name: i.name, qty: i.qty })),
-      }).catch(e => console.error('[email] admin notification:', e))
+      if (adminEmail) {
+        sendNewOrderNotification(adminEmail, {
+          restaurantName,
+          primaryColor,
+          orderNumber,
+          customerName: orderData.customer_name,
+          total,
+          deliveryType: normalizedDeliveryType,
+          items: sanitizedItems.map((i: any) => ({ name: i.name, qty: i.qty })),
+        }).catch(e => console.error('[email] admin notification:', e))
+      }
     }
 
     return NextResponse.json({ orderId: order.id, orderNumber, displayNumber })

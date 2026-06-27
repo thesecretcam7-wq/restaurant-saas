@@ -91,6 +91,8 @@ interface DineInOrder {
   items: { name: string; qty?: number; quantity?: number; price: number; item_id?: string }[];
 }
 
+type SplitSelection = Record<string, number>;
+
 interface TableGroup {
   tableNumber: number;
   orders: DineInOrder[];
@@ -162,6 +164,10 @@ interface ReservationSummary {
 
 function getOrderItemQty(item: { qty?: number; quantity?: number }) {
   return Number(item.qty ?? item.quantity ?? 1);
+}
+
+function getOrderItemKey(item: { item_id?: string | null; menu_item_id?: string | null; name?: string }) {
+  return String(item.item_id || item.menu_item_id || item.name || '').trim();
 }
 
 function getOrderItemsTotal(items: Array<{ price: number; qty?: number; quantity?: number }> = []) {
@@ -577,7 +583,9 @@ export function POSTerminal({
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [productSearchOpen, setProductSearchOpen] = useState(false);
+  const [quickActionsOpen, setQuickActionsOpen] = useState(false);
   const searchInputRef = useRef<HTMLInputElement>(null);
+  const quickActionsRef = useRef<HTMLDivElement>(null);
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('cash');
   const [printReceiptAfterPayment, setPrintReceiptAfterPayment] = useState(true);
   const lastSaleReceiptRef = useRef<LastSaleReceipt | null>(null);
@@ -612,7 +620,7 @@ export function POSTerminal({
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const posRootRef = useRef<HTMLDivElement>(null);
-  const { wakeLockActive, wakeLockSupported, activateWakeLock } = useWakeLock();
+  const { wakeLockActive, activateWakeLock } = useWakeLock();
   const [showCashClosing, setShowCashClosing] = useState(false);
   const [showBillPayment, setShowBillPayment] = useState(false);
   const [cashClosingStats, setCashClosingStats] = useState<CashClosingStats | null>(null);
@@ -642,6 +650,8 @@ export function POSTerminal({
   const [showTipKeyboard, setShowTipKeyboard] = useState(false);
   const [heldAccounts, setHeldAccounts] = useState<HeldPOSAccount[]>([]);
   const [showHeldAccountsPanel, setShowHeldAccountsPanel] = useState(false);
+  const [splitBillMode, setSplitBillMode] = useState(false);
+  const [splitSelections, setSplitSelections] = useState<SplitSelection>({});
   const [mesasView, setMesasView] = useState<'list' | 'map'>('map');
   const lastSaleReceiptStorageKey = `eccofood-pos-last-sale-receipt-${tenantId}`;
   const [allTables, setAllTables] = useState<RestaurantTable[]>([]);
@@ -662,6 +672,7 @@ export function POSTerminal({
   const csrfTokenRef = useRef<string>('');
   const cartRestoredRef = useRef(false);
   const previousCartLengthRef = useRef(0);
+  const skipNextCartRemoteSyncRef = useRef(false);
   const restoredStaffTenantRef = useRef<string | null>(null);
   const warmedReceiptPrinterIdRef = useRef<string | null>(null);
   const canRegisterInPreviousPeriod =
@@ -1661,6 +1672,12 @@ export function POSTerminal({
       return;
     }
 
+    if (skipNextCartRemoteSyncRef.current) {
+      skipNextCartRemoteSyncRef.current = false;
+      previousCartLengthRef.current = cart.length;
+      return;
+    }
+
     if (typeof window !== 'undefined') {
       // Save to localStorage (quick)
       if (cart.length > 0) {
@@ -1990,7 +2007,7 @@ export function POSTerminal({
     const mergedMap = new Map<string, CartItem>();
     tableOrders.forEach(order => {
       (order.items || []).forEach(item => {
-          const key = item.item_id || item.name;
+          const key = getOrderItemKey(item);
           const quantity = getOrderItemQty(item);
           if (mergedMap.has(key)) {
             const existing = mergedMap.get(key)!;
@@ -2009,6 +2026,8 @@ export function POSTerminal({
     });
 
     setCart(Array.from(mergedMap.values()));
+    setSplitBillMode(false);
+    setSplitSelections({});
     setPosMode('table');
     const first = tableOrders[0];
     if (first.table_number) setSelectedTableNumber(first.table_number);
@@ -2035,6 +2054,35 @@ export function POSTerminal({
       amount: paymentBaseTotal + tip,
       currency: currencyInfo.code,
     }));
+  }
+
+  function updateSplitSelection(itemId: string, nextQty: number) {
+    const item = cart.find((cartItem) => cartItem.menu_item_id === itemId);
+    if (!item) return;
+
+    const clampedQty = Math.max(0, Math.min(item.quantity, nextQty));
+    setSplitSelections((current) => {
+      const next = { ...current };
+      if (clampedQty <= 0) {
+        delete next[itemId];
+      } else {
+        next[itemId] = clampedQty;
+      }
+      return next;
+    });
+  }
+
+  function toggleSplitBillMode() {
+    if (billingOrderIds.length === 0) {
+      setToast({ message: 'Carga una mesa para dividir el pago', type: 'error' });
+      return;
+    }
+
+    setSplitBillMode((current) => {
+      const next = !current;
+      if (!next) setSplitSelections({});
+      return next;
+    });
   }
 
 
@@ -2224,6 +2272,8 @@ export function POSTerminal({
     setShowIncomingPanel(false);
     setShowDineInPanel(false);
     setShowFindPayPanel(false);
+    setSplitBillMode(false);
+    setSplitSelections({});
 
     if (typeof window !== 'undefined') {
       localStorage.removeItem(`pos-cart-${tenantId}`);
@@ -2272,6 +2322,7 @@ export function POSTerminal({
     };
 
     persistHeldAccounts([heldAccount, ...heldAccounts].slice(0, 20));
+    skipNextCartRemoteSyncRef.current = true;
     resetCurrentCartForNextCustomer();
     setShowHeldAccountsPanel(false);
     setToast({ message: 'Cuenta guardada en espera', type: 'success' });
@@ -2314,6 +2365,7 @@ export function POSTerminal({
         ? account.posOrderType
         : 'takeaway';
 
+    skipNextCartRemoteSyncRef.current = true;
     setCart(account.items.map((item) => ({ ...item })));
     setDiscount(Number(account.discount || 0));
     setDiscountCode(account.discountCode || '');
@@ -2480,7 +2532,7 @@ export function POSTerminal({
             phone: 'N/A',
           },
           items: formattedItems,
-          paymentMethod: 'cash',
+          paymentMethod: null,
           deliveryType: 'dine-in',
           deliveryAddress: null,
           waiterName: selectedStaffName || null,
@@ -2539,6 +2591,7 @@ export function POSTerminal({
       let receiptOrderNumber: string | null = null;
       let savedOfflineSale = false;
       const printerWarnings: string[] = [];
+      let receiptItems = cart.map(item => ({ ...item }));
       let receiptSubtotal = subtotal;
       let receiptTax = taxAmount;
       let receiptDeliveryFee = activeDeliveryFee;
@@ -2614,7 +2667,131 @@ export function POSTerminal({
         setIncomingOrders((orders) => orders.filter((order) => order.id !== paidOrderId));
         setLoadedOrderId(null);
         setLoadedOrderContext(null);
-        await fetchIncomingOrders();
+        void fetchIncomingOrders();
+      } else if (billingOrderIds.length > 0 && splitBillMode && splitPaymentItems.length > 0) {
+        if (typeof navigator !== 'undefined' && !navigator.onLine) {
+          throw new Error('Para cobrar pagos divididos de mesa necesitas internet.');
+        }
+
+        if (!selectedTableNumber) {
+          throw new Error('Carga una mesa antes de dividir el pago.');
+        }
+
+        if (!csrfTokenRef.current) {
+          const csrfResponse = await fetch('/api/csrf-token', { credentials: 'include' });
+          const csrfData = await csrfResponse.json().catch(() => null);
+          if (csrfData?.token) csrfTokenRef.current = csrfData.token;
+        }
+
+        const splitFormattedItems = splitPaymentItems.map((item) => ({
+          menu_item_id: item.is_manual ? null : item.menu_item_id,
+          is_manual: item.is_manual === true,
+          name: item.name,
+          price: item.price,
+          qty: item.quantity,
+          notes: item.notes || null,
+        }));
+        const splitPaymentBreakdown = buildPaymentBreakdown(paymentMethod, receiptTotal, amountPaid);
+        const splitResponse = await fetch('/api/orders', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'x-csrf-token': csrfTokenRef.current },
+          credentials: 'include',
+          body: JSON.stringify({
+            tenantId,
+            tenantSlug: tenantSlug || null,
+            customerInfo: {
+              name: `Mesa ${selectedTableNumber} - pago dividido`,
+              email: null,
+              phone: 'N/A',
+            },
+            items: splitFormattedItems,
+            paymentMethod,
+            paymentBreakdown: splitPaymentBreakdown,
+            deliveryType: 'dine-in',
+            deliveryAddress: null,
+            waiterName: selectedStaffName || null,
+            tableNumber: selectedTableNumber,
+            notes: `Pago dividido de Mesa ${selectedTableNumber}`,
+            source: 'pos',
+            skipOrderItems: true,
+          }),
+        });
+
+        if (!splitResponse.ok) {
+          const errorData = await splitResponse.json().catch(() => ({}));
+          throw new Error(errorData.error || 'No se pudo cobrar el pago dividido');
+        }
+
+        const splitCreatedOrder = await splitResponse.json().catch(() => ({}));
+        const remainingSelections = new Map(
+          splitPaymentItems.map((item) => [item.menu_item_id, item.quantity])
+        );
+        const remainingBillingOrderIds: string[] = [];
+
+        for (const orderId of billingOrderIds) {
+          const tableOrder = dineInOrders.find((order) => order.id === orderId);
+          if (!tableOrder) continue;
+
+          const nextItems = ((tableOrder.items || [])
+            .map((item) => {
+              const key = getOrderItemKey(item);
+              const qty = getOrderItemQty(item);
+              const selectedQty = Math.min(qty, remainingSelections.get(key) || 0);
+              if (selectedQty > 0) {
+                remainingSelections.set(key, Math.max(0, (remainingSelections.get(key) || 0) - selectedQty));
+              }
+
+              const remainingQty = qty - selectedQty;
+              return remainingQty > 0
+                ? { ...item, qty: remainingQty, quantity: remainingQty }
+                : null;
+            })
+            .filter(Boolean)) as DineInOrder['items'];
+
+          const nextSubtotal = getOrderItemsTotal(nextItems);
+          const nextTax = calculateTaxAmount(nextSubtotal, taxRate, taxIncluded);
+          const nextTotal = nextSubtotal + (taxIncluded ? 0 : nextTax);
+          const isEmptyOrder = nextItems.length === 0;
+
+          const updateResponse = await fetch(`/api/orders/${orderId}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify({
+              tenantId,
+              items: nextItems,
+              subtotal: nextSubtotal,
+              tax: nextTax,
+              delivery_fee: 0,
+              total: nextTotal,
+              status: isEmptyOrder ? 'cancelled' : tableOrder.status,
+              cancel_reason: isEmptyOrder ? `Mesa ${selectedTableNumber}: productos cobrados en pago dividido` : undefined,
+              edit_reason: `Mesa ${selectedTableNumber}: productos cobrados en pago dividido`,
+            }),
+          });
+
+          if (!updateResponse.ok) {
+            const errorData = await updateResponse.json().catch(() => ({}));
+            throw new Error(errorData.error || 'No se pudo actualizar la mesa despues del pago dividido');
+          }
+
+          if (!isEmptyOrder) remainingBillingOrderIds.push(orderId);
+        }
+
+        receiptItems = splitPaymentItems.map((item) => ({ ...item }));
+        receiptSubtotal = splitSubtotal;
+        receiptTax = taxAmount;
+        receiptDeliveryFee = 0;
+        receiptTotal = total;
+        receiptDeliveryType = 'dine-in';
+        receiptTableNumber = selectedTableNumber;
+        receiptPaymentMethod = paymentMethod;
+        receiptOrderId = splitCreatedOrder?.orderId || null;
+        receiptOrderNumber = splitCreatedOrder?.orderNumber || `Mesa ${selectedTableNumber}`;
+        setBillingOrderIds(remainingBillingOrderIds);
+        setSplitBillMode(false);
+        setSplitSelections({});
+        void fetchDineInOrders();
       } else if (billingOrderIds.length > 0) {
         if (typeof navigator !== 'undefined' && !navigator.onLine) {
           throw new Error('Para cobrar mesas abiertas necesitas internet. Las ventas nuevas del TPV si pueden cobrarse offline.');
@@ -2663,7 +2840,7 @@ export function POSTerminal({
         receiptOrderId = paidTableOrderIds[0] || null;
         receiptOrderNumber = selectedTableNumber ? `Mesa ${selectedTableNumber}` : 'Cuenta salon';
         setBillingOrderIds([]);
-        await fetchDineInOrders();
+        void fetchDineInOrders();
       } else {
         // New POS order — create via API
         const formattedItems = cart.map(item => ({
@@ -2759,23 +2936,6 @@ export function POSTerminal({
             if (createdOrder?.orderId) {
               receiptOrderId = createdOrder.orderId;
               receiptOrderNumber = createdOrder.orderNumber || null;
-              const paidResponse = await fetch(`/api/orders/${createdOrder.orderId}`, {
-                method: 'PATCH',
-                headers: { 'Content-Type': 'application/json' },
-                credentials: 'include',
-                body: JSON.stringify({
-                  tenantId,
-                  payment_status: 'paid',
-                  status: 'confirmed',
-                  payment_method: paymentMethod,
-                  payment_breakdown: orderPayload.paymentBreakdown,
-                }),
-              });
-
-              if (!paidResponse.ok) {
-                const errorData = await paidResponse.json();
-                throw new Error(errorData.error || 'Failed to mark order as paid');
-              }
             }
           } catch (orderError) {
             if (!isNetworkPaymentError(orderError)) throw orderError;
@@ -2784,16 +2944,10 @@ export function POSTerminal({
         }
       }
 
-      // Mark cart as abandoned in Supabase
-      if (!savedOfflineSale) {
-        await abandonCart(tenantId, supabase);
-        await refreshPendingCashClosing();
-      }
-
       const receiptSnapshot = {
         orderId: receiptOrderId,
         orderNumber: receiptOrderNumber || 'POS',
-        items: cart.map(item => ({ ...item })),
+        items: receiptItems,
         subtotal: receiptSubtotal,
         discount,
         tax: receiptTax,
@@ -2987,6 +3141,8 @@ export function POSTerminal({
       setPosMode('simple');
       setPosOrderType('takeaway');
       setSelectedDeliveryZoneId(null);
+      setSplitBillMode(false);
+      setSplitSelections({});
 
       // Clear localStorage
       if (typeof window !== 'undefined') {
@@ -3008,6 +3164,14 @@ export function POSTerminal({
         type: 'success',
       });
       startPrintInBackground();
+      if (!savedOfflineSale) {
+        void (async () => {
+          await abandonCart(tenantId, supabase);
+          await refreshPendingCashClosing();
+        })().catch((cleanupError) => {
+          console.warn('POS post-payment cleanup failed:', cleanupError);
+        });
+      }
     } catch (error) {
       console.error('Error processing payment:', error);
       setToast({
@@ -3029,14 +3193,27 @@ export function POSTerminal({
   });
 
   const subtotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
-  const taxableSubtotal = Math.max(0, subtotal - discount);
+  const splitPaymentItems = useMemo(() => {
+    if (!splitBillMode || billingOrderIds.length === 0) return [];
+
+    return cart
+      .map((item) => {
+        const selectedQty = Math.min(item.quantity, Math.max(0, Number(splitSelections[item.menu_item_id] || 0)));
+        return selectedQty > 0 ? { ...item, quantity: selectedQty } : null;
+      })
+      .filter((item): item is CartItem => Boolean(item));
+  }, [billingOrderIds.length, cart, splitBillMode, splitSelections]);
+  const splitSubtotal = splitPaymentItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
+  const activeSubtotal = splitBillMode && billingOrderIds.length > 0 ? splitSubtotal : subtotal;
+  const activeDiscount = splitBillMode && billingOrderIds.length > 0 ? 0 : discount;
+  const taxableSubtotal = Math.max(0, activeSubtotal - activeDiscount);
   const taxAmount = calculateTaxAmount(taxableSubtotal, taxRate, taxIncluded);
   const needsDeliveryZone = !loadedOrderId && !selectedTableId && posOrderType === 'delivery' && deliveryEnabled;
   const hasRequiredDeliveryZone = !needsDeliveryZone || Boolean(selectedDeliveryZone);
   const activeDeliveryFee = needsDeliveryZone ? Number(selectedDeliveryZone?.fee || 0) : 0;
   const loadedOrderDeliveryFee = loadedOrderId ? Number(loadedOrderContext?.deliveryFee || 0) : 0;
   const cartDeliveryFee = loadedOrderId ? loadedOrderDeliveryFee : activeDeliveryFee;
-  const paymentBaseTotal = taxableSubtotal + (taxIncluded ? 0 : taxAmount) + cartDeliveryFee;
+  const paymentBaseTotal = taxableSubtotal + (taxIncluded ? 0 : taxAmount) + (splitBillMode ? 0 : cartDeliveryFee);
   const total = paymentBaseTotal + tip;
   const editingPaidReceipt = loadedOrderContext?.paymentStatus === 'paid';
   const editedReceiptDeliveryFee = editingPaidReceipt ? loadedOrderDeliveryFee : cartDeliveryFee;
@@ -3078,12 +3255,26 @@ export function POSTerminal({
   const savedAccountButtonDisabled = cart.length > 0 && (processingPayment || !!loadedOrderId || billingOrderIds.length > 0);
 
   const openProductSearch = useCallback(() => {
+    setQuickActionsOpen(false);
     setProductSearchOpen(true);
     window.requestAnimationFrame(() => {
       searchInputRef.current?.focus();
       searchInputRef.current?.select();
     });
   }, []);
+
+  useEffect(() => {
+    if (!quickActionsOpen) return;
+
+    const handlePointerDown = (event: PointerEvent) => {
+      if (!quickActionsRef.current?.contains(event.target as Node)) {
+        setQuickActionsOpen(false);
+      }
+    };
+
+    window.addEventListener('pointerdown', handlePointerDown);
+    return () => window.removeEventListener('pointerdown', handlePointerDown);
+  }, [quickActionsOpen]);
 
   useEffect(() => {
     const isEditableTarget = (target: EventTarget | null) => {
@@ -3120,6 +3311,7 @@ export function POSTerminal({
         }
         setSearchQuery('');
         setProductSearchOpen(false);
+        setQuickActionsOpen(false);
         setShowIncomingPanel(false);
         setShowDineInPanel(false);
         setShowFindPayPanel(false);
@@ -3245,14 +3437,6 @@ export function POSTerminal({
           </div>
           <div className="flex items-center gap-2">
             <button
-              onClick={() => activateWakeLock()}
-              className={`pos-action-ghost ${wakeLockActive ? 'border-emerald-300/45 bg-emerald-300/12 text-emerald-100' : 'border-amber-300/35 bg-amber-300/10 text-amber-100'}`}
-              title={wakeLockSupported ? 'Mantener la pantalla activa' : 'Tu navegador puede no soportar bloqueo de pantalla'}
-            >
-              <Lock className="w-5 h-5" />
-              <span className="hidden sm:inline">{wakeLockActive ? 'Activa' : 'Bloquear'}</span>
-            </button>
-            <button
               onClick={() => syncOfflineSales(true)}
               disabled={!isOnline || syncingOffline}
               className={`pos-action-ghost ${!isOnline ? 'border-amber-300/45 bg-amber-300/12 text-amber-100' : offlinePendingCount > 0 ? 'border-emerald-300/45 bg-emerald-300/12 text-emerald-100' : ''} disabled:opacity-75`}
@@ -3271,14 +3455,6 @@ export function POSTerminal({
                   {offlinePendingCount}
                 </span>
               )}
-            </button>
-            <button
-              onClick={downloadPOSShortcut}
-              className="pos-action-ghost"
-              title="Crear acceso del TPV en el Escritorio"
-            >
-              <Download className="w-5 h-5" />
-              <span className="hidden sm:inline">Escritorio</span>
             </button>
             {todayReservations.length > 0 && (
               <div
@@ -3353,17 +3529,6 @@ export function POSTerminal({
                 <h1 className="truncate text-xl font-black tracking-tight text-white">{restaurantName}</h1>
               </div>
             </div>
-
-            {!wakeLockActive && (
-              <button
-                onClick={() => activateWakeLock()}
-                className="pos-action-ghost border-amber-300/35 bg-amber-300/10 text-amber-100"
-                title={wakeLockSupported ? 'Mantener pantalla activa' : 'Tu navegador puede no soportar esta funcion'}
-              >
-                <Lock className="size-4" />
-                <span>Bloquear pantalla</span>
-              </button>
-            )}
 
             <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:min-w-[600px]">
               <div className="pos-kpi">
@@ -3570,7 +3735,7 @@ export function POSTerminal({
         {/* Menu Section */}
         <div className={`${compactPOSLayout ? 'min-h-0 flex-1' : 'min-h-[44dvh] max-h-[58dvh] lg:min-h-0 lg:max-h-none lg:flex-1'} flex flex-col overflow-hidden`}>
           {/* Search and Controls - Sticky Header */}
-          <div className={`pos-panel pos-command-bar border-x-0 border-t-0 flex flex-wrap gap-1.5 items-center sticky top-0 z-10 ${compactPOSLayout ? 'px-3 py-2' : 'p-3 sm:p-4 lg:flex-nowrap'}`}>
+          <div className={`pos-panel pos-command-bar border-x-0 border-t-0 flex flex-wrap gap-1.5 items-center sticky top-0 z-[90] ${compactPOSLayout ? 'px-3 py-2' : 'p-3 sm:p-4 lg:flex-nowrap'}`}>
             {(productSearchOpen || searchQuery) ? (
               <div className={`relative min-w-[180px] ${compactPOSLayout ? 'flex-[1_1_240px]' : 'flex-[1_1_260px]'}`}>
                 <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-cyan-100/45 pointer-events-none" />
@@ -3608,15 +3773,112 @@ export function POSTerminal({
                 </button>
               </div>
             ) : (
-              <button
-                type="button"
-                onClick={openProductSearch}
-                className="pos-action-ghost"
-                title="Buscar producto"
-                aria-label="Buscar producto"
-              >
-                <Search className="w-5 h-5" />
-              </button>
+              <div ref={quickActionsRef} className="relative">
+                <button
+                  type="button"
+                  onClick={() => setQuickActionsOpen((value) => !value)}
+                  className={`pos-action-ghost ${quickActionsOpen ? 'border-cyan-300/45 bg-cyan-300/12 text-cyan-50' : ''}`}
+                  title="Acciones rapidas"
+                  aria-label="Acciones rapidas"
+                  aria-expanded={quickActionsOpen}
+                >
+                  <Plus className="w-5 h-5" />
+                  <span className="hidden xl:inline">Mas</span>
+                </button>
+                {quickActionsOpen && (
+                  <div className="absolute left-0 top-[calc(100%+0.35rem)] z-[120] w-[min(280px,calc(100vw-1rem))] max-h-[65vh] overflow-y-auto rounded-xl border border-cyan-200/25 bg-slate-950/98 p-1.5 text-xs text-white shadow-2xl shadow-black/55 backdrop-blur-xl [scrollbar-width:thin]">
+                    <button
+                      type="button"
+                      onClick={openProductSearch}
+                      className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left font-black text-cyan-50 transition hover:bg-white/10"
+                    >
+                      <Search className="h-4 w-4" />
+                      Buscar producto
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setQuickActionsOpen(false);
+                        void activateWakeLock();
+                      }}
+                      className={`flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left font-black transition hover:bg-white/10 ${
+                        wakeLockActive ? 'text-emerald-100' : 'text-amber-100'
+                      }`}
+                    >
+                      <Lock className="h-4 w-4" />
+                      {wakeLockActive ? 'Pantalla activa' : 'Bloquear pantalla'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setQuickActionsOpen(false);
+                        downloadPOSShortcut();
+                      }}
+                      className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left font-black text-cyan-50 transition hover:bg-white/10"
+                    >
+                      <Download className="h-4 w-4" />
+                      Crear acceso escritorio
+                    </button>
+                    <div className="mt-1 rounded-lg border border-white/10 bg-white/[0.04] p-1.5">
+                      <div className="mb-1 flex items-center gap-2 text-[10px] font-black uppercase text-slate-400">
+                        <DollarSign className="h-3.5 w-3.5" />
+                        Descuento
+                      </div>
+                      <div className="flex gap-1">
+                        <input
+                          type="text"
+                          placeholder="Codigo"
+                          value={discountCode}
+                          onChange={(e) => setDiscountCode(e.target.value.toUpperCase())}
+                          className="min-w-0 flex-1 rounded-lg px-2 py-1.5 text-xs font-bold text-white outline-none"
+                        />
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            await applyDiscountCode();
+                            setQuickActionsOpen(false);
+                          }}
+                          className="shrink-0 rounded-lg border border-emerald-400/30 bg-emerald-500/18 px-2.5 py-1.5 text-xs font-black text-emerald-100 transition hover:bg-emerald-500/26"
+                        >
+                          Aplicar
+                        </button>
+                      </div>
+                      {discount > 0 && (
+                        <div className="mt-1 flex items-center justify-between rounded-lg bg-emerald-400/10 px-2 py-1 text-emerald-100">
+                          <span>Activo</span>
+                          <span className="font-black">-{formatPriceWithCurrency(discount, currencyInfo.code, currencyInfo.locale)}</span>
+                        </div>
+                      )}
+                    </div>
+                    <div className="mt-1 flex items-center rounded-lg border border-[#D4AF37]/30 bg-[#D4AF37]/12">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setQuickActionsOpen(false);
+                          setShowTipKeyboard(true);
+                        }}
+                        className="min-w-0 flex-1 px-2.5 py-1.5 text-left transition hover:text-white"
+                      >
+                        <span className="block text-[9px] font-black uppercase leading-tight text-slate-400">Propina</span>
+                        <span className="block truncate text-sm font-black text-[#D4AF37]">
+                          {tip > 0 ? formatPriceWithCurrency(tip, currencyInfo.code, currencyInfo.locale) : '+ Agregar'}
+                        </span>
+                      </button>
+                      {tip > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => setTip(0)}
+                          className="grid h-9 w-9 shrink-0 place-items-center text-slate-400 transition hover:text-red-300"
+                          aria-label="Quitar propina"
+                          title="Quitar propina"
+                        >
+                          <X className="h-4 w-4" />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
             )}
             <button
               onClick={addManualItem}
@@ -3628,14 +3890,6 @@ export function POSTerminal({
             </button>
             {compactPOSLayout && (
               <>
-                <button
-                  onClick={() => activateWakeLock()}
-                  className={`pos-action-ghost ${wakeLockActive ? 'border-emerald-300/45 bg-emerald-300/12 text-emerald-100' : 'border-amber-300/35 bg-amber-300/10 text-amber-100'}`}
-                  title={wakeLockSupported ? 'Mantener la pantalla activa' : 'Tu navegador puede no soportar bloqueo de pantalla'}
-                >
-                  <Lock className="w-5 h-5" />
-                  <span className="hidden xl:inline">{wakeLockActive ? 'Activa' : 'Bloquear'}</span>
-                </button>
                 <button
                   onClick={() => syncOfflineSales(true)}
                   disabled={!isOnline || syncingOffline}
@@ -3655,14 +3909,6 @@ export function POSTerminal({
                       {offlinePendingCount}
                     </span>
                   )}
-                </button>
-                <button
-                  onClick={downloadPOSShortcut}
-                  className="pos-action-ghost"
-                  title="Crear acceso del TPV en el Escritorio"
-                >
-                  <Download className="w-5 h-5" />
-                  <span className="hidden xl:inline">Escritorio</span>
                 </button>
                 {todayReservations.length > 0 && (
                   <div
@@ -3776,14 +4022,6 @@ export function POSTerminal({
                 >
                   <Monitor className="w-5 h-5" />
                   <span className="hidden sm:inline">Cliente</span>
-                </button>
-                <button
-                  onClick={downloadPOSShortcut}
-                  className="pos-action-ghost"
-                  title="Crear acceso del TPV en el Escritorio"
-                >
-                  <Download className="w-5 h-5" />
-                  <span className="hidden sm:inline">Escritorio</span>
                 </button>
                 <button
                   onClick={() => setShowBillPayment(true)}
@@ -4166,9 +4404,23 @@ export function POSTerminal({
                 </button>
               )}
               <button
+                type="button"
+                onClick={toggleSplitBillMode}
+                disabled={processingPayment}
+                className={`shrink-0 rounded-lg border px-2 py-1 text-xs font-black transition disabled:opacity-50 ${
+                  splitBillMode
+                    ? 'border-amber-300 bg-amber-300/18 text-amber-100'
+                    : 'border-cyan-300/35 bg-cyan-400/15 text-cyan-100 hover:bg-cyan-400/25'
+                }`}
+              >
+                {splitBillMode ? 'Dividiendo' : 'Dividir'}
+              </button>
+              <button
                 onClick={() => {
                   setCart([]);
                   setBillingOrderIds([]);
+                  setSplitBillMode(false);
+                  setSplitSelections({});
                   setSelectedTableId(null);
                   setSelectedTableNumber(null);
                   setSelectedStaffId(null);
@@ -4191,107 +4443,77 @@ export function POSTerminal({
               </div>
             ) : (
               <div className={`${compactPOSLayout ? 'space-y-1 p-1.5 pb-3' : 'p-2 space-y-1'}`}>
-                {cart.map((item) => (
-                  <div key={item.menu_item_id} className={`pos-card flex items-center gap-2 rounded-xl px-2 ${compactPOSLayout ? 'py-1' : 'py-1.5'}`}>
+                {cart.map((item) => {
+                  const splitQty = Math.min(item.quantity, Math.max(0, Number(splitSelections[item.menu_item_id] || 0)));
+                  const isSplitSelected = splitBillMode && splitQty > 0;
+                  return (
+                  <div key={item.menu_item_id} className={`pos-card flex items-center gap-2 rounded-xl px-2 ${compactPOSLayout ? 'py-1' : 'py-1.5'} ${isSplitSelected ? 'border-amber-300/45 bg-amber-300/10' : ''}`}>
                     <div className="flex-1 min-w-0">
                       <p className="text-white text-xs font-semibold truncate">
                         {item.name}
                         {item.is_manual && <span className="ml-1 text-[10px] font-black uppercase text-cyan-200">Manual</span>}
                       </p>
-                      <p className="text-emerald-300 text-xs font-black">{formatPriceWithCurrency(item.price * item.quantity, currencyInfo.code, currencyInfo.locale)}</p>
+                      <p className="text-emerald-300 text-xs font-black">
+                        {splitBillMode
+                          ? `${splitQty}/${item.quantity} - ${formatPriceWithCurrency(item.price * splitQty, currencyInfo.code, currencyInfo.locale)}`
+                          : formatPriceWithCurrency(item.price * item.quantity, currencyInfo.code, currencyInfo.locale)}
+                      </p>
                     </div>
                     <div className="flex items-center gap-1 shrink-0">
                       <button
-                        onClick={() => updateQuantity(item.menu_item_id, item.quantity - 1)}
+                        onClick={() => splitBillMode
+                          ? updateSplitSelection(item.menu_item_id, splitQty - 1)
+                          : updateQuantity(item.menu_item_id, item.quantity - 1)}
                         className="w-6 h-6 rounded-lg bg-white/10 hover:bg-white/16 text-white font-black text-sm flex items-center justify-center transition active:scale-90"
                       >
                         −
                       </button>
-                      <span className="text-white font-bold text-xs w-5 text-center">{item.quantity}</span>
+                      <span className="text-white font-bold text-xs w-5 text-center">{splitBillMode ? splitQty : item.quantity}</span>
                       <button
-                        onClick={() => updateQuantity(item.menu_item_id, item.quantity + 1)}
+                        onClick={() => splitBillMode
+                          ? updateSplitSelection(item.menu_item_id, splitQty + 1)
+                          : updateQuantity(item.menu_item_id, item.quantity + 1)}
                         className="w-6 h-6 rounded-lg bg-white/10 hover:bg-white/16 text-white font-black text-sm flex items-center justify-center transition active:scale-90"
                       >
                         +
                       </button>
-                      <button
-                        onClick={() => removeFromCart(item.menu_item_id)}
-                        className="w-6 h-6 rounded-lg bg-red-500/16 hover:bg-red-500/26 text-red-300 hover:text-white font-black text-xs flex items-center justify-center transition active:scale-90 ml-0.5"
-                      >
-                        ✕
-                      </button>
+                      {!splitBillMode && (
+                        <button
+                          onClick={() => removeFromCart(item.menu_item_id)}
+                          className="w-6 h-6 rounded-lg bg-red-500/16 hover:bg-red-500/26 text-red-300 hover:text-white font-black text-xs flex items-center justify-center transition active:scale-90 ml-0.5"
+                        >
+                          ✕
+                        </button>
+                      )}
                     </div>
                   </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>
 
-              <div className={`${compactPOSLayout ? 'min-h-0 flex-[0_1_auto] overflow-y-auto overscroll-contain border-t border-white/10 pb-2 [scrollbar-gutter:stable] [scrollbar-width:thin] [scrollbar-color:rgba(212,175,55,0.55)_rgba(15,23,42,0.35)]' : ''}`}>
-          {/* Discount Code */}
-              <div className={`border-b border-white/10 ${compactPOSLayout ? 'px-2 py-1' : 'px-2 py-1'} space-y-1 text-xs`}>
-            <div className={compactPOSLayout ? 'grid grid-cols-[minmax(0,1fr)_112px] gap-1' : 'flex gap-1'}>
-              <div className="flex min-w-0 gap-1">
-              <input
-                type="text"
-                placeholder="Código descuento"
-                value={discountCode}
-                onChange={(e) => setDiscountCode(e.target.value.toUpperCase())}
-                className="min-w-0 flex-1 rounded-lg px-2 py-1 text-xs text-white outline-none"
-              />
-              <button
-                onClick={applyDiscountCode}
-                className="shrink-0 rounded-lg border border-emerald-400/30 bg-emerald-500/18 px-2 py-1 text-xs font-black text-emerald-100 transition hover:bg-emerald-500/26"
-              >
-                Aplicar
-              </button>
+              <div className={`${compactPOSLayout ? 'shrink-0 overflow-visible border-t border-white/10 pb-1' : ''}`}>
+          {/* Totals */}
+          <div className={`border-b border-white/10 ${compactPOSLayout ? 'px-2 py-1' : 'px-3 py-2'} ${compactPOSLayout ? 'space-y-0.5' : 'space-y-2'} bg-black/18 text-sm backdrop-blur-xl`}>
+            <div className={`${compactPOSLayout ? 'space-y-1' : 'space-y-1.5'} text-xs`}>
+              <div className={compactPOSLayout ? 'hidden' : 'flex justify-between'}>
+                <span className="text-slate-400">Subtotal:</span>
+                <span className="font-semibold text-slate-200">{formatPriceWithCurrency(activeSubtotal, currencyInfo.code, currencyInfo.locale)}</span>
               </div>
-              {compactPOSLayout && (
-                <div className="flex min-w-0 items-center rounded-lg border border-[#D4AF37]/30 bg-[#D4AF37]/12">
-                  <button
-                    type="button"
-                    onClick={() => setShowTipKeyboard(true)}
-                    className="min-w-0 flex-1 px-2 py-0.5 text-left transition hover:text-white"
-                    title="Agregar propina"
-                  >
-                    <span className="block text-[9px] font-black uppercase leading-tight text-slate-400">Propina</span>
-                    <span className="block truncate text-xs font-black text-[#D4AF37]">
-                      {tip > 0 ? formatPriceWithCurrency(tip, currencyInfo.code, currencyInfo.locale) : '+ Agregar'}
-                    </span>
-                  </button>
-                  {tip > 0 && (
-                    <button
-                      type="button"
-                      onClick={() => setTip(0)}
-                      className="grid h-7 w-7 shrink-0 place-items-center text-slate-500 transition hover:text-red-300"
-                      aria-label="Quitar propina"
-                      title="Quitar propina"
-                    >
-                      <X className="h-3.5 w-3.5" />
-                    </button>
-                  )}
+              {splitBillMode && (
+                <div className="flex justify-between rounded-lg border border-amber-300/30 bg-amber-300/10 px-2 py-1">
+                  <span className="font-bold text-amber-100">Pago dividido:</span>
+                  <span className="font-black text-amber-100">{splitPaymentItems.reduce((sum, item) => sum + item.quantity, 0)} item(s)</span>
                 </div>
               )}
-            </div>
-            {discount > 0 && (
-              <p className="text-green-400 text-xs">Descuento: -{formatPriceWithCurrency(discount, currencyInfo.code, currencyInfo.locale)}</p>
-            )}
-          </div>
-
-          {/* Totals */}
-          <div className={`border-b border-white/10 ${compactPOSLayout ? 'px-2 py-1.5' : 'px-3 py-2'} ${compactPOSLayout ? 'space-y-1' : 'space-y-2'} bg-black/18 text-sm backdrop-blur-xl`}>
-            <div className={`${compactPOSLayout ? 'space-y-1' : 'space-y-1.5'} text-xs`}>
-              <div className="flex justify-between">
-                <span className="text-slate-400">Subtotal:</span>
-                <span className="font-semibold text-slate-200">{formatPriceWithCurrency(subtotal, currencyInfo.code, currencyInfo.locale)}</span>
-              </div>
               {discount > 0 && (
                 <div className="flex justify-between bg-green-500/20 px-2 py-1.5 rounded-lg border border-green-500/30">
                   <span className="text-green-400 font-medium">Descuento:</span>
                   <span className="font-bold text-green-300">-{formatPriceWithCurrency(discount, currencyInfo.code, currencyInfo.locale)}</span>
                 </div>
               )}
-              {taxRate > 0 && (
+              {taxRate > 0 && !compactPOSLayout && (
                 <div className="flex justify-between">
                   <span className="text-slate-400">{taxIncluded ? 'IVA incluido' : 'IVA'} ({taxRate}%):</span>
                   <span className="font-semibold text-slate-200">{formatPriceWithCurrency(taxAmount, currencyInfo.code, currencyInfo.locale)}</span>
@@ -4304,8 +4526,8 @@ export function POSTerminal({
                 </div>
               )}
             </div>
-            <div className={`pos-total-band flex justify-between font-black px-2 rounded-xl ${compactPOSLayout ? 'py-1.5 text-sm' : 'pt-2 py-2 text-base'}`}>
-              <span className="text-white">Total:</span>
+            <div className={`pos-total-band flex justify-between font-black px-2 rounded-xl ${compactPOSLayout ? 'py-1 text-sm' : 'pt-2 py-2 text-base'}`}>
+              <span className="text-white">{splitBillMode ? 'A cobrar:' : 'Total:'}</span>
               <span className={`text-emerald-300 ${compactPOSLayout ? 'text-base' : 'text-lg'}`}>{formatPriceWithCurrency(total, currencyInfo.code, currencyInfo.locale)}</span>
             </div>
 
@@ -4463,7 +4685,7 @@ export function POSTerminal({
           )}
 
           {/* Payment Component */}
-              <div className={`${compactPOSLayout ? 'px-2 pb-2 pt-1' : 'px-2 pb-[calc(env(safe-area-inset-bottom)+1.25rem)] pt-1 lg:pb-1'}`}>
+              <div className={`${compactPOSLayout ? 'px-2 pb-1 pt-0.5' : 'px-2 pb-[calc(env(safe-area-inset-bottom)+1.25rem)] pt-1 lg:pb-1'}`}>
                 {editingPaidReceipt ? (
                   <div className="rounded-xl border border-cyan-300/30 bg-cyan-400/10 p-2">
                     <div className="mb-2 rounded-lg border border-white/10 bg-black/20 px-3 py-2 text-xs">
@@ -4596,7 +4818,12 @@ export function POSTerminal({
                       printReceipt={printReceiptAfterPayment}
                       onPrintReceiptChange={setPrintReceiptAfterPayment}
                       onProceedPayment={handleShowReceipt}
-                      disabled={cart.length === 0 || !hasRequiredDeliveryZone || (!!selectedTableNumber && !selectedStaffId && billingOrderIds.length === 0)}
+                      disabled={
+                        cart.length === 0 ||
+                        (splitBillMode && splitPaymentItems.length === 0) ||
+                        !hasRequiredDeliveryZone ||
+                        (!!selectedTableNumber && !selectedStaffId && billingOrderIds.length === 0)
+                      }
                       loading={processingPayment}
                       country={country}
                       compact={compactPOSLayout}

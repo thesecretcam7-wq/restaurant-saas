@@ -63,6 +63,10 @@ function cashDrawerPulseCommands(): string {
   return `${ESC}p\x00\x32\xfa${ESC}p\x01\x32\xfa`;
 }
 
+function feedLines(count: number): string {
+  return `${ESC}d${String.fromCharCode(Math.max(0, Math.min(9, count)))}`;
+}
+
 function cutCommands(): string {
   return `${GS}V\x00`;
 }
@@ -190,15 +194,12 @@ export function generateReceiptESCPOS(data: ReceiptData, options: ReceiptOptions
   line('POS y menu digital:');
   line('eccofoodapp.com');
   push(FONT_A);
-  line('');
-  line('');
-  line('');
-  line('');
+  push(feedLines(3));
 
+  push(cutCommands());
   if (options.openCashDrawer) {
     push(cashDrawerPulseCommands());
   }
-  push(cutCommands());
   push(ALIGN_LEFT, SIZE_NORMAL, FONT_A);
 
   const receipt = bytes.join('');

@@ -85,7 +85,7 @@ export function POSPayment({
     (paymentMethod === 'mixed' && mixedCashValue > 0 && mixedCashValue < totalWithTip);
 
   return (
-    <div className={compact ? 'space-y-1 text-xs' : 'space-y-2'}>
+    <div className={compact ? 'space-y-0.5 text-xs' : 'space-y-2'}>
       {/* Propina */}
       {showTipControl && (
         <div className={`pos-card flex items-center gap-2 rounded-xl ${compact ? 'px-2 py-1' : 'px-3 py-2'}`}>
@@ -103,9 +103,9 @@ export function POSPayment({
       )}
 
       {/* Total */}
-      <div className={`pos-total-band rounded-xl text-white ${compact ? 'p-1.5' : 'p-3'}`}>
+      <div className={`pos-total-band rounded-xl text-white ${compact ? 'p-1' : 'p-3'}`}>
         <p className="text-xs text-emerald-100/68 mb-0.5 font-black uppercase">Total a pagar</p>
-        <p className={`${compact ? 'text-lg' : 'text-2xl'} font-black text-emerald-200`}>{formatPriceWithCurrency(totalWithTip, currencyInfo.code, currencyInfo.locale)}</p>
+        <p className={`${compact ? 'text-base' : 'text-2xl'} font-black text-emerald-200`}>{formatPriceWithCurrency(totalWithTip, currencyInfo.code, currencyInfo.locale)}</p>
         {tip > 0 && !compact && <p className="text-xs opacity-70">Incl. propina {formatPriceWithCurrency(tip, currencyInfo.code, currencyInfo.locale)}</p>}
       </div>
 
@@ -119,7 +119,7 @@ export function POSPayment({
             setChange(0);
           }}
           disabled={disabled}
-          className={`${compact ? 'py-1 text-xs' : 'py-2 text-sm'} rounded-xl font-black flex items-center justify-center gap-1 transition border ${
+          className={`${compact ? 'py-0.5 text-xs' : 'py-2 text-sm'} rounded-xl font-black flex items-center justify-center gap-1 transition border ${
             paymentMethod === 'cash'
               ? 'bg-[#D4AF37]/16 border-[#D4AF37]/38 text-white'
               : 'bg-white/10 border-white/10 text-slate-400 hover:text-white'
@@ -136,7 +136,7 @@ export function POSPayment({
             setChange(0);
           }}
           disabled={disabled}
-          className={`${compact ? 'py-1 text-xs' : 'py-2 text-sm'} rounded-xl font-black flex items-center justify-center gap-1 transition border ${
+          className={`${compact ? 'py-0.5 text-xs' : 'py-2 text-sm'} rounded-xl font-black flex items-center justify-center gap-1 transition border ${
             paymentMethod === 'stripe'
               ? 'bg-[#D4AF37]/16 border-[#D4AF37]/38 text-white'
               : 'bg-white/10 border-white/10 text-slate-400 hover:text-white'
@@ -153,7 +153,7 @@ export function POSPayment({
             setChange(0);
           }}
           disabled={disabled}
-          className={`${compact ? 'py-1 text-xs' : 'py-2 text-sm'} rounded-xl font-black flex items-center justify-center gap-1 transition border ${
+          className={`${compact ? 'py-0.5 text-xs' : 'py-2 text-sm'} rounded-xl font-black flex items-center justify-center gap-1 transition border ${
             paymentMethod === 'mixed'
               ? 'bg-[#D4AF37]/16 border-[#D4AF37]/38 text-white'
               : 'bg-white/10 border-white/10 text-slate-400 hover:text-white'
@@ -166,7 +166,7 @@ export function POSPayment({
 
       {/* Ingreso de Efectivo */}
       {paymentMethod === 'cash' && (
-        <div className={`pos-card rounded-xl ${compact ? 'space-y-1 p-1.5' : 'space-y-3 p-4'}`}>
+        <div className={`pos-card rounded-xl ${compact ? 'space-y-0.5 p-1' : 'space-y-3 p-4'}`}>
           <label className="text-xs font-bold text-slate-400">Cantidad recibida</label>
           <div className="flex gap-2">
             <input
@@ -191,7 +191,7 @@ export function POSPayment({
                 }
               }}
               placeholder="0.00"
-              className={`min-w-0 flex-1 rounded-xl border-2 border-[#D4AF37]/30 bg-[#0B0E14]/55 px-3 text-center font-black text-white outline-none transition placeholder:text-[#8b97a8] focus:border-[#D4AF37] focus:bg-[#0B0E14]/72 ${compact ? 'py-1 text-sm' : 'py-2 text-lg'}`}
+              className={`min-w-0 flex-1 rounded-xl border-2 border-[#D4AF37]/30 bg-[#0B0E14]/55 px-3 text-center font-black text-white outline-none transition placeholder:text-[#8b97a8] focus:border-[#D4AF37] focus:bg-[#0B0E14]/72 ${compact ? 'py-0.5 text-sm' : 'py-2 text-lg'}`}
               title={isTouchDevice ? 'Usa el teclado interno de Eccofood' : 'Puedes escribir el dinero recibido con teclado'}
             />
             <button
@@ -205,7 +205,7 @@ export function POSPayment({
           </div>
 
           {/* Billetes Sugeridos */}
-          <div className={compact ? 'space-y-1' : 'space-y-2'}>
+          <div className={compact ? 'space-y-0.5' : 'space-y-2'}>
             <p className="text-xs font-black uppercase text-slate-400">Billetes sugeridos:</p>
             <div className={`grid ${compact ? 'grid-cols-3 gap-1' : 'grid-cols-2 gap-2.5'}`}>
               {suggestedAmounts.map((amount) => (
@@ -213,7 +213,7 @@ export function POSPayment({
                   type="button"
                   key={amount}
                   onClick={() => handleSuggestedAmount(amount)}
-                  className={`${compact ? 'min-h-10 px-2 py-1.5 text-sm' : 'min-h-11 px-3 py-2 text-sm'} rounded-xl border border-[#D4AF37]/30 bg-[#D4AF37]/12 font-black text-white shadow-sm shadow-black/20 transition hover:bg-[#D4AF37]/20 active:scale-95`}
+                  className={`${compact ? 'min-h-8 px-2 py-0.5 text-sm' : 'min-h-11 px-3 py-2 text-sm'} rounded-xl border border-[#D4AF37]/30 bg-[#D4AF37]/12 font-black text-white shadow-sm shadow-black/20 transition hover:bg-[#D4AF37]/20 active:scale-95`}
                 >
                   {formatPriceWithCurrency(amount, currencyInfo.code, currencyInfo.locale)}
                 </button>
@@ -223,7 +223,7 @@ export function POSPayment({
 
           {/* Cambio */}
           {paidAmount > 0 && (
-            <div className={`${compact ? 'p-2' : 'p-3'} rounded-xl border ${change >= 0 ? 'bg-emerald-400/12 border-emerald-300/28' : 'bg-red-500/12 border-red-400/30'}`}>
+            <div className={`${compact ? 'p-1' : 'p-3'} rounded-xl border ${change >= 0 ? 'bg-emerald-400/12 border-emerald-300/28' : 'bg-red-500/12 border-red-400/30'}`}>
               <p className="text-xs text-slate-400 mb-0.5">Cambio</p>
               <p className={`${compact ? 'text-lg' : 'text-2xl'} font-black ${change >= 0 ? 'text-emerald-300' : 'text-red-300'}`}>
                 {formatPriceWithCurrency(Math.abs(change), currencyInfo.code, currencyInfo.locale)}
@@ -281,7 +281,7 @@ export function POSPayment({
       )}
 
       {/* Recibo */}
-      <div className={`pos-card flex items-center justify-between gap-2 rounded-xl ${compact ? 'px-2 py-1' : 'px-3 py-2'}`}>
+      <div className={`pos-card flex items-center justify-between gap-2 rounded-xl ${compact ? 'px-2 py-0.5' : 'px-3 py-2'}`}>
         <div className="flex min-w-0 items-center gap-1.5 text-xs font-black uppercase text-slate-400">
           <Printer className="h-4 w-4 shrink-0 text-[#D4AF37]" />
           <span>Recibo</span>
@@ -317,14 +317,14 @@ export function POSPayment({
       </div>
 
       {/* Botón Pagar */}
-      <div className={compact ? 'sticky bottom-0 z-10 -mx-2 bg-[#070b12]/96 px-2 pb-1 pt-1 backdrop-blur-xl' : ''}>
+      <div className={compact ? 'pt-0.5' : ''}>
         <button
           onClick={() => onProceedPayment(
             paymentMethod === 'cash' ? cashAmountForPayment : paymentMethod === 'mixed' ? mixedCashValue : undefined,
             printReceipt
           )}
           disabled={disabled || loading || !isValidPayment}
-          className={`w-full ${compact ? 'min-h-11 py-2 text-sm' : 'py-4 text-lg'} rounded-xl font-black transition border ${
+          className={`w-full ${compact ? 'min-h-10 py-1.5 text-sm' : 'py-4 text-lg'} rounded-xl font-black transition border ${
             isValidPayment && !disabled && !loading
               ? 'bg-[#D35A37] hover:bg-[#bd4d31] text-white border-[#D35A37]/40 shadow-lg shadow-black/24'
               : 'bg-white/10 text-slate-500 border-white/10 cursor-not-allowed'
