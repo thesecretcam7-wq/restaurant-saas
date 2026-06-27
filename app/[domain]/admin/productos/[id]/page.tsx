@@ -183,7 +183,7 @@ export default function EditProductoPage({ params }: Props) {
     const { error } = await supabase.from('menu_items').update(updateData).eq('id', id).eq('tenant_id', tenantId)
     setSaving(false)
     if (error) { toast.error('Error: ' + error.message) }
-    else { toast.success('Cambios guardados'); router.push(`/${domain}/admin/productos`) }
+    else { toast.success('Cambios guardados'); router.push(`/${domain}/admin/productos#product-${id}`) }
   }
 
   const handleDelete = async () => {

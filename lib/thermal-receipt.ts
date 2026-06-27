@@ -99,6 +99,7 @@ export function generateReceiptESCPOS(data: ReceiptData, options: ReceiptOptions
     line(cleanName);
     push(BOLD_OFF);
     row(`  ${formatQuantity(quantity)} x ${formatPrice(unitPrice, data)}`, formatPrice(total, data));
+    line('');
   };
 
   push(INIT, CODE_PAGE_PC850, FONT_A);
@@ -141,6 +142,7 @@ export function generateReceiptESCPOS(data: ReceiptData, options: ReceiptOptions
   push(BOLD_ON);
   line('Detalle del pedido');
   push(BOLD_OFF);
+  line('');
 
   for (const item of data.items) {
     const quantity = Number(item.quantity || 0);
@@ -151,6 +153,7 @@ export function generateReceiptESCPOS(data: ReceiptData, options: ReceiptOptions
   const showTax = (data.tax || 0) > 0 && (data.taxRate || 0) > 0;
   const hasBreakdown = data.discount > 0 || showTax || (data.deliveryFee || 0) > 0;
   if (hasBreakdown) {
+    sep();
     row('Subtotal:', formatPrice(data.subtotal, data));
     if (data.discount > 0) {
       row('Descuento:', `-${formatPrice(data.discount, data)}`);
@@ -163,11 +166,13 @@ export function generateReceiptESCPOS(data: ReceiptData, options: ReceiptOptions
     if ((data.deliveryFee || 0) > 0) {
       row('Domicilio:', formatPrice(data.deliveryFee || 0, data));
     }
+    line('');
   }
 
   push(ALIGN_CENTER, FONT_A, SIZE_WIDE, BOLD_ON);
   line(`TOTAL ${formatPrice(data.total, data)}`);
   push(BOLD_OFF, SIZE_NORMAL);
+  line('');
 
   if (data.amountPaid !== undefined) {
     push(ALIGN_LEFT);
@@ -179,12 +184,17 @@ export function generateReceiptESCPOS(data: ReceiptData, options: ReceiptOptions
       row('Recibido:', formatPrice(data.amountPaid, data));
       row('Cambio:', formatPrice(data.change, data));
     }
+    line('');
   }
 
   const paymentLabel = getPaymentMethodLabel(data.paymentMethod);
   if (paymentLabel) {
     push(ALIGN_LEFT);
-    row('Metodo:', paymentLabel);
+    line('Metodo:');
+    push(ALIGN_CENTER, SIZE_WIDE, BOLD_ON);
+    line(paymentLabel);
+    push(BOLD_OFF, SIZE_NORMAL, ALIGN_LEFT);
+    line('');
   }
 
   push(ALIGN_CENTER, BOLD_ON);
@@ -194,7 +204,7 @@ export function generateReceiptESCPOS(data: ReceiptData, options: ReceiptOptions
   line('POS y menu digital:');
   line('eccofoodapp.com');
   push(FONT_A);
-  push(feedLines(3));
+  push(feedLines(6));
 
   push(cutCommands());
   if (options.openCashDrawer) {

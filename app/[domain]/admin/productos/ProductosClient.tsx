@@ -212,7 +212,10 @@ function ProductRow({
   currencyInfo: { code: string; locale: string }
 }) {
   return (
-    <div className="grid gap-3 px-5 py-4 transition hover:bg-white/70 sm:grid-cols-[1fr_auto] sm:items-center">
+    <div
+      id={`product-${product.id}`}
+      className="scroll-mt-24 grid gap-3 px-5 py-4 transition hover:bg-white/70 sm:grid-cols-[1fr_auto] sm:items-center"
+    >
       <Link href={`/${domain}/admin/productos/${product.id}`} className="flex min-w-0 items-center gap-3">
         {product.image_url ? (
           <img src={product.image_url} alt={product.name} className="size-14 flex-shrink-0 rounded-xl object-cover shadow-sm" />
