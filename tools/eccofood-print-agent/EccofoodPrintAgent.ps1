@@ -4,7 +4,7 @@ param(
 
 $ErrorActionPreference = "Stop"
 
-$AgentVersion = "1.2.0"
+$AgentVersion = "1.2.1"
 $PrinterCacheTtlSeconds = 300
 $script:DefaultPrinterCache = $null
 $script:DefaultPrinterCacheAt = [datetime]::MinValue
@@ -229,7 +229,7 @@ function Resolve-PrinterName {
   return $PrinterName
 }
 
-$listener = [System.Net.HttpListener]::new()
+$listener = New-Object System.Net.HttpListener
 $prefixes = @("http://localhost:$Port/", "http://127.0.0.1:$Port/")
 foreach ($prefix in $prefixes) {
   $listener.Prefixes.Add($prefix)
@@ -302,7 +302,7 @@ while ($listener.IsListening) {
       continue
     }
 
-    $reader = [System.IO.StreamReader]::new($context.Request.InputStream, [System.Text.Encoding]::UTF8)
+    $reader = New-Object System.IO.StreamReader -ArgumentList $context.Request.InputStream, ([System.Text.Encoding]::UTF8)
     $body = $reader.ReadToEnd()
     $payload = $body | ConvertFrom-Json
 
