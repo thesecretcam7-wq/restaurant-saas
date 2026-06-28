@@ -15,12 +15,23 @@ type WindowWithWebkitAudio = Window & {
 };
 
 const SERVICE_ALERT_VOLUME = 1;
+const SERVICE_ALERTS_ENABLED_KEY = 'eccofood-service-alerts-enabled';
+
+function hasStoredAlertConsent() {
+  if (typeof window === 'undefined') return false;
+  try {
+    return window.localStorage.getItem(SERVICE_ALERTS_ENABLED_KEY) === '1';
+  } catch {
+    return false;
+  }
+}
 
 export function useServiceReadyAlert({ autoUnlock = true }: { autoUnlock?: boolean } = {}) {
   const audioCtxRef = useRef<AudioContext | null>(null);
   const alertAudioRef = useRef<HTMLAudioElement | null>(null);
   const knownReadyItemIdsRef = useRef<Set<string> | null>(null);
-  const [alertsReady, setAlertsReady] = useState(false);
+  const audioUnlockedRef = useRef(false);
+  const [alertsReady, setAlertsReady] = useState(hasStoredAlertConsent);
 
   const initAudio = useCallback(() => {
     if (typeof window === 'undefined') return;
@@ -110,7 +121,11 @@ export function useServiceReadyAlert({ autoUnlock = true }: { autoUnlock?: boole
       }
     } catch {}
 
+    audioUnlockedRef.current = true;
     setAlertsReady(true);
+    try {
+      window.localStorage.setItem(SERVICE_ALERTS_ENABLED_KEY, '1');
+    } catch {}
     vibrate(20);
   }, [initAudio, vibrate]);
 
@@ -140,20 +155,22 @@ export function useServiceReadyAlert({ autoUnlock = true }: { autoUnlock?: boole
   }, [triggerServiceAlert]);
 
   useEffect(() => {
-    if (!autoUnlock || alertsReady) return;
+    if (!autoUnlock || audioUnlockedRef.current) return;
 
     const handleFirstInteraction = () => {
       void unlockAlerts();
     };
 
     window.addEventListener('pointerdown', handleFirstInteraction, { once: true, passive: true });
+    window.addEventListener('touchstart', handleFirstInteraction, { once: true, passive: true });
     window.addEventListener('keydown', handleFirstInteraction, { once: true });
 
     return () => {
       window.removeEventListener('pointerdown', handleFirstInteraction);
+      window.removeEventListener('touchstart', handleFirstInteraction);
       window.removeEventListener('keydown', handleFirstInteraction);
     };
-  }, [alertsReady, autoUnlock, unlockAlerts]);
+  }, [autoUnlock, unlockAlerts]);
 
   return {
     alertsReady,
