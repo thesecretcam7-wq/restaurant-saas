@@ -71,25 +71,26 @@ function cutCommands(): string {
   return `${GS}V\x00`;
 }
 
-function qrCodeCommands(value: string, size = 8): string {
-  const cleanValue = normalizeThermalText(value).trim();
-  const dataLength = cleanValue.length + 3;
-  const pL = String.fromCharCode(dataLength % 256);
-  const pH = String.fromCharCode(Math.floor(dataLength / 256));
-  const moduleSize = String.fromCharCode(Math.max(3, Math.min(12, size)));
-
-  return [
-    `${GS}(k\x04\x001A2\x00`,
-    `${GS}(k\x03\x001C${moduleSize}`,
-    `${GS}(k\x03\x001E1`,
-    `${GS}(k${pL}${pH}1P0${cleanValue}`,
-    `${GS}(k\x03\x001Q0`,
-  ].join('');
+function concatBytes(parts: Array<string | Uint8Array>): Uint8Array {
+  const encodedParts = parts.map((part) => (typeof part === 'string' ? encodeEscPos(part) : part));
+  const totalLength = encodedParts.reduce((sum, part) => sum + part.length, 0);
+  const output = new Uint8Array(totalLength);
+  let offset = 0;
+  for (const part of encodedParts) {
+    output.set(part, offset);
+    offset += part.length;
+  }
+  return output;
 }
 
-export function generateTableQrESCPOS(data: TableQrReceiptData, options: Pick<ReceiptOptions, 'paperWidth'>): Uint8Array {
+export function generateTableQrESCPOS(
+  data: TableQrReceiptData,
+  options: Pick<ReceiptOptions, 'paperWidth'>,
+  qrRasterCommands?: Uint8Array | null
+): Uint8Array {
   const cols = options.paperWidth === 80 ? 42 : 32;
   const bytes: string[] = [];
+  const parts: Array<string | Uint8Array> = [];
   const push = (...s: string[]) => bytes.push(...s);
   const line = (s = '') => bytes.push(normalizeThermalText(s).substring(0, cols) + '\n');
   const sep = () => line('-'.repeat(cols));
@@ -105,7 +106,13 @@ export function generateTableQrESCPOS(data: TableQrReceiptData, options: Pick<Re
   push(BOLD_OFF, SIZE_NORMAL);
   if (data.tableLocation) line(data.tableLocation);
   line('');
-  push(qrCodeCommands(data.orderUrl, options.paperWidth === 80 ? 9 : 7));
+  parts.push(bytes.join(''));
+  if (qrRasterCommands) {
+    parts.push(qrRasterCommands);
+  } else {
+    parts.push(encodeEscPos('[QR no disponible]\n'));
+  }
+  bytes.length = 0;
   line('');
   push(FONT_B);
   line('Escanea para pedir');
@@ -115,8 +122,9 @@ export function generateTableQrESCPOS(data: TableQrReceiptData, options: Pick<Re
   push(feedLines(6));
   push(cutCommands());
   push(ALIGN_LEFT, SIZE_NORMAL, FONT_A);
+  parts.push(bytes.join(''));
 
-  return encodeEscPos(bytes.join(''));
+  return concatBytes(parts);
 }
 
 export function generateReceiptESCPOS(data: ReceiptData, options: ReceiptOptions): Uint8Array {

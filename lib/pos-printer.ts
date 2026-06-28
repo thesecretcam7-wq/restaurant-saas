@@ -502,6 +502,86 @@ export async function printMonthlyClosingReceipt(
   }
 }
 
+function asciiBytes(value: string): Uint8Array {
+  const output = new Uint8Array(value.length);
+  for (let index = 0; index < value.length; index += 1) {
+    output[index] = value.charCodeAt(index) & 0xff;
+  }
+  return output;
+}
+
+function concatUint8Arrays(parts: Uint8Array[]): Uint8Array {
+  const totalLength = parts.reduce((sum, part) => sum + part.length, 0);
+  const output = new Uint8Array(totalLength);
+  let offset = 0;
+  for (const part of parts) {
+    output.set(part, offset);
+    offset += part.length;
+  }
+  return output;
+}
+
+function loadImageElement(src: string): Promise<HTMLImageElement> {
+  return new Promise((resolve, reject) => {
+    const image = new Image();
+    image.onload = () => resolve(image);
+    image.onerror = () => reject(new Error('No se pudo cargar la imagen del QR'));
+    image.src = src;
+  });
+}
+
+async function createQrRasterCommands(qrImageData: string, paperWidth: 58 | 80): Promise<Uint8Array> {
+  if (typeof document === 'undefined') {
+    throw new Error('La impresion de QR necesita estar en el navegador');
+  }
+
+  const image = await loadImageElement(qrImageData);
+  const size = paperWidth === 80 ? 320 : 256;
+  const canvas = document.createElement('canvas');
+  canvas.width = size;
+  canvas.height = size;
+  const context = canvas.getContext('2d', { willReadFrequently: true });
+  if (!context) throw new Error('No se pudo preparar la imagen del QR');
+
+  context.fillStyle = '#ffffff';
+  context.fillRect(0, 0, size, size);
+  context.imageSmoothingEnabled = false;
+  context.drawImage(image, 0, 0, size, size);
+
+  const pixels = context.getImageData(0, 0, size, size).data;
+  const bytesPerRow = Math.ceil(size / 8);
+  const raster = new Uint8Array(bytesPerRow * size);
+
+  for (let y = 0; y < size; y += 1) {
+    for (let x = 0; x < size; x += 1) {
+      const pixelIndex = (y * size + x) * 4;
+      const red = pixels[pixelIndex] || 0;
+      const green = pixels[pixelIndex + 1] || 0;
+      const blue = pixels[pixelIndex + 2] || 0;
+      const alpha = pixels[pixelIndex + 3] || 0;
+      const luminance = 0.299 * red + 0.587 * green + 0.114 * blue;
+      if (alpha > 32 && luminance < 180) {
+        raster[y * bytesPerRow + Math.floor(x / 8)] |= 0x80 >> (x % 8);
+      }
+    }
+  }
+
+  const header = new Uint8Array([
+    0x1d, 0x76, 0x30, 0x00,
+    bytesPerRow & 0xff,
+    (bytesPerRow >> 8) & 0xff,
+    size & 0xff,
+    (size >> 8) & 0xff,
+  ]);
+
+  return concatUint8Arrays([
+    asciiBytes('\x1ba\x01'),
+    header,
+    raster,
+    asciiBytes('\n\x1ba\x00'),
+  ]);
+}
+
 export async function printTableQrReceipt(
   tenantId: string,
   data: TableQrReceiptData
@@ -525,14 +605,16 @@ export async function printTableQrReceipt(
     }
 
     const printer = await getPrinterForPrint(tenantId, printerId, true);
+    const paperWidth = printer.config?.paper_width || 80;
     const printData = {
       ...data,
       restaurantName: data.restaurantName || settings?.display_name || 'Restaurante',
     };
+    const qrRasterCommands = data.qrImageData
+      ? await createQrRasterCommands(data.qrImageData, paperWidth)
+      : null;
 
-    const escPosData = generateTableQrESCPOS(printData, {
-      paperWidth: printer.config?.paper_width || 80,
-    });
+    const escPosData = generateTableQrESCPOS(printData, { paperWidth }, qrRasterCommands);
 
     if (shouldUseLocalBridge(printer)) {
       try {
