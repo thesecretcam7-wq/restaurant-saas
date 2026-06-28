@@ -1,6 +1,6 @@
 import { createServiceClient } from '@/lib/supabase/server'
 import { canCreateOrder } from '@/lib/checkPlan'
-import { NextRequest, NextResponse } from 'next/server'
+import { after, NextRequest, NextResponse } from 'next/server'
 import { verifyCSRFToken, sendCSRFErrorResponse } from '@/lib/csrf'
 import { sendOrderConfirmation, sendNewOrderNotification } from '@/lib/email'
 import { sendWhatsAppOrderConfirmation } from '@/lib/whatsapp'
@@ -566,116 +566,120 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
 
-    if (source === 'store') {
-      await syncCustomerFromOrder(supabase, {
-        tenantId,
-        name: orderData.customer_name,
-        email: orderData.customer_email,
-        phone: orderData.customer_phone,
-        address: normalizedDeliveryAddress,
-        total,
-      })
-    }
-
-    // Auto-create order_items so kitchen and service screens receive work in real time.
-    // Exception: kiosk cash orders skip this - items are created when cashier confirms payment.
-    const isKioskCash = source === 'kiosk' && paymentMethod === 'cash'
-    const kdsEnabled = settings?.kds_enabled === true
-    const orderItemsData = buildOrderItemRows({
-      orderId: order.id,
-      tenantId,
-      items: sanitizedItems,
-      includeKitchenItems: kdsEnabled,
-    })
-
-    const shouldSkipOrderItems = source === 'pos' && skipOrderItems === true
-
-    if (!isKioskCash && !registeringPreviousOpenPeriod && !shouldSkipOrderItems && orderItemsData.length > 0) {
-      const { data: insertedOrderItems, error: itemsError } = await supabase
-        .from('order_items')
-        .insert(orderItemsData)
-        .select('id, status, requires_kitchen')
-
-      if (itemsError) {
-        // Non-blocking: order is already saved, just log the error
-        console.error('Error creating order_items for routing:', itemsError.message)
-      } else if (normalizedDeliveryType === 'dine-in') {
-        const directReadyItemIds = (insertedOrderItems || [])
-          .filter((item: { id?: string; status?: string; requires_kitchen?: boolean }) =>
-            item.id && item.status === 'ready' && item.requires_kitchen === false
-          )
-          .map((item: { id: string }) => item.id)
-
-        if (directReadyItemIds.length > 0) {
-          await sendServiceReadyPushNotifications(supabase, { tenantId, itemIds: directReadyItemIds })
+    after(async () => {
+      try {
+        if (source === 'store') {
+          await syncCustomerFromOrder(supabase, {
+            tenantId,
+            name: orderData.customer_name,
+            email: orderData.customer_email,
+            phone: orderData.customer_phone,
+            address: normalizedDeliveryAddress,
+            total,
+          })
         }
+
+        // Auto-create order_items after the response so POS checkout is not blocked.
+        // Exception: kiosk cash orders skip this - items are created when cashier confirms payment.
+        const isKioskCash = source === 'kiosk' && paymentMethod === 'cash'
+        const kdsEnabled = settings?.kds_enabled === true
+        const shouldSkipOrderItems = source === 'pos' && skipOrderItems === true
+        const orderItemsData = buildOrderItemRows({
+          orderId: order.id,
+          tenantId,
+          items: sanitizedItems,
+          includeKitchenItems: kdsEnabled,
+        })
+
+        if (!isKioskCash && !registeringPreviousOpenPeriod && !shouldSkipOrderItems && orderItemsData.length > 0) {
+          const { data: insertedOrderItems, error: itemsError } = await supabase
+            .from('order_items')
+            .insert(orderItemsData)
+            .select('id, status, requires_kitchen')
+
+          if (itemsError) {
+            console.error('Error creating order_items for routing:', itemsError.message)
+          } else if (normalizedDeliveryType === 'dine-in') {
+            const directReadyItemIds = (insertedOrderItems || [])
+              .filter((item: { id?: string; status?: string; requires_kitchen?: boolean }) =>
+                item.id && item.status === 'ready' && item.requires_kitchen === false
+              )
+              .map((item: { id: string }) => item.id)
+
+            if (directReadyItemIds.length > 0) {
+              await sendServiceReadyPushNotifications(supabase, { tenantId, itemIds: directReadyItemIds })
+            }
+          }
+        }
+
+        if (source !== 'pos') {
+          const [{ data: branding }, { data: tenantRow }, { data: settings2 }] = await Promise.all([
+            supabase
+              .from('tenant_branding')
+              .select('app_name, primary_color')
+              .eq('tenant_id', tenantId)
+              .maybeSingle(),
+            supabase
+              .from('tenants')
+              .select('organization_name, owner_email')
+              .eq('id', tenantId)
+              .maybeSingle(),
+            supabase
+              .from('restaurant_settings')
+              .select('email')
+              .eq('tenant_id', tenantId)
+              .maybeSingle(),
+          ])
+
+          const palette = deriveBrandPalette()
+          const restaurantName = branding?.app_name || tenantRow?.organization_name || 'Restaurante'
+          const primaryColor = palette.buttonPrimary
+          const adminEmail = settings2?.email || tenantRow?.owner_email
+
+          if (orderData.customer_email) {
+            sendOrderConfirmation(orderData.customer_email, {
+              restaurantName,
+              primaryColor,
+              orderNumber,
+              customerName: orderData.customer_name,
+              items: sanitizedItems.map((i: any) => ({ name: i.name, qty: i.qty, price: i.price })),
+              subtotal,
+              tax,
+              deliveryFee,
+              total,
+              deliveryType: normalizedDeliveryType,
+              deliveryAddress: normalizedDeliveryAddress || undefined,
+              paymentMethod: normalizedPaymentMethod || '',
+              notes: orderNotes || undefined,
+            }).catch(e => console.error('[email] order confirmation:', e))
+          }
+
+          if (orderData.customer_phone) {
+            sendWhatsAppOrderConfirmation(orderData.customer_phone, {
+              restaurantName,
+              orderNumber,
+              customerName: orderData.customer_name,
+              total,
+              items: sanitizedItems.map((i: any) => ({ name: i.name, qty: i.qty })),
+            }).catch(e => console.error('[whatsapp] order confirmation:', e))
+          }
+
+          if (adminEmail) {
+            sendNewOrderNotification(adminEmail, {
+              restaurantName,
+              primaryColor,
+              orderNumber,
+              customerName: orderData.customer_name,
+              total,
+              deliveryType: normalizedDeliveryType,
+              items: sanitizedItems.map((i: any) => ({ name: i.name, qty: i.qty })),
+            }).catch(e => console.error('[email] admin notification:', e))
+          }
+        }
+      } catch (postOrderError) {
+        console.error('[orders POST] post-response work failed:', postOrderError)
       }
-    }
-
-    if (source !== 'pos') {
-      // Send emails (non-blocking)
-      const { data: branding } = await supabase
-        .from('tenant_branding')
-        .select('app_name, primary_color')
-        .eq('tenant_id', tenantId)
-        .maybeSingle()
-      const { data: tenantRow } = await supabase
-        .from('tenants')
-        .select('organization_name, owner_email')
-        .eq('id', tenantId)
-        .maybeSingle()
-      const { data: settings2 } = await supabase
-        .from('restaurant_settings')
-        .select('email')
-        .eq('tenant_id', tenantId)
-        .maybeSingle()
-
-      const palette = deriveBrandPalette()
-      const restaurantName = branding?.app_name || tenantRow?.organization_name || 'Restaurante'
-      const primaryColor = palette.buttonPrimary
-      const adminEmail = settings2?.email || tenantRow?.owner_email
-
-      if (orderData.customer_email) {
-        sendOrderConfirmation(orderData.customer_email, {
-          restaurantName,
-          primaryColor,
-          orderNumber,
-          customerName: orderData.customer_name,
-          items: sanitizedItems.map((i: any) => ({ name: i.name, qty: i.qty, price: i.price })),
-          subtotal,
-          tax,
-          deliveryFee,
-          total,
-          deliveryType: normalizedDeliveryType,
-          deliveryAddress: normalizedDeliveryAddress || undefined,
-          paymentMethod: normalizedPaymentMethod || '',
-          notes: orderNotes || undefined,
-        }).catch(e => console.error('[email] order confirmation:', e))
-      }
-
-      // WhatsApp confirmation (non-blocking)
-      if (orderData.customer_phone) {
-        sendWhatsAppOrderConfirmation(orderData.customer_phone, {
-          restaurantName,
-          orderNumber,
-          customerName: orderData.customer_name,
-          total,
-          items: sanitizedItems.map((i: any) => ({ name: i.name, qty: i.qty })),
-        }).catch(e => console.error('[whatsapp] order confirmation:', e))
-      }
-
-      if (adminEmail) {
-        sendNewOrderNotification(adminEmail, {
-          restaurantName,
-          primaryColor,
-          orderNumber,
-          customerName: orderData.customer_name,
-          total,
-          deliveryType: normalizedDeliveryType,
-          items: sanitizedItems.map((i: any) => ({ name: i.name, qty: i.qty })),
-        }).catch(e => console.error('[email] admin notification:', e))
-      }
-    }
+    })
 
     return NextResponse.json({ orderId: order.id, orderNumber, displayNumber })
   } catch (err) {
