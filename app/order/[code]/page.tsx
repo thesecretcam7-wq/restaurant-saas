@@ -306,14 +306,9 @@ export default function TableOrderPage() {
           {orderDone.orderNumber && (
             <p className="mt-2 text-sm font-bold text-slate-500">{orderDone.orderNumber}</p>
           )}
-          <button
-            type="button"
-            onClick={() => setOrderDone(null)}
-            className="mt-7 h-12 w-full rounded-2xl text-sm font-black text-white shadow-lg active:scale-95"
-            style={{ backgroundColor: theme.primary }}
-          >
-            Pedir algo mas
-          </button>
+          <p className="mt-5 rounded-2xl bg-slate-50 px-4 py-3 text-sm font-bold text-slate-600">
+            Este QR ya quedo cerrado. Si quieres pedir algo mas, pide al camarero un QR nuevo.
+          </p>
         </div>
       </div>
     );

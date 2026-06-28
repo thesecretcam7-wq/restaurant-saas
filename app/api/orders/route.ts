@@ -230,6 +230,7 @@ export async function POST(request: NextRequest) {
     let normalizedTableNumber = tableNumber || null
     let normalizedWaiterName = waiterName || null
     let normalizedNotes = notes || null
+    let tableQrCodeToConsume: string | null = null
 
     const protectedSourceRoles: Record<string, string[]> = {
       pos: ['admin', 'cajero'],
@@ -277,6 +278,7 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: 'Esta mesa no esta disponible para pedidos.' }, { status: 400 })
       }
 
+      tableQrCodeToConsume = qrCodeValue
       normalizedDeliveryType = 'dine-in'
       normalizedDeliveryAddress = null
       normalizedPaymentMethod = null
@@ -546,6 +548,26 @@ export async function POST(request: NextRequest) {
       orderData.updated_at = previousOpenPeriodCreatedAt
     }
 
+    if (tableQrCodeToConsume) {
+      const { data: consumedQr, error: consumeQrError } = await supabase
+        .from('table_qr_codes')
+        .update({ is_active: false, updated_at: new Date().toISOString() })
+        .eq('tenant_id', tenantId)
+        .eq('unique_code', tableQrCodeToConsume)
+        .eq('is_active', true)
+        .select('id')
+        .maybeSingle()
+
+      if (consumeQrError) {
+        console.error('[orders POST] table QR consume error:', consumeQrError.message)
+        return NextResponse.json({ error: 'No se pudo cerrar el QR de la mesa. Intenta de nuevo.' }, { status: 500 })
+      }
+
+      if (!consumedQr) {
+        return NextResponse.json({ error: 'Este QR ya fue usado. Pide al camarero un QR nuevo.' }, { status: 409 })
+      }
+    }
+
     const insertOrder = (payload: Record<string, any>) => supabase
       .from('orders')
       .insert(payload)
@@ -563,6 +585,16 @@ export async function POST(request: NextRequest) {
 
     if (error) {
       console.error('[orders POST] insert error:', error.message, error.details, error.hint)
+      if (tableQrCodeToConsume) {
+        await supabase
+          .from('table_qr_codes')
+          .update({ is_active: true, updated_at: new Date().toISOString() })
+          .eq('tenant_id', tenantId)
+          .eq('unique_code', tableQrCodeToConsume)
+          .then(undefined, (reactivateError) => {
+            console.error('[orders POST] table QR reactivate error:', reactivateError)
+          })
+      }
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
 
