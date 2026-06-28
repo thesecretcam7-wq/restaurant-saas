@@ -178,24 +178,7 @@ export async function syncOfflinePOSOrders(tenantId: string, csrfToken?: string)
         throw new Error(data.error || 'No se pudo subir la venta offline')
       }
 
-      const createdOrder = await response.json()
-      if (createdOrder?.orderId) {
-        const paidResponse = await fetch(`/api/orders/${createdOrder.orderId}`, {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          credentials: 'include',
-          body: JSON.stringify({
-            tenantId,
-            payment_status: 'paid',
-            status: offlineOrder.deliveryType === 'dine-in' ? 'delivered' : 'confirmed',
-          }),
-        })
-
-        if (!paidResponse.ok) {
-          const data = await paidResponse.json().catch(() => ({}))
-          throw new Error(data.error || 'La venta subio, pero no se pudo marcar como pagada')
-        }
-      }
+      await response.json().catch(() => ({}))
 
       await storage.markOrderSynced(offlineOrder.id)
       await storage.removePendingOperation(`pos-order-${offlineOrder.id}`)

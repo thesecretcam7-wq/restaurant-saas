@@ -494,7 +494,7 @@ export async function POST(request: NextRequest) {
       registeringPreviousOpenPeriod ? 'Venta registrada manualmente en turno anterior desde TPV' : null,
     ].filter(Boolean).join(' | ') || null
 
-    const isImmediatePaidPOSOrder = source === 'pos' && Boolean(normalizedPaymentMethod)
+    const isImmediatePaidPOSOrder = (source === 'pos' || source === 'pos-offline') && Boolean(normalizedPaymentMethod)
 
     if (safeOfflineClientId) {
       const { data: existingOfflineOrder, error: existingOfflineError } = await supabase

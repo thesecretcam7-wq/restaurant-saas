@@ -2944,11 +2944,18 @@ export function POSTerminal({
           receiptOrderId = offlineOrder.id;
           receiptOrderNumber = offlineOrder.orderNumber;
           savedOfflineSale = true;
-          printerWarnings.push('Venta offline guardada y pendiente de sincronizar');
+          printerWarnings.push('Venta local guardada y pendiente de sincronizar');
           await refreshOfflinePendingCount();
         };
 
-        if (typeof navigator !== 'undefined' && !navigator.onLine) {
+        const canUseLocalFirstCheckout =
+          !registerInPreviousPeriod &&
+          paymentMethod === 'cash' &&
+          !selectedTableId &&
+          billingOrderIds.length === 0 &&
+          !loadedOrderId;
+
+        if (canUseLocalFirstCheckout) {
           await saveSaleOffline();
         } else {
           try {
@@ -3200,21 +3207,27 @@ export function POSTerminal({
       // Show success toast (auto-closes after 3 seconds)
       setToast({
         message: savedOfflineSale
-          ? 'Venta cobrada en modo offline. Se subira sola cuando vuelva internet.'
+          ? (typeof navigator !== 'undefined' && navigator.onLine
+              ? 'Venta cobrada al instante. Sincronizando con la nube...'
+              : 'Venta cobrada en modo local. Se subira sola cuando vuelva internet.')
           : printCustomerReceipt
             ? 'Venta guardada. Imprimiendo recibo...'
             : (shouldOpenCashDrawer ? 'Venta guardada. Abriendo cajon...' : 'Venta guardada sin imprimir recibo.'),
         type: 'success',
       });
       startPrintInBackground();
-      if (!savedOfflineSale) {
-        void (async () => {
-          await abandonCart(tenantId, supabase);
-          await refreshPendingCashClosing();
-        })().catch((cleanupError) => {
-          console.warn('POS post-payment cleanup failed:', cleanupError);
+      void (async () => {
+        await abandonCart(tenantId, supabase).catch((cartError) => {
+          console.warn('POS cart cleanup failed:', cartError);
         });
-      }
+        if (savedOfflineSale && typeof navigator !== 'undefined' && navigator.onLine) {
+          await syncOfflineSales(false);
+        }
+        await refreshOfflinePendingCount();
+        await refreshPendingCashClosing();
+      })().catch((cleanupError) => {
+        console.warn('POS post-payment cleanup failed:', cleanupError);
+      });
     } catch (error) {
       console.error('Error processing payment:', error);
       setToast({
