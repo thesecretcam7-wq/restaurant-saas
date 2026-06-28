@@ -4581,11 +4581,6 @@ export function POSTerminal({
                 </div>
               )}
             </div>
-            <div className={`pos-total-band flex justify-between font-black px-2 rounded-xl ${compactPOSLayout ? 'py-1 text-sm' : 'pt-2 py-2 text-base'}`}>
-              <span className="text-white">{splitBillMode ? 'A cobrar:' : 'Total:'}</span>
-              <span className={`text-emerald-300 ${compactPOSLayout ? 'text-base' : 'text-lg'}`}>{formatPriceWithCurrency(total, currencyInfo.code, currencyInfo.locale)}</span>
-            </div>
-
           </div>
 
           {/* Mesa indicator + staff selector */}
