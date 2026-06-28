@@ -21,6 +21,7 @@ import WhatsAppFloat from '@/components/store/WhatsAppFloat'
 import StoreClosed from '@/components/store/StoreClosed'
 import BottomNav from '@/components/store/BottomNav'
 import LanguageSwitcher from '@/components/LanguageSwitcher'
+import { PwaStaffResume } from '@/components/PwaStaffResume'
 import { formatPriceWithCurrency, getCurrencyByCountry } from '@/lib/currency'
 import { normalizeLocale, translate } from '@/lib/i18n'
 import { ArrowRight, Bell, CalendarCheck, Camera, ChefHat, Globe, Heart, Leaf, Menu, MessageCircle, Users, Wine } from 'lucide-react'
@@ -236,6 +237,7 @@ export default async function HomePage({ params }: HomePageProps) {
 
   return (
     <div className={`ecco-store-premium ${isLightTheme ? 'ecco-store-light' : 'ecco-store-dark'} store-surface min-h-screen overflow-hidden pb-[calc(6.5rem+env(safe-area-inset-bottom))] pt-[calc(4.75rem+env(safe-area-inset-top))]`} style={pageBackgroundStyle}>
+      <PwaStaffResume />
       <header className="fixed left-0 right-0 top-0 z-50 border-b backdrop-blur-xl" style={{ position: 'fixed', paddingTop: 'env(safe-area-inset-top)', backgroundColor: themeColors.header, borderColor: isLightTheme ? 'rgba(7, 17, 31, 0.12)' : 'rgba(212, 175, 55, 0.16)' }}>
         <div className="mx-auto grid h-[4.75rem] max-w-7xl grid-cols-[3.25rem_minmax(0,1fr)_3.25rem] items-center gap-3 px-4 sm:px-6 lg:px-8">
           <button className="store-app-icon-button" type="button" aria-label="Menu">

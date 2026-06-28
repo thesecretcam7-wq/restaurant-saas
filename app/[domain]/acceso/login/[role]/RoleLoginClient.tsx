@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, ChefHat, CreditCard, Delete, Lock, ShieldCheck, UtensilsCrossed } from 'lucide-react';
+import { saveStaffSession } from '@/lib/staff-session-client';
 
 interface StaffMember {
   id: string;
@@ -192,11 +193,6 @@ export function RoleLoginClient({
           body: JSON.stringify({ tenantId, employee_name: authenticatedStaffName, role }),
         }).catch(() => {});
 
-        sessionStorage.setItem('staff_role', role);
-        sessionStorage.setItem('staff_tenant', tenantId);
-        sessionStorage.setItem('staff_name', authenticatedStaffName);
-        sessionStorage.setItem('staff_id', authenticatedStaffId);
-
         const sessionRes = await fetchWithTimeout('/api/staff/session', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -215,6 +211,14 @@ export function RoleLoginClient({
           camarero: `/${tenantSlug}/kitchen`,
           cajero: `/${tenantSlug}/staff/pos`,
         };
+        saveStaffSession({
+          tenantId,
+          tenantSlug,
+          staffId: authenticatedStaffId,
+          staffName: authenticatedStaffName,
+          role,
+          lastPath: roleDestinations[role] || `/${tenantSlug}/acceso/portal/${role}`,
+        });
         keepLoader = true;
         router.replace(roleDestinations[role] || `/${tenantSlug}/acceso/portal/${role}`);
         return;

@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { ChefHat, Monitor, ClipboardList, CreditCard, LogOut, Truck } from 'lucide-react';
+import { clearStaffSession, restoreStaffSession } from '@/lib/staff-session-client';
 
 interface Props {
   tenantId: string;
@@ -55,18 +56,16 @@ export function RolePortal({ tenantId, tenantName, tenantSlug, logoUrl, role }: 
   const config = ROLE_CONFIG[role];
 
   useEffect(() => {
-    const storedRole = sessionStorage.getItem('staff_role');
-    const storedTenant = sessionStorage.getItem('staff_tenant');
-    if (storedRole !== role || storedTenant !== tenantId) {
+    const restored = restoreStaffSession(tenantId, role);
+    if (!restored) {
       router.push(`/${tenantSlug}/acceso`);
     }
     setChecking(false);
-  }, [tenantId, role, router]);
+  }, [tenantId, role, router, tenantSlug]);
 
   async function logout() {
     await fetch('/api/staff/session', { method: 'DELETE' });
-    sessionStorage.removeItem('staff_role');
-    sessionStorage.removeItem('staff_tenant');
+    clearStaffSession();
     router.push(`/${tenantSlug}/acceso`);
   }
 

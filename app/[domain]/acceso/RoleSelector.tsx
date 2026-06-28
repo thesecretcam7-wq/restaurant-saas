@@ -1,9 +1,10 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ChefHat, CreditCard, Lock, LogIn, Monitor, ShieldCheck, ShoppingBag, UtensilsCrossed } from 'lucide-react';
 import LanguageSwitcher, { useI18n } from '@/components/LanguageSwitcher';
+import { isStandalonePwa, restoreStaffSession, saveStaffSession } from '@/lib/staff-session-client';
 
 interface Branding {
   appName: string;
@@ -44,7 +45,7 @@ function readableText(background: string, fallbackDark = '#15130f', fallbackLigh
   return isDark(background) ? fallbackLight : fallbackDark;
 }
 
-export function RoleSelector({ tenantName, tenantSlug, logoUrl, branding }: Props) {
+export function RoleSelector({ tenantId, tenantName, tenantSlug, logoUrl, branding }: Props) {
   const router = useRouter();
   const [selectedRole, setSelectedRole] = useState<string | null>(null);
   const { tr } = useI18n();
@@ -57,6 +58,43 @@ export function RoleSelector({ tenantName, tenantSlug, logoUrl, branding }: Prop
   const primaryText = readableText(highlight);
   const secondaryText = readableText(secondaryHighlight);
   const appName = branding.appName || tenantName;
+
+  useEffect(() => {
+    if (!isStandalonePwa()) return;
+
+    const restored = restoreStaffSession(tenantId);
+    if (restored?.lastPath) {
+      const allowedPrefix = `/${tenantSlug}/`;
+      if (restored.lastPath.startsWith(allowedPrefix)) {
+        router.replace(restored.lastPath);
+      }
+      return;
+    }
+
+    fetch('/api/staff/session', { cache: 'no-store' })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((session) => {
+        if (!session?.authenticated || session.tenantId !== tenantId) return;
+        const destinations: Record<string, string> = {
+          admin: `/${tenantSlug}/admin/dashboard`,
+          cocinero: `/${tenantSlug}/staff/kds`,
+          camarero: `/${tenantSlug}/kitchen`,
+          cajero: `/${tenantSlug}/staff/pos`,
+        };
+        const lastPath = destinations[session.role];
+        if (!lastPath) return;
+        saveStaffSession({
+          tenantId,
+          tenantSlug,
+          staffId: session.staffId,
+          staffName: session.staffName || session.role,
+          role: session.role,
+          lastPath,
+        });
+        router.replace(lastPath);
+      })
+      .catch(() => {});
+  }, [router, tenantId, tenantSlug]);
 
   const roles = [
     {

@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/client';
 import { formatStaffOrderNumber } from '@/lib/order-display';
 import { useServiceReadyAlert } from '@/lib/hooks/useServiceReadyAlert';
 import { useWaiterPushNotifications } from '@/lib/hooks/useWaiterPushNotifications';
+import { getStoredStaffName, rememberStaffPath, restoreStaffSession } from '@/lib/staff-session-client';
 
 const supabase = createClient();
 
@@ -281,6 +282,13 @@ export function ServiceDeliveryScreen({
   const { alertsReady, trackReadyItems, triggerServiceAlert, unlockAlerts } = useServiceReadyAlert();
   const { enablePushNotifications } = useWaiterPushNotifications({ tenantId });
 
+  useEffect(() => {
+    const restored = restoreStaffSession(tenantId, 'camarero');
+    if (restored) {
+      rememberStaffPath(tenantId, `/${tenantSlug}/staff/entregas`);
+    }
+  }, [tenantId, tenantSlug]);
+
   const fetchItems = useCallback(async (silent = false) => {
     if (!silent) setRefreshing(true);
 
@@ -338,7 +346,7 @@ export function ServiceDeliveryScreen({
     if (itemIds.length === 0) return;
 
     const itemIdSet = new Set(itemIds);
-    const deliveredBy = sessionStorage.getItem('staff_name') || 'Camarero';
+    const deliveredBy = getStoredStaffName(tenantId) || 'Camarero';
 
     setItemsUpdating(itemIds, true);
     setItems((current) => current.filter((item) => !itemIdSet.has(item.id)));
@@ -539,7 +547,7 @@ export function ServiceDeliveryWidget({
     if (itemIds.length === 0) return;
 
     const itemIdSet = new Set(itemIds);
-    const deliveredBy = sessionStorage.getItem('staff_name') || 'Camarero';
+    const deliveredBy = getStoredStaffName(tenantId) || 'Camarero';
 
     setItemsUpdating(itemIds, true);
     setItems((current) => current.filter((item) => !itemIdSet.has(item.id)));

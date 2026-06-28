@@ -2,6 +2,7 @@ import { EccofoodLanding } from './EccofoodLanding'
 import TenantHomePage from './[domain]/page'
 import { headers } from 'next/headers'
 import { getTenantByDomain } from '@/lib/tenant'
+import { PwaStaffResume } from '@/components/PwaStaffResume'
 
 export const dynamic = 'force-dynamic'
 
@@ -12,9 +13,19 @@ export default async function LandingPage() {
   if (host && !host.includes(baseDomain) && !host.includes('localhost')) {
     const tenant = await getTenantByDomain(host)
     if (tenant?.slug) {
-      return <TenantHomePage params={Promise.resolve({ domain: tenant.slug })} />
+      return (
+        <>
+          <PwaStaffResume />
+          <TenantHomePage params={Promise.resolve({ domain: tenant.slug })} />
+        </>
+      )
     }
   }
 
-  return <EccofoodLanding />
+  return (
+    <>
+      <PwaStaffResume />
+      <EccofoodLanding />
+    </>
+  )
 }

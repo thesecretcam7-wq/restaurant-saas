@@ -2,12 +2,43 @@ import { createServiceClient } from '@/lib/supabase/server'
 import { KitchenClient } from './KitchenClient'
 import { getTenantContext } from '@/lib/tenant'
 import { getPageConfig } from '@/lib/pageConfig'
+import type { Metadata } from 'next'
 
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
 
 interface Props {
   params: Promise<{ domain: string }>
+}
+
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
+  const { domain: slug } = await params
+  const supabase = createServiceClient()
+  const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(slug)
+
+  const { data: tenant } = await supabase
+    .from('tenants')
+    .select('organization_name, slug')
+    .eq(isUUID ? 'id' : 'slug', slug)
+    .single()
+
+  const tenantSlug = tenant?.slug || slug
+  const restaurantName = tenant?.organization_name || 'Restaurante'
+
+  return {
+    title: `Comandero | ${restaurantName}`,
+    applicationName: `${restaurantName} Comandero`,
+    manifest: `/${tenantSlug}/manifest.webmanifest?screen=waiter`,
+    appleWebApp: {
+      capable: true,
+      statusBarStyle: 'default',
+      title: `${restaurantName} Comandero`,
+    },
+    other: {
+      'apple-mobile-web-app-title': `${restaurantName} Comandero`,
+      'mobile-web-app-capable': 'yes',
+    },
+  }
 }
 
 export default async function KitchenPage({ params }: Props) {

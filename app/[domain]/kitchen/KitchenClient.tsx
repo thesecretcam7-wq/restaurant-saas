@@ -8,6 +8,7 @@ import { calculateTaxAmount, isTaxIncludedCountry } from '@/lib/order-totals';
 import { formatStaffOrderNumber } from '@/lib/order-display';
 import { useServiceReadyAlert } from '@/lib/hooks/useServiceReadyAlert';
 import { useWaiterPushNotifications } from '@/lib/hooks/useWaiterPushNotifications';
+import { rememberStaffPath, restoreStaffSession } from '@/lib/staff-session-client';
 import { ServiceDeliveryWidget } from '@/components/admin/ServiceDeliveryScreen';
 import LanguageSwitcher, { useI18n } from '@/components/LanguageSwitcher';
 import {
@@ -220,7 +221,11 @@ export function KitchenClient({ tenantId, tenantSlug, tenantName, country, brand
 
   useEffect(() => {
     try {
-      const name = sessionStorage.getItem('staff_name');
+      const restored = restoreStaffSession(tenantId, 'camarero');
+      if (restored) {
+        rememberStaffPath(tenantId, `/${tenantSlug}/kitchen`);
+      }
+      const name = restored?.staffName || sessionStorage.getItem('staff_name');
       if (name) setWaiterName(name);
     } catch {}
 
@@ -250,7 +255,7 @@ export function KitchenClient({ tenantId, tenantSlug, tenantName, country, brand
     }
 
     load();
-  }, [tenantId]);
+  }, [tenantId, tenantSlug]);
 
   const filteredItems = useMemo(() => {
     const term = search.trim().toLowerCase();

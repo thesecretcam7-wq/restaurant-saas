@@ -1,12 +1,13 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { getStoredStaffName } from '@/lib/staff-session-client';
 
 export function StaffNameDisplay() {
   const [staffName, setStaffName] = useState<string | null>(null);
 
   useEffect(() => {
-    const name = sessionStorage.getItem('staff_name');
+    const name = getStoredStaffName();
     if (name) {
       setStaffName(name);
     }

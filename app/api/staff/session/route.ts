@@ -4,6 +4,35 @@ import { createClient } from '@supabase/supabase-js'
 import { randomUUID } from 'crypto'
 import { verifyStaffAuthProof } from '@/lib/staff-auth-proof'
 
+function parseStaffSession(value?: string | null) {
+  if (!value) return null
+  try {
+    const raw = value.trim().startsWith('{') ? value : decodeURIComponent(value)
+    return JSON.parse(raw)
+  } catch {
+    return null
+  }
+}
+
+export async function GET() {
+  const cookieStore = await cookies()
+  const session = parseStaffSession(cookieStore.get('staff_session')?.value)
+
+  if (!session?.tenantId || !session?.staffId || !session?.role) {
+    return NextResponse.json({ authenticated: false }, { status: 401 })
+  }
+
+  return NextResponse.json({
+    authenticated: true,
+    tenantId: session.tenantId,
+    staffId: session.staffId,
+    staffName: session.staffName,
+    role: session.role,
+    permissions: session.permissions || [],
+    createdAt: session.createdAt,
+  })
+}
+
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
@@ -79,11 +108,13 @@ export async function POST(request: NextRequest) {
       createdAt: new Date().toISOString(),
     }
 
+    const maxAge = staff.role === 'admin' ? 28800 : 604800
+
     cookieStore.set('staff_session', JSON.stringify(sessionData), {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'strict',
-      maxAge: 28800,
+      maxAge,
       path: '/',
     })
     cookieStore.delete('staff_auth_proof')
@@ -96,4 +127,12 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     )
   }
+}
+
+export async function DELETE() {
+  const cookieStore = await cookies()
+  cookieStore.delete('staff_session')
+  cookieStore.delete('staff_auth_proof')
+
+  return NextResponse.json({ success: true })
 }
