@@ -330,7 +330,7 @@ function ProductRow({
           </button>
         </div>
         <span className={`admin-chip ${product.available ? 'text-[#1c8b5f]' : 'text-black/40'}`}>
-          TPV {product.available ? 'Si' : 'No'}
+          Disponible {product.available ? 'Si' : 'No'}
         </span>
         <button
           onClick={() => onToggle(product)}

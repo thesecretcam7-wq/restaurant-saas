@@ -318,7 +318,7 @@ export default function EditarCategoriaClient({
                       )}
                       <div className="mt-1 flex flex-wrap gap-1">
                         <span className={`rounded-full px-2 py-0.5 text-[11px] font-bold ${product.available ? 'bg-emerald-50 text-emerald-700' : 'bg-gray-100 text-gray-400'}`}>
-                          TPV {product.available ? 'Si' : 'No'}
+                          Disponible {product.available ? 'Si' : 'No'}
                         </span>
                         <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-bold ${product.show_in_store !== false ? 'bg-orange-50 text-orange-700' : 'bg-gray-100 text-gray-400'}`}>
                           <Store className="size-3" />
