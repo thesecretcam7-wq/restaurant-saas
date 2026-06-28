@@ -1832,7 +1832,7 @@ export function POSTerminal({
         .eq('tenant_id', tenantId)
         .eq('delivery_type', 'dine-in')
         .eq('payment_status', 'pending')
-        .not('status', 'in', '("delivered","cancelled")')
+        .neq('status', 'cancelled')
         .order('created_at', { ascending: false })
         .limit(20);
 
