@@ -103,6 +103,8 @@ export function NumericKeyboard({
 
   if (!isOpen || !mounted) return null;
 
+  const portalTarget = document.fullscreenElement ?? document.body;
+
   const numberButtonClass =
     'rounded-2xl border border-slate-200 bg-white py-5 text-4xl font-black tabular-nums text-slate-950 shadow-[0_10px_22px_rgba(15,23,42,0.08)] transition hover:border-orange-300 hover:bg-orange-50 active:scale-95';
 
@@ -205,6 +207,6 @@ export function NumericKeyboard({
         </div>
       </div>
     </div>,
-    document.body
+    portalTarget
   );
 }
