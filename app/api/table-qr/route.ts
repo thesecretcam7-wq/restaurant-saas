@@ -28,6 +28,23 @@ function relationOne<T>(value: T | T[] | null | undefined): T | null {
   return Array.isArray(value) ? value[0] || null : value || null;
 }
 
+async function generateAvailableUniqueCode(supabase: ReturnType<typeof createServiceClient>) {
+  let uniqueCode = generateUniqueCode();
+
+  for (let attempt = 0; attempt < 8; attempt++) {
+    const { data: collision } = await supabase
+      .from('table_qr_codes')
+      .select('id')
+      .eq('unique_code', uniqueCode)
+      .maybeSingle();
+
+    if (!collision) return uniqueCode;
+    uniqueCode = generateUniqueCode();
+  }
+
+  throw new Error('No se pudo generar un codigo QR unico');
+}
+
 export async function GET(request: NextRequest) {
   const supabase = createServiceClient();
   const { searchParams } = new URL(request.url);
@@ -186,7 +203,8 @@ export async function POST(request: NextRequest) {
       .maybeSingle();
 
     if (existingQR) {
-      const qrUrl = `${normalizeSiteUrl(siteUrl)}/order/${existingQR.unique_code}`;
+      const uniqueCode = await generateAvailableUniqueCode(supabase);
+      const qrUrl = `${normalizeSiteUrl(siteUrl)}/order/${uniqueCode}`;
       const qrCodeDataUrl = await QRCode.toDataURL(qrUrl, {
         width: 720,
         margin: 2,
@@ -198,7 +216,11 @@ export async function POST(request: NextRequest) {
 
       const { data: updatedQR, error: updateError } = await supabase
         .from('table_qr_codes')
-        .update({ qr_code_data: qrCodeDataUrl })
+        .update({
+          unique_code: uniqueCode,
+          qr_code_data: qrCodeDataUrl,
+          updated_at: new Date().toISOString(),
+        })
         .eq('id', existingQR.id)
         .select('id, tenant_id, table_id, unique_code, qr_code_data, is_active, tables(id, table_number, seats, location, status)')
         .single();
@@ -210,17 +232,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(updatedQR);
     }
 
-    let uniqueCode = generateUniqueCode();
-    for (let attempt = 0; attempt < 4; attempt++) {
-      const { data: collision } = await supabase
-        .from('table_qr_codes')
-        .select('id')
-        .eq('unique_code', uniqueCode)
-        .maybeSingle();
-      if (!collision) break;
-      uniqueCode = generateUniqueCode();
-    }
-
+    const uniqueCode = await generateAvailableUniqueCode(supabase);
     const qrUrl = `${normalizeSiteUrl(siteUrl)}/order/${uniqueCode}`;
     const qrCodeDataUrl = await QRCode.toDataURL(qrUrl, {
       width: 720,
