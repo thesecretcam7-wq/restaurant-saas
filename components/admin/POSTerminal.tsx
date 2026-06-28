@@ -19,6 +19,7 @@ import { getCurrencyByCountry, formatPriceWithCurrency } from '@/lib/currency';
 import { calculateTaxAmount, isTaxIncludedCountry } from '@/lib/order-totals';
 import { preloadPrinterForPrint, printCashClosingReceipt, printKitchenTicket, printReceipt, savePrinterLog, openCashDrawer } from '@/lib/pos-printer';
 import { countPendingPOSOrders, isNetworkPaymentError, saveOfflinePOSOrder, syncOfflinePOSOrders } from '@/lib/offline/pos-sync';
+import { getOfflineStorage } from '@/lib/offline/storage';
 import { useWakeLock } from '@/lib/hooks/useWakeLock';
 
 interface MenuItem {
@@ -2086,6 +2087,43 @@ export function POSTerminal({
   }
 
 
+  function applyPOSBootstrapData(data: any) {
+    const loadedCategories: Category[] = data.categories || [];
+    setCategories(loadedCategories);
+    setSelectedCategory((current) =>
+      current && loadedCategories.some((category) => category.id === current)
+        ? current
+        : loadedCategories[0]?.id ?? null
+    );
+    setMenu(data.menu || []);
+    setAllTables(data.tables || []);
+
+    if (data.tenant) {
+      if (data.tenant.organization_name) setRestaurantName(data.tenant.organization_name);
+      if (data.tenant.logo_url) setRestaurantLogo(data.tenant.logo_url);
+    }
+    if (data.settings) {
+      setTaxRate(Number(data.settings.tax_rate || 0));
+      setDeliveryEnabled(data.settings.delivery_enabled === true);
+      setDeliveryFee(Number(data.settings.delivery_fee || 0));
+      setDeliveryZones(
+        Array.isArray(data.settings.delivery_zones)
+          ? data.settings.delivery_zones
+              .map((zone: any) => ({
+                id: String(zone.id || zone.name || zone.fee),
+                name: String(zone.name || 'Zona delivery'),
+                fee: Number(zone.fee || 0),
+                min_order: Number(zone.min_order || 0),
+              }))
+              .filter((zone: DeliveryZone) => zone.id && zone.fee >= 0)
+          : []
+      );
+      if (data.settings.display_name) setRestaurantName(data.settings.display_name);
+      if (data.settings.phone) setRestaurantPhone(data.settings.phone);
+      setPrintReceiptAfterPayment(true);
+    }
+  }
+
   async function fetchMenuData() {
     try {
       const response = await fetch(`/api/pos/bootstrap?tenantId=${encodeURIComponent(tenantId)}`, {
@@ -2096,42 +2134,30 @@ export function POSTerminal({
       if (!response.ok) throw new Error(`POS bootstrap failed: ${response.status}`);
 
       const data = await response.json();
-      const loadedCategories: Category[] = data.categories || [];
-      setCategories(loadedCategories);
-      setSelectedCategory((current) =>
-        current && loadedCategories.some((category) => category.id === current)
-          ? current
-          : loadedCategories[0]?.id ?? null
-      );
-      setMenu(data.menu || []);
-      setAllTables(data.tables || []);
-
-      if (data.tenant) {
-        if (data.tenant.organization_name) setRestaurantName(data.tenant.organization_name);
-        if (data.tenant.logo_url) setRestaurantLogo(data.tenant.logo_url);
-      }
-      if (data.settings) {
-        setTaxRate(Number(data.settings.tax_rate || 0));
-        setDeliveryEnabled(data.settings.delivery_enabled === true);
-        setDeliveryFee(Number(data.settings.delivery_fee || 0));
-        setDeliveryZones(
-          Array.isArray(data.settings.delivery_zones)
-            ? data.settings.delivery_zones
-                .map((zone: any) => ({
-                  id: String(zone.id || zone.name || zone.fee),
-                  name: String(zone.name || 'Zona delivery'),
-                  fee: Number(zone.fee || 0),
-                  min_order: Number(zone.min_order || 0),
-                }))
-                .filter((zone: DeliveryZone) => zone.id && zone.fee >= 0)
-            : []
-        );
-        if (data.settings.display_name) setRestaurantName(data.settings.display_name);
-        if (data.settings.phone) setRestaurantPhone(data.settings.phone);
-        setPrintReceiptAfterPayment(true);
-      }
+      applyPOSBootstrapData(data);
+      await getOfflineStorage().cachePOSBootstrap(tenantId, {
+        categories: data.categories || [],
+        menu: data.menu || [],
+        tables: data.tables || [],
+        tenant: data.tenant || null,
+        settings: data.settings || null,
+        branding: data.branding || null,
+      });
     } catch (error) {
       console.error('Error fetching menu:', error);
+      const cachedBootstrap = await getOfflineStorage().getPOSBootstrap(tenantId);
+      if (cachedBootstrap) {
+        applyPOSBootstrapData(cachedBootstrap);
+        setToast({
+          message: 'TPV abierto en modo local con los ultimos datos guardados',
+          type: 'success',
+        });
+      } else {
+        setToast({
+          message: 'No hay datos locales del TPV. Abre una vez con internet para instalar el modo offline.',
+          type: 'error',
+        });
+      }
     } finally {
       setLoading(false);
     }
@@ -3253,6 +3279,18 @@ export function POSTerminal({
     return map;
   }, [cart]);
   const savedAccountButtonDisabled = cart.length > 0 && (processingPayment || !!loadedOrderId || billingOrderIds.length > 0);
+  const syncStatusLabel = syncingOffline
+    ? 'Sincronizando'
+    : !isOnline
+      ? 'Sin conexion / modo local'
+      : offlinePendingCount > 0
+        ? 'En linea'
+        : 'Sincronizado';
+  const syncStatusTitle = !isOnline
+    ? 'Modo local activo. Las ventas se guardan en este dispositivo.'
+    : offlinePendingCount > 0
+      ? 'Hay ventas locales pendientes de sincronizar'
+      : 'Todas las ventas locales estan sincronizadas';
 
   const openProductSearch = useCallback(() => {
     setQuickActionsOpen(false);
@@ -3440,7 +3478,7 @@ export function POSTerminal({
               onClick={() => syncOfflineSales(true)}
               disabled={!isOnline || syncingOffline}
               className={`pos-action-ghost ${!isOnline ? 'border-amber-300/45 bg-amber-300/12 text-amber-100' : offlinePendingCount > 0 ? 'border-emerald-300/45 bg-emerald-300/12 text-emerald-100' : ''} disabled:opacity-75`}
-              title={isOnline ? 'Sincronizar ventas offline' : 'Modo offline activo'}
+              title={syncStatusTitle}
             >
               <span
                 className={`h-2.5 w-2.5 rounded-full ${
@@ -3449,7 +3487,7 @@ export function POSTerminal({
                     : 'animate-pulse bg-[#ff174d] shadow-[0_0_8px_#ff174d,0_0_18px_rgba(255,23,77,0.72)]'
                 }`}
               />
-              <span className="hidden sm:inline">{isOnline ? (syncingOffline ? 'Sync...' : 'Online') : 'Offline'}</span>
+              <span className="hidden sm:inline">{syncStatusLabel}</span>
               {offlinePendingCount > 0 && (
                 <span className="rounded-full bg-amber-400 px-1.5 py-0.5 text-[10px] font-black text-slate-950">
                   {offlinePendingCount}
@@ -3894,7 +3932,7 @@ export function POSTerminal({
                   onClick={() => syncOfflineSales(true)}
                   disabled={!isOnline || syncingOffline}
                   className={`pos-action-ghost ${!isOnline ? 'border-amber-300/45 bg-amber-300/12 text-amber-100' : offlinePendingCount > 0 ? 'border-emerald-300/45 bg-emerald-300/12 text-emerald-100' : ''} disabled:opacity-75`}
-                  title={isOnline ? 'Sincronizar ventas offline' : 'Modo offline activo'}
+                  title={syncStatusTitle}
                 >
                   <span
                     className={`h-2.5 w-2.5 rounded-full ${
@@ -3903,7 +3941,7 @@ export function POSTerminal({
                         : 'animate-pulse bg-[#ff174d] shadow-[0_0_8px_#ff174d,0_0_18px_rgba(255,23,77,0.72)]'
                     }`}
                   />
-                  <span className="hidden xl:inline">{isOnline ? (syncingOffline ? 'Sync...' : 'Online') : 'Offline'}</span>
+                  <span className="hidden xl:inline">{syncStatusLabel}</span>
                   {offlinePendingCount > 0 && (
                     <span className="rounded-full bg-amber-400 px-1.5 py-0.5 text-[10px] font-black text-slate-950">
                       {offlinePendingCount}
@@ -3995,7 +4033,7 @@ export function POSTerminal({
                   onClick={() => syncOfflineSales(true)}
                   disabled={!isOnline || syncingOffline}
                   className={`pos-action-ghost ${!isOnline ? 'border-amber-300/45 bg-amber-300/12 text-amber-100' : offlinePendingCount > 0 ? 'border-emerald-300/45 bg-emerald-300/12 text-emerald-100' : ''} disabled:opacity-75`}
-                  title={isOnline ? 'Sincronizar ventas offline' : 'Modo offline activo'}
+                  title={syncStatusTitle}
                 >
                   <span
                     className={`h-2.5 w-2.5 rounded-full ${
@@ -4005,7 +4043,7 @@ export function POSTerminal({
                     }`}
                   />
                   <span className="hidden sm:inline">
-                    {isOnline ? (syncingOffline ? 'Sync...' : 'Online') : 'Offline'}
+                    {syncStatusLabel}
                   </span>
                   {offlinePendingCount > 0 && (
                     <span className="rounded-full bg-amber-400 px-1.5 py-0.5 text-[10px] font-black text-slate-950">
