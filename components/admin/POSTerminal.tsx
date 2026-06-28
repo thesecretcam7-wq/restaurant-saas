@@ -28,6 +28,7 @@ interface MenuItem {
   price: number;
   category_id: string;
   image_url?: string;
+  available?: boolean;
 }
 
 interface CartItem {
@@ -2160,6 +2161,11 @@ export function POSTerminal({
   }
 
   function addToCart(item: MenuItem) {
+    if (item.available === false) {
+      setToast({ message: `${item.name} esta marcado como no disponible`, type: 'error' });
+      return;
+    }
+
     setCart((prev) => {
       const existing = prev.find((c) => c.menu_item_id === item.id);
       if (existing) {
@@ -4165,17 +4171,23 @@ export function POSTerminal({
             <div className={`grid gap-3 h-fit ${compactPOSLayout ? 'grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-6' : 'grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6'}`}>
               {filteredMenu.map((item) => {
                 const qty = cartQuantityMap.get(item.id);
+                const unavailable = item.available === false;
                 return (
                   <button
                     key={item.id}
                     onClick={() => addToCart(item)}
-                    title={`Agregar ${item.name}`}
+                    title={unavailable ? `${item.name} no disponible` : `Agregar ${item.name}`}
                     className={`pos-card relative min-h-[164px] rounded-xl p-3 text-left transition-all duration-200 transform hover:scale-[1.025] active:scale-95 flex flex-col justify-between group ${
                       qty
                         ? 'border-2 border-cyan-300/70 bg-cyan-300/14 shadow-lg shadow-cyan-900/30'
                         : ''
-                    }`}
+                    } ${unavailable ? 'opacity-55 grayscale hover:scale-100 active:scale-100' : ''}`}
                   >
+                    {unavailable && (
+                      <span className="absolute left-2 top-2 z-10 rounded-full bg-red-500 px-2 py-1 text-[10px] font-black uppercase tracking-wide text-white shadow-md">
+                        No disponible
+                      </span>
+                    )}
                     {qty && (
                       <span className="absolute top-1.5 right-1.5 bg-cyan-400 text-slate-950 text-xs font-black w-5 h-5 rounded-full flex items-center justify-center z-10 shadow-md ring-2 ring-slate-950">
                         {qty}
