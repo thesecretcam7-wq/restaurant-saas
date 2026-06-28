@@ -24,6 +24,9 @@ interface TableQr {
   tables?: Table | Table[] | null;
 }
 
+const DEFAULT_PUBLIC_QR_BASE_URL = 'https://eccofoodapp.com';
+const TABLE_QR_BASE_URL_STORAGE_KEY = 'eccofood-table-qr-base-url';
+
 function qrTable(qr?: TableQr | null) {
   if (!qr?.tables) return null;
   return Array.isArray(qr.tables) ? qr.tables[0] || null : qr.tables;
@@ -40,6 +43,19 @@ function isLocalUrl(value: string) {
   } catch {
     return false;
   }
+}
+
+function isLegacyVercelUrl(value: string) {
+  try {
+    return new URL(value).hostname === 'eccofood.vercel.app';
+  } catch {
+    return false;
+  }
+}
+
+function normalizePublicQrBaseUrl(value: string) {
+  const normalized = normalizeBaseUrl(value);
+  return normalized && !isLegacyVercelUrl(normalized) ? normalized : DEFAULT_PUBLIC_QR_BASE_URL;
 }
 
 export default function QRCodesPage() {
@@ -72,11 +88,17 @@ export default function QRCodesPage() {
 
     async function resolveQrBaseUrl() {
       const configuredUrl = process.env.NEXT_PUBLIC_TABLE_QR_BASE_URL || process.env.NEXT_PUBLIC_APP_URL || '';
-      const storedUrl = window.localStorage.getItem('eccofood-table-qr-base-url') || '';
-      const preferredUrl = [storedUrl, configuredUrl].find((value) => value && !isLocalUrl(value));
+      const storedUrl = window.localStorage.getItem(TABLE_QR_BASE_URL_STORAGE_KEY) || '';
+      const preferredUrl = [storedUrl, configuredUrl, DEFAULT_PUBLIC_QR_BASE_URL].find(
+        (value) => value && !isLocalUrl(value) && !isLegacyVercelUrl(value)
+      );
 
       if (preferredUrl) {
-        setQrBaseUrl(normalizeBaseUrl(preferredUrl));
+        const normalized = normalizePublicQrBaseUrl(preferredUrl);
+        setQrBaseUrl(normalized);
+        if (storedUrl && isLegacyVercelUrl(storedUrl)) {
+          window.localStorage.setItem(TABLE_QR_BASE_URL_STORAGE_KEY, normalized);
+        }
         return;
       }
 
@@ -93,7 +115,7 @@ export default function QRCodesPage() {
         }
       }
 
-      if (!cancelled) setQrBaseUrl(normalizeBaseUrl(configuredUrl || storedUrl || window.location.origin));
+      if (!cancelled) setQrBaseUrl(normalizePublicQrBaseUrl(configuredUrl || storedUrl || window.location.origin));
     }
 
     resolveQrBaseUrl();
@@ -138,11 +160,11 @@ export default function QRCodesPage() {
 
   function updateQrBaseUrl(value: string) {
     setQrBaseUrl(value);
-    const normalized = normalizeBaseUrl(value);
+    const normalized = normalizePublicQrBaseUrl(value);
     if (normalized) {
-      window.localStorage.setItem('eccofood-table-qr-base-url', normalized);
+      window.localStorage.setItem(TABLE_QR_BASE_URL_STORAGE_KEY, normalized);
     } else {
-      window.localStorage.removeItem('eccofood-table-qr-base-url');
+      window.localStorage.removeItem(TABLE_QR_BASE_URL_STORAGE_KEY);
     }
   }
 

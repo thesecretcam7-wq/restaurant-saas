@@ -7,9 +7,21 @@ function generateUniqueCode() {
   return Math.random().toString(36).slice(2, 14).toUpperCase();
 }
 
+const DEFAULT_PUBLIC_QR_BASE_URL = 'https://eccofoodapp.com';
+
 function normalizeSiteUrl(value?: string | null) {
-  const fallback = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
-  return String(value || fallback).replace(/\/+$/, '');
+  const fallback = process.env.NEXT_PUBLIC_APP_URL || DEFAULT_PUBLIC_QR_BASE_URL;
+  const normalized = String(value || fallback).replace(/\/+$/, '');
+
+  try {
+    if (new URL(normalized).hostname === 'eccofood.vercel.app') {
+      return DEFAULT_PUBLIC_QR_BASE_URL;
+    }
+  } catch {
+    return DEFAULT_PUBLIC_QR_BASE_URL;
+  }
+
+  return normalized;
 }
 
 function relationOne<T>(value: T | T[] | null | undefined): T | null {
