@@ -93,6 +93,9 @@ export async function POST(request: NextRequest) {
         amount,
         notes: notes || null,
         payment_method: 'cash',
+        status: 'active',
+        cash_closing_id: null,
+        paid_at: new Date().toISOString(),
       })
       .select()
       .single();

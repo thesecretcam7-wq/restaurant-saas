@@ -1219,7 +1219,7 @@ export function POSTerminal({
       const loggedStaff = getLoggedStaffFromBrowser(tenantId);
       if (loggedStaff.staffId && !selectedStaffId) setSelectedStaffId(loggedStaff.staffId);
       if (loggedStaff.staffName && !selectedStaffName) setSelectedStaffName(loggedStaff.staffName);
-      const pendingStats = pendingCashClosingStats || await fetchPendingCashClosingStats(tenantId);
+      const pendingStats = await fetchPendingCashClosingStats(tenantId);
       if (pendingStats) {
         setPendingCashClosingStats(pendingStats);
         setCashClosingStats(pendingStats);
@@ -1245,7 +1245,7 @@ export function POSTerminal({
       const loggedStaff = getLoggedStaffFromBrowser(tenantId);
       if (loggedStaff.staffId && !selectedStaffId) setSelectedStaffId(loggedStaff.staffId);
       if (loggedStaff.staffName && !selectedStaffName) setSelectedStaffName(loggedStaff.staffName);
-      const stats = pendingCashClosingStats || await fetchPendingCashClosingStats(tenantId);
+      const stats = await fetchPendingCashClosingStats(tenantId);
 
       if (!stats) {
         setToast({ message: 'No hay cierres pendientes anteriores', type: 'success' });
@@ -2015,7 +2015,7 @@ export function POSTerminal({
             mergedMap.set(key, { ...existing, quantity: existing.quantity + quantity });
           } else {
             mergedMap.set(key, {
-              menu_item_id: item.item_id || item.name,
+              menu_item_id: key,
               name: item.name,
               price: item.price,
               quantity,
@@ -2616,6 +2616,8 @@ export function POSTerminal({
       let receiptOrderId: string | null = null;
       let receiptOrderNumber: string | null = null;
       let savedOfflineSale = false;
+      let keepSplitTableOpen = false;
+      let splitRemainingOrders: DineInOrder[] = [];
       const printerWarnings: string[] = [];
       let receiptItems = cart.map(item => ({ ...item }));
       let receiptSubtotal = subtotal;
@@ -2753,6 +2755,7 @@ export function POSTerminal({
           splitPaymentItems.map((item) => [item.menu_item_id, item.quantity])
         );
         const remainingBillingOrderIds: string[] = [];
+        const nextTableOrders: DineInOrder[] = [];
 
         for (const orderId of billingOrderIds) {
           const tableOrder = dineInOrders.find((order) => order.id === orderId);
@@ -2801,7 +2804,16 @@ export function POSTerminal({
             throw new Error(errorData.error || 'No se pudo actualizar la mesa despues del pago dividido');
           }
 
-          if (!isEmptyOrder) remainingBillingOrderIds.push(orderId);
+          if (!isEmptyOrder) {
+            remainingBillingOrderIds.push(orderId);
+            nextTableOrders.push({
+              ...tableOrder,
+              items: nextItems,
+              subtotal: nextSubtotal,
+              tax: nextTax,
+              total: nextTotal,
+            } as DineInOrder);
+          }
         }
 
         receiptItems = splitPaymentItems.map((item) => ({ ...item }));
@@ -2817,6 +2829,8 @@ export function POSTerminal({
         setBillingOrderIds(remainingBillingOrderIds);
         setSplitBillMode(false);
         setSplitSelections({});
+        keepSplitTableOpen = nextTableOrders.length > 0;
+        splitRemainingOrders = nextTableOrders;
         void fetchDineInOrders();
       } else if (billingOrderIds.length > 0) {
         if (typeof navigator !== 'undefined' && !navigator.onLine) {
@@ -3147,34 +3161,45 @@ export function POSTerminal({
         void printInBackground();
       };
 
-      // Clear cart and reset all states
-      setCart([]);
-      setDiscount(0);
-      setDiscountCode('');
-      setTip(0);
-      setPendingPaymentData(null);
-      setLoadedOrderId(null);
-      setLoadedOrderContext(null);
-      setPaymentMethod('cash');
-      setPrintReceiptAfterPayment(true);
-      setSelectedCategory(categories[0]?.id ?? null);
-      setSearchQuery('');
-      setSelectedTableId(null);
-      setSelectedTableNumber(null);
-      setSelectedStaffId(null);
-      setSelectedStaffName('');
-      setRegisterInPreviousPeriod(false);
-      setPosMode('simple');
-      setPosOrderType('takeaway');
-      setSelectedDeliveryZoneId(null);
-      setSplitBillMode(false);
-      setSplitSelections({});
+      if (keepSplitTableOpen && splitRemainingOrders.length > 0) {
+        loadTableToCart(splitRemainingOrders);
+        setDiscount(0);
+        setDiscountCode('');
+        setTip(0);
+        setPendingPaymentData(null);
+        setPaymentMethod('cash');
+        setPrintReceiptAfterPayment(true);
+        setSplitBillMode(false);
+        setSplitSelections({});
+      } else {
+        // Clear cart and reset all states
+        setCart([]);
+        setDiscount(0);
+        setDiscountCode('');
+        setTip(0);
+        setPendingPaymentData(null);
+        setLoadedOrderId(null);
+        setLoadedOrderContext(null);
+        setPaymentMethod('cash');
+        setPrintReceiptAfterPayment(true);
+        setSelectedCategory(categories[0]?.id ?? null);
+        setSearchQuery('');
+        setSelectedTableId(null);
+        setSelectedTableNumber(null);
+        setSelectedStaffId(null);
+        setSelectedStaffName('');
+        setRegisterInPreviousPeriod(false);
+        setPosMode('simple');
+        setPosOrderType('takeaway');
+        setSelectedDeliveryZoneId(null);
+        setSplitBillMode(false);
+        setSplitSelections({});
 
-      // Clear localStorage
-      if (typeof window !== 'undefined') {
-        localStorage.removeItem(`pos-cart-${tenantId}`);
-        localStorage.removeItem(`pos-discount-${tenantId}`);
-        localStorage.removeItem(`pos-discount-code-${tenantId}`);
+        if (typeof window !== 'undefined') {
+          localStorage.removeItem(`pos-cart-${tenantId}`);
+          localStorage.removeItem(`pos-discount-${tenantId}`);
+          localStorage.removeItem(`pos-discount-code-${tenantId}`);
+        }
       }
 
       // Force remount of POSPayment component to reset its internal state

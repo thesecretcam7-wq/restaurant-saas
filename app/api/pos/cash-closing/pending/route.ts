@@ -143,11 +143,51 @@ function isMissingPaymentBreakdownColumn(error: any) {
   return text.includes('payment_breakdown') && (error?.code === '42703' || error?.code === 'PGRST204');
 }
 
-function statsFromOrders(period: CashClosingPeriod, orders: any[] = []) {
+function isMissingBillPaymentsTable(error: any) {
+  const text = `${error?.message || ''} ${error?.details || ''} ${error?.hint || ''}`;
+  return text.includes('cash_bill_payments') || error?.code === '42P01' || error?.code === 'PGRST205';
+}
+
+async function getOpenBillPayments(
+  supabase: ReturnType<typeof createServiceClient>,
+  tenantId: string,
+  periodStart: string,
+  periodEnd: string
+) {
+  const { data, error } = await supabase
+    .from('cash_bill_payments')
+    .select('id, supplier_name, concept, invoice_number, amount, staff_name, paid_at, notes')
+    .eq('tenant_id', tenantId)
+    .eq('status', 'active')
+    .is('cash_closing_id', null)
+    .gte('paid_at', periodStart)
+    .lt('paid_at', periodEnd)
+    .order('paid_at', { ascending: true })
+    .limit(500);
+
+  if (error) {
+    if (isMissingBillPaymentsTable(error)) return [];
+    throw error;
+  }
+
+  return data || [];
+}
+
+function statsFromOrders(period: CashClosingPeriod, orders: any[] = [], billPayments: any[] = []) {
   const countableOrders = orders.filter((order: any) =>
     !['cancelled', 'canceled', 'voided', 'deleted', 'anulado', 'cancelado'].includes(String(order?.status || '').trim().toLowerCase()) &&
     String(order?.payment_status || '').trim().toLowerCase() === 'paid'
   );
+  const normalizedBillPayments = billPayments.map((payment: any) => ({
+    id: payment.id,
+    supplier_name: payment.supplier_name,
+    concept: payment.concept,
+    invoice_number: payment.invoice_number,
+    amount: Number(payment.amount) || 0,
+    staff_name: payment.staff_name,
+    paid_at: payment.paid_at,
+    notes: payment.notes,
+  }));
 
   const paymentRowsForOrder = (order: any) => {
     const total = Number(order?.total) || 0;
@@ -169,6 +209,8 @@ function statsFromOrders(period: CashClosingPeriod, orders: any[] = []) {
     cardSales: 0,
     otherSales: 0,
     totalSales: 0,
+    billPaymentsTotal: normalizedBillPayments.reduce((sum, payment) => sum + payment.amount, 0),
+    billPaymentsCount: normalizedBillPayments.length,
     totalDeliveryFees: 0,
     deliveryOrderCount: 0,
     totalTax: 0,
@@ -184,6 +226,7 @@ function statsFromOrders(period: CashClosingPeriod, orders: any[] = []) {
       payment_breakdown: Array.isArray(order.payment_breakdown) ? order.payment_breakdown : null,
       created_at: order.created_at,
     })),
+    billPayments: normalizedBillPayments,
     ...period,
   };
 
@@ -313,7 +356,9 @@ export async function GET(request: NextRequest) {
       operationalCloseTime: currentPeriod.operationalCloseTime,
     };
 
-    return NextResponse.json({ stats: statsFromOrders(period, pendingOrders) });
+    const billPayments = await getOpenBillPayments(supabase, tenantId, period.periodStart, period.periodEnd);
+
+    return NextResponse.json({ stats: statsFromOrders(period, pendingOrders, billPayments) });
   } catch (error) {
     if (error instanceof Error && ['Unauthorized', 'Forbidden'].includes(error.message)) {
       return tenantAuthErrorResponse(error);
