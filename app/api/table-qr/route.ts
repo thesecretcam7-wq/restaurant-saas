@@ -64,10 +64,11 @@ export async function GET(request: NextRequest) {
       const [menuRes, categoriesRes, toppingsRes, settingsRes, brandingRes] = await Promise.all([
         supabase
           .from('menu_items')
-          .select('id, tenant_id, category_id, name, description, price, image_url, available, featured, variants')
+          .select('id, tenant_id, category_id, name, description, price, image_url, available, featured, variants, sort_order')
           .eq('tenant_id', qrCode.tenant_id)
           .eq('available', true)
-          .order('featured', { ascending: false })
+          .order('category_id', { ascending: true, nullsFirst: false })
+          .order('sort_order', { ascending: true })
           .order('name', { ascending: true }),
         supabase
           .from('menu_categories')

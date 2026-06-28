@@ -35,11 +35,20 @@ export default async function EditarCategoriaPage({ params }: Props) {
     )
   }
 
+  const { data: products } = await supabase
+    .from('menu_items')
+    .select('id, name, description, price, image_url, available, show_in_store, featured, sort_order')
+    .eq('tenant_id', tenant.id)
+    .eq('category_id', categoryId)
+    .order('sort_order', { ascending: true })
+    .order('name', { ascending: true })
+
   return (
     <EditarCategoriaClient
       domain={domain}
       tenantId={tenant.id}
       categoryId={categoryId}
+      initialProducts={products || []}
       initialData={{
         name: category.name || '',
         description: category.description || '',

@@ -38,11 +38,14 @@ export async function GET(request: NextRequest) {
         featured,
         variants,
         image_url,
+        sort_order,
         created_at,
         menu_categories(name)
       `)
       .eq('tenant_id', tenant.id)
-      .order('created_at', { ascending: false })
+      .order('category_id', { ascending: true, nullsFirst: false })
+      .order('sort_order', { ascending: true })
+      .order('name', { ascending: true })
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 })

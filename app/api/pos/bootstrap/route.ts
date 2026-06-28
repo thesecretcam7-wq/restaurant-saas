@@ -23,9 +23,11 @@ export async function GET(request: NextRequest) {
         .order('sort_order', { ascending: true }),
       supabase
         .from('menu_items')
-        .select('id, name, price, category_id, description, image_url')
+        .select('id, name, price, category_id, description, image_url, sort_order')
         .eq('tenant_id', tenantId)
         .eq('available', true)
+        .order('category_id', { ascending: true, nullsFirst: false })
+        .order('sort_order', { ascending: true })
         .order('name', { ascending: true }),
       supabase
         .from('tenants')
