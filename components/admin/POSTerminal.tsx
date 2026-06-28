@@ -4602,11 +4602,13 @@ export function POSTerminal({
 
           {/* Mesa indicator + staff selector */}
           {selectedTableNumber ? (
-            <div className="border-b border-white/10 px-2 py-2 space-y-1.5">
+            <div className={`border-b border-white/10 px-2 ${billingOrderIds.length > 0 ? 'py-1.5' : 'py-2'} space-y-1.5`}>
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-1.5">
                   <UtensilsCrossed className="w-3.5 h-3.5 text-emerald-400" />
-                  <span className="text-emerald-300 font-bold text-xs">Mesa {selectedTableNumber}</span>
+                  <span className="text-emerald-300 font-bold text-xs">
+                    {billingOrderIds.length > 0 ? `Cobrando Mesa ${selectedTableNumber}` : `Mesa ${selectedTableNumber}`}
+                  </span>
                 </div>
                 <button
                   onClick={() => {
@@ -4621,15 +4623,21 @@ export function POSTerminal({
                   ✕ Quitar
                 </button>
               </div>
-              <POSStaffSelector
-                tenantId={tenantId}
-                selectedStaffId={selectedStaffId}
-                onStaffSelect={(id, name) => {
-                  setSelectedStaffId(id);
-                  setSelectedStaffName(name);
-                }}
-                required
-              />
+              {billingOrderIds.length > 0 ? (
+                <p className="rounded-lg border border-emerald-300/25 bg-emerald-400/10 px-2 py-1 text-[11px] font-black text-emerald-100">
+                  {billingOrderIds.length} ronda{billingOrderIds.length > 1 ? 's' : ''} lista{billingOrderIds.length > 1 ? 's' : ''} para cobrar
+                </p>
+              ) : (
+                <POSStaffSelector
+                  tenantId={tenantId}
+                  selectedStaffId={selectedStaffId}
+                  onStaffSelect={(id, name) => {
+                    setSelectedStaffId(id);
+                    setSelectedStaffName(name);
+                  }}
+                  required
+                />
+              )}
               {billingOrderIds.length === 0 && (
                 <button
                   onClick={handleSendCartToTable}
