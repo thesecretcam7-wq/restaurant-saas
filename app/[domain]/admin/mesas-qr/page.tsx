@@ -71,6 +71,7 @@ export default function QRCodesPage() {
   const [error, setError] = useState<string | null>(null);
   const [qrBaseUrl, setQrBaseUrl] = useState('');
   const [printingCode, setPrintingCode] = useState<string | null>(null);
+  const [printingAll, setPrintingAll] = useState(false);
 
   const qrByTableId = useMemo(() => {
     const map = new Map<string, TableQr>();
@@ -172,30 +173,35 @@ export default function QRCodesPage() {
     return effectiveQrBaseUrl || window.location.origin;
   }
 
-  async function generateQRForTable(tableId: string) {
+  async function requestQRForTable(tableId: string) {
     if (!tenantId) return;
+    const response = await fetch('/api/table-qr', {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        tenantId,
+        tableId,
+        siteUrl: getQrBaseUrl(),
+      }),
+    });
+
+    const payload = await response.json();
+    if (!response.ok) throw new Error(payload.error || 'No se pudo generar el QR');
+
+    setQrCodes((current) => [
+      payload,
+      ...current.filter((qr) => qr.id !== payload.id && qr.table_id !== payload.table_id),
+    ]);
+    return payload as TableQr;
+  }
+
+  async function generateQRForTable(tableId: string) {
     setGeneratingTableId(tableId);
     setError(null);
 
     try {
-      const response = await fetch('/api/table-qr', {
-        method: 'POST',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          tenantId,
-          tableId,
-          siteUrl: getQrBaseUrl(),
-        }),
-      });
-
-      const payload = await response.json();
-      if (!response.ok) throw new Error(payload.error || 'No se pudo generar el QR');
-
-      setQrCodes((current) => [
-        payload,
-        ...current.filter((qr) => qr.id !== payload.id && qr.table_id !== payload.table_id),
-      ]);
+      await requestQRForTable(tableId);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error al generar QR');
     } finally {
@@ -238,6 +244,36 @@ export default function QRCodesPage() {
     }
   }
 
+  async function printAllQRs() {
+    if (!tenantId || printingAll) return;
+    setPrintingAll(true);
+    setError(null);
+
+    try {
+      const orderedTables = [...tables].sort((a, b) => a.table_number - b.table_number);
+
+      for (const table of orderedTables) {
+        const existingQr = qrByTableId.get(table.id);
+        const qr = existingQr || await requestQRForTable(table.id);
+        if (!qr) throw new Error(`No se pudo preparar el QR de la mesa ${table.table_number}`);
+        const relatedTable = qrTable(qr) || table;
+
+        setPrintingCode(qr.unique_code);
+        await printTableQrReceipt(tenantId, {
+          tableNumber: relatedTable.table_number,
+          tableLocation: relatedTable.location,
+          orderUrl: `${getQrBaseUrl()}/order/${qr.unique_code}`,
+          qrImageData: qr.qr_code_data,
+        });
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'No se pudieron imprimir todos los QR');
+    } finally {
+      setPrintingCode(null);
+      setPrintingAll(false);
+    }
+  }
+
   if (resolvingTenant || loading) {
     return (
       <div className="admin-panel p-6">
@@ -254,14 +290,25 @@ export default function QRCodesPage() {
           <h1 className="admin-title">QR de mesas</h1>
           <p className="admin-subtitle">Cada mesa abre una carta para pedir directo al POS y cocina.</p>
         </div>
-        <button
-          type="button"
-          onClick={fetchData}
-          className="inline-flex h-11 items-center gap-2 rounded-xl border border-slate-700/20 bg-white px-4 text-sm font-black text-slate-800 transition hover:bg-slate-50"
-        >
-          <RefreshCw className="size-4" />
-          Actualizar
-        </button>
+        <div className="flex flex-col gap-2 sm:flex-row">
+          <button
+            type="button"
+            onClick={printAllQRs}
+            disabled={printingAll || tables.length === 0}
+            className="inline-flex h-11 items-center gap-2 rounded-xl bg-emerald-600 px-4 text-sm font-black text-white transition hover:bg-emerald-700 disabled:opacity-50"
+          >
+            <Printer className="size-4" />
+            {printingAll ? 'Imprimiendo...' : 'Imprimir todos'}
+          </button>
+          <button
+            type="button"
+            onClick={fetchData}
+            className="inline-flex h-11 items-center gap-2 rounded-xl border border-slate-700/20 bg-white px-4 text-sm font-black text-slate-800 transition hover:bg-slate-50"
+          >
+            <RefreshCw className="size-4" />
+            Actualizar
+          </button>
+        </div>
       </div>
 
       {error && (
