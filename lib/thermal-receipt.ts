@@ -403,6 +403,7 @@ export function generateCashClosingReceiptESCPOS(
   push(ALIGN_CENTER);
   line('Cierre guardado');
   line('');
+  push(feedLines(8));
   push(cutCommands());
   push(ALIGN_LEFT, SIZE_NORMAL);
 
@@ -537,6 +538,7 @@ export function generateMonthlyClosingReceiptESCPOS(
   push(ALIGN_CENTER);
   line('Cierre mensual guardado');
   line('');
+  push(feedLines(8));
   push(cutCommands());
   push(ALIGN_LEFT, SIZE_NORMAL);
 
