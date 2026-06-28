@@ -170,7 +170,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { tenantId: tenantParam, tenantSlug, items, customerInfo, deliveryType, deliveryAddress, notes, paymentMethod, paymentBreakdown, tableNumber, tableId, tableQrCode, waiterName, amountPaid, source, deliveryFee: requestedDeliveryFee, deliveryZoneId, businessDateMode, skipOrderItems } = body
+    const { tenantId: tenantParam, tenantSlug, items, customerInfo, deliveryType, deliveryAddress, notes, paymentMethod, paymentBreakdown, tableNumber, tableId, tableQrCode, waiterName, amountPaid, source, deliveryFee: requestedDeliveryFee, deliveryZoneId, businessDateMode, skipOrderItems, offlineClientId } = body
 
     if (!tenantParam) {
       return NextResponse.json({ error: 'tenantId is required' }, { status: 400 })
@@ -484,12 +484,39 @@ export async function POST(request: NextRequest) {
       .gte('created_at', todayStart.toISOString())
     const displayNumber = (todayCount ?? 0) + 1
 
+    const safeOfflineClientId = source === 'pos-offline' && typeof offlineClientId === 'string'
+      ? offlineClientId.trim().slice(0, 80)
+      : ''
+
     const orderNotes = [
       normalizedNotes || null,
+      safeOfflineClientId ? `ID offline ${safeOfflineClientId}` : null,
       registeringPreviousOpenPeriod ? 'Venta registrada manualmente en turno anterior desde TPV' : null,
     ].filter(Boolean).join(' | ') || null
 
     const isImmediatePaidPOSOrder = source === 'pos' && Boolean(normalizedPaymentMethod)
+
+    if (safeOfflineClientId) {
+      const { data: existingOfflineOrder, error: existingOfflineError } = await supabase
+        .from('orders')
+        .select('id, order_number')
+        .eq('tenant_id', tenantId)
+        .ilike('notes', `%ID offline ${safeOfflineClientId}%`)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+
+      if (existingOfflineError) {
+        console.error('[orders POST] offline idempotency lookup error:', existingOfflineError.message)
+      } else if (existingOfflineOrder?.id) {
+        return NextResponse.json({
+          success: true,
+          orderId: existingOfflineOrder.id,
+          orderNumber: existingOfflineOrder.order_number,
+          reused: true,
+        })
+      }
+    }
 
     const orderData: any = {
       tenant_id: tenantId,

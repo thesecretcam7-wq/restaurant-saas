@@ -94,6 +94,21 @@ export async function saveOfflinePOSOrder(input: POSOfflineOrderInput) {
   }
 
   await storage.saveOrder(order)
+  await storage.addPendingOperation({
+    id: `pos-order-${localId}`,
+    type: 'create',
+    table: 'pos_orders',
+    tenantId: input.tenantId,
+    localOrderId: localId,
+    data: {
+      localOrderId: localId,
+      orderNumber,
+      tenantId: input.tenantId,
+      source: 'pos-offline',
+    },
+    timestamp: now.getTime(),
+    synced: false,
+  })
   return order
 }
 
@@ -126,6 +141,7 @@ export async function syncOfflinePOSOrders(tenantId: string, csrfToken?: string)
         credentials: 'include',
         body: JSON.stringify({
           tenantId,
+          offlineClientId: offlineOrder.id,
           customerInfo: offlineOrder.customerInfo || {
             name: 'POS Counter',
             email: null,
@@ -182,6 +198,7 @@ export async function syncOfflinePOSOrders(tenantId: string, csrfToken?: string)
       }
 
       await storage.markOrderSynced(offlineOrder.id)
+      await storage.removePendingOperation(`pos-order-${offlineOrder.id}`)
       synced++
     } catch (error) {
       errors.push(error instanceof Error ? error.message : String(error))

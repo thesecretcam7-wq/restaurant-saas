@@ -4,11 +4,12 @@
  */
 
 const DB_NAME = 'eccofood-offline'
-const DB_VERSION = 1
+const DB_VERSION = 2
 const STORES = {
   ORDERS: 'orders',
   MENU_ITEMS: 'menu_items',
   CATEGORIES: 'categories',
+  TABLES: 'tables',
   TENANT_CONFIG: 'tenant_config',
   PENDING_OPERATIONS: 'pending_operations',
 }
@@ -59,8 +60,21 @@ export interface PendingOperation {
   type: 'create' | 'update' | 'delete'
   table: string
   data: any
+  tenantId?: string
+  localOrderId?: string
   timestamp: number
   synced: boolean
+}
+
+export interface POSBootstrapCache {
+  tenantId: string
+  categories: any[]
+  menu: any[]
+  tables: any[]
+  tenant: any | null
+  settings: any | null
+  branding: any | null
+  cachedAt: string
 }
 
 export class OfflineStorage {
@@ -100,6 +114,9 @@ export class OfflineStorage {
         }
         if (!db.objectStoreNames.contains(STORES.CATEGORIES)) {
           db.createObjectStore(STORES.CATEGORIES, { keyPath: 'id' })
+        }
+        if (!db.objectStoreNames.contains(STORES.TABLES)) {
+          db.createObjectStore(STORES.TABLES, { keyPath: 'id' })
         }
         if (!db.objectStoreNames.contains(STORES.TENANT_CONFIG)) {
           db.createObjectStore(STORES.TENANT_CONFIG, { keyPath: 'key' })
@@ -229,6 +246,82 @@ ed orders
     }
   }
 
+  async cachePOSBootstrap(tenantId: string, data: Omit<POSBootstrapCache, 'tenantId' | 'cachedAt'>): Promise<void> {
+    try {
+      const db = await this.getDB()
+      const transaction = db.transaction(
+        [STORES.MENU_ITEMS, STORES.CATEGORIES, STORES.TABLES, STORES.TENANT_CONFIG],
+        'readwrite'
+      )
+
+      const menuStore = transaction.objectStore(STORES.MENU_ITEMS)
+      const categoryStore = transaction.objectStore(STORES.CATEGORIES)
+      const tableStore = transaction.objectStore(STORES.TABLES)
+      const configStore = transaction.objectStore(STORES.TENANT_CONFIG)
+
+      menuStore.clear()
+      categoryStore.clear()
+      tableStore.clear()
+
+      ;(data.menu || []).forEach((item: any) => menuStore.put({ ...item, tenantId }))
+      ;(data.categories || []).forEach((category: any) => categoryStore.put({ ...category, tenantId }))
+      ;(data.tables || []).forEach((table: any) => tableStore.put({ ...table, tenantId }))
+
+      const payload: POSBootstrapCache = {
+        tenantId,
+        categories: data.categories || [],
+        menu: data.menu || [],
+        tables: data.tables || [],
+        tenant: data.tenant || null,
+        settings: data.settings || null,
+        branding: data.branding || null,
+        cachedAt: new Date().toISOString(),
+      }
+
+      configStore.put({
+        key: `pos-bootstrap-${tenantId}`,
+        ...payload,
+      })
+
+      return new Promise((resolve, reject) => {
+        transaction.oncomplete = () => resolve()
+        transaction.onerror = () => reject(transaction.error)
+      })
+    } catch (error) {
+      console.error('Error caching POS bootstrap:', error)
+      throw error
+    }
+  }
+
+  async getPOSBootstrap(tenantId: string): Promise<POSBootstrapCache | null> {
+    try {
+      const db = await this.getDB()
+      const transaction = db.transaction([STORES.TENANT_CONFIG], 'readonly')
+      const store = transaction.objectStore(STORES.TENANT_CONFIG)
+
+      return new Promise((resolve, reject) => {
+        const request = store.get(`pos-bootstrap-${tenantId}`)
+        request.onsuccess = () => {
+          const result = request.result
+          resolve(result ? {
+            tenantId: result.tenantId,
+            categories: result.categories || [],
+            menu: result.menu || [],
+            tables: result.tables || [],
+            tenant: result.tenant || null,
+            settings: result.settings || null,
+            branding: result.branding || null,
+            cachedAt: result.cachedAt,
+          } : null)
+        }
+        request.onerror = () => reject(request.error)
+      })
+    } catch (error) {
+      console.error('Error getting POS bootstrap:', error)
+      return null
+    }
+  }
+
   /**
    * Get cached menu items
    */
@@ -302,7 +395,7 @@ ed orders
       const store = transaction.objectStore(STORES.PENDING_OPERATIONS)
 
       return new Promise((resolve, reject) => {
-        const request = store.add(operation)
+        const request = store.put(operation)
         request.onsuccess = () => resolve()
         request.onerror = () => reject(request.error)
       })
@@ -363,6 +456,8 @@ ed orders
           STORES.ORDERS,
           STORES.MENU_ITEMS,
           STORES.CATEGORIES,
+          STORES.TABLES,
+          STORES.TENANT_CONFIG,
           STORES.PENDING_OPERATIONS,
         ],
         'readwrite'
