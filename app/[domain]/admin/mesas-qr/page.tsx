@@ -4,7 +4,8 @@ import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useTenantResolver } from '@/lib/hooks/useTenantResolver';
-import { Check, Copy, Download, ExternalLink, QrCode, RefreshCw } from 'lucide-react';
+import { printTableQrReceipt } from '@/lib/pos-printer';
+import { Check, Copy, Download, ExternalLink, Printer, QrCode, RefreshCw } from 'lucide-react';
 
 interface Table {
   id: string;
@@ -53,6 +54,7 @@ export default function QRCodesPage() {
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [qrBaseUrl, setQrBaseUrl] = useState('');
+  const [printingCode, setPrintingCode] = useState<string | null>(null);
 
   const qrByTableId = useMemo(() => {
     const map = new Map<string, TableQr>();
@@ -195,6 +197,25 @@ export default function QRCodesPage() {
     window.setTimeout(() => setCopiedCode(null), 1800);
   }
 
+  async function printQR(qr: TableQr, table: Table) {
+    if (!tenantId) return;
+    setPrintingCode(qr.unique_code);
+    setError(null);
+
+    try {
+      await printTableQrReceipt(tenantId, {
+        tableNumber: table.table_number,
+        tableLocation: table.location,
+        orderUrl: `${getQrBaseUrl()}/order/${qr.unique_code}`,
+        qrImageData: qr.qr_code_data,
+      });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'No se pudo imprimir el QR');
+    } finally {
+      setPrintingCode(null);
+    }
+  }
+
   if (resolvingTenant || loading) {
     return (
       <div className="admin-panel p-6">
@@ -264,8 +285,9 @@ export default function QRCodesPage() {
           {tables.map((table) => {
             const qr = qrByTableId.get(table.id);
             const relatedTable = qrTable(qr) || table;
-            const orderUrl = qr ? `${effectiveQrBaseUrl || ''}/order/${qr.unique_code}` : '';
+            const orderUrl = qr ? `${getQrBaseUrl()}/order/${qr.unique_code}` : '';
             const busy = generatingTableId === table.id;
+            const printing = printingCode === qr?.unique_code;
 
             return (
               <article key={table.id} className="admin-panel overflow-hidden">
@@ -292,7 +314,7 @@ export default function QRCodesPage() {
                       <p className="mt-3 break-all rounded-xl bg-slate-100 px-3 py-2 text-xs font-bold text-slate-500">
                         {orderUrl}
                       </p>
-                      <div className="mt-3 grid grid-cols-3 gap-2">
+                      <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
                         <button
                           type="button"
                           onClick={() => downloadQR(qr, table)}
@@ -300,6 +322,15 @@ export default function QRCodesPage() {
                         >
                           <Download className="size-4" />
                           QR
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => printQR(qr, relatedTable)}
+                          disabled={printing}
+                          className="inline-flex h-10 items-center justify-center gap-1 rounded-xl bg-emerald-600 text-xs font-black text-white disabled:opacity-50"
+                        >
+                          <Printer className="size-4" />
+                          {printing ? '...' : 'Imprimir'}
                         </button>
                         <button
                           type="button"

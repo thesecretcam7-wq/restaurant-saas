@@ -4,8 +4,8 @@
  */
 
 import { createClient } from '@/lib/supabase/client';
-import { generateCashClosingReceiptESCPOS, generateKitchenTicketESCPOS, generateMonthlyClosingReceiptESCPOS, generateReceiptESCPOS, generateTestReceiptESCPOS } from './thermal-receipt';
-import type { CashClosingReceiptData, KitchenTicketData, MonthlyClosingReceiptData, ReceiptData, PrinterDevice } from '@/types/printer';
+import { generateCashClosingReceiptESCPOS, generateKitchenTicketESCPOS, generateMonthlyClosingReceiptESCPOS, generateReceiptESCPOS, generateTableQrESCPOS, generateTestReceiptESCPOS } from './thermal-receipt';
+import type { CashClosingReceiptData, KitchenTicketData, MonthlyClosingReceiptData, ReceiptData, PrinterDevice, TableQrReceiptData } from '@/types/printer';
 import { formatPriceWithCurrency } from '@/lib/currency';
 
 // WebUSB API type declarations
@@ -502,6 +502,88 @@ export async function printMonthlyClosingReceipt(
   }
 }
 
+export async function printTableQrReceipt(
+  tenantId: string,
+  data: TableQrReceiptData
+): Promise<void> {
+  let printerId: string | null = null;
+
+  try {
+    printerId = getCachedDefaultReceiptPrinter(tenantId);
+
+    const { data: settings } = await getSupabase()
+      .from('restaurant_settings')
+      .select('default_receipt_printer_id, display_name')
+      .eq('tenant_id', tenantId)
+      .maybeSingle();
+
+    printerId = settings?.default_receipt_printer_id || printerId;
+    if (printerId) cacheDefaultReceiptPrinter(tenantId, printerId);
+
+    if (!printerId) {
+      throw new Error('No hay impresora de recibos configurada');
+    }
+
+    const printer = await getPrinterForPrint(tenantId, printerId, true);
+    const printData = {
+      ...data,
+      restaurantName: data.restaurantName || settings?.display_name || 'Restaurante',
+    };
+
+    const escPosData = generateTableQrESCPOS(printData, {
+      paperWidth: printer.config?.paper_width || 80,
+    });
+
+    if (shouldUseLocalBridge(printer)) {
+      try {
+        await printViaLocalBridge(printer, escPosData);
+      } catch (bridgeError) {
+        console.warn('Local print bridge unavailable:', bridgeError);
+        if (mayHavePrinted(bridgeError)) {
+          throw bridgeError;
+        }
+        if (canUseBrowserPrintFallback(printer)) {
+          printTableQrViaBrowserAPI(printData);
+        } else {
+          throw new Error(getLocalBridgeError(printer));
+        }
+      }
+    } else if (isBrowserDriverPrinter(printer)) {
+      if (canUseBrowserPrintFallback(printer)) {
+        printTableQrViaBrowserAPI(printData);
+      } else {
+        throw new Error('Esta impresora de Windows necesita el puente local de Eccofood para imprimir directo sin vista previa.');
+      }
+    } else if (typeof navigator !== 'undefined' && 'usb' in navigator) {
+      await printViaWebUSB(printer, escPosData);
+    } else {
+      printTableQrViaBrowserAPI(printData);
+    }
+
+    void savePrinterLog(tenantId, printerId, 'print', 'success', {
+      type: 'table_qr',
+      tableNumber: data.tableNumber,
+    }).catch(() => {});
+
+    void getSupabase()
+      .from('printer_devices')
+      .update({ last_used_at: new Date().toISOString() })
+      .eq('id', printerId)
+      .eq('tenant_id', tenantId)
+      .then(() => undefined, () => undefined);
+  } catch (error) {
+    const errorMsg = error instanceof Error ? error.message : String(error);
+    console.error('Table QR print error:', errorMsg);
+
+    void savePrinterLog(tenantId, printerId, 'print', 'failed', {
+      type: 'table_qr',
+      tableNumber: data.tableNumber,
+      error: errorMsg,
+    }).catch(() => {});
+    throw new Error(errorMsg);
+  }
+}
+
 export async function printKitchenTicket(
   tenantId: string,
   printerId: string,
@@ -811,6 +893,52 @@ function printMonthlyClosingViaBrowserAPI(data: MonthlyClosingReceiptData): void
     popup.document.close();
   } catch (error) {
     console.error('Browser monthly closing print failed:', error);
+  }
+}
+
+function printTableQrViaBrowserAPI(data: TableQrReceiptData): void {
+  try {
+    const safe = (value: string | number | null | undefined) =>
+      String(value ?? '')
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;')
+        .replaceAll('"', '&quot;')
+        .replaceAll("'", '&#39;');
+    const html = `
+      <html>
+        <head>
+          <title>QR Mesa ${safe(data.tableNumber)}</title>
+          <style>
+            @page{size:80mm auto;margin:0}
+            body{font-family:Arial,sans-serif;margin:0;padding:6mm 4mm;background:#fff;color:#111;text-align:center}
+            h1{font-size:18px;margin:0 0 4px;font-weight:900}
+            h2{font-size:28px;margin:8px 0 10px;font-weight:900}
+            img{width:58mm;height:58mm;object-fit:contain}
+            .url{font-size:10px;word-break:break-all;margin-top:6px}
+            .hint{font-size:12px;font-weight:800;margin-top:6px}
+          </style>
+        </head>
+        <body>
+          <h1>${safe(data.restaurantName || 'Restaurante')}</h1>
+          <div>Pedido por QR</div>
+          <h2>Mesa ${safe(data.tableNumber)}</h2>
+          ${data.tableLocation ? `<div>${safe(data.tableLocation)}</div>` : ''}
+          ${data.qrImageData ? `<img src="${safe(data.qrImageData)}" alt="QR Mesa ${safe(data.tableNumber)}" />` : ''}
+          <div class="hint">Escanea para pedir</div>
+          <div class="url">${safe(data.orderUrl)}</div>
+          <script>window.onload=()=>{window.print();setTimeout(()=>window.close(),500)}</script>
+        </body>
+      </html>
+    `;
+
+    const popup = window.open('', '_blank', 'width=420,height=720');
+    if (!popup) throw new Error('El navegador bloqueo la ventana de impresion');
+    popup.document.open();
+    popup.document.write(html);
+    popup.document.close();
+  } catch (error) {
+    console.error('Browser table QR print failed:', error);
   }
 }
 

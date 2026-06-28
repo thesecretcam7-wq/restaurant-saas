@@ -184,6 +184,15 @@ export interface MonthlyClosingReceiptData {
   };
 }
 
+export interface TableQrReceiptData {
+  restaurantName?: string;
+  tableNumber: number;
+  tableLocation?: string | null;
+  orderUrl: string;
+  qrImageData?: string;
+  timestamp?: string;
+}
+
 export interface KitchenTicketData {
   orderId?: string | null;
   orderNumber: string;

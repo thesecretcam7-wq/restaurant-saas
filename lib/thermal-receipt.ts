@@ -3,7 +3,7 @@
  * Supports 58mm and 80mm paper widths.
  */
 
-import type { CashClosingReceiptData, KitchenTicketData, MonthlyClosingReceiptData, ReceiptData } from '@/types/printer';
+import type { CashClosingReceiptData, KitchenTicketData, MonthlyClosingReceiptData, ReceiptData, TableQrReceiptData } from '@/types/printer';
 
 interface ReceiptOptions {
   paperWidth: 58 | 80;
@@ -69,6 +69,54 @@ function feedLines(count: number): string {
 
 function cutCommands(): string {
   return `${GS}V\x00`;
+}
+
+function qrCodeCommands(value: string, size = 8): string {
+  const cleanValue = normalizeThermalText(value).trim();
+  const dataLength = cleanValue.length + 3;
+  const pL = String.fromCharCode(dataLength % 256);
+  const pH = String.fromCharCode(Math.floor(dataLength / 256));
+  const moduleSize = String.fromCharCode(Math.max(3, Math.min(12, size)));
+
+  return [
+    `${GS}(k\x04\x001A2\x00`,
+    `${GS}(k\x03\x001C${moduleSize}`,
+    `${GS}(k\x03\x001E1`,
+    `${GS}(k${pL}${pH}1P0${cleanValue}`,
+    `${GS}(k\x03\x001Q0`,
+  ].join('');
+}
+
+export function generateTableQrESCPOS(data: TableQrReceiptData, options: Pick<ReceiptOptions, 'paperWidth'>): Uint8Array {
+  const cols = options.paperWidth === 80 ? 42 : 32;
+  const bytes: string[] = [];
+  const push = (...s: string[]) => bytes.push(...s);
+  const line = (s = '') => bytes.push(normalizeThermalText(s).substring(0, cols) + '\n');
+  const sep = () => line('-'.repeat(cols));
+
+  push(INIT, CODE_PAGE_PC850, FONT_A, ALIGN_CENTER);
+  push(SIZE_WIDE, BOLD_ON);
+  line(data.restaurantName || 'Restaurante');
+  push(BOLD_OFF, SIZE_NORMAL);
+  line('Pedido por QR');
+  sep();
+  push(SIZE_2X, BOLD_ON);
+  line(`Mesa ${data.tableNumber}`);
+  push(BOLD_OFF, SIZE_NORMAL);
+  if (data.tableLocation) line(data.tableLocation);
+  line('');
+  push(qrCodeCommands(data.orderUrl, options.paperWidth === 80 ? 9 : 7));
+  line('');
+  push(FONT_B);
+  line('Escanea para pedir');
+  line(data.orderUrl);
+  push(FONT_A);
+  line('');
+  push(feedLines(6));
+  push(cutCommands());
+  push(ALIGN_LEFT, SIZE_NORMAL, FONT_A);
+
+  return encodeEscPos(bytes.join(''));
 }
 
 export function generateReceiptESCPOS(data: ReceiptData, options: ReceiptOptions): Uint8Array {
