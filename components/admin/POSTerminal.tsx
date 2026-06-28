@@ -89,7 +89,7 @@ interface DineInOrder {
   payment_status: string;
   status: string;
   created_at: string;
-  items: { name: string; qty?: number; quantity?: number; price: number; item_id?: string }[];
+  items: { name: string; qty?: number; quantity?: number; price: number; item_id?: string | null; menu_item_id?: string | null; notes?: string | null; is_manual?: boolean }[];
 }
 
 type SplitSelection = Record<string, number>;
@@ -101,7 +101,7 @@ interface TableGroup {
   itemCount: number;
   waiters: string[];
   oldestOrder: DineInOrder;
-  allItems: { name: string; qty?: number; quantity?: number; price: number; item_id?: string }[];
+  allItems: { name: string; qty?: number; quantity?: number; price: number; item_id?: string | null; menu_item_id?: string | null; notes?: string | null; is_manual?: boolean }[];
 }
 
 interface RestaurantTable {
@@ -169,6 +169,10 @@ function getOrderItemQty(item: { qty?: number; quantity?: number }) {
 
 function getOrderItemKey(item: { item_id?: string | null; menu_item_id?: string | null; name?: string }) {
   return String(item.item_id || item.menu_item_id || item.name || '').trim();
+}
+
+function isManualOrderItem(item: { item_id?: string | null; menu_item_id?: string | null; is_manual?: boolean }) {
+  return item.is_manual === true || !(item.item_id || item.menu_item_id);
 }
 
 function getOrderItemsTotal(items: Array<{ price: number; qty?: number; quantity?: number }> = []) {
@@ -2011,7 +2015,7 @@ export function POSTerminal({
               name: item.name,
               price: item.price,
               quantity,
-              is_manual: (item as any).is_manual === true || !item.item_id,
+              is_manual: isManualOrderItem(item),
               notes: (item as any).notes || undefined,
             });
           }
@@ -4347,7 +4351,7 @@ export function POSTerminal({
                     }}
                     onSelectTable={(tableId, tableNumber) => {
                       const group = tableGroups.find(g => g.tableNumber === tableNumber);
-                      if (group && cart.length === 0) {
+                      if (group) {
                         loadTableToCart(group.orders);
                       } else {
                         selectTableForCurrentCart(tableId, tableNumber);
