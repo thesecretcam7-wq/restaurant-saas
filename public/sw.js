@@ -1,4 +1,4 @@
-const CACHE_NAME = 'eccofood-v14';
+const CACHE_NAME = 'eccofood-v15';
 const STATIC_ASSETS = [
   '/favicon.ico',
   '/icons/icon.svg',
@@ -40,6 +40,34 @@ function apiUnavailable() {
     status: 503,
     headers: { 'Content-Type': 'application/json; charset=utf-8' },
   });
+}
+
+function cacheSuccessfulResponse(request, response) {
+  if (!response || response.status !== 200 || response.type === 'error') return response;
+
+  try {
+    const responseForRequestCache = response.clone();
+    const url = new URL(request.url);
+    const responseForPathCache = request.mode === 'navigate' ? response.clone() : null;
+
+    caches.open(CACHE_NAME).then((cache) => {
+      cache.put(request, responseForRequestCache).catch(() => {});
+      if (responseForPathCache) {
+        cache.put(url.pathname, responseForPathCache).catch(() => {});
+      }
+    }).catch(() => {});
+  } catch (error) {
+    console.warn('Skipping cache because response could not be cloned', error);
+  }
+
+  return response;
+}
+
+function cachedResponseOrOffline(request) {
+  const url = new URL(request.url);
+  return caches.match(request, { ignoreSearch: true }).then(
+    (cached) => cached || caches.match(url.pathname).then((pathCached) => pathCached || offlinePage())
+  );
 }
 
 self.addEventListener('install', (event) => {
@@ -110,10 +138,12 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Restaurant pages are dynamic and must not be cached. Otherwise design,
-  // menu, pricing and status changes can stay visually stale for customers.
   if (request.mode === 'navigate') {
-    event.respondWith(fetch(request).catch(() => offlinePage()));
+    event.respondWith(
+      fetch(request)
+        .then((response) => cacheSuccessfulResponse(request, response))
+        .catch(() => cachedResponseOrOffline(request))
+    );
     return;
   }
 
@@ -134,25 +164,9 @@ self.addEventListener('fetch', (event) => {
           return response;
         }
 
-        try {
-          const responseForRequestCache = response.clone();
-          const responseForPathCache = request.mode === 'navigate' ? response.clone() : null;
-          caches.open(CACHE_NAME).then((cache) => {
-            cache.put(request, responseForRequestCache).catch(() => {});
-            if (responseForPathCache) {
-              cache.put(url.pathname, responseForPathCache).catch(() => {});
-            }
-          }).catch(() => {});
-        } catch (error) {
-          console.warn('Skipping cache because response could not be cloned', error);
-        }
-        return response;
+        return cacheSuccessfulResponse(request, response);
       })
-      .catch(() =>
-        caches.match(request, { ignoreSearch: true }).then(
-          (cached) => cached || caches.match(url.pathname).then((pathCached) => pathCached || offlinePage())
-        )
-      )
+      .catch(() => cachedResponseOrOffline(request))
   );
 });
 
