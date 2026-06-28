@@ -4,7 +4,7 @@ import { useEffect } from 'react';
 import { usePathname } from 'next/navigation';
 
 type OperationalScreen = {
-  screen: 'waiter' | 'deliveries' | 'waiterAccess';
+  screen: 'waiter' | 'deliveries' | 'waiterAccess' | 'cashier';
   title: string;
 };
 
@@ -22,6 +22,18 @@ function getOperationalScreen(pathname: string, tenantSlug: string, restaurantNa
     return {
       screen: 'deliveries',
       title: `${restaurantName} Entregas`,
+    };
+  }
+
+  if (
+    pathname === `${base}/staff/pos` ||
+    pathname.startsWith(`${base}/staff/pos/`) ||
+    pathname === `${base}/admin/pos` ||
+    pathname.startsWith(`${base}/admin/pos/`)
+  ) {
+    return {
+      screen: 'cashier',
+      title: `${restaurantName} TPV`,
     };
   }
 

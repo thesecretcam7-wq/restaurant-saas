@@ -47,6 +47,11 @@ export async function GET(
       startPath: 'staff/entregas',
       description: `Entregas pendientes de ${restaurantName}`,
     },
+    cashier: {
+      label: 'TPV',
+      startPath: 'staff/pos',
+      description: `Punto de venta de ${restaurantName}`,
+    },
     waiterAccess: {
       label: 'Camarero',
       startPath: 'kitchen',
@@ -95,6 +100,12 @@ export async function GET(
       prefer_related_applications: false,
       shortcuts: operationalScreen
         ? [
+            {
+              name: 'TPV',
+              short_name: 'TPV',
+              url: `${appScope}staff/pos`,
+              icons: [{ src: icon192Url, sizes: '192x192', type: 'image/png' }],
+            },
             {
               name: 'Comandero',
               short_name: 'Comandero',
