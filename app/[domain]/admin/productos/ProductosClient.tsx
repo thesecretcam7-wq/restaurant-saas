@@ -4,7 +4,7 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import toast from 'react-hot-toast'
-import { ChefHat, Edit3, PackageOpen, Plus, Search, Sparkles } from 'lucide-react'
+import { ArrowDown, ArrowUp, ChefHat, Edit3, PackageOpen, Plus, Search, Sparkles, Store } from 'lucide-react'
 import { formatPriceWithCurrency } from '@/lib/currency'
 
 interface Category { id: string; name: string; sort_order: number }
@@ -16,13 +16,16 @@ interface Product {
   category_id: string | null
   image_url: string | null
   available: boolean
+  show_in_store: boolean
   featured: boolean
+  sort_order: number
 }
 
 export default function ProductosClient({
   domain,
   categories,
   initialProducts,
+  tenantId,
   currencyInfo,
 }: {
   domain: string
@@ -42,6 +45,7 @@ export default function ProductosClient({
       .from('menu_items')
       .update({ available: !product.available })
       .eq('id', product.id)
+      .eq('tenant_id', tenantId)
 
     if (error) {
       toast.error('Error al cambiar disponibilidad')
@@ -51,16 +55,61 @@ export default function ProductosClient({
     setTogglingId(null)
   }
 
+  const toggleStoreVisibility = async (product: Product) => {
+    setTogglingId(product.id)
+    const nextValue = product.show_in_store !== false ? false : true
+    const { error } = await supabase
+      .from('menu_items')
+      .update({ show_in_store: nextValue })
+      .eq('id', product.id)
+      .eq('tenant_id', tenantId)
+
+    if (error) {
+      toast.error('Error al cambiar visibilidad en tienda')
+    } else {
+      setProducts(p => p.map(x => x.id === product.id ? { ...x, show_in_store: nextValue } : x))
+    }
+    setTogglingId(null)
+  }
+
+  const reorderProducts = async (categoryProducts: Product[], product: Product, direction: -1 | 1) => {
+    const currentIndex = categoryProducts.findIndex(item => item.id === product.id)
+    const targetIndex = currentIndex + direction
+    if (currentIndex < 0 || targetIndex < 0 || targetIndex >= categoryProducts.length) return
+
+    const reordered = [...categoryProducts]
+    const [moved] = reordered.splice(currentIndex, 1)
+    reordered.splice(targetIndex, 0, moved)
+    const updates = reordered.map((item, index) => ({ id: item.id, sort_order: index * 10 }))
+
+    setProducts(current => current.map(item => {
+      const update = updates.find(row => row.id === item.id)
+      return update ? { ...item, sort_order: update.sort_order } : item
+    }))
+
+    const results = await Promise.all(updates.map(update =>
+      supabase.from('menu_items').update({ sort_order: update.sort_order }).eq('id', update.id).eq('tenant_id', tenantId)
+    ))
+    const error = results.find(result => result.error)?.error
+    if (error) {
+      toast.error('Error al guardar el orden')
+    }
+  }
+
   const filtered = search.trim()
     ? products.filter(p => p.name.toLowerCase().includes(search.toLowerCase()))
     : products
   const isSearching = search.trim().length > 0
   const uncategorized = filtered.filter(p => !p.category_id)
+  const sortProducts = (list: Product[]) => [...list].sort((a, b) =>
+    (a.sort_order ?? 0) - (b.sort_order ?? 0) || a.name.localeCompare(b.name)
+  )
   const availableCount = products.filter(p => p.available).length
+  const storeVisibleCount = products.filter(p => p.available && p.show_in_store !== false).length
   const visibleCategories = categories
     .map(category => ({
       category,
-      products: filtered.filter(p => p.category_id === category.id),
+      products: sortProducts(filtered.filter(p => p.category_id === category.id)),
     }))
     .filter(group => group.products.length > 0 || !isSearching)
 
@@ -70,7 +119,7 @@ export default function ProductosClient({
         <div>
           <p className="admin-eyebrow">Menu</p>
           <h1 className="admin-title">Productos</h1>
-          <p className="admin-subtitle">{products.length} productos, {availableCount} disponibles para venta.</p>
+          <p className="admin-subtitle">{products.length} productos, {availableCount} disponibles en TPV, {storeVisibleCount} visibles en tienda.</p>
         </div>
         <div className="flex flex-col gap-2 sm:flex-row">
           <Link href={`/${domain}/admin/productos/nueva-categoria`} className="admin-button-ghost">
@@ -120,16 +169,20 @@ export default function ProductosClient({
                 domain={domain}
                 togglingId={togglingId}
                 onToggle={toggleAvailable}
+                onToggleStore={toggleStoreVisibility}
+                onReorder={reorderProducts}
                 currencyInfo={currencyInfo}
               />
             ))}
             {uncategorized.length > 0 && (
               <CategoryGroup
                 name="Sin categoria"
-                products={uncategorized}
+                products={sortProducts(uncategorized)}
                 domain={domain}
                 togglingId={togglingId}
                 onToggle={toggleAvailable}
+                onToggleStore={toggleStoreVisibility}
+                onReorder={reorderProducts}
                 currencyInfo={currencyInfo}
               />
             )}
@@ -152,6 +205,8 @@ function CategoryGroup({
   domain,
   togglingId,
   onToggle,
+  onToggleStore,
+  onReorder,
   currencyInfo,
 }: {
   name: string
@@ -160,6 +215,8 @@ function CategoryGroup({
   domain: string
   togglingId: string | null
   onToggle: (p: Product) => void
+  onToggleStore: (p: Product) => void
+  onReorder: (products: Product[], product: Product, direction: -1 | 1) => void
   currencyInfo: { code: string; locale: string }
 }) {
   return (
@@ -183,13 +240,18 @@ function CategoryGroup({
             <p className="text-sm font-bold text-black/45">Categoria vacia</p>
             <p className="mt-1 text-xs font-semibold text-black/35">Agrega un producto cuando este listo.</p>
           </div>
-        ) : products.map(product => (
+        ) : products.map((product, index) => (
           <ProductRow
             key={product.id}
             product={product}
             domain={domain}
             toggling={togglingId === product.id}
             onToggle={onToggle}
+            onToggleStore={onToggleStore}
+            onMoveUp={() => onReorder(products, product, -1)}
+            onMoveDown={() => onReorder(products, product, 1)}
+            canMoveUp={index > 0}
+            canMoveDown={index < products.length - 1}
             currencyInfo={currencyInfo}
           />
         ))}
@@ -203,12 +265,22 @@ function ProductRow({
   domain,
   toggling,
   onToggle,
+  onToggleStore,
+  onMoveUp,
+  onMoveDown,
+  canMoveUp,
+  canMoveDown,
   currencyInfo,
 }: {
   product: Product
   domain: string
   toggling: boolean
   onToggle: (p: Product) => void
+  onToggleStore: (p: Product) => void
+  onMoveUp: () => void
+  onMoveDown: () => void
+  canMoveUp: boolean
+  canMoveDown: boolean
   currencyInfo: { code: string; locale: string }
 }) {
   return (
@@ -236,9 +308,29 @@ function ProductRow({
         </span>
       </Link>
 
-      <div className="flex items-center justify-between gap-3 sm:justify-end">
+      <div className="flex flex-wrap items-center justify-between gap-2 sm:justify-end">
+        <div className="flex items-center gap-1">
+          <button
+            type="button"
+            onClick={onMoveUp}
+            disabled={!canMoveUp || toggling}
+            className="grid size-8 place-items-center rounded-lg border border-black/10 text-black/55 transition hover:bg-black/5 disabled:opacity-25"
+            title="Subir producto"
+          >
+            <ArrowUp className="size-4" />
+          </button>
+          <button
+            type="button"
+            onClick={onMoveDown}
+            disabled={!canMoveDown || toggling}
+            className="grid size-8 place-items-center rounded-lg border border-black/10 text-black/55 transition hover:bg-black/5 disabled:opacity-25"
+            title="Bajar producto"
+          >
+            <ArrowDown className="size-4" />
+          </button>
+        </div>
         <span className={`admin-chip ${product.available ? 'text-[#1c8b5f]' : 'text-black/40'}`}>
-          {product.available ? 'Disponible' : 'Oculto'}
+          TPV {product.available ? 'Si' : 'No'}
         </span>
         <button
           onClick={() => onToggle(product)}
@@ -247,6 +339,20 @@ function ProductRow({
             product.available ? 'justify-end bg-[#1c8b5f]' : 'justify-start bg-black/18'
           } ${toggling ? 'opacity-50' : ''}`}
           aria-label="Cambiar disponibilidad"
+        >
+          <span className="size-6 rounded-full bg-white shadow-sm" />
+        </button>
+        <span className={`admin-chip ${product.show_in_store !== false ? 'text-[#1c8b5f]' : 'text-black/40'}`}>
+          <Store className="mr-1 inline size-3" />
+          Tienda {product.show_in_store !== false ? 'Si' : 'No'}
+        </span>
+        <button
+          onClick={() => onToggleStore(product)}
+          disabled={toggling}
+          className={`flex h-7 w-12 items-center rounded-full p-0.5 transition ${
+            product.show_in_store !== false ? 'justify-end bg-[#1c8b5f]' : 'justify-start bg-black/18'
+          } ${toggling ? 'opacity-50' : ''}`}
+          aria-label="Cambiar visibilidad en tienda"
         >
           <span className="size-6 rounded-full bg-white shadow-sm" />
         </button>

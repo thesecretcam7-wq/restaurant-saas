@@ -145,7 +145,9 @@ export interface MenuItem {
   price: number;
   image_url: string | null;
   available: boolean;
+  show_in_store?: boolean;
   featured: boolean;
+  sort_order?: number;
   variants: {
     sizes?: MenuItemVariant[];
     addons?: MenuItemVariant[];

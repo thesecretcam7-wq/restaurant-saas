@@ -43,7 +43,9 @@ export default function EditProductoPage({ params }: Props) {
     category_id: '',
     image_url: '',
     available: true,
+    show_in_store: true,
     featured: false,
+    sort_order: '0',
     show_in_upsell: false,
     requires_kitchen: true,
   })
@@ -69,7 +71,9 @@ export default function EditProductoPage({ params }: Props) {
           category_id: item.category_id || '',
           image_url: item.image_url || '',
           available: item.available,
+          show_in_store: item.show_in_store !== false,
           featured: item.featured,
+          sort_order: String(item.sort_order ?? 0),
           show_in_upsell: item.variants?.show_in_upsell || false,
           requires_kitchen: item.variants?.requires_kitchen !== false,
         })
@@ -173,7 +177,9 @@ export default function EditProductoPage({ params }: Props) {
       category_id: form.category_id || null,
       image_url: form.image_url || null,
       available: form.available,
+      show_in_store: form.show_in_store,
       featured: form.featured,
+      sort_order: Number.parseInt(form.sort_order, 10) || 0,
       variants: {
         show_in_upsell: form.show_in_upsell,
         requires_kitchen: form.requires_kitchen,
@@ -339,6 +345,20 @@ export default function EditProductoPage({ params }: Props) {
               </div>
 
               <div className="px-4 py-4">
+                <label className="block text-xs font-black text-slate-700 uppercase tracking-wide mb-1.5">Orden dentro de la categoria</label>
+                <input
+                  type="number"
+                  min="0"
+                  inputMode="numeric"
+                  value={form.sort_order}
+                  onChange={e => setForm(f => ({ ...f, sort_order: e.target.value }))}
+                  className="w-full text-base sm:text-sm text-slate-950 focus:outline-none placeholder-slate-400 bg-transparent"
+                  placeholder="0"
+                />
+                <p className="mt-1 text-xs font-semibold text-slate-500">Menor numero aparece primero.</p>
+              </div>
+
+              <div className="px-4 py-4">
                 <label className="block text-xs font-black text-slate-700 uppercase tracking-wide mb-1.5">Descripción</label>
                 <textarea
                   value={form.description}
@@ -353,9 +373,15 @@ export default function EditProductoPage({ params }: Props) {
             <div className="bg-white sm:rounded-xl sm:border divide-y">
               <ToggleRow
                 label="Disponible"
-                description="Visible en el menú para los clientes"
+                description="Se puede vender en TPV, mesas y operaciones internas"
                 checked={form.available}
                 onChange={v => setForm(f => ({ ...f, available: v }))}
+              />
+              <ToggleRow
+                label="Mostrar en tienda"
+                description="Visible para clientes en la tienda online"
+                checked={form.show_in_store}
+                onChange={v => setForm(f => ({ ...f, show_in_store: v }))}
               />
               <ToggleRow
                 label="Destacado"

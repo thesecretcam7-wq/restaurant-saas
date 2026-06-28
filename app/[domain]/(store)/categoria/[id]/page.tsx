@@ -26,7 +26,15 @@ export default async function CategoryPage({ params }: CategoryPageProps) {
 
   const [categoryRes, itemsRes] = await Promise.all([
     supabase.from('menu_categories').select('*').eq('id', categoryId).eq('tenant_id', context.tenant?.id).single(),
-    supabase.from('menu_items').select('*').eq('tenant_id', context.tenant?.id).eq('category_id', categoryId).eq('available', true).order('featured', { ascending: false }),
+    supabase
+      .from('menu_items')
+      .select('*')
+      .eq('tenant_id', context.tenant?.id)
+      .eq('category_id', categoryId)
+      .eq('available', true)
+      .eq('show_in_store', true)
+      .order('sort_order', { ascending: true })
+      .order('name', { ascending: true }),
   ])
 
   const category = categoryRes.data

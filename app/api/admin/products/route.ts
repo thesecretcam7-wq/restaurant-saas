@@ -5,7 +5,7 @@ import { ensureInventoryItemForMenuItem } from '@/lib/inventory-sync'
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json()
-    const { tenantId, name, description, price, categoryId, imageUrl, available, featured, showInUpsell, requiresKitchen } = body
+    const { tenantId, name, description, price, categoryId, imageUrl, available, showInStore, featured, sortOrder, showInUpsell, requiresKitchen } = body
 
     // Validación detallada
     if (!tenantId) {
@@ -33,7 +33,9 @@ export async function POST(req: NextRequest) {
       category_id: categoryId || null,
       image_url: imageUrl || null,
       available: available ?? true,
+      show_in_store: showInStore ?? true,
       featured: featured ?? false,
+      sort_order: Number.isFinite(Number(sortOrder)) ? Number(sortOrder) : 0,
       variants: {
         show_in_upsell: showInUpsell ?? false,
         requires_kitchen: requiresKitchen ?? true,

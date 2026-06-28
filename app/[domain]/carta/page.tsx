@@ -41,7 +41,14 @@ export default async function CartaPage({ params }: CartaProps) {
 
   const [categoriesRes, itemsRes, toppingsRes] = await Promise.all([
     supabase.from('menu_categories').select('*').eq('tenant_id', tenantId).eq('active', true).order('sort_order'),
-    supabase.from('menu_items').select('*').eq('tenant_id', tenantId).eq('available', true).order('featured', { ascending: false }).order('name'),
+    supabase
+      .from('menu_items')
+      .select('*')
+      .eq('tenant_id', tenantId)
+      .eq('available', true)
+      .eq('show_in_store', true)
+      .order('sort_order', { ascending: true })
+      .order('name', { ascending: true }),
     supabase
       .from('product_toppings')
       .select('id, menu_item_id, name, price, sort_order')

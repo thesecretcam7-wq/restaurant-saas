@@ -27,7 +27,9 @@ export default function NuevoProductoClient({ domain, tenantId, categories }: Pr
     category_id: '',
     image_url: '',
     available: true,
+    show_in_store: true,
     featured: false,
+    sort_order: '0',
     show_in_upsell: false,
     requires_kitchen: true,
   })
@@ -63,7 +65,9 @@ export default function NuevoProductoClient({ domain, tenantId, categories }: Pr
           categoryId: validated.category_id || null,
           imageUrl: validated.image_url || null,
           available: validated.available,
+          showInStore: validated.show_in_store,
           featured: validated.featured,
+          sortOrder: validated.sort_order,
           showInUpsell: validated.show_in_upsell,
           requiresKitchen: validated.requires_kitchen,
         }),
@@ -218,6 +222,22 @@ export default function NuevoProductoClient({ domain, tenantId, categories }: Pr
                 </div>
               </div>
 
+              <div className="px-4 py-4">
+                <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wide mb-1.5">
+                  Orden dentro de la categoria
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  inputMode="numeric"
+                  value={form.sort_order}
+                  onChange={e => setForm(f => ({ ...f, sort_order: e.target.value }))}
+                  className="w-full text-base sm:text-sm text-gray-900 focus:outline-none placeholder-gray-300 bg-transparent border-b-2 border-gray-200"
+                  placeholder="0"
+                />
+                <p className="mt-1 text-xs text-gray-400">Menor numero aparece primero.</p>
+              </div>
+
               {/* Description */}
               <div className="px-4 py-4">
                 <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wide mb-1.5">
@@ -237,9 +257,15 @@ export default function NuevoProductoClient({ domain, tenantId, categories }: Pr
             <div className="bg-white sm:rounded-xl sm:border divide-y">
               <ToggleRow
                 label="Disponible"
-                description="Visible en el menú para los clientes"
+                description="Se puede vender en TPV, mesas y operaciones internas"
                 checked={form.available}
                 onChange={v => setForm(f => ({ ...f, available: v }))}
+              />
+              <ToggleRow
+                label="Mostrar en tienda"
+                description="Visible para clientes en la tienda online"
+                checked={form.show_in_store}
+                onChange={v => setForm(f => ({ ...f, show_in_store: v }))}
               />
               <ToggleRow
                 label="Destacado"

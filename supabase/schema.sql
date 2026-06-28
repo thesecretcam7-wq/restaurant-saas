@@ -122,7 +122,9 @@ CREATE TABLE menu_items (
   price NUMERIC(10,2) NOT NULL,
   image_url TEXT,
   available BOOLEAN DEFAULT true,
+  show_in_store BOOLEAN DEFAULT true,
   featured BOOLEAN DEFAULT false,
+  sort_order INT DEFAULT 0,
   variants JSONB DEFAULT '{}',
   created_at TIMESTAMPTZ DEFAULT now(),
   updated_at TIMESTAMPTZ DEFAULT now()

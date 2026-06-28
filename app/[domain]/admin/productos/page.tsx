@@ -16,7 +16,9 @@ interface Product {
   category_id: string | null
   image_url: string | null
   available: boolean
+  show_in_store: boolean
   featured: boolean
+  sort_order: number
 }
 
 export default async function ProductosPage({ params }: Props) {
@@ -40,7 +42,7 @@ export default async function ProductosPage({ params }: Props) {
 
   const [catRes, itemRes, settingsRes] = await Promise.all([
     supabase.from('menu_categories').select('id, name, sort_order').eq('tenant_id', tenant.id).order('sort_order'),
-    supabase.from('menu_items').select('id, name, description, price, category_id, image_url, available, featured').eq('tenant_id', tenant.id).order('name'),
+    supabase.from('menu_items').select('id, name, description, price, category_id, image_url, available, show_in_store, featured, sort_order').eq('tenant_id', tenant.id).order('sort_order').order('name'),
     supabase.from('restaurant_settings').select('country').eq('tenant_id', tenant.id).maybeSingle(),
   ])
 

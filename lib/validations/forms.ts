@@ -55,7 +55,9 @@ export const productSchema = z.object({
   category_id: z.string().optional(),
   image_url: z.string().optional(),
   available: z.boolean().default(true),
+  show_in_store: z.boolean().default(true),
   featured: z.boolean().default(false),
+  sort_order: z.coerce.number().int('El orden debe ser un numero entero').min(0, 'El orden no puede ser negativo').default(0),
   show_in_upsell: z.boolean().default(false),
   requires_kitchen: z.boolean().default(true),
 })

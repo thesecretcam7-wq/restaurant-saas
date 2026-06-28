@@ -94,6 +94,7 @@ export default async function HomePage({ params }: HomePageProps) {
       .select('*')
       .eq('tenant_id', tenant.id)
       .eq('available', true)
+      .eq('show_in_store', true)
       .in('id', topItemIds)
     featured = data || []
     featured.sort((a, b) => (itemCounts[b.id] || 0) - (itemCounts[a.id] || 0))
@@ -104,6 +105,8 @@ export default async function HomePage({ params }: HomePageProps) {
       .eq('tenant_id', tenant.id)
       .eq('featured', true)
       .eq('available', true)
+      .eq('show_in_store', true)
+      .order('sort_order', { ascending: true })
       .limit(8)
     featured = data || []
   }
@@ -115,8 +118,10 @@ export default async function HomePage({ params }: HomePageProps) {
       .select('*')
       .eq('tenant_id', tenant.id)
       .eq('available', true)
+      .eq('show_in_store', true)
       .order('featured', { ascending: false })
-      .order('created_at', { ascending: false })
+      .order('sort_order', { ascending: true })
+      .order('name', { ascending: true })
       .limit(8)
 
     featured = [

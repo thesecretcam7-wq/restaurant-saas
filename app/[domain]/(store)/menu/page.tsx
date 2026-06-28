@@ -36,7 +36,14 @@ export default async function MenuPage({ params }: MenuProps) {
 
     const [categoriesRes, itemsRes, toppingsRes] = await Promise.all([
       supabase.from('menu_categories').select('*').eq('tenant_id', tenantId).order('sort_order'),
-      supabase.from('menu_items').select('*').eq('tenant_id', tenantId).eq('available', true).order('featured', { ascending: false }),
+      supabase
+        .from('menu_items')
+        .select('*')
+        .eq('tenant_id', tenantId)
+        .eq('available', true)
+        .eq('show_in_store', true)
+        .order('sort_order', { ascending: true })
+        .order('name', { ascending: true }),
       supabase.from('product_toppings').select('id, menu_item_id, name, price, sort_order').eq('tenant_id', tenantId).order('sort_order').then(res => res, () => ({ data: [] })),
     ])
 
