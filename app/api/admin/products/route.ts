@@ -2,6 +2,11 @@ import { createServiceClient } from '@/lib/supabase/server'
 import { NextRequest, NextResponse } from 'next/server'
 import { ensureInventoryItemForMenuItem } from '@/lib/inventory-sync'
 
+function parseDecimal(value: unknown) {
+  if (value === undefined || value === null || value === '') return NaN
+  return Number(String(value).trim().replace(',', '.'))
+}
+
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json()
@@ -18,7 +23,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'El precio es obligatorio' }, { status: 400 })
     }
 
-    const parsedPrice = parseFloat(String(price))
+    const parsedPrice = parseDecimal(price)
     if (isNaN(parsedPrice) || parsedPrice < 0) {
       return NextResponse.json({ error: 'El precio debe ser un número válido y positivo' }, { status: 400 })
     }
