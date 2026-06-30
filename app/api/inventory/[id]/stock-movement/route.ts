@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import { NextRequest, NextResponse } from 'next/server';
+import { requireTenantAccess, tenantAuthErrorResponse } from '@/lib/tenant-api-auth';
 
 export async function POST(
   request: NextRequest,
@@ -22,6 +23,8 @@ export async function POST(
         { status: 400 }
       );
     }
+
+    await requireTenantAccess(tenantId, { staffRoles: ['admin'], requireAdminPermission: true });
 
     // Get current inventory
     const { data: inventory, error: inventoryError } = await supabase
@@ -103,6 +106,9 @@ export async function POST(
 
     return NextResponse.json({ movement, updated });
   } catch (error) {
+    if (error instanceof Error && ['Unauthorized', 'Forbidden'].includes(error.message)) {
+      return tenantAuthErrorResponse(error);
+    }
     console.error('Error creating stock movement:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
@@ -121,6 +127,8 @@ export async function GET(
   }
 
   try {
+    await requireTenantAccess(tenantId, { staffRoles: ['admin'], requireAdminPermission: true });
+
     const supabase = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -154,6 +162,9 @@ export async function GET(
       order: movement.reference_id ? ordersById.get(movement.reference_id) || null : null,
     })));
   } catch (error) {
+    if (error instanceof Error && ['Unauthorized', 'Forbidden'].includes(error.message)) {
+      return tenantAuthErrorResponse(error);
+    }
     console.error('Error fetching stock movements:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }

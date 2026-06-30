@@ -22,7 +22,7 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    await requireTenantAccess(tenantId, { staffRoles: ['admin'] });
+    await requireTenantAccess(tenantId, { staffRoles: ['admin'], requireAdminPermission: true });
 
     const inventoryRequest = supabase
       .from('inventory')
@@ -81,7 +81,7 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
-    await requireTenantAccess(tenantId, { staffRoles: ['admin'] });
+    await requireTenantAccess(tenantId, { staffRoles: ['admin'], requireAdminPermission: true });
 
     if (normalizedSku) {
       const { data: existingSku, error: skuError } = await supabase

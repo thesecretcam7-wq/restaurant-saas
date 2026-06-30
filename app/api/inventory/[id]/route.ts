@@ -15,7 +15,7 @@ export async function PUT(
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
 
-    await requireTenantAccess(tenantId, { staffRoles: ['admin'] });
+    await requireTenantAccess(tenantId, { staffRoles: ['admin'], requireAdminPermission: true });
     const supabase = createServiceClient();
 
     const { data, error } = await supabase
@@ -59,7 +59,7 @@ export async function DELETE(
       return NextResponse.json({ error: 'tenantId is required' }, { status: 400 });
     }
 
-    await requireTenantAccess(tenantId, { staffRoles: ['admin'] });
+    await requireTenantAccess(tenantId, { staffRoles: ['admin'], requireAdminPermission: true });
     const supabase = createServiceClient();
 
     const { error: recipeError } = await supabase
