@@ -654,6 +654,8 @@ export function POSTerminal({
   const [expandedTable, setExpandedTable] = useState<number | null>(null);
   const [tip, setTip] = useState(0);
   const [showTipKeyboard, setShowTipKeyboard] = useState(false);
+  const [manualItemName, setManualItemName] = useState<string | null>(null);
+  const [showManualItemPriceKeyboard, setShowManualItemPriceKeyboard] = useState(false);
   const [heldAccounts, setHeldAccounts] = useState<HeldPOSAccount[]>([]);
   const [showHeldAccountsPanel, setShowHeldAccountsPanel] = useState(false);
   const [splitBillMode, setSplitBillMode] = useState(false);
@@ -2185,20 +2187,7 @@ export function POSTerminal({
     });
   }
 
-  function addManualItem() {
-    const name = window.prompt('Nombre del articulo manual:', 'Articulo manual');
-    if (name === null) return;
-
-    const cleanName = name.trim();
-    if (!cleanName) {
-      setToast({ message: 'Escribe un nombre para el articulo manual', type: 'error' });
-      return;
-    }
-
-    const rawPrice = window.prompt(`Valor de "${cleanName}":`, '');
-    if (rawPrice === null) return;
-
-    const price = Number(rawPrice.replace(',', '.'));
+  function addManualItemToCart(name: string, price: number) {
     if (!Number.isFinite(price) || price <= 0) {
       setToast({ message: 'El valor manual debe ser mayor que cero', type: 'error' });
       return;
@@ -2209,7 +2198,7 @@ export function POSTerminal({
       ...prev,
       {
         menu_item_id: manualId,
-        name: cleanName,
+        name,
         price,
         quantity: 1,
         notes: 'Articulo manual',
@@ -2217,6 +2206,20 @@ export function POSTerminal({
       },
     ]);
     setToast({ message: 'Articulo manual agregado', type: 'success' });
+  }
+
+  function addManualItem() {
+    const name = window.prompt('Nombre del articulo manual:', 'Articulo manual');
+    if (name === null) return;
+
+    const cleanName = name.trim();
+    if (!cleanName) {
+      setToast({ message: 'Escribe un nombre para el articulo manual', type: 'error' });
+      return;
+    }
+
+    setManualItemName(cleanName);
+    setShowManualItemPriceKeyboard(true);
   }
 
   function removeFromCart(itemId: string) {
@@ -5013,6 +5016,24 @@ export function POSTerminal({
           setShowTipKeyboard(false);
         }}
         onCancel={() => setShowTipKeyboard(false)}
+        allowDecimal={true}
+      />
+
+      <NumericKeyboard
+        isOpen={showManualItemPriceKeyboard}
+        title="Valor del articulo"
+        initialValue={0}
+        onConfirm={(value) => {
+          if (manualItemName) {
+            addManualItemToCart(manualItemName, value);
+          }
+          setShowManualItemPriceKeyboard(false);
+          setManualItemName(null);
+        }}
+        onCancel={() => {
+          setShowManualItemPriceKeyboard(false);
+          setManualItemName(null);
+        }}
         allowDecimal={true}
       />
 
