@@ -582,6 +582,7 @@ export function POSTerminal({
 
   // Initialize Supabase client once inside component for proper type compatibility
   const supabase = useMemo(() => createClient(), []);
+  const printReceiptPreferenceStorageKey = `eccofood-pos-print-receipt-${tenantId}`;
 
   const [menu, setMenu] = useState<MenuItem[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
@@ -594,7 +595,10 @@ export function POSTerminal({
   const searchInputRef = useRef<HTMLInputElement>(null);
   const quickActionsRef = useRef<HTMLDivElement>(null);
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('cash');
-  const [printReceiptAfterPayment, setPrintReceiptAfterPayment] = useState(true);
+  const [printReceiptAfterPayment, setPrintReceiptAfterPayment] = useState(() => {
+    if (typeof window === 'undefined') return true;
+    return localStorage.getItem(printReceiptPreferenceStorageKey) !== 'false';
+  });
   const lastSaleReceiptRef = useRef<LastSaleReceipt | null>(null);
   const [discountCode, setDiscountCode] = useState('');
   const [discount, setDiscount] = useState(0);
@@ -698,6 +702,17 @@ export function POSTerminal({
       localStorage.removeItem(storageKey);
     }
   }, [tenantId]);
+
+  const handlePrintReceiptPreferenceChange = useCallback((nextValue: boolean) => {
+    setPrintReceiptAfterPayment(nextValue);
+    if (typeof window === 'undefined') return;
+    localStorage.setItem(printReceiptPreferenceStorageKey, nextValue ? 'true' : 'false');
+  }, [printReceiptPreferenceStorageKey]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    setPrintReceiptAfterPayment(localStorage.getItem(printReceiptPreferenceStorageKey) !== 'false');
+  }, [printReceiptPreferenceStorageKey]);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -2120,7 +2135,6 @@ export function POSTerminal({
       );
       if (data.settings.display_name) setRestaurantName(data.settings.display_name);
       if (data.settings.phone) setRestaurantPhone(data.settings.phone);
-      setPrintReceiptAfterPayment(true);
     }
   }
 
@@ -3172,7 +3186,6 @@ export function POSTerminal({
         setTip(0);
         setPendingPaymentData(null);
         setPaymentMethod('cash');
-        setPrintReceiptAfterPayment(true);
         setSplitBillMode(false);
         setSplitSelections({});
       } else {
@@ -3185,7 +3198,6 @@ export function POSTerminal({
         setLoadedOrderId(null);
         setLoadedOrderContext(null);
         setPaymentMethod('cash');
-        setPrintReceiptAfterPayment(true);
         setSelectedCategory(categories[0]?.id ?? null);
         setSearchQuery('');
         setSelectedTableId(null);
@@ -4162,8 +4174,8 @@ export function POSTerminal({
           </div>
 
           {/* Menu Grid */}
-          <div className={`flex-1 min-h-0 overflow-y-scroll overscroll-contain pr-1 [scrollbar-gutter:stable] [scrollbar-width:thin] [scrollbar-color:rgba(103,232,249,0.55)_rgba(15,23,42,0.45)] [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-cyan-300/45 [&::-webkit-scrollbar-track]:bg-white/5 ${compactPOSLayout ? 'px-4 py-3' : 'p-3 sm:p-4'}`}>
-            <div className={`grid gap-3 h-fit ${compactPOSLayout ? 'grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-6' : 'grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6'}`}>
+          <div className={`flex-1 min-h-0 overflow-y-scroll overscroll-contain pr-1 [scrollbar-gutter:stable] [scrollbar-width:thin] [scrollbar-color:rgba(103,232,249,0.55)_rgba(15,23,42,0.45)] [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-cyan-300/45 [&::-webkit-scrollbar-track]:bg-white/5 ${compactPOSLayout ? 'px-3 py-2' : 'p-3 sm:p-4'}`}>
+            <div className={`grid h-fit ${compactPOSLayout ? 'grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-5 2xl:grid-cols-7' : 'grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6'}`}>
               {filteredMenu.map((item) => {
                 const qty = cartQuantityMap.get(item.id);
                 const unavailable = item.available === false;
@@ -4172,14 +4184,24 @@ export function POSTerminal({
                     key={item.id}
                     onClick={() => addToCart(item)}
                     title={unavailable ? `${item.name} no disponible` : `Agregar ${item.name}`}
-                    className={`pos-card relative min-h-[164px] rounded-xl p-3 text-left transition-all duration-200 transform hover:scale-[1.025] active:scale-95 flex flex-col justify-between group ${
+                    className={`pos-card group relative min-h-[126px] overflow-hidden rounded-xl p-0 text-left transition-all duration-200 transform hover:scale-[1.018] active:scale-95 ${
                       qty
                         ? 'border-2 border-cyan-300/70 bg-cyan-300/14 shadow-lg shadow-cyan-900/30'
                         : ''
                     } ${unavailable ? 'opacity-55 grayscale hover:scale-100 active:scale-100' : ''}`}
                   >
+                    {item.image_url ? (
+                      <img
+                        src={item.image_url}
+                        alt={item.name}
+                        className="absolute inset-0 h-full w-full object-cover transition-transform duration-200 group-hover:scale-105"
+                      />
+                    ) : (
+                      <div className="absolute inset-0 bg-gradient-to-br from-slate-800 via-slate-900 to-slate-950" />
+                    )}
+                    <div className="absolute inset-0 bg-gradient-to-b from-black/72 via-black/14 to-black/76" />
                     {unavailable && (
-                      <span className="absolute left-2 top-2 z-10 rounded-full bg-red-500 px-2 py-1 text-[10px] font-black uppercase tracking-wide text-white shadow-md">
+                      <span className="absolute bottom-2 right-2 z-20 rounded-full bg-red-500 px-2 py-1 text-[10px] font-black uppercase tracking-wide text-white shadow-md">
                         No disponible
                       </span>
                     )}
@@ -4188,15 +4210,10 @@ export function POSTerminal({
                         {qty}
                       </span>
                     )}
-                    {item.image_url && (
-                      <img
-                        src={item.image_url}
-                        alt={item.name}
-                        className={`w-full object-contain rounded-lg mb-1 group-hover:scale-110 transition-transform duration-200 ${compactPOSLayout ? 'h-20' : 'h-24'}`}
-                      />
-                    )}
-                    <p className="font-black text-base leading-tight line-clamp-2 flex-1 text-white group-hover:text-cyan-200 transition-colors">{item.name}</p>
-                    <p className={`font-black text-base mt-1 ${qty ? 'text-cyan-200' : 'text-emerald-300'}`}>
+                    <p className="relative z-10 min-h-[2.2rem] px-2.5 pt-2 text-sm font-black leading-tight text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.75)] line-clamp-2 transition-colors group-hover:text-cyan-100">
+                      {item.name}
+                    </p>
+                    <p className={`absolute bottom-2 left-2.5 z-10 text-sm font-black drop-shadow-[0_2px_4px_rgba(0,0,0,0.75)] ${qty ? 'text-cyan-200' : 'text-emerald-300'}`}>
                       {formatPriceWithCurrency(item.price, currencyInfo.code, currencyInfo.locale)}
                     </p>
                   </button>
@@ -4898,7 +4915,7 @@ export function POSTerminal({
                       paymentMethod={paymentMethod}
                       onPaymentMethodChange={setPaymentMethod}
                       printReceipt={printReceiptAfterPayment}
-                      onPrintReceiptChange={setPrintReceiptAfterPayment}
+                      onPrintReceiptChange={handlePrintReceiptPreferenceChange}
                       onProceedPayment={handleShowReceipt}
                       disabled={
                         cart.length === 0 ||
