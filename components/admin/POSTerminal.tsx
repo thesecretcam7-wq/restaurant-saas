@@ -48,6 +48,7 @@ interface Category {
 type POSMode = 'simple' | 'table';
 type PaymentMethod = 'cash' | 'stripe' | 'mixed';
 type CashClosingMode = 'current' | 'pending';
+const MANUAL_CHARGE_NAME = 'Cobro manual';
 
 declare global {
   interface Window {
@@ -2201,24 +2202,15 @@ export function POSTerminal({
         name,
         price,
         quantity: 1,
-        notes: 'Articulo manual',
+        notes: 'Cobro manual',
         is_manual: true,
       },
     ]);
-    setToast({ message: 'Articulo manual agregado', type: 'success' });
+    setToast({ message: 'Cobro manual agregado', type: 'success' });
   }
 
   function addManualItem() {
-    const name = window.prompt('Nombre del articulo manual:', 'Articulo manual');
-    if (name === null) return;
-
-    const cleanName = name.trim();
-    if (!cleanName) {
-      setToast({ message: 'Escribe un nombre para el articulo manual', type: 'error' });
-      return;
-    }
-
-    setManualItemName(cleanName);
+    setManualItemName(MANUAL_CHARGE_NAME);
     setShowManualItemPriceKeyboard(true);
   }
 
@@ -5021,7 +5013,7 @@ export function POSTerminal({
 
       <NumericKeyboard
         isOpen={showManualItemPriceKeyboard}
-        title="Valor del articulo"
+        title={MANUAL_CHARGE_NAME}
         initialValue={0}
         onConfirm={(value) => {
           if (manualItemName) {
