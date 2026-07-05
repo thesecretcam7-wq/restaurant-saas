@@ -13,10 +13,12 @@ interface Props {
   domain: string
   tenantId: string
   categories: Category[]
+  initialCategoryId?: string
 }
 
-export default function NuevoProductoClient({ domain, tenantId, categories }: Props) {
+export default function NuevoProductoClient({ domain, tenantId, categories, initialCategoryId = '' }: Props) {
   const router = useRouter()
+  const startingCategoryId = categories.some(category => category.id === initialCategoryId) ? initialCategoryId : ''
   const [saving, setSaving] = useState(false)
   const [uploadingImage, setUploadingImage] = useState(false)
   const [errors, setErrors] = useState<Array<{ field: string; message: string }>>([])
@@ -24,7 +26,7 @@ export default function NuevoProductoClient({ domain, tenantId, categories }: Pr
     name: '',
     description: '',
     price: '',
-    category_id: '',
+    category_id: startingCategoryId,
     image_url: '',
     available: true,
     show_in_store: true,

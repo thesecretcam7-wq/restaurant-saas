@@ -1,10 +1,14 @@
 import { createServiceClient } from '@/lib/supabase/server'
 import NuevoProductoClient from './NuevoProductoClient'
 
-interface Props { params: Promise<{ domain: string }> }
+interface Props {
+  params: Promise<{ domain: string }>
+  searchParams?: Promise<{ categoria?: string }>
+}
 
-export default async function NuevoProductoPage({ params }: Props) {
+export default async function NuevoProductoPage({ params, searchParams }: Props) {
   const { domain } = await params
+  const query = searchParams ? await searchParams : {}
   const supabase = createServiceClient()
 
   const { data: tenant } = await supabase
@@ -32,6 +36,7 @@ export default async function NuevoProductoPage({ params }: Props) {
       domain={domain}
       tenantId={tenant.id}
       categories={categories || []}
+      initialCategoryId={query.categoria || ''}
     />
   )
 }

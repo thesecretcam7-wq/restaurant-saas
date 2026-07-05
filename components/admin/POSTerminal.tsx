@@ -578,6 +578,7 @@ export function POSTerminal({
   country?: string;
 }) {
   const currencyInfo = getCurrencyByCountry(country);
+  const hidePOSProductImages = tenantSlug === 'cafebarelcruce';
   const taxIncluded = isTaxIncludedCountry(country);
 
   // Initialize Supabase client once inside component for proper type compatibility
@@ -1122,10 +1123,16 @@ export function POSTerminal({
       )
       .subscribe();
 
+    const polling = window.setInterval(() => {
+      if (document.visibilityState !== 'visible') return;
+      scheduleMenuRefresh();
+    }, 5000);
+
     window.addEventListener('focus', refreshWhenVisible);
     document.addEventListener('visibilitychange', refreshWhenVisible);
 
     return () => {
+      window.clearInterval(polling);
       if (refreshTimer) window.clearTimeout(refreshTimer);
       window.removeEventListener('focus', refreshWhenVisible);
       document.removeEventListener('visibilitychange', refreshWhenVisible);
@@ -4231,7 +4238,7 @@ export function POSTerminal({
                         : ''
                     } ${unavailable ? 'opacity-55 grayscale hover:scale-100 active:scale-100' : ''}`}
                   >
-                    {item.image_url ? (
+                    {!hidePOSProductImages && item.image_url ? (
                       <img
                         src={item.image_url}
                         alt={item.name}
@@ -4240,7 +4247,7 @@ export function POSTerminal({
                     ) : (
                       <div className="absolute inset-0 bg-gradient-to-br from-slate-800 via-slate-900 to-slate-950" />
                     )}
-                    <div className="absolute inset-0 bg-gradient-to-b from-black/72 via-black/14 to-black/76" />
+                    <div className={hidePOSProductImages ? 'absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(34,211,238,0.16),transparent_46%)]' : 'absolute inset-0 bg-gradient-to-b from-black/72 via-black/14 to-black/76'} />
                     {unavailable && (
                       <span className="absolute bottom-2 right-2 z-20 rounded-full bg-red-500 px-2 py-1 text-[10px] font-black uppercase tracking-wide text-white shadow-md">
                         No disponible

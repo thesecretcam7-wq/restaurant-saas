@@ -4,7 +4,7 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import toast from 'react-hot-toast'
-import { ArrowDown, ArrowUp, ChefHat, Edit3, PackageOpen, Plus, Search, Sparkles, Store } from 'lucide-react'
+import { ArrowDown, ArrowUp, ChefHat, ChevronLeft, Edit3, Folder, FolderOpen, PackageOpen, Plus, Search, Sparkles, Store } from 'lucide-react'
 import { formatPriceWithCurrency } from '@/lib/currency'
 
 interface Category { id: string; name: string; sort_order: number }
@@ -37,6 +37,7 @@ export default function ProductosClient({
   const [products, setProducts] = useState<Product[]>(initialProducts)
   const [togglingId, setTogglingId] = useState<string | null>(null)
   const [search, setSearch] = useState('')
+  const [activeCategoryId, setActiveCategoryId] = useState<string | null>(null)
   const supabase = createClient()
 
   const toggleAvailable = async (product: Product) => {
@@ -112,6 +113,25 @@ export default function ProductosClient({
       products: sortProducts(filtered.filter(p => p.category_id === category.id)),
     }))
     .filter(group => group.products.length > 0 || !isSearching)
+  const folderGroups = categories.map(category => ({
+    id: category.id,
+    name: category.name,
+    products: sortProducts(products.filter(p => p.category_id === category.id)),
+    editHref: `/${domain}/admin/productos/categoria/${category.id}`,
+    addHref: `/${domain}/admin/productos/nuevo?categoria=${category.id}`,
+  }))
+  const uncategorizedProducts = sortProducts(products.filter(p => !p.category_id))
+  const folderViewGroups = [
+    ...folderGroups,
+    ...(uncategorizedProducts.length > 0 ? [{
+      id: 'uncategorized',
+      name: 'Sin categoria',
+      products: uncategorizedProducts,
+      editHref: undefined,
+      addHref: `/${domain}/admin/productos/nuevo`,
+    }] : []),
+  ]
+  const activeFolder = folderViewGroups.find(group => group.id === activeCategoryId) || null
 
   return (
     <div className="admin-page">
@@ -158,6 +178,49 @@ export default function ProductosClient({
             <p className="font-black text-[#15130f]">Sin resultados</p>
             <p className="mt-1 text-sm">No encontramos "{search}".</p>
           </div>
+        ) : !isSearching && !activeFolder ? (
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+            {folderViewGroups.map(group => (
+              <CategoryFolder
+                key={group.id}
+                name={group.name}
+                count={group.products.length}
+                availableCount={group.products.filter(product => product.available).length}
+                addHref={group.addHref}
+                editHref={group.editHref}
+                onOpen={() => setActiveCategoryId(group.id)}
+              />
+            ))}
+          </div>
+        ) : !isSearching && activeFolder ? (
+          <>
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+              <button
+                type="button"
+                onClick={() => setActiveCategoryId(null)}
+                className="admin-button-ghost w-fit"
+              >
+                <ChevronLeft className="size-4" />
+                Carpetas
+              </button>
+              <Link href={activeFolder.addHref} className="admin-button-primary w-fit">
+                <Plus className="size-4" />
+                Agregar producto aqui
+              </Link>
+            </div>
+            <CategoryGroup
+              name={activeFolder.name}
+              editHref={activeFolder.editHref}
+              addHref={activeFolder.addHref}
+              products={activeFolder.products}
+              domain={domain}
+              togglingId={togglingId}
+              onToggle={toggleAvailable}
+              onToggleStore={toggleStoreVisibility}
+              onReorder={reorderProducts}
+              currencyInfo={currencyInfo}
+            />
+          </>
         ) : (
           <>
             {visibleCategories.map(({ category, products: categoryProducts }) => (
@@ -165,6 +228,7 @@ export default function ProductosClient({
                 key={category.id}
                 name={category.name}
                 editHref={`/${domain}/admin/productos/categoria/${category.id}`}
+                addHref={`/${domain}/admin/productos/nuevo?categoria=${category.id}`}
                 products={categoryProducts}
                 domain={domain}
                 togglingId={togglingId}
@@ -178,6 +242,7 @@ export default function ProductosClient({
               <CategoryGroup
                 name="Sin categoria"
                 products={sortProducts(uncategorized)}
+                addHref={`/${domain}/admin/productos/nuevo`}
                 domain={domain}
                 togglingId={togglingId}
                 onToggle={toggleAvailable}
@@ -198,9 +263,58 @@ export default function ProductosClient({
   )
 }
 
+function CategoryFolder({
+  name,
+  count,
+  availableCount,
+  addHref,
+  editHref,
+  onOpen,
+}: {
+  name: string
+  count: number
+  availableCount: number
+  addHref: string
+  editHref?: string
+  onOpen: () => void
+}) {
+  return (
+    <div className="admin-panel p-4 transition hover:-translate-y-0.5 hover:shadow-lg">
+      <button
+        type="button"
+        onClick={onOpen}
+        className="flex w-full items-start gap-3 text-left"
+      >
+        <span className="grid size-12 flex-shrink-0 place-items-center rounded-xl bg-[#e43d30]/10 text-[#e43d30]">
+          {count > 0 ? <FolderOpen className="size-7" /> : <Folder className="size-7" />}
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="block truncate font-black text-[#15130f]">{name}</span>
+          <span className="mt-1 block text-xs font-semibold text-black/45">
+            {count} productos, {availableCount} disponibles
+          </span>
+        </span>
+      </button>
+      <div className="mt-4 flex flex-wrap items-center gap-2">
+        <Link href={addHref} className="admin-button-primary min-h-9 px-3 py-2 text-xs">
+          <Plus className="size-4" />
+          Agregar
+        </Link>
+        {editHref && (
+          <Link href={editHref} className="admin-button-ghost min-h-9 px-3 py-2 text-xs">
+            <Edit3 className="size-4" />
+            Editar
+          </Link>
+        )}
+      </div>
+    </div>
+  )
+}
+
 function CategoryGroup({
   name,
   editHref,
+  addHref,
   products,
   domain,
   togglingId,
@@ -211,6 +325,7 @@ function CategoryGroup({
 }: {
   name: string
   editHref?: string
+  addHref?: string
   products: Product[]
   domain: string
   togglingId: string | null
@@ -226,12 +341,20 @@ function CategoryGroup({
           <h2 className="font-black text-[#15130f]">{name}</h2>
           <p className="text-xs font-semibold text-black/45">{products.length} productos</p>
         </div>
-        {editHref && (
-          <Link href={editHref} className="inline-flex items-center gap-1.5 text-sm font-black text-[#e43d30]">
-            <Edit3 className="size-4" />
-            Editar
-          </Link>
-        )}
+        <div className="flex items-center gap-2">
+          {addHref && (
+            <Link href={addHref} className="inline-flex items-center gap-1.5 text-sm font-black text-[#1c8b5f]">
+              <Plus className="size-4" />
+              Agregar
+            </Link>
+          )}
+          {editHref && (
+            <Link href={editHref} className="inline-flex items-center gap-1.5 text-sm font-black text-[#e43d30]">
+              <Edit3 className="size-4" />
+              Editar
+            </Link>
+          )}
+        </div>
       </div>
       <div className="divide-y divide-black/8">
         {products.length === 0 ? (
