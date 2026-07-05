@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { productSchema } from '@/lib/validations/forms'
+import { normalizeDecimalInput, productSchema } from '@/lib/validations/forms'
 import { getFieldError, parseValidationError } from '@/lib/validations/utils'
 import { uploadTenantMedia } from '@/lib/upload-client'
 import toast from 'react-hot-toast'
@@ -200,7 +200,7 @@ export default function NuevoProductoClient({ domain, tenantId, categories, init
                       required
                       inputMode="decimal"
                       value={form.price}
-                      onChange={e => setForm(f => ({ ...f, price: e.target.value }))}
+                      onChange={e => setForm(f => ({ ...f, price: String(normalizeDecimalInput(e.target.value)) }))}
                       className={`flex-1 text-xl sm:text-base font-bold text-gray-900 focus:outline-none placeholder-gray-200 bg-transparent border-b-2 ${getFieldError(errors, 'price') ? 'border-red-300' : 'border-gray-200'}`}
                       placeholder="0"
                     />

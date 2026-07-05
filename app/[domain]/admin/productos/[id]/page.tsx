@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { useTenantResolver } from '@/lib/hooks/useTenantResolver'
 import { uploadTenantMedia } from '@/lib/upload-client'
+import { normalizeDecimalInput } from '@/lib/validations/forms'
 import toast from 'react-hot-toast'
 import ToppingsManager from '@/components/admin/ToppingsManager'
 
@@ -168,6 +169,8 @@ export default function EditProductoPage({ params }: Props) {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!tenantId) return
+    const parsedPrice = Number(normalizeDecimalInput(form.price))
+    form.price = Number.isFinite(parsedPrice) ? String(parsedPrice) : ''
     if (!form.price || parseFloat(form.price) <= 0) { toast.error('Ingresa un precio válido'); return }
     setSaving(true)
     const updateData = {
@@ -322,7 +325,7 @@ export default function EditProductoPage({ params }: Props) {
                       required
                       inputMode="decimal"
                       value={form.price}
-                      onChange={e => setForm(f => ({ ...f, price: e.target.value }))}
+                      onChange={e => setForm(f => ({ ...f, price: String(normalizeDecimalInput(e.target.value)) }))}
                       className="flex-1 text-xl sm:text-base font-bold text-slate-950 focus:outline-none placeholder-slate-400 bg-transparent"
                       placeholder="0"
                     />

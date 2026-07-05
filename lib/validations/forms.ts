@@ -1,8 +1,8 @@
 import { z } from 'zod'
 
-const decimalInput = (value: unknown) => {
+export const normalizeDecimalInput = (value: unknown) => {
   if (typeof value !== 'string') return value
-  return value.trim().replace(',', '.')
+  return value.trim().replace(/\s/g, '').replace(/,/g, '.')
 }
 
 // Login & Auth
@@ -55,7 +55,7 @@ export const productSchema = z.object({
     .max(500, 'La descripción no puede exceder 500 caracteres')
     .optional(),
   price: z.preprocess(
-    decimalInput,
+    normalizeDecimalInput,
     z.coerce.number()
       .gt(0, 'El precio debe ser mayor a 0')
       .max(999999.99, 'El precio es muy alto')
