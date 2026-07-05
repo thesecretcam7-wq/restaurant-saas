@@ -290,7 +290,7 @@ export function POSPayment({
           <button
             type="button"
             onClick={() => onPrintReceiptChange(true)}
-            disabled={disabled || loading}
+            disabled={loading}
             aria-pressed={printReceipt}
             className={`${compact ? 'min-h-7' : 'min-h-8'} rounded-md px-2 text-xs font-black transition ${
               printReceipt
@@ -303,7 +303,7 @@ export function POSPayment({
           <button
             type="button"
             onClick={() => onPrintReceiptChange(false)}
-            disabled={disabled || loading}
+            disabled={loading}
             aria-pressed={!printReceipt}
             className={`${compact ? 'min-h-7' : 'min-h-8'} rounded-md px-2 text-xs font-black transition ${
               !printReceipt

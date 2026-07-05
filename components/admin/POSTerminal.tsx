@@ -1093,6 +1093,47 @@ export function POSTerminal({
   }, [tenantId, refreshOfflinePendingCount, refreshTodayReservations]);
 
   useEffect(() => {
+    if (!tenantId) return;
+
+    let refreshTimer: number | null = null;
+    const scheduleMenuRefresh = () => {
+      if (refreshTimer) window.clearTimeout(refreshTimer);
+      refreshTimer = window.setTimeout(() => {
+        void fetchMenuData();
+      }, 250);
+    };
+
+    const refreshWhenVisible = () => {
+      if (document.visibilityState !== 'visible') return;
+      scheduleMenuRefresh();
+    };
+
+    const subscription = supabase
+      .channel(`pos-menu-refresh:${tenantId}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'menu_items', filter: `tenant_id=eq.${tenantId}` },
+        scheduleMenuRefresh
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'menu_categories', filter: `tenant_id=eq.${tenantId}` },
+        scheduleMenuRefresh
+      )
+      .subscribe();
+
+    window.addEventListener('focus', refreshWhenVisible);
+    document.addEventListener('visibilitychange', refreshWhenVisible);
+
+    return () => {
+      if (refreshTimer) window.clearTimeout(refreshTimer);
+      window.removeEventListener('focus', refreshWhenVisible);
+      document.removeEventListener('visibilitychange', refreshWhenVisible);
+      subscription.unsubscribe();
+    };
+  }, [supabase, tenantId]);
+
+  useEffect(() => {
     if (typeof window === 'undefined') return;
 
     const checkBridge = () => {
