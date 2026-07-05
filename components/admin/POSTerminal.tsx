@@ -620,6 +620,7 @@ export function POSTerminal({
   const [selectedTableId, setSelectedTableId] = useState<string | null>(null);
   const [selectedTableNumber, setSelectedTableNumber] = useState<number | null>(null);
   const [processingPayment, setProcessingPayment] = useState(false);
+  const [sendingToTable, setSendingToTable] = useState(false);
   const [isOnline, setIsOnline] = useState(true);
   const [offlinePendingCount, setOfflinePendingCount] = useState(0);
   const [syncingOffline, setSyncingOffline] = useState(false);
@@ -681,6 +682,7 @@ export function POSTerminal({
   const firstDineInFetchDone = useRef(false);
   const cashClosingRefreshInFlightRef = useRef(false);
   const paymentInFlightRef = useRef(false);
+  const sendToTableInFlightRef = useRef(false);
   const autoPrintedReceiptIdsRef = useRef(new Map<string, number>());
   const notificationTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const csrfTokenRef = useRef<string>('');
@@ -2490,8 +2492,18 @@ export function POSTerminal({
   }
 
   function selectTableForCurrentCart(tableId: string, tableNumber: number) {
+    const existingGroup = tableGroups.find(group => group.tableNumber === tableNumber);
+    const existingWaiterName = existingGroup?.waiters[0] || '';
+
     setSelectedTableId(tableId);
     setSelectedTableNumber(tableNumber);
+    if (existingWaiterName) {
+      setSelectedStaffId(null);
+      setSelectedStaffName(existingWaiterName);
+    } else {
+      setSelectedStaffId(null);
+      setSelectedStaffName('');
+    }
     setPosMode('table');
     setBillingOrderIds([]);
     setLoadedOrderId(null);
@@ -2566,6 +2578,8 @@ export function POSTerminal({
   }
 
   async function handleSendCartToTable() {
+    if (sendToTableInFlightRef.current) return;
+
     if (cart.length === 0) {
       setToast({ message: 'Agrega productos antes de enviar a mesa', type: 'error' });
       return;
@@ -2576,7 +2590,7 @@ export function POSTerminal({
       return;
     }
 
-    if (!selectedStaffId) {
+    if (!selectedStaffName) {
       setToast({ message: 'Selecciona el camarero antes de enviar a mesa', type: 'error' });
       return;
     }
@@ -2586,23 +2600,65 @@ export function POSTerminal({
       return;
     }
 
+    const tableNumber = selectedTableNumber;
+    const waiterName = selectedStaffName;
+    const optimisticOrderId = `optimistic-table-${Date.now()}`;
+    const previousCart = cart;
+    const previousTableId = selectedTableId;
+    const previousTableNumber = selectedTableNumber;
+    const previousStaffId = selectedStaffId;
+    const previousStaffName = selectedStaffName;
+    const previousDiscount = discount;
+    const previousDiscountCode = discountCode;
+    const previousTip = tip;
+    const previousPaymentMethod = paymentMethod;
+    const formattedItems = cart.map(item => ({
+      menu_item_id: item.is_manual ? null : item.menu_item_id,
+      is_manual: item.is_manual === true,
+      name: item.name,
+      price: item.price,
+      qty: item.quantity,
+      notes: item.notes || null,
+    }));
+    const optimisticOrder: DineInOrder = {
+      id: optimisticOrderId,
+      order_number: `Mesa ${tableNumber}`,
+      table_number: tableNumber,
+      waiter_name: waiterName || null,
+      total: subtotal,
+      payment_status: 'pending',
+      status: 'pending',
+      created_at: new Date().toISOString(),
+      items: formattedItems,
+    };
+
     try {
-      setProcessingPayment(true);
+      sendToTableInFlightRef.current = true;
+      setSendingToTable(true);
+      setDineInOrders(current => [optimisticOrder, ...current]);
+      setToast({ message: `Enviando a Mesa ${tableNumber}...`, type: 'success' });
+      setCart([]);
+      setDiscount(0);
+      setDiscountCode('');
+      setTip(0);
+      setPaymentMethod('cash');
+      setSelectedTableId(null);
+      setSelectedTableNumber(null);
+      setSelectedStaffId(null);
+      setSelectedStaffName('');
+      setPosMode('simple');
+
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem(`pos-cart-${tenantId}`);
+        localStorage.removeItem(`pos-discount-${tenantId}`);
+        localStorage.removeItem(`pos-discount-code-${tenantId}`);
+      }
 
       if (!csrfTokenRef.current) {
         const csrfResponse = await fetch('/api/csrf-token', { credentials: 'include' });
         const csrfData = await csrfResponse.json().catch(() => null);
         if (csrfData?.token) csrfTokenRef.current = csrfData.token;
       }
-
-      const formattedItems = cart.map(item => ({
-        menu_item_id: item.is_manual ? null : item.menu_item_id,
-        is_manual: item.is_manual === true,
-        name: item.name,
-        price: item.price,
-        qty: item.quantity,
-        notes: item.notes || null,
-      }));
 
       const response = await fetch('/api/orders', {
         method: 'POST',
@@ -2612,7 +2668,7 @@ export function POSTerminal({
           tenantId,
           tenantSlug: tenantSlug || null,
           customerInfo: {
-            name: `Mesa ${selectedTableNumber}`,
+            name: `Mesa ${tableNumber}`,
             email: null,
             phone: 'N/A',
           },
@@ -2620,8 +2676,8 @@ export function POSTerminal({
           paymentMethod: null,
           deliveryType: 'dine-in',
           deliveryAddress: null,
-          waiterName: selectedStaffName || null,
-          tableNumber: selectedTableNumber,
+          waiterName: waiterName || null,
+          tableNumber,
           notes: 'Comanda enviada desde TPV',
           source: 'pos',
         }),
@@ -2632,32 +2688,40 @@ export function POSTerminal({
         throw new Error(errorData.error || 'No se pudo enviar la comanda');
       }
 
-      await abandonCart(tenantId, supabase);
-      await fetchDineInOrders({ notify: false });
-
-      setToast({ message: `Productos enviados a Mesa ${selectedTableNumber}`, type: 'success' });
-      setCart([]);
-      setDiscount(0);
-      setDiscountCode('');
-      setTip(0);
-      setPaymentMethod('cash');
-      setSelectedTableId(null);
-      setSelectedTableNumber(null);
-      setPosMode('simple');
-
-      if (typeof window !== 'undefined') {
-        localStorage.removeItem(`pos-cart-${tenantId}`);
-        localStorage.removeItem(`pos-discount-${tenantId}`);
-        localStorage.removeItem(`pos-discount-code-${tenantId}`);
+      const savedOrder = await response.json().catch(() => null);
+      if (savedOrder?.orderId) {
+        setDineInOrders(current => current.map(order =>
+          order.id === optimisticOrderId
+            ? { ...order, id: savedOrder.orderId, order_number: savedOrder.orderNumber || order.order_number }
+            : order
+        ));
+        knownDineInOrderIds.current.add(savedOrder.orderId);
       }
+
+      setToast({ message: `Productos enviados a Mesa ${tableNumber}`, type: 'success' });
+      void abandonCart(tenantId, supabase).catch((cartError) => {
+        console.warn('POS cart cleanup after table send failed:', cartError);
+      });
     } catch (error) {
       console.error('Error sending table order:', error);
+      setDineInOrders(current => current.filter(order => order.id !== optimisticOrderId));
+      setCart(previousCart);
+      setDiscount(previousDiscount);
+      setDiscountCode(previousDiscountCode);
+      setTip(previousTip);
+      setPaymentMethod(previousPaymentMethod);
+      setSelectedTableId(previousTableId);
+      setSelectedTableNumber(previousTableNumber);
+      setSelectedStaffId(previousStaffId);
+      setSelectedStaffName(previousStaffName);
+      setPosMode('table');
       setToast({
         message: 'Error al enviar a mesa: ' + (error instanceof Error ? error.message : 'Error desconocido'),
         type: 'error',
       });
     } finally {
-      setProcessingPayment(false);
+      setSendingToTable(false);
+      sendToTableInFlightRef.current = false;
     }
   }
 
@@ -4701,6 +4765,10 @@ export function POSTerminal({
                 <p className="rounded-lg border border-emerald-300/25 bg-emerald-400/10 px-2 py-1 text-[11px] font-black text-emerald-100">
                   {billingOrderIds.length} ronda{billingOrderIds.length > 1 ? 's' : ''} lista{billingOrderIds.length > 1 ? 's' : ''} para cobrar
                 </p>
+              ) : selectedStaffName ? (
+                <p className="rounded-lg border border-emerald-300/25 bg-emerald-400/10 px-2 py-1 text-[11px] font-black text-emerald-100">
+                  Mesero: {selectedStaffName}
+                </p>
               ) : (
                 <POSStaffSelector
                   tenantId={tenantId}
@@ -4715,10 +4783,10 @@ export function POSTerminal({
               {billingOrderIds.length === 0 && (
                 <button
                   onClick={handleSendCartToTable}
-                  disabled={cart.length === 0 || !selectedStaffId || processingPayment}
+                  disabled={cart.length === 0 || !selectedStaffName || sendingToTable}
                   className="w-full rounded-xl border border-emerald-300/35 bg-emerald-400/16 px-3 py-2.5 text-sm font-black text-emerald-100 transition hover:border-emerald-200 hover:bg-emerald-400/24 disabled:cursor-not-allowed disabled:opacity-45"
                 >
-                  {processingPayment ? 'Enviando...' : `Enviar a Mesa ${selectedTableNumber}`}
+                  {sendingToTable ? 'Enviando...' : `Enviar a Mesa ${selectedTableNumber}`}
                 </button>
               )}
             </div>
