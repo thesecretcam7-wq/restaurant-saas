@@ -4209,13 +4209,15 @@ export function POSTerminal({
               <button
                 key={cat.id}
                 onClick={() => setSelectedCategory(cat.id)}
+                aria-pressed={selectedCategory === cat.id}
                 title="Alt + flechas cambia categorias"
                 className={`pos-chip shrink-0 whitespace-nowrap px-4 py-2 transition-all duration-200 ${
                   selectedCategory === cat.id
-                    ? 'border-cyan-300/60 bg-cyan-300/16 text-cyan-50 shadow-lg shadow-cyan-900/20'
-                    : 'hover:border-cyan-300/35 hover:text-white'
+                    ? 'border-cyan-200 bg-cyan-300 text-slate-950 ring-2 ring-cyan-100/80 shadow-lg shadow-cyan-900/30'
+                    : 'text-slate-300 hover:border-cyan-300/35 hover:text-white'
                 }`}
               >
+                {selectedCategory === cat.id && <Check className="mr-1.5 inline h-3.5 w-3.5 align-[-2px]" />}
                 {cat.name}
               </button>
             ))}
