@@ -119,10 +119,6 @@ export async function countPendingPOSOrders(tenantId: string) {
 }
 
 export async function syncOfflinePOSOrders(tenantId: string, csrfToken?: string) {
-  if (typeof navigator !== 'undefined' && !navigator.onLine) {
-    return { synced: 0, remaining: await countPendingPOSOrders(tenantId), errors: [] as string[] }
-  }
-
   const storage = getOfflineStorage()
   const orders = (await storage.getUnsyncedOrders()).filter(
     (order) => order.tenantId === tenantId && order.source === 'pos-offline'

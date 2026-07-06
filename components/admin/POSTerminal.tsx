@@ -49,6 +49,7 @@ type POSMode = 'simple' | 'table';
 type PaymentMethod = 'cash' | 'stripe' | 'mixed';
 type CashClosingMode = 'current' | 'pending';
 const MANUAL_CHARGE_NAME = 'Cobro manual';
+const POS_CONNECTIVITY_CHECK_TIMEOUT_MS = 3500;
 
 declare global {
   interface Window {
@@ -92,6 +93,26 @@ interface DineInOrder {
   status: string;
   created_at: string;
   items: { name: string; qty?: number; quantity?: number; price: number; item_id?: string | null; menu_item_id?: string | null; notes?: string | null; is_manual?: boolean }[];
+}
+
+async function canReachPOSCloud() {
+  if (typeof window === 'undefined') return true;
+
+  const controller = new AbortController();
+  const timeout = window.setTimeout(() => controller.abort(), POS_CONNECTIVITY_CHECK_TIMEOUT_MS);
+
+  try {
+    const response = await fetch('/api/csrf-token', {
+      credentials: 'include',
+      cache: 'no-store',
+      signal: controller.signal,
+    });
+    return response.ok;
+  } catch {
+    return false;
+  } finally {
+    window.clearTimeout(timeout);
+  }
 }
 
 type SplitSelection = Record<string, number>;
@@ -1015,7 +1036,12 @@ export function POSTerminal({
   }, [deliveryEnabled, deliveryOptions, posOrderType, selectedDeliveryZoneId]);
 
   const syncOfflineSales = useCallback(async (showToast = false) => {
-    if (typeof navigator !== 'undefined' && !navigator.onLine) return;
+    if (!(await canReachPOSCloud())) {
+      setIsOnline(false);
+      return;
+    }
+
+    setIsOnline(true);
 
     setSyncingOffline(true);
     try {
@@ -1187,22 +1213,61 @@ export function POSTerminal({
   useEffect(() => {
     if (typeof window === 'undefined') return;
 
-    const updateOnlineState = () => setIsOnline(navigator.onLine);
+    let cancelled = false;
+    let refreshAfterReconnectInFlight = false;
+
+    const refreshAfterReconnect = async (showToast: boolean) => {
+      if (refreshAfterReconnectInFlight) return;
+      refreshAfterReconnectInFlight = true;
+
+      try {
+        const reachable = await canReachPOSCloud();
+        if (cancelled) return;
+
+        setIsOnline(reachable);
+        if (!reachable) return;
+
+        await Promise.all([
+          fetchMenuData(),
+          refreshTodayReservations(),
+          refreshPendingCashClosing(),
+          syncOfflineSales(showToast),
+        ]);
+      } finally {
+        refreshAfterReconnectInFlight = false;
+      }
+    };
+
+    const updateOnlineState = () => {
+      if (!navigator.onLine) {
+        setIsOnline(false);
+        return;
+      }
+
+      void refreshAfterReconnect(false);
+    };
+
     const handleOnline = () => {
-      updateOnlineState();
-      syncOfflineSales(true);
+      void refreshAfterReconnect(true);
     };
 
     updateOnlineState();
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', updateOnlineState);
-    syncOfflineSales(false);
+    const connectivityPolling = window.setInterval(() => {
+      if (document.visibilityState !== 'visible') return;
+      if (!navigator.onLine || offlinePendingCount > 0 || !isOnline) {
+        void refreshAfterReconnect(false);
+      }
+    }, 15000);
 
     return () => {
+      cancelled = true;
+      window.clearInterval(connectivityPolling);
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', updateOnlineState);
     };
-  }, [syncOfflineSales]);
+  }, [isOnline, offlinePendingCount, refreshPendingCashClosing, refreshTodayReservations, syncOfflineSales]);
 
   // Listen for fullscreen changes
   useEffect(() => {
