@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import EccofoodLogo from '@/components/EccofoodLogo';
 
 interface EccofoodPageLoaderProps {
@@ -13,9 +14,18 @@ export default function EccofoodPageLoader({
   detail = 'Preparando una experiencia rapida y segura.',
   mode = 'page',
 }: EccofoodPageLoaderProps) {
+  const [showRecoveryActions, setShowRecoveryActions] = useState(false);
+  const [cleanCacheUrl, setCleanCacheUrl] = useState('/limpiar-cache.html');
   const wrapperClassName = mode === 'page'
     ? 'fixed inset-0 z-[9990] grid h-[100dvh] w-full place-items-center overflow-hidden bg-[#f7f5f0] px-4'
     : 'flex w-full justify-center px-4 py-6'
+
+  useEffect(() => {
+    const currentPath = `${window.location.pathname}${window.location.search}`;
+    setCleanCacheUrl(`/limpiar-cache.html?to=${encodeURIComponent(currentPath || '/')}`);
+    const timer = window.setTimeout(() => setShowRecoveryActions(true), 10000);
+    return () => window.clearTimeout(timer);
+  }, []);
 
   return (
     <div className={wrapperClassName}>
@@ -29,6 +39,26 @@ export default function EccofoodPageLoader({
         <div className="mt-5 h-2 overflow-hidden rounded-full bg-slate-100">
           <div className="h-full w-1/2 animate-[eccoGlobalLoaderBar_1.05s_ease-in-out_infinite] rounded-full bg-orange-500" />
         </div>
+        {showRecoveryActions && (
+          <div className="mt-5 grid gap-2">
+            <button
+              type="button"
+              onClick={() => window.location.reload()}
+              className="h-10 rounded-xl bg-slate-950 px-4 text-sm font-black text-white"
+            >
+              Reintentar
+            </button>
+            <a
+              href={cleanCacheUrl}
+              className="grid h-10 place-items-center rounded-xl border border-orange-200 bg-orange-50 px-4 text-sm font-black text-orange-700"
+            >
+              Limpiar cache y abrir
+            </a>
+            <p className="text-xs font-semibold leading-snug text-slate-400">
+              Si el equipo no tiene internet, abre primero una vez con conexion para guardar el TPV.
+            </p>
+          </div>
+        )}
       </section>
     </div>
   );

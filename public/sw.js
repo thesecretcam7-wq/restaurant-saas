@@ -1,4 +1,4 @@
-const CACHE_NAME = 'eccofood-v16';
+const CACHE_NAME = 'eccofood-v17';
 const CACHE_PREFIX = 'eccofood-';
 const STATIC_ASSETS = [
   '/favicon.ico',
@@ -113,7 +113,15 @@ self.addEventListener('install', (event) => {
 
 self.addEventListener('activate', (event) => {
   console.log('Service Worker activating...');
-  event.waitUntil(Promise.resolve());
+  event.waitUntil(
+    caches.keys().then((keys) =>
+      Promise.all(
+        keys
+          .filter((key) => key.indexOf(CACHE_PREFIX) === 0 && key !== CACHE_NAME)
+          .map((key) => caches.delete(key))
+      )
+    )
+  );
   self.clients.claim();
 });
 
