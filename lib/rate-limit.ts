@@ -3,6 +3,7 @@ import { Redis } from '@upstash/redis'
 
 let redis: Redis | null = null
 type RateLimitWindow = `${number} ${'s' | 'm' | 'h' | 'd'}`
+const RATE_LIMIT_TIMEOUT_MS = 750
 
 function hasUpstashEnv(): boolean {
   const url = process.env.UPSTASH_REDIS_REST_URL
@@ -90,7 +91,19 @@ export async function applyRateLimit(
     return { limited: false, headers: {} }
   }
 
-  const { success, limit, remaining, reset } = await limiter.limit(identifier)
+  const result = await Promise.race([
+    limiter.limit(identifier),
+    new Promise<null>((resolve) => setTimeout(() => resolve(null), RATE_LIMIT_TIMEOUT_MS)),
+  ]).catch((error) => {
+    console.warn('[rate-limit] skipped after error:', error instanceof Error ? error.message : error)
+    return null
+  })
+
+  if (!result) {
+    return { limited: false, headers: { 'X-RateLimit-Skipped': 'timeout' } }
+  }
+
+  const { success, limit, remaining, reset } = result
 
   const headers: Record<string, string> = {
     'X-RateLimit-Limit': limit.toString(),

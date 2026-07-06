@@ -7,6 +7,7 @@ import { Redis } from '@upstash/redis'
 const BASE_DOMAIN = process.env.NEXT_PUBLIC_BASE_DOMAIN || 'eccofoodapp.com'
 const SLUG_PATH_REGEX = /^\/([a-zA-Z0-9-]+)(?:\/|$)/
 const OWNER_EMAILS = ['thesecretcam7@gmail.com', 'johang.musica@gmail.com']
+const RATE_LIMIT_TIMEOUT_MS = 750
 const PUBLIC_PATHS = new Set([
   '/',
   '/login',
@@ -58,6 +59,16 @@ function getAuthLimiter() {
     authLimiter = new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(5, '1 m'), prefix: 'eccofood:auth' })
   }
   return authLimiter
+}
+
+async function limitOrSkip(limiter: Ratelimit, identifier: string) {
+  return Promise.race([
+    limiter.limit(identifier),
+    new Promise<null>((resolve) => setTimeout(() => resolve(null), RATE_LIMIT_TIMEOUT_MS)),
+  ]).catch((error) => {
+    console.warn('[proxy rate-limit] skipped after error:', error instanceof Error ? error.message : error)
+    return null
+  })
 }
 
 function getClientIp(request: NextRequest): string {
@@ -258,22 +269,22 @@ export async function proxy(request: NextRequest) {
     if (isAuthEndpoint) {
       const limiter = getAuthLimiter()
       if (limiter) {
-        const { success, reset } = await limiter.limit(ip)
-        if (!success) {
+        const result = await limitOrSkip(limiter, ip)
+        if (result && !result.success) {
           return NextResponse.json(
             { error: 'Demasiados intentos. Espera un momento antes de continuar.' },
-            { status: 429, headers: { 'Retry-After': Math.ceil((reset - Date.now()) / 1000).toString() } }
+            { status: 429, headers: { 'Retry-After': Math.ceil((result.reset - Date.now()) / 1000).toString() } }
           )
         }
       }
     } else {
       const limiter = getGlobalLimiter()
       if (limiter) {
-        const { success, reset } = await limiter.limit(ip)
-        if (!success) {
+        const result = await limitOrSkip(limiter, ip)
+        if (result && !result.success) {
           return NextResponse.json(
             { error: 'Demasiadas solicitudes. Intenta más tarde.' },
-            { status: 429, headers: { 'Retry-After': Math.ceil((reset - Date.now()) / 1000).toString() } }
+            { status: 429, headers: { 'Retry-After': Math.ceil((result.reset - Date.now()) / 1000).toString() } }
           )
         }
       }

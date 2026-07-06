@@ -8,6 +8,25 @@ import EccofoodLogo from '@/components/EccofoodLogo'
 import SupportButton from '@/components/SupportButton'
 import { createClient } from '@/lib/supabase/client'
 
+const LOGIN_TIMEOUT_MS = 10000
+
+async function fetchLoginWithTimeout(form: { email: string; password: string }) {
+  const controller = new AbortController()
+  const timeout = window.setTimeout(() => controller.abort(), LOGIN_TIMEOUT_MS)
+
+  try {
+    return await fetch('/api/auth/login', {
+      method: 'POST',
+      cache: 'no-store',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(form),
+      signal: controller.signal,
+    })
+  } finally {
+    window.clearTimeout(timeout)
+  }
+}
+
 export default function LoginPage() {
   const router = useRouter()
   const [form, setForm] = useState({ email: '', password: '' })
@@ -26,13 +45,9 @@ export default function LoginPage() {
     e.preventDefault()
     setError('')
     setLoading(true)
+    let navigating = false
     try {
-      const res = await fetch('/api/auth/login', {
-        method: 'POST',
-        cache: 'no-store',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(form),
-      })
+      const res = await fetchLoginWithTimeout(form)
       const data = await res.json().catch(() => ({
         error: 'No pudimos conectar con el servidor. Revisa internet e intenta de nuevo.',
       }))
@@ -40,11 +55,19 @@ export default function LoginPage() {
         setError(data.error || 'Email o contrasena incorrectos')
         return
       }
-      router.push(data.redirectUrl || `/${data.tenant.slug}/acceso`)
-    } catch {
-      setError('Error de conexion. Intenta de nuevo.')
+      const destination = data.redirectUrl || `/${data.tenant.slug}/acceso`
+      navigating = true
+      router.push(destination)
+      window.setTimeout(() => {
+        if (window.location.pathname !== destination) {
+          window.location.assign(destination)
+        }
+      }, 700)
+    } catch (loginError) {
+      const timedOut = loginError instanceof Error && loginError.name === 'AbortError'
+      setError(timedOut ? 'El servidor tardo demasiado. Reintenta o entra por Acceso del personal.' : 'Error de conexion. Intenta de nuevo.')
     } finally {
-      setLoading(false)
+      if (!navigating) setLoading(false)
     }
   }
 
