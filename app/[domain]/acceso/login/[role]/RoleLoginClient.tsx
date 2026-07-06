@@ -211,16 +211,22 @@ export function RoleLoginClient({
           camarero: `/${tenantSlug}/kitchen`,
           cajero: `/${tenantSlug}/staff/pos`,
         };
+        const destination = roleDestinations[role] || `/${tenantSlug}/acceso/portal/${role}`;
         saveStaffSession({
           tenantId,
           tenantSlug,
           staffId: authenticatedStaffId,
           staffName: authenticatedStaffName,
           role,
-          lastPath: roleDestinations[role] || `/${tenantSlug}/acceso/portal/${role}`,
+          lastPath: destination,
         });
         keepLoader = true;
-        router.replace(roleDestinations[role] || `/${tenantSlug}/acceso/portal/${role}`);
+        router.replace(destination);
+        window.setTimeout(() => {
+          if (window.location.pathname !== destination) {
+            window.location.assign(destination);
+          }
+        }, 700);
         return;
       }
 
