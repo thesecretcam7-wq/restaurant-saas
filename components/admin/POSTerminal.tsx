@@ -632,6 +632,7 @@ export function POSTerminal({
   const [quickActionsOpen, setQuickActionsOpen] = useState(false);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const quickActionsRef = useRef<HTMLDivElement>(null);
+  const offlineBootstrapToastShownRef = useRef(false);
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('cash');
   const [printReceiptAfterPayment, setPrintReceiptAfterPayment] = useState(() => {
     if (typeof window === 'undefined') return true;
@@ -2295,15 +2296,21 @@ export function POSTerminal({
       const cachedBootstrap = await getOfflineStorage().getPOSBootstrap(tenantId);
       if (cachedBootstrap) {
         applyPOSBootstrapData(cachedBootstrap);
-        setToast({
-          message: 'TPV abierto en modo local con los ultimos datos guardados',
-          type: 'success',
-        });
+        if (!offlineBootstrapToastShownRef.current) {
+          offlineBootstrapToastShownRef.current = true;
+          setToast({
+            message: 'TPV abierto en modo local con los ultimos datos guardados',
+            type: 'success',
+          });
+        }
       } else {
-        setToast({
-          message: 'No hay datos locales del TPV. Abre una vez con internet para instalar el modo offline.',
-          type: 'error',
-        });
+        if (!offlineBootstrapToastShownRef.current) {
+          offlineBootstrapToastShownRef.current = true;
+          setToast({
+            message: 'No hay datos locales del TPV. Abre una vez con internet para instalar el modo offline.',
+            type: 'error',
+          });
+        }
       }
     } finally {
       setLoading(false);
