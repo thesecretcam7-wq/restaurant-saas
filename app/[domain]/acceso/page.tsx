@@ -6,29 +6,45 @@ interface Props {
   params: Promise<{ domain: string }>
 }
 
+const ACCESS_BOOT_TIMEOUT_MS = 2500
+
+function withTimeout<T>(promise: PromiseLike<T>, timeoutMs = ACCESS_BOOT_TIMEOUT_MS): Promise<T | null> {
+  return Promise.race([
+    Promise.resolve(promise),
+    new Promise<null>((resolve) => setTimeout(() => resolve(null), timeoutMs)),
+  ])
+}
+
 export default async function AccesoPage({ params }: Props) {
   const { domain: slug } = await params
   const supabase = createServiceClient()
   const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(slug)
 
-  const { data: tenant } = await supabase
-    .from('tenants')
-    .select('id, organization_name, logo_url, metadata')
-    .eq(isUUID ? 'id' : 'slug', slug)
-    .single()
+  const tenantResult = await withTimeout(
+    supabase
+      .from('tenants')
+      .select('id, organization_name, logo_url, metadata')
+      .eq(isUUID ? 'id' : 'slug', slug)
+      .single()
+  )
+  const tenant = tenantResult?.data
 
-  const { data: branding } = tenant
-    ? await supabase
-        .from('tenant_branding')
-        .select('app_name, primary_color, secondary_color, accent_color, background_color, button_primary_color, button_secondary_color, text_primary_color, text_secondary_color, border_color, logo_url, metadata')
-        .eq('tenant_id', tenant.id)
-        .maybeSingle()
-    : { data: null }
+  const brandingResult = tenant
+    ? await withTimeout(
+        supabase
+          .from('tenant_branding')
+          .select('app_name, primary_color, secondary_color, accent_color, background_color, button_primary_color, button_secondary_color, text_primary_color, text_secondary_color, border_color, logo_url, metadata')
+          .eq('tenant_id', tenant.id)
+          .maybeSingle(),
+        1200
+      )
+    : null
+  const branding = brandingResult?.data
 
   if (!tenant) {
     return (
       <div className="min-h-screen bg-gray-950 flex items-center justify-center text-red-400 text-xl">
-        Restaurante no encontrado
+        Acceso temporalmente lento. Abre el TPV de emergencia desde /tpv-emergencia.
       </div>
     )
   }
