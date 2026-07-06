@@ -43,7 +43,8 @@ const tenantCache = new Map<string, { value: TenantRoute | null; expiresAt: numb
 const TENANT_CACHE_TTL = 60_000
 const TENANT_LOOKUP_TIMEOUT_MS = 1200
 const TENANT_SEGMENT_REGEX = /^[a-zA-Z0-9-]{2,64}$/
-const PROBE_PATH_REGEX = /\.(?:php|asp|aspx|cgi|env|git|bak|old|sql|zip|tar|gz)$/i
+const EARLY_NEXT_PATH_PREFIXES = ['/api/', '/_next/', '/favicon']
+const PROBE_PATH_REGEX = /\.(?:php|txt|xml|json|asp|aspx|cgi|env|git|bak|old|sql|zip|tar|gz)$/i
 
 // Rate limiters — inicializados lazy para evitar errores si faltan env vars
 let globalLimiter: Ratelimit | null = null
@@ -187,6 +188,14 @@ export async function proxy(request: NextRequest) {
     pathname.startsWith('/screenshots/') ||
     pathname.match(/\.(?:ico|png|jpg|jpeg|svg|webp|avif|css|js|map|txt)$/)
 
+  if (EARLY_NEXT_PATH_PREFIXES.some((prefix) => pathname.startsWith(prefix))) {
+    return NextResponse.next()
+  }
+
+  if (PROBE_PATH_REGEX.test(pathname)) {
+    return NextResponse.json({ error: 'Not found' }, { status: 404 })
+  }
+
   // En subdominios de restaurantes, la raiz debe abrir la tienda:
   // elbuenpaladar.eccofoodapp.com -> /elbuenpaladar
   const earlySubdomain = extractSubdomain(hostname, BASE_DOMAIN)
@@ -267,10 +276,6 @@ export async function proxy(request: NextRequest) {
     isAssetPath
   ) {
     return NextResponse.next()
-  }
-
-  if (PROBE_PATH_REGEX.test(pathname)) {
-    return NextResponse.json({ error: 'Not found' }, { status: 404 })
   }
 
   // ─── RATE LIMITING ────────────────────────────────────────────────────────

@@ -56,6 +56,8 @@ type CashClosingPeriod = {
 
 const ORDER_SELECT = 'id, order_number, total, tax, delivery_fee, delivery_type, payment_method, payment_breakdown, payment_status, status, created_at';
 const ORDER_SELECT_WITHOUT_PAYMENT_BREAKDOWN = 'id, order_number, total, tax, delivery_fee, delivery_type, payment_method, payment_status, status, created_at';
+const CASH_CLOSING_QUERY_TIMEOUT_MS = 8_000;
+const CLOSED_ORDER_ID_BATCH_SIZE = 150;
 
 const CANCELLED_ORDER_STATUSES = new Set(['cancelled', 'canceled', 'voided', 'deleted', 'anulado', 'cancelado']);
 
@@ -73,6 +75,25 @@ function isPaidOrder(order: any) {
 
 function isCountableClosingOrder(order: any) {
   return !isCancelledOrder(order) && isPaidOrder(order);
+}
+
+async function runCashClosingQuery<T>(query: any, label: string): Promise<T> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), CASH_CLOSING_QUERY_TIMEOUT_MS);
+
+  try {
+    return await query.abortSignal(controller.signal);
+  } catch (error) {
+    if (
+      error instanceof Error &&
+      (error.name === 'AbortError' || error.message.toLowerCase().includes('abort'))
+    ) {
+      throw new Error(`${label} tardó demasiado. Intenta de nuevo en unos segundos.`);
+    }
+    throw error;
+  } finally {
+    clearTimeout(timeout);
+  }
 }
 
 function normalizePaymentBreakdown(order: any) {
@@ -207,11 +228,17 @@ function isMissingBillPaymentsTable(error: any) {
 }
 
 async function getCurrentOperationalPeriod(supabase: SupabaseServiceClient, tenantId: string) {
-  const { data: settings, error } = await supabase
-    .from('restaurant_settings')
-    .select('operating_hours, timezone, country')
-    .eq('tenant_id', tenantId)
-    .maybeSingle();
+  const { data: settings, error } = await runCashClosingQuery<{
+    data: { operating_hours?: any; timezone?: string | null; country?: string | null } | null;
+    error: any;
+  }>(
+    supabase
+      .from('restaurant_settings')
+      .select('operating_hours, timezone, country')
+      .eq('tenant_id', tenantId)
+      .maybeSingle(),
+    'La configuración del restaurante'
+  );
 
   if (error) throw error;
 
@@ -238,22 +265,46 @@ export async function getCurrentCashClosingPeriodWithServiceClient(
 async function getClosedOrderIds(supabase: SupabaseServiceClient, tenantId: string, orderIds?: string[]) {
   if (orderIds && orderIds.length === 0) return new Set<string>();
 
-  let query = supabase
-    .from('cash_closing_items')
-    .select('order_id')
-    .eq('tenant_id', tenantId)
-    .not('order_id', 'is', null)
-    .limit(5000);
+  const buildQuery = (ids?: string[]) => {
+    let query = supabase
+      .from('cash_closing_items')
+      .select('order_id')
+      .eq('tenant_id', tenantId)
+      .not('order_id', 'is', null)
+      .limit(5000);
 
-  if (orderIds) query = query.in('order_id', orderIds);
+    if (ids) query = query.in('order_id', ids);
+    return query;
+  };
 
-  const { data, error } = await query;
-  if (error) {
-    console.warn('No se pudieron consultar items de cierres anteriores:', error.message || error);
-    return new Set<string>();
+  const runClosedItemsQuery = async (query: any) => {
+    const { data, error } = await runCashClosingQuery<{ data: any[] | null; error: any }>(
+      query,
+      'La consulta de pedidos ya cerrados'
+    );
+    if (error) {
+      console.warn('No se pudieron consultar items de cierres anteriores:', error.message || error);
+      return [];
+    }
+    return data || [];
+  };
+
+  if (!orderIds) {
+    const data = await runClosedItemsQuery(buildQuery());
+    return new Set(data.map((item: any) => item.order_id).filter(Boolean));
   }
 
-  return new Set((data || []).map((item: any) => item.order_id).filter(Boolean));
+  const uniqueOrderIds = Array.from(new Set(orderIds));
+  const batches: string[][] = [];
+  for (let index = 0; index < uniqueOrderIds.length; index += CLOSED_ORDER_ID_BATCH_SIZE) {
+    batches.push(uniqueOrderIds.slice(index, index + CLOSED_ORDER_ID_BATCH_SIZE));
+  }
+
+  const rows = (await Promise.all(
+    batches.map((batch) => runClosedItemsQuery(buildQuery(batch)))
+  )).flat();
+
+  return new Set(rows.map((item: any) => item.order_id).filter(Boolean));
 }
 
 async function getOpenBillPayments(
@@ -262,16 +313,19 @@ async function getOpenBillPayments(
   periodStart: string,
   periodEnd: string
 ) {
-  const { data, error } = await supabase
-    .from('cash_bill_payments')
-    .select('id, supplier_name, concept, invoice_number, amount, staff_name, paid_at, notes')
-    .eq('tenant_id', tenantId)
-    .eq('status', 'active')
-    .is('cash_closing_id', null)
-    .gte('paid_at', periodStart)
-    .lt('paid_at', periodEnd)
-    .order('paid_at', { ascending: true })
-    .limit(500);
+  const { data, error } = await runCashClosingQuery<{ data: any[] | null; error: any }>(
+    supabase
+      .from('cash_bill_payments')
+      .select('id, supplier_name, concept, invoice_number, amount, staff_name, paid_at, notes')
+      .eq('tenant_id', tenantId)
+      .eq('status', 'active')
+      .is('cash_closing_id', null)
+      .gte('paid_at', periodStart)
+      .lt('paid_at', periodEnd)
+      .order('paid_at', { ascending: true })
+      .limit(500),
+    'La consulta de pagos de facturas'
+  );
 
   if (error) {
     if (isMissingBillPaymentsTable(error)) return [];
@@ -299,9 +353,15 @@ export async function calculateCurrentCashClosingStats(
     .order('created_at', { ascending: true })
     .limit(2000);
 
-  let ordersResult = await buildOrdersQuery(ORDER_SELECT);
+  let ordersResult = await runCashClosingQuery<{ data: any[] | null; error: any }>(
+    buildOrdersQuery(ORDER_SELECT),
+    'La consulta de ventas del cierre actual'
+  );
   if (ordersResult.error && isMissingPaymentBreakdownColumn(ordersResult.error)) {
-    ordersResult = await buildOrdersQuery(ORDER_SELECT_WITHOUT_PAYMENT_BREAKDOWN);
+    ordersResult = await runCashClosingQuery<{ data: any[] | null; error: any }>(
+      buildOrdersQuery(ORDER_SELECT_WITHOUT_PAYMENT_BREAKDOWN),
+      'La consulta de ventas del cierre actual'
+    );
   }
 
   if (ordersResult.error) throw ordersResult.error;
@@ -340,16 +400,26 @@ export async function calculatePendingPreviousCashClosingStats(
     .order('created_at', { ascending: true })
     .limit(2000);
 
-  let ordersResult = await buildOrdersQuery(ORDER_SELECT);
+  let ordersResult = await runCashClosingQuery<{ data: any[] | null; error: any }>(
+    buildOrdersQuery(ORDER_SELECT),
+    'La consulta de ventas pendientes'
+  );
   if (ordersResult.error && isMissingPaymentBreakdownColumn(ordersResult.error)) {
-    ordersResult = await buildOrdersQuery(ORDER_SELECT_WITHOUT_PAYMENT_BREAKDOWN);
+    ordersResult = await runCashClosingQuery<{ data: any[] | null; error: any }>(
+      buildOrdersQuery(ORDER_SELECT_WITHOUT_PAYMENT_BREAKDOWN),
+      'La consulta de ventas pendientes'
+    );
   }
 
   if (ordersResult.error) throw ordersResult.error;
   const orderRows: any[] = ordersResult.data || [];
   if (!orderRows.length) return null;
 
-  const closedOrderIds = await getClosedOrderIds(supabase, tenantId);
+  const closedOrderIds = await getClosedOrderIds(
+    supabase,
+    tenantId,
+    orderRows.map((order: any) => order.id).filter(Boolean)
+  );
   const pendingOrders = orderRows.filter((order: any) => {
     if (isCancelledOrder(order)) return false;
     if (closedOrderIds.has(order.id)) return false;
@@ -442,9 +512,15 @@ export async function saveCashClosingWithServiceClient(
       .select()
       .single();
 
-  let result = await insertClosing(true);
+  let result = await runCashClosingQuery<{ data: any; error: any }>(
+    insertClosing(true),
+    'El guardado del cierre de caja'
+  );
   if (result.error && isMissingDeliveryClosingColumns(result.error)) {
-    result = await insertClosing(false);
+    result = await runCashClosingQuery<{ data: any; error: any }>(
+      insertClosing(false),
+      'El guardado del cierre de caja'
+    );
   }
 
   const { data, error } = result;
@@ -452,27 +528,33 @@ export async function saveCashClosingWithServiceClient(
   if (!data) throw new Error('No se pudo guardar el cierre de caja.');
 
   if (closingData.closingOrders?.length) {
-    const { error: itemsError } = await supabase
-      .from('cash_closing_items')
-      .insert(closingData.closingOrders.map(order => ({
-        cash_closing_id: data.id,
-        tenant_id: tenantId,
-        order_id: order.id,
-        order_number: order.order_number || null,
-        amount: order.total,
-        payment_method: order.payment_method || null,
-        created_at: order.created_at || new Date().toISOString(),
-      })));
+    const { error: itemsError } = await runCashClosingQuery<{ data: any; error: any }>(
+      supabase
+        .from('cash_closing_items')
+        .insert(closingData.closingOrders.map(order => ({
+          cash_closing_id: data.id,
+          tenant_id: tenantId,
+          order_id: order.id,
+          order_number: order.order_number || null,
+          amount: order.total,
+          payment_method: order.payment_method || null,
+          created_at: order.created_at || new Date().toISOString(),
+        }))),
+      'El guardado de ventas del cierre'
+    );
 
     if (itemsError) throw itemsError;
   }
 
   if (closingData.billPayments?.length) {
-    const { error: billPaymentsError } = await supabase
-      .from('cash_bill_payments')
-      .update({ cash_closing_id: data.id, updated_at: new Date().toISOString() })
-      .eq('tenant_id', tenantId)
-      .in('id', closingData.billPayments.map(payment => payment.id));
+    const { error: billPaymentsError } = await runCashClosingQuery<{ data: any; error: any }>(
+      supabase
+        .from('cash_bill_payments')
+        .update({ cash_closing_id: data.id, updated_at: new Date().toISOString() })
+        .eq('tenant_id', tenantId)
+        .in('id', closingData.billPayments.map(payment => payment.id)),
+      'La actualización de facturas del cierre'
+    );
 
     if (billPaymentsError && !isMissingBillPaymentsTable(billPaymentsError)) throw billPaymentsError;
   }
