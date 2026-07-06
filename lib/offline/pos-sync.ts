@@ -2,6 +2,8 @@
 
 import { getOfflineStorage, type OfflineOrder } from './storage'
 
+const OFFLINE_SYNC_ORDER_TIMEOUT_MS = 8000
+
 type POSOfflineItem = {
   menu_item_id: string | null
   name: string
@@ -127,6 +129,9 @@ export async function syncOfflinePOSOrders(tenantId: string, csrfToken?: string)
   let synced = 0
 
   for (const offlineOrder of orders) {
+    const controller = new AbortController()
+    const timeout = window.setTimeout(() => controller.abort(), OFFLINE_SYNC_ORDER_TIMEOUT_MS)
+
     try {
       const response = await fetch('/api/orders', {
         method: 'POST',
@@ -135,6 +140,7 @@ export async function syncOfflinePOSOrders(tenantId: string, csrfToken?: string)
           ...(csrfToken ? { 'x-csrf-token': csrfToken } : {}),
         },
         credentials: 'include',
+        signal: controller.signal,
         body: JSON.stringify({
           tenantId,
           offlineClientId: offlineOrder.id,
@@ -180,7 +186,11 @@ export async function syncOfflinePOSOrders(tenantId: string, csrfToken?: string)
       await storage.removePendingOperation(`pos-order-${offlineOrder.id}`)
       synced++
     } catch (error) {
-      errors.push(error instanceof Error ? error.message : String(error))
+      const aborted = error instanceof Error && error.name === 'AbortError'
+      errors.push(aborted ? 'La nube tardo demasiado. La venta queda guardada localmente.' : (error instanceof Error ? error.message : String(error)))
+      break
+    } finally {
+      window.clearTimeout(timeout)
     }
   }
 

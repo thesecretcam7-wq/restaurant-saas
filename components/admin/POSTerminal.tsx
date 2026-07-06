@@ -1075,6 +1075,11 @@ export function POSTerminal({
           message: `${result.synced} venta${result.synced > 1 ? 's' : ''} offline sincronizada${result.synced > 1 ? 's' : ''}`,
           type: result.errors.length > 0 ? 'error' : 'success',
         });
+      } else if (showToast && result.errors.length > 0) {
+        setToast({
+          message: result.errors[0] || 'No se pudieron sincronizar las ventas offline todavia',
+          type: 'error',
+        });
       }
     } catch (error) {
       console.error('Error syncing offline sales:', error);
