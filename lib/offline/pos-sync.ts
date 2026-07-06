@@ -177,6 +177,9 @@ export async function syncOfflinePOSOrders(tenantId: string, csrfToken?: string)
 
       if (!response.ok) {
         const data = await response.json().catch(() => ({}))
+        if (response.status === 401 || response.status === 403) {
+          throw new Error('Para subir las ventas locales inicia sesion como cajero/admin en este mismo navegador.')
+        }
         throw new Error(data.error || 'No se pudo subir la venta offline')
       }
 

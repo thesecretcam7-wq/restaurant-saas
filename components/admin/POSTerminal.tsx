@@ -3533,7 +3533,7 @@ export function POSTerminal({
     : !isOnline
       ? 'Sin conexion / modo local'
       : offlinePendingCount > 0
-        ? 'En linea'
+        ? `${offlinePendingCount} pendiente${offlinePendingCount > 1 ? 's' : ''}`
         : 'Sincronizado';
   const syncStatusTitle = !isOnline
     ? 'Modo local activo. Las ventas se guardan en este dispositivo.'
