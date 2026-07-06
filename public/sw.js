@@ -1,4 +1,5 @@
-const CACHE_NAME = 'eccofood-v15';
+const CACHE_NAME = 'eccofood-v16';
+const CACHE_PREFIX = 'eccofood-';
 const STATIC_ASSETS = [
   '/favicon.ico',
   '/icons/icon.svg',
@@ -63,11 +64,37 @@ function cacheSuccessfulResponse(request, response) {
   return response;
 }
 
+function matchInEccofoodCaches(request, options) {
+  return caches.match(request, options).then((matched) => {
+    if (matched) return matched;
+
+    return caches.keys().then((keys) => {
+      const eccofoodKeys = keys.filter((key) => key.indexOf(CACHE_PREFIX) === 0 && key !== CACHE_NAME);
+      return eccofoodKeys.reduce(
+        (chain, key) =>
+          chain.then((previous) => {
+            if (previous) return previous;
+            return caches.open(key).then((cache) => cache.match(request, options));
+          }),
+        Promise.resolve(undefined)
+      );
+    });
+  });
+}
+
 function cachedResponseOrOffline(request) {
   const url = new URL(request.url);
-  return caches.match(request, { ignoreSearch: true }).then(
-    (cached) => cached || caches.match(url.pathname).then((pathCached) => pathCached || offlinePage())
-  );
+  return matchInEccofoodCaches(request, { ignoreSearch: true }).then((cached) => {
+    if (cached) return cached;
+    return matchInEccofoodCaches(url.pathname).then((pathCached) => pathCached || offlinePage());
+  });
+}
+
+function cacheFirst(request) {
+  return matchInEccofoodCaches(request, { ignoreSearch: true }).then((cached) => {
+    if (cached) return cached;
+    return fetch(request).then((response) => cacheSuccessfulResponse(request, response));
+  });
 }
 
 self.addEventListener('install', (event) => {
@@ -86,18 +113,7 @@ self.addEventListener('install', (event) => {
 
 self.addEventListener('activate', (event) => {
   console.log('Service Worker activating...');
-  event.waitUntil(
-    caches.keys().then((keys) =>
-      Promise.all(
-        keys
-          .filter((k) => k !== CACHE_NAME)
-          .map((k) => {
-            console.log('Deleting old cache:', k);
-            return caches.delete(k);
-          })
-      )
-    )
-  );
+  event.waitUntil(Promise.resolve());
   self.clients.claim();
 });
 
@@ -127,6 +143,11 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
+  if (url.pathname.startsWith('/_next/static/')) {
+    event.respondWith(cacheFirst(request));
+    return;
+  }
+
   const isPwaIdentityAsset =
     url.pathname.endsWith('/manifest.webmanifest') ||
     url.pathname.endsWith('/apple-touch-icon.png') ||
@@ -153,7 +174,11 @@ self.addEventListener('fetch', (event) => {
   }
 
   if (isOperationalRoute) {
-    event.respondWith(fetch(request).catch(() => offlinePage()));
+    event.respondWith(
+      fetch(request)
+        .then((response) => cacheSuccessfulResponse(request, response))
+        .catch(() => cachedResponseOrOffline(request))
+    );
     return;
   }
 
