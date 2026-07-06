@@ -42,6 +42,8 @@ type StaffSession = {
 const tenantCache = new Map<string, { value: TenantRoute | null; expiresAt: number }>()
 const TENANT_CACHE_TTL = 60_000
 const TENANT_LOOKUP_TIMEOUT_MS = 1200
+const TENANT_SEGMENT_REGEX = /^[a-zA-Z0-9-]{2,64}$/
+const PROBE_PATH_REGEX = /\.(?:php|asp|aspx|cgi|env|git|bak|old|sql|zip|tar|gz)$/i
 
 // Rate limiters — inicializados lazy para evitar errores si faltan env vars
 let globalLimiter: Ratelimit | null = null
@@ -111,6 +113,15 @@ function withStoreHeaders(request: NextRequest, slug: string) {
 
 function getTenantRouteSegment(tenant: TenantRoute, fallback?: string) {
   return tenant.slug || fallback || tenant.id
+}
+
+function isPotentialTenantSegment(segment: string) {
+  return isUUID(segment) || TENANT_SEGMENT_REGEX.test(segment)
+}
+
+function isVercelPreviewHost(hostname: string) {
+  const cleanHostname = hostname.split(':')[0]?.toLowerCase() || hostname.toLowerCase()
+  return cleanHostname.endsWith('.vercel.app')
 }
 
 function getWaiterRootRedirect(request: NextRequest, tenant: TenantRoute, targetPathname: string) {
@@ -192,7 +203,7 @@ export async function proxy(request: NextRequest) {
 
   // En dominios personalizados, la raiz debe abrir la tienda del tenant antes
   // de tratar "/" como pagina publica de la plataforma.
-  if (!isAssetPath && !hostname.includes(BASE_DOMAIN) && pathname === '/') {
+  if (!isAssetPath && !hostname.includes(BASE_DOMAIN) && !isVercelPreviewHost(hostname) && pathname === '/') {
     const tenant = await getTenantByDomain(hostname)
     if (tenant) {
       const tenantSegment = getTenantRouteSegment(tenant)
@@ -203,7 +214,7 @@ export async function proxy(request: NextRequest) {
     }
   }
 
-  if (!hostname.includes(BASE_DOMAIN) && isTenantPwaIdentityPath(pathname)) {
+  if (!hostname.includes(BASE_DOMAIN) && !isVercelPreviewHost(hostname) && isTenantPwaIdentityPath(pathname)) {
     const tenant = await getTenantByDomain(hostname)
     if (tenant) {
       const tenantSegment = getTenantRouteSegment(tenant)
@@ -256,6 +267,10 @@ export async function proxy(request: NextRequest) {
     isAssetPath
   ) {
     return NextResponse.next()
+  }
+
+  if (PROBE_PATH_REGEX.test(pathname)) {
+    return NextResponse.json({ error: 'Not found' }, { status: 404 })
   }
 
   // ─── RATE LIMITING ────────────────────────────────────────────────────────
@@ -479,7 +494,7 @@ export async function proxy(request: NextRequest) {
   // ─── ROUTING MULTI-TENANT ────────────────────────────────────────────────
 
   // CASO 1: Dominio personalizado
-  if (!hostname.includes(BASE_DOMAIN)) {
+  if (!hostname.includes(BASE_DOMAIN) && !isVercelPreviewHost(hostname)) {
     const tenant = await getTenantByDomain(hostname)
     if (tenant) {
       const tenantSegment = getTenantRouteSegment(tenant)
@@ -519,6 +534,9 @@ export async function proxy(request: NextRequest) {
   const slugMatch = pathname.match(SLUG_PATH_REGEX)
   if (slugMatch) {
     const slug = slugMatch[1]
+    if (!isPotentialTenantSegment(slug)) {
+      return NextResponse.next()
+    }
     const tenant = isUUID(slug) ? await getTenantById(slug) : await getTenantBySlug(slug)
     if (tenant) {
       const restPath = pathname.slice(slug.length + 1) || '/'
@@ -537,51 +555,66 @@ export async function proxy(request: NextRequest) {
 
 async function getTenantByDomain(domain: string) {
   const cleanDomain = domain.split(':')[0]?.toLowerCase() || domain.toLowerCase()
-  return getCachedTenant(`domain:${cleanDomain}`, async () => {
+  return getCachedTenant(`domain:${cleanDomain}`, async (signal) => {
   try {
-    const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!, { auth: { autoRefreshToken: false, persistSession: false } })
     const candidates = cleanDomain.startsWith('www.')
       ? [cleanDomain, cleanDomain.slice(4)]
       : [cleanDomain, `www.${cleanDomain}`]
-    const { data } = await supabase.from('tenants').select('id, slug').in('primary_domain', candidates).limit(1).maybeSingle()
-    return data
+    return await fetchTenantRow(`select=id,slug&primary_domain=in.(${candidates.join(',')})&limit=1`, signal)
   } catch { return null }
   })
 }
 
 async function getTenantBySlug(slug: string) {
-  return getCachedTenant(`slug:${slug}`, async () => {
+  if (!isPotentialTenantSegment(slug) || isUUID(slug)) return null
+  return getCachedTenant(`slug:${slug}`, async (signal) => {
   try {
-    const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!, { auth: { autoRefreshToken: false, persistSession: false } })
-    const { data } = await supabase.from('tenants').select('id, slug').eq('slug', slug).single()
-    return data
+    return await fetchTenantRow(`select=id,slug&slug=eq.${encodeURIComponent(slug)}&limit=1`, signal)
   } catch { return null }
   })
 }
 
 async function getTenantById(id: string) {
-  return getCachedTenant(`id:${id}`, async () => {
+  return getCachedTenant(`id:${id}`, async (signal) => {
   try {
-    const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!, { auth: { autoRefreshToken: false, persistSession: false } })
-    const { data } = await supabase.from('tenants').select('id, slug').eq('id', id).single()
-    return data
+    return await fetchTenantRow(`select=id,slug&id=eq.${encodeURIComponent(id)}&limit=1`, signal)
   } catch { return null }
   })
 }
 
-async function getCachedTenant(key: string, fetcher: () => Promise<TenantRoute | null>) {
+async function fetchTenantRow(query: string, signal: AbortSignal): Promise<TenantRoute | null> {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+  if (!supabaseUrl || !serviceKey) return null
+
+  const response = await fetch(`${supabaseUrl}/rest/v1/tenants?${query}`, {
+    headers: {
+      apikey: serviceKey,
+      authorization: `Bearer ${serviceKey}`,
+    },
+    signal,
+  })
+  if (!response.ok) return null
+
+  const rows = await response.json() as TenantRoute[]
+  return rows[0] || null
+}
+
+async function getCachedTenant(key: string, fetcher: (signal: AbortSignal) => Promise<TenantRoute | null>) {
   const cached = tenantCache.get(key)
   if (cached && cached.expiresAt > Date.now()) {
     return cached.value
   }
 
-  const value = await Promise.race([
-    fetcher(),
-    new Promise<null>((resolve) => setTimeout(() => resolve(null), TENANT_LOOKUP_TIMEOUT_MS)),
-  ]).catch((error) => {
+  const controller = new AbortController()
+  const timeout = setTimeout(() => controller.abort(), TENANT_LOOKUP_TIMEOUT_MS)
+  const value = await fetcher(controller.signal).catch((error) => {
     console.warn('[proxy tenant lookup] skipped after error:', error instanceof Error ? error.message : error)
     return null
+  }).finally(() => {
+    clearTimeout(timeout)
   })
+
   tenantCache.set(key, { value, expiresAt: Date.now() + TENANT_CACHE_TTL })
   return value
 }
