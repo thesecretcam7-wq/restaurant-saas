@@ -8,11 +8,20 @@ interface StaffPOSPageProps {
 
 const STAFF_POS_BOOT_TIMEOUT_MS = 2500;
 
-function withTimeout<T>(promise: PromiseLike<T>, timeoutMs: number): Promise<T | null> {
-  return Promise.race([
-    Promise.resolve(promise),
-    new Promise<null>((resolve) => setTimeout(() => resolve(null), timeoutMs)),
-  ]);
+async function withSupabaseTimeout<T>(
+  buildQuery: (signal: AbortSignal) => PromiseLike<T>,
+  timeoutMs: number
+): Promise<T | null> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+
+  try {
+    return await buildQuery(controller.signal);
+  } catch {
+    return null;
+  } finally {
+    clearTimeout(timeout);
+  }
 }
 
 export default async function StaffPOSPage({ params }: StaffPOSPageProps) {
@@ -21,12 +30,12 @@ export default async function StaffPOSPage({ params }: StaffPOSPageProps) {
 
   const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(slug);
 
-  const tenantResult = await withTimeout(
-    supabase
+  const tenantResult: any = await withSupabaseTimeout(
+    (signal) => (supabase
       .from('tenants')
       .select('id, country')
       .eq(isUUID ? 'id' : 'slug', slug)
-      .single(),
+      .single() as any).abortSignal(signal),
     STAFF_POS_BOOT_TIMEOUT_MS
   );
   const tenant = tenantResult?.data;
@@ -35,12 +44,12 @@ export default async function StaffPOSPage({ params }: StaffPOSPageProps) {
     return <StaffPOSOfflineFallback tenantSlug={slug} />;
   }
 
-  const settingsResult = await withTimeout(
-    supabase
+  const settingsResult: any = await withSupabaseTimeout(
+    (signal) => (supabase
       .from('restaurant_settings')
       .select('country')
       .eq('tenant_id', tenant.id)
-      .maybeSingle(),
+      .maybeSingle() as any).abortSignal(signal),
     STAFF_POS_BOOT_TIMEOUT_MS
   );
   const settings = settingsResult?.data;

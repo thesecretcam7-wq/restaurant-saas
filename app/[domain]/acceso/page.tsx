@@ -8,11 +8,20 @@ interface Props {
 
 const ACCESS_BOOT_TIMEOUT_MS = 2500
 
-function withTimeout<T>(promise: PromiseLike<T>, timeoutMs = ACCESS_BOOT_TIMEOUT_MS): Promise<T | null> {
-  return Promise.race([
-    Promise.resolve(promise),
-    new Promise<null>((resolve) => setTimeout(() => resolve(null), timeoutMs)),
-  ])
+async function withSupabaseTimeout<T>(
+  buildQuery: (signal: AbortSignal) => PromiseLike<T>,
+  timeoutMs = ACCESS_BOOT_TIMEOUT_MS
+): Promise<T | null> {
+  const controller = new AbortController()
+  const timeout = setTimeout(() => controller.abort(), timeoutMs)
+
+  try {
+    return await buildQuery(controller.signal)
+  } catch {
+    return null
+  } finally {
+    clearTimeout(timeout)
+  }
 }
 
 export default async function AccesoPage({ params }: Props) {
@@ -20,22 +29,22 @@ export default async function AccesoPage({ params }: Props) {
   const supabase = createServiceClient()
   const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(slug)
 
-  const tenantResult = await withTimeout(
-    supabase
+  const tenantResult: any = await withSupabaseTimeout(
+    (signal) => (supabase
       .from('tenants')
       .select('id, organization_name, logo_url, metadata')
       .eq(isUUID ? 'id' : 'slug', slug)
-      .single()
+      .single() as any).abortSignal(signal)
   )
   const tenant = tenantResult?.data
 
-  const brandingResult = tenant
-    ? await withTimeout(
-        supabase
+  const brandingResult: any = tenant
+    ? await withSupabaseTimeout(
+        (signal) => (supabase
           .from('tenant_branding')
           .select('app_name, primary_color, secondary_color, accent_color, background_color, button_primary_color, button_secondary_color, text_primary_color, text_secondary_color, border_color, logo_url, metadata')
           .eq('tenant_id', tenant.id)
-          .maybeSingle(),
+          .maybeSingle() as any).abortSignal(signal),
         1200
       )
     : null
