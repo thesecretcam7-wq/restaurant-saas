@@ -322,6 +322,38 @@ ed orders
     }
   }
 
+  async getLatestPOSBootstrap(): Promise<POSBootstrapCache | null> {
+    try {
+      const db = await this.getDB()
+      const transaction = db.transaction([STORES.TENANT_CONFIG], 'readonly')
+      const store = transaction.objectStore(STORES.TENANT_CONFIG)
+
+      return new Promise((resolve, reject) => {
+        const request = store.getAll()
+        request.onsuccess = () => {
+          const bootstraps = (request.result || [])
+            .filter((result: any) => String(result?.key || '').startsWith('pos-bootstrap-') && result.tenantId)
+            .sort((a: any, b: any) => String(b.cachedAt || '').localeCompare(String(a.cachedAt || '')))
+          const result = bootstraps[0]
+          resolve(result ? {
+            tenantId: result.tenantId,
+            categories: result.categories || [],
+            menu: result.menu || [],
+            tables: result.tables || [],
+            tenant: result.tenant || null,
+            settings: result.settings || null,
+            branding: result.branding || null,
+            cachedAt: result.cachedAt,
+          } : null)
+        }
+        request.onerror = () => reject(request.error)
+      })
+    } catch (error) {
+      console.error('Error getting latest POS bootstrap:', error)
+      return null
+    }
+  }
+
   /**
    * Get cached menu items
    */

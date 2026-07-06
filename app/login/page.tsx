@@ -231,6 +231,13 @@ export default function LoginPage() {
                 Contactar soporte
               </Link>
             </p>
+
+            <p className="mt-3 text-center text-sm font-semibold text-slate-500">
+              Caja bloqueada?{' '}
+              <Link href="/tpv-emergencia" className="font-black text-[#D35A37] hover:text-[#D4AF37]">
+                Abrir TPV de emergencia
+              </Link>
+            </p>
           </div>
         </div>
       </section>

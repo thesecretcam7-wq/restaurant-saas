@@ -50,6 +50,7 @@ type PaymentMethod = 'cash' | 'stripe' | 'mixed';
 type CashClosingMode = 'current' | 'pending';
 const MANUAL_CHARGE_NAME = 'Cobro manual';
 const POS_CONNECTIVITY_CHECK_TIMEOUT_MS = 3500;
+const POS_BOOTSTRAP_TIMEOUT_MS = 3500;
 
 declare global {
   interface Window {
@@ -110,6 +111,21 @@ async function canReachPOSCloud() {
     return response.ok;
   } catch {
     return false;
+  } finally {
+    window.clearTimeout(timeout);
+  }
+}
+
+async function fetchPOSBootstrapWithTimeout(tenantId: string) {
+  const controller = new AbortController();
+  const timeout = window.setTimeout(() => controller.abort(), POS_BOOTSTRAP_TIMEOUT_MS);
+
+  try {
+    return await fetch(`/api/pos/bootstrap?tenantId=${encodeURIComponent(tenantId)}`, {
+      credentials: 'include',
+      cache: 'no-store',
+      signal: controller.signal,
+    });
   } finally {
     window.clearTimeout(timeout);
   }
@@ -2255,10 +2271,7 @@ export function POSTerminal({
 
   async function fetchMenuData() {
     try {
-      const response = await fetch(`/api/pos/bootstrap?tenantId=${encodeURIComponent(tenantId)}`, {
-        credentials: 'include',
-        cache: 'no-store',
-      });
+      const response = await fetchPOSBootstrapWithTimeout(tenantId);
 
       if (!response.ok) throw new Error(`POS bootstrap failed: ${response.status}`);
 
