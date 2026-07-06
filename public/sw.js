@@ -1,5 +1,6 @@
-const CACHE_NAME = 'eccofood-v17';
+const CACHE_NAME = 'eccofood-v18';
 const CACHE_PREFIX = 'eccofood-';
+const NETWORK_TIMEOUT_MS = 3500;
 const STATIC_ASSETS = [
   '/favicon.ico',
   '/icons/icon.svg',
@@ -97,6 +98,17 @@ function cacheFirst(request) {
   });
 }
 
+function fetchWithTimeout(request) {
+  if (typeof AbortController === 'undefined') return fetch(request);
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), NETWORK_TIMEOUT_MS);
+
+  return fetch(request, { signal: controller.signal }).finally(() => {
+    clearTimeout(timeout);
+  });
+}
+
 self.addEventListener('install', (event) => {
   console.log('Service Worker installing...');
   event.waitUntil(
@@ -169,7 +181,7 @@ self.addEventListener('fetch', (event) => {
 
   if (request.mode === 'navigate') {
     event.respondWith(
-      fetch(request)
+      fetchWithTimeout(request)
         .then((response) => cacheSuccessfulResponse(request, response))
         .catch(() => cachedResponseOrOffline(request))
     );
@@ -183,7 +195,7 @@ self.addEventListener('fetch', (event) => {
 
   if (isOperationalRoute) {
     event.respondWith(
-      fetch(request)
+      fetchWithTimeout(request)
         .then((response) => cacheSuccessfulResponse(request, response))
         .catch(() => cachedResponseOrOffline(request))
     );
@@ -191,7 +203,7 @@ self.addEventListener('fetch', (event) => {
   }
 
   event.respondWith(
-    fetch(request)
+    fetchWithTimeout(request)
       .then((response) => {
         if (!response || response.status !== 200 || response.type === 'error') {
           return response;
