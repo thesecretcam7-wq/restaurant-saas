@@ -18,6 +18,7 @@ const PUBLIC_PATHS = new Set([
   '/planes',
   '/owner-login',
   '/eccofood-admin',
+  '/tpv-emergencia',
   '/soporte',
   '/unauthorized',
   '/manifest.webmanifest',
@@ -40,6 +41,7 @@ type StaffSession = {
 }
 const tenantCache = new Map<string, { value: TenantRoute | null; expiresAt: number }>()
 const TENANT_CACHE_TTL = 60_000
+const TENANT_LOOKUP_TIMEOUT_MS = 1200
 
 // Rate limiters — inicializados lazy para evitar errores si faltan env vars
 let globalLimiter: Ratelimit | null = null
@@ -573,7 +575,13 @@ async function getCachedTenant(key: string, fetcher: () => Promise<TenantRoute |
     return cached.value
   }
 
-  const value = await fetcher()
+  const value = await Promise.race([
+    fetcher(),
+    new Promise<null>((resolve) => setTimeout(() => resolve(null), TENANT_LOOKUP_TIMEOUT_MS)),
+  ]).catch((error) => {
+    console.warn('[proxy tenant lookup] skipped after error:', error instanceof Error ? error.message : error)
+    return null
+  })
   tenantCache.set(key, { value, expiresAt: Date.now() + TENANT_CACHE_TTL })
   return value
 }

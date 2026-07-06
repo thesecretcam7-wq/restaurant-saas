@@ -6,6 +6,16 @@ import { randomUUID } from 'crypto'
 import { getAuthLimiter, getClientIp, applyRateLimit } from '@/lib/rate-limit'
 import { isOwnerEmail } from '@/lib/owner-auth'
 
+const AUTH_TIMEOUT_MS = 6000
+const DATA_TIMEOUT_MS = 3500
+
+function timeoutResult<T>(promise: PromiseLike<T>, timeoutMs: number, label: string): Promise<T> {
+  return Promise.race([
+    Promise.resolve(promise),
+    new Promise<never>((_, reject) => setTimeout(() => reject(new Error(`${label} timeout`)), timeoutMs)),
+  ])
+}
+
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
@@ -67,7 +77,11 @@ export async function POST(request: NextRequest) {
       }
     )
 
-    const { data, error } = await supabase.auth.signInWithPassword({ email, password })
+    const { data, error } = await timeoutResult(
+      supabase.auth.signInWithPassword({ email, password }),
+      AUTH_TIMEOUT_MS,
+      'Supabase auth'
+    )
 
     if (error) {
       console.error('[Login] Supabase auth error:', error.message)
@@ -78,11 +92,15 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: true, tenant: null, redirectUrl: '/owner-dashboard' })
     }
 
-    const { data: tenant } = await supabase
-      .from('tenants')
-      .select('id, slug, primary_domain, status')
-      .eq('owner_id', data.user.id)
-      .single()
+    const { data: tenant } = await timeoutResult(
+      supabase
+        .from('tenants')
+        .select('id, slug, primary_domain, status')
+        .eq('owner_id', data.user.id)
+        .single(),
+      DATA_TIMEOUT_MS,
+      'Tenant lookup'
+    )
 
     if (!tenant) {
       return NextResponse.json({ error: 'No se encontro un restaurante asociado' }, { status: 404 })
@@ -98,11 +116,15 @@ export async function POST(request: NextRequest) {
       serviceKey,
       { auth: { autoRefreshToken: false, persistSession: false } }
     )
-    await serviceClient.from('active_sessions').upsert({
-      user_key: `owner:${data.user.id}`,
-      tenant_id: tenant.id,
-      session_token: sessionToken,
-    }, { onConflict: 'user_key' })
+    await timeoutResult(
+      serviceClient.from('active_sessions').upsert({
+        user_key: `owner:${data.user.id}`,
+        tenant_id: tenant.id,
+        session_token: sessionToken,
+      }, { onConflict: 'user_key' }),
+      DATA_TIMEOUT_MS,
+      'Session upsert'
+    )
 
     const redirectUrl = `/${tenant.slug}/acceso`
 
