@@ -6,8 +6,10 @@ import { randomUUID } from 'crypto'
 import { getAuthLimiter, getClientIp, applyRateLimit } from '@/lib/rate-limit'
 import { isOwnerEmail } from '@/lib/owner-auth'
 
-const AUTH_TIMEOUT_MS = 6000
-const DATA_TIMEOUT_MS = 3500
+export const maxDuration = 30
+
+const AUTH_TIMEOUT_MS = 15000
+const DATA_TIMEOUT_MS = 7000
 
 function timeoutResult<T>(promise: PromiseLike<T>, timeoutMs: number, label: string): Promise<T> {
   return Promise.race([
@@ -116,29 +118,43 @@ export async function POST(request: NextRequest) {
       serviceKey,
       { auth: { autoRefreshToken: false, persistSession: false } }
     )
-    await timeoutResult(
-      serviceClient.from('active_sessions').upsert({
-        user_key: `owner:${data.user.id}`,
-        tenant_id: tenant.id,
-        session_token: sessionToken,
-      }, { onConflict: 'user_key' }),
-      DATA_TIMEOUT_MS,
-      'Session upsert'
-    )
+    let sessionTokenSaved = true
+    try {
+      await timeoutResult(
+        serviceClient.from('active_sessions').upsert({
+          user_key: `owner:${data.user.id}`,
+          tenant_id: tenant.id,
+          session_token: sessionToken,
+        }, { onConflict: 'user_key' }),
+        DATA_TIMEOUT_MS,
+        'Session upsert'
+      )
+    } catch (sessionError) {
+      sessionTokenSaved = false
+      console.warn('[Login] Session upsert skipped:', sessionError instanceof Error ? sessionError.message : sessionError)
+    }
 
     const redirectUrl = `/${tenant.slug}/acceso`
 
     const response = NextResponse.json({ success: true, tenant, redirectUrl })
-    response.cookies.set('admin_session_token', sessionToken, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict',
-      maxAge: 86400 * 30,
-      path: '/',
-    })
+    if (sessionTokenSaved) {
+      response.cookies.set('admin_session_token', sessionToken, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'strict',
+        maxAge: 86400 * 30,
+        path: '/',
+      })
+    }
     return response
   } catch (error) {
     console.error('Login error:', error)
+    if (error instanceof Error && error.message.includes('timeout')) {
+      return NextResponse.json(
+        { error: 'Supabase esta tardando demasiado en responder. Intenta de nuevo en unos segundos.' },
+        { status: 504 }
+      )
+    }
     return NextResponse.json({ error: 'Error interno del servidor' }, { status: 500 })
   }
 }

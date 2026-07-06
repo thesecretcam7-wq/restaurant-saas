@@ -8,7 +8,7 @@ import EccofoodLogo from '@/components/EccofoodLogo'
 import SupportButton from '@/components/SupportButton'
 import { createClient } from '@/lib/supabase/client'
 
-const LOGIN_TIMEOUT_MS = 10000
+const LOGIN_TIMEOUT_MS = 25000
 
 async function fetchLoginWithTimeout(form: { email: string; password: string }) {
   const controller = new AbortController()
