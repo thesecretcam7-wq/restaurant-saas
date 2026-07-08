@@ -13,6 +13,34 @@ import { getRestaurantBusinessPeriod, getRestaurantLocale, getRestaurantTimeZone
 import { buildOrderItemRows } from '@/lib/order-item-routing'
 import { sendServiceReadyPushNotifications } from '@/lib/push-server'
 
+type OfflineOrderInsertLockResult = {
+  orderId: string
+  orderNumber?: string | null
+}
+
+type OfflineOrderInsertDeferred = {
+  promise: Promise<OfflineOrderInsertLockResult>
+  resolve: (result: OfflineOrderInsertLockResult) => void
+  reject: (error: unknown) => void
+}
+
+const offlineOrderInsertLocks = new Map<string, Promise<OfflineOrderInsertLockResult>>()
+
+function createOfflineOrderInsertDeferred(): OfflineOrderInsertDeferred {
+  let resolveDeferred!: (result: OfflineOrderInsertLockResult) => void
+  let rejectDeferred!: (error: unknown) => void
+  const promise = new Promise<OfflineOrderInsertLockResult>((resolve, reject) => {
+    resolveDeferred = resolve
+    rejectDeferred = reject
+  })
+
+  return {
+    promise,
+    resolve: resolveDeferred,
+    reject: rejectDeferred,
+  }
+}
+
 function normalizePaymentMethodValue(method: unknown) {
   if (typeof method !== 'string') return null
   const value = method.trim().toLowerCase()
@@ -487,6 +515,29 @@ export async function POST(request: NextRequest) {
     const safeOfflineClientId = source === 'pos-offline' && typeof offlineClientId === 'string'
       ? offlineClientId.trim().slice(0, 80)
       : ''
+    const offlineLockKey = safeOfflineClientId ? `${tenantId}:${safeOfflineClientId}` : ''
+    const existingOfflineInsert = offlineLockKey ? offlineOrderInsertLocks.get(offlineLockKey) : null
+
+    if (existingOfflineInsert) {
+      try {
+        const existingOrder = await existingOfflineInsert
+        return NextResponse.json({
+          success: true,
+          orderId: existingOrder.orderId,
+          orderNumber: existingOrder.orderNumber,
+          reused: true,
+        })
+      } catch {
+        offlineOrderInsertLocks.delete(offlineLockKey)
+      }
+    }
+
+    let offlineInsertDeferred: OfflineOrderInsertDeferred | null = null
+
+    if (offlineLockKey) {
+      offlineInsertDeferred = createOfflineOrderInsertDeferred()
+      offlineOrderInsertLocks.set(offlineLockKey, offlineInsertDeferred.promise)
+    }
 
     const orderNotes = [
       normalizedNotes || null,
@@ -509,6 +560,11 @@ export async function POST(request: NextRequest) {
       if (existingOfflineError) {
         console.error('[orders POST] offline idempotency lookup error:', existingOfflineError.message)
       } else if (existingOfflineOrder?.id) {
+        offlineInsertDeferred?.resolve({
+          orderId: existingOfflineOrder.id,
+          orderNumber: existingOfflineOrder.order_number,
+        })
+        if (offlineLockKey) offlineOrderInsertLocks.delete(offlineLockKey)
         return NextResponse.json({
           success: true,
           orderId: existingOfflineOrder.id,
@@ -563,7 +619,17 @@ export async function POST(request: NextRequest) {
 
     if (error) {
       console.error('[orders POST] insert error:', error.message, error.details, error.hint)
+      offlineInsertDeferred?.reject(error)
+      if (offlineLockKey) offlineOrderInsertLocks.delete(offlineLockKey)
       return NextResponse.json({ error: error.message }, { status: 500 })
+    }
+
+    offlineInsertDeferred?.resolve({
+      orderId: order.id,
+      orderNumber: order.order_number,
+    })
+    if (offlineLockKey) {
+      setTimeout(() => offlineOrderInsertLocks.delete(offlineLockKey), 5000)
     }
 
     after(async () => {

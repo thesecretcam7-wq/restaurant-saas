@@ -4,6 +4,14 @@ import { getOfflineStorage, type OfflineOrder } from './storage'
 
 const OFFLINE_SYNC_ORDER_TIMEOUT_MS = 8000
 
+type POSOfflineSyncResult = {
+  synced: number
+  remaining: number
+  errors: string[]
+}
+
+const syncInFlight = new Map<string, Promise<POSOfflineSyncResult>>()
+
 type POSOfflineItem = {
   menu_item_id: string | null
   name: string
@@ -120,7 +128,7 @@ export async function countPendingPOSOrders(tenantId: string) {
   return orders.filter((order) => order.tenantId === tenantId && order.source === 'pos-offline').length
 }
 
-export async function syncOfflinePOSOrders(tenantId: string, csrfToken?: string) {
+async function runOfflinePOSOrderSync(tenantId: string, csrfToken?: string): Promise<POSOfflineSyncResult> {
   const storage = getOfflineStorage()
   const orders = (await storage.getUnsyncedOrders()).filter(
     (order) => order.tenantId === tenantId && order.source === 'pos-offline'
@@ -202,4 +210,15 @@ export async function syncOfflinePOSOrders(tenantId: string, csrfToken?: string)
     remaining: await countPendingPOSOrders(tenantId),
     errors,
   }
+}
+
+export function syncOfflinePOSOrders(tenantId: string, csrfToken?: string) {
+  const existingSync = syncInFlight.get(tenantId)
+  if (existingSync) return existingSync
+
+  const sync = runOfflinePOSOrderSync(tenantId, csrfToken).finally(() => {
+    syncInFlight.delete(tenantId)
+  })
+  syncInFlight.set(tenantId, sync)
+  return sync
 }

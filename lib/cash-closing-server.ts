@@ -1,4 +1,10 @@
 import { getRestaurantBusinessPeriod, getRestaurantLocale, getRestaurantTimeZone } from '@/lib/restaurant-time';
+import {
+  isCancelledCashClosingOrder,
+  isCountableCashClosingOrder,
+  isPaidCashClosingOrder,
+  isPendingPreviousCashClosingOrder,
+} from '@/lib/cash-closing-filters';
 import type { createServiceClient } from '@/lib/supabase/server';
 
 export type CashClosingMode = 'current' | 'pending';
@@ -59,22 +65,16 @@ const ORDER_SELECT_WITHOUT_PAYMENT_BREAKDOWN = 'id, order_number, total, tax, de
 const CASH_CLOSING_QUERY_TIMEOUT_MS = 8_000;
 const CLOSED_ORDER_ID_BATCH_SIZE = 150;
 
-const CANCELLED_ORDER_STATUSES = new Set(['cancelled', 'canceled', 'voided', 'deleted', 'anulado', 'cancelado']);
-
-function normalizeStatus(value: unknown) {
-  return String(value || '').trim().toLowerCase();
-}
-
 function isCancelledOrder(order: any) {
-  return CANCELLED_ORDER_STATUSES.has(normalizeStatus(order?.status));
+  return isCancelledCashClosingOrder(order);
 }
 
 function isPaidOrder(order: any) {
-  return normalizeStatus(order?.payment_status) === 'paid';
+  return isPaidCashClosingOrder(order);
 }
 
 function isCountableClosingOrder(order: any) {
-  return !isCancelledOrder(order) && isPaidOrder(order);
+  return isCountableCashClosingOrder(order);
 }
 
 async function runCashClosingQuery<T>(query: any, label: string): Promise<T> {
@@ -388,13 +388,12 @@ export async function calculatePendingPreviousCashClosingStats(
 ): Promise<CashClosingStats | null> {
   const currentPeriod = await getCurrentOperationalPeriod(supabase, tenantId);
   const currentPeriodStart = new Date(currentPeriod.periodStart);
-  const closingMoment = new Date();
 
   const buildOrdersQuery = (select: string) => supabase
     .from('orders')
     .select(select)
     .eq('tenant_id', tenantId)
-    .lte('created_at', closingMoment.toISOString())
+    .lt('created_at', currentPeriodStart.toISOString())
     .not('payment_method', 'is', null)
     .eq('payment_status', 'paid')
     .order('created_at', { ascending: true })
@@ -421,21 +420,14 @@ export async function calculatePendingPreviousCashClosingStats(
     orderRows.map((order: any) => order.id).filter(Boolean)
   );
   const pendingOrders = orderRows.filter((order: any) => {
-    if (isCancelledOrder(order)) return false;
-    if (closedOrderIds.has(order.id)) return false;
-    return true;
+    return isPendingPreviousCashClosingOrder(order, currentPeriodStart, closedOrderIds);
   });
 
   if (pendingOrders.length === 0) return null;
-  const hasPreviousPeriodOrders = pendingOrders.some((order: any) =>
-    new Date(order.created_at) < currentPeriodStart
-  );
-  if (!hasPreviousPeriodOrders) return null;
-
   const firstOrderDate = new Date(pendingOrders[0].created_at);
   const period: CashClosingPeriod = {
     periodStart: firstOrderDate.toISOString(),
-    periodEnd: closingMoment.toISOString(),
+    periodEnd: currentPeriodStart.toISOString(),
     businessDateLabel: `pendiente hasta ${currentPeriodStart.toLocaleDateString('es-ES', {
       weekday: 'long',
       day: '2-digit',
