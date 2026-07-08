@@ -4194,6 +4194,15 @@ export function POSTerminal({
               <PencilLine className="w-5 h-5" />
               <span className="hidden sm:inline">Manual</span>
             </button>
+            <button
+              type="button"
+              onClick={downloadPOSShortcut}
+              className="pos-action-ghost border-emerald-300/50 bg-emerald-300/14 text-emerald-50 shadow-[0_0_18px_rgba(110,231,183,0.18)]"
+              title="Instalar el TPV en el escritorio de este ordenador"
+            >
+              <Download className="w-5 h-5" />
+              <span>Instalar</span>
+            </button>
             {compactPOSLayout && (
               <>
                 <button
