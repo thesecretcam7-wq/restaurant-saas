@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { X, Check, AlertCircle } from 'lucide-react';
+import { X, Check, AlertCircle, Calculator } from 'lucide-react';
 import { getCurrencyByCountry, formatPriceWithCurrency } from '@/lib/currency';
 import { useTouchDevice } from '@/lib/hooks/useTouchDevice';
 import { NumericKeyboard } from './NumericKeyboard';
@@ -240,29 +240,41 @@ export function CashClosingModal({
             <label className="mb-2 block text-sm font-black uppercase tracking-[0.14em] text-orange-700">
               Monto real contado en caja
             </label>
-            <div className="relative">
-              <span className="absolute left-4 top-1/2 -translate-y-1/2 text-lg font-black text-orange-700">
-                {currencyInfo.symbol}
-              </span>
-              <input
-                type="number"
-                inputMode={isTouchDevice ? 'none' : 'decimal'}
-                step="0.01"
-                value={actualCash}
-                readOnly={isTouchDevice}
-                onPointerDown={(e) => {
-                  if (!isTouchDevice) return;
-                  e.preventDefault();
-                  setShowCashKeyboard(true);
-                }}
-                onFocus={() => {
-                  if (isTouchDevice) setShowCashKeyboard(true);
-                }}
-                onChange={(e) => setActualCash(e.target.value)}
-                placeholder="0.00"
+            <div className="grid gap-2 sm:grid-cols-[1fr_auto]">
+              <div className="relative">
+                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-lg font-black text-orange-700">
+                  {currencyInfo.symbol}
+                </span>
+                <input
+                  type="number"
+                  inputMode={isTouchDevice ? 'none' : 'decimal'}
+                  step="0.01"
+                  value={actualCash}
+                  readOnly={isTouchDevice}
+                  onPointerDown={(e) => {
+                    if (!isTouchDevice) return;
+                    e.preventDefault();
+                    setShowCashKeyboard(true);
+                  }}
+                  onFocus={() => {
+                    if (isTouchDevice) setShowCashKeyboard(true);
+                  }}
+                  onChange={(e) => setActualCash(e.target.value)}
+                  placeholder="0.00"
+                  disabled={isBusy}
+                  className={`${fieldClass} pl-10 pr-4`}
+                />
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowCashKeyboard(true)}
                 disabled={isBusy}
-                className={`${fieldClass} pl-10 pr-4`}
-              />
+                className="inline-flex items-center justify-center gap-2 rounded-2xl border border-orange-200 bg-orange-50 px-4 py-3 text-sm font-black text-orange-800 transition hover:border-orange-300 hover:bg-orange-100 disabled:opacity-50"
+                title="Abrir teclado numerico"
+              >
+                <Calculator className="h-5 w-5" />
+                Teclado
+              </button>
             </div>
           </section>
 
