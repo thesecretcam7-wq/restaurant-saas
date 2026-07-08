@@ -60,6 +60,11 @@ declare global {
   }
 }
 
+type BeforeInstallPromptEvent = Event & {
+  prompt: () => Promise<void>;
+  userChoice: Promise<{ outcome: 'accepted' | 'dismissed'; platform: string }>;
+};
+
 function getLoggedStaffFromBrowser(tenantId: string) {
   if (typeof window === 'undefined') return { staffId: null as string | null, staffName: '' };
   const storedTenant = sessionStorage.getItem('staff_tenant');
@@ -670,6 +675,7 @@ export function POSTerminal({
   const [paymentResetKey, setPaymentResetKey] = useState(0);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [installPromptEvent, setInstallPromptEvent] = useState<BeforeInstallPromptEvent | null>(null);
   const posRootRef = useRef<HTMLDivElement>(null);
   const { wakeLockActive, activateWakeLock } = useWakeLock();
   const [showCashClosing, setShowCashClosing] = useState(false);
@@ -754,6 +760,28 @@ export function POSTerminal({
     if (typeof window === 'undefined') return;
     setPrintReceiptAfterPayment(localStorage.getItem(printReceiptPreferenceStorageKey) !== 'false');
   }, [printReceiptPreferenceStorageKey]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const handleBeforeInstallPrompt = (event: Event) => {
+      event.preventDefault();
+      setInstallPromptEvent(event as BeforeInstallPromptEvent);
+    };
+
+    const handleAppInstalled = () => {
+      setInstallPromptEvent(null);
+      setToast({ message: 'TPV instalado en este ordenador', type: 'success' });
+    };
+
+    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+    window.addEventListener('appinstalled', handleAppInstalled);
+
+    return () => {
+      window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+      window.removeEventListener('appinstalled', handleAppInstalled);
+    };
+  }, []);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -1371,7 +1399,22 @@ export function POSTerminal({
     link.click();
     link.remove();
     URL.revokeObjectURL(href);
-    setToast({ message: 'Instalador del acceso descargado. Abrelo una vez y dejara el TPV en el Escritorio.', type: 'success' });
+    setToast({ message: 'Instalador descargado. Abre el archivo .cmd descargado para crear el icono en el Escritorio.', type: 'success' });
+  }
+
+  async function handleInstallPOS() {
+    if (installPromptEvent) {
+      await installPromptEvent.prompt();
+      const choice = await installPromptEvent.userChoice.catch(() => null);
+      setInstallPromptEvent(null);
+
+      if (choice?.outcome === 'accepted') {
+        setToast({ message: 'TPV instalado en este ordenador', type: 'success' });
+        return;
+      }
+    }
+
+    downloadPOSShortcut();
   }
 
   async function handleOpenCashClosing() {
@@ -3760,7 +3803,9 @@ export function POSTerminal({
             )}
             <button
               type="button"
-              onClick={downloadPOSShortcut}
+              onClick={() => {
+                void handleInstallPOS();
+              }}
               className="pos-action-ghost border-emerald-300/45 bg-emerald-300/12 text-emerald-50"
               title="Instalar el TPV en el escritorio de este ordenador"
             >
@@ -3827,7 +3872,9 @@ export function POSTerminal({
               </div>
               <button
                 type="button"
-                onClick={downloadPOSShortcut}
+                onClick={() => {
+                  void handleInstallPOS();
+                }}
                 className="hidden shrink-0 items-center gap-2 rounded-xl border border-emerald-300/35 bg-emerald-300/12 px-3 py-2 text-xs font-black text-emerald-50 transition hover:bg-emerald-300/18 md:inline-flex"
                 title="Instalar el TPV en el escritorio de este ordenador"
               >
@@ -4118,12 +4165,12 @@ export function POSTerminal({
                       type="button"
                       onClick={() => {
                         setQuickActionsOpen(false);
-                        downloadPOSShortcut();
+                        void handleInstallPOS();
                       }}
                       className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left font-black text-cyan-50 transition hover:bg-white/10"
                     >
                       <Download className="h-4 w-4" />
-                      Crear acceso escritorio
+                      Instalar TPV
                     </button>
                     <div className="mt-1 rounded-lg border border-white/10 bg-white/[0.04] p-1.5">
                       <div className="mb-1 flex items-center gap-2 text-[10px] font-black uppercase text-slate-400">
@@ -4196,7 +4243,9 @@ export function POSTerminal({
             </button>
             <button
               type="button"
-              onClick={downloadPOSShortcut}
+              onClick={() => {
+                void handleInstallPOS();
+              }}
               className="pos-action-ghost border-emerald-300/50 bg-emerald-300/14 text-emerald-50 shadow-[0_0_18px_rgba(110,231,183,0.18)]"
               title="Instalar el TPV en el escritorio de este ordenador"
             >
