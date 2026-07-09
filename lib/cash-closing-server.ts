@@ -335,13 +335,46 @@ async function getOpenBillPayments(
   return data || [];
 }
 
+async function getLatestCashClosingDate(supabase: SupabaseServiceClient, tenantId: string) {
+  const { data, error } = await runCashClosingQuery<{ data: { closed_at?: string | null } | null; error: any }>(
+    supabase
+      .from('cash_closings')
+      .select('closed_at')
+      .eq('tenant_id', tenantId)
+      .order('closed_at', { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+    'La consulta del ultimo cierre de caja'
+  );
+
+  if (error) {
+    console.warn('No se pudo consultar el ultimo cierre de caja:', error.message || error);
+    return null;
+  }
+
+  if (!data?.closed_at) return null;
+  const closingDate = new Date(data.closed_at);
+  return Number.isNaN(closingDate.getTime()) ? null : closingDate;
+}
+
 export async function calculateCurrentCashClosingStats(
   supabase: SupabaseServiceClient,
   tenantId: string
 ): Promise<CashClosingStats> {
   const period = await getCurrentOperationalPeriod(supabase, tenantId);
-  const startDate = new Date(period.periodStart);
   const endDate = new Date(period.periodEnd);
+  const nominalStartDate = new Date(period.periodStart);
+  const latestClosingDate = await getLatestCashClosingDate(supabase, tenantId);
+  const startDate = latestClosingDate && latestClosingDate < endDate
+    ? latestClosingDate
+    : nominalStartDate;
+  const effectivePeriod = startDate.getTime() === nominalStartDate.getTime()
+    ? period
+    : {
+        ...period,
+        periodStart: startDate.toISOString(),
+        businessDateLabel: `desde ultimo cierre`,
+      };
 
   const buildOrdersQuery = (select: string) => supabase
     .from('orders')
@@ -377,9 +410,9 @@ export async function calculateCurrentCashClosingStats(
     return true;
   });
 
-  const billPayments = await getOpenBillPayments(supabase, tenantId, period.periodStart, period.periodEnd);
-  if (openOrders.length === 0 && billPayments.length === 0) return emptyStats(period);
-  return statsFromOrders(period, openOrders, billPayments);
+  const billPayments = await getOpenBillPayments(supabase, tenantId, effectivePeriod.periodStart, effectivePeriod.periodEnd);
+  if (openOrders.length === 0 && billPayments.length === 0) return emptyStats(effectivePeriod);
+  return statsFromOrders(effectivePeriod, openOrders, billPayments);
 }
 
 export async function calculatePendingPreviousCashClosingStats(
