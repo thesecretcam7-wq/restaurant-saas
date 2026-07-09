@@ -31,6 +31,11 @@ interface CashClosing {
   notes?: string | null
 }
 
+interface ClosingBillPaymentSummary {
+  billPaymentsTotal: number
+  billPaymentsCount: number
+}
+
 interface MonthlyProductSale {
   menuItemId?: string | null
   name: string
@@ -390,6 +395,37 @@ export default function CashClosingsPage() {
     )
   }
 
+  async function getClosingBillPaymentSummary(
+    closing: CashClosing,
+    supabase: ReturnType<typeof createClient>
+  ): Promise<ClosingBillPaymentSummary> {
+    if (!tenantId) return { billPaymentsTotal: 0, billPaymentsCount: 0 }
+
+    const { data, error } = await supabase
+      .from('cash_bill_payments')
+      .select('amount')
+      .eq('tenant_id', tenantId)
+      .eq('cash_closing_id', closing.id)
+      .eq('status', 'active')
+      .limit(500)
+
+    if (error) {
+      const message = `${error.message || ''} ${error.details || ''} ${error.hint || ''}`
+      if (message.includes('cash_bill_payments') || error.code === '42P01' || error.code === 'PGRST205') {
+        return { billPaymentsTotal: 0, billPaymentsCount: 0 }
+      }
+
+      console.warn('No se pudieron consultar facturas del cierre:', error.message)
+      return { billPaymentsTotal: 0, billPaymentsCount: 0 }
+    }
+
+    const billPayments = data || []
+    return {
+      billPaymentsTotal: billPayments.reduce((sum, payment) => sum + (Number(payment.amount) || 0), 0),
+      billPaymentsCount: billPayments.length,
+    }
+  }
+
   async function loadMonthlyData() {
     if (!tenantId) return
     setMonthlyLoading(true)
@@ -544,7 +580,10 @@ export default function CashClosingsPage() {
       const periodMatch = closing.notes?.match(/Periodo operativo:\s*(.+?)\s*-\s*(.+?)(?:\n|$)/)
       const periodStart = parsePeriodDate(periodMatch?.[1], closing.closed_at)
       const periodEnd = parsePeriodDate(periodMatch?.[2], closing.closed_at)
-      const deliverySummary = await getClosingDeliverySummary(closing, supabase)
+      const [deliverySummary, billPaymentSummary] = await Promise.all([
+        getClosingDeliverySummary(closing, supabase),
+        getClosingBillPaymentSummary(closing, supabase),
+      ])
 
       await printCashClosingReceipt(tenantId, settings.default_receipt_printer_id, {
         closingId: closing.id,
@@ -558,6 +597,8 @@ export default function CashClosingsPage() {
         cardSales: Number(closing.card_sales) || 0,
         otherSales: Number(closing.other_sales) || 0,
         totalSales: Number(closing.total_sales) || 0,
+        billPaymentsTotal: billPaymentSummary.billPaymentsTotal,
+        billPaymentsCount: billPaymentSummary.billPaymentsCount,
         totalDeliveryFees: deliverySummary.totalDeliveryFees,
         deliveryOrderCount: deliverySummary.deliveryOrderCount,
         totalTax: Number(closing.total_tax) || 0,
