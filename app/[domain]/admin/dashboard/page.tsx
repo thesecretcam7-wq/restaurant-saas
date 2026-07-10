@@ -24,6 +24,11 @@ import {
   Zap,
 } from 'lucide-react'
 import { formatPriceWithCurrency, getCurrencyByCountry } from '@/lib/currency'
+import {
+  getRestaurantBusinessPeriod,
+  getRestaurantLocale,
+  getRestaurantTimeZone,
+} from '@/lib/restaurant-time'
 
 interface DashboardProps {
   params: Promise<{ domain: string }>
@@ -47,43 +52,6 @@ const statusLabel: Record<string, string> = {
   on_the_way: 'En camino',
   delivered: 'Entregado',
   cancelled: 'Cancelado',
-}
-
-const DEFAULT_OPERATIONAL_CLOSE_MINUTES = 5 * 60
-
-function parseTimeToMinutes(value?: string | null) {
-  if (!value || !/^\d{1,2}:\d{2}$/.test(value)) return null
-  const [hours, minutes] = value.split(':').map(Number)
-  if (hours < 0 || hours > 23 || minutes < 0 || minutes > 59) return null
-  return hours * 60 + minutes
-}
-
-function findOperationalCloseMinutes(operatingHours: any) {
-  const overnightCloseMinutes: number[] = []
-
-  Object.values(operatingHours || {}).forEach((day: any) => {
-    Object.values(day || {}).forEach((shift: any) => {
-      const open = parseTimeToMinutes(shift?.open)
-      const close = parseTimeToMinutes(shift?.close)
-      if (open === null || close === null) return
-      if (close <= open) overnightCloseMinutes.push(close)
-    })
-  })
-
-  if (overnightCloseMinutes.length === 0) return DEFAULT_OPERATIONAL_CLOSE_MINUTES
-  return Math.max(...overnightCloseMinutes)
-}
-
-function getOperationalPeriodStart(now: Date, closeMinutes: number) {
-  const currentMinutes = now.getHours() * 60 + now.getMinutes()
-  const start = new Date(now)
-  start.setHours(Math.floor(closeMinutes / 60), closeMinutes % 60, 0, 0)
-
-  if (currentMinutes < closeMinutes) {
-    start.setDate(start.getDate() - 1)
-  }
-
-  return start
 }
 
 export default async function DashboardPage({ params }: DashboardProps) {
@@ -124,6 +92,7 @@ export default async function DashboardPage({ params }: DashboardProps) {
     intelligenceItemsRes,
     inventoryRes,
     topCustomersRes,
+    latestClosingRes,
   ] = await Promise.all([
     supabase.from('orders').select('id', { count: 'exact', head: true }).eq('tenant_id', tenantId),
     supabase.from('orders').select('total').eq('tenant_id', tenantId).eq('payment_status', 'paid').gte('created_at', startOfMonth),
@@ -134,12 +103,13 @@ export default async function DashboardPage({ params }: DashboardProps) {
     getMonthlyOrderCount(tenantId),
     supabase.from('menu_items').select('id', { count: 'exact', head: true }).eq('tenant_id', tenantId),
     supabase.from('tenant_branding').select('primary_color, secondary_color, accent_color, logo_url, app_name, hero_image_url, page_config').eq('tenant_id', tenantId).maybeSingle(),
-    supabase.from('restaurant_settings').select('display_name, address, phone, operating_hours, country').eq('tenant_id', tenantId).maybeSingle(),
+    supabase.from('restaurant_settings').select('display_name, address, phone, operating_hours, timezone, country').eq('tenant_id', tenantId).maybeSingle(),
     supabase.from('tenants').select('organization_name, stripe_account_id, metadata, country').eq('id', tenantId).maybeSingle(),
     supabase.from('orders').select('id, total, created_at, status, payment_status, payment_method, delivery_type, customer_name, customer_phone').eq('tenant_id', tenantId).gte('created_at', sevenDaysAgo).order('created_at', { ascending: false }).limit(500),
     supabase.from('order_items').select('name, quantity, price, created_at, status, started_at, completed_at').eq('tenant_id', tenantId).gte('created_at', sevenDaysAgo).limit(1000),
     supabase.from('inventory').select('product_name, current_stock, min_stock, max_stock, cost_per_unit').eq('tenant_id', tenantId).limit(200),
     supabase.from('customers').select('name, phone, email, total_spent, total_orders, last_order_at').eq('tenant_id', tenantId).order('total_spent', { ascending: false }).limit(8),
+    supabase.from('cash_closings').select('closed_at').eq('tenant_id', tenantId).order('closed_at', { ascending: false }).limit(1).maybeSingle(),
   ])
 
   const totalOrders = ordersRes.count || 0
@@ -216,10 +186,26 @@ export default async function DashboardPage({ params }: DashboardProps) {
     { label: 'Clientes', value: totalCustomers.toLocaleString('es-CO'), icon: UsersRound, tone: 'text-[#c47a16]' },
   ]
 
-  const operationalCloseMinutes = findOperationalCloseMinutes(settingsRes.data?.operating_hours)
-  const startOfTodayDate = getOperationalPeriodStart(today, operationalCloseMinutes)
+  const timeZone = getRestaurantTimeZone({
+    timezone: settingsRes.data?.timezone,
+    settingsCountry: settingsRes.data?.country,
+    tenantCountry: tenantConfigRes.data?.country,
+  })
+  const locale = getRestaurantLocale(settingsRes.data?.country || tenantConfigRes.data?.country)
+  const currentPeriod = getRestaurantBusinessPeriod({
+    operatingHours: settingsRes.data?.operating_hours,
+    timeZone,
+    locale,
+    now: today,
+  })
+  const nominalPeriodStart = new Date(currentPeriod.periodStart)
+  const periodEnd = new Date(currentPeriod.periodEnd)
+  const latestClosingDate = latestClosingRes.data?.closed_at ? new Date(latestClosingRes.data.closed_at) : null
+  const startOfTodayDate = latestClosingDate && !Number.isNaN(latestClosingDate.getTime()) && latestClosingDate < periodEnd
+    ? latestClosingDate
+    : nominalPeriodStart
   const startOfYesterdayDate = new Date(startOfTodayDate)
-  startOfYesterdayDate.setDate(startOfYesterdayDate.getDate() - 1)
+  startOfYesterdayDate.setTime(startOfYesterdayDate.getTime() - 24 * 60 * 60 * 1000)
 
   const todayOrders = intelligenceOrders.filter(order => new Date(order.created_at) >= startOfTodayDate)
   const yesterdayOrders = intelligenceOrders.filter(order => {
