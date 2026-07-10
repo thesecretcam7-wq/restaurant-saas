@@ -2277,25 +2277,33 @@ body:has(.admin-app-shell) {
 .pos-premium .pos-product-card-no-image,
 .pos-product-card-no-image {
   border: 1px solid rgba(212, 175, 55, 0.42) !important;
-  background: #ffffff !important;
+  background:
+    linear-gradient(135deg, rgba(26, 31, 44, 0.92), rgba(11, 14, 20, 0.72)) !important;
   box-shadow: 0 14px 32px rgba(15, 23, 42, 0.12) !important;
 }
 
 .pos-premium .pos-product-card-no-image:hover,
 .pos-product-card-no-image:hover {
   border-color: rgba(212, 175, 55, 0.72) !important;
-  background: #ffffff !important;
+  background:
+    linear-gradient(135deg, rgba(26, 31, 44, 0.96), rgba(11, 14, 20, 0.78)) !important;
 }
 
 .pos-premium .pos-product-card-blank-bg,
 .pos-product-card-blank-bg {
-  background: #ffffff !important;
+  background: transparent !important;
 }
 
 .pos-premium .pos-product-card-name,
 .pos-product-card-name {
+  display: inline-block;
+  max-width: calc(100% - 1.25rem);
+  border-radius: 0.65rem;
+  background: rgba(255, 255, 255, 0.92) !important;
   color: #111827 !important;
+  padding: 0.35rem 0.5rem;
   text-shadow: none !important;
+  box-shadow: 0 8px 22px rgba(15, 23, 42, 0.18);
 }
 
 .pos-premium .pos-product-card-price,

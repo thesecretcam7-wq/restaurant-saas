@@ -4479,9 +4479,9 @@ export function POSTerminal({
                         className="absolute inset-0 h-full w-full object-cover transition-transform duration-200 group-hover:scale-105"
                       />
                     ) : (
-                      <div className="pos-product-card-blank-bg absolute inset-0" />
+                      <div className="absolute inset-0 bg-gradient-to-br from-slate-800 via-slate-900 to-slate-950" />
                     )}
-                    <div className={hasProductImage ? 'absolute inset-0 bg-gradient-to-b from-black/72 via-black/14 to-black/76' : 'hidden'} />
+                    <div className={hasProductImage ? 'absolute inset-0 bg-gradient-to-b from-black/72 via-black/14 to-black/76' : 'absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(34,211,238,0.16),transparent_46%)]'} />
                     {unavailable && (
                       <span className="absolute bottom-2 right-2 z-20 rounded-full bg-red-500 px-2 py-1 text-[10px] font-black uppercase tracking-wide text-white shadow-md">
                         No disponible
