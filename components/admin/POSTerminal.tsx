@@ -4460,27 +4460,28 @@ export function POSTerminal({
               {filteredMenu.map((item) => {
                 const qty = cartQuantityMap.get(item.id);
                 const unavailable = item.available === false;
+                const hasProductImage = !hidePOSProductImages && Boolean(item.image_url);
                 return (
                   <button
                     key={item.id}
                     onClick={() => addToCart(item)}
                     title={unavailable ? `${item.name} no disponible` : `Agregar ${item.name}`}
-                    className={`pos-card group relative min-h-[126px] overflow-hidden rounded-xl p-0 text-left transition-all duration-200 transform hover:scale-[1.018] active:scale-95 ${
+                    className={`${hasProductImage ? 'pos-card pos-product-card-with-image' : 'pos-product-card-no-image'} group relative min-h-[126px] overflow-hidden rounded-xl p-0 text-left transition-all duration-200 transform hover:scale-[1.018] active:scale-95 ${
                       qty
                         ? 'border-2 border-cyan-300/70 bg-cyan-300/14 shadow-lg shadow-cyan-900/30'
                         : ''
                     } ${unavailable ? 'opacity-55 grayscale hover:scale-100 active:scale-100' : ''}`}
                   >
-                    {!hidePOSProductImages && item.image_url ? (
+                    {hasProductImage ? (
                       <img
                         src={item.image_url}
                         alt={item.name}
                         className="absolute inset-0 h-full w-full object-cover transition-transform duration-200 group-hover:scale-105"
                       />
                     ) : (
-                      <div className="absolute inset-0 bg-gradient-to-br from-slate-800 via-slate-900 to-slate-950" />
+                      <div className="pos-product-card-blank-bg absolute inset-0" />
                     )}
-                    <div className={hidePOSProductImages ? 'absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(34,211,238,0.16),transparent_46%)]' : 'absolute inset-0 bg-gradient-to-b from-black/72 via-black/14 to-black/76'} />
+                    <div className={hasProductImage ? 'absolute inset-0 bg-gradient-to-b from-black/72 via-black/14 to-black/76' : 'hidden'} />
                     {unavailable && (
                       <span className="absolute bottom-2 right-2 z-20 rounded-full bg-red-500 px-2 py-1 text-[10px] font-black uppercase tracking-wide text-white shadow-md">
                         No disponible
@@ -4491,10 +4492,10 @@ export function POSTerminal({
                         {qty}
                       </span>
                     )}
-                    <p className="relative z-10 min-h-[2.2rem] px-2.5 pt-2 text-sm font-black leading-tight text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.75)] line-clamp-2 transition-colors group-hover:text-cyan-100">
+                    <p className={`relative z-10 mx-2.5 mt-2 min-h-[2.2rem] text-sm font-black leading-tight line-clamp-2 transition-colors ${hasProductImage ? 'pos-product-card-name-on-image' : 'pos-product-card-name'}`}>
                       {item.name}
                     </p>
-                    <p className={`absolute bottom-2 left-2.5 z-10 text-sm font-black drop-shadow-[0_2px_4px_rgba(0,0,0,0.75)] ${qty ? 'text-cyan-200' : 'text-emerald-300'}`}>
+                    <p className={`absolute bottom-2 left-2.5 z-10 text-sm font-black ${hasProductImage ? 'pos-product-card-price-on-image' : 'pos-product-card-price'}`}>
                       {formatPriceWithCurrency(item.price, currencyInfo.code, currencyInfo.locale)}
                     </p>
                   </button>

@@ -999,6 +999,32 @@ body {
   box-shadow: 0 24px 60px rgba(0, 0, 0, 0.28);
 }
 
+.pos-product-card-no-image {
+  border: 1px solid rgba(212, 175, 55, 0.42) !important;
+  background: #ffffff !important;
+  box-shadow: 0 14px 32px rgba(15, 23, 42, 0.12) !important;
+}
+
+.pos-product-card-no-image:hover {
+  border-color: rgba(212, 175, 55, 0.72) !important;
+  background: #ffffff !important;
+  box-shadow: 0 18px 42px rgba(15, 23, 42, 0.16) !important;
+}
+
+.pos-product-card-blank-bg {
+  background: #ffffff !important;
+}
+
+.pos-product-card-no-image .pos-product-card-name {
+  color: #111827 !important;
+  text-shadow: none !important;
+}
+
+.pos-product-card-no-image .pos-product-card-price {
+  color: #d4af37 !important;
+  text-shadow: none !important;
+}
+
 .pos-action,
 .pos-action-ghost,
 .pos-action-danger {
@@ -2018,6 +2044,28 @@ body:has(.admin-app-shell) {
   box-shadow: 0 28px 90px rgba(0, 0, 0, 0.34), inset 0 1px 0 rgba(255, 255, 255, 0.07) !important;
 }
 
+.pos-premium .pos-product-card-no-image {
+  border-color: rgba(212, 175, 55, 0.36) !important;
+  background: #ffffff !important;
+  box-shadow: 0 14px 32px rgba(15, 23, 42, 0.12) !important;
+}
+
+.pos-premium .pos-product-card-no-image:hover {
+  border-color: rgba(212, 175, 55, 0.68) !important;
+  background: #ffffff !important;
+  box-shadow: 0 18px 42px rgba(15, 23, 42, 0.16) !important;
+}
+
+.pos-premium .pos-product-card-no-image .pos-product-card-name {
+  color: #111827 !important;
+  text-shadow: none !important;
+}
+
+.pos-premium .pos-product-card-no-image .pos-product-card-price {
+  color: #d4af37 !important;
+  text-shadow: none !important;
+}
+
 .pos-premium .pos-kpi,
 .pos-premium .pos-chip,
 .pos-premium .pos-action-ghost {
@@ -2223,4 +2271,54 @@ body:has(.admin-app-shell) {
 
 .ecco-platform-page :where(.shadow-sm, .shadow-lg, .shadow-xl) {
   box-shadow: 0 24px 80px rgba(0, 0, 0, 0.20) !important;
+}
+
+/* Final POS product card overrides. Kept at EOF so tenant theme passes cannot repaint them. */
+.pos-premium .pos-product-card-no-image,
+.pos-product-card-no-image {
+  border: 1px solid rgba(212, 175, 55, 0.42) !important;
+  background: #ffffff !important;
+  box-shadow: 0 14px 32px rgba(15, 23, 42, 0.12) !important;
+}
+
+.pos-premium .pos-product-card-no-image:hover,
+.pos-product-card-no-image:hover {
+  border-color: rgba(212, 175, 55, 0.72) !important;
+  background: #ffffff !important;
+}
+
+.pos-premium .pos-product-card-blank-bg,
+.pos-product-card-blank-bg {
+  background: #ffffff !important;
+}
+
+.pos-premium .pos-product-card-name,
+.pos-product-card-name {
+  color: #111827 !important;
+  text-shadow: none !important;
+}
+
+.pos-premium .pos-product-card-price,
+.pos-product-card-price,
+.pos-premium .pos-product-card-price-on-image,
+.pos-product-card-price-on-image {
+  display: inline-block;
+  border-radius: 0.65rem;
+  background: rgba(255, 255, 255, 0.92) !important;
+  color: #d4af37 !important;
+  padding: 0.3rem 0.5rem;
+  text-shadow: none !important;
+  box-shadow: 0 8px 22px rgba(15, 23, 42, 0.14);
+}
+
+.pos-premium .pos-product-card-name-on-image,
+.pos-product-card-name-on-image {
+  display: inline-block;
+  max-width: calc(100% - 1.25rem);
+  border-radius: 0.65rem;
+  background: rgba(255, 255, 255, 0.9) !important;
+  color: #111827 !important;
+  padding: 0.35rem 0.5rem;
+  text-shadow: none !important;
+  box-shadow: 0 8px 22px rgba(15, 23, 42, 0.18);
 }
