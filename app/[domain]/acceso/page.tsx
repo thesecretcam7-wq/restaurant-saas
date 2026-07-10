@@ -42,7 +42,7 @@ export default async function AccesoPage({ params }: Props) {
     ? await withSupabaseTimeout(
         (signal) => (supabase
           .from('tenant_branding')
-          .select('app_name, primary_color, secondary_color, accent_color, background_color, button_primary_color, button_secondary_color, text_primary_color, text_secondary_color, border_color, logo_url, metadata')
+          .select('app_name, primary_color, secondary_color, accent_color, background_color, button_primary_color, button_secondary_color, text_primary_color, text_secondary_color, border_color, metadata')
           .eq('tenant_id', tenant.id)
           .maybeSingle() as any).abortSignal(signal),
         1200
@@ -82,7 +82,7 @@ export default async function AccesoPage({ params }: Props) {
       tenantId={tenant.id}
       tenantName={tenant.organization_name}
       tenantSlug={slug}
-      logoUrl={branding?.logo_url || tenant.logo_url}
+      logoUrl={tenant.logo_url}
       branding={{
         appName: branding?.app_name || tenant.organization_name,
         primaryColor: palette.primary,

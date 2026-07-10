@@ -2,7 +2,6 @@
 
 import { Suspense, use, useState, useEffect } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { adminLoginSchema } from '@/lib/validations/forms'
 import { getFieldError, parseValidationError } from '@/lib/validations/utils'
 import SupportButton from '@/components/SupportButton'
 import { createClient } from '@/lib/supabase/client'
@@ -49,15 +48,23 @@ function AdminLoginContent({ params }: Props) {
     setErrors([])
     setLoading(true)
     try {
-      const validated = adminLoginSchema.parse(form)
       const res = await fetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(validated),
+        body: JSON.stringify({
+          email: form.email.trim(),
+          password: form.password,
+        }),
       })
       const data = await res.json()
       if (!res.ok) { setError(data.error || 'Error al iniciar sesión'); return }
-      router.push(`/${data.tenant.slug}/acceso`)
+      const destination = `/${data.tenant.slug}/admin/dashboard`
+      router.replace(destination)
+      window.setTimeout(() => {
+        if (window.location.pathname !== destination) {
+          window.location.assign(destination)
+        }
+      }, 700)
     } catch (error: any) {
       if (error.errors) {
         const validationErrors = parseValidationError(error)

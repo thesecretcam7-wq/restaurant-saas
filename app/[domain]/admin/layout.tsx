@@ -82,6 +82,8 @@ export default async function AdminLayout({ children, params }: AdminLayoutProps
     { href: `/${tenantSlug}/admin/salud`, label: 'Salud del sistema', icon: 'health' },
     { href: `/${tenantSlug}/admin/configuracion/restaurante`, label: 'Configuracion', icon: 'settings' },
     { href: `/${tenantSlug}/admin/inventario`, label: 'Inventario', icon: 'inventory' },
+    { href: `/${tenantSlug}/admin/compras`, label: 'Compras', icon: 'purchases' },
+    { href: `/${tenantSlug}/admin/menu-tv`, label: 'Menu TV', icon: 'menuTv' },
     { href: `/${tenantSlug}/admin/cuenta/cambiar-contrasena`, label: 'Cambiar Contrasena', icon: 'password', divider: true },
   ]
 

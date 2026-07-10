@@ -161,6 +161,15 @@ function formatQuantity(value: number) {
   return Number.isInteger(numberValue) ? String(numberValue) : numberValue.toFixed(2)
 }
 
+function escapeHtml(value: string) {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;')
+}
+
 export default function CashClosingsPage() {
   const params = useParams()
   const slug = params.domain as string
@@ -558,6 +567,90 @@ export default function CashClosingsPage() {
     }
   }
 
+  function handlePrintMonthlyDays(stats: MonthlyStats) {
+    const printWindow = window.open('', '_blank', 'width=420,height=720')
+    if (!printWindow) {
+      setMessage({ type: 'error', text: 'No se pudo abrir la ventana de impresion. Revisa si el navegador bloqueo ventanas emergentes.' })
+      return
+    }
+
+    const restaurantName = monthlyRestaurant?.displayName || 'Restaurante'
+    const totalOrders = stats.dailySales.reduce((sum, day) => sum + (Number(day.orders) || 0), 0)
+    const totalAmount = stats.dailySales.reduce((sum, day) => sum + (Number(day.total) || 0), 0)
+    const rows = stats.dailySales.map(day => `
+      <tr>
+        <td>${escapeHtml(day.date)}</td>
+        <td class="right">${Number(day.orders) || 0}</td>
+        <td class="right">${escapeHtml(formatPriceWithCurrency(Number(day.total) || 0, currencyInfo.code, currencyInfo.locale))}</td>
+      </tr>
+    `).join('')
+
+    printWindow.document.write(`
+      <!doctype html>
+      <html>
+        <head>
+          <meta charset="utf-8" />
+          <title>Dias del mes - ${escapeHtml(stats.monthLabel)}</title>
+          <style>
+            @page { size: 80mm auto; margin: 5mm; }
+            * { box-sizing: border-box; }
+            body {
+              margin: 0;
+              color: #111;
+              background: #fff;
+              font-family: Arial, Helvetica, sans-serif;
+              font-size: 12px;
+            }
+            .ticket { width: 100%; }
+            h1, h2, p { margin: 0; }
+            h1 { font-size: 15px; text-align: center; text-transform: uppercase; }
+            h2 { margin-top: 5px; font-size: 13px; text-align: center; }
+            .meta { margin-top: 8px; padding-bottom: 8px; border-bottom: 1px dashed #222; text-align: center; line-height: 1.35; }
+            table { width: 100%; border-collapse: collapse; margin-top: 8px; }
+            th { border-bottom: 1px solid #111; padding: 4px 0; text-align: left; font-size: 11px; }
+            td { border-bottom: 1px dashed #aaa; padding: 5px 0; vertical-align: top; }
+            .right { text-align: right; }
+            .totals { margin-top: 9px; padding-top: 8px; border-top: 1px solid #111; }
+            .line { display: flex; justify-content: space-between; gap: 10px; margin-top: 4px; font-weight: 700; }
+            .footer { margin-top: 12px; padding-top: 8px; border-top: 1px dashed #222; text-align: center; font-size: 10px; }
+          </style>
+        </head>
+        <body>
+          <main class="ticket">
+            <h1>${escapeHtml(restaurantName)}</h1>
+            <h2>Dias del mes</h2>
+            <div class="meta">
+              <p>${escapeHtml(stats.monthLabel)}</p>
+              <p>${escapeHtml(new Date().toLocaleString(currencyInfo.locale))}</p>
+            </div>
+            <table>
+              <thead>
+                <tr>
+                  <th>Dia</th>
+                  <th class="right">Ped.</th>
+                  <th class="right">Total</th>
+                </tr>
+              </thead>
+              <tbody>${rows}</tbody>
+            </table>
+            <section class="totals">
+              <div class="line"><span>Total pedidos</span><span>${totalOrders}</span></div>
+              <div class="line"><span>Total vendido</span><span>${escapeHtml(formatPriceWithCurrency(totalAmount, currencyInfo.code, currencyInfo.locale))}</span></div>
+            </section>
+            <p class="footer">Cierre mensual generado desde Eccofood</p>
+          </main>
+          <script>
+            window.addEventListener('load', () => {
+              window.print();
+              window.setTimeout(() => window.close(), 500);
+            });
+          </script>
+        </body>
+      </html>
+    `)
+    printWindow.document.close()
+  }
+
   async function handlePrintClosing(closing: CashClosing) {
     if (!tenantId) return
 
@@ -864,7 +957,18 @@ export default function CashClosingsPage() {
               </div>
 
               <div className="rounded-xl border border-black/10 bg-white/70 p-4">
-                <h3 className="font-black text-[#15130f]">Dias del mes</h3>
+                <div className="flex items-center justify-between gap-3">
+                  <h3 className="font-black text-[#15130f]">Dias del mes</h3>
+                  <button
+                    type="button"
+                    onClick={() => handlePrintMonthlyDays(monthlyStats)}
+                    disabled={monthlyStats.dailySales.length === 0}
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-black/10 bg-white px-3 py-2 text-xs font-black text-[#b87805] transition hover:bg-black/[0.03] disabled:opacity-50"
+                  >
+                    <Printer className="size-4" />
+                    Imprimir
+                  </button>
+                </div>
                 <div className="mt-3 max-h-56 overflow-y-auto pr-1">
                   {monthlyStats.dailySales.length > 0 ? monthlyStats.dailySales.map(day => (
                     <div key={day.date} className="grid grid-cols-[1fr_auto_auto] gap-3 border-b border-black/8 py-2 text-sm">

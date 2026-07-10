@@ -456,22 +456,6 @@ export async function proxy(request: NextRequest) {
             return response
           }
 
-          // Regular owner — validate single-session token
-          const adminToken = request.cookies.get('admin_session_token')?.value
-          if (adminToken) {
-            const { data: active } = await serviceSupabase
-              .from('active_sessions')
-              .select('session_token')
-              .eq('user_key', `owner:${user.id}`)
-              .single()
-            if (!active || active.session_token !== adminToken) {
-              const loginUrl = new URL(`/${slug}/admin/login?reason=otra_sesion`, request.url)
-              const res = NextResponse.redirect(loginUrl)
-              res.cookies.delete('admin_session_token')
-              return res
-            }
-          }
-
           if (!routeTenant) {
             const loginUrl = new URL(`/${slug}/admin/login`, request.url)
             return NextResponse.redirect(loginUrl)
@@ -550,7 +534,11 @@ export async function proxy(request: NextRequest) {
         const waiterRedirect = getWaiterRootRedirect(request, tenant, `/${tenantSegment}/kitchen`)
         if (waiterRedirect) return waiterRedirect
       }
-      url.pathname = `/${tenantSegment}${restPath}`
+      const targetPathname = `/${tenantSegment}${restPath}`
+      if (pathname === targetPathname) {
+        return NextResponse.next()
+      }
+      url.pathname = targetPathname
       return NextResponse.rewrite(url, { request: { headers: withStoreHeaders(request, tenantSegment) } })
     }
   }

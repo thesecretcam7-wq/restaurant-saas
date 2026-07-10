@@ -1908,6 +1908,12 @@ body:has(.admin-app-shell) {
   box-shadow: 0 10px 24px rgba(0, 0, 0, 0.22);
 }
 
+.admin-app-shell .purchases-admin-page {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
 /* Final POS premium contrast pass. Keep this near the end so old utility
    classes from the TPV cannot fight the refined dark Eccofood interface. */
 .pos-premium {
