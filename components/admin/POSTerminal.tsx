@@ -4,7 +4,6 @@ import { useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { createClient } from '@/lib/supabase/client';
 import { ShoppingCart, Plus, Minus, Trash2, Search, DollarSign, CreditCard, Maximize2, Minimize2, Lock, Clock, Truck, Store, UtensilsCrossed, Archive, Monitor, Printer, CalendarDays, Download, PencilLine, X, Check, ReceiptText } from 'lucide-react';
-import { POSStaffSelector } from './POSStaffSelector';
 import { TableMap } from './TableMap';
 import { POSPayment } from './POSPayment';
 import { NumericKeyboard } from './NumericKeyboard';
@@ -49,6 +48,7 @@ type POSMode = 'simple' | 'table';
 type PaymentMethod = 'cash' | 'stripe' | 'mixed';
 type CashClosingMode = 'current' | 'pending';
 const MANUAL_CHARGE_NAME = 'Cobro manual';
+const DEFAULT_POS_WAITER_NAME = 'TPV';
 const POS_CONNECTIVITY_CHECK_TIMEOUT_MS = 3500;
 const POS_BOOTSTRAP_TIMEOUT_MS = 3500;
 const CSRF_REFRESH_SKEW_MS = 5 * 60 * 1000;
@@ -2715,11 +2715,6 @@ export function POSTerminal({
       return;
     }
 
-    if (selectedTableId && !selectedStaffId) {
-      setToast({ message: 'Por favor selecciona el camarero', type: 'error' });
-      return;
-    }
-
     if (registerInPreviousPeriod && !canRegisterInPreviousPeriod) {
       setToast({ message: 'Solo puedes usar turno anterior cuando hay caja anterior pendiente', type: 'error' });
       setRegisterInPreviousPeriod(false);
@@ -2748,18 +2743,13 @@ export function POSTerminal({
       return;
     }
 
-    if (!selectedStaffName) {
-      setToast({ message: 'Selecciona el camarero antes de enviar a mesa', type: 'error' });
-      return;
-    }
-
     if (typeof navigator !== 'undefined' && !navigator.onLine) {
       setToast({ message: 'Para enviar productos a mesa necesitas internet', type: 'error' });
       return;
     }
 
     const tableNumber = selectedTableNumber;
-    const waiterName = selectedStaffName;
+    const waiterName = selectedStaffName || getLoggedStaffFromBrowser(tenantId).staffName || DEFAULT_POS_WAITER_NAME;
     const optimisticOrderId = `optimistic-table-${Date.now()}`;
     const previousCart = cart;
     const previousTableId = selectedTableId;
@@ -4957,25 +4947,15 @@ export function POSTerminal({
                 <p className="rounded-lg border border-emerald-300/25 bg-emerald-400/10 px-2 py-1 text-[11px] font-black text-emerald-100">
                   {billingOrderIds.length} ronda{billingOrderIds.length > 1 ? 's' : ''} lista{billingOrderIds.length > 1 ? 's' : ''} para cobrar
                 </p>
-              ) : selectedStaffName ? (
-                <p className="rounded-lg border border-emerald-300/25 bg-emerald-400/10 px-2 py-1 text-[11px] font-black text-emerald-100">
-                  Mesero: {selectedStaffName}
-                </p>
               ) : (
-                <POSStaffSelector
-                  tenantId={tenantId}
-                  selectedStaffId={selectedStaffId}
-                  onStaffSelect={(id, name) => {
-                    setSelectedStaffId(id);
-                    setSelectedStaffName(name);
-                  }}
-                  required
-                />
+                <p className="rounded-lg border border-emerald-300/25 bg-emerald-400/10 px-2 py-1 text-[11px] font-black text-emerald-100">
+                  Mesa lista
+                </p>
               )}
               {billingOrderIds.length === 0 && (
                 <button
                   onClick={handleSendCartToTable}
-                  disabled={cart.length === 0 || !selectedStaffName || sendingToTable}
+                  disabled={cart.length === 0 || sendingToTable}
                   className="w-full rounded-xl border border-emerald-300/35 bg-emerald-400/16 px-3 py-2.5 text-sm font-black text-emerald-100 transition hover:border-emerald-200 hover:bg-emerald-400/24 disabled:cursor-not-allowed disabled:opacity-45"
                 >
                   {sendingToTable ? 'Enviando...' : `Enviar a Mesa ${selectedTableNumber}`}
@@ -5230,8 +5210,7 @@ export function POSTerminal({
                       disabled={
                         cart.length === 0 ||
                         (splitBillMode && splitPaymentItems.length === 0) ||
-                        !hasRequiredDeliveryZone ||
-                        (!!selectedTableNumber && !selectedStaffId && billingOrderIds.length === 0)
+                        !hasRequiredDeliveryZone
                       }
                       loading={processingPayment}
                       country={country}
