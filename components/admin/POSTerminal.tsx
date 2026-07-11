@@ -51,6 +51,7 @@ type CashClosingMode = 'current' | 'pending';
 const MANUAL_CHARGE_NAME = 'Cobro manual';
 const POS_CONNECTIVITY_CHECK_TIMEOUT_MS = 3500;
 const POS_BOOTSTRAP_TIMEOUT_MS = 3500;
+const CSRF_REFRESH_SKEW_MS = 5 * 60 * 1000;
 
 declare global {
   interface Window {
@@ -134,6 +135,15 @@ async function fetchPOSBootstrapWithTimeout(tenantId: string) {
   } finally {
     window.clearTimeout(timeout);
   }
+}
+
+function isCSRFTokenFresh(token: string) {
+  const [, timestampStr] = token.split('.');
+  const timestamp = Number(timestampStr);
+  if (!Number.isFinite(timestamp)) return false;
+
+  const maxAge = 24 * 60 * 60 * 1000;
+  return Date.now() - timestamp < maxAge - CSRF_REFRESH_SKEW_MS;
 }
 
 type SplitSelection = Record<string, number>;
@@ -756,6 +766,24 @@ export function POSTerminal({
     localStorage.setItem(printReceiptPreferenceStorageKey, nextValue ? 'true' : 'false');
   }, [printReceiptPreferenceStorageKey]);
 
+  const getFreshCSRFToken = useCallback(async (forceRefresh = false) => {
+    if (!forceRefresh && isCSRFTokenFresh(csrfTokenRef.current)) {
+      return csrfTokenRef.current;
+    }
+
+    const csrfResponse = await fetch('/api/csrf-token', {
+      credentials: 'include',
+      cache: 'no-store',
+    });
+    const csrfData = await csrfResponse.json().catch(() => null);
+    if (!csrfResponse.ok || !csrfData?.token) {
+      throw new Error('No se pudo preparar la seguridad del pago. Recarga el TPV e intenta de nuevo.');
+    }
+
+    csrfTokenRef.current = csrfData.token;
+    return csrfTokenRef.current;
+  }, []);
+
   useEffect(() => {
     if (typeof window === 'undefined') return;
     setPrintReceiptAfterPayment(localStorage.getItem(printReceiptPreferenceStorageKey) !== 'false');
@@ -1090,13 +1118,9 @@ export function POSTerminal({
 
     setSyncingOffline(true);
     try {
-      if (!csrfTokenRef.current) {
-        const csrfResponse = await fetch('/api/csrf-token', { credentials: 'include' }).catch(() => null);
-        const csrfData = csrfResponse ? await csrfResponse.json().catch(() => null) : null;
-        if (csrfData?.token) csrfTokenRef.current = csrfData.token;
-      }
+      const csrfToken = await getFreshCSRFToken();
 
-      const result = await syncOfflinePOSOrders(tenantId, csrfTokenRef.current);
+      const result = await syncOfflinePOSOrders(tenantId, csrfToken);
       setOfflinePendingCount(result.remaining);
 
       if (showToast && result.synced > 0) {
@@ -1121,7 +1145,7 @@ export function POSTerminal({
     } finally {
       setSyncingOffline(false);
     }
-  }, [tenantId]);
+  }, [tenantId, getFreshCSRFToken]);
 
   // Initialize audio — called on first user interaction to satisfy autoplay policy
   const initAudio = useCallback(() => {
@@ -1164,12 +1188,12 @@ export function POSTerminal({
   }, [soundEnabled, initAudio]);
 
   useEffect(() => {
-    fetch('/api/csrf-token').then(r => r.json()).then(d => { if (d.token) csrfTokenRef.current = d.token; }).catch(() => {});
+    getFreshCSRFToken(true).catch(() => {});
     fetchMenuData();
     restoreCart();
     refreshOfflinePendingCount();
     refreshTodayReservations();
-  }, [tenantId, refreshOfflinePendingCount, refreshTodayReservations]);
+  }, [tenantId, getFreshCSRFToken, refreshOfflinePendingCount, refreshTodayReservations]);
 
   useEffect(() => {
     if (!tenantId) return;
@@ -2788,15 +2812,11 @@ export function POSTerminal({
         localStorage.removeItem(`pos-discount-code-${tenantId}`);
       }
 
-      if (!csrfTokenRef.current) {
-        const csrfResponse = await fetch('/api/csrf-token', { credentials: 'include' });
-        const csrfData = await csrfResponse.json().catch(() => null);
-        if (csrfData?.token) csrfTokenRef.current = csrfData.token;
-      }
+      const csrfToken = await getFreshCSRFToken();
 
       const response = await fetch('/api/orders', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'x-csrf-token': csrfTokenRef.current },
+        headers: { 'Content-Type': 'application/json', 'x-csrf-token': csrfToken },
         credentials: 'include',
         body: JSON.stringify({
           tenantId,
@@ -2886,6 +2906,13 @@ export function POSTerminal({
       let receiptPaymentMethod: PaymentMethod = paymentMethod;
       let shouldOpenCashDrawer = paymentMethod === 'cash' || paymentMethod === 'mixed';
       let editedPaidReceipt = false;
+      let paymentCSRFToken: string | null = null;
+      const getPaymentCSRFToken = async () => {
+        if (!paymentCSRFToken) {
+          paymentCSRFToken = await getFreshCSRFToken();
+        }
+        return paymentCSRFToken;
+      };
 
       if (loadedOrderId) {
         if (typeof navigator !== 'undefined' && !navigator.onLine) {
@@ -2918,9 +2945,10 @@ export function POSTerminal({
         const loadedPaymentBreakdown = buildPaymentBreakdown(receiptPaymentMethod, loadedTotal, amountPaid);
 
         // Existing orders can be charged or edited from the same cart.
+        const csrfToken = await getPaymentCSRFToken();
         const response = await fetch(`/api/orders/${loadedOrderId}`, {
           method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json', 'x-csrf-token': csrfToken },
           credentials: 'include',
           body: JSON.stringify({
             tenantId,
@@ -2962,11 +2990,7 @@ export function POSTerminal({
           throw new Error('Carga una mesa antes de dividir el pago.');
         }
 
-        if (!csrfTokenRef.current) {
-          const csrfResponse = await fetch('/api/csrf-token', { credentials: 'include' });
-          const csrfData = await csrfResponse.json().catch(() => null);
-          if (csrfData?.token) csrfTokenRef.current = csrfData.token;
-        }
+        const csrfToken = await getPaymentCSRFToken();
 
         const splitFormattedItems = splitPaymentItems.map((item) => ({
           menu_item_id: item.is_manual ? null : item.menu_item_id,
@@ -2979,7 +3003,7 @@ export function POSTerminal({
         const splitPaymentBreakdown = buildPaymentBreakdown(paymentMethod, receiptTotal, amountPaid);
         const splitResponse = await fetch('/api/orders', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'x-csrf-token': csrfTokenRef.current },
+          headers: { 'Content-Type': 'application/json', 'x-csrf-token': csrfToken },
           credentials: 'include',
           body: JSON.stringify({
             tenantId,
@@ -3041,7 +3065,7 @@ export function POSTerminal({
 
           const updateResponse = await fetch(`/api/orders/${orderId}`, {
             method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 'Content-Type': 'application/json', 'x-csrf-token': csrfToken },
             credentials: 'include',
             body: JSON.stringify({
               tenantId,
@@ -3117,7 +3141,7 @@ export function POSTerminal({
 
           const paidResponse = await fetch(`/api/orders/${orderId}`, {
             method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 'Content-Type': 'application/json', 'x-csrf-token': await getPaymentCSRFToken() },
             credentials: 'include',
             body: JSON.stringify({
               tenantId,
@@ -3226,7 +3250,7 @@ export function POSTerminal({
           try {
             const response = await fetch('/api/orders', {
               method: 'POST',
-              headers: { 'Content-Type': 'application/json', 'x-csrf-token': csrfTokenRef.current },
+              headers: { 'Content-Type': 'application/json', 'x-csrf-token': await getPaymentCSRFToken() },
               credentials: 'include',
               body: JSON.stringify(orderPayload),
             });

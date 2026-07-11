@@ -128,8 +128,8 @@ export function sendCSRFErrorResponse(): NextResponse {
  * Helper to set CSRF token in response headers/cookies
  * Client can then include it in subsequent requests
  */
-export function attachCSRFTokenToResponse(response: NextResponse): NextResponse {
-  const token = generateCSRFToken()
+export function attachCSRFTokenToResponse(response: NextResponse, existingToken?: string): NextResponse {
+  const token = existingToken || generateCSRFToken()
 
   // Set in response header so client can read it
   response.headers.set('x-csrf-token', token)
