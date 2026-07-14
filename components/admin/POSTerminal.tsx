@@ -768,6 +768,20 @@ export function POSTerminal({
   const paymentInFlightRef = useRef(false);
   const sendToTableInFlightRef = useRef(false);
   const tableCartSyncInFlightRef = useRef(false);
+  const pendingTableCartSyncRef = useRef<{ nextCart: CartItem[]; successMessage: string } | null>(null);
+  const latestTableSyncStateRef = useRef<{
+    cart: CartItem[];
+    dineInOrders: DineInOrder[];
+    billingOrderIds: string[];
+    loadedTableBaseCart: CartItem[] | null;
+    selectedTableNumber: number | null;
+  }>({
+    cart: [],
+    dineInOrders: [],
+    billingOrderIds: [],
+    loadedTableBaseCart: null,
+    selectedTableNumber: null,
+  });
   const menuDataFetchInFlightRef = useRef(false);
   const incomingOrdersFetchInFlightRef = useRef(false);
   const dineInOrdersFetchInFlightRef = useRef(false);
@@ -786,6 +800,16 @@ export function POSTerminal({
   const offlineSyncInFlightRef = useRef(false);
   const canRegisterInPreviousPeriod =
     Boolean(pendingCashClosingStats) && !loadedOrderId && billingOrderIds.length === 0 && !selectedTableId;
+
+  useEffect(() => {
+    latestTableSyncStateRef.current = {
+      cart,
+      dineInOrders,
+      billingOrderIds,
+      loadedTableBaseCart,
+      selectedTableNumber,
+    };
+  }, [billingOrderIds, cart, dineInOrders, loadedTableBaseCart, selectedTableNumber]);
 
   const persistHeldAccounts = useCallback((nextAccounts: HeldPOSAccount[]) => {
     setHeldAccounts(nextAccounts);
@@ -2238,8 +2262,36 @@ export function POSTerminal({
     const updatedItems = order.items.filter((_, i) => i !== itemIndex);
     const newTotal = getOrderItemsTotal(updatedItems);
     const isEmptyOrder = updatedItems.length === 0;
+    const previousDineInOrders = dineInOrders;
+    const previousBillingOrderIds = [...billingOrderIds];
+    const previousCart = cloneCartItems(cart);
+    const previousLoadedTableBaseCart = loadedTableBaseCart ? cloneCartItems(loadedTableBaseCart) : null;
+    const nextOrder = {
+      ...order,
+      items: updatedItems,
+      total: newTotal,
+      status: isEmptyOrder ? 'cancelled' : order.status,
+    } as DineInOrder;
 
     try {
+      setDineInOrders((current) =>
+        current
+          .map((currentOrder) => (currentOrder.id === orderId ? nextOrder : currentOrder))
+          .filter((currentOrder) => currentOrder.id !== orderId || !isEmptyOrder)
+      );
+      if (billingOrderIds.includes(orderId)) {
+        const nextBillingOrderIds = isEmptyOrder
+          ? billingOrderIds.filter((id) => id !== orderId)
+          : billingOrderIds;
+        const nextBillingOrders = nextBillingOrderIds
+          .map((id) => (id === orderId ? nextOrder : dineInOrders.find((currentOrder) => currentOrder.id === id)))
+          .filter((currentOrder): currentOrder is DineInOrder => Boolean(currentOrder));
+        const nextCart = mergeOrdersToCart(nextBillingOrders);
+        setBillingOrderIds(nextBillingOrderIds);
+        setCart(nextCart);
+        setLoadedTableBaseCart(cloneCartItems(nextCart));
+      }
+
       const response = await fetch(`/api/orders/${orderId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
@@ -2266,12 +2318,16 @@ export function POSTerminal({
       const data = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(data.error || 'No se pudo anular el item');
 
-      await fetchDineInOrders();
       setToast({
         message: isEmptyOrder ? 'Comanda vacia anulada' : 'Item anulado',
         type: 'success'
       });
+      void fetchDineInOrders();
     } catch (error) {
+      setDineInOrders(previousDineInOrders);
+      setBillingOrderIds(previousBillingOrderIds);
+      setCart(previousCart);
+      setLoadedTableBaseCart(previousLoadedTableBaseCart);
       setToast({
         message: error instanceof Error ? error.message : 'No se pudo anular el item',
         type: 'error',
@@ -2511,13 +2567,22 @@ export function POSTerminal({
   }
 
   async function syncLoadedTableCart(nextCart: CartItem[], successMessage: string) {
-    if (billingOrderIds.length === 0 || splitBillMode) {
+    const tableSyncState = latestTableSyncStateRef.current;
+    const activeBillingOrderIds = [...tableSyncState.billingOrderIds];
+    const activeDineInOrders = tableSyncState.dineInOrders;
+    const activeSelectedTableNumber = tableSyncState.selectedTableNumber;
+
+    if (activeBillingOrderIds.length === 0 || splitBillMode) {
       setCart(nextCart);
       return;
     }
 
     if (tableCartSyncInFlightRef.current) {
-      setToast({ message: 'Espera un momento, se esta guardando la mesa', type: 'error' });
+      setCart(nextCart);
+      pendingTableCartSyncRef.current = {
+        nextCart: cloneCartItems(nextCart),
+        successMessage,
+      };
       return;
     }
 
@@ -2526,10 +2591,10 @@ export function POSTerminal({
       return;
     }
 
-    const previousCart = cloneCartItems(cart);
-    const previousDineInOrders = dineInOrders;
-    const previousBillingOrderIds = [...billingOrderIds];
-    const previousLoadedTableBaseCart = loadedTableBaseCart ? cloneCartItems(loadedTableBaseCart) : null;
+    const previousCart = cloneCartItems(tableSyncState.cart);
+    const previousDineInOrders = activeDineInOrders;
+    const previousBillingOrderIds = [...activeBillingOrderIds];
+    const previousLoadedTableBaseCart = tableSyncState.loadedTableBaseCart ? cloneCartItems(tableSyncState.loadedTableBaseCart) : null;
     const desiredQuantities = new Map<string, number>();
     nextCart.forEach((item) => {
       desiredQuantities.set(item.menu_item_id, (desiredQuantities.get(item.menu_item_id) || 0) + Number(item.quantity || 0));
@@ -2538,8 +2603,8 @@ export function POSTerminal({
     const nextTableOrders: DineInOrder[] = [];
     const nextBillingOrderIds: string[] = [];
 
-    for (const orderId of billingOrderIds) {
-      const tableOrder = dineInOrders.find((order) => order.id === orderId);
+    for (const orderId of activeBillingOrderIds) {
+      const tableOrder = activeDineInOrders.find((order) => order.id === orderId);
       if (!tableOrder) continue;
 
       const nextItems = ((tableOrder.items || [])
@@ -2584,22 +2649,22 @@ export function POSTerminal({
       setDineInOrders((current) =>
         current
           .map((order) => {
-            const updated = [...nextTableOrders, ...billingOrderIds
+            const updated = [...nextTableOrders, ...activeBillingOrderIds
               .filter((orderId) => !nextBillingOrderIds.includes(orderId))
               .map((orderId) => ({ id: orderId, status: 'cancelled' } as DineInOrder))]
               .find((item) => item.id === order.id);
             return updated ? { ...order, ...updated } : order;
           })
-          .filter((order) => !billingOrderIds.includes(order.id) || nextBillingOrderIds.includes(order.id))
+          .filter((order) => !activeBillingOrderIds.includes(order.id) || nextBillingOrderIds.includes(order.id))
       );
       setBillingOrderIds(nextBillingOrderIds);
       setLoadedTableBaseCart(nextBaseCart);
-      setIncomingOrders((orders) => orders.filter((order) => !billingOrderIds.includes(order.id)));
+      setIncomingOrders((orders) => orders.filter((order) => !activeBillingOrderIds.includes(order.id)));
 
       const csrfToken = await getFreshCSRFToken();
-      for (const orderId of billingOrderIds) {
+      for (const orderId of activeBillingOrderIds) {
         const updatedOrder = nextTableOrders.find((order) => order.id === orderId);
-        const originalOrder = dineInOrders.find((order) => order.id === orderId);
+        const originalOrder = activeDineInOrders.find((order) => order.id === orderId);
         if (!originalOrder) continue;
 
         const nextItems = updatedOrder?.items || [];
@@ -2620,8 +2685,8 @@ export function POSTerminal({
             delivery_fee: 0,
             total: nextTotal,
             status: isEmptyOrder ? 'cancelled' : originalOrder.status,
-            cancel_reason: isEmptyOrder ? `Mesa ${selectedTableNumber}: productos quitados desde TPV` : undefined,
-            edit_reason: `Mesa ${selectedTableNumber}: cuenta actualizada desde carrito TPV`,
+            cancel_reason: isEmptyOrder ? `Mesa ${activeSelectedTableNumber}: productos quitados desde TPV` : undefined,
+            edit_reason: `Mesa ${activeSelectedTableNumber}: cuenta actualizada desde carrito TPV`,
           }),
         });
 
@@ -2632,11 +2697,11 @@ export function POSTerminal({
       }
 
       if (extraItems.length > 0) {
-        if (!selectedTableNumber) {
+        if (!activeSelectedTableNumber) {
           throw new Error('Selecciona la mesa para agregar productos');
         }
 
-        const tableNumber = selectedTableNumber;
+        const tableNumber = activeSelectedTableNumber;
         const extraSubtotal = extraItems.reduce(
           (sum, item) => sum + Number(item.price || 0) * Number(item.quantity || 0),
           0
@@ -2737,6 +2802,13 @@ export function POSTerminal({
       });
     } finally {
       tableCartSyncInFlightRef.current = false;
+      const pendingSync = pendingTableCartSyncRef.current;
+      if (pendingSync) {
+        pendingTableCartSyncRef.current = null;
+        window.setTimeout(() => {
+          void syncLoadedTableCart(pendingSync.nextCart, pendingSync.successMessage);
+        }, 0);
+      }
     }
   }
 

@@ -21,6 +21,8 @@ interface CashClosing {
   total_discount?: number | null
   total_delivery_fees?: number | null
   delivery_order_count?: number | null
+  bill_payments_total?: number | null
+  bill_payments_count?: number | null
   expected_total: number
   actual_cash_count: number
   difference: number
@@ -268,6 +270,55 @@ export default function CashClosingsPage() {
     return summaries
   }
 
+  async function getBillPaymentSummariesForClosings(
+    closingRows: CashClosing[],
+    supabase: ReturnType<typeof createClient>
+  ) {
+    const summaries = new Map<string, ClosingBillPaymentSummary>()
+    closingRows.forEach(closing => {
+      summaries.set(closing.id, {
+        billPaymentsTotal: Number(closing.bill_payments_total) || 0,
+        billPaymentsCount: Number(closing.bill_payments_count) || 0,
+      })
+    })
+
+    const closingIds = closingRows.map(closing => closing.id).filter(Boolean)
+    if (!tenantId || closingIds.length === 0) return summaries
+
+    const { data, error } = await supabase
+      .from('cash_bill_payments')
+      .select('cash_closing_id, amount')
+      .eq('tenant_id', tenantId)
+      .in('cash_closing_id', closingIds)
+      .eq('status', 'active')
+      .limit(5000)
+
+    if (error) {
+      const message = `${error.message || ''} ${error.details || ''} ${error.hint || ''}`
+      if (message.includes('cash_bill_payments') || error.code === '42P01' || error.code === 'PGRST205') {
+        return summaries
+      }
+
+      console.warn('No se pudieron consultar facturas de cierres:', error.message)
+      return summaries
+    }
+
+    const recalculated = new Map<string, ClosingBillPaymentSummary>()
+    ;((data || []) as { cash_closing_id: string | null; amount: number | string | null }[]).forEach(payment => {
+      if (!payment.cash_closing_id) return
+      const summary = recalculated.get(payment.cash_closing_id) || {
+        billPaymentsTotal: 0,
+        billPaymentsCount: 0,
+      }
+      summary.billPaymentsTotal += Number(payment.amount) || 0
+      summary.billPaymentsCount += 1
+      recalculated.set(payment.cash_closing_id, summary)
+    })
+
+    recalculated.forEach((summary, closingId) => summaries.set(closingId, summary))
+    return summaries
+  }
+
   useEffect(() => {
     if (!tenantId) return
     async function loadData() {
@@ -282,7 +333,10 @@ export default function CashClosingsPage() {
 
         if (!error && data) {
           const closingRows = data as CashClosing[]
-          const deliverySummaries = await getDeliverySummariesForClosings(closingRows, supabase)
+          const [deliverySummaries, billPaymentSummaries] = await Promise.all([
+            getDeliverySummariesForClosings(closingRows, supabase),
+            getBillPaymentSummariesForClosings(closingRows, supabase),
+          ])
           const missingStaffIds = Array.from(new Set(
             closingRows
               .filter(closing => !closing.staff_name && closing.staff_id)
@@ -305,6 +359,8 @@ export default function CashClosingsPage() {
             staff_name: closing.staff_name || (closing.staff_id ? staffById.get(closing.staff_id) : '') || 'Sin asignar',
             total_delivery_fees: deliverySummaries.get(closing.id)?.totalDeliveryFees || 0,
             delivery_order_count: deliverySummaries.get(closing.id)?.deliveryOrderCount || 0,
+            bill_payments_total: billPaymentSummaries.get(closing.id)?.billPaymentsTotal || 0,
+            bill_payments_count: billPaymentSummaries.get(closing.id)?.billPaymentsCount || 0,
           })))
         }
       } finally {
@@ -323,6 +379,10 @@ export default function CashClosingsPage() {
 
   const currencyInfo = getCurrencyByCountry(country)
   const totalSales = closings.reduce((sum, closing) => sum + closing.total_sales, 0)
+  const totalCashSales = closings.reduce((sum, closing) => sum + (Number(closing.cash_sales) || 0), 0)
+  const totalCardSales = closings.reduce((sum, closing) => sum + (Number(closing.card_sales) || 0), 0)
+  const totalBillPayments = closings.reduce((sum, closing) => sum + (Number(closing.bill_payments_total) || 0), 0)
+  const totalBillPaymentCount = closings.reduce((sum, closing) => sum + (Number(closing.bill_payments_count) || 0), 0)
   const totalDeliveryFees = closings.reduce((sum, closing) => sum + (Number(closing.total_delivery_fees) || 0), 0)
   const totalDeliveryOrderCount = closings.reduce((sum, closing) => sum + (Number(closing.delivery_order_count) || 0), 0)
   const balancedCount = closings.filter(closing => closing.is_balanced).length
@@ -808,11 +868,14 @@ export default function CashClosingsPage() {
       </div>
 
       {closings.length > 0 && (
-        <div className="mb-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
+        <div className="mb-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-6">
           {[
             ['Total de cierres', closings.length.toString()],
             ['Balanceados', balancedCount.toString()],
             ['Ventas registradas', formatPriceWithCurrency(totalSales, currencyInfo.code, currencyInfo.locale)],
+            ['Efectivo vendido', formatPriceWithCurrency(totalCashSales, currencyInfo.code, currencyInfo.locale)],
+            ['Tarjeta', formatPriceWithCurrency(totalCardSales, currencyInfo.code, currencyInfo.locale)],
+            ['Facturas caja', `${formatPriceWithCurrency(totalBillPayments, currencyInfo.code, currencyInfo.locale)} (${totalBillPaymentCount})`],
             ['Domicilios', `${formatPriceWithCurrency(totalDeliveryFees, currencyInfo.code, currencyInfo.locale)} (${totalDeliveryOrderCount})`],
             ['Diferencia promedio', formatPriceWithCurrency(avgDifference, currencyInfo.code, currencyInfo.locale)],
           ].map(([label, value]) => (
@@ -1087,6 +1150,10 @@ export default function CashClosingsPage() {
                 <tr>
                   <th className="px-5 py-3 text-left">Fecha</th>
                   <th className="px-5 py-3 text-left">Personal</th>
+                  <th className="px-5 py-3 text-right">Ventas</th>
+                  <th className="px-5 py-3 text-right">Efectivo</th>
+                  <th className="px-5 py-3 text-right">Tarjeta</th>
+                  <th className="px-5 py-3 text-right">Facturas</th>
                   <th className="px-5 py-3 text-right">Contado</th>
                   <th className="px-5 py-3 text-right">Esperado</th>
                   <th className="px-5 py-3 text-right">Domicilios</th>
@@ -1100,6 +1167,13 @@ export default function CashClosingsPage() {
                   <tr key={closing.id} className="transition hover:bg-white/70">
                     <td className="px-5 py-4 font-bold text-black/58">{new Date(closing.closed_at).toLocaleString('es-CO', { dateStyle: 'short', timeStyle: 'short' })}</td>
                     <td className="px-5 py-4 font-black text-[#15130f]">{closing.staff_name}</td>
+                    <td className="px-5 py-4 text-right font-black text-[#15130f]">{formatPriceWithCurrency(Number(closing.total_sales) || 0, currencyInfo.code, currencyInfo.locale)}</td>
+                    <td className="px-5 py-4 text-right font-bold text-black/64">{formatPriceWithCurrency(Number(closing.cash_sales) || 0, currencyInfo.code, currencyInfo.locale)}</td>
+                    <td className="px-5 py-4 text-right font-bold text-sky-800">{formatPriceWithCurrency(Number(closing.card_sales) || 0, currencyInfo.code, currencyInfo.locale)}</td>
+                    <td className="px-5 py-4 text-right font-bold text-red-700">
+                      {formatPriceWithCurrency(Number(closing.bill_payments_total) || 0, currencyInfo.code, currencyInfo.locale)}
+                      <span className="ml-1 text-black/42">({Number(closing.bill_payments_count) || 0})</span>
+                    </td>
                     <td className="px-5 py-4 text-right font-bold text-black/64">{formatPriceWithCurrency(closing.actual_cash_count, currencyInfo.code, currencyInfo.locale)}</td>
                     <td className="px-5 py-4 text-right font-bold text-black/64">{formatPriceWithCurrency(closing.expected_total, currencyInfo.code, currencyInfo.locale)}</td>
                     <td className="px-5 py-4 text-right font-bold text-black/64">{formatPriceWithCurrency(Number(closing.total_delivery_fees) || 0, currencyInfo.code, currencyInfo.locale)} ({Number(closing.delivery_order_count) || 0})</td>
@@ -1149,7 +1223,10 @@ export default function CashClosingsPage() {
               {[
                 ['Personal', selectedClosing.staff_name],
                 ['Ventas cobradas', selectedClosing.transaction_count.toString()],
+                ['Total vendido', formatPriceWithCurrency(Number(selectedClosing.total_sales) || 0, currencyInfo.code, currencyInfo.locale)],
+                ['Ventas efectivo', formatPriceWithCurrency(Number(selectedClosing.cash_sales) || 0, currencyInfo.code, currencyInfo.locale)],
                 ['Ventas tarjeta', formatPriceWithCurrency(selectedClosing.card_sales, currencyInfo.code, currencyInfo.locale)],
+                ['Facturas sacadas', `${formatPriceWithCurrency(Number(selectedClosing.bill_payments_total) || 0, currencyInfo.code, currencyInfo.locale)} (${Number(selectedClosing.bill_payments_count) || 0})`],
                 ['Valor domicilios', formatPriceWithCurrency(Number(selectedClosing.total_delivery_fees) || 0, currencyInfo.code, currencyInfo.locale)],
                 ['Numero domicilios', String(Number(selectedClosing.delivery_order_count) || 0)],
                 ['Monto esperado', formatPriceWithCurrency(selectedClosing.expected_total, currencyInfo.code, currencyInfo.locale)],
