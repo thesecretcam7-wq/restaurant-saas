@@ -45,6 +45,27 @@ function readableText(background: string, fallbackDark = '#15130f', fallbackLigh
   return isDark(background) ? fallbackLight : fallbackDark;
 }
 
+function getRoleDestination(tenantSlug: string, role: string) {
+  const destinations: Record<string, string> = {
+    admin: `/${tenantSlug}/admin/dashboard`,
+    cocinero: `/${tenantSlug}/staff/kds`,
+    camarero: `/${tenantSlug}/kitchen`,
+    cajero: `/${tenantSlug}/staff/pos`,
+  };
+  return destinations[role] || null;
+}
+
+function isOperationalStaffPath(tenantSlug: string, path?: string) {
+  if (!path) return false;
+  const allowedPaths = [
+    `/${tenantSlug}/admin/dashboard`,
+    `/${tenantSlug}/staff/kds`,
+    `/${tenantSlug}/kitchen`,
+    `/${tenantSlug}/staff/pos`,
+  ];
+  return allowedPaths.some((allowedPath) => path === allowedPath || path.startsWith(`${allowedPath}/`));
+}
+
 export function RoleSelector({ tenantId, tenantName, tenantSlug, logoUrl, branding }: Props) {
   const router = useRouter();
   const [selectedRole, setSelectedRole] = useState<string | null>(null);
@@ -63,11 +84,8 @@ export function RoleSelector({ tenantId, tenantName, tenantSlug, logoUrl, brandi
     if (!isStandalonePwa()) return;
 
     const restored = restoreStaffSession(tenantId);
-    if (restored?.lastPath) {
-      const allowedPrefix = `/${tenantSlug}/`;
-      if (restored.lastPath.startsWith(allowedPrefix)) {
-        router.replace(restored.lastPath);
-      }
+    if (isOperationalStaffPath(tenantSlug, restored?.lastPath)) {
+      router.replace(restored!.lastPath!);
       return;
     }
 
@@ -75,13 +93,7 @@ export function RoleSelector({ tenantId, tenantName, tenantSlug, logoUrl, brandi
       .then((res) => (res.ok ? res.json() : null))
       .then((session) => {
         if (!session?.authenticated || session.tenantId !== tenantId) return;
-        const destinations: Record<string, string> = {
-          admin: `/${tenantSlug}/admin/dashboard`,
-          cocinero: `/${tenantSlug}/staff/kds`,
-          camarero: `/${tenantSlug}/kitchen`,
-          cajero: `/${tenantSlug}/staff/pos`,
-        };
-        const lastPath = destinations[session.role];
+        const lastPath = getRoleDestination(tenantSlug, session.role);
         if (!lastPath) return;
         saveStaffSession({
           tenantId,

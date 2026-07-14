@@ -32,6 +32,10 @@ interface POSOrderLookupProps {
 type PaymentMethod = 'cash' | 'stripe';
 type TicketScope = 'current_period' | 'pending_previous';
 
+function isVisibleTicket(order: Order) {
+  return order.status !== 'cancelled' && ((order.items || []).length > 0 || Number(order.total || 0) > 0);
+}
+
 function normalizePaymentMethod(method?: string | null): PaymentMethod {
   return method === 'stripe' || method === 'card' || method === 'tarjeta' || method === 'wompi'
     ? 'stripe'
@@ -69,8 +73,9 @@ export function POSOrderLookup({ domain, onOrderSelected, onVoidOrder, onRemoveI
       if (!response.ok) throw new Error('Error al cargar tickets del turno');
 
       const data = await response.json();
-      setResults(data.orders || []);
-      setTurnTicketCount(typeof data.count === 'number' ? data.count : (data.orders || []).length);
+      const visibleOrders = (data.orders || []).filter(isVisibleTicket);
+      setResults(visibleOrders);
+      setTurnTicketCount(typeof data.count === 'number' ? data.count : visibleOrders.length);
       setTurnPaidCount(typeof data.paidCount === 'number' ? data.paidCount : 0);
       setTicketScope(data.scope === 'pending_previous' ? 'pending_previous' : 'current_period');
       setTicketScopeLabel(typeof data.label === 'string' ? data.label : 'Turno actual');
@@ -112,10 +117,11 @@ export function POSOrderLookup({ domain, onOrderSelected, onVoidOrder, onRemoveI
       if (!response.ok) throw new Error('Error al buscar pedido');
 
       const data = await response.json();
-      setResults(data.orders || []);
+      const visibleOrders = (data.orders || []).filter(isVisibleTicket);
+      setResults(visibleOrders);
       setSearched(true);
 
-      if (!data.orders || data.orders.length === 0) {
+      if (visibleOrders.length === 0) {
         setError('No se encontraron pedidos con ese numero');
       }
     } catch (err) {

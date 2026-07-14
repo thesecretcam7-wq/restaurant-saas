@@ -417,7 +417,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       if (itemsDeliveredError) console.error('[orders PATCH] order_items delivered sync error:', itemsDeliveredError.message)
     }
 
-    if (status === 'cancelled' && order.tenant_id) {
+    if (order.status === 'cancelled' && order.tenant_id) {
       const { error: itemsCancelledError } = await supabase
         .from('order_items')
         .update({

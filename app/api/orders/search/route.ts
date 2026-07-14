@@ -179,6 +179,7 @@ export async function GET(request: NextRequest) {
         query = query
           .gte('created_at', todayPeriod.periodStart)
           .lt('created_at', todayPeriod.periodEnd)
+          .neq('status', 'cancelled')
       } else if (/mesa/i.test(rawSearch) && Number.isFinite(maybeTableNumber)) {
         query = query.eq('table_number', maybeTableNumber)
       } else {
@@ -208,6 +209,18 @@ export async function GET(request: NextRequest) {
 
       let paidCount: number | null = null
       if (todayPeriod) {
+        const { count: exactTicketCount, error: ticketCountError } = await supabase
+          .from('orders')
+          .select('id', { count: 'exact', head: true })
+          .eq('tenant_id', tenantId)
+          .gte('created_at', todayPeriod.periodStart)
+          .lt('created_at', todayPeriod.periodEnd)
+          .neq('status', 'cancelled')
+
+        if (ticketCountError) {
+          return NextResponse.json({ error: ticketCountError.message }, { status: 500 })
+        }
+
         const { count: exactPaidCount, error: paidCountError } = await supabase
           .from('orders')
           .select('id', { count: 'exact', head: true })
@@ -223,6 +236,14 @@ export async function GET(request: NextRequest) {
         }
 
         paidCount = exactPaidCount || 0
+        return NextResponse.json({
+          orders: orders || [],
+          count: exactTicketCount || 0,
+          paidCount,
+          scope: ticketScope,
+          label: ticketScopeLabel,
+          period: todayPeriod,
+        })
       }
 
       return NextResponse.json({

@@ -221,7 +221,7 @@ export function RoleLoginClient({
           lastPath: destination,
         });
         keepLoader = true;
-        router.replace(destination);
+        window.location.replace(destination);
         window.setTimeout(() => {
           if (window.location.pathname !== destination) {
             window.location.assign(destination);

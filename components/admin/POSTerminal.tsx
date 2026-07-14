@@ -51,6 +51,9 @@ const MANUAL_CHARGE_NAME = 'Cobro manual';
 const DEFAULT_POS_WAITER_NAME = 'TPV';
 const POS_CONNECTIVITY_CHECK_TIMEOUT_MS = 3500;
 const POS_BOOTSTRAP_TIMEOUT_MS = 3500;
+const POS_MENU_REFRESH_FALLBACK_MS = 60000;
+const POS_ORDERS_REFRESH_FALLBACK_MS = 15000;
+const POS_DINE_IN_MUTE_MS = 2 * 60 * 1000;
 const CSRF_REFRESH_SKEW_MS = 5 * 60 * 1000;
 
 declare global {
@@ -95,6 +98,8 @@ interface DineInOrder {
   order_number: string;
   table_number: number | null;
   waiter_name: string | null;
+  notes?: string | null;
+  source?: string | null;
   total: number;
   payment_status: string;
   status: string;
@@ -102,38 +107,62 @@ interface DineInOrder {
   items: { name: string; qty?: number; quantity?: number; price: number; item_id?: string | null; menu_item_id?: string | null; notes?: string | null; is_manual?: boolean }[];
 }
 
+function isPosCreatedDineInOrder(order: { source?: string | null; notes?: string | null; waiter_name?: string | null }) {
+  return (
+    order.source === 'pos' ||
+    order.waiter_name === DEFAULT_POS_WAITER_NAME ||
+    String(order.notes || '').toLowerCase().includes('comanda enviada desde tpv')
+  );
+}
+
 async function canReachPOSCloud() {
   if (typeof window === 'undefined') return true;
 
-  const controller = new AbortController();
-  const timeout = window.setTimeout(() => controller.abort(), POS_CONNECTIVITY_CHECK_TIMEOUT_MS);
+  let timeout: number | undefined;
+  const fetchPromise = fetch('/api/csrf-token', {
+    credentials: 'include',
+    cache: 'no-store',
+  });
 
   try {
-    const response = await fetch('/api/csrf-token', {
-      credentials: 'include',
-      cache: 'no-store',
-      signal: controller.signal,
-    });
+    const response = await Promise.race([
+      fetchPromise,
+      new Promise<Response>((_, reject) => {
+        timeout = window.setTimeout(() => {
+          reject(new Error('POS connectivity timeout'));
+        }, POS_CONNECTIVITY_CHECK_TIMEOUT_MS);
+      }),
+    ]);
     return response.ok;
   } catch {
     return false;
   } finally {
-    window.clearTimeout(timeout);
+    if (timeout) window.clearTimeout(timeout);
+    fetchPromise.catch(() => {});
   }
 }
 
-async function fetchPOSBootstrapWithTimeout(tenantId: string) {
-  const controller = new AbortController();
-  const timeout = window.setTimeout(() => controller.abort(), POS_BOOTSTRAP_TIMEOUT_MS);
+async function fetchPOSBootstrapWithTimeout(tenantId: string): Promise<Response | null> {
+  let timeout: number | undefined;
+  const fetchPromise = fetch(`/api/pos/bootstrap?tenantId=${encodeURIComponent(tenantId)}`, {
+    credentials: 'include',
+    cache: 'no-store',
+  });
 
   try {
-    return await fetch(`/api/pos/bootstrap?tenantId=${encodeURIComponent(tenantId)}`, {
-      credentials: 'include',
-      cache: 'no-store',
-      signal: controller.signal,
-    });
+    return await Promise.race<Response | null>([
+      fetchPromise,
+      new Promise<null>((resolve) => {
+        timeout = window.setTimeout(() => {
+          resolve(null);
+        }, POS_BOOTSTRAP_TIMEOUT_MS);
+      }),
+    ]);
+  } catch {
+    return null;
   } finally {
-    window.clearTimeout(timeout);
+    if (timeout) window.clearTimeout(timeout);
+    fetchPromise.catch(() => {});
   }
 }
 
@@ -712,6 +741,7 @@ export function POSTerminal({
   const [loadedOrderContext, setLoadedOrderContext] = useState<LoadedOrderContext | null>(null);
   const [loadedOrderIds, setLoadedOrderIds] = useState<string[]>([]);
   const [billingOrderIds, setBillingOrderIds] = useState<string[]>([]);
+  const [loadedTableBaseCart, setLoadedTableBaseCart] = useState<CartItem[] | null>(null);
   const [expandedTable, setExpandedTable] = useState<number | null>(null);
   const [tip, setTip] = useState(0);
   const [showTipKeyboard, setShowTipKeyboard] = useState(false);
@@ -737,6 +767,12 @@ export function POSTerminal({
   const cashClosingRefreshInFlightRef = useRef(false);
   const paymentInFlightRef = useRef(false);
   const sendToTableInFlightRef = useRef(false);
+  const tableCartSyncInFlightRef = useRef(false);
+  const menuDataFetchInFlightRef = useRef(false);
+  const incomingOrdersFetchInFlightRef = useRef(false);
+  const dineInOrdersFetchInFlightRef = useRef(false);
+  const mutedDineInOrderIdsRef = useRef(new Set<string>());
+  const mutedDineInTablesUntilRef = useRef(new Map<number, number>());
   const autoPrintedReceiptIdsRef = useRef(new Map<string, number>());
   const notificationTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const csrfTokenRef = useRef<string>('');
@@ -745,6 +781,9 @@ export function POSTerminal({
   const skipNextCartRemoteSyncRef = useRef(false);
   const restoredStaffTenantRef = useRef<string | null>(null);
   const warmedReceiptPrinterIdRef = useRef<string | null>(null);
+  const pendingCashClosingFetchInFlightRef = useRef(false);
+  const reservationsFetchInFlightRef = useRef(false);
+  const offlineSyncInFlightRef = useRef(false);
   const canRegisterInPreviousPeriod =
     Boolean(pendingCashClosingStats) && !loadedOrderId && billingOrderIds.length === 0 && !selectedTableId;
 
@@ -964,10 +1003,15 @@ export function POSTerminal({
   }, [cart.length, fetchReceiptPrinterSettings, printReceiptAfterPayment, tenantId]);
 
   const refreshPendingCashClosing = useCallback(async () => {
+    if (pendingCashClosingFetchInFlightRef.current) return;
+
     try {
+      pendingCashClosingFetchInFlightRef.current = true;
       setPendingCashClosingStats(await fetchPendingCashClosingStats(tenantId));
     } catch (error) {
       console.error('Error checking pending cash closing:', error);
+    } finally {
+      pendingCashClosingFetchInFlightRef.current = false;
     }
   }, [tenantId]);
 
@@ -1006,7 +1050,10 @@ export function POSTerminal({
   }, [tenantId]);
 
   const refreshTodayReservations = useCallback(async () => {
+    if (reservationsFetchInFlightRef.current) return;
+
     try {
+      reservationsFetchInFlightRef.current = true;
       const today = new Date().toISOString().slice(0, 10);
       const { data, error } = await supabase
         .from('reservations')
@@ -1021,6 +1068,8 @@ export function POSTerminal({
     } catch (error) {
       console.error('Error checking POS reservations:', error);
       setTodayReservations([]);
+    } finally {
+      reservationsFetchInFlightRef.current = false;
     }
   }, [supabase, tenantId]);
 
@@ -1068,7 +1117,7 @@ export function POSTerminal({
       )
       .subscribe();
 
-    const polling = window.setInterval(refreshVisibleClosing, 5000);
+    const polling = window.setInterval(refreshVisibleClosing, POS_ORDERS_REFRESH_FALLBACK_MS);
     document.addEventListener('visibilitychange', refreshWhenVisible);
     window.addEventListener('focus', refreshWhenVisible);
 
@@ -1109,8 +1158,12 @@ export function POSTerminal({
   }, [deliveryEnabled, deliveryOptions, posOrderType, selectedDeliveryZoneId]);
 
   const syncOfflineSales = useCallback(async (showToast = false) => {
+    if (offlineSyncInFlightRef.current) return;
+
+    offlineSyncInFlightRef.current = true;
     if (!(await canReachPOSCloud())) {
       setIsOnline(false);
+      offlineSyncInFlightRef.current = false;
       return;
     }
 
@@ -1144,6 +1197,7 @@ export function POSTerminal({
       }
     } finally {
       setSyncingOffline(false);
+      offlineSyncInFlightRef.current = false;
     }
   }, [tenantId, getFreshCSRFToken]);
 
@@ -1228,7 +1282,7 @@ export function POSTerminal({
     const polling = window.setInterval(() => {
       if (document.visibilityState !== 'visible') return;
       scheduleMenuRefresh();
-    }, 5000);
+    }, POS_MENU_REFRESH_FALLBACK_MS);
 
     window.addEventListener('focus', refreshWhenVisible);
     document.addEventListener('visibilitychange', refreshWhenVisible);
@@ -1963,7 +2017,11 @@ export function POSTerminal({
               await fetchIncomingOrders();
             }
           } else if (newOrder.delivery_type === 'dine-in') {
+            const shouldMuteDineInOrder = isMutedLocalDineInOrder(newOrder);
+            knownDineInOrderIds.current.add(newOrder.id);
             await fetchDineInOrders({ notify: false });
+            if (shouldMuteDineInOrder) return;
+
             playNewOrderSound();
             const items: any[] = newOrder.items || [];
             setOrderNotification({
@@ -2000,7 +2058,7 @@ export function POSTerminal({
     const polling = window.setInterval(() => {
       fetchIncomingOrders();
       fetchDineInOrders({ notify: true });
-    }, 5000);
+    }, POS_ORDERS_REFRESH_FALLBACK_MS);
 
     const refreshWhenVisible = () => {
       if (document.visibilityState !== 'visible') return;
@@ -2019,7 +2077,10 @@ export function POSTerminal({
   }, [tenantId, playNewOrderSound]);
 
   async function fetchIncomingOrders() {
+    if (incomingOrdersFetchInFlightRef.current) return;
+
     try {
+      incomingOrdersFetchInFlightRef.current = true;
       const { data, error } = await supabase
         .from('orders')
         .select('id, order_number, customer_name, customer_phone, delivery_type, delivery_address, total, status, payment_status, items, created_at')
@@ -2040,6 +2101,8 @@ export function POSTerminal({
       }
     } catch (error) {
       console.error('Error fetching incoming orders:', error);
+    } finally {
+      incomingOrdersFetchInFlightRef.current = false;
     }
   }
 
@@ -2052,11 +2115,27 @@ export function POSTerminal({
     if (data) setAllTables(data as RestaurantTable[]);
   }
 
+  function isMutedLocalDineInOrder(order: { id?: string | null; table_number?: number | null; source?: string | null; notes?: string | null; waiter_name?: string | null }) {
+    if (order.id && mutedDineInOrderIdsRef.current.has(order.id)) return true;
+    if (isPosCreatedDineInOrder(order)) return true;
+
+    const tableNumber = Number(order.table_number || 0);
+    if (!tableNumber) return false;
+
+    const muteUntil = mutedDineInTablesUntilRef.current.get(tableNumber) || 0;
+    if (muteUntil > Date.now()) return true;
+    if (muteUntil) mutedDineInTablesUntilRef.current.delete(tableNumber);
+    return false;
+  }
+
   async function fetchDineInOrders(options: { notify?: boolean } = {}) {
+    if (dineInOrdersFetchInFlightRef.current) return;
+
     try {
+      dineInOrdersFetchInFlightRef.current = true;
       const { data, error } = await supabase
         .from('orders')
-        .select('*')
+        .select('id, order_number, table_number, waiter_name, notes, total, payment_status, status, created_at, items')
         .eq('tenant_id', tenantId)
         .eq('delivery_type', 'dine-in')
         .eq('payment_status', 'pending')
@@ -2069,12 +2148,13 @@ export function POSTerminal({
           (order.items || []).some((item) => getOrderItemQty(item) > 0)
         );
         const newOrders = mapped.filter((order) => !knownDineInOrderIds.current.has(order.id));
+        const notifyOrders = newOrders.filter((order) => !isMutedLocalDineInOrder(order));
 
         setDineInOrders(mapped);
         mapped.forEach((order) => knownDineInOrderIds.current.add(order.id));
 
-        if (options.notify && firstDineInFetchDone.current && newOrders.length > 0) {
-          const latest = newOrders[0];
+        if (options.notify && firstDineInFetchDone.current && notifyOrders.length > 0) {
+          const latest = notifyOrders[0];
           playNewOrderSound();
           setOrderNotification({
             tableNumber: latest.table_number ?? null,
@@ -2089,6 +2169,8 @@ export function POSTerminal({
       }
     } catch (error) {
       console.error('Error fetching dine-in orders:', error);
+    } finally {
+      dineInOrdersFetchInFlightRef.current = false;
     }
   }
 
@@ -2225,34 +2307,16 @@ export function POSTerminal({
 
     */
   function loadTableToCart(tableOrders: DineInOrder[]) {
-    const mergedMap = new Map<string, CartItem>();
-    tableOrders.forEach(order => {
-      (order.items || []).forEach(item => {
-          const key = getOrderItemKey(item);
-          const quantity = getOrderItemQty(item);
-          if (mergedMap.has(key)) {
-            const existing = mergedMap.get(key)!;
-            mergedMap.set(key, { ...existing, quantity: existing.quantity + quantity });
-          } else {
-            mergedMap.set(key, {
-              menu_item_id: key,
-              name: item.name,
-              price: item.price,
-              quantity,
-              is_manual: isManualOrderItem(item),
-              notes: (item as any).notes || undefined,
-            });
-          }
-      });
-    });
-
-    setCart(Array.from(mergedMap.values()));
+    const mergedItems = mergeOrdersToCart(tableOrders);
+    setCart(mergedItems);
+    setLoadedTableBaseCart(cloneCartItems(mergedItems));
     setSplitBillMode(false);
     setSplitSelections({});
     setPosMode('table');
     const first = tableOrders[0];
     if (first.table_number) setSelectedTableNumber(first.table_number);
-    if (first.waiter_name) setSelectedStaffName(first.waiter_name);
+    setSelectedStaffId(null);
+    setSelectedStaffName(first.waiter_name || '');
     setBillingOrderIds(tableOrders.map(o => o.id));
     setExpandedTable(null);
     setShowDineInPanel(false);
@@ -2344,8 +2408,15 @@ export function POSTerminal({
   }
 
   async function fetchMenuData() {
+    if (menuDataFetchInFlightRef.current) return;
+
     try {
+      menuDataFetchInFlightRef.current = true;
       const response = await fetchPOSBootstrapWithTimeout(tenantId);
+
+      if (!response) {
+        throw new Error('El TPV tardo mucho en cargar datos');
+      }
 
       if (!response.ok) throw new Error(`POS bootstrap failed: ${response.status}`);
 
@@ -2360,7 +2431,7 @@ export function POSTerminal({
         branding: data.branding || null,
       });
     } catch (error) {
-      console.error('Error fetching menu:', error);
+      console.warn('POS bootstrap fallback:', error instanceof Error ? error.message : error);
       const cachedBootstrap = await getOfflineStorage().getPOSBootstrap(tenantId);
       if (cachedBootstrap) {
         applyPOSBootstrapData(cachedBootstrap);
@@ -2381,6 +2452,7 @@ export function POSTerminal({
         }
       }
     } finally {
+      menuDataFetchInFlightRef.current = false;
       setLoading(false);
     }
   }
@@ -2391,23 +2463,23 @@ export function POSTerminal({
       return;
     }
 
-    setCart((prev) => {
-      const existing = prev.find((c) => c.menu_item_id === item.id);
-      if (existing) {
-        return prev.map((c) =>
-          c.menu_item_id === item.id ? { ...c, quantity: c.quantity + 1 } : c
-        );
-      }
-      return [
-        ...prev,
-        {
-          menu_item_id: item.id,
-          name: item.name,
-          price: item.price,
-          quantity: 1,
-        },
-      ];
-    });
+    const existing = cart.find((c) => c.menu_item_id === item.id);
+    const nextCart = existing
+      ? cart.map((c) => (c.menu_item_id === item.id ? { ...c, quantity: c.quantity + 1 } : c))
+      : [
+          ...cart,
+          {
+            menu_item_id: item.id,
+            name: item.name,
+            price: item.price,
+            quantity: 1,
+          },
+        ];
+
+    updateCartAndLoadedTable(
+      nextCart,
+      selectedTableNumber ? `Producto agregado a Mesa ${selectedTableNumber}` : 'Producto agregado'
+    );
   }
 
   function addManualItemToCart(name: string, price: number) {
@@ -2417,18 +2489,20 @@ export function POSTerminal({
     }
 
     const manualId = `manual-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
-    setCart((prev) => [
-      ...prev,
-      {
-        menu_item_id: manualId,
-        name,
-        price,
-        quantity: 1,
-        notes: 'Cobro manual',
-        is_manual: true,
-      },
-    ]);
-    setToast({ message: 'Cobro manual agregado', type: 'success' });
+    updateCartAndLoadedTable(
+      [
+        ...cart,
+        {
+          menu_item_id: manualId,
+          name,
+          price,
+          quantity: 1,
+          notes: 'Cobro manual',
+          is_manual: true,
+        },
+      ],
+      selectedTableNumber ? `Cobro manual agregado a Mesa ${selectedTableNumber}` : 'Cobro manual agregado'
+    );
   }
 
   function addManualItem() {
@@ -2436,8 +2510,247 @@ export function POSTerminal({
     setShowManualItemPriceKeyboard(true);
   }
 
+  async function syncLoadedTableCart(nextCart: CartItem[], successMessage: string) {
+    if (billingOrderIds.length === 0 || splitBillMode) {
+      setCart(nextCart);
+      return;
+    }
+
+    if (tableCartSyncInFlightRef.current) {
+      setToast({ message: 'Espera un momento, se esta guardando la mesa', type: 'error' });
+      return;
+    }
+
+    if (typeof navigator !== 'undefined' && !navigator.onLine) {
+      setToast({ message: 'Para modificar una mesa abierta necesitas internet', type: 'error' });
+      return;
+    }
+
+    const previousCart = cloneCartItems(cart);
+    const previousDineInOrders = dineInOrders;
+    const previousBillingOrderIds = [...billingOrderIds];
+    const previousLoadedTableBaseCart = loadedTableBaseCart ? cloneCartItems(loadedTableBaseCart) : null;
+    const desiredQuantities = new Map<string, number>();
+    nextCart.forEach((item) => {
+      desiredQuantities.set(item.menu_item_id, (desiredQuantities.get(item.menu_item_id) || 0) + Number(item.quantity || 0));
+    });
+
+    const nextTableOrders: DineInOrder[] = [];
+    const nextBillingOrderIds: string[] = [];
+
+    for (const orderId of billingOrderIds) {
+      const tableOrder = dineInOrders.find((order) => order.id === orderId);
+      if (!tableOrder) continue;
+
+      const nextItems = ((tableOrder.items || [])
+        .map((item) => {
+          const key = getOrderItemKey(item);
+          const qty = getOrderItemQty(item);
+          const keepQty = Math.min(qty, Math.max(0, desiredQuantities.get(key) || 0));
+          desiredQuantities.set(key, Math.max(0, (desiredQuantities.get(key) || 0) - keepQty));
+          return keepQty > 0 ? { ...item, qty: keepQty, quantity: keepQty } : null;
+        })
+        .filter(Boolean)) as DineInOrder['items'];
+
+      const nextSubtotal = getOrderItemsTotal(nextItems);
+      const nextTax = calculateTaxAmount(nextSubtotal, taxRate, taxIncluded);
+      const nextTotal = nextSubtotal + (taxIncluded ? 0 : nextTax);
+      const isEmptyOrder = nextItems.length === 0;
+
+      const nextOrder = {
+        ...tableOrder,
+        items: nextItems,
+        total: nextTotal,
+        status: isEmptyOrder ? 'cancelled' : tableOrder.status,
+      } as DineInOrder;
+
+      if (!isEmptyOrder) {
+        nextTableOrders.push(nextOrder);
+        nextBillingOrderIds.push(orderId);
+      }
+    }
+
+    const extraItems = nextCart
+      .map((item) => {
+        const extraQty = Math.max(0, desiredQuantities.get(item.menu_item_id) || 0);
+        return extraQty > 0 ? { ...item, quantity: extraQty } : null;
+      })
+      .filter((item): item is CartItem => Boolean(item));
+    const nextBaseCart = mergeOrdersToCart(nextTableOrders);
+
+    try {
+      tableCartSyncInFlightRef.current = true;
+      setCart(nextCart);
+      setDineInOrders((current) =>
+        current
+          .map((order) => {
+            const updated = [...nextTableOrders, ...billingOrderIds
+              .filter((orderId) => !nextBillingOrderIds.includes(orderId))
+              .map((orderId) => ({ id: orderId, status: 'cancelled' } as DineInOrder))]
+              .find((item) => item.id === order.id);
+            return updated ? { ...order, ...updated } : order;
+          })
+          .filter((order) => !billingOrderIds.includes(order.id) || nextBillingOrderIds.includes(order.id))
+      );
+      setBillingOrderIds(nextBillingOrderIds);
+      setLoadedTableBaseCart(nextBaseCart);
+      setIncomingOrders((orders) => orders.filter((order) => !billingOrderIds.includes(order.id)));
+
+      const csrfToken = await getFreshCSRFToken();
+      for (const orderId of billingOrderIds) {
+        const updatedOrder = nextTableOrders.find((order) => order.id === orderId);
+        const originalOrder = dineInOrders.find((order) => order.id === orderId);
+        if (!originalOrder) continue;
+
+        const nextItems = updatedOrder?.items || [];
+        const nextSubtotal = getOrderItemsTotal(nextItems);
+        const nextTax = calculateTaxAmount(nextSubtotal, taxRate, taxIncluded);
+        const nextTotal = nextSubtotal + (taxIncluded ? 0 : nextTax);
+        const isEmptyOrder = nextItems.length === 0;
+
+        const response = await fetch(`/api/orders/${orderId}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json', 'x-csrf-token': csrfToken },
+          credentials: 'include',
+          body: JSON.stringify({
+            tenantId,
+            items: nextItems,
+            subtotal: nextSubtotal,
+            tax: nextTax,
+            delivery_fee: 0,
+            total: nextTotal,
+            status: isEmptyOrder ? 'cancelled' : originalOrder.status,
+            cancel_reason: isEmptyOrder ? `Mesa ${selectedTableNumber}: productos quitados desde TPV` : undefined,
+            edit_reason: `Mesa ${selectedTableNumber}: cuenta actualizada desde carrito TPV`,
+          }),
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}));
+          throw new Error(errorData.error || 'No se pudo guardar la mesa');
+        }
+      }
+
+      if (extraItems.length > 0) {
+        if (!selectedTableNumber) {
+          throw new Error('Selecciona la mesa para agregar productos');
+        }
+
+        const tableNumber = selectedTableNumber;
+        const extraSubtotal = extraItems.reduce(
+          (sum, item) => sum + Number(item.price || 0) * Number(item.quantity || 0),
+          0
+        );
+        const optimisticOrderId = `optimistic-table-extra-${Date.now()}`;
+        const formattedItems = extraItems.map((item) => ({
+          menu_item_id: item.is_manual ? null : item.menu_item_id,
+          is_manual: item.is_manual === true,
+          name: item.name,
+          price: item.price,
+          qty: item.quantity,
+          notes: item.notes || null,
+        }));
+        const optimisticOrder: DineInOrder = {
+          id: optimisticOrderId,
+          order_number: `Mesa ${tableNumber}`,
+          table_number: tableNumber,
+          waiter_name: DEFAULT_POS_WAITER_NAME,
+          notes: 'Comanda enviada desde TPV',
+          total: extraSubtotal,
+          payment_status: 'pending',
+          status: 'pending',
+          created_at: new Date().toISOString(),
+          items: formattedItems,
+        };
+
+        mutedDineInOrderIdsRef.current.add(optimisticOrderId);
+        mutedDineInTablesUntilRef.current.set(tableNumber, Date.now() + POS_DINE_IN_MUTE_MS);
+        knownDineInOrderIds.current.add(optimisticOrderId);
+        setDineInOrders((current) => [optimisticOrder, ...current]);
+
+        const response = await fetch('/api/orders', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'x-csrf-token': csrfToken },
+          credentials: 'include',
+          body: JSON.stringify({
+            tenantId,
+            tenantSlug: tenantSlug || null,
+            customerInfo: {
+              name: `Mesa ${tableNumber}`,
+              email: null,
+              phone: null,
+            },
+            items: formattedItems,
+            deliveryType: 'dine-in',
+            deliveryAddress: null,
+            waiterName: DEFAULT_POS_WAITER_NAME,
+            tableNumber,
+            notes: 'Comanda enviada desde TPV',
+            source: 'pos',
+          }),
+        });
+
+        if (!response.ok) {
+          mutedDineInOrderIdsRef.current.delete(optimisticOrderId);
+          const errorData = await response.json().catch(() => ({}));
+          throw new Error(errorData.error || 'No se pudo agregar productos a la mesa');
+        }
+
+        const savedOrder = await response.json().catch(() => null);
+        if (savedOrder?.orderId) {
+          mutedDineInOrderIdsRef.current.add(savedOrder.orderId);
+          mutedDineInTablesUntilRef.current.set(tableNumber, Date.now() + POS_DINE_IN_MUTE_MS);
+          knownDineInOrderIds.current.add(savedOrder.orderId);
+          setDineInOrders((current) => current.map((order) =>
+            order.id === optimisticOrderId
+              ? { ...order, id: savedOrder.orderId, order_number: savedOrder.orderNumber || order.order_number }
+              : order
+          ));
+          nextBillingOrderIds.push(savedOrder.orderId);
+        }
+      }
+
+      setToast({ message: successMessage, type: 'success' });
+      if (nextBillingOrderIds.length === 0 && nextCart.length === 0) {
+        setCart([]);
+        setLoadedTableBaseCart(null);
+        setSelectedTableId(null);
+        setSelectedTableNumber(null);
+        setSelectedStaffId(null);
+        setSelectedStaffName('');
+        setBillingOrderIds([]);
+        setPosMode('simple');
+      } else {
+        setBillingOrderIds(nextBillingOrderIds);
+        setLoadedTableBaseCart(cloneCartItems(nextCart));
+      }
+      void fetchDineInOrders();
+      void fetchIncomingOrders();
+    } catch (error) {
+      setCart(previousCart);
+      setDineInOrders(previousDineInOrders);
+      setBillingOrderIds(previousBillingOrderIds);
+      setLoadedTableBaseCart(previousLoadedTableBaseCart);
+      setToast({
+        message: error instanceof Error ? error.message : 'No se pudo guardar la mesa',
+        type: 'error',
+      });
+    } finally {
+      tableCartSyncInFlightRef.current = false;
+    }
+  }
+
+  function updateCartAndLoadedTable(nextCart: CartItem[], successMessage: string) {
+    if (billingOrderIds.length > 0 && !splitBillMode) {
+      void syncLoadedTableCart(nextCart, successMessage);
+      return;
+    }
+    setCart(nextCart);
+  }
+
   function removeFromCart(itemId: string) {
-    setCart((prev) => prev.filter((c) => c.menu_item_id !== itemId));
+    const nextCart = cart.filter((c) => c.menu_item_id !== itemId);
+    updateCartAndLoadedTable(nextCart, 'Producto quitado de la mesa');
   }
 
   function updateNotes(itemId: string, notes: string) {
@@ -2450,9 +2763,8 @@ export function POSTerminal({
     if (quantity <= 0) {
       removeFromCart(itemId);
     } else {
-      setCart((prev) =>
-        prev.map((c) => (c.menu_item_id === itemId ? { ...c, quantity } : c))
-      );
+      const nextCart = cart.map((c) => (c.menu_item_id === itemId ? { ...c, quantity } : c));
+      updateCartAndLoadedTable(nextCart, 'Mesa actualizada');
     }
   }
 
@@ -2519,6 +2831,7 @@ export function POSTerminal({
     setShowFindPayPanel(false);
     setSplitBillMode(false);
     setSplitSelections({});
+    setLoadedTableBaseCart(null);
 
     if (typeof window !== 'undefined') {
       localStorage.removeItem(`pos-cart-${tenantId}`);
@@ -2527,6 +2840,72 @@ export function POSTerminal({
     }
 
     setPaymentResetKey((value) => value + 1);
+  }
+
+  function clearDraftCartForTableSwitch() {
+    setCart([]);
+    setDiscount(0);
+    setDiscountCode('');
+    setTip(0);
+    setPendingPaymentData(null);
+    setPaymentMethod('cash');
+    setSplitBillMode(false);
+    setSplitSelections({});
+    setLoadedTableBaseCart(null);
+
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem(`pos-cart-${tenantId}`);
+      localStorage.removeItem(`pos-discount-${tenantId}`);
+      localStorage.removeItem(`pos-discount-code-${tenantId}`);
+    }
+
+    setPaymentResetKey((value) => value + 1);
+  }
+
+  function cloneCartItems(items: CartItem[]) {
+    return items.map((item) => ({ ...item }));
+  }
+
+  function mergeOrdersToCart(tableOrders: DineInOrder[]) {
+    const mergedMap = new Map<string, CartItem>();
+    tableOrders.forEach(order => {
+      (order.items || []).forEach(item => {
+        const key = getOrderItemKey(item);
+        const quantity = getOrderItemQty(item);
+        if (mergedMap.has(key)) {
+          const existing = mergedMap.get(key)!;
+          mergedMap.set(key, { ...existing, quantity: existing.quantity + quantity });
+        } else {
+          mergedMap.set(key, {
+            menu_item_id: key,
+            name: item.name,
+            price: item.price,
+            quantity,
+            is_manual: isManualOrderItem(item),
+            notes: (item as any).notes || undefined,
+          });
+        }
+      });
+    });
+    return Array.from(mergedMap.values());
+  }
+
+  function getLoadedTableAdditions() {
+    if (!loadedTableBaseCart || billingOrderIds.length === 0) return [];
+
+    const baseQuantities = new Map<string, number>();
+    loadedTableBaseCart.forEach((item) => {
+      const key = item.menu_item_id;
+      baseQuantities.set(key, (baseQuantities.get(key) || 0) + Number(item.quantity || 0));
+    });
+
+    return cart
+      .map((item) => {
+        const baseQty = baseQuantities.get(item.menu_item_id) || 0;
+        const extraQty = Number(item.quantity || 0) - baseQty;
+        return extraQty > 0 ? { ...item, quantity: extraQty } : null;
+      })
+      .filter((item): item is CartItem => Boolean(item));
   }
 
   function getCurrentAccountLabel() {
@@ -2628,6 +3007,7 @@ export function POSTerminal({
     setLoadedOrderContext(null);
     setLoadedOrderIds([]);
     setBillingOrderIds([]);
+    setLoadedTableBaseCart(null);
     setShowIncomingPanel(false);
     setShowDineInPanel(false);
     setShowFindPayPanel(false);
@@ -2650,26 +3030,70 @@ export function POSTerminal({
   }
 
   function selectTableForCurrentCart(tableId: string, tableNumber: number) {
-    const existingGroup = tableGroups.find(group => group.tableNumber === tableNumber);
-    const existingWaiterName = existingGroup?.waiters[0] || '';
+    const switchingTables = selectedTableNumber !== null && selectedTableNumber !== tableNumber;
+
+    if (switchingTables || billingOrderIds.length > 0 || loadedOrderId) {
+      clearDraftCartForTableSwitch();
+    }
 
     setSelectedTableId(tableId);
     setSelectedTableNumber(tableNumber);
-    if (existingWaiterName) {
-      setSelectedStaffId(null);
-      setSelectedStaffName(existingWaiterName);
-    } else {
-      setSelectedStaffId(null);
-      setSelectedStaffName('');
-    }
+    setSelectedStaffId(null);
+    setSelectedStaffName('');
     setPosMode('table');
     setBillingOrderIds([]);
+    setLoadedTableBaseCart(null);
     setLoadedOrderId(null);
     setLoadedOrderContext(null);
     setLoadedOrderIds([]);
     setShowDineInPanel(false);
     setShowIncomingPanel(false);
     setShowFindPayPanel(false);
+  }
+
+  function handleTableShortcutClick(tableId: string, tableNumber: number, tableOrders?: DineInOrder[]) {
+    const additions = getLoadedTableAdditions();
+    const isSameSelectedTable = selectedTableNumber === tableNumber;
+
+    if (billingOrderIds.length > 0 && additions.length > 0 && isSameSelectedTable) {
+      void handleSendCartToTable({ tableNumber, items: additions });
+      return;
+    }
+
+    if (billingOrderIds.length > 0 && additions.length > 0) {
+      setToast({ message: `Primero agrega los productos nuevos a Mesa ${selectedTableNumber}`, type: 'error' });
+      return;
+    }
+
+    if (cart.length > 0 && billingOrderIds.length === 0 && !loadedOrderId) {
+      void handleSendCartToTable({ tableNumber, items: cart });
+      return;
+    }
+
+    if (isSameSelectedTable) {
+      if (billingOrderIds.length > 0) {
+        setCart([]);
+        setBillingOrderIds([]);
+        setLoadedTableBaseCart(null);
+        setSplitBillMode(false);
+        setSplitSelections({});
+      }
+      setSelectedTableId(null);
+      setSelectedTableNumber(null);
+      setSelectedStaffId(null);
+      setSelectedStaffName('');
+      setLoadedOrderId(null);
+      setLoadedOrderContext(null);
+      setPosMode('simple');
+      return;
+    }
+
+    if (tableOrders && tableOrders.length > 0) {
+      loadTableToCart(tableOrders);
+      return;
+    }
+
+    selectTableForCurrentCart(tableId, tableNumber);
   }
 
   async function applyDiscountCode() {
@@ -2730,15 +3154,17 @@ export function POSTerminal({
     processPaymentAfterReceipt(amountPaid, printReceipt);
   }
 
-  async function handleSendCartToTable() {
+  async function handleSendCartToTable(target?: { tableNumber?: number | null; items?: CartItem[] }) {
     if (sendToTableInFlightRef.current) return;
 
-    if (cart.length === 0) {
+    const itemsToSend = target?.items ? cloneCartItems(target.items) : cloneCartItems(cart);
+    const targetTableNumber = target?.tableNumber ?? selectedTableNumber;
+    if (itemsToSend.length === 0) {
       setToast({ message: 'Agrega productos antes de enviar a mesa', type: 'error' });
       return;
     }
 
-    if (!selectedTableNumber) {
+    if (!targetTableNumber) {
       setToast({ message: 'Selecciona una mesa para enviar la comanda', type: 'error' });
       return;
     }
@@ -2748,19 +3174,23 @@ export function POSTerminal({
       return;
     }
 
-    const tableNumber = selectedTableNumber;
-    const waiterName = selectedStaffName || getLoggedStaffFromBrowser(tenantId).staffName || DEFAULT_POS_WAITER_NAME;
+    const tableNumber = targetTableNumber;
+    const waiterName = DEFAULT_POS_WAITER_NAME;
     const optimisticOrderId = `optimistic-table-${Date.now()}`;
     const previousCart = cart;
     const previousTableId = selectedTableId;
     const previousTableNumber = selectedTableNumber;
     const previousStaffId = selectedStaffId;
     const previousStaffName = selectedStaffName;
+    const previousBillingOrderIds = billingOrderIds;
+    const previousLoadedTableBaseCart = loadedTableBaseCart ? cloneCartItems(loadedTableBaseCart) : null;
+    const previousPosMode = posMode;
     const previousDiscount = discount;
     const previousDiscountCode = discountCode;
     const previousTip = tip;
     const previousPaymentMethod = paymentMethod;
-    const formattedItems = cart.map(item => ({
+    const orderSubtotal = itemsToSend.reduce((sum, item) => sum + Number(item.price || 0) * Number(item.quantity || 0), 0);
+    const formattedItems = itemsToSend.map(item => ({
       menu_item_id: item.is_manual ? null : item.menu_item_id,
       is_manual: item.is_manual === true,
       name: item.name,
@@ -2773,7 +3203,7 @@ export function POSTerminal({
       order_number: `Mesa ${tableNumber}`,
       table_number: tableNumber,
       waiter_name: waiterName || null,
-      total: subtotal,
+      total: orderSubtotal,
       payment_status: 'pending',
       status: 'pending',
       created_at: new Date().toISOString(),
@@ -2783,6 +3213,9 @@ export function POSTerminal({
     try {
       sendToTableInFlightRef.current = true;
       setSendingToTable(true);
+      mutedDineInOrderIdsRef.current.add(optimisticOrderId);
+      mutedDineInTablesUntilRef.current.set(tableNumber, Date.now() + POS_DINE_IN_MUTE_MS);
+      knownDineInOrderIds.current.add(optimisticOrderId);
       setDineInOrders(current => [optimisticOrder, ...current]);
       setToast({ message: `Enviando a Mesa ${tableNumber}...`, type: 'success' });
       setCart([]);
@@ -2794,6 +3227,11 @@ export function POSTerminal({
       setSelectedTableNumber(null);
       setSelectedStaffId(null);
       setSelectedStaffName('');
+      setBillingOrderIds([]);
+      setLoadedTableBaseCart(null);
+      setLoadedOrderId(null);
+      setLoadedOrderContext(null);
+      setLoadedOrderIds([]);
       setPosMode('simple');
 
       if (typeof window !== 'undefined') {
@@ -2834,6 +3272,8 @@ export function POSTerminal({
 
       const savedOrder = await response.json().catch(() => null);
       if (savedOrder?.orderId) {
+        mutedDineInOrderIdsRef.current.add(savedOrder.orderId);
+        mutedDineInTablesUntilRef.current.set(tableNumber, Date.now() + POS_DINE_IN_MUTE_MS);
         setDineInOrders(current => current.map(order =>
           order.id === optimisticOrderId
             ? { ...order, id: savedOrder.orderId, order_number: savedOrder.orderNumber || order.order_number }
@@ -2848,6 +3288,8 @@ export function POSTerminal({
       });
     } catch (error) {
       console.error('Error sending table order:', error);
+      mutedDineInOrderIdsRef.current.delete(optimisticOrderId);
+      mutedDineInTablesUntilRef.current.delete(tableNumber);
       setDineInOrders(current => current.filter(order => order.id !== optimisticOrderId));
       setCart(previousCart);
       setDiscount(previousDiscount);
@@ -2858,7 +3300,9 @@ export function POSTerminal({
       setSelectedTableNumber(previousTableNumber);
       setSelectedStaffId(previousStaffId);
       setSelectedStaffName(previousStaffName);
-      setPosMode('table');
+      setBillingOrderIds(previousBillingOrderIds);
+      setLoadedTableBaseCart(previousLoadedTableBaseCart);
+      setPosMode(previousPosMode || 'table');
       setToast({
         message: 'Error al enviar a mesa: ' + (error instanceof Error ? error.message : 'Error desconocido'),
         type: 'error',
@@ -3111,9 +3555,22 @@ export function POSTerminal({
         // Billing existing table orders — mark as paid, no new order created.
         // Kitchen progress is independent: paying must not remove pending items from KDS.
         const paidTableOrderIds = [...billingOrderIds];
-        const paidTableOrders = paidTableOrderIds
-          .map((orderId) => dineInOrders.find((order) => order.id === orderId))
-          .filter((order): order is DineInOrder => Boolean(order));
+        const paidTableOrders = billingTableOrders;
+        const paidTableItems = mergeOrdersToCart(paidTableOrders);
+        const paidTableSubtotal = paidTableOrders.reduce(
+          (sum, order) => sum + getOrderItemsTotal(order.items || []),
+          0
+        );
+        const paidTableTax = calculateTaxAmount(paidTableSubtotal, taxRate, taxIncluded);
+        const paidTableTotal = paidTableSubtotal + (taxIncluded ? 0 : paidTableTax) + tip;
+        receiptItems = paidTableItems;
+        receiptSubtotal = paidTableSubtotal;
+        receiptTax = paidTableTax;
+        receiptDeliveryFee = 0;
+        receiptTotal = paidTableTotal;
+        receiptDeliveryType = 'dine-in';
+        receiptTableNumber = selectedTableNumber || undefined;
+        receiptPaymentMethod = paymentMethod;
         const tableCashTotal = paymentMethod === 'mixed'
           ? Math.round((Number(amountPaid) || 0) * 100) / 100
           : 0;
@@ -3526,6 +3983,18 @@ export function POSTerminal({
   });
 
   const subtotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
+  const billingTableOrders = useMemo(
+    () => billingOrderIds
+      .map((orderId) => dineInOrders.find((order) => order.id === orderId))
+      .filter((order): order is DineInOrder => Boolean(order)),
+    [billingOrderIds, dineInOrders]
+  );
+  const billingTableSubtotal = billingTableOrders.reduce(
+    (sum, order) => sum + getOrderItemsTotal(order.items || []),
+    0
+  );
+  const billingTableTax = calculateTaxAmount(billingTableSubtotal, taxRate, taxIncluded);
+  const billingTableTotal = billingTableSubtotal + (taxIncluded ? 0 : billingTableTax);
   const splitPaymentItems = useMemo(() => {
     if (!splitBillMode || billingOrderIds.length === 0) return [];
 
@@ -3537,8 +4006,13 @@ export function POSTerminal({
       .filter((item): item is CartItem => Boolean(item));
   }, [billingOrderIds.length, cart, splitBillMode, splitSelections]);
   const splitSubtotal = splitPaymentItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
-  const activeSubtotal = splitBillMode && billingOrderIds.length > 0 ? splitSubtotal : subtotal;
-  const activeDiscount = splitBillMode && billingOrderIds.length > 0 ? 0 : discount;
+  const fullTableBillingMode = billingOrderIds.length > 0 && !splitBillMode;
+  const activeSubtotal = splitBillMode && billingOrderIds.length > 0
+    ? splitSubtotal
+    : fullTableBillingMode
+      ? billingTableSubtotal
+      : subtotal;
+  const activeDiscount = billingOrderIds.length > 0 ? 0 : discount;
   const taxableSubtotal = Math.max(0, activeSubtotal - activeDiscount);
   const taxAmount = calculateTaxAmount(taxableSubtotal, taxRate, taxIncluded);
   const needsDeliveryZone = !loadedOrderId && !selectedTableId && posOrderType === 'delivery' && deliveryEnabled;
@@ -3546,7 +4020,9 @@ export function POSTerminal({
   const activeDeliveryFee = needsDeliveryZone ? Number(selectedDeliveryZone?.fee || 0) : 0;
   const loadedOrderDeliveryFee = loadedOrderId ? Number(loadedOrderContext?.deliveryFee || 0) : 0;
   const cartDeliveryFee = loadedOrderId ? loadedOrderDeliveryFee : activeDeliveryFee;
-  const paymentBaseTotal = taxableSubtotal + (taxIncluded ? 0 : taxAmount) + (splitBillMode ? 0 : cartDeliveryFee);
+  const paymentBaseTotal = fullTableBillingMode
+    ? billingTableTotal
+    : taxableSubtotal + (taxIncluded ? 0 : taxAmount) + (splitBillMode ? 0 : cartDeliveryFee);
   const total = paymentBaseTotal + tip;
   const editingPaidReceipt = loadedOrderContext?.paymentStatus === 'paid';
   const editedReceiptDeliveryFee = editingPaidReceipt ? loadedOrderDeliveryFee : cartDeliveryFee;
@@ -4533,47 +5009,31 @@ export function POSTerminal({
                     <button
                       key={table.id}
                       onClick={() => {
-                        if (isSelected) {
-                          if (billingOrderIds.length > 0) {
-                            setCart([]);
-                            setBillingOrderIds([]);
-                          }
-                          setSelectedTableId(null);
-                          setSelectedTableNumber(null);
-                          setSelectedStaffId(null);
-                          setSelectedStaffName('');
-                          setLoadedOrderId(null);
-                          setLoadedOrderContext(null);
-                          setPosMode('simple');
-                          return;
-                        }
-                        selectTableForCurrentCart(table.id, table.table_number);
+                        handleTableShortcutClick(table.id, table.table_number, group?.orders);
                       }}
                       className={`shrink-0 flex flex-col items-center justify-center rounded-xl px-3 py-2 min-w-[58px] border-2 shadow-[0_8px_18px_rgba(15,23,42,0.10)] transition-all duration-200 active:scale-95 ${
-                        group
-                          ? isSelected
-                            ? 'border-orange-500 bg-orange-50 shadow-[0_10px_24px_rgba(249,115,22,0.22)]'
-                            : `${getUrgencyBorder(minutes)} bg-white hover:bg-orange-50`
-                          : isSelected
-                          ? 'border-orange-500 bg-orange-50 shadow-[0_10px_24px_rgba(249,115,22,0.22)]'
-                          : 'border-slate-300 bg-white hover:border-orange-300 hover:bg-orange-50'
+                        isSelected
+                          ? 'border-cyan-300 bg-slate-950 text-white ring-4 ring-cyan-300/45 shadow-[0_0_0_2px_rgba(15,23,42,1),0_14px_28px_rgba(34,211,238,0.28)]'
+                          : group
+                            ? `${getUrgencyBorder(minutes)} bg-white hover:bg-orange-50`
+                            : 'border-slate-300 bg-white hover:border-orange-300 hover:bg-orange-50'
                       }`}
                     >
-                      <span className={`font-black text-sm leading-tight ${isSelected ? 'text-orange-700' : group ? 'text-slate-950' : 'text-slate-700'}`}>
+                      <span className={`font-black text-sm leading-tight ${isSelected ? 'text-white' : group ? 'text-slate-950' : 'text-slate-700'}`}>
                         {table.table_number}
                       </span>
                       {group ? (
                         <>
-                          <span className={`text-xs font-bold ${isSelected ? 'text-orange-700' : 'text-slate-600'}`}>
-                            {isSelected ? 'Sel.' : `${minutes}m`}
+                          <span className={`text-xs font-black ${isSelected ? 'text-cyan-200' : 'text-slate-600'}`}>
+                            {isSelected ? 'ACTIVA' : `${minutes}m`}
                           </span>
-                          <span className="text-xs text-emerald-700 font-bold tabular-nums leading-tight">
+                          <span className={`text-xs font-bold tabular-nums leading-tight ${isSelected ? 'text-emerald-300' : 'text-emerald-700'}`}>
                             {formatPriceWithCurrency(group.totalAmount, currencyInfo.code, currencyInfo.locale)}
                           </span>
                         </>
                       ) : (
-                        <span className={`text-xs mt-0.5 ${isSelected ? 'text-orange-700' : 'text-slate-500'}`}>
-                          {isSelected ? 'Sel.' : 'Libre'}
+                        <span className={`text-xs mt-0.5 font-black ${isSelected ? 'text-cyan-200' : 'text-slate-500'}`}>
+                          {isSelected ? 'ACTIVA' : 'Libre'}
                         </span>
                       )}
                     </button>
@@ -4671,11 +5131,7 @@ export function POSTerminal({
                     }}
                     onSelectTable={(tableId, tableNumber) => {
                       const group = tableGroups.find(g => g.tableNumber === tableNumber);
-                      if (group) {
-                        loadTableToCart(group.orders);
-                      } else {
-                        selectTableForCurrentCart(tableId, tableNumber);
-                      }
+                      handleTableShortcutClick(tableId, tableNumber, group?.orders);
                     }}
                   />
                 </div>
@@ -4954,7 +5410,7 @@ export function POSTerminal({
               )}
               {billingOrderIds.length === 0 && (
                 <button
-                  onClick={handleSendCartToTable}
+                  onClick={() => handleSendCartToTable()}
                   disabled={cart.length === 0 || sendingToTable}
                   className="w-full rounded-xl border border-emerald-300/35 bg-emerald-400/16 px-3 py-2.5 text-sm font-black text-emerald-100 transition hover:border-emerald-200 hover:bg-emerald-400/24 disabled:cursor-not-allowed disabled:opacity-45"
                 >
