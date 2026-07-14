@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, use } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { useTenantResolver } from '@/lib/hooks/useTenantResolver'
 import { uploadTenantMedia } from '@/lib/upload-client'
@@ -27,6 +27,7 @@ interface RecipeIngredient {
 export default function EditProductoPage({ params }: Props) {
   const { domain, id } = use(params)
   const router = useRouter()
+  const searchParams = useSearchParams()
   const { tenantId } = useTenantResolver(domain)
   const [categories, setCategories] = useState<{ id: string; name: string }[]>([])
   const [loading, setLoading] = useState(true)
@@ -52,6 +53,11 @@ export default function EditProductoPage({ params }: Props) {
   })
 
   const supabase = createClient()
+  const productsReturnHref = (categoryId: string | null | undefined, includeProduct = true) => {
+    const targetCategoryId = categoryId || searchParams.get('categoria') || 'uncategorized'
+    const productParam = includeProduct ? `&producto=${encodeURIComponent(id)}#product-${encodeURIComponent(id)}` : ''
+    return `/${domain}/admin/productos?categoria=${encodeURIComponent(targetCategoryId)}${productParam}`
+  }
 
   useEffect(() => {
     if (!tenantId) return
@@ -192,7 +198,7 @@ export default function EditProductoPage({ params }: Props) {
     const { error } = await supabase.from('menu_items').update(updateData).eq('id', id).eq('tenant_id', tenantId)
     setSaving(false)
     if (error) { toast.error('Error: ' + error.message) }
-    else { toast.success('Cambios guardados'); router.push(`/${domain}/admin/productos#product-${id}`) }
+    else { toast.success('Cambios guardados'); router.push(productsReturnHref(updateData.category_id, true)) }
   }
 
   const handleDelete = async () => {
@@ -200,7 +206,7 @@ export default function EditProductoPage({ params }: Props) {
     setDeleting(true)
     await supabase.from('menu_items').delete().eq('id', id).eq('tenant_id', tenantId)
     toast.success('Producto eliminado')
-    router.push(`/${domain}/admin/productos`)
+    router.push(productsReturnHref(form.category_id || searchParams.get('categoria'), false))
   }
 
   if (loading) return (
@@ -222,7 +228,7 @@ export default function EditProductoPage({ params }: Props) {
       <div className="sticky top-0 z-10 bg-white border-b sm:static sm:border-0 sm:bg-transparent sm:mb-6">
         <div className="px-4 sm:px-0 h-14 sm:h-auto flex items-center gap-3">
           <button
-            onClick={() => router.back()}
+            onClick={() => router.push(productsReturnHref(form.category_id || searchParams.get('categoria'), true))}
             className="p-2 -ml-2 sm:ml-0 rounded-xl hover:bg-gray-100 text-slate-700"
           >
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">

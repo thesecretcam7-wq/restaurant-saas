@@ -1,7 +1,8 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import Link from 'next/link'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import toast from 'react-hot-toast'
 import { ArrowDown, ArrowUp, ChefHat, ChevronLeft, Edit3, Folder, FolderOpen, PackageOpen, Plus, Search, Sparkles, Store } from 'lucide-react'
@@ -37,7 +38,13 @@ export default function ProductosClient({
   const [products, setProducts] = useState<Product[]>(initialProducts)
   const [togglingId, setTogglingId] = useState<string | null>(null)
   const [search, setSearch] = useState('')
-  const [activeCategoryId, setActiveCategoryId] = useState<string | null>(null)
+  const router = useRouter()
+  const searchParams = useSearchParams()
+  const initialCategoryId = searchParams.get('categoria')
+  const focusProductId = searchParams.get('producto')
+  const productsHref = `/${domain}/admin/productos`
+  const categoryHref = (categoryId: string) => `${productsHref}?categoria=${encodeURIComponent(categoryId)}`
+  const [activeCategoryId, setActiveCategoryId] = useState<string | null>(initialCategoryId || null)
   const supabase = createClient()
 
   const toggleAvailable = async (product: Product) => {
@@ -133,6 +140,28 @@ export default function ProductosClient({
   ]
   const activeFolder = folderViewGroups.find(group => group.id === activeCategoryId) || null
 
+  useEffect(() => {
+    if (!initialCategoryId) return
+    setActiveCategoryId(initialCategoryId)
+  }, [initialCategoryId])
+
+  useEffect(() => {
+    if (!focusProductId || !activeFolder) return
+    window.requestAnimationFrame(() => {
+      document.getElementById(`product-${focusProductId}`)?.scrollIntoView({ block: 'center' })
+    })
+  }, [activeFolder, focusProductId])
+
+  const openCategory = (categoryId: string) => {
+    setActiveCategoryId(categoryId)
+    router.replace(categoryHref(categoryId), { scroll: false })
+  }
+
+  const closeCategory = () => {
+    setActiveCategoryId(null)
+    router.replace(productsHref, { scroll: false })
+  }
+
   return (
     <div className="admin-page">
       <div className="admin-page-header">
@@ -188,7 +217,7 @@ export default function ProductosClient({
                 availableCount={group.products.filter(product => product.available).length}
                 addHref={group.addHref}
                 editHref={group.editHref}
-                onOpen={() => setActiveCategoryId(group.id)}
+                onOpen={() => openCategory(group.id)}
               />
             ))}
           </div>
@@ -197,7 +226,7 @@ export default function ProductosClient({
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
               <button
                 type="button"
-                onClick={() => setActiveCategoryId(null)}
+                onClick={closeCategory}
                 className="admin-button-ghost w-fit"
               >
                 <ChevronLeft className="size-4" />
@@ -209,6 +238,7 @@ export default function ProductosClient({
               </Link>
             </div>
             <CategoryGroup
+              categoryId={activeFolder.id}
               name={activeFolder.name}
               editHref={activeFolder.editHref}
               addHref={activeFolder.addHref}
@@ -226,6 +256,7 @@ export default function ProductosClient({
             {visibleCategories.map(({ category, products: categoryProducts }) => (
               <CategoryGroup
                 key={category.id}
+                categoryId={category.id}
                 name={category.name}
                 editHref={`/${domain}/admin/productos/categoria/${category.id}`}
                 addHref={`/${domain}/admin/productos/nuevo?categoria=${category.id}`}
@@ -240,6 +271,7 @@ export default function ProductosClient({
             ))}
             {uncategorized.length > 0 && (
               <CategoryGroup
+                categoryId="uncategorized"
                 name="Sin categoria"
                 products={sortProducts(uncategorized)}
                 addHref={`/${domain}/admin/productos/nuevo`}
@@ -312,6 +344,7 @@ function CategoryFolder({
 }
 
 function CategoryGroup({
+  categoryId,
   name,
   editHref,
   addHref,
@@ -323,6 +356,7 @@ function CategoryGroup({
   onReorder,
   currencyInfo,
 }: {
+  categoryId: string
   name: string
   editHref?: string
   addHref?: string
@@ -368,6 +402,7 @@ function CategoryGroup({
             key={product.id}
             product={product}
             domain={domain}
+            categoryId={categoryId}
             toggling={togglingId === product.id}
             onToggle={onToggle}
             onToggleStore={onToggleStore}
@@ -386,6 +421,7 @@ function CategoryGroup({
 function ProductRow({
   product,
   domain,
+  categoryId,
   toggling,
   onToggle,
   onToggleStore,
@@ -397,6 +433,7 @@ function ProductRow({
 }: {
   product: Product
   domain: string
+  categoryId: string
   toggling: boolean
   onToggle: (p: Product) => void
   onToggleStore: (p: Product) => void
@@ -406,12 +443,14 @@ function ProductRow({
   canMoveDown: boolean
   currencyInfo: { code: string; locale: string }
 }) {
+  const editHref = `/${domain}/admin/productos/${product.id}?categoria=${encodeURIComponent(categoryId)}`
+
   return (
     <div
       id={`product-${product.id}`}
       className="scroll-mt-24 grid gap-3 px-5 py-4 transition hover:bg-white/70 sm:grid-cols-[1fr_auto] sm:items-center"
     >
-      <Link href={`/${domain}/admin/productos/${product.id}`} className="flex min-w-0 items-center gap-3">
+      <Link href={editHref} className="flex min-w-0 items-center gap-3">
         {product.image_url ? (
           <img src={product.image_url} alt={product.name} className="size-14 flex-shrink-0 rounded-xl object-cover shadow-sm" />
         ) : (

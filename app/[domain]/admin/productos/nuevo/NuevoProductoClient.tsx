@@ -84,7 +84,10 @@ export default function NuevoProductoClient({ domain, tenantId, categories, init
       }
 
       toast.success('Producto guardado')
-      router.push(`/${domain}/admin/productos`)
+      const targetCategoryId = validated.category_id || 'uncategorized'
+      const productId = data?.product?.id
+      const productParam = productId ? `&producto=${encodeURIComponent(productId)}#product-${encodeURIComponent(productId)}` : ''
+      router.push(`/${domain}/admin/productos?categoria=${encodeURIComponent(targetCategoryId)}${productParam}`)
     } catch (error: any) {
       if (error.errors) {
         const validationErrors = parseValidationError(error)
