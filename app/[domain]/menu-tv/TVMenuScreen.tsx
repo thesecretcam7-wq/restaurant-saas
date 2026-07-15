@@ -56,8 +56,9 @@ export function TVMenuScreen({ tenantId, restaurantName, logoUrl, items }: TVMen
 
   const carouselItems = useMemo(() => {
     const featuredItems = displayItems.filter((item) => item.featured)
-    const regularItems = displayItems.filter((item) => !item.featured)
-    return [...featuredItems, ...regularItems]
+    const imageItems = displayItems.filter((item) => item.image_url && !item.featured)
+    const regularItems = displayItems.filter((item) => !item.image_url && !item.featured)
+    return [...featuredItems, ...imageItems, ...regularItems]
   }, [displayItems])
   const featured = carouselItems[activePage] || carouselItems[0]
   const previewItems = carouselItems.slice(0, 8)
@@ -228,8 +229,8 @@ export function TVMenuScreen({ tenantId, restaurantName, logoUrl, items }: TVMen
           <div className="grid min-h-0 flex-1 grid-cols-[320px_minmax(0,1fr)] gap-5 pt-5 xl:grid-cols-[380px_minmax(0,1fr)] xl:gap-7 xl:pt-6">
             <aside className="grid min-h-0 content-start gap-3 overflow-hidden rounded-[30px] border border-white/14 bg-white/[0.07] p-3 shadow-[0_24px_80px_rgba(0,0,0,0.26)] backdrop-blur-xl xl:p-4">
               <div className="px-2 pb-1">
-                <p className="text-sm font-black uppercase tracking-[0.22em] text-[#f5c542]">Carrusel</p>
-                <p className="mt-1 text-2xl font-black text-white">Platos del dia</p>
+                <p className="text-sm font-black uppercase tracking-[0.22em] text-[#f5c542]">Menu del dia</p>
+                <p className="mt-1 text-2xl font-black text-white">Platos disponibles</p>
               </div>
               {previewItems.map((item, index) => (
                 <button
@@ -242,9 +243,13 @@ export function TVMenuScreen({ tenantId, restaurantName, logoUrl, items }: TVMen
                       : 'border-white/12 bg-white/[0.08] text-white'
                   }`}
                 >
-                  <div className="h-[72px] overflow-hidden rounded-2xl bg-[#f4f0e8] xl:h-20">
+                  <div className="relative h-[72px] overflow-hidden rounded-2xl bg-[#17171d] xl:h-20">
                     {item.image_url ? (
-                      <img src={item.image_url} alt="" className="h-full w-full object-contain" />
+                      <>
+                        <img src={item.image_url} alt="" className="absolute inset-0 h-full w-full scale-125 object-cover blur-md opacity-75" />
+                        <div className="absolute inset-0 bg-black/20" />
+                        <img src={item.image_url} alt="" className="absolute inset-0 h-full w-full object-contain" />
+                      </>
                     ) : (
                       <div className="grid h-full place-items-center text-xl font-black text-black/20">TV</div>
                     )}
@@ -259,14 +264,18 @@ export function TVMenuScreen({ tenantId, restaurantName, logoUrl, items }: TVMen
 
             {featured && (
               <article className="grid min-h-0 grid-rows-[minmax(0,1fr)_auto] overflow-hidden rounded-[34px] border border-white/18 bg-white/[0.08] shadow-[0_28px_90px_rgba(0,0,0,0.36)] backdrop-blur-xl">
-                <div className="relative min-h-0 overflow-hidden bg-[#f4f0e8]">
+                <div className="relative min-h-0 overflow-hidden bg-[#17171d]">
                   {featured.image_url ? (
-                    <img src={featured.image_url} alt="" className="absolute inset-0 h-full w-full object-contain" />
+                    <>
+                      <img src={featured.image_url} alt="" className="absolute inset-0 h-full w-full scale-125 object-cover blur-2xl opacity-80" />
+                      <div className="absolute inset-0 bg-black/24" />
+                      <img src={featured.image_url} alt="" className="absolute inset-0 h-full w-full object-contain drop-shadow-[0_20px_60px_rgba(0,0,0,0.38)]" />
+                    </>
                   ) : (
                     <div className="absolute inset-0 bg-gradient-to-br from-[#2a1a10] to-[#111827]" />
                   )}
                   <div className="absolute left-6 top-6 flex gap-3">
-                    <span className="rounded-full bg-[#e43d30] px-5 py-2 text-xl font-black uppercase text-white shadow-xl">Especial</span>
+                    <span className="rounded-full bg-[#e43d30] px-5 py-2 text-xl font-black uppercase text-white shadow-xl">Nuevos productos</span>
                     {featured.badge && <span className="rounded-full bg-[#f5c542] px-5 py-2 text-xl font-black uppercase text-black shadow-xl">{featured.badge}</span>}
                   </div>
                   {carouselItems.length > 1 && (
@@ -277,7 +286,7 @@ export function TVMenuScreen({ tenantId, restaurantName, logoUrl, items }: TVMen
                 </div>
                 <div className="grid shrink-0 grid-cols-[minmax(0,1fr)_auto] items-end gap-5 border-t border-white/14 bg-[#17171d]/94 p-5 xl:p-8">
                   <div className="min-w-0">
-                    <p className="text-base font-black uppercase tracking-[0.22em] text-[#f5c542]">{featured.category || 'Menu del dia'}</p>
+                    <p className="text-base font-black uppercase tracking-[0.22em] text-[#f5c542]">Nuevos productos</p>
                     <h2 className="mt-2 text-5xl font-black leading-[0.92] text-white xl:text-6xl 2xl:text-7xl">{featured.name}</h2>
                     {featured.description && <p className="mt-3 line-clamp-2 text-xl font-bold leading-tight text-white/68 xl:text-2xl 2xl:text-3xl">{featured.description}</p>}
                   </div>
