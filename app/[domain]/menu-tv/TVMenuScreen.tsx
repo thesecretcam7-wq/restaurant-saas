@@ -15,6 +15,7 @@ interface TVMenuItem {
 }
 
 interface TVMenuScreenProps {
+  tenantId: string
   restaurantName: string
   logoUrl?: string | null
   items: TVMenuItem[]
@@ -51,8 +52,9 @@ function chunkItems(items: TVMenuItem[], size: number) {
   return chunks.length ? chunks : [[]]
 }
 
-export function TVMenuScreen({ restaurantName, logoUrl, items }: TVMenuScreenProps) {
+export function TVMenuScreen({ tenantId, restaurantName, logoUrl, items }: TVMenuScreenProps) {
   const [time, setTime] = useState<Date | null>(null)
+  const [displayItems, setDisplayItems] = useState(items)
   const [activePage, setActivePage] = useState(0)
   const [mounted, setMounted] = useState(false)
   const [isFullscreen, setIsFullscreen] = useState(false)
@@ -60,9 +62,9 @@ export function TVMenuScreen({ restaurantName, logoUrl, items }: TVMenuScreenPro
   const [wakeLockActive, setWakeLockActive] = useState(false)
   const wakeLockRef = useRef<WakeLockSentinel | null>(null)
 
-  const pages = useMemo(() => chunkItems(items, 7), [items])
+  const pages = useMemo(() => chunkItems(displayItems, 7), [displayItems])
   const currentPage = pages[activePage] || pages[0] || []
-  const featured = currentPage.find((item) => item.featured) || currentPage[0] || items.find((item) => item.featured) || items[0]
+  const featured = currentPage.find((item) => item.featured) || currentPage[0] || displayItems.find((item) => item.featured) || displayItems[0]
   const sideItems = currentPage.filter((item) => item.id !== featured?.id).slice(0, 6)
 
   useEffect(() => {
@@ -76,7 +78,27 @@ export function TVMenuScreen({ restaurantName, logoUrl, items }: TVMenuScreenPro
 
   useEffect(() => {
     setActivePage(0)
-  }, [items.length])
+  }, [displayItems.length])
+
+  useEffect(() => {
+    let cancelled = false
+
+    async function refreshItems() {
+      try {
+        const response = await fetch(`/api/tv-menu/public?tenantId=${tenantId}`, { cache: 'no-store' })
+        if (!response.ok) return
+        const data = await response.json().catch(() => null)
+        if (cancelled || !Array.isArray(data?.items)) return
+        setDisplayItems(data.items)
+      } catch {}
+    }
+
+    const poll = window.setInterval(refreshItems, 10_000)
+    return () => {
+      cancelled = true
+      window.clearInterval(poll)
+    }
+  }, [tenantId])
 
   useEffect(() => {
     if (pages.length <= 1) return

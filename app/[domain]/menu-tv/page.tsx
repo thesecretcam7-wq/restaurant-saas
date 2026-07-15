@@ -48,6 +48,7 @@ export default async function PublicTVMenuPage({ params }: Props) {
 
   return (
     <TVMenuScreen
+      tenantId={tenant.id}
       restaurantName={branding?.app_name || tenant.organization_name || 'Restaurante'}
       logoUrl={tenant.logo_url}
       items={items || []}
