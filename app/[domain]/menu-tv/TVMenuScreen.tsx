@@ -200,9 +200,9 @@ export function TVMenuScreen({ tenantId, restaurantName, logoUrl, items }: TVMen
       )}
 
       <section className="relative z-10 h-screen min-h-0 p-4 sm:p-6 xl:p-8">
-        <div className="pointer-events-none absolute left-1/2 top-3 z-20 flex -translate-x-1/2 justify-center xl:top-5">
+        <div className="pointer-events-none absolute left-[160px] top-4 z-20 flex -translate-x-1/2 justify-center xl:left-[190px] xl:top-6">
           {logoUrl ? (
-            <div className="flex h-24 w-40 items-center justify-center xl:h-32 xl:w-52">
+            <div className="flex h-20 w-32 items-center justify-center xl:h-28 xl:w-44">
               <img src={logoUrl} alt={restaurantName} className="max-h-full max-w-full object-contain drop-shadow-[0_18px_45px_rgba(0,0,0,0.55)]" />
             </div>
           ) : (
@@ -236,7 +236,7 @@ export function TVMenuScreen({ tenantId, restaurantName, logoUrl, items }: TVMen
         ) : (
           <div className="grid h-full min-h-0 grid-cols-[320px_minmax(0,1fr)] gap-5 xl:grid-cols-[380px_minmax(0,1fr)] xl:gap-7">
             <aside className="grid min-h-0 content-start gap-3 overflow-hidden rounded-[30px] border border-white/14 bg-white/[0.07] p-3 shadow-[0_24px_80px_rgba(0,0,0,0.26)] backdrop-blur-xl xl:p-4">
-              <div className="px-2 pb-1">
+              <div className="px-2 pb-1 pt-20 xl:pt-28">
                 <p className="text-sm font-black uppercase tracking-[0.22em] text-[#f5c542]">Menu del dia</p>
                 <p className="mt-1 text-2xl font-black text-white">Platos disponibles</p>
               </div>
@@ -276,14 +276,15 @@ export function TVMenuScreen({ tenantId, restaurantName, logoUrl, items }: TVMen
                   ) : (
                     <div className="absolute inset-0 bg-gradient-to-br from-[#2a1a10] to-[#111827]" />
                   )}
-                  <div className="absolute left-6 top-6 flex gap-3">
-                    <span className="rounded-full bg-[#e43d30] px-5 py-2 text-xl font-black uppercase text-white shadow-xl">Nuevos productos</span>
-                    {featured.badge && <span className="rounded-full bg-[#f5c542] px-5 py-2 text-xl font-black uppercase text-black shadow-xl">{featured.badge}</span>}
-                  </div>
+                  {featured.badge && (
+                    <div className="absolute left-6 top-6 flex gap-3">
+                      <span className="rounded-full bg-[#f5c542] px-5 py-2 text-xl font-black uppercase text-black shadow-xl">{featured.badge}</span>
+                    </div>
+                  )}
                 </div>
                 <div className="grid shrink-0 grid-cols-[minmax(0,1fr)_auto] items-end gap-5 border-t border-white/14 bg-[#17171d]/94 p-5 xl:p-8">
                   <div className="min-w-0">
-                    <p className="text-base font-black uppercase tracking-[0.22em] text-[#f5c542]">Nuevos productos</p>
+                    {featured.badge && <p className="text-base font-black uppercase tracking-[0.22em] text-[#f5c542]">{featured.badge}</p>}
                     <h2 className="mt-2 text-5xl font-black leading-[0.92] text-white xl:text-6xl 2xl:text-7xl">{featured.name}</h2>
                     {featured.description && <p className="mt-3 line-clamp-2 text-xl font-bold leading-tight text-white/68 xl:text-2xl 2xl:text-3xl">{featured.description}</p>}
                   </div>
