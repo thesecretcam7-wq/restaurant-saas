@@ -1021,7 +1021,7 @@ body {
 }
 
 .pos-product-card-no-image .pos-product-card-price {
-  color: #d4af37 !important;
+  color: #ffffff !important;
   text-shadow: none !important;
 }
 
@@ -2062,7 +2062,7 @@ body:has(.admin-app-shell) {
 }
 
 .pos-premium .pos-product-card-no-image .pos-product-card-price {
-  color: #d4af37 !important;
+  color: #ffffff !important;
   text-shadow: none !important;
 }
 
@@ -2311,12 +2311,13 @@ body:has(.admin-app-shell) {
 .pos-premium .pos-product-card-price-on-image,
 .pos-product-card-price-on-image {
   display: inline-block;
+  border: 1px solid #000000 !important;
   border-radius: 0.65rem;
-  background: rgba(255, 255, 255, 0.92) !important;
-  color: #d4af37 !important;
+  background: rgba(0, 0, 0, 0.88) !important;
+  color: #ffffff !important;
   padding: 0.3rem 0.5rem;
   text-shadow: none !important;
-  box-shadow: 0 8px 22px rgba(15, 23, 42, 0.14);
+  box-shadow: 0 8px 22px rgba(15, 23, 42, 0.22);
 }
 
 .pos-premium .pos-product-card-name-on-image,
