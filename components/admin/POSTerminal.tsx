@@ -1483,18 +1483,18 @@ export function POSTerminal({
       .trim()
       .replace(/\s+/g, '-')
       .slice(0, 42) || 'Restaurante';
-    const shortcutName = `Eccofood TPV - ${safeRestaurantName}.url`;
+    const shortcutName = `Eccofood TPV - ${safeRestaurantName}.lnk`;
     const encodeBase64 = (value: string) =>
       btoa(unescape(encodeURIComponent(value)));
     const installer = [
       '@echo off',
       'setlocal',
-      'echo Instalando acceso directo del TPV en el Escritorio...',
+      'echo Instalando app del TPV en el Escritorio...',
       'echo.',
-      'powershell -NoProfile -ExecutionPolicy Bypass -Command "$ErrorActionPreference = \'Stop\'; $url = [Text.Encoding]::UTF8.GetString([Convert]::FromBase64String(\'' + encodeBase64(posUrl) + '\')); $icon = [Text.Encoding]::UTF8.GetString([Convert]::FromBase64String(\'' + encodeBase64(iconUrl) + '\')); $name = [Text.Encoding]::UTF8.GetString([Convert]::FromBase64String(\'' + encodeBase64(shortcutName) + '\')); $desktop = [Environment]::GetFolderPath(\'Desktop\'); $path = Join-Path $desktop $name; $content = @(\'[InternetShortcut]\', (\'URL=\' + $url), \'IconIndex=0\', (\'IconFile=\' + $icon)); Set-Content -Path $path -Value $content -Encoding ASCII; Write-Host \'Acceso creado:\' $path; Start-Process $path"',
+      'powershell -NoProfile -ExecutionPolicy Bypass -Command "$ErrorActionPreference = \'Stop\'; $url = [Text.Encoding]::UTF8.GetString([Convert]::FromBase64String(\'' + encodeBase64(posUrl) + '\')); $iconUrl = [Text.Encoding]::UTF8.GetString([Convert]::FromBase64String(\'' + encodeBase64(iconUrl) + '\')); $name = [Text.Encoding]::UTF8.GetString([Convert]::FromBase64String(\'' + encodeBase64(shortcutName) + '\')); $browserPaths = @((Join-Path ${env:ProgramFiles(x86)} \'Microsoft\\Edge\\Application\\msedge.exe\'), (Join-Path $env:ProgramFiles \'Microsoft\\Edge\\Application\\msedge.exe\'), (Join-Path ${env:ProgramFiles(x86)} \'Google\\Chrome\\Application\\chrome.exe\'), (Join-Path $env:ProgramFiles \'Google\\Chrome\\Application\\chrome.exe\')); $browser = $browserPaths | Where-Object { $_ -and (Test-Path $_) } | Select-Object -First 1; if (-not $browser) { throw \'No se encontro Microsoft Edge ni Google Chrome.\' }; $installDir = Join-Path $env:LOCALAPPDATA \'EccofoodTPV\'; New-Item -ItemType Directory -Force -Path $installDir | Out-Null; $iconPath = Join-Path $installDir \'eccofood-tpv.ico\'; try { Invoke-WebRequest -Uri $iconUrl -OutFile $iconPath -UseBasicParsing -TimeoutSec 20 } catch { $iconPath = $browser }; $desktop = [Environment]::GetFolderPath(\'Desktop\'); $path = Join-Path $desktop $name; $oldUrlPath = Join-Path $desktop ($name -replace \'\\.lnk$\', \'.url\'); if (Test-Path $oldUrlPath) { Remove-Item -LiteralPath $oldUrlPath -Force }; $shell = New-Object -ComObject WScript.Shell; $shortcut = $shell.CreateShortcut($path); $shortcut.TargetPath = $browser; $shortcut.Arguments = \'--app=\"\' + $url + \'\"\'; $shortcut.WorkingDirectory = Split-Path $browser; $shortcut.IconLocation = $iconPath; $shortcut.Description = \'Eccofood TPV\'; $shortcut.Save(); Write-Host \'App creada:\' $path; Start-Process $path"',
       'echo.',
-      'echo Si Windows pregunto por permisos, acepta para crear el icono.',
-      'echo Ya puedes abrir el TPV desde el Escritorio.',
+      'echo Si Windows pregunto por permisos, acepta para crear la app.',
+      'echo Ya puedes abrir el TPV como ventana de aplicacion desde el Escritorio.',
       'pause',
     ].join('\r\n');
     const blob = new Blob([installer], { type: 'application/x-msdownload' });
@@ -1506,7 +1506,7 @@ export function POSTerminal({
     link.click();
     link.remove();
     URL.revokeObjectURL(href);
-    setToast({ message: 'Instalador descargado. Abre el archivo .cmd descargado para crear el icono en el Escritorio.', type: 'success' });
+    setToast({ message: 'Instalador descargado. Abre el .cmd para crear la app del TPV en el Escritorio.', type: 'success' });
   }
 
   async function handleInstallPOS() {
@@ -4806,6 +4806,22 @@ export function POSTerminal({
                       <Download className="h-4 w-4" />
                       Instalar TPV
                     </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setProductOrderUnlocked((current) => !current);
+                        setDraggedProductId(null);
+                        setDragOverProductId(null);
+                        setQuickActionsOpen(false);
+                      }}
+                      disabled={savingProductOrder}
+                      className={`flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left font-black transition hover:bg-white/10 disabled:opacity-60 ${
+                        productOrderUnlocked ? 'text-amber-100' : 'text-cyan-50'
+                      }`}
+                    >
+                      {productOrderUnlocked ? <Unlock className="h-4 w-4" /> : <Lock className="h-4 w-4" />}
+                      {savingProductOrder ? 'Guardando orden' : productOrderUnlocked ? 'Bloquear mover productos' : 'Mover productos'}
+                    </button>
                     <div className="mt-1 rounded-lg border border-white/10 bg-white/[0.04] p-1.5">
                       <div className="mb-1 flex items-center gap-2 text-[10px] font-black uppercase text-slate-400">
                         <DollarSign className="h-3.5 w-3.5" />
@@ -5068,34 +5084,13 @@ export function POSTerminal({
             )}
           </div>
 
-          <div className={`sticky z-20 border-b border-amber-300/20 bg-slate-950/92 px-4 backdrop-blur-xl ${compactPOSLayout ? 'py-2' : 'py-2.5'}`}>
-            <button
-              type="button"
-              onClick={() => {
-                setProductOrderUnlocked((current) => !current);
-                setDraggedProductId(null);
-                setDragOverProductId(null);
-              }}
-              disabled={savingProductOrder}
-              title={productOrderUnlocked ? 'Bloquear orden de productos' : 'Desbloquear para mover productos'}
-              className={`flex w-full items-center justify-center gap-2 rounded-xl border px-4 py-3 text-sm font-black uppercase tracking-[0.08em] shadow-lg transition-all duration-200 disabled:opacity-60 ${
-                productOrderUnlocked
-                  ? 'border-amber-100 bg-amber-300 text-slate-950 ring-2 ring-amber-100/80'
-                  : 'border-amber-300/45 bg-amber-300/12 text-amber-100 hover:bg-amber-300/20'
-              }`}
-            >
-              {productOrderUnlocked ? <Unlock className="h-5 w-5" /> : <Lock className="h-5 w-5" />}
-              {savingProductOrder ? 'Guardando orden' : productOrderUnlocked ? 'Mover productos: abierto' : 'Mover productos: bloqueado'}
-            </button>
-            {productOrderUnlocked && searchQuery.trim().length > 0 && (
-              <p className="mt-2 text-center text-xs font-black text-amber-100">
-                Limpia la busqueda para mover
-              </p>
-            )}
-          </div>
-
           {/* Categories - Sticky */}
           <div className={`sticky z-10 flex flex-wrap content-start items-center gap-2 border-b border-white/10 bg-black/24 pb-2 backdrop-blur-xl ${compactPOSLayout ? 'px-4 py-3' : 'px-4 py-2.5'}`}>
+            {productOrderUnlocked && (
+              <span className="shrink-0 rounded-full border border-amber-200 bg-amber-300 px-3 py-2 text-xs font-black uppercase tracking-[0.08em] text-slate-950 shadow-lg shadow-amber-950/20">
+                {savingProductOrder ? 'Guardando orden' : searchQuery.trim() ? 'Limpia busqueda para mover' : 'Mover activo'}
+              </span>
+            )}
             {categories.map((cat) => (
               <button
                 key={cat.id}
