@@ -5068,8 +5068,7 @@ export function POSTerminal({
             )}
           </div>
 
-          {/* Categories - Sticky */}
-          <div className={`sticky z-10 flex flex-wrap content-start items-center gap-2 border-b border-white/10 bg-black/24 pb-2 backdrop-blur-xl ${compactPOSLayout ? 'px-4 py-3' : 'px-4 py-2.5'}`}>
+          <div className={`sticky z-20 border-b border-amber-300/20 bg-slate-950/92 px-4 backdrop-blur-xl ${compactPOSLayout ? 'py-2' : 'py-2.5'}`}>
             <button
               type="button"
               onClick={() => {
@@ -5079,20 +5078,24 @@ export function POSTerminal({
               }}
               disabled={savingProductOrder}
               title={productOrderUnlocked ? 'Bloquear orden de productos' : 'Desbloquear para mover productos'}
-              className={`pos-chip shrink-0 px-3 py-2 font-black transition-all duration-200 disabled:opacity-60 ${
+              className={`flex w-full items-center justify-center gap-2 rounded-xl border px-4 py-3 text-sm font-black uppercase tracking-[0.08em] shadow-lg transition-all duration-200 disabled:opacity-60 ${
                 productOrderUnlocked
-                  ? 'border-amber-200 bg-amber-300 text-slate-950 ring-2 ring-amber-100/80'
-                  : 'text-slate-300 hover:border-amber-300/35 hover:text-white'
+                  ? 'border-amber-100 bg-amber-300 text-slate-950 ring-2 ring-amber-100/80'
+                  : 'border-amber-300/45 bg-amber-300/12 text-amber-100 hover:bg-amber-300/20'
               }`}
             >
-              {productOrderUnlocked ? <Unlock className="mr-1.5 inline h-4 w-4 align-[-3px]" /> : <Lock className="mr-1.5 inline h-4 w-4 align-[-3px]" />}
-              {savingProductOrder ? 'Guardando' : productOrderUnlocked ? 'Orden abierto' : 'Orden bloqueado'}
+              {productOrderUnlocked ? <Unlock className="h-5 w-5" /> : <Lock className="h-5 w-5" />}
+              {savingProductOrder ? 'Guardando orden' : productOrderUnlocked ? 'Mover productos: abierto' : 'Mover productos: bloqueado'}
             </button>
             {productOrderUnlocked && searchQuery.trim().length > 0 && (
-              <span className="rounded-full border border-amber-300/40 bg-amber-300/12 px-3 py-2 text-xs font-black text-amber-100">
+              <p className="mt-2 text-center text-xs font-black text-amber-100">
                 Limpia la busqueda para mover
-              </span>
+              </p>
             )}
+          </div>
+
+          {/* Categories - Sticky */}
+          <div className={`sticky z-10 flex flex-wrap content-start items-center gap-2 border-b border-white/10 bg-black/24 pb-2 backdrop-blur-xl ${compactPOSLayout ? 'px-4 py-3' : 'px-4 py-2.5'}`}>
             {categories.map((cat) => (
               <button
                 key={cat.id}
