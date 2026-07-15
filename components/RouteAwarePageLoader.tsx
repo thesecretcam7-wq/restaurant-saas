@@ -12,6 +12,7 @@ const APP_SECTIONS = new Set([
   'cocina',
   'pantalla',
   'pos-display',
+  'menu-tv',
   'kiosko',
 ])
 

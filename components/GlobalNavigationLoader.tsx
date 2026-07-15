@@ -12,6 +12,7 @@ const APP_SECTIONS = new Set([
   'cocina',
   'pantalla',
   'pos-display',
+  'menu-tv',
   'kiosko',
 ]);
 
@@ -67,7 +68,7 @@ function getLoadingLabel(pathname: string) {
   if (pathname.includes('/kds') || pathname.includes('/cocina')) return 'Preparando cocina';
   if (pathname.includes('/kitchen')) return 'Abriendo comandero';
   if (pathname.includes('/kiosko')) return 'Preparando kiosko';
-  if (pathname.includes('/pantalla') || pathname.includes('/pos-display')) return 'Activando pantalla';
+  if (pathname.includes('/pantalla') || pathname.includes('/pos-display') || pathname.includes('/menu-tv')) return 'Activando pantalla';
   if (pathname.includes('/admin')) return 'Abriendo panel';
   return 'Cargando Eccofood';
 }

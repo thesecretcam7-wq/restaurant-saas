@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ChefHat, CreditCard, Lock, LogIn, Monitor, ShieldCheck, ShoppingBag, UtensilsCrossed } from 'lucide-react';
+import { ChefHat, CreditCard, Lock, LogIn, Monitor, ShieldCheck, ShoppingBag, Tv, UtensilsCrossed } from 'lucide-react';
 import LanguageSwitcher, { useI18n } from '@/components/LanguageSwitcher';
 import { isStandalonePwa, restoreStaffSession, saveStaffSession } from '@/lib/staff-session-client';
 
@@ -157,6 +157,13 @@ export function RoleSelector({ tenantId, tenantName, tenantSlug, logoUrl, brandi
       href: `/${tenantSlug}/pantalla`,
       icon: Monitor,
       color: highlight,
+    },
+    {
+      label: 'Menu TV',
+      desc: 'Carta para el televisor',
+      href: `/${tenantSlug}/menu-tv`,
+      icon: Tv,
+      color: secondaryHighlight,
     },
   ];
 

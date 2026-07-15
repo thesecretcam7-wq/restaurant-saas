@@ -11,6 +11,7 @@ const STORE_ROUTE_BLOCKLIST = [
   '/cocina',
   '/pantalla',
   '/pos-display',
+  '/menu-tv',
   '/acceso',
   '/kiosko',
 ]
