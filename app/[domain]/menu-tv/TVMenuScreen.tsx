@@ -194,8 +194,8 @@ export function TVMenuScreen({ tenantId, restaurantName, logoUrl, items }: TVMen
         <header className="flex shrink-0 items-center justify-between gap-5">
           <div className="flex min-w-0 items-center gap-6">
             {logoUrl ? (
-              <div className="flex h-16 w-24 items-center justify-center rounded-2xl border border-white/10 bg-white p-2 shadow-[0_22px_80px_rgba(0,0,0,0.45)] xl:h-20 xl:w-28">
-                <img src={logoUrl} alt="" className="max-h-full max-w-full object-contain" />
+              <div className="flex h-24 w-32 items-center justify-center xl:h-32 xl:w-40">
+                <img src={logoUrl} alt={restaurantName} className="max-h-full max-w-full object-contain drop-shadow-[0_18px_45px_rgba(0,0,0,0.55)]" />
               </div>
             ) : (
               <DefaultLogo name={restaurantName} />
