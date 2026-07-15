@@ -167,6 +167,14 @@ export default async function TenantLayout({
       } else if (path === base + '/staff/entregas' || path.indexOf(base + '/staff/entregas/') === 0) {
         screen = 'deliveries';
         title = restaurantName + ' Entregas';
+      } else if (
+        path === base + '/staff/pos' ||
+        path.indexOf(base + '/staff/pos/') === 0 ||
+        path === base + '/admin/pos' ||
+        path.indexOf(base + '/admin/pos/') === 0
+      ) {
+        screen = 'cashier';
+        title = restaurantName + ' TPV';
       } else if (path === base + '/acceso/apk/camarero' || path.indexOf(base + '/acceso/apk/camarero/') === 0) {
         screen = 'waiterAccess';
         title = restaurantName + ' Camarero';

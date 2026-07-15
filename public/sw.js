@@ -1,9 +1,12 @@
-const CACHE_NAME = 'eccofood-v18';
+const CACHE_NAME = 'eccofood-v19';
 const CACHE_PREFIX = 'eccofood-';
 const NETWORK_TIMEOUT_MS = 3500;
 const STATIC_ASSETS = [
   '/favicon.ico',
   '/icons/icon.svg',
+  '/icons/icon-192.png',
+  '/icons/icon-512.png',
+  '/icons/apple-touch-icon.png',
 ];
 
 function offlinePage() {
@@ -175,7 +178,11 @@ self.addEventListener('fetch', (event) => {
     url.pathname.endsWith('/icon-512.png');
 
   if (isPwaIdentityAsset) {
-    event.respondWith(fetch(request));
+    event.respondWith(
+      fetch(request)
+        .then((response) => cacheSuccessfulResponse(request, response))
+        .catch(() => matchInEccofoodCaches(request, { ignoreSearch: true }))
+    );
     return;
   }
 
