@@ -169,18 +169,14 @@ export function TVMenuScreen({ tenantId, restaurantName, logoUrl, items }: TVMen
     }
   }, [requestWakeLock])
 
-  const grouped = useMemo(() => {
-    const map = new Map<string, TVMenuItem[]>()
-    for (const item of sideItems) {
-      map.set(item.category || 'Menu del dia', [...(map.get(item.category || 'Menu del dia') || []), item])
-    }
-    return Array.from(map.entries())
-  }, [sideItems])
-
   return (
-    <main className="relative h-screen overflow-hidden bg-[#090a0d] text-white">
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_18%_12%,rgba(245,197,66,0.18),transparent_30%),radial-gradient(circle_at_82%_0%,rgba(228,61,48,0.2),transparent_32%),linear-gradient(135deg,#090a0d_0%,#18110d_54%,#090a0d_100%)]" />
-      <div className="absolute inset-x-0 bottom-0 h-44 bg-gradient-to-t from-[#e43d30]/18 to-transparent" />
+    <main className="relative h-screen overflow-hidden bg-[#111114] text-white">
+      {featured?.image_url && (
+        <div className="absolute inset-0 opacity-22">
+          <img src={featured.image_url} alt="" className="h-full w-full object-cover blur-2xl" />
+        </div>
+      )}
+      <div className="absolute inset-0 bg-[linear-gradient(135deg,rgba(14,14,18,0.94)_0%,rgba(46,25,21,0.88)_48%,rgba(17,17,20,0.94)_100%)]" />
 
       {mounted && showFullscreenPrompt && !isFullscreen && (
         <button
@@ -226,7 +222,7 @@ export function TVMenuScreen({ tenantId, restaurantName, logoUrl, items }: TVMen
           </div>
         </header>
 
-        {items.length === 0 ? (
+        {displayItems.length === 0 ? (
           <div className="flex flex-1 items-center justify-center text-center">
             <div>
               <p className="text-7xl font-black text-[#f5c542]">MENU TV</p>
@@ -234,55 +230,68 @@ export function TVMenuScreen({ tenantId, restaurantName, logoUrl, items }: TVMen
             </div>
           </div>
         ) : (
-          <div className="grid min-h-0 flex-1 gap-5 pt-5 xl:grid-cols-[1.05fr_1fr] xl:gap-7 xl:pt-7">
+          <div className="grid min-h-0 flex-1 gap-5 pt-5 xl:grid-cols-[minmax(0,1.14fr)_minmax(390px,0.86fr)] xl:gap-7 xl:pt-7">
             {featured && (
-              <article className="relative min-h-0 overflow-hidden rounded-[28px] border border-[#f5c542]/30 bg-[#15171f] shadow-[0_28px_90px_rgba(0,0,0,0.42)] xl:rounded-[36px]">
-                {featured.image_url ? (
-                  <img src={featured.image_url} alt="" className="absolute inset-0 h-full w-full object-cover" />
-                ) : (
-                  <div className="absolute inset-0 bg-gradient-to-br from-[#2a1a10] to-[#111827]" />
-                )}
-                <div className="absolute inset-0 bg-gradient-to-t from-black via-black/42 to-black/5" />
-                <div className="relative flex h-full min-h-0 flex-col justify-end p-5 xl:p-8">
-                  <div className="mb-auto flex justify-between gap-4">
-                    <span className="rounded-full bg-[#e43d30] px-4 py-2 text-lg font-black uppercase text-white shadow-xl xl:px-6 xl:py-3 xl:text-2xl">Especial</span>
-                    {featured.badge && <span className="rounded-full bg-[#f5c542] px-4 py-2 text-lg font-black uppercase text-black shadow-xl xl:px-6 xl:py-3 xl:text-2xl">{featured.badge}</span>}
+              <article className="grid min-h-0 overflow-hidden rounded-[28px] border border-white/18 bg-white/[0.08] shadow-[0_28px_90px_rgba(0,0,0,0.36)] backdrop-blur-xl xl:grid-rows-[minmax(0,1fr)_auto] xl:rounded-[34px]">
+                <div className="relative min-h-0 overflow-hidden bg-[#f4f0e8]">
+                  {featured.image_url ? (
+                    <img src={featured.image_url} alt="" className="absolute inset-0 h-full w-full object-contain" />
+                  ) : (
+                    <div className="absolute inset-0 bg-gradient-to-br from-[#2a1a10] to-[#111827]" />
+                  )}
+                  <div className="absolute left-5 top-5 flex gap-3">
+                    <span className="rounded-full bg-[#e43d30] px-5 py-2 text-lg font-black uppercase text-white shadow-xl xl:text-xl">Especial</span>
+                    {featured.badge && <span className="rounded-full bg-[#f5c542] px-5 py-2 text-lg font-black uppercase text-black shadow-xl xl:text-xl">{featured.badge}</span>}
                   </div>
-                  <p className="text-5xl font-black leading-none text-white drop-shadow-2xl xl:text-7xl 2xl:text-8xl">{featured.name}</p>
-                  {featured.description && <p className="mt-3 line-clamp-2 max-w-3xl text-xl font-bold leading-tight text-white/82 xl:mt-5 xl:text-3xl">{featured.description}</p>}
-                  <p className="mt-5 inline-flex w-fit rounded-[24px] bg-[#f5c542] px-6 py-3 text-5xl font-black leading-none text-black shadow-[0_20px_70px_rgba(245,197,66,0.35)] xl:mt-8 xl:px-8 xl:py-4 xl:text-7xl">
+                </div>
+                <div className="flex shrink-0 items-end justify-between gap-5 border-t border-white/14 bg-[#17171d]/92 p-5 xl:p-7">
+                  <div className="min-w-0">
+                    <p className="text-sm font-black uppercase tracking-[0.2em] text-[#f5c542]">{featured.category || 'Menu del dia'}</p>
+                    <h2 className="mt-1 text-5xl font-black leading-none text-white xl:text-6xl 2xl:text-7xl">{featured.name}</h2>
+                    {featured.description && <p className="mt-3 line-clamp-2 max-w-4xl text-xl font-bold leading-tight text-white/68 xl:text-2xl">{featured.description}</p>}
+                  </div>
+                  <p className="shrink-0 rounded-[24px] bg-[#f5c542] px-7 py-4 text-5xl font-black leading-none text-black shadow-[0_20px_70px_rgba(245,197,66,0.32)] xl:text-6xl">
                     {money(featured.price)}
                   </p>
                 </div>
               </article>
             )}
 
-            <div className="grid min-h-0 content-start gap-3 overflow-hidden xl:gap-4">
-              {grouped.map(([category, categoryItems]) => (
-                <section key={category} className="rounded-[24px] border border-white/10 bg-white/[0.06] p-3 shadow-[0_18px_50px_rgba(0,0,0,0.2)] backdrop-blur xl:p-4">
-                  <div className="mb-2 flex items-center justify-between xl:mb-3">
-                    <h2 className="truncate text-2xl font-black uppercase tracking-[0.08em] text-[#f5c542] xl:text-3xl">{category}</h2>
-                    <span className="rounded-full bg-white/10 px-3 py-1 text-sm font-black text-white/60 xl:text-base">{categoryItems.length}</span>
+            <div className="grid min-h-0 grid-rows-[auto_minmax(0,1fr)] gap-4 overflow-hidden">
+              <section className="rounded-[26px] border border-white/14 bg-[#f5c542] p-5 text-black shadow-[0_18px_70px_rgba(245,197,66,0.22)]">
+                <p className="text-base font-black uppercase tracking-[0.2em] opacity-70">Menu diario</p>
+                <p className="mt-1 text-4xl font-black leading-none xl:text-5xl">{featured?.category || 'Especial del dia'}</p>
+                <p className="mt-3 text-lg font-black opacity-75">{sideItems.length ? `${sideItems.length} opciones mas en pantalla` : 'Producto destacado'}</p>
+              </section>
+
+              <section className="min-h-0 overflow-hidden rounded-[26px] border border-white/14 bg-white/[0.08] p-4 shadow-[0_18px_70px_rgba(0,0,0,0.28)] backdrop-blur-xl xl:p-5">
+                <div className="mb-4 flex items-center justify-between">
+                  <h3 className="text-2xl font-black uppercase tracking-[0.12em] text-white xl:text-3xl">Mas platos</h3>
+                  {pages.length > 1 && <span className="rounded-full bg-white/12 px-4 py-1 text-base font-black text-white/70">{activePage + 1}/{pages.length}</span>}
+                </div>
+
+                {sideItems.length === 0 ? (
+                  <div className="grid h-full place-items-center rounded-[22px] border border-white/10 bg-black/18 text-center">
+                    <p className="px-8 text-3xl font-black text-white/55">Agrega mas productos para que roten en la TV.</p>
                   </div>
-                  <div className="grid gap-3">
-                    {categoryItems.map((item) => (
-                      <article key={item.id} className="grid min-h-[88px] grid-cols-[96px_1fr_auto] items-center gap-3 rounded-[20px] bg-black/34 p-2 xl:min-h-[112px] xl:grid-cols-[128px_1fr_auto] xl:gap-5 xl:p-3">
-                        <div className="h-20 overflow-hidden rounded-2xl bg-[#15171f] xl:h-28 xl:rounded-[20px]">
-                          {item.image_url ? <img src={item.image_url} alt="" className="h-full w-full object-cover" /> : <div className="flex h-full items-center justify-center text-3xl font-black text-white/20">TV</div>}
+                ) : (
+                  <div className="grid max-h-full gap-4 overflow-hidden">
+                    {sideItems.slice(0, 4).map((item) => (
+                      <article key={item.id} className="grid min-h-[116px] grid-cols-[150px_1fr_auto] items-center gap-4 overflow-hidden rounded-[24px] border border-white/10 bg-[#17171d]/82 p-3 xl:min-h-[132px] xl:grid-cols-[178px_1fr_auto]">
+                        <div className="h-24 overflow-hidden rounded-[20px] bg-[#f4f0e8] xl:h-28">
+                          {item.image_url ? <img src={item.image_url} alt="" className="h-full w-full object-contain" /> : <div className="flex h-full items-center justify-center text-3xl font-black text-black/20">TV</div>}
                         </div>
                         <div className="min-w-0">
-                          <div className="flex items-center gap-3">
-                            <p className="truncate text-2xl font-black leading-tight text-white xl:text-3xl">{item.name}</p>
-                            {item.badge && <span className="rounded-full bg-[#e43d30] px-3 py-1 text-sm font-black uppercase text-white">{item.badge}</span>}
-                          </div>
-                          {item.description && <p className="mt-1 line-clamp-1 text-base font-bold leading-tight text-white/55 xl:line-clamp-2 xl:text-xl">{item.description}</p>}
+                          <p className="text-xs font-black uppercase tracking-[0.18em] text-[#f5c542]">{item.category || 'Menu del dia'}</p>
+                          <p className="truncate text-3xl font-black leading-tight text-white xl:text-4xl">{item.name}</p>
+                          {item.description && <p className="mt-1 line-clamp-1 text-lg font-bold leading-tight text-white/58 xl:text-xl">{item.description}</p>}
                         </div>
-                        <p className="rounded-2xl bg-white px-4 py-2 text-3xl font-black text-black xl:px-5 xl:py-3 xl:text-4xl">{money(item.price)}</p>
+                        <p className="rounded-[20px] bg-white px-5 py-3 text-3xl font-black text-black xl:text-4xl">{money(item.price)}</p>
                       </article>
                     ))}
                   </div>
-                </section>
-              ))}
+                )}
+              </section>
             </div>
           </div>
         )}
