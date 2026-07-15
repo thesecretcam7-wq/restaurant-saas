@@ -833,6 +833,24 @@ function printCashClosingViaBrowserAPI(data: CashClosingReceiptData): void {
         .replaceAll('>', '&gt;')
         .replaceAll('"', '&quot;')
         .replaceAll("'", '&#39;');
+    const billPaymentsHtml = data.billPayments?.length
+      ? `
+            <div class="section-title">FACTURAS PAGADAS</div>
+            ${data.billPayments.map((payment) => {
+              const supplier = payment.supplier_name || payment.concept || 'Factura pagada';
+              const detail = payment.invoice_number || payment.concept || '';
+              return `
+                <div class="bill">
+                  <div>
+                    <strong>${safe(supplier)}</strong>
+                    ${detail ? `<small>${safe(detail)}</small>` : ''}
+                  </div>
+                  <strong>-${money(Number(payment.amount) || 0)}</strong>
+                </div>
+              `;
+            }).join('')}
+        `
+      : '';
     const html = `
       <html>
         <head>
@@ -844,6 +862,10 @@ function printCashClosingViaBrowserAPI(data: CashClosingReceiptData): void {
             h2{font-size:16px;text-align:center;margin:8px 0 12px}
             .meta{text-align:center;font-size:12px;color:#555;margin-bottom:12px}
             .line{display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px dashed #ddd;font-size:13px}
+            .section-title{margin-top:10px;padding-top:8px;border-top:1px solid #111;font-size:12px;font-weight:800;text-align:center}
+            .bill{display:flex;justify-content:space-between;gap:8px;padding:5px 0;border-bottom:1px dashed #ddd;font-size:12px}
+            .bill div{min-width:0}
+            .bill small{display:block;color:#555;margin-top:2px}
             .total{font-size:16px;font-weight:800;border-top:2px solid #111;margin-top:8px;padding-top:8px}
             @media print{body{padding:0}.receipt{max-width:none;width:72mm}}
           </style>
@@ -867,6 +889,7 @@ function printCashClosingViaBrowserAPI(data: CashClosingReceiptData): void {
             <div class="line"><span>Contado</span><strong>${money(data.actualCash)}</strong></div>
             <div class="line"><span>Diferencia</span><strong>${money(data.difference)}</strong></div>
             <div class="line"><span>Transacciones</span><strong>${data.transactionCount}</strong></div>
+            ${billPaymentsHtml}
             <div class="line total"><span>Total ventas</span><strong>${money(data.totalSales)}</strong></div>
           </div>
           <script>window.onload=()=>{window.print();setTimeout(()=>window.close(),500)}</script>

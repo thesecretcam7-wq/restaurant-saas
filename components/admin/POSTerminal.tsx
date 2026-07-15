@@ -1669,6 +1669,7 @@ export function POSTerminal({
             totalSales: savedStats.totalSales,
             billPaymentsTotal: savedStats.billPaymentsTotal,
             billPaymentsCount: savedStats.billPaymentsCount,
+            billPayments: savedStats.billPayments,
             totalDeliveryFees: savedStats.totalDeliveryFees,
             deliveryOrderCount: savedStats.deliveryOrderCount,
             totalTax: savedStats.totalTax,

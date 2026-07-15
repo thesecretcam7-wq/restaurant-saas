@@ -449,6 +449,20 @@ export function generateCashClosingReceiptESCPOS(
   pairRow('Trans:', String(data.transactionCount), 'Cobr:', String(data.ordersCompleted));
   if (data.ordersCancelled > 0) row('Canceladas:', String(data.ordersCancelled));
 
+  if (data.billPayments?.length) {
+    sep();
+    push(BOLD_ON);
+    line('FACTURAS PAGADAS');
+    push(BOLD_OFF);
+    data.billPayments.forEach((payment) => {
+      const supplier = normalizeThermalText(payment.supplier_name || payment.concept || 'Factura pagada');
+      const invoice = normalizeThermalText(payment.invoice_number || payment.concept || '');
+      const label = invoice ? `${supplier} ${invoice}` : supplier;
+      line(label.substring(0, cols));
+      row('Pagado:', `-${money(Number(payment.amount) || 0)}`);
+    });
+  }
+
   if (data.notes) {
     sep();
     line('Notas:');

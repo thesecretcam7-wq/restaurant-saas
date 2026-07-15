@@ -36,6 +36,13 @@ interface CashClosing {
 interface ClosingBillPaymentSummary {
   billPaymentsTotal: number
   billPaymentsCount: number
+  billPayments?: Array<{
+    supplier_name?: string | null
+    concept?: string | null
+    invoice_number?: string | null
+    amount: number
+    paid_at?: string | null
+  }>
 }
 
 interface MonthlyProductSale {
@@ -468,30 +475,38 @@ export default function CashClosingsPage() {
     closing: CashClosing,
     supabase: ReturnType<typeof createClient>
   ): Promise<ClosingBillPaymentSummary> {
-    if (!tenantId) return { billPaymentsTotal: 0, billPaymentsCount: 0 }
+    if (!tenantId) return { billPaymentsTotal: 0, billPaymentsCount: 0, billPayments: [] }
 
     const { data, error } = await supabase
       .from('cash_bill_payments')
-      .select('amount')
+      .select('supplier_name, concept, invoice_number, amount, paid_at')
       .eq('tenant_id', tenantId)
       .eq('cash_closing_id', closing.id)
       .eq('status', 'active')
+      .order('paid_at', { ascending: true })
       .limit(500)
 
     if (error) {
       const message = `${error.message || ''} ${error.details || ''} ${error.hint || ''}`
       if (message.includes('cash_bill_payments') || error.code === '42P01' || error.code === 'PGRST205') {
-        return { billPaymentsTotal: 0, billPaymentsCount: 0 }
+        return { billPaymentsTotal: 0, billPaymentsCount: 0, billPayments: [] }
       }
 
       console.warn('No se pudieron consultar facturas del cierre:', error.message)
-      return { billPaymentsTotal: 0, billPaymentsCount: 0 }
+      return { billPaymentsTotal: 0, billPaymentsCount: 0, billPayments: [] }
     }
 
-    const billPayments = data || []
+    const billPayments = (data || []).map((payment) => ({
+      supplier_name: payment.supplier_name,
+      concept: payment.concept,
+      invoice_number: payment.invoice_number,
+      amount: Number(payment.amount) || 0,
+      paid_at: payment.paid_at,
+    }))
     return {
       billPaymentsTotal: billPayments.reduce((sum, payment) => sum + (Number(payment.amount) || 0), 0),
       billPaymentsCount: billPayments.length,
+      billPayments,
     }
   }
 
@@ -752,6 +767,7 @@ export default function CashClosingsPage() {
         totalSales: Number(closing.total_sales) || 0,
         billPaymentsTotal: billPaymentSummary.billPaymentsTotal,
         billPaymentsCount: billPaymentSummary.billPaymentsCount,
+        billPayments: billPaymentSummary.billPayments || [],
         totalDeliveryFees: deliverySummary.totalDeliveryFees,
         deliveryOrderCount: deliverySummary.deliveryOrderCount,
         totalTax: Number(closing.total_tax) || 0,

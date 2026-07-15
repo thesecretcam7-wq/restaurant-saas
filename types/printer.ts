@@ -98,6 +98,13 @@ export interface CashClosingReceiptData {
     totalSales: number;
     billPaymentsTotal?: number;
     billPaymentsCount?: number;
+    billPayments?: Array<{
+      supplier_name?: string | null;
+      concept?: string | null;
+      invoice_number?: string | null;
+      amount: number;
+      paid_at?: string | null;
+    }>;
     totalDeliveryFees?: number;
     deliveryOrderCount?: number;
     totalTax: number;
