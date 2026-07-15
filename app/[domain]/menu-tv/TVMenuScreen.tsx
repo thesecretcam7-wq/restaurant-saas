@@ -225,53 +225,24 @@ export function TVMenuScreen({ tenantId, restaurantName, logoUrl, items }: TVMen
             </div>
           </div>
         ) : (
-          <div className="grid min-h-0 flex-1 grid-rows-[minmax(0,1fr)_auto] gap-4 pt-5 xl:gap-5 xl:pt-6">
-            {featured && (
-              <article className="grid min-h-0 overflow-hidden rounded-[30px] border border-white/18 bg-white/[0.08] shadow-[0_28px_90px_rgba(0,0,0,0.36)] backdrop-blur-xl xl:grid-cols-[minmax(0,1.45fr)_minmax(360px,0.55fr)] xl:rounded-[34px]">
-                <div className="relative min-h-0 overflow-hidden bg-[#f4f0e8]">
-                  {featured.image_url ? (
-                    <img src={featured.image_url} alt="" className="absolute inset-0 h-full w-full object-contain" />
-                  ) : (
-                    <div className="absolute inset-0 bg-gradient-to-br from-[#2a1a10] to-[#111827]" />
-                  )}
-                  <div className="absolute left-5 top-5 flex gap-3">
-                    <span className="rounded-full bg-[#e43d30] px-5 py-2 text-lg font-black uppercase text-white shadow-xl xl:text-xl">Especial</span>
-                    {featured.badge && <span className="rounded-full bg-[#f5c542] px-5 py-2 text-lg font-black uppercase text-black shadow-xl xl:text-xl">{featured.badge}</span>}
-                  </div>
-                </div>
-                <div className="flex min-h-0 flex-col justify-between border-t border-white/14 bg-[#17171d]/94 p-5 xl:border-l xl:border-t-0 xl:p-8">
-                  <div className="min-w-0">
-                    <p className="text-base font-black uppercase tracking-[0.22em] text-[#f5c542]">{featured.category || 'Menu del dia'}</p>
-                    <h2 className="mt-4 text-5xl font-black leading-[0.92] text-white xl:text-6xl 2xl:text-7xl">{featured.name}</h2>
-                    {featured.description && <p className="mt-5 line-clamp-4 text-2xl font-bold leading-tight text-white/68 xl:text-3xl">{featured.description}</p>}
-                  </div>
-                  <div className="mt-6">
-                    <p className="w-fit rounded-[26px] bg-[#f5c542] px-8 py-5 text-6xl font-black leading-none text-black shadow-[0_20px_70px_rgba(245,197,66,0.32)] xl:text-7xl">
-                      {money(featured.price)}
-                    </p>
-                    {carouselItems.length > 1 && (
-                      <p className="mt-5 text-lg font-black uppercase tracking-[0.18em] text-white/48">
-                        {activePage + 1} / {carouselItems.length}
-                      </p>
-                    )}
-                  </div>
-                </div>
-              </article>
-            )}
-
-            <div className="grid h-24 grid-flow-col auto-cols-[minmax(150px,1fr)] gap-3 overflow-hidden xl:h-28 xl:gap-4">
+          <div className="grid min-h-0 flex-1 gap-5 pt-5 xl:grid-cols-[360px_minmax(0,1fr)] xl:gap-7 xl:pt-6">
+            <aside className="grid min-h-0 content-start gap-3 overflow-hidden rounded-[30px] border border-white/14 bg-white/[0.07] p-3 shadow-[0_24px_80px_rgba(0,0,0,0.26)] backdrop-blur-xl xl:p-4">
+              <div className="px-2 pb-1">
+                <p className="text-sm font-black uppercase tracking-[0.22em] text-[#f5c542]">Carrusel</p>
+                <p className="mt-1 text-2xl font-black text-white">Platos del dia</p>
+              </div>
               {previewItems.map((item, index) => (
                 <button
                   key={item.id}
                   type="button"
                   onClick={() => setActivePage(index)}
-                  className={`grid min-w-0 grid-cols-[68px_1fr] items-center gap-3 rounded-[22px] border p-2 text-left transition xl:grid-cols-[82px_1fr] ${
+                  className={`grid min-h-[96px] min-w-0 grid-cols-[92px_1fr] items-center gap-3 rounded-[22px] border p-2 text-left transition ${
                     index === activePage
                       ? 'border-[#f5c542] bg-[#f5c542] text-black shadow-[0_16px_50px_rgba(245,197,66,0.26)]'
                       : 'border-white/12 bg-white/[0.08] text-white'
                   }`}
                 >
-                  <div className="h-16 overflow-hidden rounded-2xl bg-[#f4f0e8] xl:h-20">
+                  <div className="h-20 overflow-hidden rounded-2xl bg-[#f4f0e8]">
                     {item.image_url ? (
                       <img src={item.image_url} alt="" className="h-full w-full object-contain" />
                     ) : (
@@ -279,12 +250,43 @@ export function TVMenuScreen({ tenantId, restaurantName, logoUrl, items }: TVMen
                     )}
                   </div>
                   <div className="min-w-0">
-                    <p className={`truncate text-lg font-black leading-tight xl:text-xl ${index === activePage ? 'text-black' : 'text-white'}`}>{item.name}</p>
+                    <p className={`truncate text-xl font-black leading-tight ${index === activePage ? 'text-black' : 'text-white'}`}>{item.name}</p>
                     <p className={`mt-1 text-base font-black ${index === activePage ? 'text-black/72' : 'text-[#f5c542]'}`}>{money(item.price)}</p>
                   </div>
                 </button>
               ))}
-            </div>
+            </aside>
+
+            {featured && (
+              <article className="grid min-h-0 overflow-hidden rounded-[34px] border border-white/18 bg-white/[0.08] shadow-[0_28px_90px_rgba(0,0,0,0.36)] backdrop-blur-xl xl:grid-rows-[minmax(0,1fr)_auto]">
+                <div className="relative min-h-0 overflow-hidden bg-[#f4f0e8]">
+                  {featured.image_url ? (
+                    <img src={featured.image_url} alt="" className="absolute inset-0 h-full w-full object-contain" />
+                  ) : (
+                    <div className="absolute inset-0 bg-gradient-to-br from-[#2a1a10] to-[#111827]" />
+                  )}
+                  <div className="absolute left-6 top-6 flex gap-3">
+                    <span className="rounded-full bg-[#e43d30] px-5 py-2 text-xl font-black uppercase text-white shadow-xl">Especial</span>
+                    {featured.badge && <span className="rounded-full bg-[#f5c542] px-5 py-2 text-xl font-black uppercase text-black shadow-xl">{featured.badge}</span>}
+                  </div>
+                  {carouselItems.length > 1 && (
+                    <div className="absolute right-6 top-6 rounded-full bg-black/58 px-5 py-2 text-xl font-black text-white backdrop-blur">
+                      {activePage + 1} / {carouselItems.length}
+                    </div>
+                  )}
+                </div>
+                <div className="grid shrink-0 grid-cols-[minmax(0,1fr)_auto] items-end gap-5 border-t border-white/14 bg-[#17171d]/94 p-6 xl:p-8">
+                  <div className="min-w-0">
+                    <p className="text-base font-black uppercase tracking-[0.22em] text-[#f5c542]">{featured.category || 'Menu del dia'}</p>
+                    <h2 className="mt-2 text-6xl font-black leading-[0.92] text-white 2xl:text-7xl">{featured.name}</h2>
+                    {featured.description && <p className="mt-4 line-clamp-2 text-2xl font-bold leading-tight text-white/68 2xl:text-3xl">{featured.description}</p>}
+                  </div>
+                  <p className="rounded-[26px] bg-[#f5c542] px-8 py-5 text-6xl font-black leading-none text-black shadow-[0_20px_70px_rgba(245,197,66,0.32)] 2xl:text-7xl">
+                    {money(featured.price)}
+                  </p>
+                </div>
+              </article>
+            )}
           </div>
         )}
 
