@@ -3,7 +3,7 @@
 import { useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { createClient } from '@/lib/supabase/client';
-import { ShoppingCart, Plus, Minus, Trash2, Search, DollarSign, CreditCard, Maximize2, Minimize2, Lock, Clock, Truck, Store, UtensilsCrossed, Archive, Monitor, Printer, CalendarDays, Download, PencilLine, X, Check, ReceiptText } from 'lucide-react';
+import { ShoppingCart, Plus, Minus, Trash2, Search, DollarSign, CreditCard, Maximize2, Minimize2, Lock, Unlock, GripVertical, Clock, Truck, Store, UtensilsCrossed, Archive, Monitor, Printer, CalendarDays, Download, PencilLine, X, Check, ReceiptText } from 'lucide-react';
 import { TableMap } from './TableMap';
 import { POSPayment } from './POSPayment';
 import { NumericKeyboard } from './NumericKeyboard';
@@ -28,6 +28,7 @@ interface MenuItem {
   category_id: string;
   image_url?: string;
   available?: boolean;
+  sort_order?: number | null;
 }
 
 interface CartItem {
@@ -674,6 +675,10 @@ export function POSTerminal({
   const [searchQuery, setSearchQuery] = useState('');
   const [productSearchOpen, setProductSearchOpen] = useState(false);
   const [quickActionsOpen, setQuickActionsOpen] = useState(false);
+  const [productOrderUnlocked, setProductOrderUnlocked] = useState(false);
+  const [draggedProductId, setDraggedProductId] = useState<string | null>(null);
+  const [dragOverProductId, setDragOverProductId] = useState<string | null>(null);
+  const [savingProductOrder, setSavingProductOrder] = useState(false);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const quickActionsRef = useRef<HTMLDivElement>(null);
   const offlineBootstrapToastShownRef = useRef(false);
@@ -4054,6 +4059,72 @@ export function POSTerminal({
     const matchesSearch = item.name.toLowerCase().includes(searchQuery.toLowerCase());
     return matchesCategory && matchesSearch;
   });
+  const canReorderProducts = productOrderUnlocked && Boolean(selectedCategory) && searchQuery.trim().length === 0;
+
+  async function saveProductOrderForCategory(categoryId: string, orderedItems: MenuItem[]) {
+    setSavingProductOrder(true);
+    try {
+      const response = await fetch('/api/pos/menu-order', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          tenantId,
+          categoryId,
+          orderedIds: orderedItems.map((item) => item.id),
+        }),
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(payload?.error || 'No se pudo guardar el orden');
+      setToast({ message: 'Orden de productos guardado', type: 'success' });
+    } catch (error) {
+      setToast({
+        message: `No se pudo guardar el orden: ${error instanceof Error ? error.message : 'Error desconocido'}`,
+        type: 'error',
+      });
+      fetchMenuData();
+    } finally {
+      setSavingProductOrder(false);
+    }
+  }
+
+  function handleProductDrop(targetProductId: string) {
+    if (!canReorderProducts || !selectedCategory || !draggedProductId || draggedProductId === targetProductId) {
+      setDraggedProductId(null);
+      setDragOverProductId(null);
+      return;
+    }
+
+    const categoryItems = menu.filter((item) => item.category_id === selectedCategory);
+    const fromIndex = categoryItems.findIndex((item) => item.id === draggedProductId);
+    const toIndex = categoryItems.findIndex((item) => item.id === targetProductId);
+    if (fromIndex < 0 || toIndex < 0) {
+      setDraggedProductId(null);
+      setDragOverProductId(null);
+      return;
+    }
+
+    const reorderedCategoryItems = [...categoryItems];
+    const [movedItem] = reorderedCategoryItems.splice(fromIndex, 1);
+    reorderedCategoryItems.splice(toIndex, 0, movedItem);
+    const orderMap = new Map(reorderedCategoryItems.map((item, index) => [item.id, (index + 1) * 10]));
+
+    setMenu((current) =>
+      current
+        .map((item) => (
+          item.category_id === selectedCategory && orderMap.has(item.id)
+            ? { ...item, sort_order: orderMap.get(item.id) || item.sort_order || 0 }
+            : item
+        ))
+        .sort((a, b) => {
+          if (a.category_id !== b.category_id) return String(a.category_id || '').localeCompare(String(b.category_id || ''));
+          return (Number(a.sort_order) || 0) - (Number(b.sort_order) || 0) || a.name.localeCompare(b.name);
+        })
+    );
+
+    setDraggedProductId(null);
+    setDragOverProductId(null);
+    saveProductOrderForCategory(selectedCategory, reorderedCategoryItems);
+  }
 
   const subtotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
   const billingTableOrders = useMemo(
@@ -4999,6 +5070,29 @@ export function POSTerminal({
 
           {/* Categories - Sticky */}
           <div className={`sticky z-10 flex flex-wrap content-start items-center gap-2 border-b border-white/10 bg-black/24 pb-2 backdrop-blur-xl ${compactPOSLayout ? 'px-4 py-3' : 'px-4 py-2.5'}`}>
+            <button
+              type="button"
+              onClick={() => {
+                setProductOrderUnlocked((current) => !current);
+                setDraggedProductId(null);
+                setDragOverProductId(null);
+              }}
+              disabled={savingProductOrder}
+              title={productOrderUnlocked ? 'Bloquear orden de productos' : 'Desbloquear para mover productos'}
+              className={`pos-chip shrink-0 px-3 py-2 font-black transition-all duration-200 disabled:opacity-60 ${
+                productOrderUnlocked
+                  ? 'border-amber-200 bg-amber-300 text-slate-950 ring-2 ring-amber-100/80'
+                  : 'text-slate-300 hover:border-amber-300/35 hover:text-white'
+              }`}
+            >
+              {productOrderUnlocked ? <Unlock className="mr-1.5 inline h-4 w-4 align-[-3px]" /> : <Lock className="mr-1.5 inline h-4 w-4 align-[-3px]" />}
+              {savingProductOrder ? 'Guardando' : productOrderUnlocked ? 'Orden abierto' : 'Orden bloqueado'}
+            </button>
+            {productOrderUnlocked && searchQuery.trim().length > 0 && (
+              <span className="rounded-full border border-amber-300/40 bg-amber-300/12 px-3 py-2 text-xs font-black text-amber-100">
+                Limpia la busqueda para mover
+              </span>
+            )}
             {categories.map((cat) => (
               <button
                 key={cat.id}
@@ -5027,14 +5121,67 @@ export function POSTerminal({
                 return (
                   <button
                     key={item.id}
-                    onClick={() => addToCart(item)}
-                    title={unavailable ? `${item.name} no disponible` : `Agregar ${item.name}`}
+                    type="button"
+                    draggable={canReorderProducts}
+                    onDragStart={(event) => {
+                      if (!canReorderProducts) return;
+                      setDraggedProductId(item.id);
+                      event.dataTransfer.effectAllowed = 'move';
+                      event.dataTransfer.setData('text/plain', item.id);
+                    }}
+                    onDragEnter={(event) => {
+                      if (!canReorderProducts) return;
+                      event.preventDefault();
+                      setDragOverProductId(item.id);
+                    }}
+                    onDragOver={(event) => {
+                      if (!canReorderProducts) return;
+                      event.preventDefault();
+                      event.dataTransfer.dropEffect = 'move';
+                    }}
+                    onDragEnd={() => {
+                      setDraggedProductId(null);
+                      setDragOverProductId(null);
+                    }}
+                    onDrop={(event) => {
+                      if (!canReorderProducts) return;
+                      event.preventDefault();
+                      handleProductDrop(item.id);
+                    }}
+                    onClick={() => {
+                      if (productOrderUnlocked) {
+                        setToast({
+                          message: canReorderProducts ? 'Arrastra el producto para moverlo' : 'Limpia la busqueda para mover productos',
+                          type: 'error',
+                        });
+                        return;
+                      }
+                      addToCart(item);
+                    }}
+                    title={
+                      canReorderProducts
+                        ? `Mover ${item.name}`
+                        : unavailable
+                          ? `${item.name} no disponible`
+                          : `Agregar ${item.name}`
+                    }
                     className={`${hasProductImage ? 'pos-card pos-product-card-with-image' : 'pos-product-card-no-image'} group relative min-h-[126px] overflow-hidden rounded-xl p-0 text-left transition-all duration-200 transform hover:scale-[1.018] active:scale-95 ${
                       qty
                         ? 'border-2 border-cyan-300/70 bg-cyan-300/14 shadow-lg shadow-cyan-900/30'
                         : ''
-                    } ${unavailable ? 'opacity-55 grayscale hover:scale-100 active:scale-100' : ''}`}
+                    } ${unavailable ? 'opacity-55 grayscale hover:scale-100 active:scale-100' : ''} ${
+                      canReorderProducts ? 'cursor-grab active:cursor-grabbing' : ''
+                    } ${
+                      draggedProductId === item.id ? 'opacity-45 ring-2 ring-amber-200' : ''
+                    } ${
+                      dragOverProductId === item.id && draggedProductId !== item.id ? 'ring-4 ring-amber-300 ring-offset-2 ring-offset-slate-950' : ''
+                    }`}
                   >
+                    {canReorderProducts && (
+                      <span className="absolute right-1.5 top-1.5 z-20 grid h-7 w-7 place-items-center rounded-full border border-black bg-white text-slate-950 shadow-md">
+                        <GripVertical className="h-4 w-4" />
+                      </span>
+                    )}
                     {hasProductImage ? (
                       <img
                         src={item.image_url}
