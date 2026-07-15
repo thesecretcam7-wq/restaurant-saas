@@ -225,7 +225,7 @@ export function TVMenuScreen({ tenantId, restaurantName, logoUrl, items }: TVMen
             </div>
           </div>
         ) : (
-          <div className="grid min-h-0 flex-1 gap-5 pt-5 xl:grid-cols-[360px_minmax(0,1fr)] xl:gap-7 xl:pt-6">
+          <div className="grid min-h-0 flex-1 grid-cols-[320px_minmax(0,1fr)] gap-5 pt-5 xl:grid-cols-[380px_minmax(0,1fr)] xl:gap-7 xl:pt-6">
             <aside className="grid min-h-0 content-start gap-3 overflow-hidden rounded-[30px] border border-white/14 bg-white/[0.07] p-3 shadow-[0_24px_80px_rgba(0,0,0,0.26)] backdrop-blur-xl xl:p-4">
               <div className="px-2 pb-1">
                 <p className="text-sm font-black uppercase tracking-[0.22em] text-[#f5c542]">Carrusel</p>
@@ -236,13 +236,13 @@ export function TVMenuScreen({ tenantId, restaurantName, logoUrl, items }: TVMen
                   key={item.id}
                   type="button"
                   onClick={() => setActivePage(index)}
-                  className={`grid min-h-[96px] min-w-0 grid-cols-[92px_1fr] items-center gap-3 rounded-[22px] border p-2 text-left transition ${
+                  className={`grid min-h-[86px] min-w-0 grid-cols-[82px_1fr] items-center gap-3 rounded-[22px] border p-2 text-left transition xl:min-h-[100px] xl:grid-cols-[96px_1fr] ${
                     index === activePage
                       ? 'border-[#f5c542] bg-[#f5c542] text-black shadow-[0_16px_50px_rgba(245,197,66,0.26)]'
                       : 'border-white/12 bg-white/[0.08] text-white'
                   }`}
                 >
-                  <div className="h-20 overflow-hidden rounded-2xl bg-[#f4f0e8]">
+                  <div className="h-[72px] overflow-hidden rounded-2xl bg-[#f4f0e8] xl:h-20">
                     {item.image_url ? (
                       <img src={item.image_url} alt="" className="h-full w-full object-contain" />
                     ) : (
@@ -250,7 +250,7 @@ export function TVMenuScreen({ tenantId, restaurantName, logoUrl, items }: TVMen
                     )}
                   </div>
                   <div className="min-w-0">
-                    <p className={`truncate text-xl font-black leading-tight ${index === activePage ? 'text-black' : 'text-white'}`}>{item.name}</p>
+                    <p className={`truncate text-lg font-black leading-tight xl:text-xl ${index === activePage ? 'text-black' : 'text-white'}`}>{item.name}</p>
                     <p className={`mt-1 text-base font-black ${index === activePage ? 'text-black/72' : 'text-[#f5c542]'}`}>{money(item.price)}</p>
                   </div>
                 </button>
@@ -258,7 +258,7 @@ export function TVMenuScreen({ tenantId, restaurantName, logoUrl, items }: TVMen
             </aside>
 
             {featured && (
-              <article className="grid min-h-0 overflow-hidden rounded-[34px] border border-white/18 bg-white/[0.08] shadow-[0_28px_90px_rgba(0,0,0,0.36)] backdrop-blur-xl xl:grid-rows-[minmax(0,1fr)_auto]">
+              <article className="grid min-h-0 grid-rows-[minmax(0,1fr)_auto] overflow-hidden rounded-[34px] border border-white/18 bg-white/[0.08] shadow-[0_28px_90px_rgba(0,0,0,0.36)] backdrop-blur-xl">
                 <div className="relative min-h-0 overflow-hidden bg-[#f4f0e8]">
                   {featured.image_url ? (
                     <img src={featured.image_url} alt="" className="absolute inset-0 h-full w-full object-contain" />
@@ -275,13 +275,13 @@ export function TVMenuScreen({ tenantId, restaurantName, logoUrl, items }: TVMen
                     </div>
                   )}
                 </div>
-                <div className="grid shrink-0 grid-cols-[minmax(0,1fr)_auto] items-end gap-5 border-t border-white/14 bg-[#17171d]/94 p-6 xl:p-8">
+                <div className="grid shrink-0 grid-cols-[minmax(0,1fr)_auto] items-end gap-5 border-t border-white/14 bg-[#17171d]/94 p-5 xl:p-8">
                   <div className="min-w-0">
                     <p className="text-base font-black uppercase tracking-[0.22em] text-[#f5c542]">{featured.category || 'Menu del dia'}</p>
-                    <h2 className="mt-2 text-6xl font-black leading-[0.92] text-white 2xl:text-7xl">{featured.name}</h2>
-                    {featured.description && <p className="mt-4 line-clamp-2 text-2xl font-bold leading-tight text-white/68 2xl:text-3xl">{featured.description}</p>}
+                    <h2 className="mt-2 text-5xl font-black leading-[0.92] text-white xl:text-6xl 2xl:text-7xl">{featured.name}</h2>
+                    {featured.description && <p className="mt-3 line-clamp-2 text-xl font-bold leading-tight text-white/68 xl:text-2xl 2xl:text-3xl">{featured.description}</p>}
                   </div>
-                  <p className="rounded-[26px] bg-[#f5c542] px-8 py-5 text-6xl font-black leading-none text-black shadow-[0_20px_70px_rgba(245,197,66,0.32)] 2xl:text-7xl">
+                  <p className="rounded-[26px] bg-[#f5c542] px-6 py-4 text-5xl font-black leading-none text-black shadow-[0_20px_70px_rgba(245,197,66,0.32)] xl:px-8 xl:py-5 xl:text-6xl 2xl:text-7xl">
                     {money(featured.price)}
                   </p>
                 </div>
