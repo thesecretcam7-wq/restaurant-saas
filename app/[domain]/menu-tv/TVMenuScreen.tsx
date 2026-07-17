@@ -37,10 +37,6 @@ function isDailyMenu(item: TVMenuItem) {
   return (item.category || '').trim().toLowerCase() === 'menu del dia'
 }
 
-function sameCategory(item: TVMenuItem, category: string) {
-  return (item.category || '').trim().toLowerCase() === category.trim().toLowerCase()
-}
-
 type WakeLockSentinel = {
   release: () => Promise<void>
   addEventListener?: (event: 'release', cb: () => void) => void
@@ -56,21 +52,19 @@ export function TVMenuScreen({ tenantId, restaurantName, logoUrl, items }: TVMen
   const [wakeLockActive, setWakeLockActive] = useState(false)
   const wakeLockRef = useRef<WakeLockSentinel | null>(null)
 
-  const leftPanelCategory = useMemo(() => {
-    const daily = displayItems.find(isDailyMenu)
-    return daily?.category || displayItems[0]?.category || 'Menu del dia'
+  const leftItems = useMemo(() => {
+    return displayItems.filter((item) => !item.featured).slice(0, 8)
   }, [displayItems])
 
-  const menuItems = useMemo(() => {
-    return displayItems.filter((item) => sameCategory(item, leftPanelCategory)).slice(0, 8)
-  }, [displayItems, leftPanelCategory])
+  const leftPanelCategory = leftItems[0]?.category || 'Panel izquierdo'
 
   const carouselItems = useMemo(() => {
-    const newProductImages = displayItems.filter((item) => item.image_url && !sameCategory(item, leftPanelCategory))
-    const fallbackImages = displayItems.filter((item) => item.image_url)
-    if (newProductImages.length) return newProductImages
-    return fallbackImages.length ? fallbackImages : displayItems
-  }, [displayItems, leftPanelCategory])
+    const rightPanelItems = displayItems.filter((item) => item.featured)
+    if (rightPanelItems.length) return rightPanelItems
+
+    const fallbackImages = displayItems.filter((item) => item.image_url && !isDailyMenu(item))
+    return fallbackImages.length ? fallbackImages : displayItems.filter((item) => item.image_url)
+  }, [displayItems])
   const featured = carouselItems[activePage] || carouselItems[0]
 
   useEffect(() => {
@@ -226,7 +220,7 @@ export function TVMenuScreen({ tenantId, restaurantName, logoUrl, items }: TVMen
               <div className="px-2 pb-1">
                 <p className="text-sm font-black uppercase tracking-[0.22em] text-[#f5c542]">{leftPanelCategory}</p>
               </div>
-              {menuItems.map((item) => (
+              {leftItems.map((item) => (
                 <div
                   key={item.id}
                   className="grid min-h-[86px] min-w-0 grid-cols-[82px_1fr] items-center gap-3 rounded-[22px] border border-white/12 bg-white/[0.08] p-2 text-left text-white xl:min-h-[100px] xl:grid-cols-[96px_1fr]"

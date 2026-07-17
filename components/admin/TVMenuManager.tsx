@@ -196,7 +196,8 @@ export function TVMenuManager({ tenantId, tenantSlug }: { tenantId: string; tena
                     <div className="flex h-full items-center justify-center text-5xl font-black text-white/24">TV</div>
                   )}
                   <div className="absolute left-3 top-3 rounded-full bg-black/70 px-3 py-1 text-xs font-black text-white">{item.category}</div>
-                  {!item.active && <div className="absolute right-3 top-3 rounded-full bg-red-600 px-3 py-1 text-xs font-black text-white">Oculto</div>}
+                  <div className="absolute right-3 top-3 rounded-full bg-[#f5c542] px-3 py-1 text-xs font-black text-black">{item.featured ? 'Derecha grande' : 'Izquierda'}</div>
+                  {!item.active && <div className="absolute bottom-3 right-3 rounded-full bg-red-600 px-3 py-1 text-xs font-black text-white">Oculto</div>}
                 </div>
                 <div className="p-4">
                   <div className="flex items-start justify-between gap-3">
@@ -291,14 +292,35 @@ export function TVMenuManager({ tenantId, tenantSlug }: { tenantId: string; tena
                   <label className="mb-2 block text-xs font-black uppercase text-black/45">Descripcion</label>
                   <textarea value={form.description} onChange={(event) => setForm({ ...form, description: event.target.value })} className="admin-input min-h-24" placeholder="Incluye patatas y bebida..." />
                 </div>
-                <div className="grid gap-3 sm:grid-cols-2">
+                <div>
+                  <label className="mb-2 block text-xs font-black uppercase text-black/45">Ubicacion en pantalla</label>
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <button
+                      type="button"
+                      onClick={() => setForm({ ...form, featured: false })}
+                      className={`rounded-lg border p-3 text-left text-sm font-black transition ${
+                        !form.featured ? 'border-[#e43d30] bg-[#fff4f1] text-[#15130f]' : 'border-black/10 bg-white text-black/55 hover:bg-black/[0.03]'
+                      }`}
+                    >
+                      Panel izquierdo
+                      <span className="mt-1 block text-xs font-bold text-black/45">Lista pequena con el nombre de categoria que escribas.</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setForm({ ...form, featured: true })}
+                      className={`rounded-lg border p-3 text-left text-sm font-black transition ${
+                        form.featured ? 'border-[#e43d30] bg-[#fff4f1] text-[#15130f]' : 'border-black/10 bg-white text-black/55 hover:bg-black/[0.03]'
+                      }`}
+                    >
+                      Recuadro grande derecha
+                      <span className="mt-1 block text-xs font-bold text-black/45">Producto con foto grande en carrusel automatico.</span>
+                    </button>
+                  </div>
+                </div>
+                <div>
                   <label className="flex items-center gap-3 rounded-lg border border-black/10 p-3 text-sm font-black text-[#15130f]">
                     <input type="checkbox" checked={form.active} onChange={(event) => setForm({ ...form, active: event.target.checked })} />
                     Mostrar en TV
-                  </label>
-                  <label className="flex items-center gap-3 rounded-lg border border-black/10 p-3 text-sm font-black text-[#15130f]">
-                    <input type="checkbox" checked={form.featured} onChange={(event) => setForm({ ...form, featured: event.target.checked })} />
-                    Destacado grande
                   </label>
                 </div>
               </div>
