@@ -37,17 +37,6 @@ function isDailyMenu(item: TVMenuItem) {
   return (item.category || '').trim().toLowerCase() === 'menu del dia'
 }
 
-function DefaultLogo({ name }: { name: string }) {
-  return (
-    <div className="flex h-24 w-24 items-center justify-center rounded-[28px] border border-[#f5c542]/35 bg-black shadow-[0_22px_80px_rgba(245,197,66,0.24)]">
-      <div className="text-center">
-        <p className="text-4xl font-black leading-none text-[#f5c542]">{name.charAt(0).toUpperCase()}</p>
-        <p className="mt-1 text-[10px] font-black uppercase tracking-[0.22em] text-white/55">Menu</p>
-      </div>
-    </div>
-  )
-}
-
 type WakeLockSentinel = {
   release: () => Promise<void>
   addEventListener?: (event: 'release', cb: () => void) => void
@@ -64,8 +53,7 @@ export function TVMenuScreen({ tenantId, restaurantName, logoUrl, items }: TVMen
   const wakeLockRef = useRef<WakeLockSentinel | null>(null)
 
   const menuItems = useMemo(() => {
-    const daily = displayItems.filter(isDailyMenu)
-    return (daily.length ? daily : displayItems).slice(0, 8)
+    return displayItems.filter(isDailyMenu).slice(0, 8)
   }, [displayItems])
 
   const carouselItems = useMemo(() => {
@@ -200,16 +188,6 @@ export function TVMenuScreen({ tenantId, restaurantName, logoUrl, items }: TVMen
       )}
 
       <section className="relative z-10 h-screen min-h-0 p-4 sm:p-6 xl:p-8">
-        <div className="pointer-events-none absolute left-[160px] top-4 z-20 flex -translate-x-1/2 justify-center xl:left-[190px] xl:top-6">
-          {logoUrl ? (
-            <div className="flex h-20 w-32 items-center justify-center xl:h-28 xl:w-44">
-              <img src={logoUrl} alt={restaurantName} className="max-h-full max-w-full object-contain drop-shadow-[0_18px_45px_rgba(0,0,0,0.55)]" />
-            </div>
-          ) : (
-            <DefaultLogo name={restaurantName} />
-          )}
-        </div>
-
         <div className="absolute right-4 top-4 z-20 flex shrink-0 items-center gap-4 sm:right-6 sm:top-6 xl:right-8 xl:top-8">
           <button
             type="button"
@@ -236,9 +214,8 @@ export function TVMenuScreen({ tenantId, restaurantName, logoUrl, items }: TVMen
         ) : (
           <div className="grid h-full min-h-0 grid-cols-[320px_minmax(0,1fr)] gap-5 xl:grid-cols-[380px_minmax(0,1fr)] xl:gap-7">
             <aside className="grid min-h-0 content-start gap-3 overflow-hidden rounded-[30px] border border-white/14 bg-white/[0.07] p-3 shadow-[0_24px_80px_rgba(0,0,0,0.26)] backdrop-blur-xl xl:p-4">
-              <div className="px-2 pb-1 pt-20 xl:pt-28">
+              <div className="px-2 pb-1">
                 <p className="text-sm font-black uppercase tracking-[0.22em] text-[#f5c542]">Menu del dia</p>
-                <p className="mt-1 text-2xl font-black text-white">Platos disponibles</p>
               </div>
               {menuItems.map((item) => (
                 <div
