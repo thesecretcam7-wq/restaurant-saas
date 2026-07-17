@@ -261,7 +261,6 @@ export function TVMenuScreen({ tenantId, restaurantName, logoUrl, items }: TVMen
                 </div>
                 <div className="grid shrink-0 grid-cols-[minmax(0,1fr)_auto] items-end gap-5 border-t border-white/14 bg-[#17171d]/94 p-5 xl:p-8">
                   <div className="min-w-0">
-                    {featured.badge && <p className="text-base font-black uppercase tracking-[0.22em] text-[#f5c542]">{featured.badge}</p>}
                     <h2 className="mt-2 text-5xl font-black leading-[0.92] text-white xl:text-6xl 2xl:text-7xl">{featured.name}</h2>
                     {featured.description && <p className="mt-3 line-clamp-2 text-xl font-bold leading-tight text-white/68 xl:text-2xl 2xl:text-3xl">{featured.description}</p>}
                   </div>
