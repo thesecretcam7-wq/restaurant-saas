@@ -37,6 +37,10 @@ function isDailyMenu(item: TVMenuItem) {
   return (item.category || '').trim().toLowerCase() === 'menu del dia'
 }
 
+function sameCategory(item: TVMenuItem, category: string) {
+  return (item.category || '').trim().toLowerCase() === category.trim().toLowerCase()
+}
+
 type WakeLockSentinel = {
   release: () => Promise<void>
   addEventListener?: (event: 'release', cb: () => void) => void
@@ -52,16 +56,21 @@ export function TVMenuScreen({ tenantId, restaurantName, logoUrl, items }: TVMen
   const [wakeLockActive, setWakeLockActive] = useState(false)
   const wakeLockRef = useRef<WakeLockSentinel | null>(null)
 
-  const menuItems = useMemo(() => {
-    return displayItems.filter(isDailyMenu).slice(0, 8)
+  const leftPanelCategory = useMemo(() => {
+    const daily = displayItems.find(isDailyMenu)
+    return daily?.category || displayItems[0]?.category || 'Menu del dia'
   }, [displayItems])
 
+  const menuItems = useMemo(() => {
+    return displayItems.filter((item) => sameCategory(item, leftPanelCategory)).slice(0, 8)
+  }, [displayItems, leftPanelCategory])
+
   const carouselItems = useMemo(() => {
-    const newProductImages = displayItems.filter((item) => item.image_url && !isDailyMenu(item))
+    const newProductImages = displayItems.filter((item) => item.image_url && !sameCategory(item, leftPanelCategory))
     const fallbackImages = displayItems.filter((item) => item.image_url)
     if (newProductImages.length) return newProductImages
     return fallbackImages.length ? fallbackImages : displayItems
-  }, [displayItems])
+  }, [displayItems, leftPanelCategory])
   const featured = carouselItems[activePage] || carouselItems[0]
 
   useEffect(() => {
@@ -215,7 +224,7 @@ export function TVMenuScreen({ tenantId, restaurantName, logoUrl, items }: TVMen
           <div className="grid h-full min-h-0 grid-cols-[320px_minmax(0,1fr)] gap-5 xl:grid-cols-[380px_minmax(0,1fr)] xl:gap-7">
             <aside className="grid min-h-0 content-start gap-3 overflow-hidden rounded-[30px] border border-white/14 bg-white/[0.07] p-3 shadow-[0_24px_80px_rgba(0,0,0,0.26)] backdrop-blur-xl xl:p-4">
               <div className="px-2 pb-1">
-                <p className="text-sm font-black uppercase tracking-[0.22em] text-[#f5c542]">Menu del dia</p>
+                <p className="text-sm font-black uppercase tracking-[0.22em] text-[#f5c542]">{leftPanelCategory}</p>
               </div>
               {menuItems.map((item) => (
                 <div

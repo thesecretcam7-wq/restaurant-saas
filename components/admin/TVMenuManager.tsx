@@ -271,9 +271,16 @@ export function TVMenuManager({ tenantId, tenantSlug }: { tenantId: string; tena
                 <div className="grid gap-3 sm:grid-cols-2">
                   <div>
                     <label className="mb-2 block text-xs font-black uppercase text-black/45">Categoria</label>
-                    <select value={form.category} onChange={(event) => setForm({ ...form, category: event.target.value })} className="admin-input">
-                      {categories.map((category) => <option key={category} value={category}>{category}</option>)}
-                    </select>
+                    <input
+                      value={form.category}
+                      onChange={(event) => setForm({ ...form, category: event.target.value })}
+                      className="admin-input"
+                      list="tv-menu-categories"
+                      placeholder="Menu del dia, Fin de semana..."
+                    />
+                    <datalist id="tv-menu-categories">
+                      {categories.map((category) => <option key={category} value={category} />)}
+                    </datalist>
                   </div>
                   <div>
                     <label className="mb-2 block text-xs font-black uppercase text-black/45">Etiqueta</label>
