@@ -110,7 +110,7 @@ export function POSOrderLookup({ domain, onOrderSelected, onVoidOrder, onRemoveI
 
     try {
       const response = await fetch(
-        `/api/orders/search?domain=${domain}&order_number=${encodeURIComponent(searchInput)}`,
+        `/api/orders/search?domain=${domain}&order_number=${encodeURIComponent(searchInput)}&today=1`,
         { credentials: 'include', cache: 'no-store' }
       );
 

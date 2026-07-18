@@ -2,6 +2,7 @@ import { createServiceClient } from '@/lib/supabase/server'
 import { NextRequest, NextResponse } from 'next/server'
 import { requireTenantAccess, tenantAuthErrorResponse } from '@/lib/tenant-api-auth'
 import { getRestaurantBusinessPeriod, getRestaurantLocale, getRestaurantTimeZone } from '@/lib/restaurant-time'
+import { isPendingPreviousCashClosingOrder } from '@/lib/cash-closing-filters'
 
 const ORDER_FIELDS = 'id, order_number, customer_name, customer_phone, subtotal, tax, delivery_fee, total, payment_status, payment_method, status, items, created_at, delivery_type, table_number'
 
@@ -28,8 +29,8 @@ async function getPendingPreviousTicketScope({
       .from('orders')
       .select(ORDER_FIELDS)
       .eq('tenant_id', tenantId)
-      .lte('created_at', closingMoment.toISOString())
-      .neq('payment_method', null)
+      .lt('created_at', currentPeriodStart.toISOString())
+      .not('payment_method', 'is', null)
       .eq('payment_status', 'paid')
       .neq('status', 'cancelled')
       .order('created_at', { ascending: false })
@@ -50,15 +51,10 @@ async function getPendingPreviousTicketScope({
 
   const closedOrderIds = new Set((closedItemsRes.error ? [] : closedItemsRes.data || []).map((item: any) => item.order_id))
   const pendingOrders = (ordersRes.data || []).filter((order: any) => {
-    if (closedOrderIds.has(order.id)) return false
-    return true
+    return isPendingPreviousCashClosingOrder(order, currentPeriodStart, closedOrderIds)
   })
 
   if (pendingOrders.length === 0) return null
-  const hasPreviousPeriodOrders = pendingOrders.some((order: any) =>
-    new Date(order.created_at) < currentPeriodStart
-  )
-  if (!hasPreviousPeriodOrders) return null
 
   const earliestPendingOrder = pendingOrders[pendingOrders.length - 1]
   const pendingBusinessDate = new Date(currentPeriod.periodStart)
@@ -128,7 +124,7 @@ export async function GET(request: NextRequest) {
       const ticketScope = 'current_period'
       const ticketScopeLabel = 'Turno actual'
 
-      if (todayOnly && !rawSearch) {
+      if (todayOnly) {
         const { data: settings, error: settingsError } = await supabase
           .from('restaurant_settings')
           .select('operating_hours, timezone, country')
@@ -152,17 +148,19 @@ export async function GET(request: NextRequest) {
           locale,
         })
 
-        const pendingPreviousScope = await getPendingPreviousTicketScope({
-          supabase,
-          tenantId,
-          currentPeriod: todayPeriod,
-          locale,
-          timeZone,
-          limit,
-        })
+        if (!rawSearch) {
+          const pendingPreviousScope = await getPendingPreviousTicketScope({
+            supabase,
+            tenantId,
+            currentPeriod: todayPeriod,
+            locale,
+            timeZone,
+            limit,
+          })
 
-        if (pendingPreviousScope) {
-          return NextResponse.json(pendingPreviousScope)
+          if (pendingPreviousScope) {
+            return NextResponse.json(pendingPreviousScope)
+          }
         }
       }
 
@@ -180,9 +178,11 @@ export async function GET(request: NextRequest) {
           .gte('created_at', todayPeriod.periodStart)
           .lt('created_at', todayPeriod.periodEnd)
           .neq('status', 'cancelled')
-      } else if (/mesa/i.test(rawSearch) && Number.isFinite(maybeTableNumber)) {
+      }
+
+      if (/mesa/i.test(rawSearch) && Number.isFinite(maybeTableNumber)) {
         query = query.eq('table_number', maybeTableNumber)
-      } else {
+      } else if (rawSearch) {
         const orFilters = [
           `order_number.ilike.${searchTerm}`,
           `customer_name.ilike.${searchTerm}`,
@@ -227,7 +227,7 @@ export async function GET(request: NextRequest) {
           .eq('tenant_id', tenantId)
           .gte('created_at', todayPeriod.periodStart)
           .lt('created_at', todayPeriod.periodEnd)
-          .neq('payment_method', null)
+          .not('payment_method', 'is', null)
           .eq('payment_status', 'paid')
           .neq('status', 'cancelled')
 

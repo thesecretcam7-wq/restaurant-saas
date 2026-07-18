@@ -1103,11 +1103,23 @@ export function POSTerminal({
   }, [supabase, tenantId]);
 
   useEffect(() => {
+    const refreshWhenVisible = () => {
+      if (document.visibilityState !== 'visible') return;
+      void refreshPendingCashClosing();
+    };
+
     void refreshPendingCashClosing();
-    const timer = window.setTimeout(() => {
-      refreshPendingCashClosing();
-    }, 5000);
-    return () => window.clearTimeout(timer);
+    const initialRetry = window.setTimeout(refreshWhenVisible, 5000);
+    const polling = window.setInterval(refreshWhenVisible, POS_ORDERS_REFRESH_FALLBACK_MS);
+    document.addEventListener('visibilitychange', refreshWhenVisible);
+    window.addEventListener('focus', refreshWhenVisible);
+
+    return () => {
+      window.clearTimeout(initialRetry);
+      window.clearInterval(polling);
+      document.removeEventListener('visibilitychange', refreshWhenVisible);
+      window.removeEventListener('focus', refreshWhenVisible);
+    };
   }, [refreshPendingCashClosing]);
 
   useEffect(() => {
