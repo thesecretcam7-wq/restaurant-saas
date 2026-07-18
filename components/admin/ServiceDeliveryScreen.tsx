@@ -293,7 +293,7 @@ export function ServiceDeliveryScreen({
     if (!silent) setRefreshing(true);
 
     try {
-      const res = await fetch(`/api/order-items?tenantId=${tenantId}&status=ready`);
+      const res = await fetch(`/api/order-items?tenantId=${tenantId}&status=ready&today=1`);
       if (!res.ok) throw new Error('No se pudieron cargar las entregas');
       const data: ServiceItem[] = await res.json();
       trackReadyItems(data);
@@ -494,7 +494,7 @@ export function ServiceDeliveryWidget({
     if (!silent) setRefreshing(true);
 
     try {
-      const res = await fetch(`/api/order-items?tenantId=${tenantId}&status=ready`);
+      const res = await fetch(`/api/order-items?tenantId=${tenantId}&status=ready&today=1`);
       if (!res.ok) throw new Error('No se pudieron cargar las entregas');
       const data: ServiceItem[] = await res.json();
       setItems(data);

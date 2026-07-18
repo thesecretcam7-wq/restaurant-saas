@@ -2,83 +2,8 @@ import { createServiceClient } from '@/lib/supabase/server'
 import { NextRequest, NextResponse } from 'next/server'
 import { requireTenantAccess, tenantAuthErrorResponse } from '@/lib/tenant-api-auth'
 import { getRestaurantBusinessPeriod, getRestaurantLocale, getRestaurantTimeZone } from '@/lib/restaurant-time'
-import { isPendingPreviousCashClosingOrder } from '@/lib/cash-closing-filters'
 
 const ORDER_FIELDS = 'id, order_number, customer_name, customer_phone, subtotal, tax, delivery_fee, total, payment_status, payment_method, status, items, created_at, delivery_type, table_number'
-
-async function getPendingPreviousTicketScope({
-  supabase,
-  tenantId,
-  currentPeriod,
-  locale,
-  timeZone,
-  limit,
-}: {
-  supabase: ReturnType<typeof createServiceClient>
-  tenantId: string
-  currentPeriod: ReturnType<typeof getRestaurantBusinessPeriod>
-  locale: string
-  timeZone: string
-  limit: number
-}) {
-  const currentPeriodStart = new Date(currentPeriod.periodStart)
-  const closingMoment = new Date()
-
-  const [ordersRes, closedItemsRes] = await Promise.all([
-    supabase
-      .from('orders')
-      .select(ORDER_FIELDS)
-      .eq('tenant_id', tenantId)
-      .lt('created_at', currentPeriodStart.toISOString())
-      .not('payment_method', 'is', null)
-      .eq('payment_status', 'paid')
-      .neq('status', 'cancelled')
-      .order('created_at', { ascending: false })
-      .limit(1000),
-    supabase
-      .from('cash_closing_items')
-      .select('order_id')
-      .eq('tenant_id', tenantId)
-      .not('order_id', 'is', null)
-      .limit(2000),
-  ])
-
-  if (ordersRes.error) throw ordersRes.error
-
-  if (closedItemsRes.error) {
-    console.warn('No se pudieron consultar items de cierres anteriores:', closedItemsRes.error.message || closedItemsRes.error)
-  }
-
-  const closedOrderIds = new Set((closedItemsRes.error ? [] : closedItemsRes.data || []).map((item: any) => item.order_id))
-  const pendingOrders = (ordersRes.data || []).filter((order: any) => {
-    return isPendingPreviousCashClosingOrder(order, currentPeriodStart, closedOrderIds)
-  })
-
-  if (pendingOrders.length === 0) return null
-
-  const earliestPendingOrder = pendingOrders[pendingOrders.length - 1]
-  const pendingBusinessDate = new Date(currentPeriod.periodStart)
-  pendingBusinessDate.setUTCMinutes(pendingBusinessDate.getUTCMinutes() - 1)
-
-  return {
-    orders: pendingOrders.slice(0, limit),
-    count: pendingOrders.length,
-    paidCount: pendingOrders.length,
-    scope: 'pending_previous',
-    label: 'Caja pendiente',
-    period: {
-      periodStart: earliestPendingOrder?.created_at || currentPeriod.periodStart,
-      periodEnd: closingMoment.toISOString(),
-      businessDateLabel: pendingBusinessDate.toLocaleDateString(locale, {
-        weekday: 'long',
-        day: '2-digit',
-        month: 'long',
-        timeZone,
-      }),
-      operationalCloseTime: currentPeriod.operationalCloseTime,
-    },
-  }
-}
 
 export async function GET(request: NextRequest) {
   try {
@@ -147,21 +72,6 @@ export async function GET(request: NextRequest) {
           timeZone,
           locale,
         })
-
-        if (!rawSearch) {
-          const pendingPreviousScope = await getPendingPreviousTicketScope({
-            supabase,
-            tenantId,
-            currentPeriod: todayPeriod,
-            locale,
-            timeZone,
-            limit,
-          })
-
-          if (pendingPreviousScope) {
-            return NextResponse.json(pendingPreviousScope)
-          }
-        }
       }
 
       let query = todayPeriod

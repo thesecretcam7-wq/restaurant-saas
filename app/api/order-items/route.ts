@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireTenantAccess, tenantAuthErrorResponse } from '@/lib/tenant-api-auth';
 import { syncOrderStatusFromItems } from '@/lib/order-status-sync';
 import { sendServiceReadyPushNotifications } from '@/lib/push-server';
+import { getRestaurantBusinessPeriod, getRestaurantLocale, getRestaurantTimeZone } from '@/lib/restaurant-time';
 
 const validStatuses = ['pending', 'confirmed', 'preparing', 'ready', 'delivered', 'cancelled'];
 
@@ -16,6 +17,7 @@ export async function GET(request: NextRequest) {
   const orderId = searchParams.get('orderId');
   const status = searchParams.get('status');
   const requiresKitchen = searchParams.get('requiresKitchen');
+  const todayOnly = searchParams.get('today') === '1';
 
   if (!tenantId) {
     return NextResponse.json({ error: 'Missing tenantId' }, { status: 400 });
@@ -24,11 +26,33 @@ export async function GET(request: NextRequest) {
   try {
     await requireTenantAccess(tenantId, { staffRoles: ['admin', 'cajero', 'camarero', 'cocinero'] });
 
+    let todayPeriod: ReturnType<typeof getRestaurantBusinessPeriod> | null = null;
+    if (todayOnly) {
+      const { data: settings, error: settingsError } = await supabase
+        .from('restaurant_settings')
+        .select('operating_hours, timezone, country')
+        .eq('tenant_id', tenantId)
+        .maybeSingle();
+
+      if (settingsError) {
+        return NextResponse.json({ error: settingsError.message }, { status: 500 });
+      }
+
+      todayPeriod = getRestaurantBusinessPeriod({
+        operatingHours: settings?.operating_hours,
+        timeZone: getRestaurantTimeZone({
+          timezone: settings?.timezone,
+          settingsCountry: settings?.country,
+        }),
+        locale: getRestaurantLocale(settings?.country),
+      });
+    }
+
     let query = supabase
       .from('order_items')
       .select(`
         *,
-        orders (
+        ${todayOnly ? 'orders!inner' : 'orders'} (
           order_number,
           display_number,
           table_number,
@@ -41,6 +65,12 @@ export async function GET(request: NextRequest) {
         )
       `)
       .eq('tenant_id', tenantId);
+
+    if (todayPeriod) {
+      query = query
+        .gte('orders.created_at', todayPeriod.periodStart)
+        .lt('orders.created_at', todayPeriod.periodEnd);
+    }
 
     if (orderId) {
       query = query.eq('order_id', orderId);
