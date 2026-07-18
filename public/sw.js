@@ -1,4 +1,4 @@
-const CACHE_NAME = 'eccofood-v19';
+const CACHE_NAME = 'eccofood-v20';
 const CACHE_PREFIX = 'eccofood-';
 const NETWORK_TIMEOUT_MS = 3500;
 const STATIC_ASSETS = [
