@@ -5650,9 +5650,6 @@ export function POSTerminal({
                       <div className="flex min-w-0 items-center gap-1.5">
                         <p className="min-w-0 truncate text-xs font-semibold text-white">
                           {item.name}
-                          {item.is_manual && item.name !== MANUAL_CHARGE_NAME && (
-                            <span className="ml-1 text-[10px] font-black uppercase text-cyan-200">Manual</span>
-                          )}
                         </p>
                         {item.is_manual && !splitBillMode && (
                           <button
