@@ -2677,7 +2677,12 @@ export function POSTerminal({
     );
   }
 
-  async function addManualItem() {
+  function addManualItem() {
+    setManualItemName(MANUAL_CHARGE_NAME);
+    setShowManualItemPriceKeyboard(true);
+  }
+
+  async function addNamedManualItem() {
     const name = await requestTouchText({
       title: 'Producto manual',
       value: '',
@@ -5013,6 +5018,17 @@ export function POSTerminal({
             >
               <PencilLine className="w-5 h-5" />
               <span className="hidden sm:inline">Manual</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                void addNamedManualItem();
+              }}
+              className="pos-action-ghost"
+              title="Agregar articulo manual escribiendo el nombre"
+            >
+              <PencilLine className="w-5 h-5" />
+              <span className="hidden sm:inline">Nombre</span>
             </button>
             <button
               type="button"
