@@ -92,11 +92,13 @@ function getPreviousOpenPeriodCreatedAt(periodStart: string, operationalCloseTim
 }
 
 async function hasPendingPreviousCashClosing(supabase: ReturnType<typeof createServiceClient>, tenantId: string, currentPeriodStart: string) {
+  const previousPeriodStart = new Date(new Date(currentPeriodStart).getTime() - 24 * 60 * 60 * 1000).toISOString()
   const [ordersRes, closedItemsRes, latestClosingRes] = await Promise.all([
     supabase
       .from('orders')
       .select('id, created_at')
       .eq('tenant_id', tenantId)
+      .gte('created_at', previousPeriodStart)
       .lt('created_at', currentPeriodStart)
       .not('payment_method', 'is', null)
       .eq('payment_status', 'paid')

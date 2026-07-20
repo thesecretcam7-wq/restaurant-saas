@@ -13,6 +13,7 @@ type CashClosingPeriod = {
 const DEFAULT_OPERATIONAL_CLOSE_MINUTES = 5 * 60;
 const ORDER_SELECT = 'id, order_number, total, tax, delivery_fee, delivery_type, payment_method, payment_breakdown, payment_status, status, created_at';
 const ORDER_SELECT_WITHOUT_PAYMENT_BREAKDOWN = 'id, order_number, total, tax, delivery_fee, delivery_type, payment_method, payment_status, status, created_at';
+const ONE_DAY_MS = 24 * 60 * 60 * 1000;
 
 const COUNTRY_TIMEZONE: Record<string, string> = {
   CO: 'America/Bogota',
@@ -291,11 +292,13 @@ export async function GET(request: NextRequest) {
     const timeZone = settings?.timezone || COUNTRY_TIMEZONE[String(settings?.country || 'CO').toUpperCase()] || 'America/Bogota';
     const currentPeriod = calculateBusinessPeriod(findOperationalCloseMinutes(settings?.operating_hours), timeZone);
     const currentPeriodStart = new Date(currentPeriod.periodStart);
+    const previousPeriodStart = new Date(currentPeriodStart.getTime() - ONE_DAY_MS);
 
     const buildOrdersQuery = (select: string) => supabase
       .from('orders')
       .select(select)
       .eq('tenant_id', tenantId)
+      .gte('created_at', previousPeriodStart.toISOString())
       .lt('created_at', currentPeriodStart.toISOString())
       .not('payment_method', 'is', null)
       .eq('payment_status', 'paid')
@@ -335,11 +338,10 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ stats: null });
     }
 
-    const firstOrderDate = new Date(pendingOrders[0].created_at);
     const period: CashClosingPeriod = {
-      periodStart: firstOrderDate.toISOString(),
+      periodStart: previousPeriodStart.toISOString(),
       periodEnd: currentPeriodStart.toISOString(),
-      businessDateLabel: `pendiente hasta ${currentPeriodStart.toLocaleDateString('es-ES', {
+      businessDateLabel: `dia anterior pendiente hasta ${currentPeriodStart.toLocaleDateString('es-ES', {
         weekday: 'long',
         day: '2-digit',
         month: 'long',

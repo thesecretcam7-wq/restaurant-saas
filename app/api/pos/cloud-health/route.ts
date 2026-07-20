@@ -5,7 +5,7 @@ export const dynamic = 'force-dynamic';
 
 const POS_CLOUD_HEALTH_TIMEOUT_MS = 1800;
 const POS_CLOUD_HEALTH_SUCCESS_CACHE_MS = 10_000;
-const POS_CLOUD_HEALTH_FAILURE_CACHE_MS = 60_000;
+const POS_CLOUD_HEALTH_FAILURE_CACHE_MS = 15_000;
 
 type CachedHealth = {
   ok: boolean;

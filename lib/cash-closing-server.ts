@@ -64,6 +64,7 @@ const ORDER_SELECT = 'id, order_number, total, tax, delivery_fee, delivery_type,
 const ORDER_SELECT_WITHOUT_PAYMENT_BREAKDOWN = 'id, order_number, total, tax, delivery_fee, delivery_type, payment_method, payment_status, status, created_at';
 const CASH_CLOSING_QUERY_TIMEOUT_MS = 8_000;
 const CLOSED_ORDER_ID_PAGE_SIZE = 5000;
+const ONE_DAY_MS = 24 * 60 * 60 * 1000;
 
 function isCancelledOrder(order: any) {
   return isCancelledCashClosingOrder(order);
@@ -411,11 +412,13 @@ export async function calculatePendingPreviousCashClosingStats(
 ): Promise<CashClosingStats | null> {
   const currentPeriod = await getCurrentOperationalPeriod(supabase, tenantId);
   const currentPeriodStart = new Date(currentPeriod.periodStart);
+  const previousPeriodStart = new Date(currentPeriodStart.getTime() - ONE_DAY_MS);
 
   const buildOrdersQuery = (select: string) => supabase
     .from('orders')
     .select(select)
     .eq('tenant_id', tenantId)
+    .gte('created_at', previousPeriodStart.toISOString())
     .lt('created_at', currentPeriodStart.toISOString())
     .not('payment_method', 'is', null)
     .eq('payment_status', 'paid')
@@ -447,11 +450,10 @@ export async function calculatePendingPreviousCashClosingStats(
   });
 
   if (pendingOrders.length === 0) return null;
-  const firstOrderDate = new Date(pendingOrders[0].created_at);
   const period: CashClosingPeriod = {
-    periodStart: firstOrderDate.toISOString(),
+    periodStart: previousPeriodStart.toISOString(),
     periodEnd: currentPeriodStart.toISOString(),
-    businessDateLabel: `pendiente hasta ${currentPeriodStart.toLocaleDateString('es-ES', {
+    businessDateLabel: `dia anterior pendiente hasta ${currentPeriodStart.toLocaleDateString('es-ES', {
       weekday: 'long',
       day: '2-digit',
       month: 'long',
