@@ -2682,24 +2682,6 @@ export function POSTerminal({
     setShowManualItemPriceKeyboard(true);
   }
 
-  async function addNamedManualItem() {
-    const name = await requestTouchText({
-      title: 'Producto manual',
-      value: '',
-      maxLength: 60,
-    });
-    if (name === null) return;
-
-    const trimmedName = name.trim();
-    if (!trimmedName) {
-      setToast({ message: 'Escribe el nombre del producto manual', type: 'error' });
-      return;
-    }
-
-    setManualItemName(trimmedName);
-    setShowManualItemPriceKeyboard(true);
-  }
-
   async function syncLoadedTableCart(nextCart: CartItem[], successMessage: string) {
     const tableSyncState = latestTableSyncStateRef.current;
     const activeBillingOrderIds = [...tableSyncState.billingOrderIds];
@@ -2972,6 +2954,28 @@ export function POSTerminal({
       const nextCart = cart.map((c) => (c.menu_item_id === itemId ? { ...c, quantity } : c));
       updateCartAndLoadedTable(nextCart, 'Mesa actualizada');
     }
+  }
+
+  async function renameManualCartItem(item: CartItem) {
+    if (!item.is_manual) return;
+
+    const name = await requestTouchText({
+      title: 'Nombre del producto',
+      value: item.name === MANUAL_CHARGE_NAME ? '' : item.name,
+      maxLength: 60,
+    });
+    if (name === null) return;
+
+    const trimmedName = name.trim();
+    if (!trimmedName) {
+      setToast({ message: 'Escribe el nombre del producto manual', type: 'error' });
+      return;
+    }
+
+    const nextCart = cart.map((current) =>
+      current.menu_item_id === item.menu_item_id ? { ...current, name: trimmedName } : current
+    );
+    updateCartAndLoadedTable(nextCart, 'Producto manual actualizado');
   }
 
   function removeDeliveryFromLoadedReceipt() {
@@ -5022,17 +5026,6 @@ export function POSTerminal({
             <button
               type="button"
               onClick={() => {
-                void addNamedManualItem();
-              }}
-              className="pos-action-ghost"
-              title="Agregar articulo manual escribiendo el nombre"
-            >
-              <PencilLine className="w-5 h-5" />
-              <span className="hidden sm:inline">Nombre</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => {
                 void handleInstallPOS();
               }}
               className="pos-action-ghost border-emerald-300/50 bg-emerald-300/14 text-emerald-50 shadow-[0_0_18px_rgba(110,231,183,0.18)]"
@@ -5654,10 +5647,27 @@ export function POSTerminal({
                   return (
                   <div key={item.menu_item_id} className={`pos-card flex items-center gap-2 rounded-xl px-2 ${compactPOSLayout ? 'py-1' : 'py-1.5'} ${isSplitSelected ? 'border-amber-300/45 bg-amber-300/10' : ''}`}>
                     <div className="flex-1 min-w-0">
-                      <p className="text-white text-xs font-semibold truncate">
-                        {item.name}
-                        {item.is_manual && <span className="ml-1 text-[10px] font-black uppercase text-cyan-200">Manual</span>}
-                      </p>
+                      <div className="flex min-w-0 items-center gap-1.5">
+                        <p className="min-w-0 truncate text-xs font-semibold text-white">
+                          {item.name}
+                          {item.is_manual && item.name !== MANUAL_CHARGE_NAME && (
+                            <span className="ml-1 text-[10px] font-black uppercase text-cyan-200">Manual</span>
+                          )}
+                        </p>
+                        {item.is_manual && !splitBillMode && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              void renameManualCartItem(item);
+                            }}
+                            className="grid h-6 w-6 shrink-0 place-items-center rounded-lg border border-cyan-300/25 bg-cyan-300/10 text-cyan-100 transition hover:bg-cyan-300/18 active:scale-95"
+                            title="Editar nombre"
+                            aria-label="Editar nombre del producto manual"
+                          >
+                            <PencilLine className="h-3.5 w-3.5" />
+                          </button>
+                        )}
+                      </div>
                       <p className="text-emerald-300 text-xs font-black">
                         {splitBillMode
                           ? `${splitQty}/${item.quantity} - ${formatPriceWithCurrency(item.price * splitQty, currencyInfo.code, currencyInfo.locale)}`
