@@ -413,6 +413,11 @@ export async function calculatePendingPreviousCashClosingStats(
   const currentPeriod = await getCurrentOperationalPeriod(supabase, tenantId);
   const currentPeriodStart = new Date(currentPeriod.periodStart);
   const previousPeriodStart = new Date(currentPeriodStart.getTime() - ONE_DAY_MS);
+  const latestClosingDate = await getLatestCashClosingDate(supabase, tenantId);
+
+  if (latestClosingDate && latestClosingDate >= previousPeriodStart) {
+    return null;
+  }
 
   const buildOrdersQuery = (select: string) => supabase
     .from('orders')

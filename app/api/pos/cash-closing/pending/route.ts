@@ -294,6 +294,23 @@ export async function GET(request: NextRequest) {
     const currentPeriodStart = new Date(currentPeriod.periodStart);
     const previousPeriodStart = new Date(currentPeriodStart.getTime() - ONE_DAY_MS);
 
+    const { data: latestClosing, error: latestClosingError } = await supabase
+      .from('cash_closings')
+      .select('closed_at')
+      .eq('tenant_id', tenantId)
+      .order('closed_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (latestClosingError) {
+      return NextResponse.json({ error: latestClosingError.message }, { status: 500 });
+    }
+
+    const latestClosingDate = latestClosing?.closed_at ? new Date(latestClosing.closed_at) : null;
+    if (latestClosingDate && latestClosingDate >= previousPeriodStart) {
+      return NextResponse.json({ stats: null });
+    }
+
     const buildOrdersQuery = (select: string) => supabase
       .from('orders')
       .select(select)

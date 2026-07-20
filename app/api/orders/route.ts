@@ -126,6 +126,10 @@ async function hasPendingPreviousCashClosing(supabase: ReturnType<typeof createS
     ? new Date(latestClosingRes.data.closed_at)
     : null
 
+  if (latestClosingDate && latestClosingDate >= new Date(previousPeriodStart)) {
+    return false
+  }
+
   const cancelledStatuses = new Set(['cancelled', 'canceled', 'voided', 'deleted', 'anulado', 'cancelado'])
   return (ordersRes.data || []).some((order: any) => {
     if (cancelledStatuses.has(String(order?.status || '').trim().toLowerCase())) return false
