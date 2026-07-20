@@ -50,10 +50,13 @@ type PaymentMethod = 'cash' | 'stripe' | 'mixed';
 type CashClosingMode = 'current' | 'pending';
 const MANUAL_CHARGE_NAME = 'Cobro manual';
 const DEFAULT_POS_WAITER_NAME = 'TPV';
-const POS_CONNECTIVITY_CHECK_TIMEOUT_MS = 3500;
+const POS_CONNECTIVITY_CHECK_TIMEOUT_MS = 2500;
+const POS_CONNECTIVITY_POLLING_MS = 60000;
+const POS_CART_REMOTE_SYNC_DEBOUNCE_MS = 2500;
 const POS_BOOTSTRAP_TIMEOUT_MS = 3500;
-const POS_MENU_REFRESH_FALLBACK_MS = 60000;
-const POS_ORDERS_REFRESH_FALLBACK_MS = 15000;
+const POS_MENU_REFRESH_FALLBACK_MS = 300000;
+const POS_BOOTSTRAP_FAILURE_BACKOFF_MS = 60000;
+const POS_ORDERS_REFRESH_FALLBACK_MS = 45000;
 const POS_DINE_IN_MUTE_MS = 2 * 60 * 1000;
 const CSRF_REFRESH_SKEW_MS = 5 * 60 * 1000;
 
@@ -116,11 +119,12 @@ function isPosCreatedDineInOrder(order: { source?: string | null; notes?: string
   );
 }
 
-async function canReachPOSCloud() {
+async function canReachPOSCloud(tenantId: string) {
   if (typeof window === 'undefined') return true;
+  if (!tenantId) return false;
 
   let timeout: number | undefined;
-  const fetchPromise = fetch('/api/csrf-token', {
+  const fetchPromise = fetch(`/api/pos/cloud-health?tenantId=${encodeURIComponent(tenantId)}`, {
     credentials: 'include',
     cache: 'no-store',
   });
@@ -682,6 +686,7 @@ export function POSTerminal({
   const searchInputRef = useRef<HTMLInputElement>(null);
   const quickActionsRef = useRef<HTMLDivElement>(null);
   const offlineBootstrapToastShownRef = useRef(false);
+  const lastBootstrapFailureAtRef = useRef(0);
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('cash');
   const [printReceiptAfterPayment, setPrintReceiptAfterPayment] = useState(() => {
     if (typeof window === 'undefined') return true;
@@ -798,6 +803,7 @@ export function POSTerminal({
   const cartRestoredRef = useRef(false);
   const previousCartLengthRef = useRef(0);
   const skipNextCartRemoteSyncRef = useRef(false);
+  const cartRemoteSyncTimerRef = useRef<number | null>(null);
   const restoredStaffTenantRef = useRef<string | null>(null);
   const warmedReceiptPrinterIdRef = useRef<string | null>(null);
   const pendingCashClosingFetchInFlightRef = useRef(false);
@@ -1032,7 +1038,7 @@ export function POSTerminal({
   }, [cart.length, fetchReceiptPrinterSettings, printReceiptAfterPayment, tenantId]);
 
   const refreshPendingCashClosing = useCallback(async () => {
-    if (pendingCashClosingFetchInFlightRef.current) return;
+    if (!isOnline || pendingCashClosingFetchInFlightRef.current) return;
 
     try {
       pendingCashClosingFetchInFlightRef.current = true;
@@ -1042,10 +1048,10 @@ export function POSTerminal({
     } finally {
       pendingCashClosingFetchInFlightRef.current = false;
     }
-  }, [tenantId]);
+  }, [isOnline, tenantId]);
 
   const refreshOpenCashClosingStats = useCallback(async () => {
-    if (!showCashClosing || cashClosingRefreshInFlightRef.current) return;
+    if (!isOnline || !showCashClosing || cashClosingRefreshInFlightRef.current) return;
 
     cashClosingRefreshInFlightRef.current = true;
     try {
@@ -1068,7 +1074,7 @@ export function POSTerminal({
     } finally {
       cashClosingRefreshInFlightRef.current = false;
     }
-  }, [cashClosingMode, showCashClosing, tenantId]);
+  }, [cashClosingMode, isOnline, showCashClosing, tenantId]);
 
   const refreshOfflinePendingCount = useCallback(async () => {
     try {
@@ -1079,7 +1085,7 @@ export function POSTerminal({
   }, [tenantId]);
 
   const refreshTodayReservations = useCallback(async () => {
-    if (reservationsFetchInFlightRef.current) return;
+    if (!isOnline || reservationsFetchInFlightRef.current) return;
 
     try {
       reservationsFetchInFlightRef.current = true;
@@ -1100,7 +1106,7 @@ export function POSTerminal({
     } finally {
       reservationsFetchInFlightRef.current = false;
     }
-  }, [supabase, tenantId]);
+  }, [isOnline, supabase, tenantId]);
 
   useEffect(() => {
     const refreshWhenVisible = () => {
@@ -1129,7 +1135,7 @@ export function POSTerminal({
   }, [canRegisterInPreviousPeriod, registerInPreviousPeriod]);
 
   useEffect(() => {
-    if (!showCashClosing || !hasCashClosingStats) return;
+    if (!isOnline || !showCashClosing || !hasCashClosingStats) return;
 
     const refreshVisibleClosing = () => {
       void refreshOpenCashClosingStats();
@@ -1168,7 +1174,7 @@ export function POSTerminal({
       window.removeEventListener('focus', refreshWhenVisible);
       subscription.unsubscribe();
     };
-  }, [hasCashClosingStats, refreshOpenCashClosingStats, showCashClosing, supabase, tenantId]);
+  }, [hasCashClosingStats, isOnline, refreshOpenCashClosingStats, showCashClosing, supabase, tenantId]);
 
   useEffect(() => {
     if (!deliveryEnabled && posOrderType === 'delivery') {
@@ -1202,7 +1208,7 @@ export function POSTerminal({
     if (offlineSyncInFlightRef.current) return;
 
     offlineSyncInFlightRef.current = true;
-    if (!(await canReachPOSCloud())) {
+    if (!(await canReachPOSCloud(tenantId))) {
       setIsOnline(false);
       offlineSyncInFlightRef.current = false;
       return;
@@ -1291,10 +1297,13 @@ export function POSTerminal({
   }, [tenantId, getFreshCSRFToken, refreshOfflinePendingCount, refreshTodayReservations]);
 
   useEffect(() => {
-    if (!tenantId) return;
+    if (!tenantId || !isOnline) return;
 
     let refreshTimer: number | null = null;
     const scheduleMenuRefresh = () => {
+      if (lastBootstrapFailureAtRef.current && Date.now() - lastBootstrapFailureAtRef.current < POS_BOOTSTRAP_FAILURE_BACKOFF_MS) {
+        return;
+      }
       if (refreshTimer) window.clearTimeout(refreshTimer);
       refreshTimer = window.setTimeout(() => {
         void fetchMenuData();
@@ -1335,7 +1344,7 @@ export function POSTerminal({
       document.removeEventListener('visibilitychange', refreshWhenVisible);
       subscription.unsubscribe();
     };
-  }, [supabase, tenantId]);
+  }, [isOnline, supabase, tenantId]);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -1375,9 +1384,11 @@ export function POSTerminal({
   }, [tenantId]);
 
   useEffect(() => {
+    if (!isOnline) return;
+
     const interval = window.setInterval(refreshTodayReservations, 60000);
     return () => window.clearInterval(interval);
-  }, [refreshTodayReservations]);
+  }, [isOnline, refreshTodayReservations]);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -1390,7 +1401,7 @@ export function POSTerminal({
       refreshAfterReconnectInFlight = true;
 
       try {
-        const reachable = await canReachPOSCloud();
+        const reachable = await canReachPOSCloud(tenantId);
         if (cancelled) return;
 
         setIsOnline(reachable);
@@ -1428,7 +1439,7 @@ export function POSTerminal({
       if (!navigator.onLine || offlinePendingCount > 0 || !isOnline) {
         void refreshAfterReconnect(false);
       }
-    }, 15000);
+    }, POS_CONNECTIVITY_POLLING_MS);
 
     return () => {
       cancelled = true;
@@ -1436,7 +1447,7 @@ export function POSTerminal({
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', updateOnlineState);
     };
-  }, [isOnline, offlinePendingCount, refreshPendingCashClosing, refreshTodayReservations, syncOfflineSales]);
+  }, [isOnline, offlinePendingCount, refreshPendingCashClosing, refreshTodayReservations, syncOfflineSales, tenantId]);
 
   // Listen for fullscreen changes
   useEffect(() => {
@@ -1487,7 +1498,7 @@ export function POSTerminal({
     const origin = window.location.origin;
     const posPath = tenantSlug || tenantId;
     const posUrl = `${origin}/${posPath}/staff/pos`;
-    const iconUrl = `${origin}/favicon.ico`;
+    const iconUrl = `${origin}/favicon.ico?v=eccofood-tpv-20260720`;
     const safeRestaurantName = restaurantName
       .normalize('NFD')
       .replace(/[\u0300-\u036f]/g, '')
@@ -1511,7 +1522,7 @@ export function POSTerminal({
       'setlocal',
       'echo Instalando app del TPV en el Escritorio...',
       'echo.',
-      'powershell -NoProfile -ExecutionPolicy Bypass -Command "$ErrorActionPreference = \'Stop\'; $url = [Text.Encoding]::UTF8.GetString([Convert]::FromBase64String(\'' + encodeBase64(posUrl) + '\')); $iconUrl = [Text.Encoding]::UTF8.GetString([Convert]::FromBase64String(\'' + encodeBase64(iconUrl) + '\')); $name = [Text.Encoding]::UTF8.GetString([Convert]::FromBase64String(\'' + encodeBase64(shortcutName) + '\')); $preferred = [Text.Encoding]::UTF8.GetString([Convert]::FromBase64String(\'' + encodeBase64(preferredBrowser) + '\')); $chromePaths = @((Join-Path ${env:ProgramFiles(x86)} \'Google\\Chrome\\Application\\chrome.exe\'), (Join-Path $env:ProgramFiles \'Google\\Chrome\\Application\\chrome.exe\'), (Join-Path $env:LOCALAPPDATA \'Google\\Chrome\\Application\\chrome.exe\')); $edgePaths = @((Join-Path ${env:ProgramFiles(x86)} \'Microsoft\\Edge\\Application\\msedge.exe\'), (Join-Path $env:ProgramFiles \'Microsoft\\Edge\\Application\\msedge.exe\'), (Join-Path $env:LOCALAPPDATA \'Microsoft\\Edge\\Application\\msedge.exe\')); $firefoxPaths = @((Join-Path $env:ProgramFiles \'Mozilla Firefox\\firefox.exe\'), (Join-Path ${env:ProgramFiles(x86)} \'Mozilla Firefox\\firefox.exe\'), (Join-Path $env:LOCALAPPDATA \'Mozilla Firefox\\firefox.exe\')); function Existing($paths) { @($paths | Where-Object { $_ -and (Test-Path $_) }) }; $browserPaths = @(); if ($preferred -eq \'firefox\') { $browserPaths += Existing $firefoxPaths; $browserPaths += Existing $chromePaths; $browserPaths += Existing $edgePaths } elseif ($preferred -eq \'edge\') { $browserPaths += Existing $edgePaths; $browserPaths += Existing $chromePaths; $browserPaths += Existing $firefoxPaths } elseif ($preferred -eq \'chrome\') { $browserPaths += Existing $chromePaths; $browserPaths += Existing $edgePaths; $browserPaths += Existing $firefoxPaths } else { $browserPaths += Existing $chromePaths; $browserPaths += Existing $edgePaths; $browserPaths += Existing $firefoxPaths }; $browser = $browserPaths | Select-Object -First 1; if (-not $browser) { throw \'No se encontro Chrome, Edge ni Firefox.\' }; $installDir = Join-Path $env:LOCALAPPDATA \'EccofoodTPV\'; New-Item -ItemType Directory -Force -Path $installDir | Out-Null; $iconPath = Join-Path $installDir \'eccofood-tpv.ico\'; try { Invoke-WebRequest -Uri $iconUrl -OutFile $iconPath -UseBasicParsing -TimeoutSec 20 } catch { $iconPath = $browser }; $desktop = [Environment]::GetFolderPath(\'Desktop\'); $path = Join-Path $desktop $name; $oldUrlPath = Join-Path $desktop ($name -replace \'\\.lnk$\', \'.url\'); if (Test-Path $oldUrlPath) { Remove-Item -LiteralPath $oldUrlPath -Force }; $shell = New-Object -ComObject WScript.Shell; $shortcut = $shell.CreateShortcut($path); $shortcut.TargetPath = $browser; $isFirefox = (Split-Path $browser -Leaf).ToLower() -eq \'firefox.exe\'; if ($isFirefox) { $shortcut.Arguments = \'\"\' + $url + \'\"\' } else { $shortcut.Arguments = \'--app=\"\' + $url + \'\" --no-first-run\' }; $shortcut.WorkingDirectory = Split-Path $browser; $shortcut.IconLocation = $iconPath; $shortcut.Description = \'Eccofood TPV\'; $shortcut.Save(); Write-Host \'App creada:\' $path; Write-Host \'Navegador usado:\' $browser; Start-Process $path"',
+      'powershell -NoProfile -ExecutionPolicy Bypass -Command "$ErrorActionPreference = \'Stop\'; $url = [Text.Encoding]::UTF8.GetString([Convert]::FromBase64String(\'' + encodeBase64(posUrl) + '\')); $iconUrl = [Text.Encoding]::UTF8.GetString([Convert]::FromBase64String(\'' + encodeBase64(iconUrl) + '\')); $name = [Text.Encoding]::UTF8.GetString([Convert]::FromBase64String(\'' + encodeBase64(shortcutName) + '\')); $preferred = [Text.Encoding]::UTF8.GetString([Convert]::FromBase64String(\'' + encodeBase64(preferredBrowser) + '\')); $chromePaths = @((Join-Path ${env:ProgramFiles(x86)} \'Google\\Chrome\\Application\\chrome.exe\'), (Join-Path $env:ProgramFiles \'Google\\Chrome\\Application\\chrome.exe\'), (Join-Path $env:LOCALAPPDATA \'Google\\Chrome\\Application\\chrome.exe\')); $edgePaths = @((Join-Path ${env:ProgramFiles(x86)} \'Microsoft\\Edge\\Application\\msedge.exe\'), (Join-Path $env:ProgramFiles \'Microsoft\\Edge\\Application\\msedge.exe\'), (Join-Path $env:LOCALAPPDATA \'Microsoft\\Edge\\Application\\msedge.exe\')); $firefoxPaths = @((Join-Path $env:ProgramFiles \'Mozilla Firefox\\firefox.exe\'), (Join-Path ${env:ProgramFiles(x86)} \'Mozilla Firefox\\firefox.exe\'), (Join-Path $env:LOCALAPPDATA \'Mozilla Firefox\\firefox.exe\')); function Existing($paths) { @($paths | Where-Object { $_ -and (Test-Path $_) }) }; $browserPaths = @(); if ($preferred -eq \'firefox\') { $browserPaths += Existing $firefoxPaths; $browserPaths += Existing $chromePaths; $browserPaths += Existing $edgePaths } elseif ($preferred -eq \'edge\') { $browserPaths += Existing $edgePaths; $browserPaths += Existing $chromePaths; $browserPaths += Existing $firefoxPaths } elseif ($preferred -eq \'chrome\') { $browserPaths += Existing $chromePaths; $browserPaths += Existing $edgePaths; $browserPaths += Existing $firefoxPaths } else { $browserPaths += Existing $chromePaths; $browserPaths += Existing $edgePaths; $browserPaths += Existing $firefoxPaths }; $browser = $browserPaths | Select-Object -First 1; if (-not $browser) { throw \'No se encontro Chrome, Edge ni Firefox.\' }; $installDir = Join-Path $env:LOCALAPPDATA \'EccofoodTPV\'; New-Item -ItemType Directory -Force -Path $installDir | Out-Null; $iconPath = Join-Path $installDir \'eccofood-tpv-eccofood.ico\'; try { Invoke-WebRequest -Uri $iconUrl -OutFile $iconPath -UseBasicParsing -TimeoutSec 20 } catch { $iconPath = $browser }; $desktop = [Environment]::GetFolderPath(\'Desktop\'); $path = Join-Path $desktop $name; $oldUrlPath = Join-Path $desktop ($name -replace \'\\.lnk$\', \'.url\'); if (Test-Path $oldUrlPath) { Remove-Item -LiteralPath $oldUrlPath -Force }; $shell = New-Object -ComObject WScript.Shell; $shortcut = $shell.CreateShortcut($path); $shortcut.TargetPath = $browser; $isFirefox = (Split-Path $browser -Leaf).ToLower() -eq \'firefox.exe\'; if ($isFirefox) { $shortcut.Arguments = \'\"\' + $url + \'\"\' } else { $shortcut.Arguments = \'--app=\"\' + $url + \'\" --no-first-run\' }; $shortcut.WorkingDirectory = Split-Path $browser; $shortcut.IconLocation = $iconPath + \',0\'; $shortcut.Description = \'Eccofood TPV\'; $shortcut.Save(); Write-Host \'App creada:\' $path; Write-Host \'Navegador usado:\' $browser; Start-Process $path"',
       'echo.',
       'echo Si Windows pregunto por permisos, acepta para crear la app.',
       'echo Ya puedes abrir el TPV como ventana de aplicacion desde el Escritorio.',
@@ -1992,6 +2003,11 @@ export function POSTerminal({
 
   // Save cart to localStorage AND Supabase whenever it changes
   useEffect(() => {
+    if (cartRemoteSyncTimerRef.current) {
+      window.clearTimeout(cartRemoteSyncTimerRef.current);
+      cartRemoteSyncTimerRef.current = null;
+    }
+
     if (!cartRestoredRef.current) {
       previousCartLengthRef.current = cart.length;
       return;
@@ -2016,8 +2032,9 @@ export function POSTerminal({
       }
     }
 
-    // Sync to Supabase in background (doesn't block UI)
-    if (cart.length > 0 && tenantId) {
+    const shouldAbandonRemoteCart = cart.length === 0 && previousCartLengthRef.current > 0;
+
+    if (tenantId && isOnline && (cart.length > 0 || shouldAbandonRemoteCart)) {
       const cartData = {
         items: cart,
         discount,
@@ -2032,20 +2049,47 @@ export function POSTerminal({
         taxRate,
       };
 
-      saveCartToSupabase(tenantId, cartData, supabase).catch((err) => {
-        console.error('Background cart sync failed (will use localStorage):', err);
-      });
-    } else if (tenantId && previousCartLengthRef.current > 0) {
-      abandonCurrentCartSession(tenantId, supabase).catch((err) => {
-        console.error('Background cart cleanup failed:', err);
-      });
+      cartRemoteSyncTimerRef.current = window.setTimeout(() => {
+        cartRemoteSyncTimerRef.current = null;
+        if (cartData.items.length > 0) {
+          saveCartToSupabase(tenantId, cartData, supabase).catch((err) => {
+            console.error('Background cart sync failed (will use localStorage):', err);
+          });
+        } else {
+          abandonCurrentCartSession(tenantId, supabase).catch((err) => {
+            console.error('Background cart cleanup failed:', err);
+          });
+        }
+      }, POS_CART_REMOTE_SYNC_DEBOUNCE_MS);
     }
     previousCartLengthRef.current = cart.length;
-  }, [cart, discount, discountCode, tip, tenantId, taxRate]);
+
+    return () => {
+      if (cartRemoteSyncTimerRef.current) {
+        window.clearTimeout(cartRemoteSyncTimerRef.current);
+        cartRemoteSyncTimerRef.current = null;
+      }
+    };
+  }, [
+    cart,
+    discount,
+    discountCode,
+    isOnline,
+    paymentMethod,
+    posMode,
+    selectedStaffId,
+    selectedStaffName,
+    selectedTableId,
+    selectedTableNumber,
+    supabase,
+    tenantId,
+    tip,
+    taxRate,
+  ]);
 
   // Real-time subscription for incoming orders (delivery/pickup)
   useEffect(() => {
-    if (!tenantId) return;
+    if (!tenantId || !isOnline) return;
 
     const subscription = supabase
       .channel(`incoming-orders:${tenantId}`)
@@ -2124,10 +2168,10 @@ export function POSTerminal({
       window.removeEventListener('focus', refreshWhenVisible);
       subscription.unsubscribe();
     };
-  }, [tenantId, playNewOrderSound]);
+  }, [isOnline, tenantId, playNewOrderSound]);
 
   async function fetchIncomingOrders() {
-    if (incomingOrdersFetchInFlightRef.current) return;
+    if (!isOnline || incomingOrdersFetchInFlightRef.current) return;
 
     try {
       incomingOrdersFetchInFlightRef.current = true;
@@ -2179,7 +2223,7 @@ export function POSTerminal({
   }
 
   async function fetchDineInOrders(options: { notify?: boolean } = {}) {
-    if (dineInOrdersFetchInFlightRef.current) return;
+    if (!isOnline || dineInOrdersFetchInFlightRef.current) return;
 
     try {
       dineInOrdersFetchInFlightRef.current = true;
@@ -2504,6 +2548,8 @@ export function POSTerminal({
 
       const data = await response.json();
       applyPOSBootstrapData(data);
+      lastBootstrapFailureAtRef.current = 0;
+      setIsOnline(true);
       await getOfflineStorage().cachePOSBootstrap(tenantId, {
         categories: data.categories || [],
         menu: data.menu || [],
@@ -2513,6 +2559,8 @@ export function POSTerminal({
         branding: data.branding || null,
       });
     } catch (error) {
+      lastBootstrapFailureAtRef.current = Date.now();
+      setIsOnline(false);
       console.warn('POS bootstrap fallback:', error instanceof Error ? error.message : error);
       const cachedBootstrap = await getOfflineStorage().getPOSBootstrap(tenantId);
       if (cachedBootstrap) {

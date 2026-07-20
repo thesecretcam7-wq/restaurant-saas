@@ -63,7 +63,7 @@ type CashClosingPeriod = {
 const ORDER_SELECT = 'id, order_number, total, tax, delivery_fee, delivery_type, payment_method, payment_breakdown, payment_status, status, created_at';
 const ORDER_SELECT_WITHOUT_PAYMENT_BREAKDOWN = 'id, order_number, total, tax, delivery_fee, delivery_type, payment_method, payment_status, status, created_at';
 const CASH_CLOSING_QUERY_TIMEOUT_MS = 8_000;
-const CLOSED_ORDER_ID_BATCH_SIZE = 150;
+const CLOSED_ORDER_ID_PAGE_SIZE = 5000;
 
 function isCancelledOrder(order: any) {
   return isCancelledCashClosingOrder(order);
@@ -264,47 +264,37 @@ export async function getCurrentCashClosingPeriodWithServiceClient(
 
 async function getClosedOrderIds(supabase: SupabaseServiceClient, tenantId: string, orderIds?: string[]) {
   if (orderIds && orderIds.length === 0) return new Set<string>();
+  const targetOrderIds = orderIds ? new Set(orderIds.filter(Boolean)) : null;
+  const closedOrderIds = new Set<string>();
 
-  const buildQuery = (ids?: string[]) => {
-    let query = supabase
-      .from('cash_closing_items')
-      .select('order_id')
-      .eq('tenant_id', tenantId)
-      .not('order_id', 'is', null)
-      .limit(5000);
-
-    if (ids) query = query.in('order_id', ids);
-    return query;
-  };
-
-  const runClosedItemsQuery = async (query: any) => {
+  for (let from = 0; ; from += CLOSED_ORDER_ID_PAGE_SIZE) {
     const { data, error } = await runCashClosingQuery<{ data: any[] | null; error: any }>(
-      query,
+      supabase
+        .from('cash_closing_items')
+        .select('order_id')
+        .eq('tenant_id', tenantId)
+        .not('order_id', 'is', null)
+        .range(from, from + CLOSED_ORDER_ID_PAGE_SIZE - 1),
       'La consulta de pedidos ya cerrados'
     );
+
     if (error) {
       console.warn('No se pudieron consultar items de cierres anteriores:', error.message || error);
-      return [];
+      return closedOrderIds;
     }
-    return data || [];
-  };
 
-  if (!orderIds) {
-    const data = await runClosedItemsQuery(buildQuery());
-    return new Set(data.map((item: any) => item.order_id).filter(Boolean));
+    const rows = data || [];
+    rows.forEach((item: any) => {
+      const orderId = item?.order_id;
+      if (orderId && (!targetOrderIds || targetOrderIds.has(orderId))) {
+        closedOrderIds.add(orderId);
+      }
+    });
+
+    if (rows.length < CLOSED_ORDER_ID_PAGE_SIZE) break;
   }
 
-  const uniqueOrderIds = Array.from(new Set(orderIds));
-  const batches: string[][] = [];
-  for (let index = 0; index < uniqueOrderIds.length; index += CLOSED_ORDER_ID_BATCH_SIZE) {
-    batches.push(uniqueOrderIds.slice(index, index + CLOSED_ORDER_ID_BATCH_SIZE));
-  }
-
-  const rows = (await Promise.all(
-    batches.map((batch) => runClosedItemsQuery(buildQuery(batch)))
-  )).flat();
-
-  return new Set(rows.map((item: any) => item.order_id).filter(Boolean));
+  return closedOrderIds;
 }
 
 async function getOpenBillPayments(

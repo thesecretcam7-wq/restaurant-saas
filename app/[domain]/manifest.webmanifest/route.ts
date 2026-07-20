@@ -61,8 +61,16 @@ export async function GET(
   const operationalScreen = operationalScreens[screen]
   const startUrl = operationalScreen ? `${appScope}${operationalScreen.startPath}` : appScope
   const appLabel = operationalScreen ? `${restaurantName} ${operationalScreen.label}` : restaurantName
-  const icon192Url = isTenantHost ? '/icon-192.png' : `/${tenantSlug}/icon-192.png`
-  const icon512Url = isTenantHost ? '/icon-512.png' : `/${tenantSlug}/icon-512.png`
+  const platformIconVersion = '?v=eccofood-tpv-20260720'
+  const icon192Url = operationalScreen
+    ? `/icons/icon-192.png${platformIconVersion}`
+    : isTenantHost ? '/icon-192.png' : `/${tenantSlug}/icon-192.png`
+  const icon512Url = operationalScreen
+    ? `/icons/icon-512.png${platformIconVersion}`
+    : isTenantHost ? '/icon-512.png' : `/${tenantSlug}/icon-512.png`
+  const appleIconUrl = operationalScreen
+    ? `/icons/apple-touch-icon.png${platformIconVersion}`
+    : isTenantHost ? '/apple-touch-icon.png' : `/${tenantSlug}/apple-touch-icon.png`
 
   return NextResponse.json(
     {
@@ -83,6 +91,12 @@ export async function GET(
       lang: 'es',
       dir: 'ltr',
       icons: [
+        {
+          src: appleIconUrl,
+          sizes: '180x180',
+          type: 'image/png',
+          purpose: 'any',
+        },
         {
           src: icon192Url,
           sizes: '192x192',

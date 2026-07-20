@@ -51,7 +51,19 @@ export function isNetworkPaymentError(error: unknown) {
     message.includes('network') ||
     message.includes('load failed') ||
     message.includes('internet') ||
-    message.includes('offline')
+    message.includes('offline') ||
+    message.includes('timeout') ||
+    message.includes('tardo demasiado') ||
+    message.includes('522')
+  )
+}
+
+export function hasConfirmedOfflineOrderSync(value: unknown): value is { orderId: string } {
+  return Boolean(
+    value &&
+    typeof value === 'object' &&
+    typeof (value as { orderId?: unknown }).orderId === 'string' &&
+    (value as { orderId: string }).orderId.trim().length > 0
   )
 }
 
@@ -191,7 +203,10 @@ async function runOfflinePOSOrderSync(tenantId: string, csrfToken?: string): Pro
         throw new Error(data.error || 'No se pudo subir la venta offline')
       }
 
-      await response.json().catch(() => ({}))
+      const createdOrder = await response.json().catch(() => null)
+      if (!hasConfirmedOfflineOrderSync(createdOrder)) {
+        throw new Error('La nube no confirmo la venta. La venta queda guardada localmente.')
+      }
 
       await storage.markOrderSynced(offlineOrder.id)
       await storage.removePendingOperation(`pos-order-${offlineOrder.id}`)

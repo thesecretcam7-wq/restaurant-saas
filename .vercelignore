@@ -1,0 +1,11 @@
+.env*
+.vercel
+.next
+node_modules
+coverage
+*.tsbuildinfo
+dev-server*.log
+_backup_avance_*/
+_github_deploy_*/
+_github_deploy_test/
+respaldo-para-documentos-*.zip

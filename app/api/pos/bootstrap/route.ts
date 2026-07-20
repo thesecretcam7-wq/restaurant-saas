@@ -1,7 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServiceClient } from '@/lib/supabase/server';
-import { getTenantContext } from '@/lib/tenant';
 import { getPageConfig } from '@/lib/pageConfig';
+
+const POS_BOOTSTRAP_SERVER_TIMEOUT_MS = 3200;
+
+function withAbort(query: any, signal: AbortSignal) {
+  return typeof query.abortSignal === 'function' ? query.abortSignal(signal) : query;
+}
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
@@ -13,47 +18,67 @@ export async function GET(request: NextRequest) {
 
   try {
     const supabase = createServiceClient();
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), POS_BOOTSTRAP_SERVER_TIMEOUT_MS);
 
-    const [categoriesRes, menuRes, tenantRes, settingsRes, tablesRes] = await Promise.all([
-      supabase
-        .from('menu_categories')
-        .select('id, name, sort_order')
-        .eq('tenant_id', tenantId)
-        .eq('active', true)
-        .order('sort_order', { ascending: true }),
-      supabase
-        .from('menu_items')
-        .select('id, name, price, category_id, description, image_url, available, sort_order')
-        .eq('tenant_id', tenantId)
-        .order('category_id', { ascending: true, nullsFirst: false })
-        .order('sort_order', { ascending: true })
-        .order('name', { ascending: true }),
-      supabase
-        .from('tenants')
-        .select('id, slug, organization_name, logo_url, country, metadata')
-        .eq('id', tenantId)
-        .maybeSingle(),
-      supabase
-        .from('restaurant_settings')
-        .select('tax_rate, display_name, phone, delivery_enabled, delivery_fee, delivery_zones, country, printer_auto_print')
-        .eq('tenant_id', tenantId)
-        .maybeSingle(),
-      supabase
-        .from('tables')
-        .select('id, table_number, seats, location')
-        .eq('tenant_id', tenantId)
-        .order('table_number', { ascending: true }),
-    ]);
+    let categoriesRes: any;
+    let menuRes: any;
+    let tenantRes: any;
+    let settingsRes: any;
+    let tablesRes: any;
+    let brandingRes: any;
 
-    const firstError = categoriesRes.error || menuRes.error || tenantRes.error || settingsRes.error || tablesRes.error;
+    try {
+      [categoriesRes, menuRes, tenantRes, settingsRes, tablesRes, brandingRes] = await Promise.all([
+        withAbort(supabase
+          .from('menu_categories')
+          .select('id, name, sort_order')
+          .eq('tenant_id', tenantId)
+          .eq('active', true)
+          .order('sort_order', { ascending: true }), controller.signal),
+        withAbort(supabase
+          .from('menu_items')
+          .select('id, name, price, category_id, description, image_url, available, sort_order')
+          .eq('tenant_id', tenantId)
+          .order('category_id', { ascending: true, nullsFirst: false })
+          .order('sort_order', { ascending: true })
+          .order('name', { ascending: true }), controller.signal),
+        withAbort(supabase
+          .from('tenants')
+          .select('id, slug, organization_name, logo_url, country, metadata')
+          .eq('id', tenantId)
+          .maybeSingle(), controller.signal),
+        withAbort(supabase
+          .from('restaurant_settings')
+          .select('tax_rate, display_name, phone, delivery_enabled, delivery_fee, delivery_zones, country, printer_auto_print')
+          .eq('tenant_id', tenantId)
+          .maybeSingle(), controller.signal),
+        withAbort(supabase
+          .from('tables')
+          .select('id, table_number, seats, location')
+          .eq('tenant_id', tenantId)
+          .order('table_number', { ascending: true }), controller.signal),
+        withAbort(supabase
+          .from('tenant_branding')
+          .select('app_name, page_config')
+          .eq('tenant_id', tenantId)
+          .maybeSingle(), controller.signal),
+      ]);
+    } finally {
+      clearTimeout(timeout);
+    }
+
+    const firstError = categoriesRes.error || menuRes.error || tenantRes.error || settingsRes.error || tablesRes.error || brandingRes.error;
     if (firstError) {
+      const firstErrorText = `${firstError.name || ''}: ${firstError.message || ''}`;
+      if (firstErrorText.includes('AbortError') || firstErrorText.includes('aborted')) {
+        return NextResponse.json({ error: 'Supabase timeout' }, { status: 504 });
+      }
       return NextResponse.json({ error: firstError.message }, { status: 500 });
     }
 
-    const tenantSlug = tenantRes.data?.slug || tenantId;
-    const context = tenantRes.data ? await getTenantContext(tenantSlug) : null;
-    const branding = context?.branding;
-    const pageConfig = getPageConfig((context?.tenant as any)?.metadata?.page_config || branding?.page_config);
+    const branding = brandingRes.data;
+    const pageConfig = getPageConfig((tenantRes.data as any)?.metadata?.page_config || branding?.page_config);
     const isLightTheme = pageConfig.appearance.theme_mode === 'light';
 
     return NextResponse.json({
@@ -77,11 +102,15 @@ export async function GET(request: NextRequest) {
         textSecondaryColor: isLightTheme ? 'rgba(7, 17, 31, 0.70)' : '#8b97a8',
         borderColor: isLightTheme ? 'rgba(7, 17, 31, 0.12)' : 'rgba(212, 175, 55, 0.18)',
         isLightTheme,
-        logoUrl: branding?.logo_url || tenantRes.data?.logo_url || '',
+        logoUrl: tenantRes.data?.logo_url || '',
       },
       tables: tablesRes.data || [],
     });
   } catch (error) {
+    const errorText = error instanceof Error ? `${error.name}: ${error.message}` : String(error);
+    if (errorText.includes('AbortError') || errorText.includes('aborted')) {
+      return NextResponse.json({ error: 'Supabase timeout' }, { status: 504 });
+    }
     return NextResponse.json(
       { error: error instanceof Error ? error.message : 'Server error' },
       { status: 500 }
