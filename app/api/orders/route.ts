@@ -77,6 +77,16 @@ function isMissingPaymentBreakdownColumn(error: any) {
   return text.includes('payment_breakdown') && (error?.code === '42703' || error?.code === 'PGRST204')
 }
 
+function isMissingOfflineClientIdColumn(error: any) {
+  const text = `${error?.message || ''} ${error?.details || ''} ${error?.hint || ''}`
+  return text.includes('offline_client_id') && (error?.code === '42703' || error?.code === 'PGRST204')
+}
+
+function isOfflineDuplicateError(error: any) {
+  const text = `${error?.message || ''} ${error?.details || ''} ${error?.hint || ''}`
+  return error?.code === '23505' && text.includes('offline_client_id')
+}
+
 function parseOperationalCloseMinutes(value?: string | null) {
   if (!value || !/^\d{1,2}:\d{2}$/.test(value)) return 5 * 60
   const [hours, minutes] = value.split(':').map(Number)
@@ -558,12 +568,12 @@ export async function POST(request: NextRequest) {
         .from('orders')
         .select('id, order_number')
         .eq('tenant_id', tenantId)
-        .ilike('notes', `%ID offline ${safeOfflineClientId}%`)
+        .eq('offline_client_id', safeOfflineClientId)
         .order('created_at', { ascending: false })
         .limit(1)
         .maybeSingle()
 
-      if (existingOfflineError) {
+      if (existingOfflineError && !isMissingOfflineClientIdColumn(existingOfflineError)) {
         console.error('[orders POST] offline idempotency lookup error:', existingOfflineError.message)
       } else if (existingOfflineOrder?.id) {
         offlineInsertDeferred?.resolve({
@@ -599,6 +609,7 @@ export async function POST(request: NextRequest) {
       table_number: normalizedTableNumber,
       waiter_name: normalizedWaiterName,
       notes: orderNotes,
+      offline_client_id: safeOfflineClientId || null,
       status: isImmediatePaidPOSOrder ? 'confirmed' : 'pending',
       display_number: displayNumber,
     }
@@ -615,6 +626,11 @@ export async function POST(request: NextRequest) {
       .single()
 
     let insertResult = await insertOrder(orderData)
+    if (insertResult.error && isMissingOfflineClientIdColumn(insertResult.error)) {
+      const fallbackOrderData = { ...orderData }
+      delete fallbackOrderData.offline_client_id
+      insertResult = await insertOrder(fallbackOrderData)
+    }
     if (insertResult.error && isMissingPaymentBreakdownColumn(insertResult.error)) {
       const fallbackOrderData = { ...orderData }
       delete fallbackOrderData.payment_breakdown
@@ -624,6 +640,29 @@ export async function POST(request: NextRequest) {
     const { data: order, error } = insertResult
 
     if (error) {
+      if (safeOfflineClientId && isOfflineDuplicateError(error)) {
+        const { data: existingOfflineOrder } = await supabase
+          .from('orders')
+          .select('id, order_number')
+          .eq('tenant_id', tenantId)
+          .eq('offline_client_id', safeOfflineClientId)
+          .maybeSingle()
+
+        if (existingOfflineOrder?.id) {
+          offlineInsertDeferred?.resolve({
+            orderId: existingOfflineOrder.id,
+            orderNumber: existingOfflineOrder.order_number,
+          })
+          if (offlineLockKey) offlineOrderInsertLocks.delete(offlineLockKey)
+          return NextResponse.json({
+            success: true,
+            orderId: existingOfflineOrder.id,
+            orderNumber: existingOfflineOrder.order_number,
+            reused: true,
+          })
+        }
+      }
+
       console.error('[orders POST] insert error:', error.message, error.details, error.hint)
       offlineInsertDeferred?.reject(error)
       if (offlineLockKey) offlineOrderInsertLocks.delete(offlineLockKey)
