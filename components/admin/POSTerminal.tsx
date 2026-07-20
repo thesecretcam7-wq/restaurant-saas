@@ -7,6 +7,7 @@ import { ShoppingCart, Plus, Minus, Trash2, Search, DollarSign, CreditCard, Maxi
 import { TableMap } from './TableMap';
 import { POSPayment } from './POSPayment';
 import { NumericKeyboard } from './NumericKeyboard';
+import { TextKeyboard } from './TextKeyboard';
 import { CashClosingModal } from './CashClosingModal';
 import { BillPaymentModal } from './BillPaymentModal';
 import { Toast } from './Toast';
@@ -48,6 +49,12 @@ interface Category {
 type POSMode = 'simple' | 'table';
 type PaymentMethod = 'cash' | 'stripe' | 'mixed';
 type CashClosingMode = 'current' | 'pending';
+type TouchTextRequest = {
+  title: string;
+  value: string;
+  maxLength?: number;
+  multiline?: boolean;
+};
 const MANUAL_CHARGE_NAME = 'Cobro manual';
 const DEFAULT_POS_WAITER_NAME = 'TPV';
 const POS_CONNECTIVITY_CHECK_TIMEOUT_MS = 2500;
@@ -757,6 +764,8 @@ export function POSTerminal({
   const [showTipKeyboard, setShowTipKeyboard] = useState(false);
   const [manualItemName, setManualItemName] = useState<string | null>(null);
   const [showManualItemPriceKeyboard, setShowManualItemPriceKeyboard] = useState(false);
+  const [touchTextRequest, setTouchTextRequest] = useState<TouchTextRequest | null>(null);
+  const [touchTextValue, setTouchTextValue] = useState('');
   const [heldAccounts, setHeldAccounts] = useState<HeldPOSAccount[]>([]);
   const [showHeldAccountsPanel, setShowHeldAccountsPanel] = useState(false);
   const [splitBillMode, setSplitBillMode] = useState(false);
@@ -778,6 +787,7 @@ export function POSTerminal({
   const paymentInFlightRef = useRef(false);
   const sendToTableInFlightRef = useRef(false);
   const tableCartSyncInFlightRef = useRef(false);
+  const touchTextResolverRef = useRef<((value: string | null) => void) | null>(null);
   const pendingTableCartSyncRef = useRef<{ nextCart: CartItem[]; successMessage: string } | null>(null);
   const latestTableSyncStateRef = useRef<{
     cart: CartItem[];
@@ -1796,6 +1806,33 @@ export function POSTerminal({
     }
   }
 
+  function requestTouchText(options: TouchTextRequest) {
+    if (touchTextResolverRef.current) {
+      touchTextResolverRef.current(null);
+    }
+
+    setTouchTextValue(options.value);
+    setTouchTextRequest(options);
+
+    return new Promise<string | null>((resolve) => {
+      touchTextResolverRef.current = resolve;
+    });
+  }
+
+  function confirmTouchText() {
+    touchTextResolverRef.current?.(touchTextValue);
+    touchTextResolverRef.current = null;
+    setTouchTextRequest(null);
+    setTouchTextValue('');
+  }
+
+  function cancelTouchText() {
+    touchTextResolverRef.current?.(null);
+    touchTextResolverRef.current = null;
+    setTouchTextRequest(null);
+    setTouchTextValue('');
+  }
+
   async function cancelIncomingOrder(orderId: string, orderNumber?: string) {
     const label = orderNumber || 'este ticket';
     const confirmed = window.confirm(
@@ -1844,7 +1881,12 @@ export function POSTerminal({
 
   async function voidCompletedSale(order: any): Promise<boolean> {
     const label = order.order_number || 'esta venta';
-    const reason = window.prompt(`Motivo para anular ${label}:`);
+    const reason = await requestTouchText({
+      title: `Motivo para anular ${label}`,
+      value: '',
+      maxLength: 140,
+      multiline: true,
+    });
 
     if (reason === null) return false;
     if (!reason.trim()) {
@@ -2635,8 +2677,21 @@ export function POSTerminal({
     );
   }
 
-  function addManualItem() {
-    setManualItemName(MANUAL_CHARGE_NAME);
+  async function addManualItem() {
+    const name = await requestTouchText({
+      title: 'Producto manual',
+      value: '',
+      maxLength: 60,
+    });
+    if (name === null) return;
+
+    const trimmedName = name.trim();
+    if (!trimmedName) {
+      setToast({ message: 'Escribe el nombre del producto manual', type: 'error' });
+      return;
+    }
+
+    setManualItemName(trimmedName);
     setShowManualItemPriceKeyboard(true);
   }
 
@@ -6061,7 +6116,7 @@ export function POSTerminal({
 
       <NumericKeyboard
         isOpen={showManualItemPriceKeyboard}
-        title={MANUAL_CHARGE_NAME}
+        title={manualItemName || MANUAL_CHARGE_NAME}
         initialValue={0}
         onConfirm={(value) => {
           if (manualItemName) {
@@ -6076,6 +6131,19 @@ export function POSTerminal({
         }}
         allowDecimal={true}
       />
+
+      {touchTextRequest && (
+        <TextKeyboard
+          isOpen={Boolean(touchTextRequest)}
+          title={touchTextRequest.title}
+          value={touchTextValue}
+          onChange={setTouchTextValue}
+          onConfirm={confirmTouchText}
+          onCancel={cancelTouchText}
+          maxLength={touchTextRequest.maxLength}
+          multiline={touchTextRequest.multiline}
+        />
+      )}
 
       {/* Toast Notifications */}
       {toast && (
