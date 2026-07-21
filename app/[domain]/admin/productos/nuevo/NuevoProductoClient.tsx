@@ -2,9 +2,12 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { Keyboard } from 'lucide-react'
 import { normalizeDecimalInput, productSchema } from '@/lib/validations/forms'
 import { getFieldError, parseValidationError } from '@/lib/validations/utils'
 import { uploadTenantMedia } from '@/lib/upload-client'
+import { NumericKeyboard } from '@/components/admin/NumericKeyboard'
+import { TextKeyboard } from '@/components/admin/TextKeyboard'
 import toast from 'react-hot-toast'
 
 interface Category { id: string; name: string }
@@ -16,12 +19,18 @@ interface Props {
   initialCategoryId?: string
 }
 
+type TextField = 'name' | 'description'
+type NumericField = 'price' | 'sort_order'
+
 export default function NuevoProductoClient({ domain, tenantId, categories, initialCategoryId = '' }: Props) {
   const router = useRouter()
   const startingCategoryId = categories.some(category => category.id === initialCategoryId) ? initialCategoryId : ''
   const [saving, setSaving] = useState(false)
   const [uploadingImage, setUploadingImage] = useState(false)
   const [errors, setErrors] = useState<Array<{ field: string; message: string }>>([])
+  const [activeTextField, setActiveTextField] = useState<TextField | null>(null)
+  const [textKeyboardDraft, setTextKeyboardDraft] = useState('')
+  const [activeNumericField, setActiveNumericField] = useState<NumericField | null>(null)
   const [form, setForm] = useState({
     name: '',
     description: '',
@@ -35,6 +44,40 @@ export default function NuevoProductoClient({ domain, tenantId, categories, init
     show_in_upsell: false,
     requires_kitchen: true,
   })
+
+  const keyboardButtonClass =
+    'inline-flex h-10 shrink-0 items-center gap-1.5 rounded-xl border border-blue-200 bg-blue-50 px-3 text-xs font-bold text-blue-700 transition hover:bg-blue-100 active:scale-95'
+
+  function openTextKeyboard(field: TextField) {
+    setTextKeyboardDraft(form[field])
+    setActiveTextField(field)
+  }
+
+  function confirmTextKeyboard() {
+    if (activeTextField) {
+      setForm(f => ({ ...f, [activeTextField]: textKeyboardDraft }))
+    }
+    setActiveTextField(null)
+    setTextKeyboardDraft('')
+  }
+
+  function cancelTextKeyboard() {
+    setActiveTextField(null)
+    setTextKeyboardDraft('')
+  }
+
+  function openNumericKeyboard(field: NumericField) {
+    setActiveNumericField(field)
+  }
+
+  function confirmNumericKeyboard(value: number) {
+    if (activeNumericField === 'price') {
+      setForm(f => ({ ...f, price: String(normalizeDecimalInput(value.toString())) }))
+    } else if (activeNumericField === 'sort_order') {
+      setForm(f => ({ ...f, sort_order: Math.max(0, Math.floor(value)).toString() }))
+    }
+    setActiveNumericField(null)
+  }
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -181,14 +224,20 @@ export default function NuevoProductoClient({ domain, tenantId, categories, init
                 <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wide mb-1.5">
                   Nombre * {getFieldError(errors, 'name') && <span className="text-red-500">{getFieldError(errors, 'name')}</span>}
                 </label>
-                <input
-                  required
-                  autoFocus
-                  value={form.name}
-                  onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
-                  className={`w-full text-base sm:text-sm text-gray-900 focus:outline-none placeholder-gray-300 bg-transparent border-b-2 ${getFieldError(errors, 'name') ? 'border-red-300' : 'border-gray-200'}`}
-                  placeholder="Ej: Pizza Margherita"
-                />
+                <div className="flex items-end gap-2">
+                  <input
+                    required
+                    autoFocus
+                    value={form.name}
+                    onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
+                    className={`min-w-0 flex-1 text-base sm:text-sm text-gray-900 focus:outline-none placeholder-gray-300 bg-transparent border-b-2 ${getFieldError(errors, 'name') ? 'border-red-300' : 'border-gray-200'}`}
+                    placeholder="Ej: Pizza Margherita"
+                  />
+                  <button type="button" onClick={() => openTextKeyboard('name')} className={keyboardButtonClass}>
+                    <Keyboard className="h-4 w-4" />
+                    Teclado
+                  </button>
+                </div>
               </div>
 
               {/* Price + Category side by side on desktop */}
@@ -204,9 +253,13 @@ export default function NuevoProductoClient({ domain, tenantId, categories, init
                       inputMode="decimal"
                       value={form.price}
                       onChange={e => setForm(f => ({ ...f, price: String(normalizeDecimalInput(e.target.value)) }))}
-                      className={`flex-1 text-xl sm:text-base font-bold text-gray-900 focus:outline-none placeholder-gray-200 bg-transparent border-b-2 ${getFieldError(errors, 'price') ? 'border-red-300' : 'border-gray-200'}`}
+                      className={`min-w-0 flex-1 text-xl sm:text-base font-bold text-gray-900 focus:outline-none placeholder-gray-200 bg-transparent border-b-2 ${getFieldError(errors, 'price') ? 'border-red-300' : 'border-gray-200'}`}
                       placeholder="0"
                     />
+                    <button type="button" onClick={() => openNumericKeyboard('price')} className={keyboardButtonClass}>
+                      <Keyboard className="h-4 w-4" />
+                      Teclado
+                    </button>
                   </div>
                 </div>
 
@@ -231,15 +284,21 @@ export default function NuevoProductoClient({ domain, tenantId, categories, init
                 <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wide mb-1.5">
                   Orden dentro de la categoria
                 </label>
-                <input
-                  type="number"
-                  min="0"
-                  inputMode="numeric"
-                  value={form.sort_order}
-                  onChange={e => setForm(f => ({ ...f, sort_order: e.target.value }))}
-                  className="w-full text-base sm:text-sm text-gray-900 focus:outline-none placeholder-gray-300 bg-transparent border-b-2 border-gray-200"
-                  placeholder="0"
-                />
+                <div className="flex items-end gap-2">
+                  <input
+                    type="number"
+                    min="0"
+                    inputMode="numeric"
+                    value={form.sort_order}
+                    onChange={e => setForm(f => ({ ...f, sort_order: e.target.value }))}
+                    className="min-w-0 flex-1 text-base sm:text-sm text-gray-900 focus:outline-none placeholder-gray-300 bg-transparent border-b-2 border-gray-200"
+                    placeholder="0"
+                  />
+                  <button type="button" onClick={() => openNumericKeyboard('sort_order')} className={keyboardButtonClass}>
+                    <Keyboard className="h-4 w-4" />
+                    Teclado
+                  </button>
+                </div>
                 <p className="mt-1 text-xs text-gray-400">Menor numero aparece primero.</p>
               </div>
 
@@ -248,13 +307,19 @@ export default function NuevoProductoClient({ domain, tenantId, categories, init
                 <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wide mb-1.5">
                   Descripción {getFieldError(errors, 'description') && <span className="text-red-500">{getFieldError(errors, 'description')}</span>}
                 </label>
+                <div className="flex items-start gap-2">
                 <textarea
                   value={form.description}
                   onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
-                  className={`w-full text-base sm:text-sm text-gray-900 focus:outline-none placeholder-gray-300 resize-none bg-transparent border-b-2 ${getFieldError(errors, 'description') ? 'border-red-300' : 'border-gray-200'}`}
+                  className={`min-w-0 flex-1 text-base sm:text-sm text-gray-900 focus:outline-none placeholder-gray-300 resize-none bg-transparent border-b-2 ${getFieldError(errors, 'description') ? 'border-red-300' : 'border-gray-200'}`}
                   rows={3}
                   placeholder="Ingredientes, alérgenos, especificaciones..."
                 />
+                  <button type="button" onClick={() => openTextKeyboard('description')} className={keyboardButtonClass}>
+                    <Keyboard className="h-4 w-4" />
+                    Teclado
+                  </button>
+                </div>
               </div>
             </div>
 
@@ -316,6 +381,25 @@ export default function NuevoProductoClient({ domain, tenantId, categories, init
           </button>
         </div>
       </form>
+      <TextKeyboard
+        isOpen={Boolean(activeTextField)}
+        title={activeTextField === 'description' ? 'Descripcion' : 'Nombre del producto'}
+        value={textKeyboardDraft}
+        onChange={setTextKeyboardDraft}
+        onConfirm={confirmTextKeyboard}
+        onCancel={cancelTextKeyboard}
+        maxLength={activeTextField === 'description' ? 180 : 80}
+        multiline={activeTextField === 'description'}
+      />
+      <NumericKeyboard
+        isOpen={Boolean(activeNumericField)}
+        title={activeNumericField === 'sort_order' ? 'Orden' : 'Precio'}
+        initialValue={Number(activeNumericField ? form[activeNumericField] : 0) || 0}
+        onConfirm={confirmNumericKeyboard}
+        onCancel={() => setActiveNumericField(null)}
+        allowDecimal={activeNumericField !== 'sort_order'}
+        maxLength={activeNumericField === 'sort_order' ? 4 : 8}
+      />
     </div>
   )
 }
