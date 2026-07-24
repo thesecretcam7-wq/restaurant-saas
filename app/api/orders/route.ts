@@ -103,7 +103,7 @@ function getPreviousOpenPeriodCreatedAt(periodStart: string, operationalCloseTim
 
 async function hasPendingPreviousCashClosing(supabase: ReturnType<typeof createServiceClient>, tenantId: string, currentPeriodStart: string) {
   const previousPeriodStart = new Date(new Date(currentPeriodStart).getTime() - 24 * 60 * 60 * 1000).toISOString()
-  const [ordersRes, closedItemsRes, latestClosingRes] = await Promise.all([
+  const [ordersRes, closedItemsRes] = await Promise.all([
     supabase
       .from('orders')
       .select('id, created_at')
@@ -120,31 +120,16 @@ async function hasPendingPreviousCashClosing(supabase: ReturnType<typeof createS
       .eq('tenant_id', tenantId)
       .not('order_id', 'is', null)
       .limit(2000),
-    supabase
-      .from('cash_closings')
-      .select('closed_at')
-      .eq('tenant_id', tenantId)
-      .order('closed_at', { ascending: false })
-      .limit(1)
-      .maybeSingle(),
   ])
 
   if (ordersRes.error) throw ordersRes.error
 
   const closedOrderIds = new Set((closedItemsRes.error ? [] : closedItemsRes.data || []).map((item: any) => item.order_id))
-  const latestClosingDate = !latestClosingRes.error && latestClosingRes.data?.closed_at
-    ? new Date(latestClosingRes.data.closed_at)
-    : null
-
-  if (latestClosingDate && latestClosingDate >= new Date(previousPeriodStart)) {
-    return false
-  }
 
   const cancelledStatuses = new Set(['cancelled', 'canceled', 'voided', 'deleted', 'anulado', 'cancelado'])
   return (ordersRes.data || []).some((order: any) => {
     if (cancelledStatuses.has(String(order?.status || '').trim().toLowerCase())) return false
     if (closedOrderIds.has(order.id)) return false
-    if (latestClosingDate && new Date(order.created_at) <= latestClosingDate) return false
     return true
   })
 }

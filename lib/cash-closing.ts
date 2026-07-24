@@ -392,28 +392,14 @@ export async function calculatePendingPreviousCashClosingStats(tenantId: string)
       .not('order_id', 'is', null)
       .limit(2000);
 
-    const { data: latestClosing, error: latestClosingError } = await supabase
-      .from('cash_closings')
-      .select('closed_at')
-      .eq('tenant_id', tenantId)
-      .order('closed_at', { ascending: false })
-      .limit(1)
-      .maybeSingle();
-
     if (closedItemsError) {
       console.warn('No se pudieron consultar items de cierres anteriores:', closedItemsError.message || closedItemsError);
     }
 
-    if (latestClosingError) {
-      console.warn('No se pudo consultar el ultimo cierre de caja:', latestClosingError.message || latestClosingError);
-    }
-
     const closedOrderIds = new Set((closedItems || []).map((item: any) => item.order_id));
-    const latestClosingDate = latestClosing?.closed_at ? new Date(latestClosing.closed_at) : null;
     const pendingOrders = orders.filter((order: any) => {
       if (isCancelledOrder(order)) return false;
       if (closedOrderIds.has(order.id)) return false;
-      if (latestClosingDate && new Date(order.created_at) <= latestClosingDate) return false;
       return true;
     });
 
