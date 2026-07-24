@@ -14,6 +14,7 @@ const DEFAULT_OPERATIONAL_CLOSE_MINUTES = 5 * 60;
 const ORDER_SELECT = 'id, order_number, total, tax, delivery_fee, delivery_type, payment_method, payment_breakdown, payment_status, status, created_at';
 const ORDER_SELECT_WITHOUT_PAYMENT_BREAKDOWN = 'id, order_number, total, tax, delivery_fee, delivery_type, payment_method, payment_status, status, created_at';
 const ONE_DAY_MS = 24 * 60 * 60 * 1000;
+const TENANT_SLUGS_WITHOUT_PENDING_CASH_CLOSING = new Set(['parrillaburgers']);
 
 const COUNTRY_TIMEZONE: Record<string, string> = {
   CO: 'America/Bogota',
@@ -278,6 +279,20 @@ export async function GET(request: NextRequest) {
     await requireTenantAccess(tenantId, { staffRoles: ['admin', 'cajero'] });
 
     const supabase = createServiceClient();
+
+    const { data: tenant, error: tenantError } = await supabase
+      .from('tenants')
+      .select('slug')
+      .eq('id', tenantId)
+      .maybeSingle();
+
+    if (tenantError) {
+      return NextResponse.json({ error: tenantError.message }, { status: 500 });
+    }
+
+    if (tenant?.slug && TENANT_SLUGS_WITHOUT_PENDING_CASH_CLOSING.has(tenant.slug)) {
+      return NextResponse.json({ stats: null });
+    }
 
     const { data: settings, error: settingsError } = await supabase
       .from('restaurant_settings')
