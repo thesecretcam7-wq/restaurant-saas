@@ -2699,7 +2699,7 @@ export function POSTerminal({
     const activeDineInOrders = tableSyncState.dineInOrders;
     const activeSelectedTableNumber = tableSyncState.selectedTableNumber;
 
-    if (activeBillingOrderIds.length === 0 || splitBillMode) {
+    if (splitBillMode || (activeBillingOrderIds.length === 0 && !activeSelectedTableNumber)) {
       setCart(nextCart);
       return;
     }
@@ -2940,7 +2940,13 @@ export function POSTerminal({
   }
 
   function updateCartAndLoadedTable(nextCart: CartItem[], successMessage: string) {
-    if (billingOrderIds.length > 0 && !splitBillMode) {
+    const shouldSyncSelectedTable =
+      posMode === 'table' &&
+      Boolean(selectedTableNumber) &&
+      !splitBillMode &&
+      !loadedOrderId;
+
+    if (shouldSyncSelectedTable || billingOrderIds.length > 0) {
       void syncLoadedTableCart(nextCart, successMessage);
       return;
     }
@@ -3270,6 +3276,13 @@ export function POSTerminal({
     setShowDineInPanel(false);
     setShowIncomingPanel(false);
     setShowFindPayPanel(false);
+    latestTableSyncStateRef.current = {
+      ...latestTableSyncStateRef.current,
+      cart: switchingTables || billingOrderIds.length > 0 || loadedOrderId ? [] : latestTableSyncStateRef.current.cart,
+      billingOrderIds: [],
+      loadedTableBaseCart: null,
+      selectedTableNumber: tableNumber,
+    };
   }
 
   function handleTableShortcutClick(tableId: string, tableNumber: number, tableOrders?: DineInOrder[]) {
