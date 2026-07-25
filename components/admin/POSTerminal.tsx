@@ -2182,7 +2182,7 @@ export function POSTerminal({
               knownOrderIds.current.add(newOrder.id);
               await fetchIncomingOrders();
             }
-          } else if (newOrder.delivery_type === 'dine-in') {
+          } else if (newOrder.delivery_type === 'dine-in' && isPosCreatedDineInOrder(newOrder)) {
             const shouldMuteDineInOrder = isMutedLocalDineInOrder(newOrder);
             knownDineInOrderIds.current.add(newOrder.id);
             await fetchDineInOrders({ notify: false });
@@ -2212,6 +2212,8 @@ export function POSTerminal({
           const updated = payload.new as any;
           if (updated.delivery_type === 'delivery' || updated.delivery_type === 'pickup') {
             await fetchIncomingOrders();
+          } else if (updated.delivery_type === 'dine-in' && isPosCreatedDineInOrder(updated)) {
+            await fetchDineInOrders({ notify: false });
           }
         }
       )
@@ -2219,17 +2221,21 @@ export function POSTerminal({
 
     // Initial fetch
     fetchIncomingOrders();
-    fetchDineInOrders({ notify: false });
+    void fetchDineInOrders({ notify: false });
 
     const polling = window.setInterval(() => {
       fetchIncomingOrders();
-      fetchDineInOrders({ notify: true });
+      if (showDineInPanel || selectedTableNumber || billingOrderIds.length > 0) {
+        fetchDineInOrders({ notify: true });
+      }
     }, POS_ORDERS_REFRESH_FALLBACK_MS);
 
     const refreshWhenVisible = () => {
       if (document.visibilityState !== 'visible') return;
       fetchIncomingOrders();
-      fetchDineInOrders({ notify: true });
+      if (showDineInPanel || selectedTableNumber || billingOrderIds.length > 0) {
+        fetchDineInOrders({ notify: true });
+      }
     };
     document.addEventListener('visibilitychange', refreshWhenVisible);
     window.addEventListener('focus', refreshWhenVisible);
@@ -2240,7 +2246,7 @@ export function POSTerminal({
       window.removeEventListener('focus', refreshWhenVisible);
       subscription.unsubscribe();
     };
-  }, [isOnline, tenantId, playNewOrderSound]);
+  }, [billingOrderIds.length, isOnline, playNewOrderSound, selectedTableNumber, showDineInPanel, tenantId]);
 
   async function fetchIncomingOrders() {
     if (!isOnline || incomingOrdersFetchInFlightRef.current) return;
@@ -2306,8 +2312,9 @@ export function POSTerminal({
         .eq('delivery_type', 'dine-in')
         .eq('payment_status', 'pending')
         .neq('status', 'cancelled')
+        .eq('waiter_name', DEFAULT_POS_WAITER_NAME)
         .order('created_at', { ascending: false })
-        .limit(20);
+        .limit(60);
 
       if (!error && data) {
         const mapped = (data as DineInOrder[]).filter((order) =>
