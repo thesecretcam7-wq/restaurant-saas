@@ -807,6 +807,7 @@ export function POSTerminal({
   const tableCartSyncInFlightRef = useRef(false);
   const touchTextResolverRef = useRef<((value: string | null) => void) | null>(null);
   const pendingTableCartSyncRef = useRef<{ nextCart: CartItem[]; successMessage: string } | null>(null);
+  const optimisticTableOrderIdsRef = useRef(new Map<number, string>());
   const latestTableSyncStateRef = useRef<{
     cart: CartItem[];
     dineInOrders: DineInOrder[];
@@ -2724,6 +2725,11 @@ export function POSTerminal({
 
     if (tableCartSyncInFlightRef.current) {
       setCart(nextCart);
+      applyOptimisticTableCart(nextCart, activeSelectedTableNumber, activeBillingOrderIds);
+      latestTableSyncStateRef.current = {
+        ...latestTableSyncStateRef.current,
+        cart: cloneCartItems(nextCart),
+      };
       pendingTableCartSyncRef.current = {
         nextCart: cloneCartItems(nextCart),
         successMessage,
@@ -2791,6 +2797,7 @@ export function POSTerminal({
     try {
       tableCartSyncInFlightRef.current = true;
       setCart(nextCart);
+      applyOptimisticTableCart(nextCart, activeSelectedTableNumber, activeBillingOrderIds);
       setDineInOrders((current) =>
         current
           .map((order) => {
@@ -2876,7 +2883,11 @@ export function POSTerminal({
         mutedDineInOrderIdsRef.current.add(optimisticOrderId);
         mutedDineInTablesUntilRef.current.set(tableNumber, Date.now() + POS_DINE_IN_MUTE_MS);
         knownDineInOrderIds.current.add(optimisticOrderId);
-        setDineInOrders((current) => [optimisticOrder, ...current]);
+        const liveOptimisticOrderId = optimisticTableOrderIdsRef.current.get(tableNumber);
+        setDineInOrders((current) => [
+          optimisticOrder,
+          ...current.filter((order) => order.id !== liveOptimisticOrderId),
+        ]);
 
         const response = await fetch('/api/orders', {
           method: 'POST',
@@ -2908,11 +2919,15 @@ export function POSTerminal({
 
         const savedOrder = await response.json().catch(() => null);
         if (savedOrder?.orderId) {
+          if (liveOptimisticOrderId) {
+            optimisticTableOrderIdsRef.current.delete(tableNumber);
+            mutedDineInOrderIdsRef.current.delete(liveOptimisticOrderId);
+          }
           mutedDineInOrderIdsRef.current.add(savedOrder.orderId);
           mutedDineInTablesUntilRef.current.set(tableNumber, Date.now() + POS_DINE_IN_MUTE_MS);
           knownDineInOrderIds.current.add(savedOrder.orderId);
           setDineInOrders((current) => current.map((order) =>
-            order.id === optimisticOrderId
+            order.id === optimisticOrderId || order.id === liveOptimisticOrderId
               ? { ...order, id: savedOrder.orderId, order_number: savedOrder.orderNumber || order.order_number }
               : order
           ));
@@ -3133,6 +3148,88 @@ export function POSTerminal({
       });
     });
     return Array.from(mergedMap.values());
+  }
+
+  function applyOptimisticTableCart(
+    nextCart: CartItem[],
+    tableNumber: number | null,
+    activeBillingOrderIds = billingOrderIds,
+  ) {
+    if (!tableNumber || splitBillMode) return;
+
+    const optimisticOrderId =
+      optimisticTableOrderIdsRef.current.get(tableNumber) || `optimistic-table-live-${tableNumber}-${Date.now()}`;
+    optimisticTableOrderIdsRef.current.set(tableNumber, optimisticOrderId);
+
+    setDineInOrders((current) => {
+      const desiredQuantities = new Map<string, number>();
+      nextCart.forEach((item) => {
+        desiredQuantities.set(item.menu_item_id, (desiredQuantities.get(item.menu_item_id) || 0) + Number(item.quantity || 0));
+      });
+
+      const nextOrders = current
+        .filter((order) => order.id !== optimisticOrderId)
+        .map((order) => {
+          if (!activeBillingOrderIds.includes(order.id)) return order;
+
+          const nextItems = ((order.items || [])
+            .map((item) => {
+              const key = getOrderItemKey(item);
+              const qty = getOrderItemQty(item);
+              const keepQty = Math.min(qty, Math.max(0, desiredQuantities.get(key) || 0));
+              desiredQuantities.set(key, Math.max(0, (desiredQuantities.get(key) || 0) - keepQty));
+              return keepQty > 0 ? { ...item, qty: keepQty, quantity: keepQty } : null;
+            })
+            .filter(Boolean)) as DineInOrder['items'];
+
+          return {
+            ...order,
+            items: nextItems,
+            total: getOrderItemsTotal(nextItems),
+            status: nextItems.length === 0 ? 'cancelled' : order.status,
+          };
+        })
+        .filter((order) => !activeBillingOrderIds.includes(order.id) || (order.items || []).some((item) => getOrderItemQty(item) > 0));
+
+      const extraItems = nextCart
+        .flatMap((item) => {
+          const extraQty = Math.max(0, desiredQuantities.get(item.menu_item_id) || 0);
+          return extraQty > 0 ? [{
+            menu_item_id: item.is_manual ? null : item.menu_item_id,
+            item_id: item.is_manual ? null : item.menu_item_id,
+            is_manual: item.is_manual === true,
+            name: item.name,
+            price: item.price,
+            qty: extraQty,
+            quantity: extraQty,
+            notes: item.notes || null,
+          }] : [];
+        });
+
+      if (extraItems.length === 0) return nextOrders;
+
+      const existingTableOrder = current.find((order) => order.table_number === tableNumber);
+      const subtotal = getOrderItemsTotal(extraItems);
+      const optimisticOrder: DineInOrder = {
+        id: optimisticOrderId,
+        order_number: existingTableOrder?.order_number || `Mesa ${tableNumber}`,
+        table_number: tableNumber,
+        waiter_name: existingTableOrder?.waiter_name || DEFAULT_POS_WAITER_NAME,
+        notes: 'Comanda enviada desde TPV',
+        source: 'pos',
+        total: subtotal,
+        payment_status: 'pending',
+        status: 'pending',
+        created_at: existingTableOrder?.created_at || new Date().toISOString(),
+        items: extraItems,
+      };
+
+      mutedDineInOrderIdsRef.current.add(optimisticOrderId);
+      mutedDineInTablesUntilRef.current.set(tableNumber, Date.now() + POS_DINE_IN_MUTE_MS);
+      knownDineInOrderIds.current.add(optimisticOrderId);
+
+      return [optimisticOrder, ...nextOrders];
+    });
   }
 
   function getLoadedTableAdditions() {
