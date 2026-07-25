@@ -63,7 +63,7 @@ type CashClosingPeriod = {
 const ORDER_SELECT = 'id, order_number, total, tax, delivery_fee, delivery_type, payment_method, payment_breakdown, payment_status, status, created_at';
 const ORDER_SELECT_WITHOUT_PAYMENT_BREAKDOWN = 'id, order_number, total, tax, delivery_fee, delivery_type, payment_method, payment_status, status, created_at';
 const CASH_CLOSING_QUERY_TIMEOUT_MS = 8_000;
-const CLOSED_ORDER_ID_PAGE_SIZE = 5000;
+const CLOSED_ORDER_ID_PAGE_SIZE = 1000;
 const ONE_DAY_MS = 24 * 60 * 60 * 1000;
 
 function isCancelledOrder(order: any) {
