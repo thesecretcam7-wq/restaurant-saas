@@ -817,6 +817,7 @@ export function POSTerminal({
   const restoredStaffTenantRef = useRef<string | null>(null);
   const warmedReceiptPrinterIdRef = useRef<string | null>(null);
   const pendingCashClosingFetchInFlightRef = useRef(false);
+  const pendingCashClosingRequestSeqRef = useRef(0);
   const reservationsFetchInFlightRef = useRef(false);
   const offlineSyncInFlightRef = useRef(false);
   const canRegisterInPreviousPeriod =
@@ -1047,16 +1048,23 @@ export function POSTerminal({
     };
   }, [cart.length, fetchReceiptPrinterSettings, printReceiptAfterPayment, tenantId]);
 
-  const refreshPendingCashClosing = useCallback(async () => {
-    if (!isOnline || pendingCashClosingFetchInFlightRef.current) return;
+  const refreshPendingCashClosing = useCallback(async (force = false) => {
+    if (!isOnline || (pendingCashClosingFetchInFlightRef.current && !force)) return;
+
+    const requestSeq = ++pendingCashClosingRequestSeqRef.current;
 
     try {
       pendingCashClosingFetchInFlightRef.current = true;
-      setPendingCashClosingStats(await fetchPendingCashClosingStats(tenantId));
+      const stats = await fetchPendingCashClosingStats(tenantId);
+      if (requestSeq === pendingCashClosingRequestSeqRef.current) {
+        setPendingCashClosingStats(stats);
+      }
     } catch (error) {
       console.error('Error checking pending cash closing:', error);
     } finally {
-      pendingCashClosingFetchInFlightRef.current = false;
+      if (requestSeq === pendingCashClosingRequestSeqRef.current) {
+        pendingCashClosingFetchInFlightRef.current = false;
+      }
     }
   }, [isOnline, tenantId]);
 
@@ -1680,10 +1688,13 @@ export function POSTerminal({
       setCashClosingStats(savedStats);
 
       setToast({ message: '✓ Caja cerrada exitosamente', type: 'success' });
+      if (cashClosingMode === 'pending') {
+        setPendingCashClosingStats(null);
+      }
       setShowCashClosing(false);
       setCashClosingStats(null);
       setCashClosingMode(null);
-      await refreshPendingCashClosing();
+      await refreshPendingCashClosing(true);
 
       void (async () => {
         try {
