@@ -274,6 +274,24 @@ function getOrderItemsTotal(items: Array<{ price: number; qty?: number; quantity
   return items.reduce((sum, item) => sum + Number(item.price || 0) * getOrderItemQty(item), 0);
 }
 
+function getDineInOrderContentSignature(order: DineInOrder) {
+  const items = (order.items || [])
+    .map((item) => ({
+      key: getOrderItemKey(item),
+      name: String(item.name || '').trim().toLowerCase(),
+      price: Math.round((Number(item.price) || 0) * 100),
+      qty: getOrderItemQty(item),
+      notes: String((item as any).notes || '').trim().toLowerCase(),
+    }))
+    .sort((a, b) => `${a.key}:${a.name}:${a.price}:${a.notes}`.localeCompare(`${b.key}:${b.name}:${b.price}:${b.notes}`));
+
+  return JSON.stringify({
+    table: order.table_number || null,
+    total: Math.round(getOrderItemsTotal(order.items || []) * 100),
+    items,
+  });
+}
+
 function getHeldAccountItemCount(account: HeldPOSAccount) {
   return account.items.reduce((sum, item) => sum + Number(item.quantity || 0), 0);
 }
@@ -4333,8 +4351,14 @@ export function POSTerminal({
 
   const tableGroups = useMemo((): TableGroup[] => {
     const groups = new Map<number, DineInOrder[]>();
+    const seenOrderSignatures = new Set<string>();
+
     dineInOrders.forEach(order => {
       if (!(order.items || []).some((item) => getOrderItemQty(item) > 0)) return;
+      const signature = getDineInOrderContentSignature(order);
+      if (seenOrderSignatures.has(signature)) return;
+      seenOrderSignatures.add(signature);
+
       const tableNum = order.table_number ?? 0;
       if (!groups.has(tableNum)) groups.set(tableNum, []);
       groups.get(tableNum)!.push(order);
