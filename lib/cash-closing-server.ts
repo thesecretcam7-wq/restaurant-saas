@@ -298,6 +298,39 @@ async function getClosedOrderIds(supabase: SupabaseServiceClient, tenantId: stri
   return closedOrderIds;
 }
 
+async function hasMatchingCashClosingSummary(
+  supabase: SupabaseServiceClient,
+  tenantId: string,
+  closedAfter: Date,
+  stats: Pick<CashClosingStats, 'totalSales' | 'transactionCount'>
+) {
+  const { data, error } = await runCashClosingQuery<{ data: any[] | null; error: any }>(
+    supabase
+      .from('cash_closings')
+      .select('id, total_sales, transaction_count, status, closed_at')
+      .eq('tenant_id', tenantId)
+      .gte('closed_at', closedAfter.toISOString())
+      .order('closed_at', { ascending: false })
+      .limit(20),
+    'La consulta de cierres recientes'
+  );
+
+  if (error) {
+    console.warn('No se pudieron consultar cierres recientes:', error.message || error);
+    return false;
+  }
+
+  const expectedTotal = Math.round((Number(stats.totalSales) || 0) * 100);
+  const expectedTransactions = Number(stats.transactionCount) || 0;
+
+  return (data || []).some((closing: any) => {
+    if (String(closing?.status || 'completed').toLowerCase() !== 'completed') return false;
+    const closingTotal = Math.round((Number(closing?.total_sales) || 0) * 100);
+    const closingTransactions = Number(closing?.transaction_count) || 0;
+    return closingTotal === expectedTotal && closingTransactions === expectedTransactions;
+  });
+}
+
 async function getOpenBillPayments(
   supabase: SupabaseServiceClient,
   tenantId: string,
@@ -462,7 +495,13 @@ export async function calculatePendingPreviousCashClosingStats(
   };
 
   const billPayments = await getOpenBillPayments(supabase, tenantId, period.periodStart, period.periodEnd);
-  return statsFromOrders(period, pendingOrders, billPayments);
+  const stats = statsFromOrders(period, pendingOrders, billPayments);
+
+  if (await hasMatchingCashClosingSummary(supabase, tenantId, previousPeriodStart, stats)) {
+    return null;
+  }
+
+  return stats;
 }
 
 export async function calculateCashClosingStatsByMode(
