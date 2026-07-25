@@ -307,7 +307,7 @@ async function hasMatchingCashClosingSummary(
   const { data, error } = await runCashClosingQuery<{ data: any[] | null; error: any }>(
     supabase
       .from('cash_closings')
-      .select('id, total_sales, transaction_count, status, closed_at')
+      .select('id, total_sales, transaction_count, closed_at')
       .eq('tenant_id', tenantId)
       .gte('closed_at', closedAfter.toISOString())
       .order('closed_at', { ascending: false })
@@ -324,7 +324,6 @@ async function hasMatchingCashClosingSummary(
   const expectedTransactions = Number(stats.transactionCount) || 0;
 
   return (data || []).some((closing: any) => {
-    if (String(closing?.status || 'completed').toLowerCase() !== 'completed') return false;
     const closingTotal = Math.round((Number(closing?.total_sales) || 0) * 100);
     const closingTransactions = Number(closing?.transaction_count) || 0;
     return closingTotal === expectedTotal && closingTransactions === expectedTransactions;
