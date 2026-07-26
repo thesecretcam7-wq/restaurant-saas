@@ -358,11 +358,16 @@ async function getOpenBillPayments(
   return data || [];
 }
 
-async function getLatestCashClosingDate(supabase: SupabaseServiceClient, tenantId: string) {
-  const { data, error } = await runCashClosingQuery<{ data: { closed_at?: string | null } | null; error: any }>(
+function isMissingCashClosingPeriodColumns(error: any) {
+  const message = `${error?.message || ''} ${error?.details || ''}`.toLowerCase();
+  return message.includes('period_start') || message.includes('period_end');
+}
+
+async function getLatestCashClosingPeriodEnd(supabase: SupabaseServiceClient, tenantId: string) {
+  const { data, error } = await runCashClosingQuery<{ data: { closed_at?: string | null; period_end?: string | null } | null; error: any }>(
     supabase
       .from('cash_closings')
-      .select('closed_at')
+      .select('closed_at, period_end')
       .eq('tenant_id', tenantId)
       .order('closed_at', { ascending: false })
       .limit(1)
@@ -371,13 +376,14 @@ async function getLatestCashClosingDate(supabase: SupabaseServiceClient, tenantI
   );
 
   if (error) {
+    if (isMissingCashClosingPeriodColumns(error)) return null;
     console.warn('No se pudo consultar el ultimo cierre de caja:', error.message || error);
     return null;
   }
 
-  if (!data?.closed_at) return null;
-  const closingDate = new Date(data.closed_at);
-  return Number.isNaN(closingDate.getTime()) ? null : closingDate;
+  const periodEnd = data?.period_end ? new Date(data.period_end) : null;
+  if (periodEnd && !Number.isNaN(periodEnd.getTime())) return periodEnd;
+  return null;
 }
 
 export async function calculateCurrentCashClosingStats(
@@ -387,9 +393,9 @@ export async function calculateCurrentCashClosingStats(
   const period = await getCurrentOperationalPeriod(supabase, tenantId);
   const endDate = new Date(period.periodEnd);
   const nominalStartDate = new Date(period.periodStart);
-  const latestClosingDate = await getLatestCashClosingDate(supabase, tenantId);
-  const startDate = latestClosingDate && latestClosingDate < endDate
-    ? latestClosingDate
+  const latestPeriodEnd = await getLatestCashClosingPeriodEnd(supabase, tenantId);
+  const startDate = latestPeriodEnd && latestPeriodEnd > nominalStartDate && latestPeriodEnd < endDate
+    ? latestPeriodEnd
     : nominalStartDate;
   const effectivePeriod = startDate.getTime() === nominalStartDate.getTime()
     ? period
@@ -548,6 +554,8 @@ export async function saveCashClosingWithServiceClient(
     transaction_count: closingData.transactionCount,
     orders_completed: closingData.ordersCompleted,
     orders_cancelled: closingData.ordersCancelled,
+    period_start: closingData.periodStart,
+    period_end: closingData.periodEnd,
     notes,
     closed_at: new Date().toISOString(),
   };
@@ -571,6 +579,34 @@ export async function saveCashClosingWithServiceClient(
     insertClosing(true),
     'El guardado del cierre de caja'
   );
+  if (result.error && isMissingCashClosingPeriodColumns(result.error)) {
+    const { period_start, period_end, ...closingWithoutPeriod } = baseClosing;
+    const insertWithoutPeriod = (includeDeliveryTotals: boolean) =>
+      supabase
+        .from('cash_closings')
+        .insert({
+          ...closingWithoutPeriod,
+          ...(includeDeliveryTotals
+            ? {
+                total_delivery_fees: Number(closingData.totalDeliveryFees) || 0,
+                delivery_order_count: Number(closingData.deliveryOrderCount) || 0,
+              }
+            : {}),
+        })
+        .select()
+        .single();
+
+    result = await runCashClosingQuery<{ data: any; error: any }>(
+      insertWithoutPeriod(true),
+      'El guardado del cierre de caja'
+    );
+    if (result.error && isMissingDeliveryClosingColumns(result.error)) {
+      result = await runCashClosingQuery<{ data: any; error: any }>(
+        insertWithoutPeriod(false),
+        'El guardado del cierre de caja'
+      );
+    }
+  }
   if (result.error && isMissingDeliveryClosingColumns(result.error)) {
     result = await runCashClosingQuery<{ data: any; error: any }>(
       insertClosing(false),

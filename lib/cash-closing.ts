@@ -186,6 +186,14 @@ function isMissingDeliveryClosingColumns(error: any) {
   );
 }
 
+function isMissingCashClosingPeriodColumns(error: any) {
+  const text = `${error?.message || ''} ${error?.details || ''} ${error?.hint || ''}`;
+  return (
+    error?.code === 'PGRST204' &&
+    (text.includes('period_start') || text.includes('period_end'))
+  );
+}
+
 function isMissingBillPaymentsTable(error: any) {
   const text = `${error?.message || ''} ${error?.details || ''} ${error?.hint || ''}`;
   return text.includes('cash_bill_payments') || error?.code === '42P01' || error?.code === 'PGRST205';
@@ -458,6 +466,8 @@ export async function saveCashClosing(
         transaction_count: closingData.transactionCount,
         orders_completed: closingData.ordersCompleted,
         orders_cancelled: closingData.ordersCancelled,
+        period_start: closingData.periodStart,
+        period_end: closingData.periodEnd,
         notes,
         closed_at: new Date().toISOString(),
     };
@@ -478,6 +488,28 @@ export async function saveCashClosing(
         .single();
 
     let result = await insertClosing(true);
+    if (result.error && isMissingCashClosingPeriodColumns(result.error)) {
+      const { period_start, period_end, ...closingWithoutPeriod } = baseClosing;
+      const insertWithoutPeriod = (includeDeliveryTotals: boolean) =>
+        supabase
+          .from('cash_closings')
+          .insert({
+            ...closingWithoutPeriod,
+            ...(includeDeliveryTotals
+              ? {
+                  total_delivery_fees: Number(closingData.totalDeliveryFees) || 0,
+                  delivery_order_count: Number(closingData.deliveryOrderCount) || 0,
+                }
+              : {}),
+          })
+          .select()
+          .single();
+
+      result = await insertWithoutPeriod(true);
+      if (result.error && isMissingDeliveryClosingColumns(result.error)) {
+        result = await insertWithoutPeriod(false);
+      }
+    }
     if (result.error && isMissingDeliveryClosingColumns(result.error)) {
       console.warn('Cash closing delivery columns are missing; save will continue without persisted delivery totals.');
       result = await insertClosing(false);
