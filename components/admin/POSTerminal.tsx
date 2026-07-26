@@ -3,7 +3,7 @@
 import { useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { createClient } from '@/lib/supabase/client';
-import { ShoppingCart, Plus, Minus, Trash2, Search, DollarSign, CreditCard, Maximize2, Minimize2, Lock, Unlock, GripVertical, Clock, Truck, Store, UtensilsCrossed, Archive, Monitor, Printer, CalendarDays, Download, PencilLine, X, Check, ReceiptText } from 'lucide-react';
+import { ShoppingCart, Plus, Minus, Trash2, Search, DollarSign, CreditCard, Maximize2, Minimize2, Calculator, Lock, Unlock, GripVertical, Clock, Truck, Store, UtensilsCrossed, Archive, Monitor, Printer, CalendarDays, Download, PencilLine, X, Check, ReceiptText } from 'lucide-react';
 import { TableMap } from './TableMap';
 import { POSPayment } from './POSPayment';
 import { NumericKeyboard } from './NumericKeyboard';
@@ -4760,10 +4760,10 @@ export function POSTerminal({
               onClick={handleOpenCashClosing}
               disabled={closingLoading}
               className="pos-action-danger disabled:cursor-not-allowed disabled:opacity-50"
-              title="Cerrar caja diaria"
+              title="Ver corte de caja hasta ahora"
             >
-              <Lock className="w-5 h-5" />
-              <span className="hidden sm:inline">Cerrar</span>
+              <Calculator className="w-5 h-5" />
+              <span className="hidden sm:inline">Corte</span>
             </button>
             <button
               onClick={toggleFullscreen}
@@ -5252,10 +5252,10 @@ export function POSTerminal({
                   onClick={handleOpenCashClosing}
                   disabled={closingLoading}
                   className="pos-action-danger disabled:cursor-not-allowed disabled:opacity-50"
-                  title="Cerrar caja diaria"
+                  title="Ver corte de caja hasta ahora"
                 >
-                  <Lock className="w-5 h-5" />
-                  <span className="hidden xl:inline">Cerrar</span>
+                  <Calculator className="w-5 h-5" />
+                  <span className="hidden xl:inline">Corte</span>
                 </button>
                 <button
                   onClick={toggleFullscreen}
@@ -5351,10 +5351,10 @@ export function POSTerminal({
                   onClick={handleOpenCashClosing}
                   disabled={closingLoading}
                   className="pos-action-danger disabled:opacity-50 disabled:cursor-not-allowed"
-                  title="Cerrar caja diaria"
+                  title="Ver corte de caja hasta ahora"
                 >
-                  <Lock className="w-5 h-5" />
-                  <span className="hidden sm:inline">Cerrar</span>
+                  <Calculator className="w-5 h-5" />
+                  <span className="hidden sm:inline">Corte</span>
                 </button>
                 <button
                   onClick={toggleFullscreen}

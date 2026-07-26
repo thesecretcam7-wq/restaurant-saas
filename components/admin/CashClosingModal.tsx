@@ -71,6 +71,10 @@ export function CashClosingModal({
       alert('Por favor ingresa el monto de efectivo contado');
       return;
     }
+    const confirmed = window.confirm(
+      'Esto guardara un cierre definitivo y esas ventas ya no volveran a salir en el corte actual. Si solo querias mirar como van las ventas, pulsa Cancelar.'
+    );
+    if (!confirmed) return;
 
     setIsSubmitting(true);
     try {
@@ -89,8 +93,11 @@ export function CashClosingModal({
           <div>
             <p className="text-xs font-black uppercase tracking-[0.24em] text-orange-600">Caja</p>
             <h2 className="mt-1 text-2xl font-black text-slate-950">
-              {isPendingClosing ? 'Cierre Pendiente' : 'Cierre de Caja'}
+              {isPendingClosing ? 'Cierre pendiente' : 'Corte de caja'}
             </h2>
+            <p className="mt-1 text-sm font-semibold text-slate-500">
+              Mirar o cerrar esta ventana no guarda nada.
+            </p>
           </div>
           <button
             onClick={onClose}
@@ -116,6 +123,11 @@ export function CashClosingModal({
               {new Date(data.periodStart).toLocaleString('es-ES', { dateStyle: 'short', timeStyle: 'short' })}{' '}
               hasta {new Date(data.periodEnd).toLocaleString('es-ES', { dateStyle: 'short', timeStyle: 'short' })}
             </p>
+            {!isPendingClosing && (
+              <p className="mt-2 rounded-xl border border-orange-200 bg-white px-3 py-2 text-xs font-black text-orange-800">
+                Esto es solo una consulta de ventas hasta el momento. Para guardar un cierre real usa el boton final.
+              </p>
+            )}
             <p className="mt-1 text-xs font-bold uppercase tracking-[0.16em] text-orange-700">
               Corte operativo: {data.operationalCloseTime === 'manual' ? 'manual' : data.operationalCloseTime}
             </p>
@@ -336,14 +348,14 @@ export function CashClosingModal({
             disabled={isBusy}
             className="flex-1 rounded-2xl border border-slate-200 bg-white px-4 py-3 font-black text-slate-700 transition hover:border-slate-300 hover:bg-slate-50 disabled:opacity-50"
           >
-            Cancelar
+            Solo mirar
           </button>
           <button
             onClick={handleConfirm}
             disabled={isBusy || !actualCash}
             className="flex-1 rounded-2xl bg-orange-500 px-4 py-3 font-black text-white shadow-[0_16px_35px_rgba(249,115,22,0.24)] transition hover:bg-orange-600 disabled:opacity-50"
           >
-            {isSubmitting ? 'Guardando...' : 'Confirmar cierre'}
+            {isSubmitting ? 'Guardando...' : 'Guardar cierre definitivo'}
           </button>
         </div>
       </div>
