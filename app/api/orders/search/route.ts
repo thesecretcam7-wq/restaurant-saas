@@ -52,8 +52,8 @@ export async function GET(request: NextRequest) {
       const onlyDigits = rawSearch.replace(/\D/g, '')
       const maybeTableNumber = Number(onlyDigits || rawSearch)
       let todayPeriod: ReturnType<typeof getRestaurantBusinessPeriod> | null = null
-      const ticketScope = 'current_period'
-      const ticketScopeLabel = 'Turno actual'
+      let ticketScope = 'current_period'
+      let ticketScopeLabel = 'Turno actual'
 
       if (todayOnly) {
         const { data: settings, error: settingsError } = await supabase
@@ -80,9 +80,14 @@ export async function GET(request: NextRequest) {
         })
       }
 
-      const searchPeriod = todayPeriod && includePreviousDay && rawSearch
+      const searchPeriod = todayPeriod && includePreviousDay
         ? getRestaurantBusinessPeriodRange(todayPeriod, 1)
         : todayPeriod
+
+      if (todayPeriod && includePreviousDay) {
+        ticketScope = 'current_and_previous_period'
+        ticketScopeLabel = 'Hoy y ayer'
+      }
 
       let query = searchPeriod
         ? supabase.from('orders').select(ORDER_FIELDS, { count: 'exact' })
@@ -129,12 +134,13 @@ export async function GET(request: NextRequest) {
 
       let paidCount: number | null = null
       if (todayPeriod) {
+        const countPeriod = searchPeriod || todayPeriod
         const { count: exactTicketCount, error: ticketCountError } = await supabase
           .from('orders')
           .select('id', { count: 'exact', head: true })
           .eq('tenant_id', tenantId)
-          .gte('created_at', todayPeriod.periodStart)
-          .lt('created_at', todayPeriod.periodEnd)
+          .gte('created_at', countPeriod.periodStart)
+          .lt('created_at', countPeriod.periodEnd)
           .neq('status', 'cancelled')
 
         if (ticketCountError) {
@@ -145,8 +151,8 @@ export async function GET(request: NextRequest) {
           .from('orders')
           .select('id', { count: 'exact', head: true })
           .eq('tenant_id', tenantId)
-          .gte('created_at', todayPeriod.periodStart)
-          .lt('created_at', todayPeriod.periodEnd)
+          .gte('created_at', countPeriod.periodStart)
+          .lt('created_at', countPeriod.periodEnd)
           .not('payment_method', 'is', null)
           .eq('payment_status', 'paid')
           .neq('status', 'cancelled')
@@ -162,7 +168,7 @@ export async function GET(request: NextRequest) {
           paidCount,
           scope: ticketScope,
           label: ticketScopeLabel,
-          period: todayPeriod,
+          period: countPeriod,
         })
       }
 

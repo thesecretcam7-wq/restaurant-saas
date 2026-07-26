@@ -30,7 +30,7 @@ interface POSOrderLookupProps {
 }
 
 type PaymentMethod = 'cash' | 'stripe';
-type TicketScope = 'current_period' | 'pending_previous';
+type TicketScope = 'current_period' | 'current_and_previous_period' | 'pending_previous';
 
 function isVisibleTicket(order: Order) {
   return order.status !== 'cancelled' && ((order.items || []).length > 0 || Number(order.total || 0) > 0);
@@ -66,7 +66,7 @@ export function POSOrderLookup({ domain, onOrderSelected, onVoidOrder, onRemoveI
 
     try {
       const response = await fetch(
-        `/api/orders/search?domain=${domain}&today=1&limit=200`,
+        `/api/orders/search?domain=${domain}&today=1&includePreviousDay=1&limit=200`,
         { credentials: 'include', cache: 'no-store' }
       );
 
@@ -77,7 +77,13 @@ export function POSOrderLookup({ domain, onOrderSelected, onVoidOrder, onRemoveI
       setResults(visibleOrders);
       setTurnTicketCount(typeof data.count === 'number' ? data.count : visibleOrders.length);
       setTurnPaidCount(typeof data.paidCount === 'number' ? data.paidCount : 0);
-      setTicketScope(data.scope === 'pending_previous' ? 'pending_previous' : 'current_period');
+      setTicketScope(
+        data.scope === 'pending_previous'
+          ? 'pending_previous'
+          : data.scope === 'current_and_previous_period'
+            ? 'current_and_previous_period'
+            : 'current_period'
+      );
       setTicketScopeLabel(typeof data.label === 'string' ? data.label : 'Turno actual');
       setSearched(false);
       setShowingTurn(true);
