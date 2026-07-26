@@ -1,7 +1,12 @@
 import { createServiceClient } from '@/lib/supabase/server'
 import { NextRequest, NextResponse } from 'next/server'
 import { requireTenantAccess, tenantAuthErrorResponse } from '@/lib/tenant-api-auth'
-import { getRestaurantBusinessPeriod, getRestaurantLocale, getRestaurantTimeZone } from '@/lib/restaurant-time'
+import {
+  getRestaurantBusinessPeriod,
+  getRestaurantBusinessPeriodRange,
+  getRestaurantLocale,
+  getRestaurantTimeZone,
+} from '@/lib/restaurant-time'
 
 const ORDER_FIELDS = 'id, order_number, customer_name, customer_phone, subtotal, tax, delivery_fee, total, payment_status, payment_method, status, items, created_at, delivery_type, table_number'
 
@@ -11,6 +16,7 @@ export async function GET(request: NextRequest) {
     const domain = searchParams.get('domain')
     const orderNumber = searchParams.get('order_number')
     const todayOnly = searchParams.get('today') === '1'
+    const includePreviousDay = searchParams.get('includePreviousDay') === '1'
     const requestedLimit = parseInt(searchParams.get('limit') || '10')
     const limit = Number.isFinite(requestedLimit) ? Math.min(Math.max(requestedLimit, 1), 200) : 10
 
@@ -74,7 +80,11 @@ export async function GET(request: NextRequest) {
         })
       }
 
-      let query = todayPeriod
+      const searchPeriod = todayPeriod && includePreviousDay && rawSearch
+        ? getRestaurantBusinessPeriodRange(todayPeriod, 1)
+        : todayPeriod
+
+      let query = searchPeriod
         ? supabase.from('orders').select(ORDER_FIELDS, { count: 'exact' })
         : supabase.from('orders').select(ORDER_FIELDS)
 
@@ -83,10 +93,10 @@ export async function GET(request: NextRequest) {
         .order('created_at', { ascending: false })
         .limit(limit)
 
-      if (todayPeriod) {
+      if (searchPeriod) {
         query = query
-          .gte('created_at', todayPeriod.periodStart)
-          .lt('created_at', todayPeriod.periodEnd)
+          .gte('created_at', searchPeriod.periodStart)
+          .lt('created_at', searchPeriod.periodEnd)
           .neq('status', 'cancelled')
       }
 

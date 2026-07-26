@@ -27,6 +27,25 @@ export type RestaurantBusinessPeriod = {
   operationalCloseTime: string
 }
 
+export function getRestaurantBusinessPeriodRange(
+  period: RestaurantBusinessPeriod,
+  previousPeriods = 0
+): RestaurantBusinessPeriod {
+  const start = new Date(period.periodStart).getTime()
+  const end = new Date(period.periodEnd).getTime()
+  const periodDurationMs = end - start
+  const periodsToInclude = Math.max(0, Math.floor(previousPeriods))
+
+  if (!Number.isFinite(start) || !Number.isFinite(end) || periodDurationMs <= 0 || periodsToInclude === 0) {
+    return period
+  }
+
+  return {
+    ...period,
+    periodStart: new Date(start - periodDurationMs * periodsToInclude).toISOString(),
+  }
+}
+
 function normalizeCountry(country?: string | null) {
   return String(country || 'CO').trim().toUpperCase()
 }
