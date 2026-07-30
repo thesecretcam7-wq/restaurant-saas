@@ -21,6 +21,7 @@ import {
   Monitor,
   Package,
   PanelsTopLeft,
+  PiggyBank,
   QrCode,
   ReceiptText,
   Settings,
@@ -68,6 +69,7 @@ const icons: Record<string, ComponentType<{ className?: string }>> = {
   reservations: CalendarDays,
   customers: UsersRound,
   sales: BarChart3,
+  finances: PiggyBank,
   cash: CreditCard,
   settings: Settings,
   delivery: Truck,
@@ -102,6 +104,7 @@ const navTranslationByIcon: Record<string, string> = {
   reservations: 'admin.nav.reservations',
   customers: 'admin.nav.customers',
   sales: 'admin.nav.sales',
+  finances: 'admin.nav.finances',
   cash: 'admin.nav.cash',
   settings: 'admin.nav.settings',
   pos: 'admin.nav.pos',
@@ -203,7 +206,10 @@ export function AdminSidebar({
           const linkSection = detectAdminSection(link.href)
           const linkColor = `var(${getSectionColorVar(linkSection)})`
           const Icon = icons[link.icon] || LayoutDashboard
-          const translatedLabel = navTranslationByIcon[link.icon] ? tr(navTranslationByIcon[link.icon]) : link.label
+          const translationKey = navTranslationByIcon[link.icon]
+          const translatedLabel = translationKey ? tr(translationKey) : link.label
+          const fallbackLabel = link.label.startsWith('admin.') ? tr(link.label) : link.label
+          const label = translatedLabel === translationKey ? fallbackLabel : translatedLabel
 
           return (
             <div key={link.href}>
@@ -219,7 +225,7 @@ export function AdminSidebar({
                 style={isActive ? { boxShadow: `inset 3px 0 0 ${linkColor}` } : undefined}
               >
                 <Icon className="size-4 flex-shrink-0" />
-                <span className="truncate">{translatedLabel}</span>
+                <span className="truncate" suppressHydrationWarning>{label}</span>
               </Link>
             </div>
           )

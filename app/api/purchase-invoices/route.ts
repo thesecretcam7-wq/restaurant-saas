@@ -11,6 +11,8 @@ interface PurchaseInvoiceLineInput {
   lineTotal?: unknown
 }
 
+const MONTH_ORDERS_PAGE_SIZE = 1000
+
 function toNumber(value: unknown, fallback = 0) {
   if (value === undefined || value === null || value === '') return fallback
   const parsed = Number(String(value).replace(',', '.'))
@@ -34,6 +36,31 @@ function getTodayStartIso() {
 function isActivePaidOrder(order: any) {
   const status = String(order?.status || '').trim().toLowerCase()
   return order?.payment_status === 'paid' && !['cancelled', 'canceled', 'voided', 'deleted', 'anulado', 'cancelado'].includes(status)
+}
+
+async function fetchMonthOrders(supabase: any, tenantId: string, monthStartIso: string) {
+  const rows: any[] = []
+  let from = 0
+  let totalCount = 0
+
+  while (true) {
+    const { data, error, count } = await supabase
+      .from('orders')
+      .select('id, total, created_at, payment_status, status', { count: from === 0 ? 'exact' : undefined })
+      .eq('tenant_id', tenantId)
+      .gte('created_at', monthStartIso)
+      .order('created_at', { ascending: false })
+      .range(from, from + MONTH_ORDERS_PAGE_SIZE - 1)
+
+    if (error) return { data: null, error }
+    if (from === 0) totalCount = count || 0
+    rows.push(...(data || []))
+
+    if (!data || data.length < MONTH_ORDERS_PAGE_SIZE || from + MONTH_ORDERS_PAGE_SIZE >= totalCount) break
+    from += MONTH_ORDERS_PAGE_SIZE
+  }
+
+  return { data: rows, error: null }
 }
 
 export async function GET(request: NextRequest) {
@@ -82,13 +109,7 @@ export async function GET(request: NextRequest) {
       .order('invoice_date', { ascending: false })
       .order('created_at', { ascending: false })
       .limit(80),
-      supabase
-        .from('orders')
-        .select('id, total, created_at, payment_status, status')
-        .eq('tenant_id', tenantId)
-        .gte('created_at', monthStartIso)
-        .order('created_at', { ascending: false })
-        .limit(5000),
+      fetchMonthOrders(supabase, tenantId, monthStartIso),
     ])
 
     if (error) throw error

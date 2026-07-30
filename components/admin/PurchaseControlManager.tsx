@@ -575,25 +575,27 @@ export function PurchaseControlManager({ tenantId }: { tenantId: string }) {
         )}
       </section>
 
-      <div className="grid gap-3 lg:grid-cols-3 xl:grid-cols-[1fr_1fr_1fr_minmax(230px,0.9fr)]">
-        <div className="admin-card rounded-lg border p-5">
-          <p className="text-xs font-black uppercase text-black/45">Facturas</p>
-          <p className="mt-2 text-2xl font-black text-[#15130f]">{invoices.length}</p>
+      <div className="purchase-summary-block space-y-3">
+        <div className="grid gap-3 lg:grid-cols-3">
+          <div className="admin-card rounded-lg border p-5">
+            <p className="text-xs font-black uppercase text-black/45">Facturas</p>
+            <p className="mt-2 text-2xl font-black text-[#15130f]">{invoices.length}</p>
+          </div>
+          <div className="admin-card rounded-lg border p-5">
+            <p className="text-xs font-black uppercase text-black/45">Productos comparados</p>
+            <p className="mt-2 text-2xl font-black text-[#15130f]">{comparisons.length}</p>
+          </div>
+          <div className="admin-card rounded-lg border p-5">
+            <p className="text-xs font-black uppercase text-black/45">Compras este mes</p>
+            <p className="mt-2 text-2xl font-black text-[#15130f]">{money(monthTotal)}</p>
+          </div>
         </div>
-        <div className="admin-card rounded-lg border p-5">
-          <p className="text-xs font-black uppercase text-black/45">Productos comparados</p>
-          <p className="mt-2 text-2xl font-black text-[#15130f]">{comparisons.length}</p>
-        </div>
-        <div className="admin-card rounded-lg border p-5">
-          <p className="text-xs font-black uppercase text-black/45">Compras este mes</p>
-          <p className="mt-2 text-2xl font-black text-[#15130f]">{money(monthTotal)}</p>
-        </div>
-        <div className="grid min-w-0 gap-2 sm:grid-cols-3 lg:col-span-3 lg:grid-cols-3 xl:col-span-1 xl:grid-cols-1">
+        <div className="purchase-actions flex min-w-0 flex-wrap gap-2">
           <button
             type="button"
             onClick={() => cameraInputRef.current?.click()}
             disabled={scanningInvoice}
-            className="admin-button-primary min-h-12 min-w-0 whitespace-normal px-3 text-center leading-tight disabled:opacity-50"
+            className="admin-button-primary min-h-12 min-w-[10rem] flex-none whitespace-normal px-3 text-center leading-tight disabled:opacity-50"
           >
             <Camera className="size-5 shrink-0" />
             <span className="min-w-0">{scanningInvoice ? 'Leyendo...' : 'Tomar 1 foto'}</span>
@@ -602,7 +604,7 @@ export function PurchaseControlManager({ tenantId }: { tenantId: string }) {
             type="button"
             onClick={() => multiFileInputRef.current?.click()}
             disabled={scanningInvoice}
-            className="admin-button-ghost min-h-12 min-w-0 whitespace-normal px-3 text-center leading-tight disabled:opacity-50"
+            className="admin-button-ghost min-h-12 min-w-[10rem] flex-none whitespace-normal px-3 text-center leading-tight disabled:opacity-50"
           >
             <ReceiptText className="size-5 shrink-0" />
             <span className="min-w-0">Varias hojas</span>
@@ -610,7 +612,7 @@ export function PurchaseControlManager({ tenantId }: { tenantId: string }) {
           <button
             type="button"
             onClick={() => setShowForm(true)}
-            className="admin-button-ghost min-h-12 min-w-0 whitespace-normal px-3 text-center leading-tight"
+            className="admin-button-ghost min-h-12 min-w-[10rem] flex-none whitespace-normal px-3 text-center leading-tight"
           >
             <Plus className="size-5 shrink-0" />
             <span className="min-w-0">Nueva manual</span>

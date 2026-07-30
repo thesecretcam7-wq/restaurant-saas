@@ -25,6 +25,7 @@ type OfflineOrderInsertDeferred = {
 }
 
 const offlineOrderInsertLocks = new Map<string, Promise<OfflineOrderInsertLockResult>>()
+const CASH_CLOSING_LOOKUP_PAGE_SIZE = 1000
 
 function createOfflineOrderInsertDeferred(): OfflineOrderInsertDeferred {
   let resolveDeferred!: (result: OfflineOrderInsertLockResult) => void
@@ -101,25 +102,45 @@ function getPreviousOpenPeriodCreatedAt(periodStart: string, operationalCloseTim
   return previousBusinessDateTime.toISOString()
 }
 
+async function fetchPagedRows(buildQuery: (from: number, to: number) => any) {
+  const rows: any[] = []
+  let from = 0
+  let totalCount = 0
+
+  while (true) {
+    const { data, error, count } = await buildQuery(from, from + CASH_CLOSING_LOOKUP_PAGE_SIZE - 1)
+    if (error) return { data: null, error }
+    if (from === 0) totalCount = count || 0
+    rows.push(...(data || []))
+
+    if (!data || data.length < CASH_CLOSING_LOOKUP_PAGE_SIZE || from + CASH_CLOSING_LOOKUP_PAGE_SIZE >= totalCount) break
+    from += CASH_CLOSING_LOOKUP_PAGE_SIZE
+  }
+
+  return { data: rows, error: null }
+}
+
 async function hasPendingPreviousCashClosing(supabase: ReturnType<typeof createServiceClient>, tenantId: string, currentPeriodStart: string) {
   const previousPeriodStart = new Date(new Date(currentPeriodStart).getTime() - 24 * 60 * 60 * 1000).toISOString()
   const [ordersRes, closedItemsRes] = await Promise.all([
-    supabase
+    fetchPagedRows((from, to) => supabase
       .from('orders')
-      .select('id, created_at')
+      .select('id, created_at', { count: from === 0 ? 'exact' : undefined })
       .eq('tenant_id', tenantId)
       .gte('created_at', previousPeriodStart)
       .lt('created_at', currentPeriodStart)
       .not('payment_method', 'is', null)
       .eq('payment_status', 'paid')
       .order('created_at', { ascending: true })
-      .limit(1000),
-    supabase
+      .range(from, to)
+    ),
+    fetchPagedRows((from, to) => supabase
       .from('cash_closing_items')
-      .select('order_id')
+      .select('order_id', { count: from === 0 ? 'exact' : undefined })
       .eq('tenant_id', tenantId)
       .not('order_id', 'is', null)
-      .limit(2000),
+      .range(from, to)
+    ),
   ])
 
   if (ordersRes.error) throw ordersRes.error

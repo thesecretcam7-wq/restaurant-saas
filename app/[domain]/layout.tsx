@@ -1,13 +1,21 @@
 import { getTenantContext } from '@/lib/tenant'
-import { Toaster } from 'react-hot-toast'
+import ClientToaster from '@/components/ClientToaster'
 import StoreNavigationLoader from '@/components/store/StoreNavigationLoader'
 import StoreBrandingMemory from '@/components/store/StoreBrandingMemory'
 import TenantPwaManifestLink from '@/components/TenantPwaManifestLink'
 import TenantAccessGuard from '@/components/TenantAccessGuard'
 import { getTenantAccessInfo } from '@/lib/tenant-access'
 import { getPageConfig } from '@/lib/pageConfig'
+import {
+  EL_CRUCE_ADDRESS,
+  EL_CRUCE_EMAIL,
+  EL_CRUCE_KEYWORDS,
+  EL_CRUCE_LOCAL_PAGES,
+  EL_CRUCE_PHONE,
+  EL_CRUCE_PUBLIC_URL,
+  isElCruceIdentity,
+} from '@/lib/el-cruce-seo'
 import type { Metadata } from 'next'
-import Script from 'next/script'
 import './(store)/store-premium.css'
 
 export const dynamic = 'force-dynamic'
@@ -21,6 +29,123 @@ function getRestaurantDisplayName(context: Awaited<ReturnType<typeof getTenantCo
   return context.branding?.app_name || context.tenant?.organization_name || context.tenant?.slug || 'Restaurante'
 }
 
+function getTenantPublicUrl(context: Awaited<ReturnType<typeof getTenantContext>>, fallbackDomain: string) {
+  if (context.tenant?.primary_domain) return `https://${context.tenant.primary_domain}`
+  const slug = context.tenant?.slug || fallbackDomain
+  return `https://${slug}.eccofoodapp.com`
+}
+
+function isElCruce(context: Awaited<ReturnType<typeof getTenantContext>>) {
+  return isElCruceIdentity(context.tenant?.slug, context.tenant?.organization_name)
+}
+
+function getSeoDescription(context: Awaited<ReturnType<typeof getTenantContext>>, restaurantName: string) {
+  const tenantSeo = (context.tenant as any)?.metadata?.seo
+  if (tenantSeo?.description) return tenantSeo.description
+
+  if (isElCruce(context)) {
+    return 'Cafe Bar El Cruce en El Palmar, Murcia: desayunos, cafe, tapas murcianas, marineras, bocadillos y raciones en Carr. Mazarron, 9, frente a DCORASIA. Consulta la carta online y escribe por WhatsApp.'
+  }
+
+  return context.branding?.tagline || context.branding?.description || `Tienda online de ${restaurantName}`
+}
+
+function getSeoTitle(context: Awaited<ReturnType<typeof getTenantContext>>, restaurantName: string) {
+  const tenantSeo = (context.tenant as any)?.metadata?.seo
+  if (tenantSeo?.title) return tenantSeo.title
+
+  if (isElCruce(context)) {
+    return `${restaurantName} | Desayunos, tapas y raciones en El Palmar`
+  }
+
+  return restaurantName
+}
+
+function getRestaurantJsonLd(
+  context: Awaited<ReturnType<typeof getTenantContext>>,
+  restaurantName: string,
+  publicUrl: string,
+) {
+  const settings = context.settings as any
+  const branding = context.branding as any
+  const pageConfig = getPageConfig((context.tenant as any)?.metadata?.page_config || branding?.page_config)
+  const social = pageConfig.social || {}
+  const description = getSeoDescription(context, restaurantName)
+  const elCruce = isElCruce(context)
+  const streetAddress = elCruce ? EL_CRUCE_ADDRESS : settings?.address && /[a-z]/i.test(settings.address) ? settings.address : undefined
+  const telephone = elCruce ? EL_CRUCE_PHONE : settings?.phone || branding?.contact_phone || branding?.whatsapp_number || undefined
+  const email = elCruce ? EL_CRUCE_EMAIL : settings?.email || branding?.contact_email || undefined
+  const elCruceMapUrl = 'https://www.google.com/maps/search/?api=1&query=Cafe%20Bar%20El%20Cruce%20Carr.%20Mazarron%209%2030120%20El%20Palmar%20Murcia'
+  const sameAs = [
+    social.facebook || branding?.facebook_url,
+    social.instagram || branding?.instagram_url,
+    social.website || (elCruce ? EL_CRUCE_PUBLIC_URL : publicUrl),
+  ].filter(Boolean)
+
+  return {
+    '@context': 'https://schema.org',
+    '@type': ['Restaurant', 'CafeOrCoffeeShop'],
+    name: restaurantName,
+    url: publicUrl,
+    image: pageConfig.hero.image_url || branding?.hero_image_url || branding?.logo_url || context.tenant?.logo_url || undefined,
+    logo: branding?.logo_url || context.tenant?.logo_url || undefined,
+    description,
+    telephone,
+    email,
+    servesCuisine: elCruce ? ['Tapas', 'Murciana', 'Espanola', 'Desayunos', 'Cafe', 'Bocadillos'] : undefined,
+    priceRange: elCruce ? 'EUR 1-15' : undefined,
+    paymentAccepted: elCruce ? 'Cash, Credit Card, Debit Card' : undefined,
+    currenciesAccepted: elCruce ? 'EUR' : undefined,
+    keywords: elCruce
+      ? EL_CRUCE_KEYWORDS.join(', ')
+      : undefined,
+    slogan: elCruce ? 'Desayunos, tapas y raciones en El Palmar' : undefined,
+    menu: `${publicUrl}/menu`,
+    hasMenu: `${publicUrl}/menu`,
+    acceptsReservations: Boolean(settings?.reservations_enabled),
+    hasMap: elCruce ? elCruceMapUrl : undefined,
+    areaServed: elCruce
+      ? [
+          { '@type': 'Place', name: 'El Palmar' },
+          { '@type': 'Place', name: 'Murcia' },
+          { '@type': 'Place', name: 'Hospital Virgen de la Arrixaca' },
+          { '@type': 'Place', name: 'DCORASIA' },
+        ]
+      : undefined,
+    potentialAction: elCruce
+      ? [
+          {
+            '@type': 'ReserveAction',
+            target: `${publicUrl}/reservas`,
+            name: 'Reservar mesa en Cafe Bar El Cruce',
+          },
+          {
+            '@type': 'ViewAction',
+            target: `${publicUrl}/menu`,
+            name: 'Ver carta de Cafe Bar El Cruce',
+          },
+        ]
+      : undefined,
+    subjectOf: elCruce
+      ? EL_CRUCE_LOCAL_PAGES.map((page) => ({
+          '@type': 'WebPage',
+          name: page.h1,
+          url: `${publicUrl}/${page.slug}`,
+          description: page.description,
+        }))
+      : undefined,
+    address: {
+      '@type': 'PostalAddress',
+      streetAddress,
+      addressLocality: elCruce ? 'El Palmar' : settings?.city || undefined,
+      addressRegion: elCruce ? 'Murcia' : undefined,
+      postalCode: elCruce ? '30120' : undefined,
+      addressCountry: settings?.country || (context.tenant as any)?.country || 'ES',
+    },
+    sameAs: sameAs.length ? sameAs : undefined,
+  }
+}
+
 export async function generateMetadata({
   params,
 }: {
@@ -30,6 +155,9 @@ export async function generateMetadata({
   const context = await getTenantContext(domain)
   const restaurantName = getRestaurantDisplayName(context)
   const tenantSlug = context.tenant?.slug || domain
+  const publicUrl = getTenantPublicUrl(context, domain)
+  const description = getSeoDescription(context, restaurantName)
+  const seoTitle = getSeoTitle(context, restaurantName)
   const tenantAppleIconUrl = `/${tenantSlug}/apple-touch-icon.png`
   const tenantIcon192Url = `/${tenantSlug}/icon-192.png`
   const tenantIcon512Url = `/${tenantSlug}/icon-512.png`
@@ -41,10 +169,27 @@ export async function generateMetadata({
 
   return {
     title: {
-      default: restaurantName,
+      default: seoTitle,
       template: `%s | ${restaurantName}`,
     },
-    description: context.branding?.tagline || context.branding?.description || `Tienda online de ${restaurantName}`,
+    description,
+    keywords: isElCruce(context)
+      ? EL_CRUCE_KEYWORDS
+      : undefined,
+    alternates: {
+      canonical: publicUrl,
+    },
+    robots: {
+      index: true,
+      follow: true,
+      googleBot: {
+        index: true,
+        follow: true,
+        'max-image-preview': 'large',
+        'max-snippet': -1,
+        'max-video-preview': -1,
+      },
+    },
     applicationName: restaurantName,
     manifest: `/${tenantSlug}/manifest.webmanifest`,
     appleWebApp: {
@@ -65,9 +210,18 @@ export async function generateMetadata({
     },
     openGraph: {
       type: 'website',
-      title: restaurantName,
-      description: context.branding?.tagline || context.branding?.description || `Tienda online de ${restaurantName}`,
+      url: publicUrl,
+      title: seoTitle,
+      description,
+      locale: 'es_ES',
+      siteName: restaurantName,
       images: openGraphImageUrl ? [{ url: openGraphImageUrl }] : undefined,
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title: seoTitle,
+      description,
+      images: openGraphImageUrl ? [openGraphImageUrl] : undefined,
     },
   }
 }
@@ -138,6 +292,8 @@ export default async function TenantLayout({
 
   const branding = context.branding
   const access = getTenantAccessInfo(context.tenant)
+  const publicUrl = getTenantPublicUrl(context, tenantId)
+  const restaurantJsonLd = getRestaurantJsonLd(context, getRestaurantDisplayName(context), publicUrl)
 
   const fontFamily = branding?.font_family || 'system-ui, -apple-system, sans-serif'
   const logoUrl = branding?.logo_url || context.tenant?.logo_url || null
@@ -153,57 +309,13 @@ export default async function TenantLayout({
   const surfaceColor = isLightTheme ? '#ffffff' : '#1A1F2C'
   const textColor = isLightTheme ? '#07111f' : '#ffffff'
   const mutedTextColor = isLightTheme ? 'rgba(7, 17, 31, 0.72)' : '#8b97a8'
-  const operationalPwaScript = `
-    (function () {
-      var tenantSlug = ${JSON.stringify(context.tenant.slug)};
-      var restaurantName = ${JSON.stringify(restaurantName)};
-      var base = '/' + tenantSlug;
-      var path = window.location.pathname;
-      var screen = null;
-      var title = restaurantName;
-      if (path === base + '/kitchen' || path.indexOf(base + '/kitchen/') === 0) {
-        screen = 'waiter';
-        title = restaurantName + ' Camarero';
-      } else if (path === base + '/staff/entregas' || path.indexOf(base + '/staff/entregas/') === 0) {
-        screen = 'deliveries';
-        title = restaurantName + ' Entregas';
-      } else if (
-        path === base + '/staff/pos' ||
-        path.indexOf(base + '/staff/pos/') === 0 ||
-        path === base + '/admin/pos' ||
-        path.indexOf(base + '/admin/pos/') === 0
-      ) {
-        screen = 'cashier';
-        title = restaurantName + ' TPV';
-      } else if (path === base + '/acceso/apk/camarero' || path.indexOf(base + '/acceso/apk/camarero/') === 0) {
-        screen = 'waiterAccess';
-        title = restaurantName + ' Camarero';
-      }
-      var href = base + '/manifest.webmanifest' + (screen ? '?screen=' + screen : '');
-      var link = document.querySelector('link[rel="manifest"]');
-      if (!link) {
-        link = document.createElement('link');
-        link.rel = 'manifest';
-        document.head.appendChild(link);
-      }
-      link.setAttribute('href', href);
-      var meta = document.querySelector('meta[name="apple-mobile-web-app-title"]');
-      if (!meta) {
-        meta = document.createElement('meta');
-        meta.name = 'apple-mobile-web-app-title';
-        document.head.appendChild(meta);
-      }
-      meta.setAttribute('content', title);
-      if (screen) document.title = title;
-    })();
-  `
 
   return (
     <>
-      <Script
-        id={`tenant-operational-pwa-${context.tenant.slug}`}
-        strategy="afterInteractive"
-        dangerouslySetInnerHTML={{ __html: operationalPwaScript }}
+      <script
+        id={`tenant-local-business-jsonld-${context.tenant.slug}`}
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(restaurantJsonLd) }}
       />
       <style>{`
         :root {
@@ -244,7 +356,7 @@ export default async function TenantLayout({
         <TenantPwaManifestLink tenantSlug={context.tenant.slug} restaurantName={restaurantName} />
         <StoreBrandingMemory appName={restaurantName} logoUrl={logoUrl} primaryColor={primaryColor} themeMode={themeMode} />
         <StoreNavigationLoader color={primaryColor} logoUrl={logoUrl} themeMode={themeMode} />
-        <Toaster position="bottom-right" />
+        <ClientToaster position="bottom-right" />
       </div>
     </>
     )

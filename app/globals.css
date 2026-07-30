@@ -727,6 +727,10 @@ body {
   box-shadow: 0 14px 38px rgba(21, 19, 15, 0.05);
 }
 
+.sales-muted {
+  color: rgba(21, 19, 15, 0.56);
+}
+
 .admin-button-primary,
 .admin-button-secondary,
 .admin-button-ghost {
@@ -1877,6 +1881,33 @@ body:has(.admin-app-shell) {
   color: #fecaca !important;
 }
 
+.admin-app-shell .financial-assistant :where(article, aside, .bg-white\/70, .bg-black\/\[0\.025\], .bg-\[\#fff7ed\]) {
+  border-color: rgba(248, 197, 95, 0.18) !important;
+  background: rgba(15, 23, 42, 0.64) !important;
+}
+
+.admin-app-shell .financial-assistant :where(.text-emerald-200) {
+  color: #86efac !important;
+}
+
+.admin-app-shell .financial-assistant :where(.text-red-200) {
+  color: #fecaca !important;
+}
+
+.admin-app-shell .financial-assistant :where(.bg-amber-50) {
+  background: rgba(120, 53, 15, 0.38) !important;
+  border-color: rgba(251, 191, 36, 0.28) !important;
+}
+
+.admin-app-shell .financial-assistant :where(.text-amber-700, .text-amber-900, .text-amber-900\/75) {
+  color: #fde68a !important;
+}
+
+.admin-app-shell .financial-assistant :where(.admin-button-ghost.bg-white) {
+  background: rgba(248, 250, 252, 0.92) !important;
+  color: #111827 !important;
+}
+
 .admin-app-shell .admin-dark-insight :where(.bg-white) {
   background: #ffffff !important;
 }
@@ -1909,6 +1940,10 @@ body:has(.admin-app-shell) {
   color: #e5edf7 !important;
 }
 
+.admin-app-shell .sales-muted {
+  color: #dbe3ee !important;
+}
+
 .admin-app-shell .admin-filter-button {
   border: 1px solid transparent;
   border-radius: 0.5rem;
@@ -1938,6 +1973,22 @@ body:has(.admin-app-shell) {
   width: 100%;
   max-width: 100%;
   overflow-x: hidden;
+}
+
+.admin-app-shell .purchases-admin-page .purchase-actions {
+  align-items: stretch;
+  padding-top: 0.25rem;
+}
+
+.admin-app-shell .purchases-admin-page .purchase-actions :where(button) {
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+@media (max-width: 640px) {
+  .admin-app-shell .purchases-admin-page .purchase-actions :where(button) {
+    width: 100%;
+  }
 }
 
 /* Final POS premium contrast pass. Keep this near the end so old utility
@@ -2330,4 +2381,113 @@ body:has(.admin-app-shell) {
   padding: 0.35rem 0.5rem;
   text-shadow: none !important;
   box-shadow: 0 8px 22px rgba(15, 23, 42, 0.18);
+}
+
+/* Stable POS product cards. The TPV grid can be narrow on desktop split
+   layouts, so product text must never rely on tiny auto columns. */
+.pos-premium .pos-product-card-no-image,
+.pos-premium .pos-product-card-with-image {
+  min-width: 0 !important;
+  min-height: 126px !important;
+  contain: layout paint;
+}
+
+.pos-premium .pos-product-card-name,
+.pos-premium .pos-product-card-name-on-image {
+  box-sizing: border-box;
+  display: block !important;
+  width: calc(100% - 1.25rem);
+  max-width: calc(100% - 1.25rem);
+  min-height: 2.55rem;
+  margin-right: 0.625rem;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+}
+
+.pos-premium .pos-product-card-price,
+.pos-premium .pos-product-card-price-on-image {
+  box-sizing: border-box;
+  max-width: calc(100% - 1.25rem);
+  white-space: nowrap;
+}
+
+/* Final finance assistant contrast pass. This block intentionally lives at EOF:
+   the admin theme has broad color overrides, so finance owns its own contrast. */
+.admin-app-shell .admin-page .financial-assistant,
+.admin-app-shell .admin-page .financial-assistant * {
+  text-shadow: none !important;
+}
+
+.admin-app-shell .admin-page .financial-assistant {
+  color: #f8fafc !important;
+}
+
+.admin-app-shell .admin-page .financial-assistant :where(h2, h3, h4, strong, label, .font-bold, .font-black, .text-\[\#15130f\], .text-black, .text-gray-800, .text-gray-900, .text-slate-800, .text-slate-900) {
+  color: #f8fafc !important;
+}
+
+.admin-app-shell .admin-page .financial-assistant :where(p, span, li, .text-black\/42, .text-black\/45, .text-black\/50, .text-black\/55, .text-black\/60, .text-black\/62, .text-white\/45, .text-white\/60, .text-gray-400, .text-gray-500, .text-slate-400, .text-slate-500) {
+  color: #dbe3ee !important;
+}
+
+.admin-app-shell .admin-page .financial-assistant :where(article, aside, .bg-white\/70, .bg-black\/\[0\.025\], .bg-\[\#fff7ed\]) {
+  border-color: rgba(248, 197, 95, 0.18) !important;
+  background: rgba(15, 23, 42, 0.68) !important;
+}
+
+.admin-app-shell .admin-page .financial-assistant .financial-total-card,
+.admin-app-shell .admin-page .financial-assistant :where(.bg-\[\#15130f\]) {
+  border-color: rgba(248, 197, 95, 0.30) !important;
+  background: #070a12 !important;
+  color: #ffffff !important;
+}
+
+.admin-app-shell .admin-page .financial-assistant .financial-total-card *,
+.admin-app-shell .admin-page .financial-assistant .financial-total-card :where(p, span, strong, .font-bold, .font-black),
+.admin-app-shell .admin-page .financial-assistant .financial-total-amount {
+  color: #ffffff !important;
+  opacity: 1 !important;
+}
+
+.admin-app-shell .admin-page .financial-assistant .financial-total-label,
+.admin-app-shell .admin-page .financial-assistant .financial-total-meta {
+  color: #e5e7eb !important;
+  opacity: 1 !important;
+}
+
+.admin-app-shell .admin-page .financial-assistant .financial-ratio-pill {
+  display: inline-flex;
+  align-items: center;
+  min-height: 1.45rem;
+  border-radius: 999px;
+  border: 1px solid rgba(248, 197, 95, 0.34) !important;
+  background: rgba(248, 197, 95, 0.14) !important;
+  padding: 0.15rem 0.5rem;
+  color: #fde68a !important;
+  font-size: 0.72rem;
+  font-weight: 900;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.admin-app-shell .admin-page .financial-assistant :where(.text-\[\#e43d30\], .text-\[\#f4b860\], .text-amber-700, .text-amber-900, .text-amber-900\/75) {
+  color: #f8c55f !important;
+}
+
+.admin-app-shell .admin-page .financial-assistant :where(.text-emerald-200, .text-emerald-700, .text-emerald-900) {
+  color: #86efac !important;
+}
+
+.admin-app-shell .admin-page .financial-assistant :where(.text-red-200, .text-red-700, .text-red-900) {
+  color: #fecaca !important;
+}
+
+.admin-app-shell .admin-page .financial-assistant :where(.bg-amber-50) {
+  background: rgba(120, 53, 15, 0.38) !important;
+  border-color: rgba(251, 191, 36, 0.28) !important;
+}
+
+.admin-app-shell .admin-page .financial-assistant :where(.admin-button-ghost.bg-white) {
+  background: rgba(248, 250, 252, 0.92) !important;
+  color: #111827 !important;
 }

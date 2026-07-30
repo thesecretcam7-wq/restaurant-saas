@@ -14,6 +14,7 @@ const DEFAULT_OPERATIONAL_CLOSE_MINUTES = 5 * 60;
 const ORDER_SELECT = 'id, order_number, total, tax, delivery_fee, delivery_type, payment_method, payment_breakdown, payment_status, status, created_at';
 const ORDER_SELECT_WITHOUT_PAYMENT_BREAKDOWN = 'id, order_number, total, tax, delivery_fee, delivery_type, payment_method, payment_status, status, created_at';
 const ONE_DAY_MS = 24 * 60 * 60 * 1000;
+const CASH_CLOSING_PAGE_SIZE = 1000;
 
 const COUNTRY_TIMEZONE: Record<string, string> = {
   CO: 'America/Bogota',
@@ -150,22 +151,43 @@ function isMissingBillPaymentsTable(error: any) {
   return text.includes('cash_bill_payments') || error?.code === '42P01' || error?.code === 'PGRST205';
 }
 
+async function fetchPagedRows(
+  buildQuery: (from: number, to: number) => any
+): Promise<{ data: any[] | null; error: any }> {
+  const rows: any[] = [];
+  let from = 0;
+  let totalCount = 0;
+
+  while (true) {
+    const { data, error, count } = await buildQuery(from, from + CASH_CLOSING_PAGE_SIZE - 1);
+    if (error) return { data: null, error };
+    if (from === 0) totalCount = count || 0;
+    rows.push(...(data || []));
+
+    if (!data || data.length < CASH_CLOSING_PAGE_SIZE || from + CASH_CLOSING_PAGE_SIZE >= totalCount) break;
+    from += CASH_CLOSING_PAGE_SIZE;
+  }
+
+  return { data: rows, error: null };
+}
+
 async function getOpenBillPayments(
   supabase: ReturnType<typeof createServiceClient>,
   tenantId: string,
   periodStart: string,
   periodEnd: string
 ) {
-  const { data, error } = await supabase
+  const { data, error } = await fetchPagedRows((from, to) => supabase
     .from('cash_bill_payments')
-    .select('id, supplier_name, concept, invoice_number, amount, staff_name, paid_at, notes')
+    .select('id, supplier_name, concept, invoice_number, amount, staff_name, paid_at, notes', { count: from === 0 ? 'exact' : undefined })
     .eq('tenant_id', tenantId)
     .eq('status', 'active')
     .is('cash_closing_id', null)
     .gte('paid_at', periodStart)
     .lt('paid_at', periodEnd)
     .order('paid_at', { ascending: true })
-    .limit(500);
+    .range(from, to)
+  );
 
   if (error) {
     if (isMissingBillPaymentsTable(error)) return [];
@@ -173,6 +195,39 @@ async function getOpenBillPayments(
   }
 
   return data || [];
+}
+
+async function fetchPendingPeriodOrders(
+  supabase: ReturnType<typeof createServiceClient>,
+  tenantId: string,
+  periodStart: string,
+  periodEnd: string,
+  select: string
+) {
+  return fetchPagedRows((from, to) => supabase
+    .from('orders')
+    .select(select, { count: from === 0 ? 'exact' : undefined })
+    .eq('tenant_id', tenantId)
+    .gte('created_at', periodStart)
+    .lt('created_at', periodEnd)
+    .not('payment_method', 'is', null)
+    .eq('payment_status', 'paid')
+    .order('created_at', { ascending: true })
+    .range(from, to)
+  );
+}
+
+async function fetchClosedOrderIds(supabase: ReturnType<typeof createServiceClient>, tenantId: string) {
+  const { data, error } = await fetchPagedRows((from, to) => supabase
+    .from('cash_closing_items')
+    .select('order_id', { count: from === 0 ? 'exact' : undefined })
+    .eq('tenant_id', tenantId)
+    .not('order_id', 'is', null)
+    .range(from, to)
+  );
+
+  if (error) return new Set<string>();
+  return new Set((data || []).map((item: any) => item.order_id));
 }
 
 function statsFromOrders(period: CashClosingPeriod, orders: any[] = [], billPayments: any[] = []) {
@@ -294,25 +349,17 @@ export async function GET(request: NextRequest) {
     const currentPeriodStart = new Date(currentPeriod.periodStart);
     const previousPeriodStart = new Date(currentPeriodStart.getTime() - ONE_DAY_MS);
 
-    const buildOrdersQuery = (select: string) => supabase
-      .from('orders')
-      .select(select)
-      .eq('tenant_id', tenantId)
-      .gte('created_at', previousPeriodStart.toISOString())
-      .lt('created_at', currentPeriodStart.toISOString())
-      .not('payment_method', 'is', null)
-      .eq('payment_status', 'paid')
-      .order('created_at', { ascending: true })
-      .limit(1000);
+    const buildOrdersQuery = (select: string) => fetchPendingPeriodOrders(
+      supabase,
+      tenantId,
+      previousPeriodStart.toISOString(),
+      currentPeriodStart.toISOString(),
+      select
+    );
 
-    const [initialOrdersRes, closedItemsRes] = await Promise.all([
+    const [initialOrdersRes, closedOrderIds] = await Promise.all([
       buildOrdersQuery(ORDER_SELECT),
-      supabase
-        .from('cash_closing_items')
-        .select('order_id')
-        .eq('tenant_id', tenantId)
-        .not('order_id', 'is', null)
-        .limit(2000),
+      fetchClosedOrderIds(supabase, tenantId),
     ]);
 
     let ordersRes = initialOrdersRes;
@@ -329,7 +376,6 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ stats: null });
     }
 
-    const closedOrderIds = new Set((closedItemsRes.error ? [] : closedItemsRes.data || []).map((item: any) => item.order_id));
     const pendingOrders = orders.filter((order: any) => {
       return isPendingPreviousCashClosingOrder(order, currentPeriodStart, closedOrderIds);
     });

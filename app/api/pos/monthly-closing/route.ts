@@ -12,6 +12,8 @@ const COUNTRY_TIMEZONE: Record<string, string> = {
   CL: 'America/Santiago',
 };
 
+const MONTHLY_ORDERS_PAGE_SIZE = 1000;
+
 function getZonedParts(date: Date, timeZone: string) {
   const parts = new Intl.DateTimeFormat('en-US', {
     timeZone,
@@ -71,6 +73,37 @@ function monthBounds(year: number, month: number, timeZone: string) {
   const nextMonth = month === 12 ? 1 : month + 1;
   const end = zonedLocalToUtc({ year: nextYear, month: nextMonth, day: 1, hour: 0, minute: 0 }, timeZone);
   return { start: start.toISOString(), end: end.toISOString() };
+}
+
+async function fetchMonthlyOrders(
+  supabase: ReturnType<typeof createServiceClient>,
+  tenantId: string,
+  bounds: { start: string; end: string }
+) {
+  const rows: any[] = [];
+  let from = 0;
+  let totalCount = 0;
+
+  while (true) {
+    const { data, error, count } = await supabase
+      .from('orders')
+      .select('*', { count: from === 0 ? 'exact' : undefined })
+      .eq('tenant_id', tenantId)
+      .gte('created_at', bounds.start)
+      .lt('created_at', bounds.end)
+      .not('payment_method', 'is', null)
+      .order('created_at', { ascending: true })
+      .range(from, from + MONTHLY_ORDERS_PAGE_SIZE - 1);
+
+    if (error) return { data: null, error };
+    if (from === 0) totalCount = count || 0;
+    rows.push(...(data || []));
+
+    if (!data || data.length < MONTHLY_ORDERS_PAGE_SIZE || from + MONTHLY_ORDERS_PAGE_SIZE >= totalCount) break;
+    from += MONTHLY_ORDERS_PAGE_SIZE;
+  }
+
+  return { data: rows, error: null };
 }
 
 function localDateKey(dateValue: string | null | undefined, timeZone: string) {
@@ -342,15 +375,7 @@ async function getMonthlyStats(tenantId: string, monthParam: string | null) {
   const locale = country === 'CO' ? 'es-CO' : country === 'MX' ? 'es-MX' : 'es-ES';
   const bounds = monthBounds(parsedMonth.year, parsedMonth.month, timeZone);
 
-  const { data: orders, error: ordersError } = await supabase
-    .from('orders')
-    .select('*')
-    .eq('tenant_id', tenantId)
-    .gte('created_at', bounds.start)
-    .lt('created_at', bounds.end)
-    .not('payment_method', 'is', null)
-    .order('created_at', { ascending: true })
-    .limit(5000);
+  const { data: orders, error: ordersError } = await fetchMonthlyOrders(supabase, tenantId, bounds);
 
   if (ordersError) {
     return { error: NextResponse.json({ error: ordersError.message }, { status: 500 }) };

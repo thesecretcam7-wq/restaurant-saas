@@ -64,6 +64,7 @@ const ORDER_SELECT = 'id, order_number, total, tax, delivery_fee, delivery_type,
 const ORDER_SELECT_WITHOUT_PAYMENT_BREAKDOWN = 'id, order_number, total, tax, delivery_fee, delivery_type, payment_method, payment_status, status, created_at';
 const CASH_CLOSING_QUERY_TIMEOUT_MS = 8_000;
 const CLOSED_ORDER_ID_PAGE_SIZE = 1000;
+const CASH_CLOSING_ORDER_PAGE_SIZE = 1000;
 const ONE_DAY_MS = 24 * 60 * 60 * 1000;
 
 function isCancelledOrder(order: any) {
@@ -95,6 +96,52 @@ async function runCashClosingQuery<T>(query: any, label: string): Promise<T> {
   } finally {
     clearTimeout(timeout);
   }
+}
+
+async function fetchCashClosingOrders(
+  supabase: SupabaseServiceClient,
+  args: {
+    tenantId: string;
+    startIso: string;
+    endIso: string;
+    select: string;
+    label: string;
+    paidOnly?: boolean;
+  }
+): Promise<{ data: any[] | null; error: any }> {
+  let from = 0;
+  let totalCount = 0;
+  const rows: any[] = [];
+
+  while (true) {
+    let query = supabase
+      .from('orders')
+      .select(args.select, { count: from === 0 ? 'exact' : undefined })
+      .eq('tenant_id', args.tenantId)
+      .gte('created_at', args.startIso)
+      .lt('created_at', args.endIso)
+      .not('payment_method', 'is', null)
+      .order('created_at', { ascending: true })
+      .range(from, from + CASH_CLOSING_ORDER_PAGE_SIZE - 1);
+
+    if (args.paidOnly) query = query.eq('payment_status', 'paid');
+
+    const result = await runCashClosingQuery<{ data: any[] | null; error: any; count?: number | null }>(
+      query,
+      args.label
+    );
+
+    if (result.error) return { data: null, error: result.error };
+    if (from === 0) totalCount = result.count || 0;
+    rows.push(...(result.data || []));
+
+    if (!result.data || result.data.length < CASH_CLOSING_ORDER_PAGE_SIZE || from + CASH_CLOSING_ORDER_PAGE_SIZE >= totalCount) {
+      break;
+    }
+    from += CASH_CLOSING_ORDER_PAGE_SIZE;
+  }
+
+  return { data: rows, error: null };
 }
 
 function normalizePaymentBreakdown(order: any) {
@@ -405,25 +452,21 @@ export async function calculateCurrentCashClosingStats(
         businessDateLabel: `desde ultimo cierre`,
       };
 
-  const buildOrdersQuery = (select: string) => supabase
-    .from('orders')
-    .select(select)
-    .eq('tenant_id', tenantId)
-    .gte('created_at', startDate.toISOString())
-    .lt('created_at', endDate.toISOString())
-    .not('payment_method', 'is', null)
-    .order('created_at', { ascending: true })
-    .limit(2000);
-
-  let ordersResult = await runCashClosingQuery<{ data: any[] | null; error: any }>(
-    buildOrdersQuery(ORDER_SELECT),
-    'La consulta de ventas del cierre actual'
-  );
+  let ordersResult = await fetchCashClosingOrders(supabase, {
+    tenantId,
+    startIso: startDate.toISOString(),
+    endIso: endDate.toISOString(),
+    select: ORDER_SELECT,
+    label: 'La consulta de ventas del cierre actual',
+  });
   if (ordersResult.error && isMissingPaymentBreakdownColumn(ordersResult.error)) {
-    ordersResult = await runCashClosingQuery<{ data: any[] | null; error: any }>(
-      buildOrdersQuery(ORDER_SELECT_WITHOUT_PAYMENT_BREAKDOWN),
-      'La consulta de ventas del cierre actual'
-    );
+    ordersResult = await fetchCashClosingOrders(supabase, {
+      tenantId,
+      startIso: startDate.toISOString(),
+      endIso: endDate.toISOString(),
+      select: ORDER_SELECT_WITHOUT_PAYMENT_BREAKDOWN,
+      label: 'La consulta de ventas del cierre actual',
+    });
   }
 
   if (ordersResult.error) throw ordersResult.error;
@@ -452,26 +495,23 @@ export async function calculatePendingPreviousCashClosingStats(
   const currentPeriodStart = new Date(currentPeriod.periodStart);
   const previousPeriodStart = new Date(currentPeriodStart.getTime() - ONE_DAY_MS);
 
-  const buildOrdersQuery = (select: string) => supabase
-    .from('orders')
-    .select(select)
-    .eq('tenant_id', tenantId)
-    .gte('created_at', previousPeriodStart.toISOString())
-    .lt('created_at', currentPeriodStart.toISOString())
-    .not('payment_method', 'is', null)
-    .eq('payment_status', 'paid')
-    .order('created_at', { ascending: true })
-    .limit(2000);
-
-  let ordersResult = await runCashClosingQuery<{ data: any[] | null; error: any }>(
-    buildOrdersQuery(ORDER_SELECT),
-    'La consulta de ventas pendientes'
-  );
+  let ordersResult = await fetchCashClosingOrders(supabase, {
+    tenantId,
+    startIso: previousPeriodStart.toISOString(),
+    endIso: currentPeriodStart.toISOString(),
+    select: ORDER_SELECT,
+    label: 'La consulta de ventas pendientes',
+    paidOnly: true,
+  });
   if (ordersResult.error && isMissingPaymentBreakdownColumn(ordersResult.error)) {
-    ordersResult = await runCashClosingQuery<{ data: any[] | null; error: any }>(
-      buildOrdersQuery(ORDER_SELECT_WITHOUT_PAYMENT_BREAKDOWN),
-      'La consulta de ventas pendientes'
-    );
+    ordersResult = await fetchCashClosingOrders(supabase, {
+      tenantId,
+      startIso: previousPeriodStart.toISOString(),
+      endIso: currentPeriodStart.toISOString(),
+      select: ORDER_SELECT_WITHOUT_PAYMENT_BREAKDOWN,
+      label: 'La consulta de ventas pendientes',
+      paidOnly: true,
+    });
   }
 
   if (ordersResult.error) throw ordersResult.error;

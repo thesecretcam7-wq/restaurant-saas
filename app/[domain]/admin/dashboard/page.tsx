@@ -24,7 +24,10 @@ import {
   Zap,
 } from 'lucide-react'
 import { formatPriceWithCurrency, getCurrencyByCountry } from '@/lib/currency'
+import { FinancialAssistant } from '@/components/admin/FinancialAssistant'
 import {
+  getRestaurantLocalDateKey,
+  getRestaurantLocalDateStartUtc,
   getRestaurantBusinessPeriod,
   getRestaurantLocale,
   getRestaurantTimeZone,
@@ -54,6 +57,84 @@ const statusLabel: Record<string, string> = {
   cancelled: 'Cancelado',
 }
 
+const cancelledStatuses = new Set(['cancelled', 'canceled', 'voided', 'deleted', 'anulado', 'cancelado'])
+
+function isActivePaidOrder(order: any) {
+  return order?.payment_status === 'paid' && !cancelledStatuses.has(String(order?.status || '').toLowerCase())
+}
+
+function getOrderTotal(order: any) {
+  const parsed = Number(order?.total || 0)
+  return Number.isFinite(parsed) ? parsed : 0
+}
+
+function getOrderLocalHour(createdAt: string | null | undefined, timeZone: string) {
+  if (!createdAt) return null
+  const date = new Date(createdAt)
+  if (Number.isNaN(date.getTime())) return null
+
+  const hour = new Intl.DateTimeFormat('en-US', {
+    timeZone,
+    hour: '2-digit',
+    hourCycle: 'h23',
+  }).format(date)
+
+  const parsed = Number(hour)
+  return Number.isFinite(parsed) ? parsed : null
+}
+
+async function fetchAllOrdersSince(supabase: any, tenantId: string, startIso: string, select: string) {
+  const pageSize = 1000
+  let from = 0
+  let totalCount = 0
+  const rows: any[] = []
+
+  while (true) {
+    const { data, error, count } = await supabase
+      .from('orders')
+      .select(select, { count: from === 0 ? 'exact' : undefined })
+      .eq('tenant_id', tenantId)
+      .gte('created_at', startIso)
+      .order('created_at', { ascending: false })
+      .range(from, from + pageSize - 1)
+
+    if (error) throw error
+    if (from === 0) totalCount = count || 0
+    rows.push(...(data || []))
+
+    if (!data || data.length < pageSize || from + pageSize >= totalCount) break
+    from += pageSize
+  }
+
+  return rows
+}
+
+async function fetchAllOrderItemsSince(supabase: any, tenantId: string, startIso: string) {
+  const pageSize = 1000
+  let from = 0
+  let totalCount = 0
+  const rows: any[] = []
+
+  while (true) {
+    const { data, error, count } = await supabase
+      .from('order_items')
+      .select('name, quantity, price, created_at, status, started_at, completed_at', { count: from === 0 ? 'exact' : undefined })
+      .eq('tenant_id', tenantId)
+      .gte('created_at', startIso)
+      .order('created_at', { ascending: false })
+      .range(from, from + pageSize - 1)
+
+    if (error) throw error
+    if (from === 0) totalCount = count || 0
+    rows.push(...(data || []))
+
+    if (!data || data.length < pageSize || from + pageSize >= totalCount) break
+    from += pageSize
+  }
+
+  return rows
+}
+
 export default async function DashboardPage({ params }: DashboardProps) {
   const { domain: slugOrId } = await params
   const tenant = await getTenantBySlugOrId(slugOrId)
@@ -71,14 +152,12 @@ export default async function DashboardPage({ params }: DashboardProps) {
   const tenantSlug = tenant.slug || slugOrId
   const supabase = createServiceClient()
   const today = new Date()
-  const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1).toISOString()
   const sevenDaysAgoDate = new Date(today)
   sevenDaysAgoDate.setDate(sevenDaysAgoDate.getDate() - 7)
   const sevenDaysAgo = sevenDaysAgoDate.toISOString()
 
   const [
     ordersRes,
-    revenueRes,
     reservationsRes,
     customersRes,
     recentOrdersRes,
@@ -88,14 +167,11 @@ export default async function DashboardPage({ params }: DashboardProps) {
     brandingRes,
     settingsRes,
     tenantConfigRes,
-    intelligenceOrdersRes,
-    intelligenceItemsRes,
     inventoryRes,
     topCustomersRes,
     latestClosingRes,
   ] = await Promise.all([
     supabase.from('orders').select('id', { count: 'exact', head: true }).eq('tenant_id', tenantId),
-    supabase.from('orders').select('total').eq('tenant_id', tenantId).eq('payment_status', 'paid').gte('created_at', startOfMonth),
     supabase.from('reservations').select('id', { count: 'exact', head: true }).eq('tenant_id', tenantId).eq('status', 'confirmed'),
     supabase.from('customers').select('id', { count: 'exact', head: true }).eq('tenant_id', tenantId),
     supabase.from('orders').select('*').eq('tenant_id', tenantId).order('created_at', { ascending: false }).limit(8),
@@ -105,25 +181,44 @@ export default async function DashboardPage({ params }: DashboardProps) {
     supabase.from('tenant_branding').select('primary_color, secondary_color, accent_color, logo_url, app_name, hero_image_url, page_config').eq('tenant_id', tenantId).maybeSingle(),
     supabase.from('restaurant_settings').select('display_name, address, phone, operating_hours, timezone, country').eq('tenant_id', tenantId).maybeSingle(),
     supabase.from('tenants').select('organization_name, stripe_account_id, metadata, country').eq('id', tenantId).maybeSingle(),
-    supabase.from('orders').select('id, total, created_at, status, payment_status, payment_method, delivery_type, customer_name, customer_phone').eq('tenant_id', tenantId).gte('created_at', sevenDaysAgo).order('created_at', { ascending: false }).limit(500),
-    supabase.from('order_items').select('name, quantity, price, created_at, status, started_at, completed_at').eq('tenant_id', tenantId).gte('created_at', sevenDaysAgo).limit(1000),
-    supabase.from('inventory').select('product_name, current_stock, min_stock, max_stock, cost_per_unit').eq('tenant_id', tenantId).limit(200),
+    supabase.from('inventory').select('product_name, current_stock, min_stock, max_stock, cost_per_unit').eq('tenant_id', tenantId).limit(1000),
     supabase.from('customers').select('name, phone, email, total_spent, total_orders, last_order_at').eq('tenant_id', tenantId).order('total_spent', { ascending: false }).limit(8),
     supabase.from('cash_closings').select('closed_at').eq('tenant_id', tenantId).order('closed_at', { ascending: false }).limit(1).maybeSingle(),
   ])
 
   const totalOrders = ordersRes.count || 0
-  const monthRevenue = (revenueRes.data || []).reduce((sum, o) => sum + Number(o.total), 0)
   const confirmedReservations = reservationsRes.count || 0
   const totalCustomers = customersRes.count || 0
   const recentOrders = recentOrdersRes.data || []
   const organizationName = tenantConfigRes.data?.organization_name || 'Restaurante'
-  const intelligenceOrders = intelligenceOrdersRes.data || []
-  const intelligenceItems = intelligenceItemsRes.data || []
   const inventory = inventoryRes.data || []
   const topCustomers = topCustomersRes.data || []
   const currencyInfo = getCurrencyByCountry(settingsRes.data?.country || tenantConfigRes.data?.country || 'ES')
   const money = (value: number) => formatPriceWithCurrency(Number(value || 0), currencyInfo.code, currencyInfo.locale)
+  const timeZone = getRestaurantTimeZone({
+    timezone: settingsRes.data?.timezone,
+    settingsCountry: settingsRes.data?.country,
+    tenantCountry: tenantConfigRes.data?.country,
+  })
+  const locale = getRestaurantLocale(settingsRes.data?.country || tenantConfigRes.data?.country)
+  const todayKey = getRestaurantLocalDateKey(today, timeZone)
+  const [localYear, localMonth] = todayKey.split('-').map(Number)
+  const startOfMonthKey = [
+    localYear.toString().padStart(4, '0'),
+    localMonth.toString().padStart(2, '0'),
+    '01',
+  ].join('-')
+  const startOfMonth = getRestaurantLocalDateStartUtc(startOfMonthKey, timeZone)?.toISOString()
+    || new Date(today.getFullYear(), today.getMonth(), 1).toISOString()
+  const metricsStart = new Date(startOfMonth) < new Date(sevenDaysAgo) ? startOfMonth : sevenDaysAgo
+  const [metricOrders, sevenDayItems, repeatCustomersRes] = await Promise.all([
+    fetchAllOrdersSince(supabase, tenantId, metricsStart, 'id, total, status, payment_status, payment_method, delivery_type, created_at, items'),
+    fetchAllOrderItemsSince(supabase, tenantId, sevenDaysAgo),
+    supabase.from('customers').select('id', { count: 'exact', head: true }).eq('tenant_id', tenantId).gt('total_orders', 1),
+  ])
+  const activePaidMonthOrders = metricOrders.filter((order) => isActivePaidOrder(order) && new Date(order.created_at) >= new Date(startOfMonth))
+  const activePaidSevenDayOrders = metricOrders.filter((order) => isActivePaidOrder(order) && new Date(order.created_at) >= new Date(sevenDaysAgo))
+  const monthRevenue = activePaidMonthOrders.reduce((sum, order) => sum + getOrderTotal(order), 0)
 
   const pageConfig = tenantConfigRes.data?.metadata?.page_config || brandingRes.data?.page_config
   const hasBranding = !!(
@@ -186,12 +281,6 @@ export default async function DashboardPage({ params }: DashboardProps) {
     { label: 'Clientes', value: totalCustomers.toLocaleString('es-CO'), icon: UsersRound, tone: 'text-[#c47a16]' },
   ]
 
-  const timeZone = getRestaurantTimeZone({
-    timezone: settingsRes.data?.timezone,
-    settingsCountry: settingsRes.data?.country,
-    tenantCountry: tenantConfigRes.data?.country,
-  })
-  const locale = getRestaurantLocale(settingsRes.data?.country || tenantConfigRes.data?.country)
   const currentPeriod = getRestaurantBusinessPeriod({
     operatingHours: settingsRes.data?.operating_hours,
     timeZone,
@@ -207,21 +296,22 @@ export default async function DashboardPage({ params }: DashboardProps) {
   const startOfYesterdayDate = new Date(startOfTodayDate)
   startOfYesterdayDate.setTime(startOfYesterdayDate.getTime() - 24 * 60 * 60 * 1000)
 
-  const todayOrders = intelligenceOrders.filter(order => new Date(order.created_at) >= startOfTodayDate)
-  const yesterdayOrders = intelligenceOrders.filter(order => {
+  const todayOrders = activePaidSevenDayOrders.filter(order => new Date(order.created_at) >= startOfTodayDate)
+  const yesterdayOrders = activePaidSevenDayOrders.filter(order => {
     const date = new Date(order.created_at)
     return date >= startOfYesterdayDate && date < startOfTodayDate
   })
-  const todayRevenue = todayOrders.filter(o => o.payment_status === 'paid').reduce((sum, o) => sum + Number(o.total || 0), 0)
-  const yesterdayRevenue = yesterdayOrders.filter(o => o.payment_status === 'paid').reduce((sum, o) => sum + Number(o.total || 0), 0)
+  const todayRevenue = todayOrders.reduce((sum, o) => sum + getOrderTotal(o), 0)
+  const yesterdayRevenue = yesterdayOrders.reduce((sum, o) => sum + getOrderTotal(o), 0)
   const revenueDelta = yesterdayRevenue > 0 ? Math.round(((todayRevenue - yesterdayRevenue) / yesterdayRevenue) * 100) : todayRevenue > 0 ? 100 : 0
   const avgTicket = todayOrders.length > 0 ? todayRevenue / todayOrders.length : 0
 
-  const ordersByHour = intelligenceOrders.reduce((acc: Record<number, { count: number; revenue: number }>, order: any) => {
-    const hour = new Date(order.created_at).getHours()
+  const ordersByHour = activePaidSevenDayOrders.reduce((acc: Record<number, { count: number; revenue: number }>, order: any) => {
+    const hour = getOrderLocalHour(order.created_at, timeZone)
+    if (hour === null) return acc
     if (!acc[hour]) acc[hour] = { count: 0, revenue: 0 }
     acc[hour].count += 1
-    acc[hour].revenue += Number(order.total || 0)
+    acc[hour].revenue += getOrderTotal(order)
     return acc
   }, {})
   const peakHour = Object.entries(ordersByHour)
@@ -231,13 +321,18 @@ export default async function DashboardPage({ params }: DashboardProps) {
   const predictedOrders = Math.max(3, Math.round((peakHour?.[1].count || Math.max(todayOrders.length, 1)) * 0.8))
   const recommendedStaff = Math.max(2, Math.min(8, Math.ceil(predictedOrders / 6) + 1))
 
-  const productMap = intelligenceItems.reduce((acc: Record<string, { name: string; quantity: number; revenue: number }>, item: any) => {
-    const name = item.name || 'Producto'
-    if (!acc[name]) acc[name] = { name, quantity: 0, revenue: 0 }
-    acc[name].quantity += Number(item.quantity || 1)
-    acc[name].revenue += Number(item.price || 0) * Number(item.quantity || 1)
-    return acc
-  }, {})
+  const productMap: Record<string, { name: string; quantity: number; revenue: number }> = {}
+  for (const order of activePaidSevenDayOrders) {
+    for (const item of order.items || []) {
+      const name = item.name || 'Producto'
+      const key = item.item_id || item.menu_item_id || name
+      const quantity = Number(item.qty ?? item.quantity ?? 1)
+      const price = Number(item.price || 0)
+      if (!productMap[key]) productMap[key] = { name, quantity: 0, revenue: 0 }
+      productMap[key].quantity += Number.isFinite(quantity) ? quantity : 1
+      productMap[key].revenue += (Number.isFinite(price) ? price : 0) * (Number.isFinite(quantity) ? quantity : 1)
+    }
+  }
   const topProducts = Object.values(productMap).sort((a, b) => b.quantity - a.quantity).slice(0, 5)
   const starProduct = topProducts[0]
   const comboProduct = topProducts[1]
@@ -247,7 +342,11 @@ export default async function DashboardPage({ params }: DashboardProps) {
     .slice(0, 4)
   const inventoryValue = inventory.reduce((sum: number, item: any) => sum + (Number(item.current_stock || 0) * Number(item.cost_per_unit || 0)), 0)
 
-  const deliveredItems = intelligenceItems.filter((item: any) => item.started_at && item.completed_at)
+  const deliveredItems = sevenDayItems.filter((item: any) =>
+    item.started_at &&
+    item.completed_at &&
+    !cancelledStatuses.has(String(item.status || '').toLowerCase())
+  )
   const avgPrepTime = deliveredItems.length > 0
     ? Math.round(deliveredItems.reduce((sum: number, item: any) => {
       const start = new Date(item.started_at).getTime()
@@ -256,7 +355,7 @@ export default async function DashboardPage({ params }: DashboardProps) {
     }, 0) / deliveredItems.length)
     : 0
 
-  const repeatCustomerCount = topCustomers.filter((customer: any) => Number(customer.total_orders || 0) > 1).length
+  const repeatCustomerCount = repeatCustomersRes.count || 0
   const inactiveCustomers = topCustomers.filter((customer: any) => {
     if (!customer.last_order_at) return false
     const last = new Date(customer.last_order_at)
@@ -338,6 +437,10 @@ export default async function DashboardPage({ params }: DashboardProps) {
             <p className="mt-5 text-3xl font-black tracking-tight text-[#15130f]">{value}</p>
           </article>
         ))}
+      </div>
+
+      <div className="mt-5">
+        <FinancialAssistant tenantId={tenantId} tenantSlug={tenantSlug} compact />
       </div>
 
       <section className="admin-dark-insight mt-5 overflow-hidden rounded-[1.4rem] border border-black/10 bg-[#15130f] text-white shadow-2xl shadow-black/10">

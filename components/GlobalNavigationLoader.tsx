@@ -139,14 +139,22 @@ export default function GlobalNavigationLoader() {
       show(window.location.pathname, 'Cargando Eccofood');
     }
 
+    function handleProgrammaticNavigation(event: Event) {
+      const detail = (event as CustomEvent<{ pathname?: string; label?: string }>).detail;
+      const nextPathname = detail?.pathname || window.location.pathname;
+      show(nextPathname, detail?.label || 'Cargando Eccofood');
+    }
+
     document.addEventListener('click', handleClick, true);
     document.addEventListener('submit', handleSubmit);
     window.addEventListener('beforeunload', handleBeforeUnload);
+    window.addEventListener('eccofood:navigation-start', handleProgrammaticNavigation);
 
     return () => {
       document.removeEventListener('click', handleClick, true);
       document.removeEventListener('submit', handleSubmit);
       window.removeEventListener('beforeunload', handleBeforeUnload);
+      window.removeEventListener('eccofood:navigation-start', handleProgrammaticNavigation);
       if (showTimerRef.current) clearTimeout(showTimerRef.current);
       if (timeoutRef.current) clearTimeout(timeoutRef.current);
     };

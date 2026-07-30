@@ -455,7 +455,7 @@ function TableGroupCard({
           <div>
             <p className="text-white font-bold text-sm">Mesa {group.tableNumber}</p>
             <p className="text-gray-400 text-xs">
-              {group.orders.length} ronda{group.orders.length > 1 ? 's' : ''} · {group.itemCount} items
+              {group.orders.length} comanda{group.orders.length > 1 ? 's' : ''} · {group.itemCount} items
             </p>
             {group.waiters.length > 0 && (
               <p className="text-gray-500 text-xs truncate max-w-[110px]">{group.waiters.join(', ')}</p>
@@ -738,6 +738,7 @@ export function POSTerminal({
   const [selectedTableNumber, setSelectedTableNumber] = useState<number | null>(null);
   const [processingPayment, setProcessingPayment] = useState(false);
   const [sendingToTable, setSendingToTable] = useState(false);
+  const [tableCartSaving, setTableCartSaving] = useState(false);
   const [isOnline, setIsOnline] = useState(true);
   const [offlinePendingCount, setOfflinePendingCount] = useState(0);
   const [syncingOffline, setSyncingOffline] = useState(false);
@@ -2685,10 +2686,7 @@ export function POSTerminal({
           },
         ];
 
-    updateCartAndLoadedTable(
-      nextCart,
-      selectedTableNumber ? `Producto agregado a Mesa ${selectedTableNumber}` : 'Producto agregado'
-    );
+    updateCartAndLoadedTable(nextCart, '');
   }
 
   function addManualItemToCart(name: string, price: number) {
@@ -2710,7 +2708,7 @@ export function POSTerminal({
           is_manual: true,
         },
       ],
-      selectedTableNumber ? `Cobro manual agregado a Mesa ${selectedTableNumber}` : 'Cobro manual agregado'
+      ''
     );
   }
 
@@ -2731,6 +2729,7 @@ export function POSTerminal({
     }
 
     if (tableCartSyncInFlightRef.current) {
+      setTableCartSaving(true);
       setCart(nextCart);
       applyOptimisticTableCart(nextCart, activeSelectedTableNumber, activeBillingOrderIds);
       latestTableSyncStateRef.current = {
@@ -2758,7 +2757,7 @@ export function POSTerminal({
       desiredQuantities.set(item.menu_item_id, (desiredQuantities.get(item.menu_item_id) || 0) + Number(item.quantity || 0));
     });
 
-    const nextTableOrders: DineInOrder[] = [];
+    let nextTableOrders: DineInOrder[] = [];
     const nextBillingOrderIds: string[] = [];
 
     for (const orderId of activeBillingOrderIds) {
@@ -2799,10 +2798,41 @@ export function POSTerminal({
         return extraQty > 0 ? { ...item, quantity: extraQty } : null;
       })
       .filter((item): item is CartItem => Boolean(item));
+
+    if (extraItems.length > 0 && activeBillingOrderIds.length > 0) {
+      const primaryOrderId = nextBillingOrderIds[0] || activeBillingOrderIds[0];
+      const primaryOrder =
+        nextTableOrders.find((order) => order.id === primaryOrderId) ||
+        activeDineInOrders.find((order) => order.id === primaryOrderId);
+
+      if (primaryOrder) {
+        const mergedItems = mergeExtraItemsIntoOrderItems(primaryOrder.items || [], extraItems);
+        const mergedSubtotal = getOrderItemsTotal(mergedItems);
+        const mergedTax = calculateTaxAmount(mergedSubtotal, taxRate, taxIncluded);
+        const mergedTotal = mergedSubtotal + (taxIncluded ? 0 : mergedTax);
+        const mergedOrder = {
+          ...primaryOrder,
+          items: mergedItems,
+          total: mergedTotal,
+          status: primaryOrder.status === 'cancelled' ? 'pending' : primaryOrder.status,
+        } as DineInOrder;
+
+        nextTableOrders = [
+          mergedOrder,
+          ...nextTableOrders.filter((order) => order.id !== primaryOrder.id),
+        ];
+        if (!nextBillingOrderIds.includes(primaryOrder.id)) {
+          nextBillingOrderIds.unshift(primaryOrder.id);
+        }
+        extraItems.length = 0;
+      }
+    }
+
     const nextBaseCart = mergeOrdersToCart(nextTableOrders);
 
     try {
       tableCartSyncInFlightRef.current = true;
+      setTableCartSaving(true);
       setCart(nextCart);
       applyOptimisticTableCart(nextCart, activeSelectedTableNumber, activeBillingOrderIds);
       setDineInOrders((current) =>
@@ -2942,7 +2972,9 @@ export function POSTerminal({
         }
       }
 
-      setToast({ message: successMessage, type: 'success' });
+      if (successMessage) {
+        setToast({ message: successMessage, type: 'success' });
+      }
       if (nextBillingOrderIds.length === 0 && nextCart.length === 0) {
         setCart([]);
         setLoadedTableBaseCart(null);
@@ -2975,6 +3007,8 @@ export function POSTerminal({
         window.setTimeout(() => {
           void syncLoadedTableCart(pendingSync.nextCart, pendingSync.successMessage);
         }, 0);
+      } else {
+        setTableCartSaving(false);
       }
     }
   }
@@ -2983,6 +3017,7 @@ export function POSTerminal({
     const shouldSyncSelectedTable =
       posMode === 'table' &&
       Boolean(selectedTableNumber) &&
+      billingOrderIds.length > 0 &&
       !splitBillMode &&
       !loadedOrderId;
 
@@ -2995,7 +3030,7 @@ export function POSTerminal({
 
   function removeFromCart(itemId: string) {
     const nextCart = cart.filter((c) => c.menu_item_id !== itemId);
-    updateCartAndLoadedTable(nextCart, 'Producto quitado de la mesa');
+    updateCartAndLoadedTable(nextCart, '');
   }
 
   function updateNotes(itemId: string, notes: string) {
@@ -3009,7 +3044,7 @@ export function POSTerminal({
       removeFromCart(itemId);
     } else {
       const nextCart = cart.map((c) => (c.menu_item_id === itemId ? { ...c, quantity } : c));
-      updateCartAndLoadedTable(nextCart, 'Mesa actualizada');
+      updateCartAndLoadedTable(nextCart, '');
     }
   }
 
@@ -3032,7 +3067,7 @@ export function POSTerminal({
     const nextCart = cart.map((current) =>
       current.menu_item_id === item.menu_item_id ? { ...current, name: trimmedName } : current
     );
-    updateCartAndLoadedTable(nextCart, 'Producto manual actualizado');
+    updateCartAndLoadedTable(nextCart, '');
   }
 
   function removeDeliveryFromLoadedReceipt() {
@@ -3133,6 +3168,40 @@ export function POSTerminal({
     return items.map((item) => ({ ...item }));
   }
 
+  function formatCartItemsForOrder(items: CartItem[]) {
+    return items.map((item) => ({
+      menu_item_id: item.is_manual ? null : item.menu_item_id,
+      item_id: item.is_manual ? null : item.menu_item_id,
+      is_manual: item.is_manual === true,
+      name: item.name,
+      price: item.price,
+      qty: item.quantity,
+      quantity: item.quantity,
+      notes: item.notes || null,
+    }));
+  }
+
+  function mergeExtraItemsIntoOrderItems(
+    orderItems: DineInOrder['items'],
+    extraItems: CartItem[]
+  ): DineInOrder['items'] {
+    const merged = [...(orderItems || [])];
+
+    formatCartItemsForOrder(extraItems).forEach((extraItem) => {
+      const extraKey = getOrderItemKey(extraItem);
+      const existingIndex = merged.findIndex((item) => getOrderItemKey(item) === extraKey);
+      if (existingIndex >= 0) {
+        const current = merged[existingIndex];
+        const quantity = getOrderItemQty(current) + getOrderItemQty(extraItem);
+        merged[existingIndex] = { ...current, qty: quantity, quantity };
+      } else {
+        merged.push(extraItem);
+      }
+    });
+
+    return merged;
+  }
+
   function mergeOrdersToCart(tableOrders: DineInOrder[]) {
     const mergedMap = new Map<string, CartItem>();
     tableOrders.forEach(order => {
@@ -3201,22 +3270,27 @@ export function POSTerminal({
       const extraItems = nextCart
         .flatMap((item) => {
           const extraQty = Math.max(0, desiredQuantities.get(item.menu_item_id) || 0);
-          return extraQty > 0 ? [{
-            menu_item_id: item.is_manual ? null : item.menu_item_id,
-            item_id: item.is_manual ? null : item.menu_item_id,
-            is_manual: item.is_manual === true,
-            name: item.name,
-            price: item.price,
-            qty: extraQty,
-            quantity: extraQty,
-            notes: item.notes || null,
-          }] : [];
+          return extraQty > 0 ? [{ ...item, quantity: extraQty }] : [];
         });
 
       if (extraItems.length === 0) return nextOrders;
 
+      const primaryOrderIndex = nextOrders.findIndex((order) => activeBillingOrderIds.includes(order.id));
       const existingTableOrder = current.find((order) => order.table_number === tableNumber);
-      const subtotal = getOrderItemsTotal(extraItems);
+
+      if (primaryOrderIndex >= 0) {
+        const primaryOrder = nextOrders[primaryOrderIndex];
+        const mergedItems = mergeExtraItemsIntoOrderItems(primaryOrder.items || [], extraItems);
+        nextOrders[primaryOrderIndex] = {
+          ...primaryOrder,
+          items: mergedItems,
+          total: getOrderItemsTotal(mergedItems),
+          status: primaryOrder.status === 'cancelled' ? 'pending' : primaryOrder.status,
+        };
+        return nextOrders;
+      }
+
+      const subtotal = extraItems.reduce((sum, item) => sum + Number(item.price || 0) * Number(item.quantity || 0), 0);
       const optimisticOrder: DineInOrder = {
         id: optimisticOrderId,
         order_number: existingTableOrder?.order_number || `Mesa ${tableNumber}`,
@@ -3228,7 +3302,7 @@ export function POSTerminal({
         payment_status: 'pending',
         status: 'pending',
         created_at: existingTableOrder?.created_at || new Date().toISOString(),
-        items: extraItems,
+        items: formatCartItemsForOrder(extraItems),
       };
 
       mutedDineInOrderIdsRef.current.add(optimisticOrderId);
@@ -4411,7 +4485,22 @@ export function POSTerminal({
       .filter((order): order is DineInOrder => Boolean(order)),
     [billingOrderIds, dineInOrders]
   );
-  const billingTableSubtotal = billingTableOrders.reduce(
+  const optimisticBillingTableOrders = useMemo(() => {
+    if (!selectedTableNumber || splitBillMode) return [];
+    const optimisticOrderId = optimisticTableOrderIdsRef.current.get(selectedTableNumber);
+    if (!optimisticOrderId) return [];
+
+    return dineInOrders.filter((order) =>
+      order.id === optimisticOrderId &&
+      order.table_number === selectedTableNumber &&
+      !billingOrderIds.includes(order.id)
+    );
+  }, [billingOrderIds, dineInOrders, selectedTableNumber, splitBillMode]);
+  const billingTableDisplayOrders = useMemo(
+    () => [...billingTableOrders, ...optimisticBillingTableOrders],
+    [billingTableOrders, optimisticBillingTableOrders]
+  );
+  const billingTableSubtotal = billingTableDisplayOrders.reduce(
     (sum, order) => sum + getOrderItemsTotal(order.items || []),
     0
   );
@@ -4432,7 +4521,7 @@ export function POSTerminal({
   const activeSubtotal = splitBillMode && billingOrderIds.length > 0
     ? splitSubtotal
     : fullTableBillingMode
-      ? billingTableSubtotal
+      ? subtotal
       : subtotal;
   const activeDiscount = billingOrderIds.length > 0 ? 0 : discount;
   const taxableSubtotal = Math.max(0, activeSubtotal - activeDiscount);
@@ -4443,7 +4532,7 @@ export function POSTerminal({
   const loadedOrderDeliveryFee = loadedOrderId ? Number(loadedOrderContext?.deliveryFee || 0) : 0;
   const cartDeliveryFee = loadedOrderId ? loadedOrderDeliveryFee : activeDeliveryFee;
   const paymentBaseTotal = fullTableBillingMode
-    ? billingTableTotal
+    ? taxableSubtotal + (taxIncluded ? 0 : taxAmount)
     : taxableSubtotal + (taxIncluded ? 0 : taxAmount) + (splitBillMode ? 0 : cartDeliveryFee);
   const total = paymentBaseTotal + tip;
   const editingPaidReceipt = loadedOrderContext?.paymentStatus === 'paid';
@@ -5395,7 +5484,7 @@ export function POSTerminal({
 
           {/* Menu Grid */}
           <div className={`flex-1 min-h-0 overflow-y-scroll overscroll-contain pr-1 [scrollbar-gutter:stable] [scrollbar-width:thin] [scrollbar-color:rgba(103,232,249,0.55)_rgba(15,23,42,0.45)] [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-cyan-300/45 [&::-webkit-scrollbar-track]:bg-white/5 ${compactPOSLayout ? 'px-3 py-2' : 'p-3 sm:p-4'}`}>
-            <div className={`grid h-fit ${compactPOSLayout ? 'grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-5 2xl:grid-cols-7' : 'grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6'}`}>
+            <div className={`grid h-fit ${compactPOSLayout ? 'grid-cols-[repeat(auto-fit,minmax(150px,1fr))] gap-2' : 'grid-cols-[repeat(auto-fit,minmax(165px,1fr))] gap-3'}`}>
               {filteredMenu.map((item) => {
                 const qty = cartQuantityMap.get(item.id);
                 const unavailable = item.available === false;
@@ -5741,7 +5830,7 @@ export function POSTerminal({
               <UtensilsCrossed className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
               <div className="flex-1 min-w-0">
                 <p className="text-emerald-300 font-bold text-xs">Cobrando Mesa {selectedTableNumber}</p>
-                <p className="text-emerald-400/70 text-xs">{billingOrderIds.length} ronda{billingOrderIds.length > 1 ? 's' : ''} acumulada{billingOrderIds.length > 1 ? 's' : ''}</p>
+                <p className="text-emerald-400/70 text-xs">Cuenta de mesa acumulada</p>
               </div>
               {androidTapToPayAvailable && (
                 <button
@@ -5917,7 +6006,7 @@ export function POSTerminal({
               </div>
               {billingOrderIds.length > 0 ? (
                 <p className="rounded-lg border border-emerald-300/25 bg-emerald-400/10 px-2 py-1 text-[11px] font-black text-emerald-100">
-                  {billingOrderIds.length} ronda{billingOrderIds.length > 1 ? 's' : ''} lista{billingOrderIds.length > 1 ? 's' : ''} para cobrar
+                  Cuenta lista para cobrar
                 </p>
               ) : (
                 <p className="rounded-lg border border-emerald-300/25 bg-emerald-400/10 px-2 py-1 text-[11px] font-black text-emerald-100">
@@ -6182,7 +6271,8 @@ export function POSTerminal({
                       disabled={
                         cart.length === 0 ||
                         (splitBillMode && splitPaymentItems.length === 0) ||
-                        !hasRequiredDeliveryZone
+                        !hasRequiredDeliveryZone ||
+                        tableCartSaving
                       }
                       loading={processingPayment}
                       country={country}

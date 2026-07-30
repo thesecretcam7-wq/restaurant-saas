@@ -22,8 +22,11 @@ const PUBLIC_PATHS = new Set([
   '/soporte',
   '/unauthorized',
   '/manifest.webmanifest',
+  '/robots.txt',
+  '/sitemap.xml',
   '/sw.js',
 ])
+const SEO_METADATA_PATHS = new Set(['/robots.txt', '/sitemap.xml'])
 const TENANT_PWA_IDENTITY_PATHS = new Set([
   '/manifest.webmanifest',
   '/apple-touch-icon.png',
@@ -189,6 +192,10 @@ export async function proxy(request: NextRequest) {
     pathname.match(/\.(?:ico|png|jpg|jpeg|svg|webp|avif|css|js|map|txt)$/)
 
   if (EARLY_NEXT_PATH_PREFIXES.some((prefix) => pathname.startsWith(prefix))) {
+    return NextResponse.next()
+  }
+
+  if (SEO_METADATA_PATHS.has(pathname)) {
     return NextResponse.next()
   }
 

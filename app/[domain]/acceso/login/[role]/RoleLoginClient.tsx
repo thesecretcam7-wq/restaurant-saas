@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, ChefHat, CreditCard, Delete, Lock, ShieldCheck, UtensilsCrossed } from 'lucide-react';
-import { saveStaffSession } from '@/lib/staff-session-client';
+import { clearStaffSession, saveStaffSession } from '@/lib/staff-session-client';
 
 interface StaffMember {
   id: string;
@@ -69,47 +69,6 @@ async function fetchWithTimeout(input: RequestInfo | URL, init: RequestInit = {}
   }
 }
 
-function RoleAccessLoader({
-  appName,
-  tool,
-  logoUrl,
-  primary,
-  message,
-}: {
-  appName: string;
-  tool: string;
-  logoUrl: string | null;
-  primary: string;
-  message: string;
-}) {
-  return (
-    <div
-      className="ecco-fixed-layer fixed inset-0 z-50 grid h-[100dvh] w-screen place-items-center bg-[#0B0E14]/82 px-5 backdrop-blur-xl"
-      style={{ position: 'fixed', inset: 0, width: '100vw', height: '100dvh' }}
-    >
-      <div className="w-full max-w-sm rounded-[2rem] border border-[#D4AF37]/20 bg-[#1A1F2C]/92 p-7 text-center text-white shadow-[0_30px_110px_rgba(0,0,0,0.36)]">
-        <div className="relative mx-auto mb-5 grid h-28 w-36 place-items-center">
-          <div className="relative grid h-28 w-36 place-items-center">
-            {logoUrl ? (
-              <img src={logoUrl} alt={appName} className="h-full w-full object-contain drop-shadow-2xl" />
-            ) : (
-              <span className="grid h-20 w-20 place-items-center rounded-[1.75rem] bg-[#0B0E14] text-3xl font-black text-[#D4AF37] shadow-2xl">E</span>
-            )}
-          </div>
-        </div>
-        <p className="text-xs font-black uppercase tracking-[0.24em] text-[#D4AF37]">
-          {tool}
-        </p>
-        <h2 className="mt-2 text-2xl font-black tracking-tight text-white">{message}</h2>
-        <p className="mt-2 text-sm font-semibold text-[#8b97a8]">Preparando tu sesion operativa.</p>
-        <div className="mt-6 h-2 overflow-hidden rounded-full bg-white/10">
-          <div className="h-full w-1/2 animate-[eccoGlobalLoaderBar_1.05s_ease-in-out_infinite] rounded-full bg-[#D35A37]" />
-        </div>
-      </div>
-    </div>
-  );
-}
-
 export function RoleLoginClient({
   tenantId,
   tenantName,
@@ -128,6 +87,7 @@ export function RoleLoginClient({
   const [error, setError] = useState('');
   const [phase, setPhase] = useState<'select' | 'pin'>('select');
   const pinInputRef = useRef<HTMLInputElement | null>(null);
+  const sessionResetPromiseRef = useRef<Promise<void> | null>(null);
   const config = ROLE_CONFIG[role];
   const RoleIcon = config.icon;
 
@@ -141,6 +101,13 @@ export function RoleLoginClient({
   const secondaryText = readableText(secondaryHighlight);
   const appName = branding.appName || tenantName;
   const accessPath = `/${tenantSlug}/acceso`;
+
+  useEffect(() => {
+    clearStaffSession();
+    sessionResetPromiseRef.current = fetch('/api/staff/session', { method: 'DELETE' })
+      .catch(() => {})
+      .then(() => {});
+  }, []);
 
   async function handleStaffSelect(selectedId: string) {
     const selected = staffMembers.find((staff) => staff.id === selectedId);
@@ -175,6 +142,8 @@ export function RoleLoginClient({
     let keepLoader = false;
 
     try {
+      await sessionResetPromiseRef.current;
+
       const res = await fetchWithTimeout('/api/staff/auth', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -204,6 +173,20 @@ export function RoleLoginClient({
           throw new Error(sessionError?.error || 'No se pudo registrar la sesion.');
         }
 
+        const verifySessionRes = await fetchWithTimeout('/api/staff/session', {
+          method: 'GET',
+          cache: 'no-store',
+        });
+        const verifiedSession = verifySessionRes.ok ? await verifySessionRes.json().catch(() => null) : null;
+        if (
+          !verifiedSession?.authenticated ||
+          verifiedSession.tenantId !== tenantId ||
+          verifiedSession.staffId !== authenticatedStaffId ||
+          verifiedSession.role !== role
+        ) {
+          throw new Error('La sesion no quedo activa. Intenta entrar de nuevo.');
+        }
+
         setLoadingMessage(`Abriendo ${config.tool}`);
         const roleDestinations: Record<string, string> = {
           admin: `/${tenantSlug}/admin/dashboard`,
@@ -221,6 +204,12 @@ export function RoleLoginClient({
           lastPath: destination,
         });
         keepLoader = true;
+        window.dispatchEvent(new CustomEvent('eccofood:navigation-start', {
+          detail: {
+            pathname: destination,
+            label: `Abriendo ${config.tool}`,
+          },
+        }));
         window.location.replace(destination);
         window.setTimeout(() => {
           if (window.location.pathname !== destination) {
@@ -339,16 +328,6 @@ export function RoleLoginClient({
           `linear-gradient(135deg, ${pageBg}, #101622 48%, #0B0E14 100%)`,
         }}
     >
-      {loading && (
-        <RoleAccessLoader
-          appName={appName}
-          tool={config.tool}
-          logoUrl={logoUrl}
-          primary={highlight}
-          message={loadingMessage}
-        />
-      )}
-
       {phase === 'select' ? (
         <a
           href={accessPath}

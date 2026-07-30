@@ -76,6 +76,7 @@ export default async function AdminLayout({ children, params }: AdminLayoutProps
     { href: `/${tenantSlug}/admin/reservas`, label: 'Reservas', icon: 'reservations' },
     { href: `/${tenantSlug}/admin/clientes`, label: 'Clientes', icon: 'customers' },
     { href: `/${tenantSlug}/admin/ventas`, label: 'Ventas', icon: 'sales' },
+    { href: `/${tenantSlug}/admin/finanzas`, label: 'Finanzas', icon: 'finances' },
     { href: `/${tenantSlug}/admin/ai-insights`, label: 'IA Insights', icon: 'ai' },
     { href: `/${tenantSlug}/admin/cierres`, label: 'Cierres de Caja', icon: 'cash' },
     { href: `/${tenantSlug}/admin/auditoria`, label: 'Auditoria', icon: 'audit' },
