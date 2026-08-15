@@ -44,7 +44,6 @@ export function POSPayment({
   const isTouchDevice = useTouchDevice();
   const [amountPaid, setAmountPaid] = useState<string>('');
   const [mixedCashAmount, setMixedCashAmount] = useState<string>('');
-  const [change, setChange] = useState<number>(0);
   const [showNumericKeyboard, setShowNumericKeyboard] = useState(false);
   const [showTipKeyboard, setShowTipKeyboard] = useState(false);
   const totalWithTip = total + tip;
@@ -52,21 +51,18 @@ export function POSPayment({
   const suggestedAmounts = getSuggestedBillAmounts(totalWithTip, currencyInfo.code);
   const paidAmount = amountPaid ? Number(amountPaid) : 0;
   const cashAmountForPayment = amountPaid ? paidAmount : totalWithTip;
+  const change = amountPaid && !Number.isNaN(paidAmount) ? calculateChange(totalWithTip, paidAmount) : 0;
   const mixedCashValue = mixedCashAmount ? Number(mixedCashAmount) : 0;
   const mixedCardAmount = Math.max(0, Math.round((totalWithTip - mixedCashValue) * 100) / 100);
 
   const handleAmountChange = (value: string) => {
     setAmountPaid(value);
-    if (value && !isNaN(Number(value))) {
-      setChange(calculateChange(totalWithTip, Number(value)));
-    }
   };
 
   const handleSuggestedAmount = (amount: number) => {
     const currentAmount = Number(amountPaid);
     const nextAmount = Math.round(((Number.isFinite(currentAmount) ? currentAmount : 0) + amount) * 100) / 100;
     setAmountPaid(nextAmount.toString());
-    setChange(calculateChange(totalWithTip, nextAmount));
   };
 
   const handleConfirmPaymentAmount = (value: number) => {
@@ -74,7 +70,6 @@ export function POSPayment({
       setMixedCashAmount(value.toString());
     } else {
       setAmountPaid(value.toString());
-      setChange(calculateChange(totalWithTip, value));
     }
     setShowNumericKeyboard(false);
   };
@@ -116,7 +111,6 @@ export function POSPayment({
             onPaymentMethodChange('cash');
             setAmountPaid('');
             setMixedCashAmount('');
-            setChange(0);
           }}
           disabled={disabled}
           className={`${compact ? 'py-0.5 text-xs' : 'py-2 text-sm'} rounded-xl font-black flex items-center justify-center gap-1 transition border ${
@@ -133,7 +127,6 @@ export function POSPayment({
             onPaymentMethodChange('stripe');
             setAmountPaid('');
             setMixedCashAmount('');
-            setChange(0);
           }}
           disabled={disabled}
           className={`${compact ? 'py-0.5 text-xs' : 'py-2 text-sm'} rounded-xl font-black flex items-center justify-center gap-1 transition border ${
@@ -150,7 +143,6 @@ export function POSPayment({
             onPaymentMethodChange('mixed');
             setAmountPaid('');
             setMixedCashAmount('');
-            setChange(0);
           }}
           disabled={disabled}
           className={`${compact ? 'py-0.5 text-xs' : 'py-2 text-sm'} rounded-xl font-black flex items-center justify-center gap-1 transition border ${

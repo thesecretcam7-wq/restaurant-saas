@@ -5484,7 +5484,14 @@ export function POSTerminal({
 
           {/* Menu Grid */}
           <div className={`flex-1 min-h-0 overflow-y-scroll overscroll-contain pr-1 [scrollbar-gutter:stable] [scrollbar-width:thin] [scrollbar-color:rgba(103,232,249,0.55)_rgba(15,23,42,0.45)] [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-cyan-300/45 [&::-webkit-scrollbar-track]:bg-white/5 ${compactPOSLayout ? 'px-3 py-2' : 'p-3 sm:p-4'}`}>
-            <div className={`grid h-fit ${compactPOSLayout ? 'grid-cols-[repeat(auto-fit,minmax(150px,1fr))] gap-2' : 'grid-cols-[repeat(auto-fit,minmax(165px,1fr))] gap-3'}`}>
+            <div
+              className={`grid h-fit justify-start ${compactPOSLayout ? 'gap-2' : 'gap-3'}`}
+              style={{
+                gridTemplateColumns: compactPOSLayout
+                  ? 'repeat(auto-fill, minmax(150px, 165px))'
+                  : 'repeat(auto-fill, minmax(165px, 190px))',
+              }}
+            >
               {filteredMenu.map((item) => {
                 const qty = cartQuantityMap.get(item.id);
                 const unavailable = item.available === false;

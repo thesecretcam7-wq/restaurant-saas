@@ -11,7 +11,7 @@ export function calculateChange(total: number, amountPaid: number): number {
 
 /**
  * Retorna denominaciones sugeridas para sumar el efectivo recibido.
- * Ejemplo: total 6 EUR -> [1, 2, 5, 10, 20]
+ * Ejemplo: total 3 EUR -> [1, 2, 5, 10, 20, 50]
  */
 export function getSuggestedBillAmounts(total: number, currencyCode: string = 'COP'): number[] {
   const denominationsByCurrency: Record<string, number[]> = {
@@ -27,7 +27,11 @@ export function getSuggestedBillAmounts(total: number, currencyCode: string = 'C
 
   const belowOrEqual = billDenominations.filter((bill) => bill <= total);
   const above = billDenominations.filter((bill) => bill > total);
-  const suggested = [...belowOrEqual.slice(-4), ...above.slice(0, 2)];
+  const baseSuggestions = belowOrEqual.slice(-4);
+  const suggested = [
+    ...baseSuggestions,
+    ...above.slice(0, Math.max(0, 6 - baseSuggestions.length)),
+  ];
 
   return Array.from(new Set(suggested)).slice(0, 6);
 }

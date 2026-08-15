@@ -81,10 +81,9 @@ export function RoleSelector({ tenantId, tenantName, tenantSlug, logoUrl, brandi
   const appName = branding.appName || tenantName;
 
   useEffect(() => {
-    if (!isStandalonePwa()) return;
-
-    const restored = restoreStaffSession(tenantId);
-    if (isOperationalStaffPath(tenantSlug, restored?.lastPath)) {
+    const standalone = isStandalonePwa();
+    const restored = standalone ? restoreStaffSession(tenantId) : null;
+    if (standalone && isOperationalStaffPath(tenantSlug, restored?.lastPath)) {
       router.replace(restored!.lastPath!);
       return;
     }
@@ -95,14 +94,16 @@ export function RoleSelector({ tenantId, tenantName, tenantSlug, logoUrl, brandi
         if (!session?.authenticated || session.tenantId !== tenantId) return;
         const lastPath = getRoleDestination(tenantSlug, session.role);
         if (!lastPath) return;
-        saveStaffSession({
-          tenantId,
-          tenantSlug,
-          staffId: session.staffId,
-          staffName: session.staffName || session.role,
-          role: session.role,
-          lastPath,
-        });
+        if (standalone) {
+          saveStaffSession({
+            tenantId,
+            tenantSlug,
+            staffId: session.staffId,
+            staffName: session.staffName || session.role,
+            role: session.role,
+            lastPath,
+          });
+        }
         router.replace(lastPath);
       })
       .catch(() => {});
