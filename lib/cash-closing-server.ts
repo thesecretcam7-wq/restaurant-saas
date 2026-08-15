@@ -1,5 +1,6 @@
 import { getRestaurantBusinessPeriod, getRestaurantLocale, getRestaurantTimeZone } from '@/lib/restaurant-time';
 import {
+  getOldestPendingCashClosingPeriod,
   isCancelledCashClosingOrder,
   isCountableCashClosingOrder,
   isPaidCashClosingOrder,
@@ -66,6 +67,7 @@ const CASH_CLOSING_QUERY_TIMEOUT_MS = 8_000;
 const CLOSED_ORDER_ID_PAGE_SIZE = 1000;
 const CASH_CLOSING_ORDER_PAGE_SIZE = 1000;
 const ONE_DAY_MS = 24 * 60 * 60 * 1000;
+const PENDING_CASH_CLOSING_LOOKBACK_DAYS = 30;
 
 function isCancelledOrder(order: any) {
   return isCancelledCashClosingOrder(order);
@@ -493,11 +495,16 @@ export async function calculatePendingPreviousCashClosingStats(
 ): Promise<CashClosingStats | null> {
   const currentPeriod = await getCurrentOperationalPeriod(supabase, tenantId);
   const currentPeriodStart = new Date(currentPeriod.periodStart);
-  const previousPeriodStart = new Date(currentPeriodStart.getTime() - ONE_DAY_MS);
+  const currentPeriodEnd = new Date(currentPeriod.periodEnd);
+  const periodDurationMs = currentPeriodEnd.getTime() - currentPeriodStart.getTime();
+  const fallbackDurationMs = Number.isFinite(periodDurationMs) && periodDurationMs > 0
+    ? periodDurationMs
+    : ONE_DAY_MS;
+  const lookbackStart = new Date(currentPeriodStart.getTime() - fallbackDurationMs * PENDING_CASH_CLOSING_LOOKBACK_DAYS);
 
   let ordersResult = await fetchCashClosingOrders(supabase, {
     tenantId,
-    startIso: previousPeriodStart.toISOString(),
+    startIso: lookbackStart.toISOString(),
     endIso: currentPeriodStart.toISOString(),
     select: ORDER_SELECT,
     label: 'La consulta de ventas pendientes',
@@ -506,7 +513,7 @@ export async function calculatePendingPreviousCashClosingStats(
   if (ordersResult.error && isMissingPaymentBreakdownColumn(ordersResult.error)) {
     ordersResult = await fetchCashClosingOrders(supabase, {
       tenantId,
-      startIso: previousPeriodStart.toISOString(),
+      startIso: lookbackStart.toISOString(),
       endIso: currentPeriodStart.toISOString(),
       select: ORDER_SELECT_WITHOUT_PAYMENT_BREAKDOWN,
       label: 'La consulta de ventas pendientes',
@@ -528,10 +535,18 @@ export async function calculatePendingPreviousCashClosingStats(
   });
 
   if (pendingOrders.length === 0) return null;
+  const oldestPendingPeriod = getOldestPendingCashClosingPeriod(
+    pendingOrders,
+    currentPeriodStart,
+    new Date(currentPeriodStart.getTime() + fallbackDurationMs)
+  );
+
+  if (!oldestPendingPeriod) return null;
+
   const period: CashClosingPeriod = {
-    periodStart: previousPeriodStart.toISOString(),
-    periodEnd: currentPeriodStart.toISOString(),
-    businessDateLabel: `dia anterior pendiente hasta ${currentPeriodStart.toLocaleDateString('es-ES', {
+    periodStart: oldestPendingPeriod.periodStart.toISOString(),
+    periodEnd: oldestPendingPeriod.periodEnd.toISOString(),
+    businessDateLabel: `pendiente hasta ${oldestPendingPeriod.periodEnd.toLocaleDateString('es-ES', {
       weekday: 'long',
       day: '2-digit',
       month: 'long',
@@ -540,9 +555,9 @@ export async function calculatePendingPreviousCashClosingStats(
   };
 
   const billPayments = await getOpenBillPayments(supabase, tenantId, period.periodStart, period.periodEnd);
-  const stats = statsFromOrders(period, pendingOrders, billPayments);
+  const stats = statsFromOrders(period, oldestPendingPeriod.periodOrders, billPayments);
 
-  if (await hasMatchingCashClosingSummary(supabase, tenantId, previousPeriodStart, stats)) {
+  if (await hasMatchingCashClosingSummary(supabase, tenantId, oldestPendingPeriod.periodStart, stats)) {
     return null;
   }
 
