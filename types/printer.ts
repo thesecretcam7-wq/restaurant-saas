@@ -50,6 +50,7 @@ export interface PrinterLog {
 export interface ReceiptData {
   orderId: string;
   orderNumber: string;
+  receiptKind?: 'sale' | 'prebill';
   restaurantName?: string;
   restaurantPhone?: string | null;
   items: Array<{

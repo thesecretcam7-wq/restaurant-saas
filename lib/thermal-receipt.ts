@@ -129,6 +129,7 @@ export function generateTableQrESCPOS(
 
 export function generateReceiptESCPOS(data: ReceiptData, options: ReceiptOptions): Uint8Array {
   const cols = options.paperWidth === 80 ? 42 : 32;
+  const isPreBill = data.receiptKind === 'prebill';
   const bytes: string[] = [];
   const push = (...s: string[]) => bytes.push(...s);
   const line = (s = '') => bytes.push(normalizeThermalText(s) + '\n');
@@ -165,7 +166,7 @@ export function generateReceiptESCPOS(data: ReceiptData, options: ReceiptOptions
   push(BOLD_OFF, SIZE_NORMAL);
   if (data.restaurantPhone) line(`Tel: ${data.restaurantPhone}`);
   push(BOLD_ON);
-  line('RECIBO DE VENTA');
+  line(isPreBill ? 'CUENTA PARA REVISAR' : 'RECIBO DE VENTA');
   push(BOLD_OFF);
   push(ALIGN_LEFT, FONT_A, SIZE_NORMAL);
   const ts = data.timestamp ? new Date(data.timestamp) : new Date();
@@ -228,6 +229,11 @@ export function generateReceiptESCPOS(data: ReceiptData, options: ReceiptOptions
   push(ALIGN_CENTER, FONT_A, SIZE_WIDE, BOLD_ON);
   line(`TOTAL ${formatPrice(data.total, data)}`);
   push(BOLD_OFF, SIZE_NORMAL);
+  if (isPreBill) {
+    push(BOLD_ON);
+    line('NO PAGADO');
+    push(BOLD_OFF);
+  }
   line('');
 
   if (data.amountPaid !== undefined) {
@@ -254,8 +260,9 @@ export function generateReceiptESCPOS(data: ReceiptData, options: ReceiptOptions
   }
 
   push(ALIGN_CENTER, BOLD_ON);
-  line('Gracias por su compra');
+  line(isPreBill ? 'Revise antes de pagar' : 'Gracias por su compra');
   push(BOLD_OFF);
+  if (isPreBill) line('No es comprobante de pago');
   push(FONT_B);
   line('POS y menu digital:');
   line('eccofoodapp.com');

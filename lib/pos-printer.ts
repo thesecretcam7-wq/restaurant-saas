@@ -1107,6 +1107,8 @@ function printKitchenTicketViaBrowserAPI(data: KitchenTicketData): void {
  */
 function generateReceiptHTML(data: ReceiptData): string {
   const printedAt = data.timestamp ? new Date(data.timestamp) : new Date();
+  const isPreBill = data.receiptKind === 'prebill';
+  const receiptTitle = isPreBill ? 'CUENTA PARA REVISAR' : 'RECIBO DE VENTA';
   const locale = data.currencyInfo?.locale || 'es-ES';
   const money = (amount: number) => formatPriceWithCurrency(amount, data.currencyInfo.code, locale);
   const paymentLabel = getPaymentMethodLabel(data.paymentMethod);
@@ -1150,7 +1152,7 @@ function generateReceiptHTML(data: ReceiptData): string {
     <html>
     <head>
       <meta charset="UTF-8">
-      <title>Recibo ${safe(data.orderNumber)}</title>
+      <title>${isPreBill ? 'Cuenta' : 'Recibo'} ${safe(data.orderNumber)}</title>
       <style>
         @page {
           size: 80mm auto;
@@ -1279,6 +1281,14 @@ function generateReceiptHTML(data: ReceiptData): string {
           font-size: 18px;
           font-weight: 900;
         }
+        .unpaid-marker {
+          margin-top: 5px;
+          text-align: center;
+          font-size: 18px;
+          font-weight: 900;
+          border: 2px solid #000;
+          padding: 3px 0;
+        }
         .amount-row,
         .cash-row {
           margin-top: 8px;
@@ -1328,7 +1338,7 @@ function generateReceiptHTML(data: ReceiptData): string {
       <div class="receipt">
       <div class="header">${safe(data.restaurantName || 'Restaurante')}</div>
       ${data.restaurantPhone ? `<div class="meta-center">Tel: ${safe(data.restaurantPhone)}</div>` : ''}
-      <div class="title">RECIBO DE VENTA</div>
+      <div class="title">${receiptTitle}</div>
       <div class="meta-row"><span>Pedido:</span><strong>${safe(displayOrderNumber)}</strong></div>
       <div class="meta-row"><span>Fecha:</span><strong>${safe(receiptDate)}</strong></div>
       <div class="meta-row"><span>Hora:</span><strong>${safe(receiptTime)}</strong></div>
@@ -1361,7 +1371,7 @@ function generateReceiptHTML(data: ReceiptData): string {
       <div class="grand-total">
         <span class="total-word">Total</span>
         <span class="total-money">${money(data.total)}</span>
-        ${paymentLabel ? `<div class="sale-type">VENTA ${safe(paymentLabel).toUpperCase()}</div>` : ''}
+        ${isPreBill ? '<div class="unpaid-marker">NO PAGADO</div>' : paymentLabel ? `<div class="sale-type">VENTA ${safe(paymentLabel).toUpperCase()}</div>` : ''}
       </div>
       ${
         paymentBreakdownRows || data.amountPaid !== undefined
@@ -1372,8 +1382,9 @@ function generateReceiptHTML(data: ReceiptData): string {
           : ''
       }
       <div class="footer">
-        <p>Gracias por su compra</p>
-        <p>Estamos a su servicio</p>
+        ${isPreBill
+          ? '<p>Revise antes de pagar</p><p>No es comprobante de pago</p>'
+          : '<p>Gracias por su compra</p><p>Estamos a su servicio</p>'}
         <p class="powered-by">POS y menu digital: eccofoodapp.com</p>
       </div>
       </div>

@@ -737,6 +737,7 @@ export function POSTerminal({
   const [selectedTableId, setSelectedTableId] = useState<string | null>(null);
   const [selectedTableNumber, setSelectedTableNumber] = useState<number | null>(null);
   const [processingPayment, setProcessingPayment] = useState(false);
+  const [printingPreBill, setPrintingPreBill] = useState(false);
   const [sendingToTable, setSendingToTable] = useState(false);
   const [tableCartSaving, setTableCartSaving] = useState(false);
   const [isOnline, setIsOnline] = useState(true);
@@ -3584,6 +3585,78 @@ export function POSTerminal({
     processPaymentAfterReceipt(amountPaid, printReceipt);
   }
 
+  async function handlePrintPreBill() {
+    if (printingPreBill || processingPayment) return;
+
+    const itemsToPrint = splitBillMode && billingOrderIds.length > 0 ? splitPaymentItems : cart;
+    if (itemsToPrint.length === 0) {
+      setToast({
+        message: splitBillMode ? 'Selecciona productos para imprimir la cuenta dividida' : 'Agrega productos antes de imprimir la cuenta',
+        type: 'error',
+      });
+      return;
+    }
+
+    if (!hasRequiredDeliveryZone) {
+      setToast({ message: 'Selecciona el valor del domicilio antes de imprimir la cuenta', type: 'error' });
+      return;
+    }
+
+    try {
+      setPrintingPreBill(true);
+      const settings = await fetchReceiptPrinterSettings();
+      if (!settings?.default_receipt_printer_id) {
+        setToast({ message: 'No hay impresora de recibos configurada', type: 'error' });
+        return;
+      }
+
+      const orderLabel = splitBillMode && selectedTableNumber
+        ? `Cuenta Mesa ${selectedTableNumber} dividida`
+        : selectedTableNumber
+          ? `Cuenta Mesa ${selectedTableNumber}`
+          : loadedOrderContext?.orderNumber
+            ? `Cuenta ${loadedOrderContext.orderNumber}`
+            : 'Cuenta TPV';
+
+      await printReceipt(tenantId, settings.default_receipt_printer_id, {
+        orderId: loadedOrderId || billingOrderIds[0] || `prebill-${Date.now()}`,
+        orderNumber: orderLabel,
+        receiptKind: 'prebill',
+        restaurantName: settings.display_name || restaurantName,
+        restaurantPhone: settings.phone || restaurantPhone,
+        items: itemsToPrint.map((item) => ({
+          menu_item_id: item.menu_item_id,
+          name: item.name,
+          price: Number(item.price) || 0,
+          quantity: Number(item.quantity) || 0,
+        })),
+        subtotal: activeSubtotal,
+        discount: activeDiscount,
+        tax: taxAmount,
+        taxRate,
+        taxIncluded,
+        deliveryFee: splitBillMode ? 0 : cartDeliveryFee,
+        total,
+        change: 0,
+        paymentMethod: null,
+        currencyInfo,
+        timestamp: new Date().toISOString(),
+        waiterName: selectedStaffName || undefined,
+        tableNumber: selectedTableNumber || undefined,
+        openCashDrawer: false,
+      });
+
+      setToast({ message: 'Cuenta impresa para revisar', type: 'success' });
+    } catch (error) {
+      setToast({
+        message: `No se pudo imprimir la cuenta: ${error instanceof Error ? error.message : String(error)}`,
+        type: 'error',
+      });
+    } finally {
+      setPrintingPreBill(false);
+    }
+  }
+
   async function handleSendCartToTable(target?: { tableNumber?: number | null; items?: CartItem[] }) {
     if (sendToTableInFlightRef.current) return;
 
@@ -6265,6 +6338,23 @@ export function POSTerminal({
                         </span>
                       </label>
                     )}
+                    <button
+                      type="button"
+                      onClick={handlePrintPreBill}
+                      disabled={
+                        cart.length === 0 ||
+                        processingPayment ||
+                        printingPreBill ||
+                        (splitBillMode && splitPaymentItems.length === 0) ||
+                        !hasRequiredDeliveryZone ||
+                        tableCartSaving
+                      }
+                      className="mb-1.5 flex min-h-10 w-full items-center justify-center gap-2 rounded-xl border border-cyan-300/35 bg-cyan-400/14 px-3 py-2 text-sm font-black text-cyan-100 transition hover:border-cyan-200 hover:bg-cyan-400/24 disabled:cursor-not-allowed disabled:opacity-45"
+                      title="Imprimir cuenta para que el cliente revise antes de pagar"
+                    >
+                      <Printer className="h-4 w-4" />
+                      {printingPreBill ? 'Imprimiendo cuenta...' : 'Imprimir cuenta'}
+                    </button>
                     <POSPayment
                       key={paymentResetKey}
                       total={paymentBaseTotal}
