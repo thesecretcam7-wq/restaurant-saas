@@ -65,6 +65,7 @@ const POS_MENU_REFRESH_FALLBACK_MS = 300000;
 const POS_BOOTSTRAP_FAILURE_BACKOFF_MS = 60000;
 const POS_ORDERS_REFRESH_FALLBACK_MS = 45000;
 const POS_DINE_IN_MUTE_MS = 2 * 60 * 1000;
+const POS_DINE_IN_LOCAL_CLOSE_SUPPRESS_MS = 2 * 60 * 1000;
 const CSRF_REFRESH_SKEW_MS = 5 * 60 * 1000;
 
 declare global {
@@ -828,6 +829,7 @@ export function POSTerminal({
   const dineInOrdersFetchInFlightRef = useRef(false);
   const mutedDineInOrderIdsRef = useRef(new Set<string>());
   const mutedDineInTablesUntilRef = useRef(new Map<number, number>());
+  const locallyClosedDineInOrderIdsRef = useRef(new Map<string, number>());
   const autoPrintedReceiptIdsRef = useRef(new Map<string, number>());
   const notificationTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const csrfTokenRef = useRef<string>('');
@@ -2302,6 +2304,27 @@ export function POSTerminal({
     return false;
   }
 
+  function rememberLocallyClosedDineInOrders(orderIds: string[]) {
+    const uniqueOrderIds = [...new Set(orderIds.filter(Boolean))];
+    if (uniqueOrderIds.length === 0) return;
+
+    const expiresAt = Date.now() + POS_DINE_IN_LOCAL_CLOSE_SUPPRESS_MS;
+    uniqueOrderIds.forEach((orderId) => locallyClosedDineInOrderIdsRef.current.set(orderId, expiresAt));
+    const closedOrderIds = new Set(uniqueOrderIds);
+    setDineInOrders((current) => current.filter((order) => !closedOrderIds.has(order.id)));
+  }
+
+  function filterLocallyClosedDineInOrders(orders: DineInOrder[]) {
+    const now = Date.now();
+    const closedOrderIds = locallyClosedDineInOrderIdsRef.current;
+    closedOrderIds.forEach((expiresAt, orderId) => {
+      if (expiresAt <= now) closedOrderIds.delete(orderId);
+    });
+
+    if (closedOrderIds.size === 0) return orders;
+    return orders.filter((order) => !closedOrderIds.has(order.id));
+  }
+
   async function fetchDineInOrders(options: { notify?: boolean } = {}) {
     if (!isOnline || dineInOrdersFetchInFlightRef.current) return;
 
@@ -2319,13 +2342,36 @@ export function POSTerminal({
         .limit(60);
 
       if (!error && data) {
-        const mapped = (data as DineInOrder[]).filter((order) =>
-          (order.items || []).some((item) => getOrderItemQty(item) > 0)
+        const mapped = filterLocallyClosedDineInOrders(
+          (data as DineInOrder[]).filter((order) =>
+            (order.items || []).some((item) => getOrderItemQty(item) > 0)
+          )
         );
+        const tableSyncState = latestTableSyncStateRef.current;
+        const activeBillingOrderIds = new Set(tableSyncState.billingOrderIds);
+        const activeTableNumber = tableSyncState.selectedTableNumber;
+        const preserveActiveTable =
+          activeBillingOrderIds.size > 0 &&
+          activeTableNumber !== null &&
+          (tableCartSyncInFlightRef.current || Boolean(pendingTableCartSyncRef.current));
         const newOrders = mapped.filter((order) => !knownDineInOrderIds.current.has(order.id));
         const notifyOrders = newOrders.filter((order) => !isMutedLocalDineInOrder(order));
 
-        setDineInOrders(mapped);
+        setDineInOrders((current) => {
+          if (!preserveActiveTable) return mapped;
+
+          const optimisticOrderId = activeTableNumber !== null
+            ? optimisticTableOrderIdsRef.current.get(activeTableNumber)
+            : undefined;
+          const preservedActiveOrders = current.filter((order) =>
+            activeBillingOrderIds.has(order.id) || (optimisticOrderId ? order.id === optimisticOrderId : false)
+          );
+          const mappedOutsideActiveTable = mapped.filter((order) =>
+            !activeBillingOrderIds.has(order.id) && order.table_number !== activeTableNumber
+          );
+
+          return [...preservedActiveOrders, ...mappedOutsideActiveTable];
+        });
         mapped.forEach((order) => knownDineInOrderIds.current.add(order.id));
 
         if (options.notify && firstDineInFetchDone.current && notifyOrders.length > 0) {
@@ -2885,6 +2931,10 @@ export function POSTerminal({
           throw new Error(errorData.error || 'No se pudo guardar la mesa');
         }
       }
+
+      rememberLocallyClosedDineInOrders(
+        activeBillingOrderIds.filter((orderId) => !nextBillingOrderIds.includes(orderId))
+      );
 
       if (extraItems.length > 0) {
         if (!activeSelectedTableNumber) {
@@ -3974,6 +4024,7 @@ export function POSTerminal({
         );
         const remainingBillingOrderIds: string[] = [];
         const nextTableOrders: DineInOrder[] = [];
+        const closedSplitOrderIds: string[] = [];
 
         for (const orderId of billingOrderIds) {
           const tableOrder = dineInOrders.find((order) => order.id === orderId);
@@ -4031,6 +4082,8 @@ export function POSTerminal({
               tax: nextTax,
               total: nextTotal,
             } as DineInOrder);
+          } else {
+            closedSplitOrderIds.push(orderId);
           }
         }
 
@@ -4047,6 +4100,7 @@ export function POSTerminal({
         setBillingOrderIds(remainingBillingOrderIds);
         setSplitBillMode(false);
         setSplitSelections({});
+        rememberLocallyClosedDineInOrders(closedSplitOrderIds);
         keepSplitTableOpen = nextTableOrders.length > 0;
         splitRemainingOrders = nextTableOrders;
         void fetchDineInOrders();
@@ -4107,6 +4161,10 @@ export function POSTerminal({
             const errorData = await paidResponse.json().catch(() => ({}));
             throw new Error(errorData.error || 'No se pudo marcar la mesa como pagada');
           }
+        }
+        rememberLocallyClosedDineInOrders(paidTableOrderIds);
+        if (selectedTableNumber) {
+          optimisticTableOrderIdsRef.current.delete(selectedTableNumber);
         }
         receiptOrderId = paidTableOrderIds[0] || null;
         receiptOrderNumber = selectedTableNumber ? `Mesa ${selectedTableNumber}` : 'Cuenta salon';
@@ -6349,10 +6407,10 @@ export function POSTerminal({
                         !hasRequiredDeliveryZone ||
                         tableCartSaving
                       }
-                      className="mb-1.5 flex min-h-10 w-full items-center justify-center gap-2 rounded-xl border border-cyan-300/35 bg-cyan-400/14 px-3 py-2 text-sm font-black text-cyan-100 transition hover:border-cyan-200 hover:bg-cyan-400/24 disabled:cursor-not-allowed disabled:opacity-45"
+                      className="mb-1.5 ml-auto flex min-h-8 w-fit items-center justify-center gap-1.5 rounded-lg border border-cyan-300/25 bg-white/5 px-2.5 py-1.5 text-xs font-bold text-cyan-100/85 transition hover:border-cyan-200/55 hover:bg-cyan-400/12 hover:text-cyan-50 disabled:cursor-not-allowed disabled:opacity-45"
                       title="Imprimir cuenta para que el cliente revise antes de pagar"
                     >
-                      <Printer className="h-4 w-4" />
+                      <Printer className="h-3.5 w-3.5" />
                       {printingPreBill ? 'Imprimiendo cuenta...' : 'Imprimir cuenta'}
                     </button>
                     <POSPayment
