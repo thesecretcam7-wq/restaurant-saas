@@ -13,6 +13,16 @@ interface CashClosingData {
   totalSales: number;
   billPaymentsTotal: number;
   billPaymentsCount: number;
+  billPayments?: Array<{
+    id?: string;
+    supplier_name?: string | null;
+    concept?: string | null;
+    invoice_number?: string | null;
+    amount?: number | null;
+    staff_name?: string | null;
+    paid_at?: string | null;
+    notes?: string | null;
+  }>;
   totalDeliveryFees?: number;
   deliveryOrderCount?: number;
   totalTax: number;
@@ -60,6 +70,7 @@ export function CashClosingModal({
   const isDifferenceSignificant = Math.abs(difference) > 5;
   const isBusy = isSubmitting || isLoading;
   const isPendingClosing = mode === 'pending';
+  const billPayments = Array.isArray(data.billPayments) ? data.billPayments : [];
 
   const statCard =
     'rounded-2xl border border-slate-200 bg-white p-4 shadow-[0_10px_24px_rgba(15,23,42,0.06)]';
@@ -171,6 +182,48 @@ export function CashClosingModal({
                       -{formatPriceWithCurrency(data.billPaymentsTotal || 0, currencyInfo.code, currencyInfo.locale)}
                     </p>
                   </div>
+                  {billPayments.length > 0 && (
+                    <div className="mt-4 overflow-hidden rounded-2xl border border-red-200 bg-white">
+                      <div className="border-b border-red-100 px-4 py-3">
+                        <p className="text-xs font-black uppercase tracking-[0.16em] text-red-700">
+                          Detalle de facturas pagadas
+                        </p>
+                      </div>
+                      <div className="max-h-64 divide-y divide-red-100 overflow-y-auto">
+                        {billPayments.map((payment, index) => {
+                          const paidAt = payment.paid_at ? new Date(payment.paid_at) : null;
+                          const validPaidAt = paidAt && !Number.isNaN(paidAt.getTime());
+                          const title = payment.supplier_name || payment.concept || 'Factura pagada';
+                          const detail = [payment.invoice_number, payment.concept].filter(Boolean).join(' - ');
+
+                          return (
+                            <div key={payment.id || `${title}-${index}`} className="grid gap-2 px-4 py-3 sm:grid-cols-[1fr_auto] sm:items-start">
+                              <div className="min-w-0">
+                                <p className="break-words text-sm font-black text-slate-950">{title}</p>
+                                {detail && (
+                                  <p className="mt-1 break-words text-xs font-bold text-slate-600">{detail}</p>
+                                )}
+                                <p className="mt-1 text-xs font-semibold text-slate-500">
+                                  {validPaidAt
+                                    ? paidAt.toLocaleString('es-ES', { dateStyle: 'short', timeStyle: 'short' })
+                                    : 'Sin hora'}{' '}
+                                  {payment.staff_name ? `- ${payment.staff_name}` : ''}
+                                </p>
+                                {payment.notes && (
+                                  <p className="mt-2 break-words rounded-xl bg-red-50 px-3 py-2 text-xs font-semibold text-slate-600">
+                                    {payment.notes}
+                                  </p>
+                                )}
+                              </div>
+                              <p className="text-right text-base font-black text-red-800">
+                                -{formatPriceWithCurrency(Number(payment.amount) || 0, currencyInfo.code, currencyInfo.locale)}
+                              </p>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
               <div className="rounded-2xl border border-orange-200 bg-orange-50 p-4 sm:col-span-2">
