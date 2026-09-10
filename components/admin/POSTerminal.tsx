@@ -4672,6 +4672,13 @@ export function POSTerminal({
   const editedReceiptDifference = editingPaidReceipt
     ? Math.round((editedReceiptTotal - Number(loadedOrderContext?.originalTotal || 0)) * 100) / 100
     : 0;
+  const preBillDisabled =
+    cart.length === 0 ||
+    processingPayment ||
+    printingPreBill ||
+    (splitBillMode && splitPaymentItems.length === 0) ||
+    !hasRequiredDeliveryZone ||
+    tableCartSaving;
 
   const tableGroups = useMemo((): TableGroup[] => {
     const groups = new Map<number, DineInOrder[]>();
@@ -5825,6 +5832,19 @@ export function POSTerminal({
               </div>
               <span className="text-[10px] font-bold">Salón</span>
             </button>
+            {!editingPaidReceipt && (
+              <button
+                type="button"
+                onClick={handlePrintPreBill}
+                disabled={preBillDisabled}
+                className="flex w-14 shrink-0 flex-col items-center justify-center gap-0.5 border-l border-white/10 px-1.5 py-2 text-cyan-100/85 transition hover:bg-cyan-400/12 hover:text-cyan-50 disabled:cursor-not-allowed disabled:opacity-40"
+                title="Imprimir cuenta para que el cliente revise antes de pagar"
+                aria-label={printingPreBill ? 'Imprimiendo cuenta' : 'Imprimir cuenta'}
+              >
+                <Printer className={`h-4 w-4 ${printingPreBill ? 'animate-pulse' : ''}`} />
+                <span className="text-[10px] font-bold leading-none">Cuenta</span>
+              </button>
+            )}
           </div>
 
           {/* Mesas / Dine-in Panel */}
@@ -6396,23 +6416,6 @@ export function POSTerminal({
                         </span>
                       </label>
                     )}
-                    <button
-                      type="button"
-                      onClick={handlePrintPreBill}
-                      disabled={
-                        cart.length === 0 ||
-                        processingPayment ||
-                        printingPreBill ||
-                        (splitBillMode && splitPaymentItems.length === 0) ||
-                        !hasRequiredDeliveryZone ||
-                        tableCartSaving
-                      }
-                      className="mb-1.5 ml-auto flex min-h-8 w-fit items-center justify-center gap-1.5 rounded-lg border border-cyan-300/25 bg-white/5 px-2.5 py-1.5 text-xs font-bold text-cyan-100/85 transition hover:border-cyan-200/55 hover:bg-cyan-400/12 hover:text-cyan-50 disabled:cursor-not-allowed disabled:opacity-45"
-                      title="Imprimir cuenta para que el cliente revise antes de pagar"
-                    >
-                      <Printer className="h-3.5 w-3.5" />
-                      {printingPreBill ? 'Imprimiendo cuenta...' : 'Imprimir cuenta'}
-                    </button>
                     <POSPayment
                       key={paymentResetKey}
                       total={paymentBaseTotal}
