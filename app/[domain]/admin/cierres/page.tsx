@@ -73,6 +73,15 @@ interface MonthlyDailySale {
   total: number
 }
 
+interface MonthlyBillPayment {
+  supplier_name?: string | null
+  concept?: string | null
+  invoice_number?: string | null
+  amount: number
+  paid_at?: string | null
+  payment_method?: string | null
+}
+
 interface MonthlyPeakHour {
   hour: number
   label: string
@@ -92,6 +101,13 @@ interface MonthlyReportDetails {
   paymentBreakdown: MonthlyPaymentBreakdown[]
   orderTypeBreakdown: MonthlyOrderTypeBreakdown[]
   dailySales: MonthlyDailySale[]
+  billPaymentsTotal: number
+  billPaymentsCashTotal: number
+  billPaymentsExternalTotal: number
+  billPaymentsCount: number
+  netSalesAfterBillPayments: number
+  netCashAfterBillPayments: number
+  billPayments: MonthlyBillPayment[]
 }
 
 interface MonthlyStats extends MonthlyReportDetails {
@@ -150,6 +166,21 @@ function chunkArray<T>(values: T[], size: number) {
 }
 
 function normalizeMonthlyReportDetails(details: Partial<MonthlyReportDetails> | null | undefined): MonthlyReportDetails {
+  const billPaymentsTotal = Number(details?.billPaymentsTotal) || 0
+  const billPaymentsCashTotal = Number(details?.billPaymentsCashTotal) || 0
+  const netSalesAfterBillPayments = Number(details?.netSalesAfterBillPayments)
+  const netCashAfterBillPayments = Number(details?.netCashAfterBillPayments)
+  const billPayments = Array.isArray(details?.billPayments)
+    ? details.billPayments.map(payment => ({
+        supplier_name: payment.supplier_name,
+        concept: payment.concept,
+        invoice_number: payment.invoice_number,
+        amount: Number(payment.amount) || 0,
+        paid_at: payment.paid_at,
+        payment_method: payment.payment_method,
+      }))
+    : []
+
   return {
     totalItemsSold: Number(details?.totalItemsSold) || 0,
     averageTicket: Number(details?.averageTicket) || 0,
@@ -162,6 +193,13 @@ function normalizeMonthlyReportDetails(details: Partial<MonthlyReportDetails> | 
     paymentBreakdown: Array.isArray(details?.paymentBreakdown) ? details.paymentBreakdown : [],
     orderTypeBreakdown: Array.isArray(details?.orderTypeBreakdown) ? details.orderTypeBreakdown : [],
     dailySales: Array.isArray(details?.dailySales) ? details.dailySales : [],
+    billPaymentsTotal,
+    billPaymentsCashTotal,
+    billPaymentsExternalTotal: Number(details?.billPaymentsExternalTotal) || 0,
+    billPaymentsCount: Number(details?.billPaymentsCount) || billPayments.length,
+    netSalesAfterBillPayments: Number.isFinite(netSalesAfterBillPayments) ? netSalesAfterBillPayments : -billPaymentsTotal,
+    netCashAfterBillPayments: Number.isFinite(netCashAfterBillPayments) ? netCashAfterBillPayments : -billPaymentsCashTotal,
+    billPayments,
   }
 }
 
@@ -534,16 +572,20 @@ export default function CashClosingsPage() {
   function monthlyClosingToStats(closing: MonthlyClosing): MonthlyStats {
     const monthDate = new Date(Date.UTC(closing.period_year, closing.period_month - 1, 1, 12, 0, 0))
     const details = normalizeMonthlyReportDetails(closing.report_details)
+    const cashSales = Number(closing.cash_sales) || 0
+    const totalSales = Number(closing.total_sales) || 0
+    const hasSavedNetSales = Boolean(closing.report_details && 'netSalesAfterBillPayments' in closing.report_details)
+    const hasSavedNetCash = Boolean(closing.report_details && 'netCashAfterBillPayments' in closing.report_details)
     return {
       periodYear: closing.period_year,
       periodMonth: closing.period_month,
       monthLabel: monthDate.toLocaleDateString(currencyInfo.locale, { month: 'long', year: 'numeric' }),
       periodStart: closing.period_start,
       periodEnd: closing.period_end,
-      cashSales: Number(closing.cash_sales) || 0,
+      cashSales,
       cardSales: Number(closing.card_sales) || 0,
       otherSales: Number(closing.other_sales) || 0,
-      totalSales: Number(closing.total_sales) || 0,
+      totalSales,
       totalDeliveryFees: Number(closing.total_delivery_fees) || 0,
       deliveryOrderCount: Number(closing.delivery_order_count) || 0,
       totalTax: Number(closing.total_tax) || 0,
@@ -552,6 +594,8 @@ export default function CashClosingsPage() {
       ordersCompleted: Number(closing.orders_completed) || 0,
       ordersCancelled: Number(closing.orders_cancelled) || 0,
       ...details,
+      netSalesAfterBillPayments: hasSavedNetSales ? details.netSalesAfterBillPayments : totalSales - details.billPaymentsTotal,
+      netCashAfterBillPayments: hasSavedNetCash ? details.netCashAfterBillPayments : cashSales - details.billPaymentsCashTotal,
     }
   }
 
@@ -609,6 +653,13 @@ export default function CashClosingsPage() {
         cardSales: stats.cardSales,
         otherSales: stats.otherSales,
         totalSales: stats.totalSales,
+        billPaymentsTotal: stats.billPaymentsTotal,
+        billPaymentsCashTotal: stats.billPaymentsCashTotal,
+        billPaymentsExternalTotal: stats.billPaymentsExternalTotal,
+        billPaymentsCount: stats.billPaymentsCount,
+        netSalesAfterBillPayments: stats.netSalesAfterBillPayments,
+        netCashAfterBillPayments: stats.netCashAfterBillPayments,
+        billPayments: stats.billPayments,
         totalDeliveryFees: stats.totalDeliveryFees,
         deliveryOrderCount: stats.deliveryOrderCount,
         totalTax: stats.totalTax,
@@ -941,10 +992,12 @@ export default function CashClosingsPage() {
 
         {monthlyStats ? (
           <div className="p-5">
-            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-6">
+            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
               {[
                 ['Mes', monthlyStats.monthLabel],
                 ['Total ventas', formatPriceWithCurrency(monthlyStats.totalSales, currencyInfo.code, currencyInfo.locale)],
+                ['Facturas pagadas', `${formatPriceWithCurrency(monthlyStats.billPaymentsTotal, currencyInfo.code, currencyInfo.locale)} (${monthlyStats.billPaymentsCount})`],
+                ['Queda', formatPriceWithCurrency(monthlyStats.netSalesAfterBillPayments, currencyInfo.code, currencyInfo.locale)],
                 ['Transacciones', monthlyStats.transactionCount.toString()],
                 ['Unidades', formatQuantity(monthlyStats.totalItemsSold)],
                 ['Ticket prom.', formatPriceWithCurrency(monthlyStats.averageTicket, currencyInfo.code, currencyInfo.locale)],
@@ -965,6 +1018,11 @@ export default function CashClosingsPage() {
                     ['Efectivo', formatPriceWithCurrency(monthlyStats.cashSales, currencyInfo.code, currencyInfo.locale)],
                     ['Tarjeta', formatPriceWithCurrency(monthlyStats.cardSales, currencyInfo.code, currencyInfo.locale)],
                     ['Otros', formatPriceWithCurrency(monthlyStats.otherSales, currencyInfo.code, currencyInfo.locale)],
+                    ['Facturas caja', formatPriceWithCurrency(monthlyStats.billPaymentsCashTotal, currencyInfo.code, currencyInfo.locale)],
+                    ['Facturas aparte', formatPriceWithCurrency(monthlyStats.billPaymentsExternalTotal, currencyInfo.code, currencyInfo.locale)],
+                    ['Total facturas', `${formatPriceWithCurrency(monthlyStats.billPaymentsTotal, currencyInfo.code, currencyInfo.locale)} (${monthlyStats.billPaymentsCount})`],
+                    ['Queda efectivo', formatPriceWithCurrency(monthlyStats.netCashAfterBillPayments, currencyInfo.code, currencyInfo.locale)],
+                    ['Queda despues facturas', formatPriceWithCurrency(monthlyStats.netSalesAfterBillPayments, currencyInfo.code, currencyInfo.locale)],
                     ['Impuestos', formatPriceWithCurrency(monthlyStats.totalTax, currencyInfo.code, currencyInfo.locale)],
                     ['Pedidos cobrados', monthlyStats.ordersCompleted.toString()],
                     ['Pedidos domicilio', monthlyStats.deliveryOrderCount.toString()],
@@ -1065,6 +1123,71 @@ export default function CashClosingsPage() {
             <div className="mt-4 rounded-xl border border-black/10 bg-white/70 p-4">
               <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
                 <div>
+                  <h3 className="font-black text-[#15130f]">Facturas pagadas</h3>
+                  <p className="mt-1 text-sm font-semibold text-black/55">
+                    Incluye las facturas descontadas de caja y las pagadas por aparte dentro del mes.
+                  </p>
+                </div>
+                <p className="text-sm font-black text-[#15130f]">
+                  Queda {formatPriceWithCurrency(monthlyStats.netSalesAfterBillPayments, currencyInfo.code, currencyInfo.locale)}
+                </p>
+              </div>
+
+              <div className="mt-4 grid gap-3 sm:grid-cols-4">
+                {[
+                  ['Caja', formatPriceWithCurrency(monthlyStats.billPaymentsCashTotal, currencyInfo.code, currencyInfo.locale)],
+                  ['Por aparte', formatPriceWithCurrency(monthlyStats.billPaymentsExternalTotal, currencyInfo.code, currencyInfo.locale)],
+                  ['Total facturas', formatPriceWithCurrency(monthlyStats.billPaymentsTotal, currencyInfo.code, currencyInfo.locale)],
+                  ['Queda efectivo', formatPriceWithCurrency(monthlyStats.netCashAfterBillPayments, currencyInfo.code, currencyInfo.locale)],
+                ].map(([label, value]) => (
+                  <div key={label} className="rounded-xl border border-black/8 bg-white/65 p-3">
+                    <p className="text-xs font-black uppercase text-black/42">{label}</p>
+                    <p className="mt-2 text-lg font-black text-[#15130f]">{value}</p>
+                  </div>
+                ))}
+              </div>
+
+              {monthlyStats.billPayments.length > 0 ? (
+                <div className="mt-4 max-h-64 overflow-y-auto rounded-xl border border-black/8">
+                  <table className="w-full text-sm">
+                    <thead className="sticky top-0 bg-white">
+                      <tr>
+                        <th className="px-4 py-3 text-left">Factura</th>
+                        <th className="px-4 py-3 text-left">Metodo</th>
+                        <th className="px-4 py-3 text-right">Importe</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-black/8">
+                      {monthlyStats.billPayments.map((payment, index) => {
+                        const methodLabel = String(payment.payment_method || 'cash').toLowerCase() === 'external'
+                          ? 'Por aparte'
+                          : 'Caja'
+                        return (
+                          <tr key={`${payment.paid_at || index}-${payment.supplier_name || payment.concept || index}`}>
+                            <td className="px-4 py-3">
+                              <p className="font-black text-[#15130f]">{payment.supplier_name || payment.concept || payment.invoice_number || 'Factura'}</p>
+                              {(payment.invoice_number || payment.concept) && (
+                                <p className="mt-1 text-xs font-bold text-black/45">{payment.invoice_number || payment.concept}</p>
+                              )}
+                            </td>
+                            <td className="px-4 py-3 font-bold text-black/58">{methodLabel}</td>
+                            <td className="px-4 py-3 text-right font-black text-[#15130f]">
+                              {formatPriceWithCurrency(Number(payment.amount) || 0, currencyInfo.code, currencyInfo.locale)}
+                            </td>
+                          </tr>
+                        )
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <div className="admin-empty mt-4">No hay facturas pagadas en este mes.</div>
+              )}
+            </div>
+
+            <div className="mt-4 rounded-xl border border-black/10 bg-white/70 p-4">
+              <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
+                <div>
                   <h3 className="font-black text-[#15130f]">Productos vendidos</h3>
                   <p className="mt-1 text-sm font-semibold text-black/55">
                     Cada producto vendido en el mes con unidades, pedidos donde aparecio y valor generado.
@@ -1111,7 +1234,9 @@ export default function CashClosingsPage() {
                       <th className="px-4 py-3 text-left">Mes cerrado</th>
                       <th className="px-4 py-3 text-left">Responsable</th>
                       <th className="px-4 py-3 text-right">Domicilios</th>
+                      <th className="px-4 py-3 text-right">Facturas</th>
                       <th className="px-4 py-3 text-right">Total</th>
+                      <th className="px-4 py-3 text-right">Queda</th>
                       <th className="px-4 py-3 text-right">Accion</th>
                     </tr>
                   </thead>
@@ -1123,7 +1248,9 @@ export default function CashClosingsPage() {
                           <td className="px-4 py-3 font-black text-[#15130f]">{stats.monthLabel}</td>
                           <td className="px-4 py-3 font-bold text-black/58">{closing.staff_name}</td>
                           <td className="px-4 py-3 text-right font-bold text-black/58">{formatPriceWithCurrency(stats.totalDeliveryFees, currencyInfo.code, currencyInfo.locale)} ({stats.deliveryOrderCount})</td>
+                          <td className="px-4 py-3 text-right font-bold text-black/58">{formatPriceWithCurrency(stats.billPaymentsTotal, currencyInfo.code, currencyInfo.locale)} ({stats.billPaymentsCount})</td>
                           <td className="px-4 py-3 text-right font-black text-[#15130f]">{formatPriceWithCurrency(Number(closing.total_sales) || 0, currencyInfo.code, currencyInfo.locale)}</td>
+                          <td className="px-4 py-3 text-right font-black text-[#15130f]">{formatPriceWithCurrency(stats.netSalesAfterBillPayments, currencyInfo.code, currencyInfo.locale)}</td>
                           <td className="px-4 py-3 text-right">
                             <button
                               onClick={() => handlePrintMonthlyClosing(stats, closing)}

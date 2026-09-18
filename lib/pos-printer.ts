@@ -926,6 +926,25 @@ function printMonthlyClosingViaBrowserAPI(data: MonthlyClosingReceiptData): void
       items.map((item) => `
         <div class="line"><span>${safe(item.label)} (${safe(item.count)})</span><strong>${money(item.total)}</strong></div>
       `).join('');
+    const billPaymentsTotal = Number(data.billPaymentsTotal) || 0;
+    const billPaymentsCashTotal = Number(data.billPaymentsCashTotal) || 0;
+    const billPaymentsExternalTotal = Number(data.billPaymentsExternalTotal) || 0;
+    const netSalesAfterBillPayments = data.netSalesAfterBillPayments ?? (data.totalSales - billPaymentsTotal);
+    const netCashAfterBillPayments = data.netCashAfterBillPayments ?? (data.cashSales - billPaymentsCashTotal);
+    const billRows = (data.billPayments || []).map((payment) => {
+      const supplier = payment.supplier_name || payment.concept || payment.invoice_number || 'Factura';
+      const method = String(payment.payment_method || 'cash').toLowerCase() === 'external' ? 'Aparte' : 'Caja';
+      const detail = payment.invoice_number || payment.concept || method;
+      return `
+        <div class="bill">
+          <div>
+            <strong>${safe(supplier)}</strong>
+            <small>${safe(detail)}</small>
+          </div>
+          <strong>-${money(Number(payment.amount) || 0)}</strong>
+        </div>
+      `;
+    }).join('');
     const productRows = (data.productSales || []).map((product) => `
       <tr>
         <td>${safe(product.name)}</td>
@@ -945,6 +964,9 @@ function printMonthlyClosingViaBrowserAPI(data: MonthlyClosingReceiptData): void
             h3{font-size:13px;margin:14px 0 6px;border-top:1px solid #111;padding-top:8px}
             .meta{text-align:center;font-size:12px;color:#555;margin-bottom:12px}
             .line{display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px dashed #ddd;font-size:13px}
+            .bill{display:flex;justify-content:space-between;gap:8px;padding:5px 0;border-bottom:1px dashed #ddd;font-size:12px}
+            .bill div{min-width:0}
+            .bill small{display:block;color:#555;margin-top:2px}
             .total{font-size:16px;font-weight:800;border-top:2px solid #111;margin-top:8px;padding-top:8px}
             table{width:100%;border-collapse:collapse;font-size:11px}
             th,td{border-bottom:1px dashed #ddd;padding:4px 0;vertical-align:top}
@@ -965,11 +987,17 @@ function printMonthlyClosingViaBrowserAPI(data: MonthlyClosingReceiptData): void
             <div class="line"><span>Efectivo</span><strong>${money(data.cashSales)}</strong></div>
             <div class="line"><span>Tarjeta</span><strong>${money(data.cardSales)}</strong></div>
             <div class="line"><span>Otros</span><strong>${money(data.otherSales)}</strong></div>
+            ${billPaymentsTotal > 0 ? `<div class="line"><span>Facturas pagadas</span><strong>-${money(billPaymentsTotal)}</strong></div>` : ''}
+            ${billPaymentsCashTotal > 0 ? `<div class="line"><span>Facturas caja</span><strong>-${money(billPaymentsCashTotal)}</strong></div>` : ''}
+            ${billPaymentsExternalTotal > 0 ? `<div class="line"><span>Facturas aparte</span><strong>-${money(billPaymentsExternalTotal)}</strong></div>` : ''}
             <div class="line"><span>Valor domicilios</span><strong>${money(data.totalDeliveryFees || 0)}</strong></div>
             <div class="line"><span>Numero domicilios</span><strong>${data.deliveryOrderCount || 0}</strong></div>
             <div class="line"><span>Impuestos</span><strong>${money(data.totalTax)}</strong></div>
             <div class="line"><span>Transacciones</span><strong>${data.transactionCount}</strong></div>
             <div class="line total"><span>Total mes</span><strong>${money(data.totalSales)}</strong></div>
+            ${billPaymentsTotal > 0 ? `<div class="line total"><span>Queda caja</span><strong>${money(netCashAfterBillPayments)}</strong></div>` : ''}
+            ${billPaymentsTotal > 0 ? `<div class="line total"><span>Queda total</span><strong>${money(netSalesAfterBillPayments)}</strong></div>` : ''}
+            ${billRows ? `<h3>Facturas pagadas</h3>${billRows}` : ''}
             <h3>Indicadores</h3>
             <div class="line"><span>Ticket promedio</span><strong>${money(data.averageTicket || 0)}</strong></div>
             <div class="line"><span>Unidades vendidas</span><strong>${safe(qty(data.totalItemsSold))}</strong></div>

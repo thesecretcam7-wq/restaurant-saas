@@ -14,6 +14,15 @@ const COUNTRY_TIMEZONE: Record<string, string> = {
 
 const MONTHLY_ORDERS_PAGE_SIZE = 1000;
 
+type MonthlyBillPayment = {
+  supplier_name?: string | null;
+  concept?: string | null;
+  invoice_number?: string | null;
+  amount: number;
+  paid_at?: string | null;
+  payment_method?: string | null;
+};
+
 function getZonedParts(date: Date, timeZone: string) {
   const parts = new Intl.DateTimeFormat('en-US', {
     timeZone,
@@ -104,6 +113,70 @@ async function fetchMonthlyOrders(
   }
 
   return { data: rows, error: null };
+}
+
+async function fetchMonthlyBillPayments(
+  supabase: ReturnType<typeof createServiceClient>,
+  tenantId: string,
+  bounds: { start: string; end: string }
+) {
+  const { data, error } = await supabase
+    .from('cash_bill_payments')
+    .select('supplier_name, concept, invoice_number, amount, paid_at, payment_method')
+    .eq('tenant_id', tenantId)
+    .eq('status', 'active')
+    .gte('paid_at', bounds.start)
+    .lt('paid_at', bounds.end)
+    .order('paid_at', { ascending: true })
+    .limit(2000);
+
+  if (error) {
+    const text = `${error.message || ''} ${error.details || ''} ${error.hint || ''}`;
+    if (text.includes('cash_bill_payments') || error.code === '42P01' || error.code === 'PGRST205') {
+      return { data: [] as MonthlyBillPayment[], error: null };
+    }
+    return { data: null, error };
+  }
+
+  const payments = (data || []).map((payment) => ({
+    supplier_name: payment.supplier_name,
+    concept: payment.concept,
+    invoice_number: payment.invoice_number,
+    amount: Number(payment.amount) || 0,
+    paid_at: payment.paid_at,
+    payment_method: payment.payment_method,
+  }));
+
+  return { data: payments, error: null };
+}
+
+function applyMonthlyBillPaymentStats<T extends {
+  cashSales: number;
+  totalSales: number;
+  billPaymentsTotal: number;
+  billPaymentsCashTotal: number;
+  billPaymentsExternalTotal: number;
+  billPaymentsCount: number;
+  netSalesAfterBillPayments: number;
+  netCashAfterBillPayments: number;
+  billPayments: MonthlyBillPayment[];
+}>(stats: T, billPayments: MonthlyBillPayment[]) {
+  billPayments.forEach((payment) => {
+    const amount = Number(payment.amount) || 0;
+    const method = String(payment.payment_method || 'cash').toLowerCase();
+    stats.billPaymentsTotal += amount;
+    stats.billPaymentsCount += 1;
+    if (method === 'external') {
+      stats.billPaymentsExternalTotal += amount;
+    } else {
+      stats.billPaymentsCashTotal += amount;
+    }
+  });
+
+  stats.netSalesAfterBillPayments = stats.totalSales - stats.billPaymentsTotal;
+  stats.netCashAfterBillPayments = stats.cashSales - stats.billPaymentsCashTotal;
+  stats.billPayments = billPayments;
+  return stats;
 }
 
 function localDateKey(dateValue: string | null | undefined, timeZone: string) {
@@ -204,6 +277,12 @@ function statsFromOrders(args: {
     totalSales: 0,
     totalDeliveryFees: 0,
     deliveryOrderCount: 0,
+    billPaymentsTotal: 0,
+    billPaymentsCashTotal: 0,
+    billPaymentsExternalTotal: 0,
+    billPaymentsCount: 0,
+    netSalesAfterBillPayments: 0,
+    netCashAfterBillPayments: 0,
     totalTax: 0,
     totalDiscount: 0,
     transactionCount: countableOrders.length,
@@ -226,6 +305,7 @@ function statsFromOrders(args: {
     paymentBreakdown: [] as Array<{ method: string; label: string; count: number; total: number }>,
     orderTypeBreakdown: [] as Array<{ type: string; label: string; count: number; total: number }>,
     dailySales: [] as Array<{ date: string; orders: number; total: number }>,
+    billPayments: [] as MonthlyBillPayment[],
   };
 
   args.orders.forEach((order) => {
@@ -375,25 +455,36 @@ async function getMonthlyStats(tenantId: string, monthParam: string | null) {
   const locale = country === 'CO' ? 'es-CO' : country === 'MX' ? 'es-MX' : 'es-ES';
   const bounds = monthBounds(parsedMonth.year, parsedMonth.month, timeZone);
 
-  const { data: orders, error: ordersError } = await fetchMonthlyOrders(supabase, tenantId, bounds);
+  const [
+    { data: orders, error: ordersError },
+    { data: billPayments, error: billPaymentsError },
+  ] = await Promise.all([
+    fetchMonthlyOrders(supabase, tenantId, bounds),
+    fetchMonthlyBillPayments(supabase, tenantId, bounds),
+  ]);
 
   if (ordersError) {
     return { error: NextResponse.json({ error: ordersError.message }, { status: 500 }) };
   }
+  if (billPaymentsError) {
+    return { error: NextResponse.json({ error: billPaymentsError.message }, { status: 500 }) };
+  }
+
+  const stats = statsFromOrders({
+    orders: orders || [],
+    year: parsedMonth.year,
+    month: parsedMonth.month,
+    periodStart: bounds.start,
+    periodEnd: bounds.end,
+    locale,
+    timeZone,
+  });
 
   return {
     supabase,
     settings,
     locale,
-    stats: statsFromOrders({
-      orders: orders || [],
-      year: parsedMonth.year,
-      month: parsedMonth.month,
-      periodStart: bounds.start,
-      periodEnd: bounds.end,
-      locale,
-      timeZone,
-    }),
+    stats: applyMonthlyBillPaymentStats(stats, billPayments || []),
   };
 }
 
@@ -490,6 +581,13 @@ export async function POST(request: NextRequest) {
         paymentBreakdown: result.stats.paymentBreakdown,
         orderTypeBreakdown: result.stats.orderTypeBreakdown,
         dailySales: result.stats.dailySales,
+        billPaymentsTotal: result.stats.billPaymentsTotal,
+        billPaymentsCashTotal: result.stats.billPaymentsCashTotal,
+        billPaymentsExternalTotal: result.stats.billPaymentsExternalTotal,
+        billPaymentsCount: result.stats.billPaymentsCount,
+        netSalesAfterBillPayments: result.stats.netSalesAfterBillPayments,
+        netCashAfterBillPayments: result.stats.netCashAfterBillPayments,
+        billPayments: result.stats.billPayments,
       },
       notes: notes ? String(notes) : null,
       closed_at: new Date().toISOString(),

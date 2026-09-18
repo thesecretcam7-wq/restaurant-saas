@@ -521,6 +521,11 @@ export function generateMonthlyClosingReceiptESCPOS(
     const numberValue = Number(value) || 0;
     return Number.isInteger(numberValue) ? String(numberValue) : numberValue.toFixed(2);
   };
+  const billPaymentsTotal = Number(data.billPaymentsTotal) || 0;
+  const billPaymentsCashTotal = Number(data.billPaymentsCashTotal) || 0;
+  const billPaymentsExternalTotal = Number(data.billPaymentsExternalTotal) || 0;
+  const netSalesAfterBillPayments = data.netSalesAfterBillPayments ?? (data.totalSales - billPaymentsTotal);
+  const netCashAfterBillPayments = data.netCashAfterBillPayments ?? (data.cashSales - billPaymentsCashTotal);
   const ts = data.closedAt ? new Date(data.closedAt) : new Date();
   const periodStart = new Date(data.periodStart);
   const periodEnd = new Date(data.periodEnd);
@@ -548,6 +553,11 @@ export function generateMonthlyClosingReceiptESCPOS(
   row('Efectivo:', money(data.cashSales));
   row('Tarjeta:', money(data.cardSales));
   if (data.otherSales > 0) row('Otros:', money(data.otherSales));
+  if (billPaymentsTotal > 0) {
+    row('Facturas pag.:', `-${money(billPaymentsTotal)}`);
+    if (billPaymentsCashTotal > 0) row('Facturas caja:', `-${money(billPaymentsCashTotal)}`);
+    if (billPaymentsExternalTotal > 0) row('Fact. aparte:', `-${money(billPaymentsExternalTotal)}`);
+  }
   pairRow('Dom:', money(data.totalDeliveryFees || 0), 'Cant:', String(data.deliveryOrderCount || 0));
   if (data.totalTax > 0) row('Impuestos:', money(data.totalTax));
   if (data.totalDiscount > 0) row('Descuentos:', money(data.totalDiscount));
@@ -556,7 +566,24 @@ export function generateMonthlyClosingReceiptESCPOS(
   sep();
   push(BOLD_ON);
   row('TOTAL:', money(data.totalSales));
+  if (billPaymentsTotal > 0) {
+    row('QUEDA CAJA:', money(netCashAfterBillPayments));
+    row('QUEDA TOTAL:', money(netSalesAfterBillPayments));
+  }
   push(BOLD_OFF, SIZE_NORMAL);
+
+  if (data.billPayments?.length) {
+    sep();
+    push(BOLD_ON);
+    line('FACTURAS PAGADAS');
+    push(BOLD_OFF);
+    data.billPayments.forEach((payment) => {
+      const supplier = payment.supplier_name || payment.concept || payment.invoice_number || 'Factura';
+      const method = String(payment.payment_method || 'cash').toLowerCase() === 'external' ? 'aparte' : 'caja';
+      line(supplier.substring(0, cols));
+      row(method, `-${money(Number(payment.amount) || 0)}`);
+    });
+  }
 
   sep();
   push(BOLD_ON);

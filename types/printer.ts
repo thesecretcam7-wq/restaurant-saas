@@ -137,6 +137,20 @@ export interface MonthlyClosingReceiptData {
   cardSales: number;
   otherSales: number;
   totalSales: number;
+  billPaymentsTotal?: number;
+  billPaymentsCashTotal?: number;
+  billPaymentsExternalTotal?: number;
+  billPaymentsCount?: number;
+  netSalesAfterBillPayments?: number;
+  netCashAfterBillPayments?: number;
+  billPayments?: Array<{
+    supplier_name?: string | null;
+    concept?: string | null;
+    invoice_number?: string | null;
+    amount: number;
+    paid_at?: string | null;
+    payment_method?: string | null;
+  }>;
   totalDeliveryFees?: number;
   deliveryOrderCount?: number;
   totalTax: number;
