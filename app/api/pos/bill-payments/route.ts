@@ -3,6 +3,8 @@ import { createServiceClient } from '@/lib/supabase/server';
 import { requireTenantAccess, tenantAuthErrorResponse } from '@/lib/tenant-api-auth';
 import { getCurrentCashClosingPeriodWithServiceClient } from '@/lib/cash-closing-server';
 
+type BillPaymentMethod = 'cash' | 'external';
+
 function cleanText(value: unknown, fallback = '') {
   const text = typeof value === 'string' ? value.trim() : '';
   return text || fallback;
@@ -11,6 +13,15 @@ function cleanText(value: unknown, fallback = '') {
 function isMissingBillPaymentsTable(error: any) {
   const text = `${error?.message || ''} ${error?.details || ''} ${error?.hint || ''}`;
   return text.includes('cash_bill_payments') || error?.code === '42P01' || error?.code === 'PGRST205';
+}
+
+function isPaymentMethodConstraintError(error: any) {
+  const text = `${error?.message || ''} ${error?.details || ''} ${error?.hint || ''}`.toLowerCase();
+  return error?.code === '23514' && text.includes('payment_method');
+}
+
+function normalizePaymentMethod(value: unknown): BillPaymentMethod {
+  return cleanText(value).toLowerCase() === 'external' ? 'external' : 'cash';
 }
 
 export async function GET(request: NextRequest) {
@@ -61,11 +72,12 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
     const tenantId = cleanText(body.tenantId);
-    const amount = Number(body.amount);
+    const amount = Number(String(body.amount || '').replace(',', '.'));
     const supplierName = cleanText(body.supplierName, 'Factura pagada');
     const concept = cleanText(body.concept);
     const invoiceNumber = cleanText(body.invoiceNumber);
     const notes = cleanText(body.notes);
+    const paymentMethod = normalizePaymentMethod(body.paymentMethod);
 
     if (!tenantId) {
       return NextResponse.json({ error: 'Missing tenantId' }, { status: 400 });
@@ -93,7 +105,7 @@ export async function POST(request: NextRequest) {
         invoice_number: invoiceNumber || null,
         amount,
         notes: notes || null,
-        payment_method: 'cash',
+        payment_method: paymentMethod,
         status: 'active',
         cash_closing_id: null,
         paid_at: new Date().toISOString(),
@@ -102,9 +114,9 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (error) {
-      if (isMissingBillPaymentsTable(error)) {
+      if (isMissingBillPaymentsTable(error) || isPaymentMethodConstraintError(error)) {
         return NextResponse.json(
-          { error: 'Falta aplicar la migracion de pagos de facturas en Supabase.' },
+          { error: 'Falta aplicar la migracion de pagos de facturas por caja y por aparte en Supabase.' },
           { status: 409 }
         );
       }

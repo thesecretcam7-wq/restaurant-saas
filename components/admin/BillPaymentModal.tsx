@@ -19,6 +19,7 @@ interface BillPaymentModalProps {
   }) => Promise<void>;
   country?: string;
   isLoading?: boolean;
+  mode?: 'cash' | 'external';
 }
 
 export function BillPaymentModal({
@@ -27,6 +28,7 @@ export function BillPaymentModal({
   onConfirm,
   country = 'CO',
   isLoading = false,
+  mode = 'cash',
 }: BillPaymentModalProps) {
   const [supplierName, setSupplierName] = useState('');
   const [concept, setConcept] = useState('');
@@ -40,6 +42,7 @@ export function BillPaymentModal({
   const isTouchDevice = useTouchDevice();
   const currencyInfo = getCurrencyByCountry(country);
   const isBusy = isSubmitting || isLoading;
+  const isExternalPayment = mode === 'external';
 
   const inputClass =
     'w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-base font-bold text-slate-950 outline-none placeholder:text-slate-400 focus:border-sky-500 focus:ring-4 focus:ring-sky-100 disabled:opacity-50';
@@ -136,8 +139,12 @@ export function BillPaymentModal({
               <ReceiptText className="h-6 w-6" />
             </div>
             <div>
-              <p className="text-xs font-black uppercase tracking-[0.2em] text-sky-700">Salida de caja</p>
-              <h2 className="mt-1 text-2xl font-black text-slate-950">Pagar factura</h2>
+              <p className="text-xs font-black uppercase tracking-[0.2em] text-sky-700">
+                {isExternalPayment ? 'Pago por aparte' : 'Salida de caja'}
+              </p>
+              <h2 className="mt-1 text-2xl font-black text-slate-950">
+                {isExternalPayment ? 'Factura por aparte' : 'Pagar factura'}
+              </h2>
             </div>
           </div>
           <button
@@ -250,7 +257,7 @@ export function BillPaymentModal({
 
           <section>
             <label className="mb-2 block text-sm font-black uppercase tracking-[0.14em] text-sky-700">
-              Importe pagado en efectivo
+              {isExternalPayment ? 'Importe pagado por aparte' : 'Importe pagado en efectivo'}
             </label>
             <div className="flex gap-2">
               <div className="relative min-w-0 flex-1">
@@ -336,7 +343,7 @@ export function BillPaymentModal({
             disabled={isBusy || !supplierName.trim() || !amount}
             className="flex-1 rounded-2xl bg-sky-600 px-4 py-3 font-black text-white shadow-[0_16px_35px_rgba(2,132,199,0.24)] transition hover:bg-sky-700 disabled:opacity-50"
           >
-            {isSubmitting ? 'Guardando...' : 'Registrar pago'}
+            {isSubmitting ? 'Guardando...' : isExternalPayment ? 'Registrar aparte' : 'Registrar pago'}
           </button>
         </div>
       </div>

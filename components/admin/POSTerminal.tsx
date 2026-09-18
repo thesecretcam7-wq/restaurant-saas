@@ -49,6 +49,7 @@ interface Category {
 type POSMode = 'simple' | 'table';
 type PaymentMethod = 'cash' | 'stripe' | 'mixed';
 type CashClosingMode = 'current' | 'pending';
+type BillPaymentMethod = 'cash' | 'external';
 type TouchTextRequest = {
   title: string;
   value: string;
@@ -377,6 +378,7 @@ async function saveBillPaymentViaApi(args: {
   tenantId: string;
   staffId: string | null;
   staffName: string;
+  paymentMethod: BillPaymentMethod;
   supplierName: string;
   concept: string;
   invoiceNumber: string;
@@ -757,6 +759,7 @@ export function POSTerminal({
   const { wakeLockActive, activateWakeLock } = useWakeLock();
   const [showCashClosing, setShowCashClosing] = useState(false);
   const [showBillPayment, setShowBillPayment] = useState(false);
+  const [billPaymentMethod, setBillPaymentMethod] = useState<BillPaymentMethod>('cash');
   const [cashClosingStats, setCashClosingStats] = useState<CashClosingStats | null>(null);
   const [cashClosingMode, setCashClosingMode] = useState<CashClosingMode | null>(null);
   const [pendingCashClosingStats, setPendingCashClosingStats] = useState<CashClosingStats | null>(null);
@@ -1639,6 +1642,21 @@ export function POSTerminal({
     }
   }
 
+  function openCashBillPaymentModal() {
+    setBillPaymentMethod('cash');
+    setShowBillPayment(true);
+  }
+
+  function openExternalBillPaymentModal() {
+    setBillPaymentMethod('external');
+    setShowBillPayment(true);
+  }
+
+  function closeBillPaymentModal() {
+    setShowBillPayment(false);
+    setBillPaymentMethod('cash');
+  }
+
   async function handleSaveBillPayment(data: {
     supplierName: string;
     concept: string;
@@ -1650,15 +1668,23 @@ export function POSTerminal({
       const loggedStaff = getLoggedStaffFromBrowser(tenantId);
       const cashierStaffId = selectedStaffId || loggedStaff.staffId;
       const cashierStaffName = selectedStaffName || loggedStaff.staffName || 'Sin asignar';
+      const billMethod = billPaymentMethod;
 
       await saveBillPaymentViaApi({
         tenantId,
         staffId: cashierStaffId,
         staffName: cashierStaffName,
+        paymentMethod: billMethod,
         ...data,
       });
 
-      setShowBillPayment(false);
+      closeBillPaymentModal();
+
+      if (billMethod === 'external') {
+        setToast({ message: 'Factura pagada por aparte registrada', type: 'success' });
+        return;
+      }
+
       setToast({ message: 'Factura pagada y salida registrada en caja', type: 'success' });
       await refreshOpenCashClosingStats();
       await refreshPendingCashClosing();
@@ -4958,7 +4984,7 @@ export function POSTerminal({
               <span className="hidden sm:inline">Instalar</span>
             </button>
             <button
-              onClick={() => setShowBillPayment(true)}
+              onClick={openCashBillPaymentModal}
               className="pos-action-ghost border-sky-300/45 bg-sky-300/12 text-sky-50"
               title="Pagar factura y registrar salida de caja"
             >
@@ -5320,6 +5346,18 @@ export function POSTerminal({
                     <button
                       type="button"
                       onClick={() => {
+                        setQuickActionsOpen(false);
+                        openExternalBillPaymentModal();
+                      }}
+                      className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left font-black text-emerald-100 transition hover:bg-white/10"
+                      title="Registrar factura pagada por aparte"
+                    >
+                      <ReceiptText className="h-4 w-4" />
+                      Pago por aparte
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
                         setProductOrderUnlocked((current) => !current);
                         setDraggedProductId(null);
                         setDragOverProductId(null);
@@ -5450,7 +5488,7 @@ export function POSTerminal({
                   </div>
                 )}
                 <button
-                  onClick={() => setShowBillPayment(true)}
+                  onClick={openCashBillPaymentModal}
                   className="pos-action-ghost border-sky-300/45 bg-sky-300/12 text-sky-50"
                   title="Pagar factura y registrar salida de caja"
                 >
@@ -5549,7 +5587,7 @@ export function POSTerminal({
                   <span className="hidden sm:inline">Cliente</span>
                 </button>
                 <button
-                  onClick={() => setShowBillPayment(true)}
+                  onClick={openCashBillPaymentModal}
                   className="pos-action-ghost border-sky-300/45 bg-sky-300/12 text-sky-50"
                   title="Pagar factura y registrar salida de caja"
                 >
@@ -6600,9 +6638,10 @@ export function POSTerminal({
 
       <BillPaymentModal
         isOpen={showBillPayment}
-        onClose={() => setShowBillPayment(false)}
+        onClose={closeBillPaymentModal}
         onConfirm={handleSaveBillPayment}
         country={country}
+        mode={billPaymentMethod}
       />
     </div>
   );
