@@ -30,6 +30,7 @@ export async function GET(request: NextRequest) {
       .select('id, supplier_name, concept, invoice_number, amount, staff_name, paid_at, notes')
       .eq('tenant_id', tenantId)
       .eq('status', 'active')
+      .eq('payment_method', 'cash')
       .is('cash_closing_id', null)
       .gte('paid_at', period.periodStart)
       .lt('paid_at', period.periodEnd)

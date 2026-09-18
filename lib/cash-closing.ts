@@ -206,6 +206,7 @@ async function getOpenBillPayments(tenantId: string, periodStart: string, period
     .select('id, supplier_name, concept, invoice_number, amount, staff_name, paid_at, notes')
     .eq('tenant_id', tenantId)
     .eq('status', 'active')
+    .eq('payment_method', 'cash')
     .is('cash_closing_id', null)
     .gte('paid_at', periodStart)
     .lt('paid_at', periodEnd)

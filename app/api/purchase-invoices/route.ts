@@ -11,6 +11,19 @@ interface PurchaseInvoiceLineInput {
   lineTotal?: unknown
 }
 
+interface BillPaymentRow {
+  id: string
+  supplier_name: string | null
+  concept: string | null
+  invoice_number: string | null
+  amount: number | string | null
+  staff_name: string | null
+  paid_at: string | null
+  notes: string | null
+  payment_method: string | null
+  cash_closing_id: string | null
+}
+
 const MONTH_ORDERS_PAGE_SIZE = 1000
 
 function toNumber(value: unknown, fallback = 0) {
@@ -38,6 +51,11 @@ function isActivePaidOrder(order: any) {
   return order?.payment_status === 'paid' && !['cancelled', 'canceled', 'voided', 'deleted', 'anulado', 'cancelado'].includes(status)
 }
 
+function isMissingBillPaymentsTable(error: any) {
+  const text = `${error?.message || ''} ${error?.details || ''} ${error?.hint || ''}`
+  return text.includes('cash_bill_payments') || error?.code === '42P01' || error?.code === 'PGRST205'
+}
+
 async function fetchMonthOrders(supabase: any, tenantId: string, monthStartIso: string) {
   const rows: any[] = []
   let from = 0
@@ -63,6 +81,35 @@ async function fetchMonthOrders(supabase: any, tenantId: string, monthStartIso: 
   return { data: rows, error: null }
 }
 
+async function fetchMonthBillPayments(supabase: any, tenantId: string, monthStartIso: string) {
+  const rows: BillPaymentRow[] = []
+  let from = 0
+  let totalCount = 0
+
+  while (true) {
+    const { data, error, count } = await supabase
+      .from('cash_bill_payments')
+      .select('id, supplier_name, concept, invoice_number, amount, staff_name, paid_at, notes, payment_method, cash_closing_id', { count: from === 0 ? 'exact' : undefined })
+      .eq('tenant_id', tenantId)
+      .eq('status', 'active')
+      .gte('paid_at', monthStartIso)
+      .order('paid_at', { ascending: false })
+      .range(from, from + MONTH_ORDERS_PAGE_SIZE - 1)
+
+    if (error) {
+      if (isMissingBillPaymentsTable(error)) return { data: [], error: null, setupRequired: true }
+      return { data: null, error, setupRequired: false }
+    }
+    if (from === 0) totalCount = count || 0
+    rows.push(...((data || []) as BillPaymentRow[]))
+
+    if (!data || data.length < MONTH_ORDERS_PAGE_SIZE || from + MONTH_ORDERS_PAGE_SIZE >= totalCount) break
+    from += MONTH_ORDERS_PAGE_SIZE
+  }
+
+  return { data: rows, error: null, setupRequired: false }
+}
+
 export async function GET(request: NextRequest) {
   const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -81,7 +128,11 @@ export async function GET(request: NextRequest) {
     const monthStartIso = getMonthStartIso()
     const todayStartIso = getTodayStartIso()
 
-    const [{ data: invoices, error }, { data: monthOrders, error: ordersError }] = await Promise.all([
+    const [
+      { data: invoices, error },
+      { data: monthOrders, error: ordersError },
+      { data: billPayments, error: billPaymentsError, setupRequired: billPaymentsSetupRequired },
+    ] = await Promise.all([
       supabase
       .from('supplier_purchase_invoices')
       .select(`
@@ -110,16 +161,37 @@ export async function GET(request: NextRequest) {
       .order('created_at', { ascending: false })
       .limit(80),
       fetchMonthOrders(supabase, tenantId, monthStartIso),
+      fetchMonthBillPayments(supabase, tenantId, monthStartIso),
     ])
 
     if (error) throw error
     if (ordersError) throw ordersError
+    if (billPaymentsError) throw billPaymentsError
 
     const paidOrders = (monthOrders || []).filter(isActivePaidOrder)
     const salesThisMonth = paidOrders.reduce((sum, order) => sum + Number(order.total || 0), 0)
     const salesToday = paidOrders
       .filter((order) => new Date(order.created_at) >= new Date(todayStartIso))
       .reduce((sum, order) => sum + Number(order.total || 0), 0)
+    const normalizedBillPayments = ((billPayments || []) as BillPaymentRow[]).map((payment) => ({
+      id: payment.id,
+      supplier_name: payment.supplier_name,
+      concept: payment.concept,
+      invoice_number: payment.invoice_number,
+      amount: Number(payment.amount) || 0,
+      staff_name: payment.staff_name,
+      paid_at: payment.paid_at,
+      notes: payment.notes,
+      payment_method: payment.payment_method || 'cash',
+      cash_closing_id: payment.cash_closing_id,
+    }))
+    const billPaymentsToday = normalizedBillPayments.filter((payment) =>
+      payment.paid_at && new Date(payment.paid_at) >= new Date(todayStartIso)
+    )
+    const sumPayments = (payments: typeof normalizedBillPayments, method?: string) =>
+      payments
+        .filter((payment) => !method || payment.payment_method === method)
+        .reduce((sum, payment) => sum + payment.amount, 0)
 
     return NextResponse.json({
       invoices: invoices || [],
@@ -128,6 +200,18 @@ export async function GET(request: NextRequest) {
         salesToday,
         ordersThisMonth: paidOrders.length,
         ordersToday: paidOrders.filter((order) => new Date(order.created_at) >= new Date(todayStartIso)).length,
+      },
+      billPaymentsSummary: {
+        payments: normalizedBillPayments,
+        paidThisMonth: sumPayments(normalizedBillPayments),
+        paidToday: sumPayments(billPaymentsToday),
+        cashThisMonth: sumPayments(normalizedBillPayments, 'cash'),
+        cashToday: sumPayments(billPaymentsToday, 'cash'),
+        externalThisMonth: sumPayments(normalizedBillPayments, 'external'),
+        externalToday: sumPayments(billPaymentsToday, 'external'),
+        countThisMonth: normalizedBillPayments.length,
+        countToday: billPaymentsToday.length,
+        setupRequired: Boolean(billPaymentsSetupRequired),
       },
     })
   } catch (error) {

@@ -56,6 +56,32 @@ interface SalesSummary {
   ordersToday: number
 }
 
+interface BillPayment {
+  id: string
+  supplier_name: string | null
+  concept: string | null
+  invoice_number: string | null
+  amount: number
+  staff_name: string | null
+  paid_at: string | null
+  notes: string | null
+  payment_method: 'cash' | 'external' | string
+  cash_closing_id: string | null
+}
+
+interface BillPaymentsSummary {
+  payments: BillPayment[]
+  paidThisMonth: number
+  paidToday: number
+  cashThisMonth: number
+  cashToday: number
+  externalThisMonth: number
+  externalToday: number
+  countThisMonth: number
+  countToday: number
+  setupRequired?: boolean
+}
+
 interface DraftLine {
   id: string
   inventoryId: string
@@ -177,15 +203,34 @@ export function PurchaseControlManager({ tenantId }: { tenantId: string }) {
     ordersThisMonth: 0,
     ordersToday: 0,
   })
+  const [billPaymentsSummary, setBillPaymentsSummary] = useState<BillPaymentsSummary>({
+    payments: [],
+    paidThisMonth: 0,
+    paidToday: 0,
+    cashThisMonth: 0,
+    cashToday: 0,
+    externalThisMonth: 0,
+    externalToday: 0,
+    countThisMonth: 0,
+    countToday: 0,
+  })
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
+  const [savingPayment, setSavingPayment] = useState(false)
   const [showForm, setShowForm] = useState(false)
+  const [showPaymentForm, setShowPaymentForm] = useState(false)
   const [search, setSearch] = useState('')
   const [supplierName, setSupplierName] = useState('')
   const [invoiceNumber, setInvoiceNumber] = useState('')
   const [invoiceDate, setInvoiceDate] = useState(() => new Date().toISOString().slice(0, 10))
   const [notes, setNotes] = useState('')
   const [lines, setLines] = useState<DraftLine[]>([emptyLine()])
+  const [paymentSupplierName, setPaymentSupplierName] = useState('')
+  const [paymentConcept, setPaymentConcept] = useState('')
+  const [paymentInvoiceNumber, setPaymentInvoiceNumber] = useState('')
+  const [paymentAmount, setPaymentAmount] = useState('')
+  const [paymentDate, setPaymentDate] = useState(() => new Date().toISOString().slice(0, 10))
+  const [paymentNotes, setPaymentNotes] = useState('')
   const [error, setError] = useState('')
   const [scanMessage, setScanMessage] = useState('')
   const [scanningInvoice, setScanningInvoice] = useState(false)
@@ -221,6 +266,24 @@ export function PurchaseControlManager({ tenantId }: { tenantId: string }) {
         ordersThisMonth: Number(purchaseData.salesSummary?.ordersThisMonth || 0),
         ordersToday: Number(purchaseData.salesSummary?.ordersToday || 0),
       })
+      setBillPaymentsSummary({
+        payments: Array.isArray(purchaseData.billPaymentsSummary?.payments)
+          ? purchaseData.billPaymentsSummary.payments.map((payment: any) => ({
+              ...payment,
+              amount: parseAmount(payment.amount),
+              payment_method: payment.payment_method || 'cash',
+            }))
+          : [],
+        paidThisMonth: parseAmount(purchaseData.billPaymentsSummary?.paidThisMonth),
+        paidToday: parseAmount(purchaseData.billPaymentsSummary?.paidToday),
+        cashThisMonth: parseAmount(purchaseData.billPaymentsSummary?.cashThisMonth),
+        cashToday: parseAmount(purchaseData.billPaymentsSummary?.cashToday),
+        externalThisMonth: parseAmount(purchaseData.billPaymentsSummary?.externalThisMonth),
+        externalToday: parseAmount(purchaseData.billPaymentsSummary?.externalToday),
+        countThisMonth: Number(purchaseData.billPaymentsSummary?.countThisMonth || 0),
+        countToday: Number(purchaseData.billPaymentsSummary?.countToday || 0),
+        setupRequired: Boolean(purchaseData.billPaymentsSummary?.setupRequired),
+      })
       setInventory(Array.isArray(inventoryData) ? inventoryData : [])
     } catch (fetchError) {
       const isAbort = fetchError instanceof Error && fetchError.name === 'AbortError'
@@ -252,6 +315,70 @@ export function PurchaseControlManager({ tenantId }: { tenantId: string }) {
     setNotes('')
     setLines([emptyLine()])
     setError('')
+  }
+
+  function resetPaymentForm() {
+    setPaymentSupplierName('')
+    setPaymentConcept('')
+    setPaymentInvoiceNumber('')
+    setPaymentAmount('')
+    setPaymentDate(new Date().toISOString().slice(0, 10))
+    setPaymentNotes('')
+    setError('')
+  }
+
+  async function saveExternalPayment(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    setSavingPayment(true)
+    setError('')
+
+    try {
+      const response = await fetch('/api/purchase-invoices/payments', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          tenantId,
+          supplierName: paymentSupplierName,
+          concept: paymentConcept,
+          invoiceNumber: paymentInvoiceNumber,
+          amount: paymentAmount,
+          paidAt: paymentDate,
+          notes: paymentNotes,
+        }),
+      })
+      const data = await response.json().catch(() => ({}))
+      if (!response.ok) throw new Error(data.error || 'No se pudo guardar el pago')
+
+      resetPaymentForm()
+      setShowPaymentForm(false)
+      await fetchData()
+    } catch (saveError) {
+      setError(saveError instanceof Error ? saveError.message : 'No se pudo guardar el pago')
+    } finally {
+      setSavingPayment(false)
+    }
+  }
+
+  async function voidExternalPayment(payment: BillPayment) {
+    if (payment.payment_method !== 'external') return
+    const label = payment.invoice_number
+      ? `${payment.supplier_name || 'Factura'} (${payment.invoice_number})`
+      : payment.supplier_name || payment.concept || 'este pago'
+    if (!window.confirm(`Anular el pago por aparte de ${label}?`)) return
+
+    setError('')
+    try {
+      const response = await fetch(`/api/purchase-invoices/payments?tenantId=${encodeURIComponent(tenantId)}&id=${encodeURIComponent(payment.id)}`, {
+        method: 'DELETE',
+        credentials: 'include',
+      })
+      const data = await response.json().catch(() => ({}))
+      if (!response.ok) throw new Error(data.error || 'No se pudo anular el pago')
+      await fetchData()
+    } catch (deleteError) {
+      setError(deleteError instanceof Error ? deleteError.message : 'No se pudo anular el pago')
+    }
   }
 
   async function saveInvoice(event: FormEvent<HTMLFormElement>) {
@@ -478,18 +605,21 @@ export function PurchaseControlManager({ tenantId }: { tenantId: string }) {
   }, [comparisons, search])
 
   const draftTotal = lines.reduce((sum, line) => sum + parseAmount(line.lineTotal), 0)
+  const paymentDraftTotal = parseAmount(paymentAmount)
   const monthInvoices = invoices.filter((invoice) => invoice.invoice_date?.slice(0, 7) === new Date().toISOString().slice(0, 7))
   const monthTotal = monthInvoices
     .reduce((sum, invoice) => sum + parseAmount(invoice.total), 0)
-  const balanceRemaining = salesSummary.salesThisMonth - monthTotal
-  const purchasesOverSales = salesSummary.salesThisMonth > 0 ? (monthTotal / salesSummary.salesThisMonth) * 100 : 0
-  const averageDailySales = salesSummary.salesThisMonth / Math.max(1, new Date().getDate())
+  const paidBillsTotal = billPaymentsSummary.paidThisMonth
+  const paidBillsToday = billPaymentsSummary.paidToday
+  const balanceRemaining = salesSummary.salesThisMonth - paidBillsTotal
+  const todayBalanceRemaining = salesSummary.salesToday - paidBillsToday
+  const purchasesOverSales = salesSummary.salesThisMonth > 0 ? (paidBillsTotal / salesSummary.salesThisMonth) * 100 : 0
   const balanceStatus =
     salesSummary.salesThisMonth <= 0
       ? 'Sin ventas cobradas este mes'
       : balanceRemaining >= 0
-        ? 'Queda despues de facturas'
-        : 'Facturas por encima de ventas'
+        ? 'Queda despues de pagos'
+        : 'Pagos por encima de ventas'
   const invoicesByDate = useMemo(() => {
     const groups = new Map<string, PurchaseInvoice[]>()
     for (const invoice of invoices) {
@@ -541,36 +671,216 @@ export function PurchaseControlManager({ tenantId }: { tenantId: string }) {
             </p>
           </div>
         </div>
-        <div className="grid gap-3 p-4 md:grid-cols-2 xl:grid-cols-5">
+        <div className="grid gap-3 p-4 md:grid-cols-2 xl:grid-cols-6">
           <div className="rounded-lg border border-black/10 bg-black/[0.025] p-4">
             <p className="text-xs font-black uppercase text-black/45">Vendido este mes</p>
             <p className="mt-2 text-2xl font-black text-emerald-700">{money(salesSummary.salesThisMonth)}</p>
             <p className="mt-1 text-xs font-bold text-black/45">{salesSummary.ordersThisMonth} pedido{salesSummary.ordersThisMonth === 1 ? '' : 's'} cobrados</p>
           </div>
           <div className="rounded-lg border border-black/10 bg-black/[0.025] p-4">
-            <p className="text-xs font-black uppercase text-black/45">Gastado en facturas</p>
-            <p className="mt-2 text-2xl font-black text-red-700">{money(monthTotal)}</p>
-            <p className="mt-1 text-xs font-bold text-black/45">{monthInvoices.length} factura{monthInvoices.length === 1 ? '' : 's'} este mes</p>
+            <p className="text-xs font-black uppercase text-black/45">Pagado facturas</p>
+            <p className="mt-2 text-2xl font-black text-red-700">{money(paidBillsTotal)}</p>
+            <p className="mt-1 text-xs font-bold text-black/45">{billPaymentsSummary.countThisMonth} pago{billPaymentsSummary.countThisMonth === 1 ? '' : 's'} este mes</p>
           </div>
           <div className="rounded-lg border border-black/10 bg-black/[0.025] p-4">
-            <p className="text-xs font-black uppercase text-black/45">Te queda</p>
+            <p className="text-xs font-black uppercase text-black/45">Desde caja</p>
+            <p className="mt-2 text-2xl font-black text-orange-700">{money(billPaymentsSummary.cashThisMonth)}</p>
+            <p className="mt-1 text-xs font-bold text-black/45">descontado en cortes de caja</p>
+          </div>
+          <div className="rounded-lg border border-black/10 bg-black/[0.025] p-4">
+            <p className="text-xs font-black uppercase text-black/45">Por aparte</p>
+            <p className="mt-2 text-2xl font-black text-sky-700">{money(billPaymentsSummary.externalThisMonth)}</p>
+            <p className="mt-1 text-xs font-bold text-black/45">pagos fuera de caja</p>
+          </div>
+          <div className="rounded-lg border border-black/10 bg-black/[0.025] p-4">
+            <p className="text-xs font-black uppercase text-black/45">Queda mes</p>
             <p className={`mt-2 text-2xl font-black ${balanceRemaining >= 0 ? 'text-[#15130f]' : 'text-red-700'}`}>{money(balanceRemaining)}</p>
-            <p className="mt-1 text-xs font-bold text-black/45">antes de nóminas, alquiler y otros gastos</p>
+            <p className="mt-1 text-xs font-bold text-black/45">ventas menos facturas pagadas</p>
           </div>
           <div className="rounded-lg border border-black/10 bg-black/[0.025] p-4">
-            <p className="text-xs font-black uppercase text-black/45">Compras / ventas</p>
-            <p className="mt-2 text-2xl font-black text-[#15130f]">{purchasesOverSales.toFixed(1)}%</p>
-            <p className="mt-1 text-xs font-bold text-black/45">cuánto se va en proveedores</p>
-          </div>
-          <div className="rounded-lg border border-black/10 bg-black/[0.025] p-4">
-            <p className="text-xs font-black uppercase text-black/45">Hoy vendido</p>
-            <p className="mt-2 text-2xl font-black text-[#15130f]">{money(salesSummary.salesToday)}</p>
-            <p className="mt-1 text-xs font-bold text-black/45">media diaria: {money(averageDailySales)}</p>
+            <p className="text-xs font-black uppercase text-black/45">Queda hoy</p>
+            <p className={`mt-2 text-2xl font-black ${todayBalanceRemaining >= 0 ? 'text-[#15130f]' : 'text-red-700'}`}>{money(todayBalanceRemaining)}</p>
+            <p className="mt-1 text-xs font-bold text-black/45">hoy vendido {money(salesSummary.salesToday)}</p>
           </div>
         </div>
         {salesSummary.salesThisMonth > 0 && purchasesOverSales >= 45 && (
           <div className="border-t border-amber-200 bg-amber-50 px-4 py-3 text-sm font-black text-amber-800">
-            Las facturas ya representan {purchasesOverSales.toFixed(1)}% de lo vendido este mes. Revisa subidas y proveedores antes de comprar más.
+            Las facturas pagadas ya representan {purchasesOverSales.toFixed(1)}% de lo vendido este mes. Revisa subidas y proveedores antes de comprar más.
+          </div>
+        )}
+      </section>
+
+      <section className="admin-panel overflow-hidden">
+        <div className="border-b border-black/10 p-4">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+            <div>
+              <p className="admin-eyebrow">Pagos de facturas</p>
+              <h2 className="text-xl font-black text-[#15130f]">Caja y pagos por aparte</h2>
+              <p className="mt-1 text-sm font-semibold text-black/52">
+                Los pagos desde caja salen del TPV. Los pagos por aparte se registran aqui y no afectan el corte de caja.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setShowPaymentForm((current) => !current)}
+              className="admin-button-primary min-h-12 sm:w-auto"
+            >
+              <Plus className="size-5 shrink-0" />
+              <span>{showPaymentForm ? 'Cerrar pago' : 'Pago por aparte'}</span>
+            </button>
+          </div>
+        </div>
+
+        {billPaymentsSummary.setupRequired && (
+          <div className="border-b border-amber-200 bg-amber-50 px-4 py-3 text-sm font-black text-amber-800">
+            Falta aplicar la migracion de pagos por aparte en Supabase para guardar nuevos pagos.
+          </div>
+        )}
+
+        {showPaymentForm && (
+          <form onSubmit={saveExternalPayment} className="space-y-4 border-b border-black/10 bg-black/[0.025] p-4">
+            <div className="grid gap-4 lg:grid-cols-5">
+              <div className="lg:col-span-2">
+                <label className="mb-2 block text-xs font-black uppercase text-black/45">Proveedor o gasto *</label>
+                <input
+                  value={paymentSupplierName}
+                  onChange={(event) => setPaymentSupplierName(event.target.value)}
+                  required
+                  className="admin-input"
+                  placeholder="Ej. proveedor, luz, alquiler"
+                />
+              </div>
+              <div>
+                <label className="mb-2 block text-xs font-black uppercase text-black/45">Concepto</label>
+                <input
+                  value={paymentConcept}
+                  onChange={(event) => setPaymentConcept(event.target.value)}
+                  className="admin-input"
+                  placeholder="Compra, recibo..."
+                />
+              </div>
+              <div>
+                <label className="mb-2 block text-xs font-black uppercase text-black/45">N. factura</label>
+                <input
+                  value={paymentInvoiceNumber}
+                  onChange={(event) => setPaymentInvoiceNumber(event.target.value)}
+                  className="admin-input"
+                  placeholder="Opcional"
+                />
+              </div>
+              <div>
+                <label className="mb-2 block text-xs font-black uppercase text-black/45">Fecha pago</label>
+                <input
+                  type="date"
+                  value={paymentDate}
+                  onChange={(event) => setPaymentDate(event.target.value)}
+                  className="admin-input"
+                  required
+                />
+              </div>
+            </div>
+            <div className="grid gap-4 lg:grid-cols-[1fr_2fr_auto] lg:items-end">
+              <div>
+                <label className="mb-2 block text-xs font-black uppercase text-black/45">Importe *</label>
+                <input
+                  value={paymentAmount}
+                  onChange={(event) => setPaymentAmount(event.target.value)}
+                  className="admin-input"
+                  inputMode="decimal"
+                  required
+                  placeholder="0,00"
+                />
+              </div>
+              <div>
+                <label className="mb-2 block text-xs font-black uppercase text-black/45">Notas</label>
+                <input
+                  value={paymentNotes}
+                  onChange={(event) => setPaymentNotes(event.target.value)}
+                  className="admin-input"
+                  placeholder="Banco, tarjeta, transferencia, observacion..."
+                />
+              </div>
+              <div className="flex flex-col gap-2 sm:flex-row lg:flex-col">
+                <button
+                  type="button"
+                  onClick={() => {
+                    resetPaymentForm()
+                    setShowPaymentForm(false)
+                  }}
+                  disabled={savingPayment}
+                  className="admin-button-ghost sm:w-auto disabled:opacity-50"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={savingPayment || !paymentSupplierName.trim() || paymentDraftTotal <= 0}
+                  className="admin-button-primary sm:w-auto disabled:opacity-50"
+                >
+                  <ReceiptText className="size-4" />
+                  {savingPayment ? 'Guardando...' : 'Guardar pago'}
+                </button>
+              </div>
+            </div>
+          </form>
+        )}
+
+        {billPaymentsSummary.payments.length === 0 ? (
+          <div className="admin-empty m-5">
+            <p>No hay pagos de facturas registrados este mes.</p>
+            <p className="mt-1 text-sm">Los pagos desde caja apareceran aqui automaticamente.</p>
+          </div>
+        ) : (
+          <div className="divide-y divide-black/8">
+            {billPaymentsSummary.payments.slice(0, 10).map((payment) => {
+              const paidAt = payment.paid_at ? new Date(payment.paid_at) : null
+              const validPaidAt = paidAt && !Number.isNaN(paidAt.getTime())
+              const isExternal = payment.payment_method === 'external'
+              const title = payment.supplier_name || payment.concept || 'Factura pagada'
+              const detail = [payment.invoice_number, payment.concept].filter(Boolean).join(' - ')
+
+              return (
+                <div key={payment.id} className="grid gap-3 p-4 md:grid-cols-[1fr_auto_auto] md:items-center">
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <ReceiptText className="size-4 text-black/40" />
+                      <p className="font-black text-[#15130f]">{title}</p>
+                      <span className={`rounded-full border px-2.5 py-1 text-xs font-black ${
+                        isExternal
+                          ? 'border-sky-200 bg-sky-50 text-sky-700'
+                          : 'border-orange-200 bg-orange-50 text-orange-700'
+                      }`}>
+                        {isExternal ? 'Por aparte' : 'Caja'}
+                      </span>
+                    </div>
+                    {detail && <p className="mt-1 text-sm font-semibold text-black/52">{detail}</p>}
+                    <p className="mt-1 text-xs font-bold text-black/42">
+                      {validPaidAt ? paidAt.toLocaleDateString('es-ES') : 'Sin fecha'}
+                      {payment.staff_name ? ` - ${payment.staff_name}` : ''}
+                    </p>
+                    {payment.notes && (
+                      <p className="mt-2 rounded-lg bg-black/[0.025] px-3 py-2 text-xs font-semibold text-black/52">
+                        {payment.notes}
+                      </p>
+                    )}
+                  </div>
+                  <p className="text-xl font-black text-red-700">-{money(payment.amount)}</p>
+                  {isExternal ? (
+                    <button
+                      type="button"
+                      onClick={() => void voidExternalPayment(payment)}
+                      className="inline-flex h-10 items-center justify-center rounded-lg border border-red-200 bg-red-50 px-3 text-red-700 transition hover:bg-red-100"
+                      aria-label="Anular pago por aparte"
+                      title="Anular pago por aparte"
+                    >
+                      <Trash2 className="size-4" />
+                    </button>
+                  ) : (
+                    <span className="text-xs font-bold text-black/35 md:text-right">Registrado en TPV</span>
+                  )}
+                </div>
+              )
+            })}
           </div>
         )}
       </section>

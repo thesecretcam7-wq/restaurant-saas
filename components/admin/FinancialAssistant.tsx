@@ -43,6 +43,13 @@ type PurchaseInvoiceRow = {
   total: number | string | null
 }
 
+type BillPaymentRow = {
+  id: string
+  amount: number | string | null
+  payment_method: string | null
+  paid_at: string | null
+}
+
 type InventoryRow = {
   product_name: string | null
   current_stock: number | string | null
@@ -130,6 +137,41 @@ async function fetchAllPurchaseInvoices(supabase: any, tenantId: string, monthSt
   return rows
 }
 
+function isMissingBillPaymentsTable(error: any) {
+  const text = `${error?.message || ''} ${error?.details || ''} ${error?.hint || ''}`
+  return text.includes('cash_bill_payments') || error?.code === '42P01' || error?.code === 'PGRST205'
+}
+
+async function fetchAllBillPayments(supabase: any, tenantId: string, monthStartIso: string) {
+  const pageSize = 1000
+  let from = 0
+  let totalCount = 0
+  const rows: BillPaymentRow[] = []
+
+  while (true) {
+    const { data, error, count } = await supabase
+      .from('cash_bill_payments')
+      .select('id, amount, payment_method, paid_at', { count: from === 0 ? 'exact' : undefined })
+      .eq('tenant_id', tenantId)
+      .eq('status', 'active')
+      .gte('paid_at', monthStartIso)
+      .order('paid_at', { ascending: false })
+      .range(from, from + pageSize - 1)
+
+    if (error) {
+      if (isMissingBillPaymentsTable(error)) return []
+      throw error
+    }
+    if (from === 0) totalCount = count || 0
+    rows.push(...((data || []) as BillPaymentRow[]))
+
+    if (!data || data.length < pageSize || from + pageSize >= totalCount) break
+    from += pageSize
+  }
+
+  return rows
+}
+
 async function fetchAllInventory(supabase: any, tenantId: string) {
   const pageSize = 1000
   let from = 0
@@ -177,9 +219,10 @@ export async function FinancialAssistant({ tenantId, tenantSlug, compact = false
   const todayStartIso = getRestaurantLocalDateStartUtc(todayKey, timeZone)?.toISOString() || new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString()
   const monthStartIso = getRestaurantLocalDateStartUtc(monthStartKey, timeZone)?.toISOString() || new Date(now.getFullYear(), now.getMonth(), 1).toISOString()
 
-  const [allOrders, purchases, inventory] = await Promise.all([
+  const [allOrders, purchases, billPayments, inventory] = await Promise.all([
     fetchAllOrders(supabase, tenantId, monthStartIso),
     fetchAllPurchaseInvoices(supabase, tenantId, monthStartKey),
+    fetchAllBillPayments(supabase, tenantId, monthStartIso),
     fetchAllInventory(supabase, tenantId),
   ])
 
@@ -190,6 +233,13 @@ export async function FinancialAssistant({ tenantId, tenantSlug, compact = false
     .filter((order) => order.created_at && new Date(order.created_at) >= new Date(todayStartIso))
     .reduce((sum, order) => sum + toNumber(order.total), 0)
   const purchaseSpend = purchases.reduce((sum, invoice) => sum + toNumber(invoice.total), 0)
+  const paidBillSpend = billPayments.reduce((sum, payment) => sum + toNumber(payment.amount), 0)
+  const paidCashBillSpend = billPayments
+    .filter((payment) => String(payment.payment_method || 'cash').toLowerCase() === 'cash')
+    .reduce((sum, payment) => sum + toNumber(payment.amount), 0)
+  const paidExternalBillSpend = billPayments
+    .filter((payment) => String(payment.payment_method || '').toLowerCase() === 'external')
+    .reduce((sum, payment) => sum + toNumber(payment.amount), 0)
   const cardRevenue = orders
     .filter((order) => ['stripe', 'card', 'tarjeta', 'wompi'].includes(String(order.payment_method || '').toLowerCase()))
     .reduce((sum, order) => sum + toNumber(order.total), 0)
@@ -216,7 +266,7 @@ export async function FinancialAssistant({ tenantId, tenantSlug, compact = false
   const daysElapsed = Math.max(1, now.getDate())
   const averageDailySales = monthRevenue / daysElapsed
   const foodCostTarget = monthRevenue * 0.35
-  const supplierReserve = monthRevenue > 0 ? Math.max(purchaseSpend, foodCostTarget) : 0
+  const supplierReserve = monthRevenue > 0 ? Math.max(purchaseSpend, paidBillSpend, foodCostTarget) : 0
   const taxRate = getEstimatedTaxRate(country)
   const taxReserve = monthRevenue > 0 ? monthRevenue * (taxRate / (1 + taxRate)) : 0
   const paymentFeesReserve = cardRevenue > 0 ? cardRevenue * 0.029 : monthRevenue * 0.012
@@ -227,8 +277,10 @@ export async function FinancialAssistant({ tenantId, tenantSlug, compact = false
     {
       label: 'Proveedores y materia prima',
       amount: roundMoney(supplierReserve),
-      helper: purchaseSpend > 0
-        ? `Facturas del mes: ${money(purchaseSpend)}. Objetivo maximo sugerido: 35% de ventas.`
+      helper: paidBillSpend > 0
+        ? `Facturas pagadas: ${money(paidBillSpend)}. Guardadas: ${money(purchaseSpend)}.`
+        : purchaseSpend > 0
+          ? `Facturas guardadas: ${money(purchaseSpend)}. Objetivo maximo sugerido: 35% de ventas.`
         : 'Sin facturas registradas este mes; se usa una referencia del 35% de ventas.',
       icon: ShoppingCart,
       tone: 'text-[#e43d30]',
@@ -276,7 +328,8 @@ export async function FinancialAssistant({ tenantId, tenantSlug, compact = false
 
   const totalToSeparate = buckets.reduce((sum, bucket) => sum + bucket.amount, 0)
   const availableAfterReserve = monthRevenue - totalToSeparate
-  const purchaseRatio = monthRevenue > 0 ? (purchaseSpend / monthRevenue) * 100 : 0
+  const availableAfterPaidBills = monthRevenue - paidBillSpend
+  const purchaseRatio = monthRevenue > 0 ? (paidBillSpend / monthRevenue) * 100 : 0
   const reserveRatio = monthRevenue > 0 ? (totalToSeparate / monthRevenue) * 100 : 0
   const bucketsWithRatios = buckets.map((bucket) => ({
     ...bucket,
@@ -287,8 +340,8 @@ export async function FinancialAssistant({ tenantId, tenantSlug, compact = false
     ? 'Registra ventas cobradas para activar el asistente.'
     : availableAfterReserve < 0
       ? 'Hay tension de caja: prioriza proveedores, impuestos y compras urgentes antes de retirar utilidad.'
-      : purchaseRatio > 42
-        ? 'Las compras estan pesadas frente a ventas. Revisa precios de proveedores y merma.'
+        : purchaseRatio > 42
+        ? 'Las facturas pagadas estan pesadas frente a ventas. Revisa precios de proveedores y merma.'
         : 'Caja sana: separa las bolsas y deja el excedente como utilidad disponible.'
 
   const visibleBuckets = bucketsWithRatios
@@ -375,7 +428,7 @@ export async function FinancialAssistant({ tenantId, tenantSlug, compact = false
         {[
           { label: 'Ventas del mes', value: money(monthRevenue), icon: Wallet, helper: `${orders.length} pedido${orders.length === 1 ? '' : 's'} cobrado${orders.length === 1 ? '' : 's'}` },
           { label: 'Ventas de hoy', value: money(todayRevenue), icon: TrendingUp, helper: `Promedio diario: ${money(averageDailySales)}` },
-          { label: 'Compras registradas', value: money(purchaseSpend), icon: ShoppingCart, helper: `${purchaseRatio.toFixed(1)}% de las ventas` },
+          { label: 'Facturas pagadas', value: money(paidBillSpend), icon: ShoppingCart, helper: `Caja ${money(paidCashBillSpend)} - aparte ${money(paidExternalBillSpend)}` },
           { label: 'Reserva sobre ventas', value: `${reserveRatio.toFixed(1)}%`, icon: Calculator, helper: 'Peso de todas las bolsas sugeridas' },
         ].map(({ label, value, icon: Icon, helper }) => (
           <article key={label} className="rounded-2xl border border-black/8 bg-black/[0.025] p-4">
@@ -425,6 +478,15 @@ export async function FinancialAssistant({ tenantId, tenantSlug, compact = false
             <h3 className="font-black text-[#15130f]">Decision recomendada</h3>
           </div>
           <p className="mt-3 text-sm font-bold leading-6 text-black/62">{priority}</p>
+          <div className="mt-5 rounded-xl border border-black/10 bg-white/70 p-4">
+            <p className="text-xs font-black uppercase text-black/42">Queda despues de facturas pagadas</p>
+            <p className={`mt-2 text-2xl font-black ${availableAfterPaidBills >= 0 ? 'text-[#15130f]' : 'text-red-700'}`}>
+              {money(availableAfterPaidBills)}
+            </p>
+            <p className="mt-1 text-xs font-bold text-black/45">
+              Caja {money(paidCashBillSpend)} - aparte {money(paidExternalBillSpend)}
+            </p>
+          </div>
 
           {lowStockItems.length > 0 && (
             <div className="mt-5 rounded-xl border border-amber-200 bg-amber-50 p-4">

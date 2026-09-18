@@ -182,6 +182,7 @@ async function getOpenBillPayments(
     .select('id, supplier_name, concept, invoice_number, amount, staff_name, paid_at, notes', { count: from === 0 ? 'exact' : undefined })
     .eq('tenant_id', tenantId)
     .eq('status', 'active')
+    .eq('payment_method', 'cash')
     .is('cash_closing_id', null)
     .gte('paid_at', periodStart)
     .lt('paid_at', periodEnd)
