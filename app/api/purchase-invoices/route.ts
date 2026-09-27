@@ -1,6 +1,11 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextRequest, NextResponse } from 'next/server'
 import { requireTenantAccess, tenantAuthErrorResponse } from '@/lib/tenant-api-auth'
+import {
+  getRestaurantLocalDateKey,
+  getRestaurantLocalDateStartUtc,
+  getRestaurantTimeZone,
+} from '@/lib/restaurant-time'
 
 interface PurchaseInvoiceLineInput {
   inventoryId?: string | null
@@ -36,13 +41,11 @@ function normalizeText(value: unknown) {
   return String(value || '').trim()
 }
 
-function getMonthStartIso() {
-  const now = new Date()
+function fallbackMonthStartIso(now = new Date()) {
   return new Date(now.getFullYear(), now.getMonth(), 1).toISOString()
 }
 
-function getTodayStartIso() {
-  const now = new Date()
+function fallbackTodayStartIso(now = new Date()) {
   return new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString()
 }
 
@@ -110,6 +113,31 @@ async function fetchMonthBillPayments(supabase: any, tenantId: string, monthStar
   return { data: rows, error: null, setupRequired: false }
 }
 
+async function getRestaurantPeriodStarts(supabase: any, tenantId: string) {
+  const now = new Date()
+  const [tenantRes, settingsRes] = await Promise.all([
+    supabase.from('tenants').select('country').eq('id', tenantId).maybeSingle(),
+    supabase.from('restaurant_settings').select('country, timezone').eq('tenant_id', tenantId).maybeSingle(),
+  ])
+
+  if (tenantRes.error) throw tenantRes.error
+  if (settingsRes.error) throw settingsRes.error
+
+  const timeZone = getRestaurantTimeZone({
+    timezone: settingsRes.data?.timezone,
+    settingsCountry: settingsRes.data?.country,
+    tenantCountry: tenantRes.data?.country,
+  })
+  const todayKey = getRestaurantLocalDateKey(now, timeZone)
+  const [year, month] = todayKey.split('-').map(Number)
+  const monthStartKey = `${String(year).padStart(4, '0')}-${String(month).padStart(2, '0')}-01`
+
+  return {
+    monthStartIso: getRestaurantLocalDateStartUtc(monthStartKey, timeZone)?.toISOString() || fallbackMonthStartIso(now),
+    todayStartIso: getRestaurantLocalDateStartUtc(todayKey, timeZone)?.toISOString() || fallbackTodayStartIso(now),
+  }
+}
+
 export async function GET(request: NextRequest) {
   const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -125,8 +153,7 @@ export async function GET(request: NextRequest) {
   try {
     await requireTenantAccess(tenantId, { staffRoles: ['admin'], requireAdminPermission: true })
 
-    const monthStartIso = getMonthStartIso()
-    const todayStartIso = getTodayStartIso()
+    const { monthStartIso, todayStartIso } = await getRestaurantPeriodStarts(supabase, tenantId)
 
     const [
       { data: invoices, error },
