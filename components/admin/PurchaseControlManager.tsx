@@ -7,6 +7,9 @@ import {
   ArrowUp,
   BadgeEuro,
   Camera,
+  CalendarDays,
+  ChevronDown,
+  ChevronUp,
   ClipboardList,
   Crown,
   Plus,
@@ -67,6 +70,7 @@ interface BillPayment {
   notes: string | null
   payment_method: 'cash' | 'external' | string
   cash_closing_id: string | null
+  local_date: string | null
 }
 
 interface BillPaymentsSummary {
@@ -80,6 +84,22 @@ interface BillPaymentsSummary {
   countThisMonth: number
   countToday: number
   setupRequired?: boolean
+}
+
+interface DailyFinanceDay {
+  date: string
+  orders: number
+  salesTotal: number
+  cashSales: number
+  cardSales: number
+  otherSales: number
+  billPaymentsTotal: number
+  billPaymentsCash: number
+  billPaymentsExternal: number
+  billPaymentsCount: number
+  netTotal: number
+  netCash: number
+  runningNetTotal: number
 }
 
 interface DraftLine {
@@ -214,6 +234,8 @@ export function PurchaseControlManager({ tenantId }: { tenantId: string }) {
     countThisMonth: 0,
     countToday: 0,
   })
+  const [dailyFinance, setDailyFinance] = useState<DailyFinanceDay[]>([])
+  const [expandedDay, setExpandedDay] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [savingPayment, setSavingPayment] = useState(false)
@@ -283,6 +305,28 @@ export function PurchaseControlManager({ tenantId }: { tenantId: string }) {
         countThisMonth: Number(purchaseData.billPaymentsSummary?.countThisMonth || 0),
         countToday: Number(purchaseData.billPaymentsSummary?.countToday || 0),
         setupRequired: Boolean(purchaseData.billPaymentsSummary?.setupRequired),
+      })
+      const nextDailyFinance = Array.isArray(purchaseData.dailyFinance)
+        ? purchaseData.dailyFinance.map((day: any) => ({
+            date: String(day.date || ''),
+            orders: Number(day.orders || 0),
+            salesTotal: parseAmount(day.salesTotal),
+            cashSales: parseAmount(day.cashSales),
+            cardSales: parseAmount(day.cardSales),
+            otherSales: parseAmount(day.otherSales),
+            billPaymentsTotal: parseAmount(day.billPaymentsTotal),
+            billPaymentsCash: parseAmount(day.billPaymentsCash),
+            billPaymentsExternal: parseAmount(day.billPaymentsExternal),
+            billPaymentsCount: Number(day.billPaymentsCount || 0),
+            netTotal: parseAmount(day.netTotal),
+            netCash: parseAmount(day.netCash),
+            runningNetTotal: parseAmount(day.runningNetTotal),
+          })).filter((day: DailyFinanceDay) => day.date)
+        : []
+      setDailyFinance(nextDailyFinance)
+      setExpandedDay((current) => {
+        if (current && nextDailyFinance.some((day: DailyFinanceDay) => day.date === current)) return current
+        return [...nextDailyFinance].reverse().find((day: DailyFinanceDay) => day.billPaymentsCount > 0)?.date || null
       })
       setInventory(Array.isArray(inventoryData) ? inventoryData : [])
     } catch (fetchError) {
@@ -620,6 +664,20 @@ export function PurchaseControlManager({ tenantId }: { tenantId: string }) {
       : balanceRemaining >= 0
         ? 'Queda despues de pagos'
         : 'Pagos por encima de ventas'
+  const dailyFinanceDescending = useMemo(
+    () => dailyFinance
+      .filter((day) => day.orders > 0 || day.billPaymentsCount > 0)
+      .reverse(),
+    [dailyFinance]
+  )
+  const billPaymentsByDate = useMemo(() => {
+    const groups = new Map<string, BillPayment[]>()
+    billPaymentsSummary.payments.forEach((payment) => {
+      if (!payment.local_date) return
+      groups.set(payment.local_date, [...(groups.get(payment.local_date) || []), payment])
+    })
+    return groups
+  }, [billPaymentsSummary.payments])
   const invoicesByDate = useMemo(() => {
     const groups = new Map<string, PurchaseInvoice[]>()
     for (const invoice of invoices) {
@@ -711,6 +769,128 @@ export function PurchaseControlManager({ tenantId }: { tenantId: string }) {
       </section>
 
       <section className="admin-panel overflow-hidden">
+        <div className="border-b border-black/10 p-4">
+          <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+              <p className="admin-eyebrow">Control diario del mes</p>
+              <h2 className="text-xl font-black text-[#15130f]">Ventas, facturas y dinero restante</h2>
+              <p className="mt-1 text-sm font-semibold text-black/52">El acumulado resta todas las facturas. Caja día solo resta las pagadas desde caja.</p>
+            </div>
+            <div className="sm:text-right">
+              <p className="text-xs font-black uppercase text-black/42">Acumulado desde el día 1</p>
+              <p className={`mt-1 text-xl font-black ${balanceRemaining >= 0 ? 'text-emerald-700' : 'text-red-700'}`}>
+                {money(balanceRemaining)}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {dailyFinanceDescending.length === 0 ? (
+          <div className="admin-empty m-5">No hay movimientos disponibles para este mes.</div>
+        ) : (
+          <div className="max-h-[46rem] overflow-y-auto">
+            <div className="divide-y divide-black/8">
+              {dailyFinanceDescending.map((day) => {
+                const isExpanded = expandedDay === day.date
+                const dayPayments = billPaymentsByDate.get(day.date) || []
+                return (
+                  <div key={day.date} className="bg-white">
+                    <button
+                      type="button"
+                      onClick={() => setExpandedDay((current) => current === day.date ? null : day.date)}
+                      className="w-full px-4 py-3 text-left transition hover:bg-black/[0.025]"
+                      aria-expanded={isExpanded}
+                    >
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="flex min-w-0 items-center gap-2">
+                          <CalendarDays className="size-4 shrink-0 text-black/38" />
+                          <div className="min-w-0">
+                            <p className="font-black text-[#15130f]">{formatDate(day.date)}</p>
+                            <p className="text-xs font-bold text-black/42">
+                              {day.orders} venta{day.orders === 1 ? '' : 's'} · {day.billPaymentsCount} factura{day.billPaymentsCount === 1 ? '' : 's'}
+                            </p>
+                          </div>
+                        </div>
+                        {isExpanded ? <ChevronUp className="size-5 shrink-0 text-black/42" /> : <ChevronDown className="size-5 shrink-0 text-black/42" />}
+                      </div>
+                      <div className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2 text-sm sm:grid-cols-3 xl:grid-cols-5">
+                        <div>
+                          <p className="text-xs font-black uppercase text-black/38">Ventas</p>
+                          <p className="mt-0.5 font-black text-emerald-700">{money(day.salesTotal)}</p>
+                        </div>
+                        <div>
+                          <p className="text-xs font-black uppercase text-black/38">Facturas</p>
+                          <p className="mt-0.5 font-black text-red-700">{money(-day.billPaymentsTotal)}</p>
+                        </div>
+                        <div>
+                          <p className="text-xs font-black uppercase text-black/38">Queda día</p>
+                          <p className={`mt-0.5 font-black ${day.netTotal >= 0 ? 'text-[#15130f]' : 'text-red-700'}`}>{money(day.netTotal)}</p>
+                        </div>
+                        <div>
+                          <p className="text-xs font-black uppercase text-black/38">Caja día</p>
+                          <p className={`mt-0.5 font-black ${day.netCash >= 0 ? 'text-[#15130f]' : 'text-red-700'}`}>{money(day.netCash)}</p>
+                        </div>
+                        <div>
+                          <p className="text-xs font-black uppercase text-black/38">Acumulado</p>
+                          <p className={`mt-0.5 font-black ${day.runningNetTotal >= 0 ? 'text-[#15130f]' : 'text-red-700'}`}>{money(day.runningNetTotal)}</p>
+                        </div>
+                      </div>
+                    </button>
+
+                    {isExpanded && (
+                      <div className="border-t border-black/8 bg-black/[0.025] px-4 py-4">
+                        <div className="grid gap-px overflow-hidden rounded-lg border border-black/8 bg-black/8 sm:grid-cols-2 xl:grid-cols-4">
+                          {[
+                            ['Ventas efectivo', day.cashSales],
+                            ['Ventas tarjeta', day.cardSales],
+                            ['Facturas caja', day.billPaymentsCash],
+                            ['Facturas por aparte', day.billPaymentsExternal],
+                          ].map(([label, value]) => (
+                            <div key={String(label)} className="bg-white px-3 py-2.5">
+                              <p className="text-xs font-black uppercase text-black/42">{label}</p>
+                              <p className="mt-1 font-black text-[#15130f]">{money(value)}</p>
+                            </div>
+                          ))}
+                        </div>
+
+                        {day.otherSales > 0 && (
+                          <p className="mt-3 text-sm font-bold text-black/52">Otros cobros: {money(day.otherSales)}</p>
+                        )}
+
+                        {dayPayments.length > 0 ? (
+                          <div className="mt-4 divide-y divide-black/8 border-y border-black/8">
+                            {dayPayments.map((payment) => {
+                              const isExternal = payment.payment_method === 'external'
+                              const title = payment.supplier_name || payment.concept || 'Factura pagada'
+                              const detail = [payment.invoice_number, payment.concept].filter(Boolean).join(' - ')
+                              return (
+                                <div key={payment.id} className="grid gap-2 py-3 sm:grid-cols-[1fr_auto_auto] sm:items-center sm:gap-4">
+                                  <div className="min-w-0">
+                                    <p className="font-black text-[#15130f]">{title}</p>
+                                    {detail && <p className="mt-0.5 text-xs font-bold text-black/45">{detail}</p>}
+                                  </div>
+                                  <span className={`w-fit rounded-full border px-2.5 py-1 text-xs font-black ${isExternal ? 'border-sky-200 bg-sky-50 text-sky-700' : 'border-orange-200 bg-orange-50 text-orange-700'}`}>
+                                    {isExternal ? 'Por aparte' : 'Caja'}
+                                  </span>
+                                  <p className="font-black text-red-700 sm:text-right">{money(-payment.amount)}</p>
+                                </div>
+                              )
+                            })}
+                          </div>
+                        ) : (
+                          <p className="mt-4 text-sm font-bold text-black/42">No hay facturas pagadas este día.</p>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        )}
+      </section>
+
+      <section id="pagos-facturas" className="admin-panel scroll-mt-4 overflow-hidden">
         <div className="border-b border-black/10 p-4">
           <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
             <div>

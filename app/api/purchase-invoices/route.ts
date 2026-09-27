@@ -6,6 +6,7 @@ import {
   getRestaurantLocalDateStartUtc,
   getRestaurantTimeZone,
 } from '@/lib/restaurant-time'
+import { buildPurchaseDailyFinance } from '@/lib/purchase-daily-finance'
 
 interface PurchaseInvoiceLineInput {
   inventoryId?: string | null
@@ -45,10 +46,6 @@ function fallbackMonthStartIso(now = new Date()) {
   return new Date(now.getFullYear(), now.getMonth(), 1).toISOString()
 }
 
-function fallbackTodayStartIso(now = new Date()) {
-  return new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString()
-}
-
 function isActivePaidOrder(order: any) {
   const status = String(order?.status || '').trim().toLowerCase()
   return order?.payment_status === 'paid' && !['cancelled', 'canceled', 'voided', 'deleted', 'anulado', 'cancelado'].includes(status)
@@ -67,7 +64,7 @@ async function fetchMonthOrders(supabase: any, tenantId: string, monthStartIso: 
   while (true) {
     const { data, error, count } = await supabase
       .from('orders')
-      .select('id, total, created_at, payment_status, status', { count: from === 0 ? 'exact' : undefined })
+      .select('id, total, created_at, payment_method, payment_breakdown, payment_status, status', { count: from === 0 ? 'exact' : undefined })
       .eq('tenant_id', tenantId)
       .gte('created_at', monthStartIso)
       .order('created_at', { ascending: false })
@@ -134,7 +131,9 @@ async function getRestaurantPeriodStarts(supabase: any, tenantId: string) {
 
   return {
     monthStartIso: getRestaurantLocalDateStartUtc(monthStartKey, timeZone)?.toISOString() || fallbackMonthStartIso(now),
-    todayStartIso: getRestaurantLocalDateStartUtc(todayKey, timeZone)?.toISOString() || fallbackTodayStartIso(now),
+    monthStartKey,
+    todayKey,
+    timeZone,
   }
 }
 
@@ -153,7 +152,7 @@ export async function GET(request: NextRequest) {
   try {
     await requireTenantAccess(tenantId, { staffRoles: ['admin'], requireAdminPermission: true })
 
-    const { monthStartIso, todayStartIso } = await getRestaurantPeriodStarts(supabase, tenantId)
+    const { monthStartIso, monthStartKey, todayKey, timeZone } = await getRestaurantPeriodStarts(supabase, tenantId)
 
     const [
       { data: invoices, error },
@@ -195,38 +194,49 @@ export async function GET(request: NextRequest) {
     if (ordersError) throw ordersError
     if (billPaymentsError) throw billPaymentsError
 
-    const paidOrders = (monthOrders || []).filter(isActivePaidOrder)
+    const paidOrders = (monthOrders || []).filter((order) => {
+      if (!isActivePaidOrder(order) || !order.created_at) return false
+      const localDate = getRestaurantLocalDateKey(order.created_at, timeZone)
+      return localDate >= monthStartKey && localDate <= todayKey
+    })
     const salesThisMonth = paidOrders.reduce((sum, order) => sum + Number(order.total || 0), 0)
-    const salesToday = paidOrders
-      .filter((order) => new Date(order.created_at) >= new Date(todayStartIso))
-      .reduce((sum, order) => sum + Number(order.total || 0), 0)
-    const normalizedBillPayments = ((billPayments || []) as BillPaymentRow[]).map((payment) => ({
-      id: payment.id,
-      supplier_name: payment.supplier_name,
-      concept: payment.concept,
-      invoice_number: payment.invoice_number,
-      amount: Number(payment.amount) || 0,
-      staff_name: payment.staff_name,
-      paid_at: payment.paid_at,
-      notes: payment.notes,
-      payment_method: payment.payment_method || 'cash',
-      cash_closing_id: payment.cash_closing_id,
-    }))
-    const billPaymentsToday = normalizedBillPayments.filter((payment) =>
-      payment.paid_at && new Date(payment.paid_at) >= new Date(todayStartIso)
-    )
+    const normalizedBillPayments = ((billPayments || []) as BillPaymentRow[])
+      .map((payment) => ({
+        id: payment.id,
+        supplier_name: payment.supplier_name,
+        concept: payment.concept,
+        invoice_number: payment.invoice_number,
+        amount: Number(payment.amount) || 0,
+        staff_name: payment.staff_name,
+        paid_at: payment.paid_at,
+        notes: payment.notes,
+        payment_method: payment.payment_method || 'cash',
+        cash_closing_id: payment.cash_closing_id,
+        local_date: payment.paid_at ? getRestaurantLocalDateKey(payment.paid_at, timeZone) : null,
+      }))
+      .filter((payment) => payment.local_date && payment.local_date >= monthStartKey && payment.local_date <= todayKey)
+    const billPaymentsToday = normalizedBillPayments.filter((payment) => payment.local_date === todayKey)
     const sumPayments = (payments: typeof normalizedBillPayments, method?: string) =>
       payments
         .filter((payment) => !method || payment.payment_method === method)
         .reduce((sum, payment) => sum + payment.amount, 0)
+    const dailyFinance = buildPurchaseDailyFinance({
+      orders: paidOrders,
+      billPayments: normalizedBillPayments,
+      timeZone,
+      monthStartKey,
+      todayKey,
+    })
+    const todayFinance = dailyFinance.find((day) => day.date === todayKey)
 
     return NextResponse.json({
       invoices: invoices || [],
+      dailyFinance,
       salesSummary: {
         salesThisMonth,
-        salesToday,
+        salesToday: todayFinance?.salesTotal || 0,
         ordersThisMonth: paidOrders.length,
-        ordersToday: paidOrders.filter((order) => new Date(order.created_at) >= new Date(todayStartIso)).length,
+        ordersToday: todayFinance?.orders || 0,
       },
       billPaymentsSummary: {
         payments: normalizedBillPayments,

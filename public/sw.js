@@ -1,4 +1,4 @@
-const CACHE_NAME = 'eccofood-v20';
+const CACHE_NAME = 'eccofood-v21';
 const CACHE_PREFIX = 'eccofood-';
 const NETWORK_TIMEOUT_MS = 3500;
 const STATIC_ASSETS = [
@@ -145,6 +145,15 @@ self.addEventListener('fetch', (event) => {
   const url = new URL(request.url);
 
   if (url.origin !== location.origin) return;
+
+  const isLocalDevelopment =
+    (location.hostname === 'localhost' || location.hostname === '127.0.0.1') &&
+    location.port === '3000';
+
+  if (isLocalDevelopment) {
+    event.respondWith(fetch(request));
+    return;
+  }
 
   const isAuthRoute =
     url.pathname.startsWith('/api/auth/') ||

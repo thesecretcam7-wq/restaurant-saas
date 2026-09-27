@@ -2,7 +2,6 @@ import Link from 'next/link'
 import {
   AlertTriangle,
   Banknote,
-  Calculator,
   CircleDollarSign,
   Landmark,
   Package,
@@ -10,8 +9,6 @@ import {
   ReceiptText,
   ShieldCheck,
   ShoppingCart,
-  TrendingUp,
-  Wallet,
 } from 'lucide-react'
 import { createServiceClient } from '@/lib/supabase/server'
 import { formatPriceWithCurrency, getCurrencyByCountry } from '@/lib/currency'
@@ -216,7 +213,6 @@ export async function FinancialAssistant({ tenantId, tenantSlug, compact = false
   const todayKey = getRestaurantLocalDateKey(now, timeZone)
   const [year, month] = todayKey.split('-').map(Number)
   const monthStartKey = `${String(year).padStart(4, '0')}-${String(month).padStart(2, '0')}-01`
-  const todayStartIso = getRestaurantLocalDateStartUtc(todayKey, timeZone)?.toISOString() || new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString()
   const monthStartIso = getRestaurantLocalDateStartUtc(monthStartKey, timeZone)?.toISOString() || new Date(now.getFullYear(), now.getMonth(), 1).toISOString()
 
   const [allOrders, purchases, billPayments, inventory] = await Promise.all([
@@ -229,17 +225,8 @@ export async function FinancialAssistant({ tenantId, tenantSlug, compact = false
   const orders = allOrders.filter(isActivePaidOrder)
 
   const monthRevenue = orders.reduce((sum, order) => sum + toNumber(order.total), 0)
-  const todayRevenue = orders
-    .filter((order) => order.created_at && new Date(order.created_at) >= new Date(todayStartIso))
-    .reduce((sum, order) => sum + toNumber(order.total), 0)
   const purchaseSpend = purchases.reduce((sum, invoice) => sum + toNumber(invoice.total), 0)
   const paidBillSpend = billPayments.reduce((sum, payment) => sum + toNumber(payment.amount), 0)
-  const paidCashBillSpend = billPayments
-    .filter((payment) => String(payment.payment_method || 'cash').toLowerCase() === 'cash')
-    .reduce((sum, payment) => sum + toNumber(payment.amount), 0)
-  const paidExternalBillSpend = billPayments
-    .filter((payment) => String(payment.payment_method || '').toLowerCase() === 'external')
-    .reduce((sum, payment) => sum + toNumber(payment.amount), 0)
   const cardRevenue = orders
     .filter((order) => ['stripe', 'card', 'tarjeta', 'wompi'].includes(String(order.payment_method || '').toLowerCase()))
     .reduce((sum, order) => sum + toNumber(order.total), 0)
@@ -328,7 +315,6 @@ export async function FinancialAssistant({ tenantId, tenantSlug, compact = false
 
   const totalToSeparate = buckets.reduce((sum, bucket) => sum + bucket.amount, 0)
   const availableAfterReserve = monthRevenue - totalToSeparate
-  const availableAfterPaidBills = monthRevenue - paidBillSpend
   const purchaseRatio = monthRevenue > 0 ? (paidBillSpend / monthRevenue) * 100 : 0
   const reserveRatio = monthRevenue > 0 ? (totalToSeparate / monthRevenue) * 100 : 0
   const bucketsWithRatios = buckets.map((bucket) => ({
@@ -402,10 +388,10 @@ export async function FinancialAssistant({ tenantId, tenantSlug, compact = false
           <div>
             <p className="admin-eyebrow">Asistente financiero</p>
             <h2 className="mt-1 text-2xl font-black text-[#15130f]">
-              Dinero que debes separar
+              Plan de reservas del mes
             </h2>
             <p className="mt-2 max-w-3xl text-sm font-semibold leading-6 text-black/55">
-              Calculado con ventas cobradas del mes, facturas de compras, pagos digitales e inventario bajo minimo.
+              Calculado sobre {money(monthRevenue)} vendidos este mes para proveedores, impuestos, operación y seguridad de caja.
             </p>
           </div>
           <div className="financial-total-card grid min-w-[min(100%,22rem)] gap-2 rounded-2xl border border-black/10 bg-[#15130f] p-4 text-white">
@@ -424,25 +410,7 @@ export async function FinancialAssistant({ tenantId, tenantSlug, compact = false
         </div>
       </div>
 
-      <div className="grid gap-4 p-5 md:grid-cols-2 xl:grid-cols-4">
-        {[
-          { label: 'Ventas del mes', value: money(monthRevenue), icon: Wallet, helper: `${orders.length} pedido${orders.length === 1 ? '' : 's'} cobrado${orders.length === 1 ? '' : 's'}` },
-          { label: 'Ventas de hoy', value: money(todayRevenue), icon: TrendingUp, helper: `Promedio diario: ${money(averageDailySales)}` },
-          { label: 'Facturas pagadas', value: money(paidBillSpend), icon: ShoppingCart, helper: `Caja ${money(paidCashBillSpend)} - aparte ${money(paidExternalBillSpend)}` },
-          { label: 'Reserva sobre ventas', value: `${reserveRatio.toFixed(1)}%`, icon: Calculator, helper: 'Peso de todas las bolsas sugeridas' },
-        ].map(({ label, value, icon: Icon, helper }) => (
-          <article key={label} className="rounded-2xl border border-black/8 bg-black/[0.025] p-4">
-            <div className="flex items-center justify-between gap-3">
-              <p className="text-xs font-black uppercase text-black/42">{label}</p>
-              <Icon className="size-5 text-[#e43d30]" />
-            </div>
-            <p className="mt-4 text-2xl font-black text-[#15130f]">{value}</p>
-            <p className="mt-1 text-xs font-bold text-black/45">{helper}</p>
-          </article>
-        ))}
-      </div>
-
-      <div className="grid gap-4 px-5 pb-5 lg:grid-cols-[1fr_0.8fr]">
+      <div className="grid gap-4 p-5 lg:grid-cols-[1fr_0.8fr]">
         <div className="space-y-3">
           {visibleBuckets.map(({ label, amount, helper, icon: Icon, tone, salesRatio, reserveShare }) => (
             <article key={label} className="grid gap-3 rounded-2xl border border-black/8 bg-white/70 p-4 sm:grid-cols-[auto_1fr_auto] sm:items-center">
@@ -478,15 +446,6 @@ export async function FinancialAssistant({ tenantId, tenantSlug, compact = false
             <h3 className="font-black text-[#15130f]">Decision recomendada</h3>
           </div>
           <p className="mt-3 text-sm font-bold leading-6 text-black/62">{priority}</p>
-          <div className="mt-5 rounded-xl border border-black/10 bg-white/70 p-4">
-            <p className="text-xs font-black uppercase text-black/42">Queda despues de facturas pagadas</p>
-            <p className={`mt-2 text-2xl font-black ${availableAfterPaidBills >= 0 ? 'text-[#15130f]' : 'text-red-700'}`}>
-              {money(availableAfterPaidBills)}
-            </p>
-            <p className="mt-1 text-xs font-bold text-black/45">
-              Caja {money(paidCashBillSpend)} - aparte {money(paidExternalBillSpend)}
-            </p>
-          </div>
 
           {lowStockItems.length > 0 && (
             <div className="mt-5 rounded-xl border border-amber-200 bg-amber-50 p-4">

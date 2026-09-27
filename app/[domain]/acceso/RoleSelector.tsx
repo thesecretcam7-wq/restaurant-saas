@@ -82,8 +82,10 @@ export function RoleSelector({ tenantId, tenantName, tenantSlug, logoUrl, brandi
 
   useEffect(() => {
     const standalone = isStandalonePwa();
-    const restored = standalone ? restoreStaffSession(tenantId) : null;
-    if (standalone && isOperationalStaffPath(tenantSlug, restored?.lastPath)) {
+    if (!standalone) return;
+
+    const restored = restoreStaffSession(tenantId);
+    if (isOperationalStaffPath(tenantSlug, restored?.lastPath)) {
       router.replace(restored!.lastPath!);
       return;
     }

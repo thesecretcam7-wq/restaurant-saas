@@ -21,8 +21,8 @@ export default async function FinanzasPage({ params }: Props) {
       <div className="admin-page-header">
         <div>
           <p className="admin-eyebrow">Finanzas</p>
-          <h1 className="admin-title">Asistente financiero</h1>
-          <p className="admin-subtitle">Separa dinero para proveedores, impuestos, operacion, comisiones y caja de seguridad.</p>
+          <h1 className="admin-title">Planificación de caja</h1>
+          <p className="admin-subtitle">Decide cuánto reservar para proveedores, impuestos, operación, comisiones y seguridad de caja.</p>
         </div>
       </div>
       <FinancialAssistant tenantId={tenantId} tenantSlug={domain} />

@@ -16,6 +16,32 @@ export default function PWARegister() {
       return
     }
 
+    if (process.env.NODE_ENV === 'development') {
+      const clearDevelopmentPwa = async () => {
+        try {
+          const registrations = await navigator.serviceWorker.getRegistrations()
+          const cacheNames = 'caches' in window ? await window.caches.keys() : []
+          const eccofoodCaches = cacheNames.filter((name) => name.startsWith('eccofood-'))
+          const hadStoredPwa = registrations.length > 0 || eccofoodCaches.length > 0
+
+          await Promise.all([
+            ...registrations.map((registration) => registration.unregister()),
+            ...eccofoodCaches.map((name) => window.caches.delete(name)),
+          ])
+
+          if (hadStoredPwa && sessionStorage.getItem('eccofood-dev-pwa-reset') !== 'done') {
+            sessionStorage.setItem('eccofood-dev-pwa-reset', 'done')
+            window.location.reload()
+          }
+        } catch (error) {
+          console.warn('Development PWA cleanup skipped:', error)
+        }
+      }
+
+      void clearDevelopmentPwa()
+      return
+    }
+
     // Register service worker
     navigator.serviceWorker
       .register('/sw.js', { scope: '/' })

@@ -21,6 +21,7 @@ import { preloadPrinterForPrint, printCashClosingReceipt, printKitchenTicket, pr
 import { countPendingPOSOrders, isNetworkPaymentError, saveOfflinePOSOrder, syncOfflinePOSOrders } from '@/lib/offline/pos-sync';
 import { getOfflineStorage } from '@/lib/offline/storage';
 import { useWakeLock } from '@/lib/hooks/useWakeLock';
+import { reconcileSavedDineInOrder } from '@/lib/pos-dine-in-orders';
 
 interface MenuItem {
   id: string;
@@ -811,8 +812,13 @@ export function POSTerminal({
   const paymentInFlightRef = useRef(false);
   const sendToTableInFlightRef = useRef(false);
   const tableCartSyncInFlightRef = useRef(false);
+  const tableCartSyncVersionRef = useRef(0);
   const touchTextResolverRef = useRef<((value: string | null) => void) | null>(null);
-  const pendingTableCartSyncRef = useRef<{ nextCart: CartItem[]; successMessage: string } | null>(null);
+  const pendingTableCartSyncRef = useRef<{
+    nextCart: CartItem[];
+    successMessage: string;
+    version: number;
+  } | null>(null);
   const optimisticTableOrderIdsRef = useRef(new Map<number, string>());
   const latestTableSyncStateRef = useRef<{
     cart: CartItem[];
@@ -838,8 +844,10 @@ export function POSTerminal({
   const csrfTokenRef = useRef<string>('');
   const cartRestoredRef = useRef(false);
   const previousCartLengthRef = useRef(0);
-  const skipNextCartRemoteSyncRef = useRef(false);
   const cartRemoteSyncTimerRef = useRef<number | null>(null);
+  const cartRemoteSyncQueueRef = useRef<Promise<void>>(Promise.resolve());
+  const cartRemoteSyncVersionRef = useRef(0);
+  const cartRestoreVersionRef = useRef(0);
   const restoredStaffTenantRef = useRef<string | null>(null);
   const warmedReceiptPrinterIdRef = useRef<string | null>(null);
   const pendingCashClosingFetchInFlightRef = useRef(false);
@@ -848,6 +856,35 @@ export function POSTerminal({
   const offlineSyncInFlightRef = useRef(false);
   const canRegisterInPreviousPeriod =
     Boolean(pendingCashClosingStats) && !loadedOrderId && billingOrderIds.length === 0 && !selectedTableId;
+
+  const enqueueCartRemoteSync = useCallback((operation: () => Promise<unknown>) => {
+    const run = cartRemoteSyncQueueRef.current
+      .catch(() => undefined)
+      .then(async () => {
+        await operation();
+      });
+
+    cartRemoteSyncQueueRef.current = run.catch(() => undefined);
+    return run;
+  }, []);
+
+  const invalidatePendingCartSync = useCallback(() => {
+    cartRemoteSyncVersionRef.current += 1;
+    cartRestoreVersionRef.current += 1;
+    if (typeof window !== 'undefined') {
+      localStorage.setItem(`pos-cart-cleared-${tenantId}`, String(Date.now()));
+    }
+    if (typeof window !== 'undefined' && cartRemoteSyncTimerRef.current !== null) {
+      window.clearTimeout(cartRemoteSyncTimerRef.current);
+      cartRemoteSyncTimerRef.current = null;
+    }
+  }, [tenantId]);
+
+  const invalidatePendingTableCartSync = useCallback(() => {
+    tableCartSyncVersionRef.current += 1;
+    pendingTableCartSyncRef.current = null;
+    setTableCartSaving(false);
+  }, []);
 
   useEffect(() => {
     latestTableSyncStateRef.current = {
@@ -1402,6 +1439,8 @@ export function POSTerminal({
       setProcessingPayment(false);
 
       if (detail.success) {
+        invalidatePendingCartSync();
+        invalidatePendingTableCartSync();
         setToast({ message: 'Mesa pagada con Tap to Pay', type: 'success' });
         setCart([]);
         setBillingOrderIds([]);
@@ -1410,6 +1449,12 @@ export function POSTerminal({
         setSelectedStaffId(null);
         setSelectedStaffName('');
         setPosMode('simple');
+        localStorage.removeItem(`pos-cart-${tenantId}`);
+        localStorage.removeItem(`pos-discount-${tenantId}`);
+        localStorage.removeItem(`pos-discount-code-${tenantId}`);
+        void enqueueCartRemoteSync(() => abandonCart(tenantId, supabase)).catch((cartError) => {
+          console.warn('POS cart cleanup after Tap to Pay failed:', cartError);
+        });
         fetchDineInOrders();
         return;
       }
@@ -1425,7 +1470,7 @@ export function POSTerminal({
       window.removeEventListener('eccofood-android-ready', checkBridge);
       window.removeEventListener('eccofood-tap-to-pay-result', handleTapToPayResult as EventListener);
     };
-  }, [tenantId]);
+  }, [enqueueCartRemoteSync, invalidatePendingCartSync, invalidatePendingTableCartSync, supabase, tenantId]);
 
   useEffect(() => {
     if (!isOnline) return;
@@ -2057,33 +2102,44 @@ export function POSTerminal({
   }
 
   async function restoreCart() {
+    const restoreVersion = cartRestoreVersionRef.current;
+
     try {
+      let restoredLocalCart = false;
+
       if (typeof window !== 'undefined') {
         const savedCart = localStorage.getItem(`pos-cart-${tenantId}`);
         const savedDiscount = localStorage.getItem(`pos-discount-${tenantId}`);
         const savedDiscountCode = localStorage.getItem(`pos-discount-code-${tenantId}`);
+        const cartWasExplicitlyCleared = Boolean(localStorage.getItem(`pos-cart-cleared-${tenantId}`));
 
         if (savedCart) {
           try {
-            setCart(JSON.parse(savedCart));
+            const parsedCart: unknown = JSON.parse(savedCart);
+            if (Array.isArray(parsedCart) && parsedCart.length > 0) {
+              setCart(parsedCart as CartItem[]);
+              localStorage.removeItem(`pos-cart-cleared-${tenantId}`);
+              restoredLocalCart = true;
+            }
           } catch (error) {
             console.error('Error restoring cart from localStorage:', error);
           }
         }
-        if (savedDiscount) {
+        if (restoredLocalCart && savedDiscount) {
           try {
             setDiscount(parseFloat(savedDiscount));
           } catch (error) {
             console.error('Error restoring discount:', error);
           }
         }
-        if (savedDiscountCode) {
+        if (restoredLocalCart && savedDiscountCode) {
           setDiscountCode(savedDiscountCode);
         }
+        if (restoredLocalCart || cartWasExplicitlyCleared) return;
       }
 
       const supabaseCart = await loadCartFromSupabase(tenantId, supabase);
-      if (!supabaseCart) return;
+      if (!supabaseCart || cartRestoreVersionRef.current !== restoreVersion) return;
 
       setCart(supabaseCart.items);
       setDiscount(supabaseCart.discount);
@@ -2110,13 +2166,12 @@ export function POSTerminal({
       cartRemoteSyncTimerRef.current = null;
     }
 
-    if (!cartRestoredRef.current) {
-      previousCartLengthRef.current = cart.length;
-      return;
-    }
+    const syncVersion = ++cartRemoteSyncVersionRef.current;
 
-    if (skipNextCartRemoteSyncRef.current) {
-      skipNextCartRemoteSyncRef.current = false;
+    if (!cartRestoredRef.current) {
+      if (cart.length > 0) {
+        cartRestoreVersionRef.current += 1;
+      }
       previousCartLengthRef.current = cart.length;
       return;
     }
@@ -2127,10 +2182,14 @@ export function POSTerminal({
         localStorage.setItem(`pos-cart-${tenantId}`, JSON.stringify(cart));
         localStorage.setItem(`pos-discount-${tenantId}`, discount.toString());
         localStorage.setItem(`pos-discount-code-${tenantId}`, discountCode);
+        localStorage.removeItem(`pos-cart-cleared-${tenantId}`);
       } else {
         localStorage.removeItem(`pos-cart-${tenantId}`);
         localStorage.removeItem(`pos-discount-${tenantId}`);
         localStorage.removeItem(`pos-discount-code-${tenantId}`);
+        if (previousCartLengthRef.current > 0) {
+          localStorage.setItem(`pos-cart-cleared-${tenantId}`, String(Date.now()));
+        }
       }
     }
 
@@ -2153,12 +2212,14 @@ export function POSTerminal({
 
       cartRemoteSyncTimerRef.current = window.setTimeout(() => {
         cartRemoteSyncTimerRef.current = null;
+        if (cartRemoteSyncVersionRef.current !== syncVersion) return;
+
         if (cartData.items.length > 0) {
-          saveCartToSupabase(tenantId, cartData, supabase).catch((err) => {
+          void enqueueCartRemoteSync(() => saveCartToSupabase(tenantId, cartData, supabase)).catch((err) => {
             console.error('Background cart sync failed (will use localStorage):', err);
           });
         } else {
-          abandonCurrentCartSession(tenantId, supabase).catch((err) => {
+          void enqueueCartRemoteSync(() => abandonCurrentCartSession(tenantId, supabase)).catch((err) => {
             console.error('Background cart cleanup failed:', err);
           });
         }
@@ -2176,6 +2237,7 @@ export function POSTerminal({
     cart,
     discount,
     discountCode,
+    enqueueCartRemoteSync,
     isOnline,
     paymentMethod,
     posMode,
@@ -2791,6 +2853,7 @@ export function POSTerminal({
   }
 
   async function syncLoadedTableCart(nextCart: CartItem[], successMessage: string) {
+    const tableSyncVersion = tableCartSyncVersionRef.current;
     const tableSyncState = latestTableSyncStateRef.current;
     const activeBillingOrderIds = [...tableSyncState.billingOrderIds];
     const activeDineInOrders = tableSyncState.dineInOrders;
@@ -2812,6 +2875,7 @@ export function POSTerminal({
       pendingTableCartSyncRef.current = {
         nextCart: cloneCartItems(nextCart),
         successMessage,
+        version: tableSyncVersion,
       };
       return;
     }
@@ -2925,6 +2989,8 @@ export function POSTerminal({
 
       const csrfToken = await getFreshCSRFToken();
       for (const orderId of activeBillingOrderIds) {
+        if (tableCartSyncVersionRef.current !== tableSyncVersion) return;
+
         const updatedOrder = nextTableOrders.find((order) => order.id === orderId);
         const originalOrder = activeDineInOrders.find((order) => order.id === orderId);
         if (!originalOrder) continue;
@@ -2952,6 +3018,8 @@ export function POSTerminal({
           }),
         });
 
+        if (tableCartSyncVersionRef.current !== tableSyncVersion) return;
+
         if (!response.ok) {
           const errorData = await response.json().catch(() => ({}));
           throw new Error(errorData.error || 'No se pudo guardar la mesa');
@@ -2963,6 +3031,8 @@ export function POSTerminal({
       );
 
       if (extraItems.length > 0) {
+        if (tableCartSyncVersionRef.current !== tableSyncVersion) return;
+
         if (!activeSelectedTableNumber) {
           throw new Error('Selecciona la mesa para agregar productos');
         }
@@ -3025,6 +3095,8 @@ export function POSTerminal({
           }),
         });
 
+        if (tableCartSyncVersionRef.current !== tableSyncVersion) return;
+
         if (!response.ok) {
           mutedDineInOrderIdsRef.current.delete(optimisticOrderId);
           const errorData = await response.json().catch(() => ({}));
@@ -3037,17 +3109,23 @@ export function POSTerminal({
             optimisticTableOrderIdsRef.current.delete(tableNumber);
             mutedDineInOrderIdsRef.current.delete(liveOptimisticOrderId);
           }
+          mutedDineInOrderIdsRef.current.delete(optimisticOrderId);
           mutedDineInOrderIdsRef.current.add(savedOrder.orderId);
           mutedDineInTablesUntilRef.current.set(tableNumber, Date.now() + POS_DINE_IN_MUTE_MS);
           knownDineInOrderIds.current.add(savedOrder.orderId);
-          setDineInOrders((current) => current.map((order) =>
-            order.id === optimisticOrderId || order.id === liveOptimisticOrderId
-              ? { ...order, id: savedOrder.orderId, order_number: savedOrder.orderNumber || order.order_number }
-              : order
+          setDineInOrders((current) => reconcileSavedDineInOrder(
+            current,
+            [optimisticOrderId, liveOptimisticOrderId],
+            savedOrder.orderId,
+            savedOrder.orderNumber,
           ));
-          nextBillingOrderIds.push(savedOrder.orderId);
+          if (!nextBillingOrderIds.includes(savedOrder.orderId)) {
+            nextBillingOrderIds.push(savedOrder.orderId);
+          }
         }
       }
+
+      if (tableCartSyncVersionRef.current !== tableSyncVersion) return;
 
       if (successMessage) {
         setToast({ message: successMessage, type: 'success' });
@@ -3068,6 +3146,8 @@ export function POSTerminal({
       void fetchDineInOrders();
       void fetchIncomingOrders();
     } catch (error) {
+      if (tableCartSyncVersionRef.current !== tableSyncVersion) return;
+
       setCart(previousCart);
       setDineInOrders(previousDineInOrders);
       setBillingOrderIds(previousBillingOrderIds);
@@ -3079,12 +3159,14 @@ export function POSTerminal({
     } finally {
       tableCartSyncInFlightRef.current = false;
       const pendingSync = pendingTableCartSyncRef.current;
-      if (pendingSync) {
+      if (pendingSync && pendingSync.version === tableCartSyncVersionRef.current) {
         pendingTableCartSyncRef.current = null;
         window.setTimeout(() => {
+          if (tableCartSyncVersionRef.current !== pendingSync.version) return;
           void syncLoadedTableCart(pendingSync.nextCart, pendingSync.successMessage);
         }, 0);
       } else {
+        pendingTableCartSyncRef.current = null;
         setTableCartSaving(false);
       }
     }
@@ -3185,6 +3267,8 @@ export function POSTerminal({
   }
 
   function resetCurrentCartForNextCustomer() {
+    invalidatePendingCartSync();
+    invalidatePendingTableCartSync();
     setCart([]);
     setDiscount(0);
     setDiscountCode('');
@@ -3222,6 +3306,7 @@ export function POSTerminal({
   }
 
   function clearDraftCartForTableSwitch() {
+    invalidatePendingTableCartSync();
     setCart([]);
     setDiscount(0);
     setDiscountCode('');
@@ -3446,7 +3531,6 @@ export function POSTerminal({
     };
 
     persistHeldAccounts([heldAccount, ...heldAccounts].slice(0, 20));
-    skipNextCartRemoteSyncRef.current = true;
     resetCurrentCartForNextCustomer();
     setShowHeldAccountsPanel(false);
     setToast({ message: 'Cuenta guardada en espera', type: 'success' });
@@ -3489,7 +3573,6 @@ export function POSTerminal({
         ? account.posOrderType
         : 'takeaway';
 
-    skipNextCartRemoteSyncRef.current = true;
     setCart(account.items.map((item) => ({ ...item })));
     setDiscount(Number(account.discount || 0));
     setDiscountCode(account.discountCode || '');
@@ -3797,6 +3880,8 @@ export function POSTerminal({
       knownDineInOrderIds.current.add(optimisticOrderId);
       setDineInOrders(current => [optimisticOrder, ...current]);
       setToast({ message: `Enviando a Mesa ${tableNumber}...`, type: 'success' });
+      invalidatePendingCartSync();
+      invalidatePendingTableCartSync();
       setCart([]);
       setDiscount(0);
       setDiscountCode('');
@@ -3851,18 +3936,20 @@ export function POSTerminal({
 
       const savedOrder = await response.json().catch(() => null);
       if (savedOrder?.orderId) {
+        mutedDineInOrderIdsRef.current.delete(optimisticOrderId);
         mutedDineInOrderIdsRef.current.add(savedOrder.orderId);
         mutedDineInTablesUntilRef.current.set(tableNumber, Date.now() + POS_DINE_IN_MUTE_MS);
-        setDineInOrders(current => current.map(order =>
-          order.id === optimisticOrderId
-            ? { ...order, id: savedOrder.orderId, order_number: savedOrder.orderNumber || order.order_number }
-            : order
+        setDineInOrders((current) => reconcileSavedDineInOrder(
+          current,
+          [optimisticOrderId],
+          savedOrder.orderId,
+          savedOrder.orderNumber,
         ));
         knownDineInOrderIds.current.add(savedOrder.orderId);
       }
 
       setToast({ message: `Productos enviados a Mesa ${tableNumber}`, type: 'success' });
-      void abandonCart(tenantId, supabase).catch((cartError) => {
+      void enqueueCartRemoteSync(() => abandonCart(tenantId, supabase)).catch((cartError) => {
         console.warn('POS cart cleanup after table send failed:', cartError);
       });
     } catch (error) {
@@ -4494,6 +4581,8 @@ export function POSTerminal({
         setSplitSelections({});
       } else {
         // Clear cart and reset all states
+        invalidatePendingCartSync();
+        invalidatePendingTableCartSync();
         setCart([]);
         setDiscount(0);
         setDiscountCode('');
@@ -4538,7 +4627,7 @@ export function POSTerminal({
       });
       startPrintInBackground();
       void (async () => {
-        await abandonCart(tenantId, supabase).catch((cartError) => {
+        await enqueueCartRemoteSync(() => abandonCart(tenantId, supabase)).catch((cartError) => {
           console.warn('POS cart cleanup failed:', cartError);
         });
         if (savedOfflineSale && typeof navigator !== 'undefined' && navigator.onLine) {
@@ -6052,6 +6141,8 @@ export function POSTerminal({
               </button>
               <button
                 onClick={() => {
+                  invalidatePendingCartSync();
+                  invalidatePendingTableCartSync();
                   setCart([]);
                   setBillingOrderIds([]);
                   setSplitBillMode(false);

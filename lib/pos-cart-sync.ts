@@ -53,13 +53,21 @@ export async function saveCartToSupabase(
     const tax = cartData.taxRate && cartData.taxRate > 0 ? taxableSubtotal * (cartData.taxRate / 100) : 0;
     const total = taxableSubtotal + tax + (cartData.tip ?? 0);
 
-    // Check if cart session already exists
-    const { data: existingCart } = await supabase
+    // Only reuse the latest active cart. Historical rows stay abandoned.
+    const { data: existingCart, error: existingCartError } = await supabase
       .from('pos_carts')
       .select('id')
       .eq('tenant_id', tenantId)
       .eq('cart_session_id', sessionId)
+      .is('abandoned_at', null)
+      .order('updated_at', { ascending: false })
+      .limit(1)
       .maybeSingle();
+
+    if (existingCartError) {
+      console.error('Error finding active POS cart:', existingCartError);
+      return false;
+    }
 
     if (existingCart) {
       // Update existing cart
@@ -77,9 +85,9 @@ export async function saveCartToSupabase(
           selected_staff_name: cartData.selectedStaffName || null,
           selected_table_id: cartData.selectedTableId || null,
           selected_table_number: cartData.selectedTableNumber || null,
-          abandoned_at: null, // Mark as active
         })
-        .eq('id', existingCart.id);
+        .eq('id', existingCart.id)
+        .is('abandoned_at', null);
 
       return !error;
     } else {
@@ -125,6 +133,8 @@ export async function loadCartFromSupabase(
       .eq('tenant_id', tenantId)
       .eq('cart_session_id', sessionId)
       .is('abandoned_at', null)
+      .order('updated_at', { ascending: false })
+      .limit(1)
       .maybeSingle();
 
     if (error || !cart) return null;
@@ -245,13 +255,21 @@ export async function loadOrderToCart(
     const subtotal = items.reduce((sum: number, item: any) => sum + item.price * item.quantity, 0);
     const total = subtotal; // No discount/tip for existing orders
 
-    // Check if a cart session exists
-    const { data: existingCart } = await supabase
+    // Reuse only an active cart so an old paid cart is never reactivated.
+    const { data: existingCart, error: existingCartError } = await supabase
       .from('pos_carts')
       .select('id')
       .eq('tenant_id', tenantId)
       .eq('cart_session_id', sessionId)
+      .is('abandoned_at', null)
+      .order('updated_at', { ascending: false })
+      .limit(1)
       .maybeSingle();
+
+    if (existingCartError) {
+      console.error('Error finding active POS cart for order:', existingCartError);
+      return false;
+    }
 
     const cartData = {
       items,
@@ -275,7 +293,8 @@ export async function loadOrderToCart(
       const { error } = await supabase
         .from('pos_carts')
         .update(cartData)
-        .eq('id', existingCart.id);
+        .eq('id', existingCart.id)
+        .is('abandoned_at', null);
 
       return !error;
     } else {
