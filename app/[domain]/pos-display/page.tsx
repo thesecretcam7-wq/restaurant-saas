@@ -34,6 +34,7 @@ interface DisplayBranding {
 }
 
 type WakeLockSentinel = { release: () => Promise<void>; addEventListener?: (event: string, cb: () => void) => void } | null;
+const CART_POLL_FALLBACK_MS = 15_000;
 
 export default function CustomerDisplayPage() {
   return (
@@ -67,6 +68,7 @@ function CustomerDisplayContent() {
   const [wakeLockSupported, setWakeLockSupported] = useState(true);
   const [displayMode, setDisplayMode] = useState(false);
   const wakeLockRef = useRef<WakeLockSentinel>(null);
+  const cartFetchInFlightRef = useRef(false);
 
   const supabase = useMemo(() => createClient(), []);
 
@@ -189,24 +191,33 @@ function CustomerDisplayContent() {
     if (!tenantId) return;
 
     async function fetchCart() {
-      const { data } = await supabase
-        .from('pos_carts')
-        .select('items, subtotal, total, discount, updated_at')
-        .eq('tenant_id', tenantId)
-        .is('abandoned_at', null)
-        .order('updated_at', { ascending: false })
-        .limit(1)
-        .maybeSingle();
+      if (cartFetchInFlightRef.current) return;
+      cartFetchInFlightRef.current = true;
 
-      if (data && data.items && data.items.length > 0) {
-        setCart(data as PosCart);
-      } else {
-        setCart(null);
+      try {
+        const { data } = await supabase
+          .from('pos_carts')
+          .select('items, subtotal, total, discount, updated_at')
+          .eq('tenant_id', tenantId)
+          .is('abandoned_at', null)
+          .order('updated_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (data && data.items && data.items.length > 0) {
+          setCart(data as PosCart);
+        } else {
+          setCart(null);
+        }
+      } finally {
+        cartFetchInFlightRef.current = false;
       }
     }
 
     fetchCart();
-    const poll = setInterval(fetchCart, 2000);
+    const poll = setInterval(() => {
+      if (document.visibilityState === 'visible') fetchCart();
+    }, CART_POLL_FALLBACK_MS);
 
     const channel = supabase
       .channel(`customer-display:${tenantId}`)

@@ -23,6 +23,7 @@ import LanguageSwitcher, { useI18n } from '@/components/LanguageSwitcher';
 import { formatStaffOrderNumber } from '@/lib/order-display';
 
 const supabase = createClient();
+const KDS_POLL_FALLBACK_MS = 30_000;
 
 interface OrderItemWithOrder {
   id: string;
@@ -703,6 +704,7 @@ export function KDSScreen({ tenantId }: { tenantId: string }) {
   const { wakeLockActive, activateWakeLock } = useWakeLock();
   const delayedAlertedOrders = useRef(new Map<string, number>());
   const pendingStatusByItemId = useRef(new Map<string, KDSItemStatus>());
+  const fetchInFlightRef = useRef(false);
   const {
     soundEnabled,
     setSoundEnabled,
@@ -779,6 +781,9 @@ export function KDSScreen({ tenantId }: { tenantId: string }) {
 
   // Fetch
   const fetchOrderItems = useCallback(async () => {
+    if (fetchInFlightRef.current) return;
+    fetchInFlightRef.current = true;
+
     try {
       const res = await fetch(
         `/api/order-items?tenantId=${tenantId}&status=pending,confirmed,preparing,ready&requiresKitchen=true`
@@ -805,6 +810,7 @@ export function KDSScreen({ tenantId }: { tenantId: string }) {
     } catch (err) {
       console.error('KDS fetch error:', err);
     } finally {
+      fetchInFlightRef.current = false;
       setLoading(false);
     }
   }, [tenantId, playNewOrder]);
@@ -877,12 +883,11 @@ export function KDSScreen({ tenantId }: { tenantId: string }) {
     };
   }, [tenantId, fetchOrderItems, playNewOrder]);
 
-  // Realtime
+  // Realtime is primary; polling only recovers missed events.
   useEffect(() => {
     const interval = setInterval(() => {
-      console.log('[KDS] Polling fallback - refetching data');
-      fetchOrderItems();
-    }, 3000); // More aggressive fallback: every 3 seconds
+      if (document.visibilityState === 'visible') fetchOrderItems();
+    }, KDS_POLL_FALLBACK_MS);
     return () => clearInterval(interval);
   }, [fetchOrderItems]);
 

@@ -29,6 +29,8 @@ interface Props {
   params: Promise<{ domain: string }>
 }
 
+const ORDERS_POLL_MS = 10_000
+
 type WakeLockSentinel = {
   release: () => Promise<void>
   addEventListener: (type: 'release', listener: () => void) => void
@@ -138,6 +140,7 @@ export default function PantallaPage({ params }: Props) {
   const prevReadyRef = useRef<Set<string>>(new Set())
   const audioRef = useRef<AudioContext | null>(null)
   const wakeLockRef = useRef<WakeLockSentinel | null>(null)
+  const ordersFetchInFlightRef = useRef(false)
 
   // Mount flag to prevent hydration errors
   useEffect(() => {
@@ -229,6 +232,9 @@ export default function PantallaPage({ params }: Props) {
   }, [])
 
   const fetchOrders = useCallback(async () => {
+    if (ordersFetchInFlightRef.current) return
+    ordersFetchInFlightRef.current = true
+
     try {
       const res = await fetch(`/api/pantalla/${domain}`, { cache: 'no-store' })
       if (!res.ok) return
@@ -257,12 +263,17 @@ export default function PantallaPage({ params }: Props) {
       }
       prevReadyRef.current = currentReady
       setData(safeData)
-    } catch {}
+    } catch {
+    } finally {
+      ordersFetchInFlightRef.current = false
+    }
   }, [domain, playBeep])
 
   useEffect(() => {
     fetchOrders()
-    const poll = setInterval(fetchOrders, 4000)
+    const poll = setInterval(() => {
+      if (document.visibilityState === 'visible') fetchOrders()
+    }, ORDERS_POLL_MS)
     return () => clearInterval(poll)
   }, [fetchOrders])
 

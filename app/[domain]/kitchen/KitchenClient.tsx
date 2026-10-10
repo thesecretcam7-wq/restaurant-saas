@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Image from 'next/image';
 import { createClient } from '@/lib/supabase/client';
 import { formatPriceWithCurrency, getCurrencyByCountry } from '@/lib/currency';
@@ -29,6 +29,7 @@ import {
 } from 'lucide-react';
 
 const supabase = createClient();
+const SERVICE_POLL_FALLBACK_MS = 30_000;
 
 interface Category { id: string; name: string; sort_order: number; }
 interface MenuItem { id: string; name: string; price: number; category_id: string; description: string | null; image_url: string | null; }
@@ -119,6 +120,7 @@ export function KitchenClient({ tenantId, tenantSlug, tenantName, country, brand
   const [customQty, setCustomQty] = useState(1);
   const [servicePendingCount, setServicePendingCount] = useState(0);
   const [pushRequesting, setPushRequesting] = useState(false);
+  const serviceFetchInFlightRef = useRef(false);
   const { trackReadyItems } = useServiceReadyAlert();
   const { pushStatus, enablePushNotifications } = useWaiterPushNotifications({ tenantId, autoRequest: false });
   const canShowPushButton = pushStatus !== 'subscribed' && pushStatus !== 'unsupported';
@@ -159,6 +161,9 @@ export function KitchenClient({ tenantId, tenantSlug, tenantName, country, brand
   }, [branding, tenantName]);
 
   const fetchServiceDeliveries = useCallback(async () => {
+    if (serviceFetchInFlightRef.current) return;
+    serviceFetchInFlightRef.current = true;
+
     try {
       const res = await fetch(`/api/order-items?tenantId=${tenantId}&status=ready`, {
         cache: 'no-store',
@@ -177,6 +182,8 @@ export function KitchenClient({ tenantId, tenantSlug, tenantName, country, brand
       setServicePendingCount(count);
     } catch {
       setServicePendingCount(0);
+    } finally {
+      serviceFetchInFlightRef.current = false;
     }
   }, [tenantId, trackReadyItems]);
 
@@ -207,7 +214,9 @@ export function KitchenClient({ tenantId, tenantSlug, tenantName, country, brand
       )
       .subscribe();
 
-    const interval = window.setInterval(fetchServiceDeliveries, 5000);
+    const interval = window.setInterval(() => {
+      if (document.visibilityState === 'visible') fetchServiceDeliveries();
+    }, SERVICE_POLL_FALLBACK_MS);
 
     return () => {
       window.clearInterval(interval);

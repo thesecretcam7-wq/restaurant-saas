@@ -9,6 +9,7 @@ import { useWaiterPushNotifications } from '@/lib/hooks/useWaiterPushNotificatio
 import { getStoredStaffName, rememberStaffPath, restoreStaffSession } from '@/lib/staff-session-client';
 
 const supabase = createClient();
+const SERVICE_POLL_FALLBACK_MS = 30_000;
 
 type ServiceItem = {
   id: string;
@@ -278,6 +279,7 @@ export function ServiceDeliveryScreen({
   const [error, setError] = useState<string | null>(null);
   const [updatingItemIds, setUpdatingItemIds] = useState<Set<string>>(new Set());
   const firstFetchDone = useRef(false);
+  const fetchInFlightRef = useRef(false);
   const brand = useDeliveryBrand(theme);
   const { alertsReady, trackReadyItems, triggerServiceAlert, unlockAlerts } = useServiceReadyAlert();
   const { enablePushNotifications } = useWaiterPushNotifications({ tenantId });
@@ -290,6 +292,8 @@ export function ServiceDeliveryScreen({
   }, [tenantId, tenantSlug]);
 
   const fetchItems = useCallback(async (silent = false) => {
+    if (fetchInFlightRef.current) return;
+    fetchInFlightRef.current = true;
     if (!silent) setRefreshing(true);
 
     try {
@@ -302,6 +306,7 @@ export function ServiceDeliveryScreen({
     } catch (err) {
       setError(err instanceof Error ? err.message : 'No se pudieron cargar las entregas');
     } finally {
+      fetchInFlightRef.current = false;
       setLoading(false);
       setRefreshing(false);
       firstFetchDone.current = true;
@@ -320,7 +325,9 @@ export function ServiceDeliveryScreen({
       )
       .subscribe();
 
-    const interval = window.setInterval(() => fetchItems(true), 5000);
+    const interval = window.setInterval(() => {
+      if (document.visibilityState === 'visible') fetchItems(true);
+    }, SERVICE_POLL_FALLBACK_MS);
 
     return () => {
       window.clearInterval(interval);
@@ -488,9 +495,12 @@ export function ServiceDeliveryWidget({
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [updatingItemIds, setUpdatingItemIds] = useState<Set<string>>(new Set());
+  const fetchInFlightRef = useRef(false);
   const brand = useDeliveryBrand(theme);
 
   const fetchItems = useCallback(async (silent = false) => {
+    if (fetchInFlightRef.current) return;
+    fetchInFlightRef.current = true;
     if (!silent) setRefreshing(true);
 
     try {
@@ -502,6 +512,7 @@ export function ServiceDeliveryWidget({
     } catch (err) {
       setError(err instanceof Error ? err.message : 'No se pudieron cargar las entregas');
     } finally {
+      fetchInFlightRef.current = false;
       setLoading(false);
       setRefreshing(false);
     }
@@ -520,7 +531,9 @@ export function ServiceDeliveryWidget({
       )
       .subscribe();
 
-    const interval = window.setInterval(() => fetchItems(true), 5000);
+    const interval = window.setInterval(() => {
+      if (document.visibilityState === 'visible') fetchItems(true);
+    }, SERVICE_POLL_FALLBACK_MS);
 
     return () => {
       window.clearTimeout(loaderTimer);
