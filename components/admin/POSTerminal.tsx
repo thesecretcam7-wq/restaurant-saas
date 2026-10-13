@@ -66,6 +66,7 @@ const POS_BOOTSTRAP_TIMEOUT_MS = 3500;
 const POS_MENU_REFRESH_FALLBACK_MS = 300000;
 const POS_BOOTSTRAP_FAILURE_BACKOFF_MS = 60000;
 const POS_ORDERS_REFRESH_FALLBACK_MS = 45000;
+const CASH_CLOSING_REFRESH_FALLBACK_MS = 5 * 60_000;
 const POS_DINE_IN_MUTE_MS = 2 * 60 * 1000;
 const POS_DINE_IN_LOCAL_CLOSE_SUPPRESS_MS = 2 * 60 * 1000;
 const CSRF_REFRESH_SKEW_MS = 5 * 60 * 1000;
@@ -1196,13 +1197,11 @@ export function POSTerminal({
     };
 
     void refreshPendingCashClosing();
-    const initialRetry = window.setTimeout(refreshWhenVisible, 5000);
-    const polling = window.setInterval(refreshWhenVisible, POS_ORDERS_REFRESH_FALLBACK_MS);
+    const polling = window.setInterval(refreshWhenVisible, CASH_CLOSING_REFRESH_FALLBACK_MS);
     document.addEventListener('visibilitychange', refreshWhenVisible);
     window.addEventListener('focus', refreshWhenVisible);
 
     return () => {
-      window.clearTimeout(initialRetry);
       window.clearInterval(polling);
       document.removeEventListener('visibilitychange', refreshWhenVisible);
       window.removeEventListener('focus', refreshWhenVisible);
@@ -1245,7 +1244,7 @@ export function POSTerminal({
       )
       .subscribe();
 
-    const polling = window.setInterval(refreshVisibleClosing, POS_ORDERS_REFRESH_FALLBACK_MS);
+    const polling = window.setInterval(refreshVisibleClosing, CASH_CLOSING_REFRESH_FALLBACK_MS);
     document.addEventListener('visibilitychange', refreshWhenVisible);
     window.addEventListener('focus', refreshWhenVisible);
 

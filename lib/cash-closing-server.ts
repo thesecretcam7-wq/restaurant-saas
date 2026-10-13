@@ -64,7 +64,7 @@ type CashClosingPeriod = {
 const ORDER_SELECT = 'id, order_number, total, tax, delivery_fee, delivery_type, payment_method, payment_breakdown, payment_status, status, created_at';
 const ORDER_SELECT_WITHOUT_PAYMENT_BREAKDOWN = 'id, order_number, total, tax, delivery_fee, delivery_type, payment_method, payment_status, status, created_at';
 const CASH_CLOSING_QUERY_TIMEOUT_MS = 8_000;
-const CLOSED_ORDER_ID_PAGE_SIZE = 1000;
+const CLOSED_ORDER_ID_BATCH_SIZE = 100;
 const CASH_CLOSING_ORDER_PAGE_SIZE = 1000;
 const ONE_DAY_MS = 24 * 60 * 60 * 1000;
 const PENDING_CASH_CLOSING_LOOKBACK_DAYS = 30;
@@ -312,19 +312,19 @@ export async function getCurrentCashClosingPeriodWithServiceClient(
   return getCurrentOperationalPeriod(supabase, tenantId);
 }
 
-async function getClosedOrderIds(supabase: SupabaseServiceClient, tenantId: string, orderIds?: string[]) {
-  if (orderIds && orderIds.length === 0) return new Set<string>();
-  const targetOrderIds = orderIds ? new Set(orderIds.filter(Boolean)) : null;
+async function getClosedOrderIds(supabase: SupabaseServiceClient, tenantId: string, orderIds: string[]) {
+  const targetOrderIds = Array.from(new Set(orderIds.filter(Boolean)));
   const closedOrderIds = new Set<string>();
+  if (targetOrderIds.length === 0) return closedOrderIds;
 
-  for (let from = 0; ; from += CLOSED_ORDER_ID_PAGE_SIZE) {
+  for (let index = 0; index < targetOrderIds.length; index += CLOSED_ORDER_ID_BATCH_SIZE) {
+    const orderIdBatch = targetOrderIds.slice(index, index + CLOSED_ORDER_ID_BATCH_SIZE);
     const { data, error } = await runCashClosingQuery<{ data: any[] | null; error: any }>(
       supabase
         .from('cash_closing_items')
         .select('order_id')
         .eq('tenant_id', tenantId)
-        .not('order_id', 'is', null)
-        .range(from, from + CLOSED_ORDER_ID_PAGE_SIZE - 1),
+        .in('order_id', orderIdBatch),
       'La consulta de pedidos ya cerrados'
     );
 
@@ -336,12 +336,8 @@ async function getClosedOrderIds(supabase: SupabaseServiceClient, tenantId: stri
     const rows = data || [];
     rows.forEach((item: any) => {
       const orderId = item?.order_id;
-      if (orderId && (!targetOrderIds || targetOrderIds.has(orderId))) {
-        closedOrderIds.add(orderId);
-      }
+      if (orderId) closedOrderIds.add(orderId);
     });
-
-    if (rows.length < CLOSED_ORDER_ID_PAGE_SIZE) break;
   }
 
   return closedOrderIds;

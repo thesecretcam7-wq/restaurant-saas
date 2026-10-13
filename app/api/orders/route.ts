@@ -26,6 +26,7 @@ type OfflineOrderInsertDeferred = {
 
 const offlineOrderInsertLocks = new Map<string, Promise<OfflineOrderInsertLockResult>>()
 const CASH_CLOSING_LOOKUP_PAGE_SIZE = 1000
+const CASH_CLOSING_LOOKUP_BATCH_SIZE = 100
 
 function createOfflineOrderInsertDeferred(): OfflineOrderInsertDeferred {
   let resolveDeferred!: (result: OfflineOrderInsertLockResult) => void
@@ -122,33 +123,40 @@ async function fetchPagedRows(buildQuery: (from: number, to: number) => any) {
 
 async function hasPendingPreviousCashClosing(supabase: ReturnType<typeof createServiceClient>, tenantId: string, currentPeriodStart: string) {
   const previousPeriodStart = new Date(new Date(currentPeriodStart).getTime() - 24 * 60 * 60 * 1000).toISOString()
-  const [ordersRes, closedItemsRes] = await Promise.all([
-    fetchPagedRows((from, to) => supabase
-      .from('orders')
-      .select('id, created_at', { count: from === 0 ? 'exact' : undefined })
-      .eq('tenant_id', tenantId)
-      .gte('created_at', previousPeriodStart)
-      .lt('created_at', currentPeriodStart)
-      .not('payment_method', 'is', null)
-      .eq('payment_status', 'paid')
-      .order('created_at', { ascending: true })
-      .range(from, to)
-    ),
-    fetchPagedRows((from, to) => supabase
-      .from('cash_closing_items')
-      .select('order_id', { count: from === 0 ? 'exact' : undefined })
-      .eq('tenant_id', tenantId)
-      .not('order_id', 'is', null)
-      .range(from, to)
-    ),
-  ])
+  const ordersRes = await fetchPagedRows((from, to) => supabase
+    .from('orders')
+    .select('id, status, created_at', { count: from === 0 ? 'exact' : undefined })
+    .eq('tenant_id', tenantId)
+    .gte('created_at', previousPeriodStart)
+    .lt('created_at', currentPeriodStart)
+    .not('payment_method', 'is', null)
+    .eq('payment_status', 'paid')
+    .order('created_at', { ascending: true })
+    .range(from, to)
+  )
 
   if (ordersRes.error) throw ordersRes.error
 
-  const closedOrderIds = new Set((closedItemsRes.error ? [] : closedItemsRes.data || []).map((item: any) => item.order_id))
+  const orders = ordersRes.data || []
+  const orderIds = Array.from(new Set(orders.map((order: any) => order.id).filter(Boolean)))
+  const closedOrderIds = new Set<string>()
+
+  for (let index = 0; index < orderIds.length; index += CASH_CLOSING_LOOKUP_BATCH_SIZE) {
+    const orderIdBatch = orderIds.slice(index, index + CASH_CLOSING_LOOKUP_BATCH_SIZE)
+    const { data, error } = await supabase
+      .from('cash_closing_items')
+      .select('order_id')
+      .eq('tenant_id', tenantId)
+      .in('order_id', orderIdBatch)
+
+    if (error) throw error
+    for (const item of data || []) {
+      if (item.order_id) closedOrderIds.add(item.order_id)
+    }
+  }
 
   const cancelledStatuses = new Set(['cancelled', 'canceled', 'voided', 'deleted', 'anulado', 'cancelado'])
-  return (ordersRes.data || []).some((order: any) => {
+  return orders.some((order: any) => {
     if (cancelledStatuses.has(String(order?.status || '').trim().toLowerCase())) return false
     if (closedOrderIds.has(order.id)) return false
     return true
