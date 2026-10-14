@@ -26,6 +26,8 @@ export interface PurchaseDailyFinanceDay {
   billPaymentsCount: number
   netTotal: number
   netCash: number
+  availableCash: number
+  runningAvailableCash: number
   runningNetTotal: number
 }
 
@@ -91,6 +93,8 @@ export function buildPurchaseDailyFinance({
       billPaymentsCount: 0,
       netTotal: 0,
       netCash: 0,
+      availableCash: 0,
+      runningAvailableCash: 0,
       runningNetTotal: 0,
     })
   })
@@ -130,9 +134,13 @@ export function buildPurchaseDailyFinance({
   })
 
   let runningNetTotal = 0
+  let runningAvailableCash = 0
   return Array.from(days.values()).map((day) => {
     day.netTotal = day.salesTotal - day.billPaymentsTotal
     day.netCash = day.cashSales - day.billPaymentsCash
+    day.availableCash = day.cashSales - day.billPaymentsTotal
+    runningAvailableCash += day.availableCash
+    day.runningAvailableCash = runningAvailableCash
     runningNetTotal += day.netTotal
     day.runningNetTotal = runningNetTotal
     return day

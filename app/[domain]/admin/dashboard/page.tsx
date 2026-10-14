@@ -243,9 +243,10 @@ export default async function DashboardPage({ params }: DashboardProps) {
     todayKey,
   })
   const todayFinance = dailyFinance.find((day) => day.date === todayKey)
-  const monthSales = dailyFinance.reduce((sum, day) => sum + day.salesTotal, 0)
   const monthBills = dailyFinance.reduce((sum, day) => sum + day.billPaymentsTotal, 0)
-  const monthBalance = monthSales - monthBills
+  const monthCash = dailyFinance.reduce((sum, day) => sum + day.cashSales, 0)
+  const monthCard = dailyFinance.reduce((sum, day) => sum + day.cardSales, 0)
+  const monthBalance = monthCash - monthBills
   const todaySales = todayFinance?.salesTotal || 0
   const todayOrdersCount = todayFinance?.orders || 0
   const todayCash = todayFinance?.cashSales || 0
@@ -368,17 +369,21 @@ export default async function DashboardPage({ params }: DashboardProps) {
             <Link href={`/${tenantSlug}/admin/finanzas`} className="admin-button-ghost min-h-9 px-3 py-2">Planificar caja</Link>
           </div>
         </div>
-        <div className="grid divide-y divide-black/8 md:grid-cols-3 md:divide-x md:divide-y-0">
+        <div className="grid divide-y divide-black/8 md:grid-cols-4 md:divide-x md:divide-y-0">
           <div className="px-5 py-4">
-            <p className="text-xs font-black uppercase text-black/42">Ventas cobradas</p>
-            <p className="mt-2 text-2xl font-black text-[#15130f]">{money(monthSales)}</p>
+            <p className="text-xs font-black uppercase text-black/42">Cobrado en efectivo</p>
+            <p className="mt-2 text-2xl font-black text-[#15130f]">{money(monthCash)}</p>
+          </div>
+          <div className="px-5 py-4">
+            <p className="text-xs font-black uppercase text-black/42">Cobrado por tarjeta</p>
+            <p className="mt-2 text-2xl font-black text-sky-700">{money(monthCard)}</p>
           </div>
           <div className="px-5 py-4">
             <p className="text-xs font-black uppercase text-black/42">Facturas pagadas</p>
             <p className="mt-2 text-2xl font-black text-red-700">-{money(monthBills)}</p>
           </div>
           <div className="px-5 py-4">
-            <p className="text-xs font-black uppercase text-black/42">Queda despues de facturas</p>
+            <p className="text-xs font-black uppercase text-black/42">Efectivo disponible</p>
             <p className={`mt-2 text-2xl font-black ${monthBalance < 0 ? 'text-red-700' : 'text-emerald-700'}`}>{money(monthBalance)}</p>
           </div>
         </div>

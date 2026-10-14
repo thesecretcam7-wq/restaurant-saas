@@ -39,6 +39,8 @@ describe('buildPurchaseDailyFinance', () => {
       billPaymentsCash: 20,
       netTotal: 80,
       netCash: 80,
+      availableCash: 80,
+      runningAvailableCash: 80,
       runningNetTotal: 80,
     })
     expect(result[1]).toMatchObject({
@@ -51,12 +53,16 @@ describe('buildPurchaseDailyFinance', () => {
       billPaymentsExternal: 70,
       netTotal: 130,
       netCash: 50,
+      availableCash: -20,
+      runningAvailableCash: 60,
       runningNetTotal: 210,
     })
     expect(result[2]).toMatchObject({
       date: '2026-09-03',
       orders: 0,
       billPaymentsCount: 0,
+      availableCash: 0,
+      runningAvailableCash: 60,
       runningNetTotal: 210,
     })
   })
