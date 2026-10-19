@@ -44,6 +44,7 @@ export default async function AdminLayout({ children, params }: AdminLayoutProps
     .from('tenants')
     .select('id, slug, organization_name, status, owner_id, trial_ends_at, subscription_plan, subscription_stripe_id, subscription_expires_at, created_at')
     .retry(false)
+    .abortSignal(AbortSignal.timeout(8_000))
 
   const { data: tenant, error } = isUUID
     ? await tenantQuery.eq('id', slug).single()
@@ -73,6 +74,7 @@ export default async function AdminLayout({ children, params }: AdminLayoutProps
       .from('tenants')
       .select('id, slug, organization_name')
       .retry(false)
+      .abortSignal(AbortSignal.timeout(8_000))
       .eq('owner_id', user.id)
       .order('created_at', { ascending: false })
     userTenants = tenantsData || []

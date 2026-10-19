@@ -8,6 +8,8 @@ import { VoidSaleButton } from '@/components/admin/VoidSaleButton'
 import { ReprintReceiptButton } from '@/components/admin/ReprintReceiptButton'
 import { formatPriceWithCurrency, getCurrencyByCountry } from '@/lib/currency'
 import { EditSaleButton } from '@/components/admin/EditSaleButton'
+import { SalesAutoRefresh } from '@/components/admin/SalesAutoRefresh'
+import { salesInPeriod } from '@/lib/sales-period'
 import {
   addRestaurantLocalDays,
   formatRestaurantDateTime,
@@ -34,13 +36,15 @@ async function fetchOrdersPage(
   const hasLimit = typeof options.limit === 'number'
   const maxRows = hasLimit ? Math.max(options.limit || 0, 0) : Number.POSITIVE_INFINITY
   let from = 0
-  let totalCount = 0
   const rows: any[] = []
+  const signal = AbortSignal.timeout(10_000)
 
   while (rows.length < maxRows) {
     let query = supabase
       .from('orders')
-      .select(select, { count: from === 0 ? 'exact' : undefined })
+      .select(select)
+      .retry(false)
+      .abortSignal(signal)
       .eq('tenant_id', tenantId)
       .order('created_at', { ascending: false })
 
@@ -48,13 +52,12 @@ async function fetchOrdersPage(
     if (options.lt) query = query.lt('created_at', options.lt)
 
     const to = hasLimit ? Math.min(from + pageSize - 1, maxRows - 1) : from + pageSize - 1
-    const { data, error, count } = await query.range(from, to)
+    const { data, error } = await query.range(from, to)
 
     if (error) throw error
-    if (from === 0) totalCount = count || 0
     rows.push(...(data || []))
 
-    if (!data || data.length < pageSize || from + pageSize >= totalCount) break
+    if (!data || data.length < pageSize) break
     from += pageSize
   }
 
@@ -109,18 +112,16 @@ export default async function VentasPage({ params }: Props) {
   const startOfLastMonth = getRestaurantLocalDateStartUtc(lastMonthStartKey, restaurantTimeZone)?.toISOString() || new Date(now.getFullYear(), now.getMonth() - 1, 1).toISOString()
   const startOf7Days = getRestaurantLocalDateStartUtc(chartDateKeys[0], restaurantTimeZone)?.toISOString() || new Date(now.getTime() - 6 * 24 * 60 * 60 * 1000).toISOString()
 
-  const [allOrders, allHistoryOrders, monthOrders, lastMonthOrders, weekOrders] = await Promise.all([
-    fetchOrdersPage(supabase, tenantId, 'id, order_number, total, payment_status, payment_method, status, created_at', { limit: 100 }),
-    fetchOrdersPage(supabase, tenantId, 'id, total, status, payment_status, created_at'),
+  const [allHistoryOrders, monthOrders] = await Promise.all([
+    fetchOrdersPage(supabase, tenantId, 'id, order_number, total, payment_status, payment_method, status, created_at'),
     fetchOrdersPage(supabase, tenantId, 'id, total, status, payment_status, created_at, items', { gte: startOfMonth }),
-    fetchOrdersPage(supabase, tenantId, 'id, total, status, payment_status, created_at', { gte: startOfLastMonth, lt: startOfMonth }),
-    fetchOrdersPage(supabase, tenantId, 'id, total, status, payment_status, created_at', { gte: startOf7Days }),
   ])
 
+  const allOrders = allHistoryOrders.slice(0, 100)
   const allPaidSales = allHistoryOrders.filter(isValidPaidSale)
   const monthPaidSales = monthOrders.filter(isValidPaidSale)
-  const lastMonthPaidSales = lastMonthOrders.filter(isValidPaidSale)
-  const weekPaidSales = weekOrders.filter(isValidPaidSale)
+  const lastMonthPaidSales = salesInPeriod(allPaidSales, startOfLastMonth, startOfMonth)
+  const weekPaidSales = salesInPeriod(allPaidSales, startOf7Days)
   const monthRevenue = monthPaidSales.reduce((s, o) => s + orderTotal(o), 0)
   const lastMonthRevenue = lastMonthPaidSales.reduce((s, o) => s + orderTotal(o), 0)
   const weekRevenue = weekPaidSales.reduce((s, o) => s + orderTotal(o), 0)
@@ -179,6 +180,7 @@ export default async function VentasPage({ params }: Props) {
 
   const analyticsContent = (
     <div className="admin-page">
+      <SalesAutoRefresh updatedAt={Date.now()} timeZone={restaurantTimeZone} />
       <div className="admin-page-header">
         <div>
           <p className="admin-eyebrow">Analitica</p>

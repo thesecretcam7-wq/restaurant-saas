@@ -29,7 +29,7 @@ export default async function PurchasesPage({ params }: Props) {
           <ClipboardList className="size-5" />
         </span>
       </div>
-      <PurchaseControlManager tenantId={tenant.id} />
+      <PurchaseControlManager key={tenant.id} tenantId={tenant.id} />
     </div>
   )
 }

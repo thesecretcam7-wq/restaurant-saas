@@ -1,6 +1,7 @@
 'use client'
 
 import { FormEvent, useEffect, useMemo, useRef, useState } from 'react'
+import { createRefreshGate } from '@/lib/refresh-gate'
 import {
   AlertTriangle,
   ArrowDown,
@@ -14,6 +15,7 @@ import {
   Crown,
   Plus,
   ReceiptText,
+  RefreshCw,
   Search,
   TrendingUp,
   Trash2,
@@ -182,6 +184,9 @@ function formatDate(value: string) {
 async function fetchWithTimeout(url: string, options: RequestInit = {}, timeoutMs = 12000) {
   const controller = new AbortController()
   const timeout = window.setTimeout(() => controller.abort(), timeoutMs)
+  const abort = () => controller.abort()
+  if (options.signal?.aborted) abort()
+  else options.signal?.addEventListener('abort', abort, { once: true })
   try {
     return await fetch(url, {
       ...options,
@@ -189,6 +194,7 @@ async function fetchWithTimeout(url: string, options: RequestInit = {}, timeoutM
     })
   } finally {
     window.clearTimeout(timeout)
+    options.signal?.removeEventListener('abort', abort)
   }
 }
 
@@ -260,22 +266,60 @@ export function PurchaseControlManager({ tenantId }: { tenantId: string }) {
   const [scanningInvoice, setScanningInvoice] = useState(false)
   const cameraInputRef = useRef<HTMLInputElement | null>(null)
   const multiFileInputRef = useRef<HTMLInputElement | null>(null)
+  const refreshGate = useRef(createRefreshGate())
+  const activeRequest = useRef<AbortController | null>(null)
+  const queuedRefresh = useRef(false)
+  const hasLoaded = useRef(false)
+  const [refreshing, setRefreshing] = useState(false)
+  const [updatedAt, setUpdatedAt] = useState<number | null>(null)
 
   useEffect(() => {
     void fetchData()
+    const refreshOnReturn = () => { void fetchData(false) }
+    window.addEventListener('focus', refreshOnReturn)
+    window.addEventListener('pageshow', refreshOnReturn)
+    window.addEventListener('online', refreshOnReturn)
+    document.addEventListener('visibilitychange', refreshOnReturn)
+    return () => {
+      window.removeEventListener('focus', refreshOnReturn)
+      window.removeEventListener('pageshow', refreshOnReturn)
+      window.removeEventListener('online', refreshOnReturn)
+      document.removeEventListener('visibilitychange', refreshOnReturn)
+      queuedRefresh.current = false
+      activeRequest.current?.abort()
+      activeRequest.current = null
+      refreshGate.current.complete(false)
+    }
   }, [tenantId])
 
-  async function fetchData() {
-    setLoading(true)
+  async function fetchData(force = true) {
+    if (activeRequest.current) {
+      if (force) queuedRefresh.current = true
+      return
+    }
+    if (!navigator.onLine) {
+      setError('Sin conexion. Los importes no se estan actualizando.')
+      setLoading(false)
+      return
+    }
+    const activeElement = document.activeElement
+    const editing = activeElement instanceof HTMLInputElement || activeElement instanceof HTMLTextAreaElement || activeElement instanceof HTMLSelectElement
+    if (!refreshGate.current.begin({ online: true, visible: document.visibilityState === 'visible', editing, force })) return
+    const controller = new AbortController()
+    activeRequest.current = controller
+    let succeeded = false
+    setLoading(!hasLoaded.current)
+    setRefreshing(true)
     setError('')
     try {
       const [purchaseResponse, inventoryResponse] = await Promise.all([
-        fetchWithTimeout(`/api/purchase-invoices?tenantId=${tenantId}`, { credentials: 'include' }),
-        fetchWithTimeout(`/api/inventory?tenantId=${tenantId}`, { credentials: 'include' }),
+        fetchWithTimeout(`/api/purchase-invoices?tenantId=${tenantId}`, { credentials: 'include', cache: 'no-store', signal: controller.signal }),
+        fetchWithTimeout(`/api/inventory?tenantId=${tenantId}`, { credentials: 'include', cache: 'no-store', signal: controller.signal }),
       ])
 
       const purchaseData = await purchaseResponse.json().catch(() => ({}))
       const inventoryData = await inventoryResponse.json().catch(() => [])
+      if (controller.signal.aborted) return
 
       if (purchaseResponse.status === 401 || inventoryResponse.status === 401) {
         throw new Error('Tu sesion no esta activa. Vuelve a iniciar sesion en el panel.')
@@ -333,11 +377,24 @@ export function PurchaseControlManager({ tenantId }: { tenantId: string }) {
         return [...nextDailyFinance].reverse().find((day: DailyFinanceDay) => day.billPaymentsCount > 0)?.date || null
       })
       setInventory(Array.isArray(inventoryData) ? inventoryData : [])
+      hasLoaded.current = true
+      succeeded = true
+      setUpdatedAt(Date.now())
     } catch (fetchError) {
+      if (controller.signal.aborted) return
       const isAbort = fetchError instanceof Error && fetchError.name === 'AbortError'
       setError(isAbort ? 'La carga de compras tardó demasiado. Revisa la sesión o intenta de nuevo.' : fetchError instanceof Error ? fetchError.message : 'Error cargando compras')
     } finally {
-      setLoading(false)
+      if (activeRequest.current === controller) {
+        activeRequest.current = null
+        refreshGate.current.complete(succeeded)
+        setRefreshing(false)
+        setLoading(false)
+        if (queuedRefresh.current) {
+          queuedRefresh.current = false
+          void fetchData()
+        }
+      }
     }
   }
 
@@ -706,13 +763,19 @@ export function PurchaseControlManager({ tenantId }: { tenantId: string }) {
     return (
       <div className="admin-empty">
         <p>Cargando control de compras...</p>
-        <p className="mt-2 text-xs font-semibold text-black/45">Si tarda demasiado, recarga la sesión del administrador.</p>
       </div>
     )
   }
 
   return (
     <div className="w-full max-w-full space-y-5 overflow-hidden">
+      <div className="flex flex-wrap items-center gap-3 text-xs font-semibold text-black/55" aria-live="polite">
+        <span>{refreshing ? 'Actualizando ventas y facturas...' : updatedAt ? 'Actualizado:' : 'Datos pendientes de actualizar'}</span>
+        {!refreshing && updatedAt && <time dateTime={new Date(updatedAt).toISOString()}>{new Date(updatedAt).toLocaleTimeString('es-ES')}</time>}
+        <button type="button" title="Actualizar ventas y facturas" aria-label="Actualizar ventas y facturas" disabled={refreshing} onClick={() => { void fetchData() }} className="inline-flex size-9 items-center justify-center rounded-lg border border-black/15 disabled:opacity-50">
+          <RefreshCw className={`size-4 ${refreshing ? 'animate-spin' : ''}`} />
+        </button>
+      </div>
       {error && (
         <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm font-black text-red-700">
           {error}

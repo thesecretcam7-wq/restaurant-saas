@@ -23,6 +23,7 @@ import {
   getRestaurantTimeZone,
 } from '@/lib/restaurant-time'
 import { createServiceClient } from '@/lib/supabase/server'
+import { SalesAutoRefresh } from '@/components/admin/SalesAutoRefresh'
 
 interface DashboardProps {
   params: Promise<{ domain: string }>
@@ -343,6 +344,7 @@ export default async function DashboardPage({ params }: DashboardProps) {
 
   return (
     <div className="admin-page">
+      <SalesAutoRefresh updatedAt={Date.now()} timeZone={timeZone} />
       <div className="admin-page-header flex-col lg:flex-row">
         <div>
           <p className="admin-eyebrow">Control de hoy</p>
