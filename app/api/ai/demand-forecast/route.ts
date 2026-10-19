@@ -5,6 +5,7 @@ import { createServiceClient } from '@/lib/supabase/server';
 import { getCurrencyByCountry } from '@/lib/currency';
 import { getRestaurantBusinessPeriod, getRestaurantLocale, getRestaurantTimeZone } from '@/lib/restaurant-time';
 import { calculatePendingPreviousCashClosingStats } from '@/lib/cash-closing-server';
+import { buildMonthSalesComparison, getMonthComparisonWindow, isPaidSale } from '@/lib/month-sales-comparison';
 
 type OrderRow = {
   id: string;
@@ -31,6 +32,19 @@ function getOrderItemRows(order: OrderRow) {
       price: Number(item?.price || 0),
     }))
     .filter(item => item.name);
+}
+
+function rankProducts(orders: OrderRow[]) {
+  const stats = new Map<string, { name: string; quantity: number; revenue: number }>();
+  for (const order of orders) {
+    for (const item of getOrderItemRows(order)) {
+      const row = stats.get(item.name) || { name: item.name, quantity: 0, revenue: 0 };
+      row.quantity += item.quantity;
+      row.revenue += item.price * item.quantity;
+      stats.set(item.name, row);
+    }
+  }
+  return [...stats.values()].sort((a, b) => b.quantity - a.quantity);
 }
 
 function formatHour(hour: number) {
@@ -66,18 +80,20 @@ export async function GET(request: NextRequest) {
     await requireTenantAccess(tenantId, { staffRoles: ['admin', 'cajero'] });
     const supabase = createServiceClient();
 
-    const thirtyDaysAgo = new Date();
+    const now = new Date();
+    const thirtyDaysAgo = new Date(now);
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-    const sevenDaysAgo = new Date();
+    const sevenDaysAgo = new Date(now);
     sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-    const fourteenDaysAgo = new Date();
+    const fourteenDaysAgo = new Date(now);
     fourteenDaysAgo.setDate(fourteenDaysAgo.getDate() - 14);
 
-    const { data: settings } = await supabase
+    const { data: settings, error: settingsError } = await supabase
       .from('restaurant_settings')
       .select('country, timezone, operating_hours')
       .eq('tenant_id', tenantId)
-      .maybeSingle();
+      .abortSignal(AbortSignal.timeout(8_000)).maybeSingle().retry(false);
+    if (settingsError) throw settingsError;
     const currencyInfo = getCurrencyByCountry(settings?.country || 'ES');
     const timeZone = getRestaurantTimeZone({
       timezone: settings?.timezone,
@@ -88,21 +104,27 @@ export async function GET(request: NextRequest) {
       operatingHours: settings?.operating_hours,
       timeZone,
       locale,
+      now,
     });
 
-    const { data: orders, error: ordersError } = await supabase
-      .from('orders')
-      .select('id, created_at, total, payment_status, payment_method, status, delivery_type, items')
-      .eq('tenant_id', tenantId)
-      .gte('created_at', thirtyDaysAgo.toISOString())
-      .order('created_at', { ascending: false })
-      .limit(1200);
-
-    if (ordersError) throw ordersError;
-
-    const paidOrders = ((orders || []) as OrderRow[]).filter(order =>
-      order.status !== 'cancelled' && order.payment_status === 'paid'
-    );
+    const { previousStart } = getMonthComparisonWindow(now, timeZone);
+    const since = new Date(Math.min(Date.parse(previousStart), thirtyDaysAgo.getTime())).toISOString();
+    const orders: OrderRow[] = [];
+    const signal = AbortSignal.timeout(10_000);
+    // One bounded, paginated read serves both month comparison and existing analysis.
+    for (let offset = 0; ; offset += 1000) {
+      const { data, error } = await supabase.from('orders')
+        .select('id, created_at, total, payment_status, payment_method, status, delivery_type, items')
+        .eq('tenant_id', tenantId).eq('payment_status', 'paid')
+        .gte('created_at', since).lte('created_at', now.toISOString())
+        .order('created_at', { ascending: true }).order('id', { ascending: true })
+        .range(offset, offset + 999).retry(false).abortSignal(signal);
+      if (error) throw error;
+      orders.push(...((data || []) as OrderRow[]));
+      if (!data || data.length < 1000) break;
+    }
+    const monthComparison = buildMonthSalesComparison(orders, now, timeZone);
+    const paidOrders = orders.filter(order => isPaidSale(order) && Date.parse(order.created_at) >= thirtyDaysAgo.getTime());
     const pendingClosingStats = await calculatePendingPreviousCashClosingStats(supabase, tenantId);
     const openCashClosingOrderIds = new Set((pendingClosingStats?.closingOrders || []).map(order => order.id));
     const recentOrders = paidOrders.filter(order => new Date(order.created_at) >= sevenDaysAgo);
@@ -159,15 +181,13 @@ export async function GET(request: NextRequest) {
       .sort((a, b) => b.predictedOrders - a.predictedOrders)
       .slice(0, 3);
 
-    const productStats: Record<string, { name: string; quantity: number; revenue: number }> = {};
-    recentOrders.forEach(order => {
-      getOrderItemRows(order).forEach(item => {
-        if (!productStats[item.name]) productStats[item.name] = { name: item.name, quantity: 0, revenue: 0 };
-        productStats[item.name].quantity += item.quantity;
-        productStats[item.name].revenue += item.price * item.quantity;
-      });
-    });
-    const topProducts = Object.values(productStats).sort((a, b) => b.quantity - a.quantity).slice(0, 5);
+    const topProducts = rankProducts(recentOrders).slice(0, 5);
+    const recommendations = rankProducts(paidOrders).slice(0, 8).map((item, index) => ({
+      ...item,
+      action: index === 0 ? 'Ponlo primero en carta QR y úsalo como ancla de combo.'
+        : index === 1 ? 'Combínalo con el producto líder para subir ticket medio.'
+          : 'Mantenlo visible y revisa stock antes del pico.',
+    }));
     const starProduct = topProducts[0];
     const comboProduct = topProducts[1];
 
@@ -215,6 +235,8 @@ export async function GET(request: NextRequest) {
     ].filter(Boolean);
 
     return NextResponse.json({
+      monthComparison,
+      recommendations,
       forecast,
       peakHours,
       currency: currencyInfo,
@@ -235,7 +257,7 @@ export async function GET(request: NextRequest) {
         bestHours: peakHours.map((h) => formatHour(h.hour)).join(', '),
         cardShare,
       },
-    });
+    }, { headers: { 'Cache-Control': 'private, no-store' } });
   } catch (error) {
     if (error instanceof Error && ['Unauthorized', 'Forbidden'].includes(error.message)) {
       return tenantAuthErrorResponse(error);

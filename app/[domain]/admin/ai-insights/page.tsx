@@ -13,5 +13,5 @@ export default async function AIInsightsPage({ params }: Props) {
     return <div className="admin-empty">Restaurante no encontrado</div>
   }
 
-  return <AIInsights tenantId={tenantId} />
+  return <AIInsights key={tenantId} tenantId={tenantId} />
 }

@@ -1,7 +1,14 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import dynamic from 'next/dynamic';
+import { createRefreshGate } from '@/lib/refresh-gate';
+import type { MonthSalesComparison } from '@/lib/month-sales-comparison';
 import { Brain, Clock, CreditCard, RefreshCw, Sparkles, Target, TrendingUp, Users } from 'lucide-react';
+
+const MonthlySalesPerformance = dynamic(() => import('./MonthlySalesPerformance'), {
+  loading: () => <div className="h-96" aria-busy="true" />,
+});
 
 interface ForecastData {
   hour: number;
@@ -56,41 +63,69 @@ export function AIInsights({ tenantId }: { tenantId: string }) {
   const [advice, setAdvice] = useState<Advice[]>([]);
   const [currency, setCurrency] = useState<CurrencyInfo | null>(null);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [monthComparison, setMonthComparison] = useState<MonthSalesComparison | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const activeRequest = useRef<AbortController | null>(null);
+  const gate = useRef(createRefreshGate());
 
-  useEffect(() => {
-    void fetchAIData();
-  }, [tenantId]);
-
-  async function fetchAIData() {
-    setLoading(true);
+  const fetchAIData = useCallback(async (force = false) => {
+    if (navigator.onLine === false) {
+      setError('Sin conexión. Las ventas mostradas corresponden a la última actualización.');
+      setLoading(false);
+      return;
+    }
+    if (!gate.current.begin({ online: true, visible: document.visibilityState !== 'hidden', force })) return;
+    const controller = new AbortController();
+    activeRequest.current = controller;
+    setRefreshing(true);
     setError(null);
     try {
-      const [forecastRes, recsRes] = await Promise.all([
-        fetch(`/api/ai/demand-forecast?tenantId=${tenantId}`, { credentials: 'include', cache: 'no-store' }),
-        fetch(`/api/ai/recommendations?tenantId=${tenantId}&type=popular`, {
-          credentials: 'include',
-          cache: 'no-store',
-        }),
-      ]);
+      const signal = AbortSignal.any([controller.signal, AbortSignal.timeout(30_000)]);
+      const forecastRes = await fetch(`/api/ai/demand-forecast?tenantId=${tenantId}`, {
+        credentials: 'include', cache: 'no-store', signal,
+      });
 
       if (!forecastRes.ok) throw new Error('No se pudo cargar el analisis operativo');
       const forecastData = await forecastRes.json();
+      if (controller.signal.aborted) return;
+      setMonthComparison(forecastData.monthComparison || null);
       setForecast(forecastData.forecast || []);
       setInsights(forecastData.insights || null);
       setAdvice(forecastData.advice || []);
       setCurrency(forecastData.currency || null);
-
-      if (recsRes.ok) {
-        const recData = await recsRes.json();
-        setRecommendations(recData.recommendations || []);
-      }
+      setRecommendations(forecastData.recommendations || []);
+      gate.current.complete(true);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'No se pudo cargar IA Insights');
+      if (!controller.signal.aborted) {
+        gate.current.complete(false);
+        setError(err instanceof Error && err.name !== 'TimeoutError' ? err.message : 'La consulta está tardando demasiado. Puedes volver a intentarlo.');
+      }
     } finally {
-      setLoading(false);
+      if (activeRequest.current === controller) {
+        activeRequest.current = null;
+        setRefreshing(false);
+        setLoading(false);
+      }
     }
-  }
+  }, [tenantId]);
+
+  useEffect(() => {
+    gate.current = createRefreshGate();
+    const refresh = () => { void fetchAIData(); };
+    refresh();
+    window.addEventListener('focus', refresh);
+    window.addEventListener('online', refresh);
+    window.addEventListener('pageshow', refresh);
+    document.addEventListener('visibilitychange', refresh);
+    return () => {
+      activeRequest.current?.abort();
+      window.removeEventListener('focus', refresh);
+      window.removeEventListener('online', refresh);
+      window.removeEventListener('pageshow', refresh);
+      document.removeEventListener('visibilitychange', refresh);
+    };
+  }, [fetchAIData]);
 
   const peakForecast = forecast
     .filter(item => item.predictedOrders > 0)
@@ -106,18 +141,19 @@ export function AIInsights({ tenantId }: { tenantId: string }) {
       <div className="admin-page-header">
         <div>
           <p className="admin-eyebrow">IA Insights</p>
-          <h1 className="admin-title">Recomendaciones para vender mejor</h1>
+          <h1 className="admin-title">Rendimiento y recomendaciones</h1>
           <p className="admin-subtitle">
             Lectura accionable basada en tickets pagados, productos vendidos y horarios reales.
           </p>
         </div>
         <button
           type="button"
-          onClick={fetchAIData}
+          onClick={() => void fetchAIData(true)}
+          disabled={refreshing}
           className="admin-button-secondary inline-flex items-center gap-2"
         >
-          <RefreshCw className="size-4" />
-          Actualizar
+          <RefreshCw className={`size-4 ${refreshing ? 'animate-spin' : ''}`} />
+          {refreshing ? 'Actualizando...' : 'Actualizar'}
         </button>
       </div>
 
@@ -126,6 +162,8 @@ export function AIInsights({ tenantId }: { tenantId: string }) {
           {error}
         </div>
       )}
+
+      {monthComparison && <MonthlySalesPerformance data={monthComparison} currency={currency} />}
 
       {insights && (
         <section className="admin-dark-insight overflow-hidden rounded-[1.4rem] border border-black/10 bg-[#15130f] p-5 text-white shadow-2xl shadow-black/10 sm:p-7">
