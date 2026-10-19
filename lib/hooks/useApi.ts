@@ -258,13 +258,14 @@ export function useSessionMonitor() {
 
   useEffect(() => {
     const checkSession = async () => {
+      if (!navigator.onLine || document.visibilityState !== 'visible') return
       try {
         const supabase = createClient()
         const {
-          data: { session },
+          data: { session }, error,
         } = await supabase.auth.getSession()
 
-        if (!session) {
+        if (!session && !error && navigator.onLine) {
           // Sesión expirada
           router.push('/acceso/login')
         }

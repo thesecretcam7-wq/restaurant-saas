@@ -94,6 +94,8 @@ async function fetchMonthOrders(supabase: any, tenantId: string, startIso: strin
     const { data, error } = await supabase
       .from('orders')
       .select('id, order_number, customer_name, table_number, delivery_type, total, status, payment_status, payment_method, payment_breakdown, created_at')
+      .retry(false)
+      .abortSignal(AbortSignal.timeout(8_000))
       .eq('tenant_id', tenantId)
       .gte('created_at', startIso)
       .order('created_at', { ascending: false })
@@ -116,6 +118,8 @@ async function fetchMonthBillPayments(supabase: any, tenantId: string, startIso:
     const { data, error } = await supabase
       .from('cash_bill_payments')
       .select('id, supplier_name, concept, invoice_number, amount, payment_method, paid_at')
+      .retry(false)
+      .abortSignal(AbortSignal.timeout(8_000))
       .eq('tenant_id', tenantId)
       .eq('status', 'active')
       .gte('paid_at', startIso)
@@ -153,15 +157,21 @@ export default async function DashboardPage({ params }: DashboardProps) {
     supabase
       .from('restaurant_settings')
       .select('operating_hours, timezone, country')
+      .retry(false)
+      .abortSignal(AbortSignal.timeout(8_000))
       .eq('tenant_id', tenantId)
       .maybeSingle(),
     supabase
       .from('tenants')
       .select('country')
+      .retry(false)
+      .abortSignal(AbortSignal.timeout(8_000))
       .eq('id', tenantId)
       .maybeSingle(),
   ])
 
+  if (settingsRes.error) throw settingsRes.error
+  if (tenantConfigRes.error) throw tenantConfigRes.error
   const country = settingsRes.data?.country || tenantConfigRes.data?.country || 'ES'
   const currencyInfo = getCurrencyByCountry(country)
   const money = (value: number) => formatPriceWithCurrency(value, currencyInfo.code, currencyInfo.locale)
@@ -184,17 +194,13 @@ export default async function DashboardPage({ params }: DashboardProps) {
   })
 
   const [monthOrders, billPayments, openOrdersRes, inventoryRes, reservationsRes, closingRes] = await Promise.all([
-    fetchMonthOrders(supabase, tenantId, monthStartIso).catch((error) => {
-      console.error('Dashboard month orders error:', error)
-      return [] as DashboardOrder[]
-    }),
-    fetchMonthBillPayments(supabase, tenantId, monthStartIso).catch((error) => {
-      console.error('Dashboard bill payments error:', error)
-      return [] as BillPayment[]
-    }),
+    fetchMonthOrders(supabase, tenantId, monthStartIso),
+    fetchMonthBillPayments(supabase, tenantId, monthStartIso),
     supabase
       .from('orders')
       .select('id, total, table_number, delivery_type, status, payment_status, created_at')
+      .retry(false)
+      .abortSignal(AbortSignal.timeout(8_000))
       .eq('tenant_id', tenantId)
       .gte('created_at', businessPeriod.periodStart)
       .lt('created_at', businessPeriod.periodEnd)
@@ -206,12 +212,16 @@ export default async function DashboardPage({ params }: DashboardProps) {
     supabase
       .from('inventory')
       .select('product_name, current_stock, min_stock')
+      .retry(false)
+      .abortSignal(AbortSignal.timeout(8_000))
       .eq('tenant_id', tenantId)
       .order('product_name')
       .limit(1000),
     supabase
       .from('reservations')
       .select('id, customer_name, reservation_time, party_size, status')
+      .retry(false)
+      .abortSignal(AbortSignal.timeout(8_000))
       .eq('tenant_id', tenantId)
       .eq('reservation_date', todayKey)
       .in('status', ['pending', 'confirmed'])
@@ -219,11 +229,17 @@ export default async function DashboardPage({ params }: DashboardProps) {
     supabase
       .from('cash_closings')
       .select('closed_at')
+      .retry(false)
+      .abortSignal(AbortSignal.timeout(8_000))
       .eq('tenant_id', tenantId)
       .order('closed_at', { ascending: false })
       .limit(1)
       .maybeSingle(),
   ])
+
+  for (const result of [openOrdersRes, inventoryRes, reservationsRes, closingRes]) {
+    if (result.error) throw result.error
+  }
 
   const paidOrders = monthOrders.filter((order) => {
     if (!isActivePaidOrder(order) || !order.created_at) return false

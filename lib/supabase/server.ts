@@ -1,6 +1,7 @@
 import { createServerClient } from '@supabase/ssr'
 import { createClient as createSupabaseClient } from '@supabase/supabase-js'
 import { cookies } from 'next/headers'
+import { supabaseFetch } from './network'
 
 export async function createClient() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL
@@ -16,6 +17,7 @@ export async function createClient() {
     url,
     key,
     {
+      global: { fetch: supabaseFetch },
       cookies: {
         getAll() {
           return cookieStore.getAll()

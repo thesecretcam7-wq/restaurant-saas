@@ -3,6 +3,7 @@
 import { ReactNode } from 'react'
 import { ErrorBoundary } from '@/components/admin/ErrorBoundary'
 import TrialBanner from '@/components/admin/TrialBanner'
+import { AdminConnectionNotice } from '@/components/admin/AdminConnectionNotice'
 
 interface AdminContentProps {
   children: ReactNode
@@ -15,6 +16,7 @@ export function AdminContent({ children, trialEndsAt, slug }: AdminContentProps)
     <ErrorBoundary>
       <main className="admin-shell flex-1 h-screen min-h-0 w-full overflow-x-hidden overflow-y-auto pt-16 md:ml-64 md:w-[calc(100%-16rem)] md:pt-0">
         <div className="w-full min-w-0 p-3 sm:p-5 lg:p-7">
+          <AdminConnectionNotice />
           {trialEndsAt && <TrialBanner trialEndsAt={trialEndsAt} slug={slug} />}
           {children}
         </div>

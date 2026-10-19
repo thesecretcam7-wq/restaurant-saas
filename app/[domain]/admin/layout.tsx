@@ -6,6 +6,8 @@ import { AdminContent } from './AdminContent'
 import { SectionColorProvider } from '@/components/admin/SectionColorProvider'
 import { getTenantAccessInfo } from '@/lib/tenant-access'
 import { cookies } from 'next/headers'
+import { getVerifiedUser, isAuthConnectionError } from '@/lib/supabase/network'
+import { AdminConnectionNotice } from '@/components/admin/AdminConnectionNotice'
 
 interface AdminLayoutProps {
   children: React.ReactNode
@@ -17,7 +19,13 @@ export default async function AdminLayout({ children, params }: AdminLayoutProps
   const supabase = await createClient()
   const cookieStore = await cookies()
 
-  const { data: { user } } = await supabase.auth.getUser()
+  let user
+  try {
+    user = await getVerifiedUser(supabase)
+  } catch (error) {
+    if (!isAuthConnectionError(error)) throw error
+    return <main className="mx-auto max-w-xl p-6"><AdminConnectionNotice unavailable /></main>
+  }
 
   const staffSessionCookie = cookieStore.get('staff_session')?.value
   let staffSession = null
@@ -35,12 +43,16 @@ export default async function AdminLayout({ children, params }: AdminLayoutProps
   const tenantQuery = supabase
     .from('tenants')
     .select('id, slug, organization_name, status, owner_id, trial_ends_at, subscription_plan, subscription_stripe_id, subscription_expires_at, created_at')
+    .retry(false)
 
   const { data: tenant, error } = isUUID
     ? await tenantQuery.eq('id', slug).single()
     : await tenantQuery.eq('slug', slug).single()
 
-  if (error) console.error('Admin layout error fetching tenant:', error)
+  if (error) {
+    console.error('Admin layout error fetching tenant:', error)
+    return <main className="mx-auto max-w-xl p-6"><AdminConnectionNotice unavailable /></main>
+  }
   if (!tenant) redirect('/login')
 
   const isOwner = user && tenant.owner_id === user.id
@@ -60,6 +72,7 @@ export default async function AdminLayout({ children, params }: AdminLayoutProps
     const { data: tenantsData } = await supabase
       .from('tenants')
       .select('id, slug, organization_name')
+      .retry(false)
       .eq('owner_id', user.id)
       .order('created_at', { ascending: false })
     userTenants = tenantsData || []

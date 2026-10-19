@@ -1,4 +1,4 @@
-const CACHE_NAME = 'eccofood-v21';
+const CACHE_NAME = 'eccofood-v22';
 const CACHE_PREFIX = 'eccofood-';
 const NETWORK_TIMEOUT_MS = 3500;
 const STATIC_ASSETS = [
@@ -101,11 +101,11 @@ function cacheFirst(request) {
   });
 }
 
-function fetchWithTimeout(request) {
+function fetchWithTimeout(request, timeoutMs = NETWORK_TIMEOUT_MS) {
   if (typeof AbortController === 'undefined') return fetch(request);
 
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), NETWORK_TIMEOUT_MS);
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
 
   return fetch(request, { signal: controller.signal }).finally(() => {
     clearTimeout(timeout);
@@ -191,6 +191,16 @@ self.addEventListener('fetch', (event) => {
       fetch(request)
         .then((response) => cacheSuccessfulResponse(request, response))
         .catch(() => matchInEccofoodCaches(request, { ignoreSearch: true }))
+    );
+    return;
+  }
+
+  // Private admin documents and RSC payloads must not be restored from stale
+  // caches: they may contain expired sessions and another user's financial data.
+  if (url.pathname.includes('/admin/')) {
+    event.respondWith(
+      (self.navigator.onLine === false ? Promise.reject(new Error('offline')) : fetchWithTimeout(request, 15000))
+        .catch(() => request.mode === 'navigate' ? offlinePage() : apiUnavailable())
     );
     return;
   }

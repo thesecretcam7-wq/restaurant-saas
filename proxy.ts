@@ -3,6 +3,7 @@ import { createClient } from '@supabase/supabase-js'
 import { createServerClient } from '@supabase/ssr'
 import { Ratelimit } from '@upstash/ratelimit'
 import { Redis } from '@upstash/redis'
+import { getVerifiedUser, isAuthConnectionError, supabaseFetch } from '@/lib/supabase/network'
 
 const BASE_DOMAIN = process.env.NEXT_PUBLIC_BASE_DOMAIN || 'eccofoodapp.com'
 const SLUG_PATH_REGEX = /^\/([a-zA-Z0-9-]+)(?:\/|$)/
@@ -48,6 +49,13 @@ const TENANT_LOOKUP_TIMEOUT_MS = 1200
 const TENANT_SEGMENT_REGEX = /^[a-zA-Z0-9-]{2,64}$/
 const EARLY_NEXT_PATH_PREFIXES = ['/api/', '/_next/', '/favicon']
 const PROBE_PATH_REGEX = /\.(?:php|txt|xml|json|asp|aspx|cgi|env|git|bak|old|sql|zip|tar|gz)$/i
+
+function authUnavailableResponse() {
+  return new NextResponse('<!doctype html><html lang="es"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Conexion no disponible</title><body><main><h1>No se pudo conectar</h1><p>No pudimos verificar tu sesion. Comprueba internet y vuelve a intentarlo en un minuto.</p><button onclick="location.reload()">Reintentar</button></main></body></html>', {
+    status: 503,
+    headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'private, no-store', 'Retry-After': '60' },
+  })
+}
 
 // Rate limiters — inicializados lazy para evitar errores si faltan env vars
 let globalLimiter: Ratelimit | null = null
@@ -258,6 +266,7 @@ export async function proxy(request: NextRequest) {
 
     let response = NextResponse.next({ request })
     const supabase = createServerClient(supabaseUrl, supabaseAnonKey, {
+      global: { fetch: supabaseFetch },
       cookies: {
         getAll() { return request.cookies.getAll() },
         setAll(cookiesToSet) {
@@ -270,7 +279,13 @@ export async function proxy(request: NextRequest) {
       },
     })
 
-    const { data: { user } } = await supabase.auth.getUser()
+    let user
+    try {
+      user = await getVerifiedUser(supabase)
+    } catch (error) {
+      if (isAuthConnectionError(error)) return authUnavailableResponse()
+      throw error
+    }
     if (!user?.email || !OWNER_EMAILS.includes(user.email)) {
       return NextResponse.redirect(new URL('/owner-login', request.url))
     }
@@ -351,6 +366,7 @@ export async function proxy(request: NextRequest) {
       try {
         let response = NextResponse.next({ request })
         const supabase = createServerClient(supabaseUrl, supabaseAnonKey, {
+          global: { fetch: supabaseFetch },
           cookies: {
             getAll() { return request.cookies.getAll() },
             setAll(cookiesToSet) {
@@ -362,7 +378,7 @@ export async function proxy(request: NextRequest) {
             },
           },
         })
-        const { data: { user } } = await supabase.auth.getUser()
+        const user = await getVerifiedUser(supabase)
         if (user) {
           const superAdminEmails = ['thesecretcam7@gmail.com']
           if (superAdminEmails.includes(user.email || '')) return response
@@ -381,7 +397,8 @@ export async function proxy(request: NextRequest) {
 
           if (ownedTenant) return response
         }
-      } catch {
+      } catch (error) {
+        if (isAuthConnectionError(error)) return authUnavailableResponse()
         // Continue to PIN redirect.
       }
     }
@@ -444,6 +461,7 @@ export async function proxy(request: NextRequest) {
       try {
         let response = NextResponse.next({ request })
         const supabase = createServerClient(supabaseUrl, supabaseAnonKey, {
+          global: { fetch: supabaseFetch },
           cookies: {
             getAll() { return request.cookies.getAll() },
             setAll(cookiesToSet) {
@@ -455,7 +473,7 @@ export async function proxy(request: NextRequest) {
             },
           },
         })
-        const { data: { user } } = await supabase.auth.getUser()
+        const user = await getVerifiedUser(supabase)
         if (user) {
           // Super admin bypass - allow access to any restaurant
           const superAdminEmails = ['thesecretcam7@gmail.com']
@@ -477,7 +495,8 @@ export async function proxy(request: NextRequest) {
 
           if (ownedTenant) return response
         }
-      } catch {
+      } catch (error) {
+        if (isAuthConnectionError(error)) return authUnavailableResponse()
         // Error verificando Supabase, continuar al bloqueo
       }
     }

@@ -185,6 +185,7 @@ export function AdminSidebar({
               {userTenants.map(t => (
                 <Link
                   key={t.id}
+                  prefetch={false}
                   href={`/${t.slug}/admin/dashboard`}
                   onClick={() => setOpen(false)}
                   className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-semibold transition ${
@@ -216,6 +217,7 @@ export function AdminSidebar({
               {link.divider && <div className="my-3 border-t border-white/10" />}
               <Link
                 href={link.href}
+                prefetch={false}
                 onClick={() => setOpen(false)}
                 className={`group flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-bold transition ${
                   isActive
