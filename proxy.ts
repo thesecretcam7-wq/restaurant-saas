@@ -3,7 +3,7 @@ import { createClient } from '@supabase/supabase-js'
 import { createServerClient } from '@supabase/ssr'
 import { Ratelimit } from '@upstash/ratelimit'
 import { Redis } from '@upstash/redis'
-import { getVerifiedUser, isAuthConnectionError, supabaseFetch } from '@/lib/supabase/network'
+import { AuthConnectionError, getVerifiedUser, isAuthConnectionError, supabaseFetch } from '@/lib/supabase/network'
 
 const BASE_DOMAIN = process.env.NEXT_PUBLIC_BASE_DOMAIN || 'eccofoodapp.com'
 const SLUG_PATH_REGEX = /^\/([a-zA-Z0-9-]+)(?:\/|$)/
@@ -44,17 +44,20 @@ type StaffSession = {
   sessionToken?: string
 }
 const tenantCache = new Map<string, { value: TenantRoute | null; expiresAt: number }>()
+const tenantLookups = new Map<string, Promise<TenantRoute | null>>()
 const TENANT_CACHE_TTL = 60_000
-const TENANT_LOOKUP_TIMEOUT_MS = 1200
+const TENANT_LOOKUP_TIMEOUT_MS = 3000
 const TENANT_SEGMENT_REGEX = /^[a-zA-Z0-9-]{2,64}$/
 const EARLY_NEXT_PATH_PREFIXES = ['/api/', '/_next/', '/favicon']
 const PROBE_PATH_REGEX = /\.(?:php|txt|xml|json|asp|aspx|cgi|env|git|bak|old|sql|zip|tar|gz)$/i
 
-function authUnavailableResponse() {
-  return new NextResponse('<!doctype html><html lang="es"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Conexion no disponible</title><body><main><h1>No se pudo conectar</h1><p>No pudimos verificar tu sesion. Comprueba internet y vuelve a intentarlo en un minuto.</p><button onclick="location.reload()">Reintentar</button></main></body></html>', {
+function authUnavailableResponse(source?: NextResponse) {
+  const response = new NextResponse('<!doctype html><html lang="es"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Conexion no disponible</title><body><main><h1>No se pudo conectar</h1><p>No pudimos verificar tu sesion. Comprueba internet y vuelve a intentarlo en un minuto.</p><button onclick="location.reload()">Reintentar</button></main></body></html>', {
     status: 503,
     headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'private, no-store', 'Retry-After': '60' },
   })
+  source?.cookies.getAll().forEach(cookie => response.cookies.set(cookie))
+  return response
 }
 
 // Rate limiters — inicializados lazy para evitar errores si faltan env vars
@@ -190,6 +193,15 @@ function getOperationalAccess(pathname: string) {
 }
 
 export async function proxy(request: NextRequest) {
+  try {
+    return await routeRequest(request)
+  } catch (error) {
+    if (isAuthConnectionError(error)) return authUnavailableResponse()
+    throw error
+  }
+}
+
+async function routeRequest(request: NextRequest) {
   const url = request.nextUrl.clone()
   const hostname = request.headers.get('host') || ''
   const pathname = url.pathname
@@ -269,12 +281,13 @@ export async function proxy(request: NextRequest) {
       global: { fetch: supabaseFetch },
       cookies: {
         getAll() { return request.cookies.getAll() },
-        setAll(cookiesToSet) {
+        setAll(cookiesToSet, headers) {
           cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value))
           response = NextResponse.next({ request })
           cookiesToSet.forEach(({ name, value, options }) =>
             response.cookies.set(name, value, options)
           )
+          Object.entries(headers).forEach(([name, value]) => response.headers.set(name, value))
         },
       },
     })
@@ -283,7 +296,7 @@ export async function proxy(request: NextRequest) {
     try {
       user = await getVerifiedUser(supabase)
     } catch (error) {
-      if (isAuthConnectionError(error)) return authUnavailableResponse()
+      if (isAuthConnectionError(error)) return authUnavailableResponse(response)
       throw error
     }
     if (!user?.email || !OWNER_EMAILS.includes(user.email)) {
@@ -363,18 +376,19 @@ export async function proxy(request: NextRequest) {
     const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 
     if (operationalAccess.allowOwnerSession && supabaseUrl && supabaseAnonKey) {
+      let response = NextResponse.next({ request })
       try {
-        let response = NextResponse.next({ request })
         const supabase = createServerClient(supabaseUrl, supabaseAnonKey, {
           global: { fetch: supabaseFetch },
           cookies: {
             getAll() { return request.cookies.getAll() },
-            setAll(cookiesToSet) {
+            setAll(cookiesToSet, headers) {
               cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value))
               response = NextResponse.next({ request })
               cookiesToSet.forEach(({ name, value, options }) =>
                 response.cookies.set(name, value, options)
               )
+              Object.entries(headers).forEach(([name, value]) => response.headers.set(name, value))
             },
           },
         })
@@ -388,18 +402,19 @@ export async function proxy(request: NextRequest) {
             process.env.SUPABASE_SERVICE_ROLE_KEY!,
             { auth: { autoRefreshToken: false, persistSession: false } }
           )
-          const { data: ownedTenant } = await serviceSupabase
+          const { data: ownedTenant, error: ownershipError } = await serviceSupabase
             .from('tenants')
             .select('id')
             .eq('id', tenant.id)
             .eq('owner_id', user.id)
-            .maybeSingle()
+            .abortSignal(AbortSignal.timeout(8_000)).maybeSingle().retry(false)
 
+          if (ownershipError) return authUnavailableResponse(response)
           if (ownedTenant) return response
         }
       } catch (error) {
-        if (isAuthConnectionError(error)) return authUnavailableResponse()
-        // Continue to PIN redirect.
+        console.warn('[proxy operational auth] verification unavailable')
+        return authUnavailableResponse(response)
       }
     }
 
@@ -431,11 +446,12 @@ export async function proxy(request: NextRequest) {
         if (hasAdminAccess && routeTenant && staffCanAccessTenant(staffSession, routeTenant.id)) {
           // Validate single-session token
           if (staffSession.sessionToken && staffSession.staffId) {
-            const { data: active } = await serviceSupabase
+            const { data: active, error: sessionError } = await serviceSupabase
               .from('active_sessions')
               .select('session_token')
               .eq('user_key', `staff:${staffSession.staffId}`)
-              .single()
+              .abortSignal(AbortSignal.timeout(8_000)).maybeSingle().retry(false)
+            if (sessionError) return authUnavailableResponse()
             if (!active || active.session_token !== staffSession.sessionToken) {
               const loginUrl = new URL(`/${slug}/admin/login?reason=otra_sesion`, request.url)
               const res = NextResponse.redirect(loginUrl)
@@ -449,7 +465,7 @@ export async function proxy(request: NextRequest) {
         // owner path below validate it instead of blocking because a staff
         // PIN cookie from TPV/KDS is present.
       } catch {
-        // Cookie corrupta, continuar a verificar Supabase
+        return authUnavailableResponse()
       }
     }
 
@@ -458,18 +474,19 @@ export async function proxy(request: NextRequest) {
     const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 
     if (supabaseUrl && supabaseAnonKey) {
+      let response = NextResponse.next({ request })
       try {
-        let response = NextResponse.next({ request })
         const supabase = createServerClient(supabaseUrl, supabaseAnonKey, {
           global: { fetch: supabaseFetch },
           cookies: {
             getAll() { return request.cookies.getAll() },
-            setAll(cookiesToSet) {
+            setAll(cookiesToSet, headers) {
               cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value))
               response = NextResponse.next({ request })
               cookiesToSet.forEach(({ name, value, options }) =>
                 response.cookies.set(name, value, options)
               )
+              Object.entries(headers).forEach(([name, value]) => response.headers.set(name, value))
             },
           },
         })
@@ -486,18 +503,19 @@ export async function proxy(request: NextRequest) {
             return NextResponse.redirect(loginUrl)
           }
 
-          const { data: ownedTenant } = await serviceSupabase
+          const { data: ownedTenant, error: ownershipError } = await serviceSupabase
             .from('tenants')
             .select('id')
             .eq('id', routeTenant.id)
             .eq('owner_id', user.id)
-            .maybeSingle()
+            .abortSignal(AbortSignal.timeout(8_000)).maybeSingle().retry(false)
 
+          if (ownershipError) return authUnavailableResponse(response)
           if (ownedTenant) return response
         }
       } catch (error) {
-        if (isAuthConnectionError(error)) return authUnavailableResponse()
-        // Error verificando Supabase, continuar al bloqueo
+        console.warn('[proxy admin auth] verification unavailable')
+        return authUnavailableResponse(response)
       }
     }
 
@@ -575,36 +593,30 @@ export async function proxy(request: NextRequest) {
 async function getTenantByDomain(domain: string) {
   const cleanDomain = domain.split(':')[0]?.toLowerCase() || domain.toLowerCase()
   return getCachedTenant(`domain:${cleanDomain}`, async (signal) => {
-  try {
     const candidates = cleanDomain.startsWith('www.')
       ? [cleanDomain, cleanDomain.slice(4)]
       : [cleanDomain, `www.${cleanDomain}`]
     return await fetchTenantRow(`select=id,slug&primary_domain=in.(${candidates.join(',')})&limit=1`, signal)
-  } catch { return null }
   })
 }
 
 async function getTenantBySlug(slug: string) {
   if (!isPotentialTenantSegment(slug) || isUUID(slug)) return null
   return getCachedTenant(`slug:${slug}`, async (signal) => {
-  try {
     return await fetchTenantRow(`select=id,slug&slug=eq.${encodeURIComponent(slug)}&limit=1`, signal)
-  } catch { return null }
   })
 }
 
 async function getTenantById(id: string) {
   return getCachedTenant(`id:${id}`, async (signal) => {
-  try {
     return await fetchTenantRow(`select=id,slug&id=eq.${encodeURIComponent(id)}&limit=1`, signal)
-  } catch { return null }
   })
 }
 
 async function fetchTenantRow(query: string, signal: AbortSignal): Promise<TenantRoute | null> {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
-  if (!supabaseUrl || !serviceKey) return null
+  if (!supabaseUrl || !serviceKey) throw new AuthConnectionError()
 
   const response = await fetch(`${supabaseUrl}/rest/v1/tenants?${query}`, {
     headers: {
@@ -613,7 +625,7 @@ async function fetchTenantRow(query: string, signal: AbortSignal): Promise<Tenan
     },
     signal,
   })
-  if (!response.ok) return null
+  if (!response.ok) throw new AuthConnectionError()
 
   const rows = await response.json() as TenantRoute[]
   return rows[0] || null
@@ -624,18 +636,24 @@ async function getCachedTenant(key: string, fetcher: (signal: AbortSignal) => Pr
   if (cached && cached.expiresAt > Date.now()) {
     return cached.value
   }
+  const pending = tenantLookups.get(key)
+  if (pending) return pending
 
   const controller = new AbortController()
   const timeout = setTimeout(() => controller.abort(), TENANT_LOOKUP_TIMEOUT_MS)
-  const value = await fetcher(controller.signal).catch((error) => {
+  const lookup = fetcher(controller.signal).then(value => {
+    tenantCache.set(key, { value, expiresAt: Date.now() + TENANT_CACHE_TTL })
+    return value
+  }).catch((error) => {
     console.warn('[proxy tenant lookup] skipped after error:', error instanceof Error ? error.message : error)
-    return null
+    // A failed lookup is not evidence that the restaurant or session is missing.
+    throw new AuthConnectionError()
   }).finally(() => {
     clearTimeout(timeout)
+    tenantLookups.delete(key)
   })
-
-  tenantCache.set(key, { value, expiresAt: Date.now() + TENANT_CACHE_TTL })
-  return value
+  tenantLookups.set(key, lookup)
+  return lookup
 }
 
 function extractSubdomain(hostname: string, baseDomain: string): string | null {

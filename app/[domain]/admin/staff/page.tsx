@@ -1,56 +1,14 @@
-'use client';
-
-import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { createClient } from '@/lib/supabase/client';
+import { getTenantIdFromSlug } from '@/lib/tenant';
 import { StaffScheduler } from '@/components/admin/StaffScheduler';
 import { UsersRound } from 'lucide-react';
+import { AdminConnectionNotice } from '@/components/admin/AdminConnectionNotice';
 
-const supabase = createClient();
-
-export default function StaffPage() {
-  const router = useRouter();
-  const [tenantId, setTenantId] = useState<string>('');
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    async function getTenantId() {
-      try {
-        const {
-          data: { session },
-        } = await supabase.auth.getSession();
-
-        if (!session) {
-          router.push('/login');
-          return;
-        }
-
-        const { data: tenant } = await supabase
-          .from('tenants')
-          .select('id')
-          .eq('owner_id', session.user.id)
-          .single();
-
-        if (tenant) {
-          setTenantId(tenant.id);
-        }
-      } catch (error) {
-        console.error('Error getting tenant:', error);
-        router.push('/login');
-      } finally {
-        setLoading(false);
-      }
-    }
-
-    getTenantId();
-  }, [router]);
-
-  if (loading) {
-    return <div className="admin-empty">Cargando personal...</div>;
-  }
+export default async function StaffPage({ params }: { params: Promise<{ domain: string }> }) {
+  const { domain } = await params;
+  const tenantId = await getTenantIdFromSlug(domain);
 
   if (!tenantId) {
-    return <div className="admin-empty">No se encontro el restaurante</div>;
+    return <AdminConnectionNotice unavailable />;
   }
 
   return (
