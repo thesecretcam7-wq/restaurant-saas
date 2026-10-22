@@ -7,6 +7,7 @@ import {
   getRestaurantTimeZone,
 } from '@/lib/restaurant-time'
 import { buildPurchaseDailyFinance } from '@/lib/purchase-daily-finance'
+import { fetchClosedMonthOrderIds } from '@/lib/closed-month-orders'
 
 interface PurchaseInvoiceLineInput {
   inventoryId?: string | null
@@ -158,6 +159,7 @@ export async function GET(request: NextRequest) {
       { data: invoices, error },
       { data: monthOrders, error: ordersError },
       { data: billPayments, error: billPaymentsError, setupRequired: billPaymentsSetupRequired },
+      closedOrderIds,
     ] = await Promise.all([
       supabase
       .from('supplier_purchase_invoices')
@@ -188,6 +190,7 @@ export async function GET(request: NextRequest) {
       .limit(80),
       fetchMonthOrders(supabase, tenantId, monthStartIso),
       fetchMonthBillPayments(supabase, tenantId, monthStartIso),
+      fetchClosedMonthOrderIds(supabase, tenantId, monthStartIso),
     ])
 
     if (error) throw error
@@ -222,6 +225,7 @@ export async function GET(request: NextRequest) {
         .reduce((sum, payment) => sum + payment.amount, 0)
     const dailyFinance = buildPurchaseDailyFinance({
       orders: paidOrders,
+      closedOrderIds,
       billPayments: normalizedBillPayments,
       timeZone,
       monthStartKey,

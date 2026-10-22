@@ -104,6 +104,9 @@ interface DailyFinanceDay {
   netCash: number
   availableCash: number
   runningAvailableCash: number
+  settledAvailableCash: number
+  pendingCash: number
+  runningSettledAvailableCash: number
   runningNetTotal: number
 }
 
@@ -376,6 +379,9 @@ export function PurchaseControlManager({ tenantId }: { tenantId: string }) {
             netCash: parseAmount(day.netCash),
             availableCash: parseAmount(day.availableCash),
             runningAvailableCash: parseAmount(day.runningAvailableCash),
+            settledAvailableCash: parseAmount(day.settledAvailableCash),
+            pendingCash: parseAmount(day.pendingCash),
+            runningSettledAvailableCash: parseAmount(day.runningSettledAvailableCash),
             runningNetTotal: parseAmount(day.runningNetTotal),
           })).filter((day: DailyFinanceDay) => day.date)
         : []
@@ -723,19 +729,17 @@ export function PurchaseControlManager({ tenantId }: { tenantId: string }) {
   const monthTotal = monthInvoices
     .reduce((sum, invoice) => sum + parseAmount(invoice.total), 0)
   const paidBillsTotal = billPaymentsSummary.paidThisMonth
-  const paidBillsToday = billPaymentsSummary.paidToday
   const cashSalesThisMonth = dailyFinance.reduce((sum, day) => sum + day.cashSales, 0)
   const cardSalesThisMonth = dailyFinance.reduce((sum, day) => sum + day.cardSales, 0)
-  const todayFinance = dailyFinance[dailyFinance.length - 1]
-  const balanceRemaining = cashSalesThisMonth - paidBillsTotal
-  const todayBalanceRemaining = (todayFinance?.cashSales || 0) - paidBillsToday
+  const balanceRemaining = dailyFinance.reduce((sum, day) => sum + day.settledAvailableCash, 0)
+  const pendingCash = dailyFinance.reduce((sum, day) => sum + day.pendingCash, 0)
   const purchasesOverSales = salesSummary.salesThisMonth > 0 ? (paidBillsTotal / salesSummary.salesThisMonth) * 100 : 0
   const balanceStatus =
     salesSummary.salesThisMonth <= 0
       ? 'Sin ventas cobradas este mes'
       : balanceRemaining >= 0
-        ? 'Efectivo despues de pagos'
-        : 'Pagos por encima del efectivo cobrado'
+        ? 'Disponible de cajas cerradas'
+        : 'Pagos por encima del efectivo de cajas cerradas'
   const dailyFinanceDescending = useMemo(
     () => dailyFinance
       .filter((day) => day.orders > 0 || day.billPaymentsCount > 0)
@@ -838,12 +842,12 @@ export function PurchaseControlManager({ tenantId }: { tenantId: string }) {
           <div className="rounded-lg border border-black/10 bg-black/[0.025] p-4">
             <p className="text-xs font-black uppercase text-black/45">Efectivo disponible mes</p>
             <p className={`mt-2 text-2xl font-black ${balanceRemaining >= 0 ? 'text-[#15130f]' : 'text-red-700'}`}>{money(balanceRemaining)}</p>
-            <p className="mt-1 text-xs font-bold text-black/45">efectivo menos todas las facturas pagadas</p>
+            <p className="mt-1 text-xs font-bold text-black/45">cajas cerradas menos sus facturas y pagos por aparte</p>
           </div>
           <div className="rounded-lg border border-black/10 bg-black/[0.025] p-4">
-            <p className="text-xs font-black uppercase text-black/45">Efectivo neto hoy</p>
-            <p className={`mt-2 text-2xl font-black ${todayBalanceRemaining >= 0 ? 'text-[#15130f]' : 'text-red-700'}`}>{money(todayBalanceRemaining)}</p>
-            <p className="mt-1 text-xs font-bold text-black/45">tarjeta hoy {money(todayFinance?.cardSales || 0)}</p>
+            <p className="text-xs font-black uppercase text-black/45">Pendiente de cierre</p>
+            <p className={`mt-2 text-2xl font-black ${pendingCash >= 0 ? 'text-[#15130f]' : 'text-red-700'}`}>{money(pendingCash)}</p>
+            <p className="mt-1 text-xs font-bold text-black/45">efectivo de cajas abiertas menos sus facturas; no incluido en disponible</p>
           </div>
         </div>
         {salesSummary.salesThisMonth > 0 && purchasesOverSales >= 45 && (
@@ -859,7 +863,7 @@ export function PurchaseControlManager({ tenantId }: { tenantId: string }) {
             <div>
               <p className="admin-eyebrow">Control diario del mes</p>
               <h2 className="text-xl font-black text-[#15130f]">Ventas, facturas y dinero restante</h2>
-              <p className="mt-1 text-sm font-semibold text-black/52">Efectivo cobrado menos todas las facturas pagadas, incluidas las pagadas por aparte.</p>
+              <p className="mt-1 text-sm font-semibold text-black/52">Disponible solo de cajas cerradas, descontando sus facturas y los pagos por aparte. Movimientos agrupados por fecha de venta o pago.</p>
             </div>
             <div className="sm:text-right">
               <p className="text-xs font-black uppercase text-black/42">Efectivo desde el día 1</p>
@@ -898,7 +902,7 @@ export function PurchaseControlManager({ tenantId }: { tenantId: string }) {
                         </div>
                         {isExpanded ? <ChevronUp className="size-5 shrink-0 text-black/42" /> : <ChevronDown className="size-5 shrink-0 text-black/42" />}
                       </div>
-                      <div className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2 text-sm sm:grid-cols-3 xl:grid-cols-5">
+                      <div className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2 text-sm sm:grid-cols-3 xl:grid-cols-6">
                         <div>
                           <p className="text-xs font-black uppercase text-black/38">Ventas efectivo</p>
                           <p className="mt-0.5 font-black text-emerald-700">{money(day.cashSales)}</p>
@@ -908,8 +912,8 @@ export function PurchaseControlManager({ tenantId }: { tenantId: string }) {
                           <p className="mt-0.5 font-black text-red-700">{money(-day.billPaymentsTotal)}</p>
                         </div>
                         <div>
-                          <p className="text-xs font-black uppercase text-black/38">Efectivo neto dia</p>
-                          <p className={`mt-0.5 font-black ${day.availableCash >= 0 ? 'text-[#15130f]' : 'text-red-700'}`}>{money(day.availableCash)}</p>
+                          <p className="text-xs font-black uppercase text-black/38">Disponible del dia</p>
+                          <p className={`mt-0.5 font-black ${day.settledAvailableCash >= 0 ? 'text-[#15130f]' : 'text-red-700'}`}>{money(day.settledAvailableCash)}</p>
                         </div>
                         <div>
                           <p className="text-xs font-black uppercase text-black/38">Ventas tarjeta</p>
@@ -917,7 +921,11 @@ export function PurchaseControlManager({ tenantId }: { tenantId: string }) {
                         </div>
                         <div>
                           <p className="text-xs font-black uppercase text-black/38">Efectivo acumulado</p>
-                          <p className={`mt-0.5 font-black ${day.runningAvailableCash >= 0 ? 'text-[#15130f]' : 'text-red-700'}`}>{money(day.runningAvailableCash)}</p>
+                          <p className={`mt-0.5 font-black ${day.runningSettledAvailableCash >= 0 ? 'text-[#15130f]' : 'text-red-700'}`}>{money(day.runningSettledAvailableCash)}</p>
+                        </div>
+                        <div>
+                          <p className="text-xs font-black uppercase text-black/38">Pendiente de cierre</p>
+                          <p className="mt-0.5 font-black text-amber-700">{money(day.pendingCash)}</p>
                         </div>
                       </div>
                     </button>

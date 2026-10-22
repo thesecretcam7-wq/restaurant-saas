@@ -1,6 +1,7 @@
 import { getRestaurantLocalDateKey } from './restaurant-time'
 
 interface DailyFinanceOrder {
+  id?: string
   total?: number | string | null
   created_at?: string | null
   payment_method?: string | null
@@ -8,6 +9,7 @@ interface DailyFinanceOrder {
 }
 
 interface DailyFinanceBillPayment {
+  cash_closing_id?: string | null
   amount?: number | string | null
   paid_at?: string | null
   payment_method?: string | null
@@ -29,6 +31,9 @@ export interface PurchaseDailyFinanceDay {
   availableCash: number
   runningAvailableCash: number
   runningNetTotal: number
+  settledAvailableCash: number
+  pendingCash: number
+  runningSettledAvailableCash: number
 }
 
 function toAmount(value: unknown) {
@@ -71,12 +76,14 @@ export function buildPurchaseDailyFinance({
   timeZone,
   monthStartKey,
   todayKey,
+  closedOrderIds = new Set<string>(),
 }: {
   orders: DailyFinanceOrder[]
   billPayments: DailyFinanceBillPayment[]
   timeZone: string
   monthStartKey: string
   todayKey: string
+  closedOrderIds?: ReadonlySet<string>
 }) {
   const days = new Map<string, PurchaseDailyFinanceDay>()
   monthDateKeys(monthStartKey, todayKey).forEach((date) => {
@@ -96,6 +103,9 @@ export function buildPurchaseDailyFinance({
       availableCash: 0,
       runningAvailableCash: 0,
       runningNetTotal: 0,
+      settledAvailableCash: 0,
+      pendingCash: 0,
+      runningSettledAvailableCash: 0,
     })
   })
 
@@ -109,6 +119,11 @@ export function buildPurchaseDailyFinance({
     paymentRowsForOrder(order).forEach((payment) => {
       if (payment.method === 'cash') {
         day.cashSales += payment.amount
+        if (order.id && closedOrderIds.has(order.id)) {
+          day.settledAvailableCash += payment.amount
+        } else {
+          day.pendingCash += payment.amount
+        }
       } else if (['card', 'stripe', 'wompi'].includes(payment.method)) {
         day.cardSales += payment.amount
       } else {
@@ -128,19 +143,28 @@ export function buildPurchaseDailyFinance({
     day.billPaymentsTotal += amount
     if (method === 'external') {
       day.billPaymentsExternal += amount
+      day.settledAvailableCash -= amount
     } else {
       day.billPaymentsCash += amount
+      if (payment.cash_closing_id) {
+        day.settledAvailableCash -= amount
+      } else {
+        day.pendingCash -= amount
+      }
     }
   })
 
   let runningNetTotal = 0
   let runningAvailableCash = 0
+  let runningSettledAvailableCash = 0
   return Array.from(days.values()).map((day) => {
     day.netTotal = day.salesTotal - day.billPaymentsTotal
     day.netCash = day.cashSales - day.billPaymentsCash
     day.availableCash = day.cashSales - day.billPaymentsTotal
     runningAvailableCash += day.availableCash
     day.runningAvailableCash = runningAvailableCash
+    runningSettledAvailableCash += day.settledAvailableCash
+    day.runningSettledAvailableCash = runningSettledAvailableCash
     runningNetTotal += day.netTotal
     day.runningNetTotal = runningNetTotal
     return day

@@ -14,6 +14,7 @@ import {
 import { getTenantBySlugOrId } from '@/lib/getTenant'
 import { formatPriceWithCurrency, getCurrencyByCountry } from '@/lib/currency'
 import { buildPurchaseDailyFinance } from '@/lib/purchase-daily-finance'
+import { fetchClosedMonthOrderIds } from '@/lib/closed-month-orders'
 import {
   formatRestaurantDateTime,
   getRestaurantBusinessPeriod,
@@ -44,6 +45,7 @@ interface DashboardOrder {
 }
 
 interface BillPayment {
+  cash_closing_id?: string | null
   id: string
   supplier_name?: string | null
   concept?: string | null
@@ -118,7 +120,7 @@ async function fetchMonthBillPayments(supabase: any, tenantId: string, startIso:
   while (true) {
     const { data, error } = await supabase
       .from('cash_bill_payments')
-      .select('id, supplier_name, concept, invoice_number, amount, payment_method, paid_at')
+      .select('id, supplier_name, concept, invoice_number, amount, payment_method, paid_at, cash_closing_id')
       .retry(false)
       .abortSignal(AbortSignal.timeout(8_000))
       .eq('tenant_id', tenantId)
@@ -194,7 +196,7 @@ export default async function DashboardPage({ params }: DashboardProps) {
     now,
   })
 
-  const [monthOrders, billPayments, openOrdersRes, inventoryRes, reservationsRes, closingRes] = await Promise.all([
+  const [monthOrders, billPayments, openOrdersRes, inventoryRes, reservationsRes, closingRes, closedOrderIds] = await Promise.all([
     fetchMonthOrders(supabase, tenantId, monthStartIso),
     fetchMonthBillPayments(supabase, tenantId, monthStartIso),
     supabase
@@ -236,6 +238,7 @@ export default async function DashboardPage({ params }: DashboardProps) {
       .order('closed_at', { ascending: false })
       .limit(1)
       .maybeSingle(),
+    fetchClosedMonthOrderIds(supabase, tenantId, monthStartIso),
   ])
 
   for (const result of [openOrdersRes, inventoryRes, reservationsRes, closingRes]) {
@@ -254,6 +257,7 @@ export default async function DashboardPage({ params }: DashboardProps) {
   })
   const dailyFinance = buildPurchaseDailyFinance({
     orders: paidOrders,
+    closedOrderIds,
     billPayments: activeBillPayments,
     timeZone,
     monthStartKey,
@@ -263,7 +267,8 @@ export default async function DashboardPage({ params }: DashboardProps) {
   const monthBills = dailyFinance.reduce((sum, day) => sum + day.billPaymentsTotal, 0)
   const monthCash = dailyFinance.reduce((sum, day) => sum + day.cashSales, 0)
   const monthCard = dailyFinance.reduce((sum, day) => sum + day.cardSales, 0)
-  const monthBalance = monthCash - monthBills
+  const monthBalance = dailyFinance.reduce((sum, day) => sum + day.settledAvailableCash, 0)
+  const pendingCash = dailyFinance.reduce((sum, day) => sum + day.pendingCash, 0)
   const todaySales = todayFinance?.salesTotal || 0
   const todayOrdersCount = todayFinance?.orders || 0
   const todayCash = todayFinance?.cashSales || 0
@@ -380,14 +385,14 @@ export default async function DashboardPage({ params }: DashboardProps) {
         <div className="flex flex-col gap-3 border-b border-black/10 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <p className="text-sm font-black text-[#15130f]">Balance del mes hasta hoy</p>
-            <p className="mt-1 text-xs font-semibold text-black/48">Incluye todas las facturas pagadas desde el dia 1.</p>
+            <p className="mt-1 text-xs font-semibold text-black/48">Disponible: cajas cerradas menos sus facturas y los pagos por aparte. No incluye cajas abiertas.</p>
           </div>
           <div className="flex flex-wrap gap-2">
             <Link href={`/${tenantSlug}/admin/compras`} className="admin-button-ghost min-h-9 px-3 py-2">Ver facturas</Link>
             <Link href={`/${tenantSlug}/admin/finanzas`} className="admin-button-ghost min-h-9 px-3 py-2">Planificar caja</Link>
           </div>
         </div>
-        <div className="grid divide-y divide-black/8 md:grid-cols-4 md:divide-x md:divide-y-0">
+        <div className="grid divide-y divide-black/8 md:grid-cols-3 xl:grid-cols-5 md:divide-x md:divide-y-0">
           <div className="px-5 py-4">
             <p className="text-xs font-black uppercase text-black/42">Cobrado en efectivo</p>
             <p className="mt-2 text-2xl font-black text-[#15130f]">{money(monthCash)}</p>
@@ -403,6 +408,11 @@ export default async function DashboardPage({ params }: DashboardProps) {
           <div className="px-5 py-4">
             <p className="text-xs font-black uppercase text-black/42">Efectivo disponible</p>
             <p className={`mt-2 text-2xl font-black ${monthBalance < 0 ? 'text-red-700' : 'text-emerald-700'}`}>{money(monthBalance)}</p>
+          </div>
+          <div className="px-5 py-4">
+            <p className="text-xs font-black uppercase text-black/42">Pendiente de cierre</p>
+            <p className="mt-2 text-2xl font-black text-amber-700">{money(pendingCash)}</p>
+            <p className="mt-1 text-xs font-semibold text-black/48">Efectivo neto de cajas abiertas</p>
           </div>
         </div>
       </section>
