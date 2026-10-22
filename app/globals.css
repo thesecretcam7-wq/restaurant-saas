@@ -2411,6 +2411,34 @@ body:has(.admin-app-shell) {
   white-space: nowrap;
 }
 
+.pos-product-viewport {
+  min-width: 0;
+  scroll-snap-type: y mandatory;
+  scroll-padding-block: 8px;
+}
+
+.pos-premium .pos-product-grid > button {
+  display: flex;
+  flex-direction: column;
+  min-width: 0 !important;
+  min-height: 0 !important;
+  height: 100%;
+  scroll-snap-align: start;
+}
+
+.pos-premium .pos-product-grid :is(.pos-product-card-name, .pos-product-card-name-on-image) {
+  display: block !important;
+  flex-shrink: 0;
+  min-height: 0;
+}
+
+.pos-product-grid .pos-product-card-label {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+}
+
 /* Final finance assistant contrast pass. This block intentionally lives at EOF:
    the admin theme has broad color overrides, so finance owns its own contrast. */
 .admin-app-shell .admin-page .financial-assistant,

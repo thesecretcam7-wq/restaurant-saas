@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/client';
 import { ShoppingCart, Plus, Minus, Trash2, Search, DollarSign, CreditCard, Maximize2, Minimize2, Calculator, Lock, Unlock, GripVertical, Clock, Truck, Store, UtensilsCrossed, Archive, Monitor, Printer, CalendarDays, Download, PencilLine, X, Check, ReceiptText } from 'lucide-react';
 import { TableMap } from './TableMap';
 import { POSPayment } from './POSPayment';
+import { POSProductGrid } from './POSProductGrid';
 import { NumericKeyboard } from './NumericKeyboard';
 import { TextKeyboard } from './TextKeyboard';
 import { CashClosingModal } from './CashClosingModal';
@@ -5345,7 +5346,7 @@ export function POSTerminal({
 
       <div className="flex-1 flex min-h-0 flex-col overflow-y-auto lg:overflow-hidden lg:flex-row gap-0">
         {/* Menu Section */}
-        <div className={`${compactPOSLayout ? 'min-h-0 flex-1' : 'min-h-[44dvh] max-h-[58dvh] lg:min-h-0 lg:max-h-none lg:flex-1'} flex flex-col overflow-hidden`}>
+        <div className={`${compactPOSLayout ? 'min-h-[320px] flex-1 lg:min-h-0' : 'min-h-[44dvh] max-h-[58dvh] lg:min-h-0 lg:max-h-none lg:flex-1'} min-w-0 flex flex-col overflow-hidden`}>
           {/* Search and Controls - Sticky Header */}
           <div className={`pos-panel pos-command-bar border-x-0 border-t-0 flex flex-wrap gap-1.5 items-center sticky top-0 z-[90] ${compactPOSLayout ? 'px-3 py-2' : 'p-3 sm:p-4 lg:flex-nowrap'}`}>
             {(productSearchOpen || searchQuery) ? (
@@ -5747,15 +5748,7 @@ export function POSTerminal({
           </div>
 
           {/* Menu Grid */}
-          <div className={`flex-1 min-h-0 overflow-y-scroll overscroll-contain pr-1 [scrollbar-gutter:stable] [scrollbar-width:thin] [scrollbar-color:rgba(103,232,249,0.55)_rgba(15,23,42,0.45)] [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-cyan-300/45 [&::-webkit-scrollbar-track]:bg-white/5 ${compactPOSLayout ? 'px-3 py-2' : 'p-3 sm:p-4'}`}>
-            <div
-              className={`grid h-fit justify-start ${compactPOSLayout ? 'gap-2' : 'gap-3'}`}
-              style={{
-                gridTemplateColumns: compactPOSLayout
-                  ? 'repeat(auto-fill, minmax(150px, 165px))'
-                  : 'repeat(auto-fill, minmax(165px, 190px))',
-              }}
-            >
+          <POSProductGrid compact={compactPOSLayout} className={`flex-1 min-h-0 overflow-y-scroll overscroll-contain pr-1 [scrollbar-gutter:stable] [scrollbar-width:thin] [scrollbar-color:rgba(103,232,249,0.55)_rgba(15,23,42,0.45)] [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-cyan-300/45 [&::-webkit-scrollbar-track]:bg-white/5 ${compactPOSLayout ? 'px-3 py-2' : 'p-3 sm:p-4'}`}>
               {filteredMenu.map((item) => {
                 const qty = cartQuantityMap.get(item.id);
                 const unavailable = item.available === false;
@@ -5807,7 +5800,7 @@ export function POSTerminal({
                           ? `${item.name} no disponible`
                           : `Agregar ${item.name}`
                     }
-                    className={`${hasProductImage ? 'pos-card pos-product-card-with-image' : 'pos-product-card-no-image'} group relative min-h-[126px] overflow-hidden rounded-xl p-0 text-left transition-all duration-200 transform hover:scale-[1.018] active:scale-95 ${
+                    className={`${hasProductImage ? 'pos-card pos-product-card-with-image' : 'pos-product-card-no-image'} group relative min-h-[126px] overflow-hidden rounded-lg p-0 text-left transition-all duration-200 active:scale-95 ${
                       qty
                         ? 'border-2 border-cyan-300/70 bg-cyan-300/14 shadow-lg shadow-cyan-900/30'
                         : ''
@@ -5844,17 +5837,16 @@ export function POSTerminal({
                         {qty}
                       </span>
                     )}
-                    <p className={`relative z-10 mx-2.5 mt-2 min-h-[2.2rem] text-sm font-black leading-tight line-clamp-2 transition-colors ${hasProductImage ? 'pos-product-card-name-on-image' : 'pos-product-card-name'}`}>
-                      {item.name}
+                    <p className={`relative z-10 mx-2.5 mt-auto mb-1 text-sm font-black leading-tight transition-colors ${hasProductImage ? 'pos-product-card-name-on-image' : 'pos-product-card-name'}`}>
+                      <span className="pos-product-card-label">{item.name}</span>
                     </p>
-                    <p className={`absolute bottom-2 left-2.5 z-10 text-sm font-black ${hasProductImage ? 'pos-product-card-price-on-image' : 'pos-product-card-price'}`}>
+                    <p className={`relative z-10 mx-2.5 mb-2 shrink-0 text-sm font-black ${hasProductImage ? 'pos-product-card-price-on-image' : 'pos-product-card-price'}`}>
                       {formatPriceWithCurrency(item.price, currencyInfo.code, currencyInfo.locale)}
                     </p>
                   </button>
                 );
               })}
-            </div>
-          </div>
+          </POSProductGrid>
 
           {/* Tables Bottom Strip */}
           {allTables.length > 0 && (
