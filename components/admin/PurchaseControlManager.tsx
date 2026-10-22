@@ -1,6 +1,7 @@
 'use client'
 
 import { FormEvent, useEffect, useMemo, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { createRefreshGate } from '@/lib/refresh-gate'
 import {
   AlertTriangle,
@@ -249,6 +250,7 @@ export function PurchaseControlManager({ tenantId }: { tenantId: string }) {
   const [savingPayment, setSavingPayment] = useState(false)
   const [showForm, setShowForm] = useState(false)
   const [showPaymentForm, setShowPaymentForm] = useState(false)
+  const paymentFormRef = useRef<HTMLFormElement>(null)
   const [search, setSearch] = useState('')
   const [supplierName, setSupplierName] = useState('')
   const [invoiceNumber, setInvoiceNumber] = useState('')
@@ -272,6 +274,12 @@ export function PurchaseControlManager({ tenantId }: { tenantId: string }) {
   const hasLoaded = useRef(false)
   const [refreshing, setRefreshing] = useState(false)
   const [updatedAt, setUpdatedAt] = useState<number | null>(null)
+
+  useEffect(() => {
+    if (!showPaymentForm) return
+    paymentFormRef.current?.scrollIntoView({ block: 'start', behavior: 'instant' })
+    paymentFormRef.current?.querySelector<HTMLInputElement>('input')?.focus({ preventScroll: true })
+  }, [showPaymentForm])
 
   useEffect(() => {
     void fetchData()
@@ -768,7 +776,14 @@ export function PurchaseControlManager({ tenantId }: { tenantId: string }) {
   }
 
   return (
-    <div className="w-full max-w-full space-y-5 overflow-hidden">
+    <div className="w-full max-w-full space-y-5 overflow-hidden pb-24">
+      {!showForm && !showPaymentForm && typeof document !== 'undefined' && createPortal(
+        <button type="button" onClick={() => setShowPaymentForm(true)} className="admin-button-primary"
+          style={{ position: 'fixed', right: '1rem', bottom: 'calc(1rem + env(safe-area-inset-bottom))', zIndex: 40, width: 'auto', maxWidth: 'calc(100vw - 2rem)', minHeight: 48 }}>
+          <Plus className="size-5 shrink-0" />
+          <span>Pago por aparte</span>
+        </button>, document.body,
+      )}
       <div className="flex flex-wrap items-center gap-3 text-xs font-semibold text-black/55" aria-live="polite">
         <span>{refreshing ? 'Actualizando ventas y facturas...' : updatedAt ? 'Actualizado:' : 'Datos pendientes de actualizar'}</span>
         {!refreshing && updatedAt && <time dateTime={new Date(updatedAt).toISOString()}>{new Date(updatedAt).toLocaleTimeString('es-ES')}</time>}
@@ -970,14 +985,14 @@ export function PurchaseControlManager({ tenantId }: { tenantId: string }) {
                 Los pagos desde caja salen del TPV. Los pagos por aparte se registran aqui y no afectan el corte de caja.
               </p>
             </div>
-            <button
+            {showPaymentForm && <button
               type="button"
-              onClick={() => setShowPaymentForm((current) => !current)}
+              onClick={() => setShowPaymentForm(false)}
               className="admin-button-primary min-h-12 sm:w-auto"
             >
-              <Plus className="size-5 shrink-0" />
-              <span>{showPaymentForm ? 'Cerrar pago' : 'Pago por aparte'}</span>
-            </button>
+              <X className="size-5 shrink-0" />
+              <span>Cerrar pago</span>
+            </button>}
           </div>
         </div>
 
@@ -988,11 +1003,12 @@ export function PurchaseControlManager({ tenantId }: { tenantId: string }) {
         )}
 
         {showPaymentForm && (
-          <form onSubmit={saveExternalPayment} className="space-y-4 border-b border-black/10 bg-black/[0.025] p-4">
+          <form ref={paymentFormRef} onSubmit={saveExternalPayment} style={{ scrollMarginTop: 96 }} className="space-y-4 border-b border-black/10 bg-black/[0.025] p-4">
             <div className="grid gap-4 lg:grid-cols-5">
               <div className="lg:col-span-2">
-                <label className="mb-2 block text-xs font-black uppercase text-black/45">Proveedor o gasto *</label>
+                <label htmlFor="external-payment-supplier" className="mb-2 block text-xs font-black uppercase text-black/45">Proveedor o gasto *</label>
                 <input
+                  id="external-payment-supplier"
                   value={paymentSupplierName}
                   onChange={(event) => setPaymentSupplierName(event.target.value)}
                   required
