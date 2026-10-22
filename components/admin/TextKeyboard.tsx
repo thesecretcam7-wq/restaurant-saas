@@ -13,6 +13,8 @@ interface TextKeyboardProps {
   onCancel: () => void;
   maxLength?: number;
   multiline?: boolean;
+  compact?: boolean;
+  extraCharacters?: boolean;
 }
 
 const letterRows = [
@@ -32,6 +34,8 @@ export function TextKeyboard({
   onCancel,
   maxLength = 80,
   multiline = false,
+  compact = false,
+  extraCharacters = false,
 }: TextKeyboardProps) {
   const [mounted, setMounted] = useState(false);
 
@@ -70,8 +74,8 @@ export function TextKeyboard({
 
   return createPortal(
     <div className="fixed inset-0 z-[9999] flex items-end justify-center bg-black/20 p-3 sm:items-center">
-      <div className="w-full max-w-4xl overflow-hidden rounded-[1.5rem] border border-slate-200 bg-white text-slate-950 shadow-[0_28px_90px_rgba(15,23,42,0.24)]">
-        <div className="flex items-center justify-between border-b border-slate-200 bg-white px-5 py-4">
+      <div className={`w-full max-w-4xl rounded-[1.5rem] border border-slate-200 bg-white text-slate-950 shadow-[0_28px_90px_rgba(15,23,42,0.24)] ${compact ? 'max-h-[94dvh] overflow-y-auto' : 'overflow-hidden'}`}>
+        <div className={`flex items-center justify-between border-b border-slate-200 bg-white px-5 ${compact ? 'py-3' : 'py-4'}`}>
           <div>
             <p className="text-xs font-black uppercase tracking-[0.2em] text-sky-700">Teclado</p>
             <h2 className="mt-1 text-xl font-black text-slate-950">{title}</h2>
@@ -86,13 +90,13 @@ export function TextKeyboard({
           </button>
         </div>
 
-        <div className="border-b border-slate-200 bg-slate-50 px-5 py-4">
-          <div className="min-h-16 w-full whitespace-pre-wrap break-words rounded-2xl border border-sky-200 bg-white p-4 text-2xl font-black text-slate-950 shadow-inner">
+        <div className={`border-b border-slate-200 bg-slate-50 px-5 ${compact ? 'py-2' : 'py-4'}`}>
+          <div className={`w-full whitespace-pre-wrap break-words rounded-2xl border border-sky-200 bg-white font-black text-slate-950 shadow-inner ${compact ? 'min-h-12 p-3 text-xl' : 'min-h-16 p-4 text-2xl'}`}>
             {value || <span className="text-slate-400">Escribe aqui...</span>}
           </div>
         </div>
 
-        <div className="space-y-3 p-5">
+        <div className={`space-y-3 ${compact ? 'p-3' : 'p-5'}`}>
           <div className="grid grid-cols-10 gap-2">
             {numberRow.map((key) => (
               <button key={key} type="button" onClick={() => appendText(key)} className={keyClass}>
@@ -110,6 +114,12 @@ export function TextKeyboard({
               ))}
             </div>
           ))}
+
+          {extraCharacters && <div className="grid grid-cols-9 gap-2">
+            {['\u00D1', '\u00C1', '\u00C9', '\u00CD', '\u00D3', '\u00DA', '\u00DC', '-', '/'].map(key => (
+              <button key={key} type="button" onClick={() => appendText(key)} className={keyClass}>{key}</button>
+            ))}
+          </div>}
 
           <div className="grid grid-cols-4 gap-2 border-t border-slate-200 pt-3">
             <button

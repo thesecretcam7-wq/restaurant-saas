@@ -12,6 +12,7 @@ interface NumericKeyboardProps {
   initialValue?: number;
   allowDecimal?: boolean;
   maxLength?: number;
+  compact?: boolean;
 }
 
 export function NumericKeyboard({
@@ -22,6 +23,7 @@ export function NumericKeyboard({
   initialValue = 0,
   allowDecimal = true,
   maxLength = 10,
+  compact = false,
 }: NumericKeyboardProps) {
   const [input, setInput] = useState<string>(initialValue.toString());
   const [mounted, setMounted] = useState(false);
@@ -106,12 +108,12 @@ export function NumericKeyboard({
   const portalTarget = document.fullscreenElement ?? document.body;
 
   const numberButtonClass =
-    'rounded-2xl border border-slate-200 bg-white py-5 text-4xl font-black tabular-nums text-slate-950 shadow-[0_10px_22px_rgba(15,23,42,0.08)] transition hover:border-orange-300 hover:bg-orange-50 active:scale-95';
+    `rounded-2xl border border-slate-200 bg-white ${compact ? 'min-h-12 py-2 text-2xl' : 'py-5 text-4xl'} font-black tabular-nums text-slate-950 shadow-[0_10px_22px_rgba(15,23,42,0.08)] transition hover:border-orange-300 hover:bg-orange-50 active:scale-95`;
 
   return createPortal(
     <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/10 p-4">
-      <div className="w-full max-w-sm overflow-hidden rounded-[1.75rem] border border-slate-200 bg-white text-slate-950 shadow-[0_28px_90px_rgba(15,23,42,0.18)]">
-        <div className="flex items-center justify-between border-b border-slate-200 bg-white px-6 py-5">
+      <div className={`w-full max-w-sm rounded-[1.75rem] border border-slate-200 bg-white text-slate-950 shadow-[0_28px_90px_rgba(15,23,42,0.18)] ${compact ? 'max-h-[94dvh] overflow-y-auto' : 'overflow-hidden'}`}>
+        <div className={`flex items-center justify-between border-b border-slate-200 bg-white ${compact ? 'px-4 py-2' : 'px-6 py-5'}`}>
           <div>
             <p className="text-xs font-black uppercase tracking-[0.22em] text-orange-600">Cantidad</p>
             <h2 className="mt-1 text-2xl font-black text-slate-950">{title}</h2>
@@ -125,16 +127,16 @@ export function NumericKeyboard({
           </button>
         </div>
 
-        <div className="border-b border-slate-200 bg-slate-50 px-6 py-5">
+        <div className={`border-b border-slate-200 bg-slate-50 ${compact ? 'px-4 py-2' : 'px-6 py-5'}`}>
           <div className="mb-2 text-center text-xs font-black uppercase tracking-[0.18em] text-orange-600">
             Valor
           </div>
-          <div className="w-full overflow-hidden rounded-2xl border border-orange-200 bg-white p-5 text-center text-6xl font-black tabular-nums text-orange-700 shadow-inner">
+          <div className={`w-full overflow-hidden rounded-2xl border border-orange-200 bg-white text-center font-black tabular-nums text-orange-700 shadow-inner ${compact ? 'p-2 text-4xl' : 'p-5 text-6xl'}`}>
             {input || '0'}
           </div>
         </div>
 
-        <div className="space-y-3 bg-white p-6">
+        <div className={`bg-white ${compact ? 'space-y-2 p-3' : 'space-y-3 p-6'}`}>
           <div className="grid grid-cols-3 gap-3">
             {['7', '8', '9'].map((num) => (
               <button key={num} type="button" onClick={() => handleNumberClick(num)} className={numberButtonClass}>
@@ -173,7 +175,7 @@ export function NumericKeyboard({
             <button
               type="button"
               onClick={handleBackspace}
-              className="flex items-center justify-center rounded-2xl border border-[#ff8f8f]/40 bg-[#ff6b6b]/10 py-5 font-bold text-[#ff8f8f] shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_10px_22px_rgba(0,0,0,0.18)] transition hover:border-[#ff8f8f]/75 hover:bg-[#ff6b6b]/18 active:scale-95"
+              className={`flex items-center justify-center rounded-2xl border border-[#ff8f8f]/40 bg-[#ff6b6b]/10 ${compact ? 'min-h-12 py-2' : 'py-5'} font-bold text-[#ff8f8f] shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_10px_22px_rgba(0,0,0,0.18)] transition hover:border-[#ff8f8f]/75 hover:bg-[#ff6b6b]/18 active:scale-95`}
             >
               <Delete className="h-8 w-8" />
             </button>
@@ -183,14 +185,14 @@ export function NumericKeyboard({
             <button
               type="button"
               onClick={handleClear}
-              className="rounded-2xl border border-slate-200 bg-white py-4 text-lg font-black text-slate-700 transition hover:border-orange-300 hover:bg-orange-50 active:scale-95"
+              className={`rounded-2xl border border-slate-200 bg-white ${compact ? 'min-h-12 py-2' : 'py-4'} text-lg font-black text-slate-700 transition hover:border-orange-300 hover:bg-orange-50 active:scale-95`}
             >
               Limpiar
             </button>
             <button
               type="button"
               onClick={handleConfirm}
-              className="flex items-center justify-center gap-2 rounded-2xl bg-orange-500 py-4 text-lg font-black text-white shadow-[0_16px_35px_rgba(249,115,22,0.24)] transition hover:bg-orange-600 active:scale-95"
+              className={`flex items-center justify-center gap-2 rounded-2xl bg-orange-500 ${compact ? 'min-h-12 py-2' : 'py-4'} text-lg font-black text-white shadow-[0_16px_35px_rgba(249,115,22,0.24)] transition hover:bg-orange-600 active:scale-95`}
             >
               <Check className="h-5 w-5" />
               Confirmar
@@ -200,7 +202,7 @@ export function NumericKeyboard({
           <button
             type="button"
             onClick={onCancel}
-            className="w-full rounded-2xl border border-slate-200 bg-slate-50 py-4 text-lg font-black text-slate-700 transition hover:border-slate-300 hover:bg-white active:scale-95"
+            className={`w-full rounded-2xl border border-slate-200 bg-slate-50 ${compact ? 'min-h-12 py-2' : 'py-4'} text-lg font-black text-slate-700 transition hover:border-slate-300 hover:bg-white active:scale-95`}
           >
             Cancelar
           </button>

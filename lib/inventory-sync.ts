@@ -6,6 +6,7 @@ interface EnsureInventoryItemInput {
   tenantId: string;
   productId: string;
   productName: string;
+  signal?: AbortSignal;
 }
 
 interface MenuItemForInventory {
@@ -15,28 +16,29 @@ interface MenuItemForInventory {
 
 export async function ensureInventoryItemForMenuItem(
   supabase: SupabaseLike,
-  { tenantId, productId, productName }: EnsureInventoryItemInput
+  { tenantId, productId, productName, signal }: EnsureInventoryItemInput
 ) {
   const normalizedName = productName.trim();
+  const bounded = (query: any) => signal ? query.abortSignal(signal).retry(false) : query;
 
-  const productLinkedLookup = await supabase
+  const productLinkedLookup = await bounded(supabase
     .from('inventory')
     .select('id')
     .eq('tenant_id', tenantId)
     .eq('product_id', productId)
-    .limit(1);
+    .limit(1));
 
   const supportsProductId = !isMissingProductIdColumn(productLinkedLookup.error);
   if (productLinkedLookup.error && supportsProductId) throw productLinkedLookup.error;
 
   const fallbackLookup = supportsProductId
     ? null
-    : await supabase
+    : await bounded(supabase
         .from('inventory')
         .select('id')
         .eq('tenant_id', tenantId)
         .eq('product_name', normalizedName)
-        .limit(1);
+        .limit(1));
 
   if (fallbackLookup?.error) throw fallbackLookup.error;
 
@@ -44,13 +46,13 @@ export async function ensureInventoryItemForMenuItem(
     ? productLinkedLookup.data?.[0]
     : fallbackLookup?.data?.[0];
   if (existingItem?.id) {
-    const { error: updateError } = await supabase
+    const { error: updateError } = await bounded(supabase
       .from('inventory')
       .update({
         product_name: normalizedName,
         updated_at: new Date().toISOString(),
       })
-      .eq('id', existingItem.id);
+      .eq('id', existingItem.id));
 
     if (updateError) throw updateError;
     return existingItem;
@@ -69,11 +71,10 @@ export async function ensureInventoryItemForMenuItem(
     insertPayload.product_id = productId;
   }
 
-  const { data: inventoryItem, error: insertError } = await supabase
+  const { data: inventoryItem, error: insertError } = await bounded(supabase
     .from('inventory')
     .insert(insertPayload)
-    .select()
-    .single();
+    .select()).single();
 
   if (insertError) throw insertError;
   return inventoryItem;

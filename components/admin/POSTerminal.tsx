@@ -7,6 +7,7 @@ import { ShoppingCart, Plus, Minus, Trash2, Search, DollarSign, CreditCard, Maxi
 import { TableMap } from './TableMap';
 import { POSPayment } from './POSPayment';
 import { POSProductGrid } from './POSProductGrid';
+import { POSNewProductModal, type CreatedPOSProduct } from './POSNewProductModal';
 import { NumericKeyboard } from './NumericKeyboard';
 import { TextKeyboard } from './TextKeyboard';
 import { CashClosingModal } from './CashClosingModal';
@@ -710,6 +711,8 @@ export function POSTerminal({
   const [searchQuery, setSearchQuery] = useState('');
   const [productSearchOpen, setProductSearchOpen] = useState(false);
   const [quickActionsOpen, setQuickActionsOpen] = useState(false);
+  const [showNewProduct, setShowNewProduct] = useState(false);
+  const newlyCreatedProductsRef = useRef(new Map<string, MenuItem>());
   const [productOrderUnlocked, setProductOrderUnlocked] = useState(false);
   const [draggedProductId, setDraggedProductId] = useState<string | null>(null);
   const [dragOverProductId, setDragOverProductId] = useState<string | null>(null);
@@ -2720,7 +2723,10 @@ export function POSTerminal({
         ? current
         : loadedCategories[0]?.id ?? null
     );
-    setMenu(data.menu || []);
+    const remoteMenu: MenuItem[] = data.menu || [];
+    remoteMenu.forEach(item => newlyCreatedProductsRef.current.delete(item.id));
+    const currentMenu = [...newlyCreatedProductsRef.current.values(), ...remoteMenu];
+    setMenu(currentMenu);
     setAllTables(data.tables || []);
 
     if (data.tenant) {
@@ -2746,6 +2752,25 @@ export function POSTerminal({
       if (data.settings.display_name) setRestaurantName(data.settings.display_name);
       if (data.settings.phone) setRestaurantPhone(data.settings.phone);
     }
+    return currentMenu;
+  }
+
+  function handleProductCreated(item: CreatedPOSProduct, warning?: string) {
+    newlyCreatedProductsRef.current.set(item.id, item);
+    setMenu(current => [item, ...current.filter(product => product.id !== item.id)]);
+    setSelectedCategory(item.category_id);
+    setSearchQuery('');
+    setShowNewProduct(false);
+    setToast({ message: warning || `Producto guardado: ${item.name}`, type: warning ? 'error' : 'success' });
+    void (async () => {
+      try {
+        const cached = await getOfflineStorage().getPOSBootstrap(tenantId);
+        if (cached) await getOfflineStorage().cachePOSBootstrap(tenantId, {
+          ...cached, menu: [item, ...(cached.menu || []).filter((product: MenuItem) => product.id !== item.id)],
+        });
+      } catch { console.warn('POS product saved; local cache update pending'); }
+    })();
+    void fetchMenuData();
   }
 
   async function fetchMenuData() {
@@ -2762,12 +2787,12 @@ export function POSTerminal({
       if (!response.ok) throw new Error(`POS bootstrap failed: ${response.status}`);
 
       const data = await response.json();
-      applyPOSBootstrapData(data);
+      const currentMenu = applyPOSBootstrapData(data);
       lastBootstrapFailureAtRef.current = 0;
       setIsOnline(true);
       await getOfflineStorage().cachePOSBootstrap(tenantId, {
         categories: data.categories || [],
-        menu: data.menu || [],
+        menu: currentMenu,
         tables: data.tables || [],
         tenant: data.tenant || null,
         settings: data.settings || null,
@@ -4887,6 +4912,7 @@ export function POSTerminal({
     };
 
     const handleKeyDown = (event: KeyboardEvent) => {
+      if (showNewProduct) return;
       const key = event.key.toLowerCase();
       const editable = isEditableTarget(event.target);
 
@@ -4976,7 +5002,7 @@ export function POSTerminal({
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [categories, selectedCategory, cart, paymentMethod, handleShowReceipt, openProductSearch, reprintLastSaleReceipt, savedAccountButtonDisabled, handleSavedAccountButton]);
+  }, [categories, selectedCategory, cart, paymentMethod, handleShowReceipt, openProductSearch, reprintLastSaleReceipt, savedAccountButtonDisabled, handleSavedAccountButton, showNewProduct]);
 
   const nextReservationTime = todayReservations[0]?.reservation_time?.slice(0, 5) || null;
   const compactPOSLayout = true;
@@ -5407,6 +5433,10 @@ export function POSTerminal({
                     >
                       <Search className="h-4 w-4" />
                       Buscar producto
+                    </button>
+                    <button type="button" onClick={() => { setQuickActionsOpen(false); setShowNewProduct(true); }}
+                      className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left font-black text-emerald-100 transition hover:bg-white/10">
+                      <Plus className="h-4 w-4" />Nuevo producto
                     </button>
                     <button
                       type="button"
@@ -6717,6 +6747,10 @@ export function POSTerminal({
           mode={cashClosingMode || 'current'}
         />
       )}
+
+      {showNewProduct && <POSNewProductModal tenantId={tenantId} categories={categories} initialCategoryId={selectedCategory}
+        currency={currencyInfo} getToken={getFreshCSRFToken} onCreated={handleProductCreated}
+        onClose={() => setShowNewProduct(false)} portalTarget={heldAccountsPortalTarget} />}
 
       <BillPaymentModal
         isOpen={showBillPayment}
