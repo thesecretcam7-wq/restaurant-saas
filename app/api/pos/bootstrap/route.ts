@@ -2,9 +2,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createServiceClient } from '@/lib/supabase/server';
 import { getPageConfig } from '@/lib/pageConfig';
 
-const POS_BOOTSTRAP_SERVER_TIMEOUT_MS = 3200;
+const POS_BOOTSTRAP_SERVER_TIMEOUT_MS = 5000;
 
 function withAbort(query: any, signal: AbortSignal) {
+  if (typeof query.retry === 'function') query = query.retry(false);
   return typeof query.abortSignal === 'function' ? query.abortSignal(signal) : query;
 }
 

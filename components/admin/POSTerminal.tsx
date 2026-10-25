@@ -24,6 +24,7 @@ import { countPendingPOSOrders, isNetworkPaymentError, saveOfflinePOSOrder, sync
 import { getOfflineStorage } from '@/lib/offline/storage';
 import { useWakeLock } from '@/lib/hooks/useWakeLock';
 import { reconcileSavedDineInOrder } from '@/lib/pos-dine-in-orders';
+import { canReachPOSCloud, fetchPOSBootstrapWithTimeout } from '@/lib/pos-cloud-connectivity';
 
 interface MenuItem {
   id: string;
@@ -61,10 +62,8 @@ type TouchTextRequest = {
 };
 const MANUAL_CHARGE_NAME = 'Cobro manual';
 const DEFAULT_POS_WAITER_NAME = 'TPV';
-const POS_CONNECTIVITY_CHECK_TIMEOUT_MS = 2500;
 const POS_CONNECTIVITY_POLLING_MS = 60000;
 const POS_CART_REMOTE_SYNC_DEBOUNCE_MS = 2500;
-const POS_BOOTSTRAP_TIMEOUT_MS = 3500;
 const POS_MENU_REFRESH_FALLBACK_MS = 300000;
 const POS_BOOTSTRAP_FAILURE_BACKOFF_MS = 60000;
 const POS_ORDERS_REFRESH_FALLBACK_MS = 45000;
@@ -130,58 +129,6 @@ function isPosCreatedDineInOrder(order: { source?: string | null; notes?: string
     order.waiter_name === DEFAULT_POS_WAITER_NAME ||
     String(order.notes || '').toLowerCase().includes('comanda enviada desde tpv')
   );
-}
-
-async function canReachPOSCloud(tenantId: string) {
-  if (typeof window === 'undefined') return true;
-  if (!tenantId) return false;
-
-  let timeout: number | undefined;
-  const fetchPromise = fetch(`/api/pos/cloud-health?tenantId=${encodeURIComponent(tenantId)}`, {
-    credentials: 'include',
-    cache: 'no-store',
-  });
-
-  try {
-    const response = await Promise.race([
-      fetchPromise,
-      new Promise<Response>((_, reject) => {
-        timeout = window.setTimeout(() => {
-          reject(new Error('POS connectivity timeout'));
-        }, POS_CONNECTIVITY_CHECK_TIMEOUT_MS);
-      }),
-    ]);
-    return response.ok;
-  } catch {
-    return false;
-  } finally {
-    if (timeout) window.clearTimeout(timeout);
-    fetchPromise.catch(() => {});
-  }
-}
-
-async function fetchPOSBootstrapWithTimeout(tenantId: string): Promise<Response | null> {
-  let timeout: number | undefined;
-  const fetchPromise = fetch(`/api/pos/bootstrap?tenantId=${encodeURIComponent(tenantId)}`, {
-    credentials: 'include',
-    cache: 'no-store',
-  });
-
-  try {
-    return await Promise.race<Response | null>([
-      fetchPromise,
-      new Promise<null>((resolve) => {
-        timeout = window.setTimeout(() => {
-          resolve(null);
-        }, POS_BOOTSTRAP_TIMEOUT_MS);
-      }),
-    ]);
-  } catch {
-    return null;
-  } finally {
-    if (timeout) window.clearTimeout(timeout);
-    fetchPromise.catch(() => {});
-  }
 }
 
 function isCSRFTokenFresh(token: string) {
@@ -1292,15 +1239,18 @@ export function POSTerminal({
     if (offlineSyncInFlightRef.current) return;
 
     offlineSyncInFlightRef.current = true;
+    setSyncingOffline(true);
     if (!(await canReachPOSCloud(tenantId))) {
       setIsOnline(false);
       offlineSyncInFlightRef.current = false;
+      setSyncingOffline(false);
+      if (showToast) setToast({ message: 'El servidor sigue sin responder. Las ventas locales se conservan.', type: 'error' });
       return;
     }
 
     setIsOnline(true);
+    if (showToast) void fetchMenuData();
 
-    setSyncingOffline(true);
     try {
       const csrfToken = await getFreshCSRFToken();
 
@@ -1372,13 +1322,23 @@ export function POSTerminal({
     tone(t + 0.64, 1100, 0.4);
   }, [soundEnabled, initAudio]);
 
+  const connectivityStateRef = useRef({
+    isOnline, offlinePendingCount, refreshTodayReservations, refreshPendingCashClosing, syncOfflineSales,
+  });
+  useEffect(() => {
+    connectivityStateRef.current = {
+      isOnline, offlinePendingCount, refreshTodayReservations, refreshPendingCashClosing, syncOfflineSales,
+    };
+  }, [isOnline, offlinePendingCount, refreshTodayReservations, refreshPendingCashClosing, syncOfflineSales]);
+
+  // Restore the cart only at startup, never when connectivity changes.
   useEffect(() => {
     getFreshCSRFToken(true).catch(() => {});
     fetchMenuData();
     restoreCart();
     refreshOfflinePendingCount();
-    refreshTodayReservations();
-  }, [tenantId, getFreshCSRFToken, refreshOfflinePendingCount, refreshTodayReservations]);
+    connectivityStateRef.current.refreshTodayReservations();
+  }, [tenantId, getFreshCSRFToken, refreshOfflinePendingCount]);
 
   useEffect(() => {
     if (!tenantId || !isOnline) return;
@@ -1482,6 +1442,7 @@ export function POSTerminal({
     return () => window.clearInterval(interval);
   }, [isOnline, refreshTodayReservations]);
 
+  // Keep one recovery loop: changing connection state must not start another probe.
   useEffect(() => {
     if (typeof window === 'undefined') return;
 
@@ -1490,6 +1451,10 @@ export function POSTerminal({
 
     const refreshAfterReconnect = async (showToast: boolean) => {
       if (refreshAfterReconnectInFlight) return;
+      if (!navigator.onLine) {
+        setIsOnline(false);
+        return;
+      }
       refreshAfterReconnectInFlight = true;
 
       try {
@@ -1501,9 +1466,9 @@ export function POSTerminal({
 
         await Promise.all([
           fetchMenuData(),
-          refreshTodayReservations(),
-          refreshPendingCashClosing(),
-          syncOfflineSales(showToast),
+          connectivityStateRef.current.refreshTodayReservations(),
+          connectivityStateRef.current.refreshPendingCashClosing(),
+          connectivityStateRef.current.syncOfflineSales(showToast),
         ]);
       } finally {
         refreshAfterReconnectInFlight = false;
@@ -1522,13 +1487,20 @@ export function POSTerminal({
     const handleOnline = () => {
       void refreshAfterReconnect(true);
     };
+    const handleReturn = () => {
+      const state = connectivityStateRef.current;
+      if (document.visibilityState === 'visible' && (!state.isOnline || state.offlinePendingCount > 0)) updateOnlineState();
+    };
 
     updateOnlineState();
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', updateOnlineState);
+    window.addEventListener('focus', handleReturn);
+    document.addEventListener('visibilitychange', handleReturn);
     const connectivityPolling = window.setInterval(() => {
       if (document.visibilityState !== 'visible') return;
-      if (!navigator.onLine || offlinePendingCount > 0 || !isOnline) {
+      const state = connectivityStateRef.current;
+      if (!navigator.onLine || state.offlinePendingCount > 0 || !state.isOnline) {
         void refreshAfterReconnect(false);
       }
     }, POS_CONNECTIVITY_POLLING_MS);
@@ -1538,8 +1510,10 @@ export function POSTerminal({
       window.clearInterval(connectivityPolling);
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', updateOnlineState);
+      window.removeEventListener('focus', handleReturn);
+      document.removeEventListener('visibilitychange', handleReturn);
     };
-  }, [isOnline, offlinePendingCount, refreshPendingCashClosing, refreshTodayReservations, syncOfflineSales, tenantId]);
+  }, [tenantId]);
 
   // Listen for fullscreen changes
   useEffect(() => {
@@ -4865,7 +4839,7 @@ export function POSTerminal({
         ? `${offlinePendingCount} pendiente${offlinePendingCount > 1 ? 's' : ''}`
         : 'Sincronizado';
   const syncStatusTitle = !isOnline
-    ? 'Modo local activo. Las ventas se guardan en este dispositivo.'
+    ? 'Reintentar conexion. Las ventas locales se conservan en este dispositivo.'
     : offlinePendingCount > 0
       ? 'Hay ventas locales pendientes de sincronizar'
       : 'Todas las ventas locales estan sincronizadas';
@@ -5055,9 +5029,10 @@ export function POSTerminal({
           <div className="flex items-center gap-2">
             <button
               onClick={() => syncOfflineSales(true)}
-              disabled={!isOnline || syncingOffline}
+              disabled={syncingOffline}
               className={`pos-action-ghost ${!isOnline ? 'border-amber-300/45 bg-amber-300/12 text-amber-100' : offlinePendingCount > 0 ? 'border-emerald-300/45 bg-emerald-300/12 text-emerald-100' : ''} disabled:opacity-75`}
               title={syncStatusTitle}
+              aria-label={!isOnline ? 'Reintentar conexion' : 'Sincronizar ventas'}
             >
               <span
                 className={`h-2.5 w-2.5 rounded-full ${
@@ -5574,9 +5549,10 @@ export function POSTerminal({
               <>
                 <button
                   onClick={() => syncOfflineSales(true)}
-                  disabled={!isOnline || syncingOffline}
+                  disabled={syncingOffline}
                   className={`pos-action-ghost ${!isOnline ? 'border-amber-300/45 bg-amber-300/12 text-amber-100' : offlinePendingCount > 0 ? 'border-emerald-300/45 bg-emerald-300/12 text-emerald-100' : ''} disabled:opacity-75`}
                   title={syncStatusTitle}
+                  aria-label={!isOnline ? 'Reintentar conexion' : 'Sincronizar ventas'}
                 >
                   <span
                     className={`h-2.5 w-2.5 rounded-full ${
@@ -5675,9 +5651,10 @@ export function POSTerminal({
               <>
                 <button
                   onClick={() => syncOfflineSales(true)}
-                  disabled={!isOnline || syncingOffline}
+                  disabled={syncingOffline}
                   className={`pos-action-ghost ${!isOnline ? 'border-amber-300/45 bg-amber-300/12 text-amber-100' : offlinePendingCount > 0 ? 'border-emerald-300/45 bg-emerald-300/12 text-emerald-100' : ''} disabled:opacity-75`}
                   title={syncStatusTitle}
+                  aria-label={!isOnline ? 'Reintentar conexion' : 'Sincronizar ventas'}
                 >
                   <span
                     className={`h-2.5 w-2.5 rounded-full ${

@@ -3,7 +3,7 @@ import { createServiceClient } from '@/lib/supabase/server';
 
 export const dynamic = 'force-dynamic';
 
-const POS_CLOUD_HEALTH_TIMEOUT_MS = 1800;
+const POS_CLOUD_HEALTH_TIMEOUT_MS = 5000;
 const POS_CLOUD_HEALTH_SUCCESS_CACHE_MS = 10_000;
 const POS_CLOUD_HEALTH_FAILURE_CACHE_MS = 15_000;
 
@@ -20,6 +20,7 @@ type GlobalWithPOSHealth = typeof globalThis & {
 
 const globalForPOSHealth = globalThis as GlobalWithPOSHealth;
 const healthCache = globalForPOSHealth.__eccofoodPOSCloudHealth ?? new Map<string, CachedHealth>();
+const pendingHealth = new Map<string, Promise<Response>>();
 globalForPOSHealth.__eccofoodPOSCloudHealth = healthCache;
 
 function withAbort(query: any, signal: AbortSignal) {
@@ -54,6 +55,18 @@ export async function GET(request: NextRequest) {
     });
   }
 
+  const pending = pendingHealth.get(tenantId);
+  if (pending) return (await pending).clone();
+  const check = checkCloudHealth(tenantId);
+  pendingHealth.set(tenantId, check);
+  try {
+    return (await check).clone();
+  } finally {
+    pendingHealth.delete(tenantId);
+  }
+}
+
+async function checkCloudHealth(tenantId: string) {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), POS_CLOUD_HEALTH_TIMEOUT_MS);
 
@@ -64,6 +77,7 @@ export async function GET(request: NextRequest) {
         .from('tenants')
         .select('id')
         .eq('id', tenantId)
+        .retry(false)
         .maybeSingle(),
       controller.signal
     );
