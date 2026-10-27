@@ -118,7 +118,10 @@ export default async function AdminLayout({ children, params }: AdminLayoutProps
       />
 
       <SectionColorProvider>
-        <AdminContent trialEndsAt={access.trialEndsAt} slug={tenantSlug}>{children}</AdminContent>
+        <AdminContent
+          trialEndsAt={access.reason === 'trial_active' || access.reason === 'trial_expired' ? access.trialEndsAt : null}
+          slug={tenantSlug}
+        >{children}</AdminContent>
       </SectionColorProvider>
     </div>
   )

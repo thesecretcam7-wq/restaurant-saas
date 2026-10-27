@@ -1,10 +1,11 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useTransition } from 'react'
 import { RefreshCw, WifiOff } from 'lucide-react'
 
-export function AdminConnectionNotice({ unavailable = false }: { unavailable?: boolean }) {
+export function AdminConnectionNotice({ unavailable = false, onRetry }: { unavailable?: boolean; onRetry?: () => void }) {
   const [offline, setOffline] = useState(false)
+  const [retrying, startTransition] = useTransition()
 
   useEffect(() => {
     const update = () => setOffline(!navigator.onLine)
@@ -25,8 +26,11 @@ export function AdminConnectionNotice({ unavailable = false }: { unavailable?: b
       <p className="min-w-0 flex-1">
         {offline ? 'Sin conexion. Las ventas no se estan actualizando.' : 'No se pudo conectar al sistema. Intenta de nuevo en un minuto.'}
       </p>
-      <button type="button" disabled={offline} onClick={() => window.location.reload()} className="inline-flex items-center gap-2 font-bold disabled:opacity-50">
-        <RefreshCw className="size-4" />Reintentar
+      <button type="button" disabled={offline || retrying} onClick={() => {
+        if (onRetry) startTransition(onRetry)
+        else window.location.reload()
+      }} className="inline-flex items-center gap-2 font-bold disabled:opacity-50">
+        <RefreshCw className={`size-4 ${retrying ? 'animate-spin' : ''}`} />{retrying ? 'Reintentando...' : 'Reintentar'}
       </button>
     </div>
   )
