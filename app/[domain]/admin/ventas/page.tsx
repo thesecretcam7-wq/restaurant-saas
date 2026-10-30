@@ -9,6 +9,7 @@ import { ReprintReceiptButton } from '@/components/admin/ReprintReceiptButton'
 import { formatPriceWithCurrency, getCurrencyByCountry } from '@/lib/currency'
 import { EditSaleButton } from '@/components/admin/EditSaleButton'
 import { SalesAutoRefresh } from '@/components/admin/SalesAutoRefresh'
+import { ProductSalesReport } from '@/components/admin/ProductSalesReport'
 import { salesInPeriod } from '@/lib/sales-period'
 import {
   addRestaurantLocalDays,
@@ -188,6 +189,8 @@ export default async function VentasPage({ params }: Props) {
           <p className="admin-subtitle">Ingresos, ticket promedio, productos top e historial comercial del restaurante.</p>
         </div>
       </div>
+
+      <ProductSalesReport tenantId={tenantId} today={todayKey} currency={currencyInfo.code} locale={currencyInfo.locale} updatedAt={now.getTime()} />
 
       {allPaidSales.length > 0 && monthCount === 0 && (
         <div className="admin-panel mb-5 flex flex-col gap-2 border-amber-200 bg-amber-50/80 p-4 text-amber-900 md:flex-row md:items-center md:justify-between">
