@@ -51,12 +51,9 @@ export async function GET(request: NextRequest) {
     );
 
     const supabase = createServiceClient();
-    const stats = await withCashClosingTimeout(
-      calculateCashClosingStatsByMode(supabase, tenantId, mode),
-      'El cálculo del cierre de caja'
-    );
+    const stats = await calculateCashClosingStatsByMode(supabase, tenantId, mode, request.signal);
 
-    return NextResponse.json({ stats, mode });
+    return NextResponse.json({ stats, mode }, { headers: { 'Cache-Control': 'private, no-store' } });
   } catch (error) {
     if (error instanceof Error && ['Unauthorized', 'Forbidden'].includes(error.message)) {
       return tenantAuthErrorResponse(error);
@@ -89,10 +86,7 @@ export async function POST(request: NextRequest) {
       'La validación de acceso'
     );
     const supabase = createServiceClient();
-    const stats = await withCashClosingTimeout(
-      calculateCashClosingStatsByMode(supabase, tenantId, mode),
-      'El cálculo del cierre de caja'
-    );
+    const stats = await calculateCashClosingStatsByMode(supabase, tenantId, mode, request.signal);
 
     if (!stats) {
       return NextResponse.json({ error: 'No hay ventas pendientes para cerrar' }, { status: 409 });

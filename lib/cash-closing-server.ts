@@ -64,7 +64,6 @@ type CashClosingPeriod = {
 const ORDER_SELECT = 'id, order_number, total, tax, delivery_fee, delivery_type, payment_method, payment_breakdown, payment_status, status, created_at';
 const ORDER_SELECT_WITHOUT_PAYMENT_BREAKDOWN = 'id, order_number, total, tax, delivery_fee, delivery_type, payment_method, payment_status, status, created_at';
 const CASH_CLOSING_QUERY_TIMEOUT_MS = 8_000;
-const CLOSED_ORDER_ID_BATCH_SIZE = 100;
 const CASH_CLOSING_ORDER_PAGE_SIZE = 1000;
 const ONE_DAY_MS = 24 * 60 * 60 * 1000;
 const PENDING_CASH_CLOSING_LOOKBACK_DAYS = 30;
@@ -81,12 +80,16 @@ function isCountableClosingOrder(order: any) {
   return isCountableCashClosingOrder(order);
 }
 
-async function runCashClosingQuery<T>(query: any, label: string): Promise<T> {
+async function runCashClosingQuery<T>(query: any, label: string, operationSignal?: AbortSignal): Promise<T> {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), CASH_CLOSING_QUERY_TIMEOUT_MS);
 
   try {
-    return await query.abortSignal(controller.signal);
+    const signal = operationSignal
+      ? AbortSignal.any([controller.signal, operationSignal])
+      : controller.signal;
+    signal.throwIfAborted();
+    return await query.retry(false).abortSignal(signal);
   } catch (error) {
     if (
       error instanceof Error &&
@@ -109,35 +112,40 @@ async function fetchCashClosingOrders(
     select: string;
     label: string;
     paidOnly?: boolean;
+    signal: AbortSignal;
   }
 ): Promise<{ data: any[] | null; error: any }> {
   let from = 0;
-  let totalCount = 0;
   const rows: any[] = [];
 
   while (true) {
     let query = supabase
       .from('orders')
-      .select(args.select, { count: from === 0 ? 'exact' : undefined })
+      // Filter closed orders in Postgres instead of downloading a month and
+      // making one extra request for every 100 order IDs.
+      .select(`${args.select}, cash_closing_items()`)
       .eq('tenant_id', args.tenantId)
+      .eq('cash_closing_items.tenant_id', args.tenantId)
+      .is('cash_closing_items', null)
       .gte('created_at', args.startIso)
       .lt('created_at', args.endIso)
       .not('payment_method', 'is', null)
       .order('created_at', { ascending: true })
+      .order('id', { ascending: true })
       .range(from, from + CASH_CLOSING_ORDER_PAGE_SIZE - 1);
 
     if (args.paidOnly) query = query.eq('payment_status', 'paid');
 
     const result = await runCashClosingQuery<{ data: any[] | null; error: any; count?: number | null }>(
       query,
-      args.label
+      args.label,
+      args.signal
     );
 
     if (result.error) return { data: null, error: result.error };
-    if (from === 0) totalCount = result.count || 0;
     rows.push(...(result.data || []));
 
-    if (!result.data || result.data.length < CASH_CLOSING_ORDER_PAGE_SIZE || from + CASH_CLOSING_ORDER_PAGE_SIZE >= totalCount) {
+    if (!result.data || result.data.length < CASH_CLOSING_ORDER_PAGE_SIZE) {
       break;
     }
     from += CASH_CLOSING_ORDER_PAGE_SIZE;
@@ -277,7 +285,7 @@ function isMissingBillPaymentsTable(error: any) {
   return text.includes('cash_bill_payments') || error?.code === '42P01' || error?.code === 'PGRST205';
 }
 
-async function getCurrentOperationalPeriod(supabase: SupabaseServiceClient, tenantId: string) {
+async function getCurrentOperationalPeriod(supabase: SupabaseServiceClient, tenantId: string, signal?: AbortSignal) {
   const { data: settings, error } = await runCashClosingQuery<{
     data: { operating_hours?: any; timezone?: string | null; country?: string | null } | null;
     error: any;
@@ -287,7 +295,8 @@ async function getCurrentOperationalPeriod(supabase: SupabaseServiceClient, tena
       .select('operating_hours, timezone, country')
       .eq('tenant_id', tenantId)
       .maybeSingle(),
-    'La configuración del restaurante'
+    'La configuración del restaurante',
+    signal
   );
 
   if (error) throw error;
@@ -312,42 +321,12 @@ export async function getCurrentCashClosingPeriodWithServiceClient(
   return getCurrentOperationalPeriod(supabase, tenantId);
 }
 
-async function getClosedOrderIds(supabase: SupabaseServiceClient, tenantId: string, orderIds: string[]) {
-  const targetOrderIds = Array.from(new Set(orderIds.filter(Boolean)));
-  const closedOrderIds = new Set<string>();
-  if (targetOrderIds.length === 0) return closedOrderIds;
-
-  for (let index = 0; index < targetOrderIds.length; index += CLOSED_ORDER_ID_BATCH_SIZE) {
-    const orderIdBatch = targetOrderIds.slice(index, index + CLOSED_ORDER_ID_BATCH_SIZE);
-    const { data, error } = await runCashClosingQuery<{ data: any[] | null; error: any }>(
-      supabase
-        .from('cash_closing_items')
-        .select('order_id')
-        .eq('tenant_id', tenantId)
-        .in('order_id', orderIdBatch),
-      'La consulta de pedidos ya cerrados'
-    );
-
-    if (error) {
-      console.warn('No se pudieron consultar items de cierres anteriores:', error.message || error);
-      return closedOrderIds;
-    }
-
-    const rows = data || [];
-    rows.forEach((item: any) => {
-      const orderId = item?.order_id;
-      if (orderId) closedOrderIds.add(orderId);
-    });
-  }
-
-  return closedOrderIds;
-}
-
 async function hasMatchingCashClosingSummary(
   supabase: SupabaseServiceClient,
   tenantId: string,
   closedAfter: Date,
-  stats: Pick<CashClosingStats, 'totalSales' | 'transactionCount'>
+  stats: Pick<CashClosingStats, 'totalSales' | 'transactionCount'>,
+  signal: AbortSignal
 ) {
   const { data, error } = await runCashClosingQuery<{ data: any[] | null; error: any }>(
     supabase
@@ -357,12 +336,12 @@ async function hasMatchingCashClosingSummary(
       .gte('closed_at', closedAfter.toISOString())
       .order('closed_at', { ascending: false })
       .limit(20),
-    'La consulta de cierres recientes'
+    'La consulta de cierres recientes',
+    signal
   );
 
   if (error) {
-    console.warn('No se pudieron consultar cierres recientes:', error.message || error);
-    return false;
+    throw error;
   }
 
   const expectedTotal = Math.round((Number(stats.totalSales) || 0) * 100);
@@ -379,7 +358,8 @@ async function getOpenBillPayments(
   supabase: SupabaseServiceClient,
   tenantId: string,
   periodStart: string,
-  periodEnd: string
+  periodEnd: string,
+  signal: AbortSignal
 ) {
   const { data, error } = await runCashClosingQuery<{ data: any[] | null; error: any }>(
     supabase
@@ -393,7 +373,8 @@ async function getOpenBillPayments(
       .lt('paid_at', periodEnd)
       .order('paid_at', { ascending: true })
       .limit(500),
-    'La consulta de pagos de facturas'
+    'La consulta de pagos de facturas',
+    signal
   );
 
   if (error) {
@@ -409,7 +390,7 @@ function isMissingCashClosingPeriodColumns(error: any) {
   return message.includes('period_start') || message.includes('period_end');
 }
 
-async function getLatestCashClosingPeriodEnd(supabase: SupabaseServiceClient, tenantId: string) {
+async function getLatestCashClosingPeriodEnd(supabase: SupabaseServiceClient, tenantId: string, signal: AbortSignal) {
   const { data, error } = await runCashClosingQuery<{ data: { closed_at?: string | null; period_end?: string | null } | null; error: any }>(
     supabase
       .from('cash_closings')
@@ -418,13 +399,13 @@ async function getLatestCashClosingPeriodEnd(supabase: SupabaseServiceClient, te
       .order('closed_at', { ascending: false })
       .limit(1)
       .maybeSingle(),
-    'La consulta del ultimo cierre de caja'
+    'La consulta del ultimo cierre de caja',
+    signal
   );
 
   if (error) {
     if (isMissingCashClosingPeriodColumns(error)) return null;
-    console.warn('No se pudo consultar el ultimo cierre de caja:', error.message || error);
-    return null;
+    throw error;
   }
 
   const periodEnd = data?.period_end ? new Date(data.period_end) : null;
@@ -434,12 +415,13 @@ async function getLatestCashClosingPeriodEnd(supabase: SupabaseServiceClient, te
 
 export async function calculateCurrentCashClosingStats(
   supabase: SupabaseServiceClient,
-  tenantId: string
+  tenantId: string,
+  signal: AbortSignal = AbortSignal.timeout(20_000)
 ): Promise<CashClosingStats> {
-  const period = await getCurrentOperationalPeriod(supabase, tenantId);
+  const period = await getCurrentOperationalPeriod(supabase, tenantId, signal);
   const endDate = new Date(period.periodEnd);
   const nominalStartDate = new Date(period.periodStart);
-  const latestPeriodEnd = await getLatestCashClosingPeriodEnd(supabase, tenantId);
+  const latestPeriodEnd = await getLatestCashClosingPeriodEnd(supabase, tenantId, signal);
   const startDate = latestPeriodEnd && latestPeriodEnd > nominalStartDate && latestPeriodEnd < endDate
     ? latestPeriodEnd
     : nominalStartDate;
@@ -457,6 +439,7 @@ export async function calculateCurrentCashClosingStats(
     endIso: endDate.toISOString(),
     select: ORDER_SELECT,
     label: 'La consulta de ventas del cierre actual',
+    signal,
   });
   if (ordersResult.error && isMissingPaymentBreakdownColumn(ordersResult.error)) {
     ordersResult = await fetchCashClosingOrders(supabase, {
@@ -465,32 +448,26 @@ export async function calculateCurrentCashClosingStats(
       endIso: endDate.toISOString(),
       select: ORDER_SELECT_WITHOUT_PAYMENT_BREAKDOWN,
       label: 'La consulta de ventas del cierre actual',
+      signal,
     });
   }
 
   if (ordersResult.error) throw ordersResult.error;
 
   const orderRows: any[] = ordersResult.data || [];
-  const closedOrderIds = await getClosedOrderIds(
-    supabase,
-    tenantId,
-    orderRows.map((order: any) => order.id).filter(Boolean)
-  );
-  const openOrders = orderRows.filter((order: any) => {
-    if (closedOrderIds.has(order.id)) return false;
-    return true;
-  });
+  const openOrders = orderRows;
 
-  const billPayments = await getOpenBillPayments(supabase, tenantId, effectivePeriod.periodStart, effectivePeriod.periodEnd);
+  const billPayments = await getOpenBillPayments(supabase, tenantId, effectivePeriod.periodStart, effectivePeriod.periodEnd, signal);
   if (openOrders.length === 0 && billPayments.length === 0) return emptyStats(effectivePeriod);
   return statsFromOrders(effectivePeriod, openOrders, billPayments);
 }
 
 export async function calculatePendingPreviousCashClosingStats(
   supabase: SupabaseServiceClient,
-  tenantId: string
+  tenantId: string,
+  signal: AbortSignal = AbortSignal.timeout(20_000)
 ): Promise<CashClosingStats | null> {
-  const currentPeriod = await getCurrentOperationalPeriod(supabase, tenantId);
+  const currentPeriod = await getCurrentOperationalPeriod(supabase, tenantId, signal);
   const currentPeriodStart = new Date(currentPeriod.periodStart);
   const currentPeriodEnd = new Date(currentPeriod.periodEnd);
   const periodDurationMs = currentPeriodEnd.getTime() - currentPeriodStart.getTime();
@@ -505,6 +482,7 @@ export async function calculatePendingPreviousCashClosingStats(
     endIso: currentPeriodStart.toISOString(),
     select: ORDER_SELECT,
     label: 'La consulta de ventas pendientes',
+    signal,
     paidOnly: true,
   });
   if (ordersResult.error && isMissingPaymentBreakdownColumn(ordersResult.error)) {
@@ -514,6 +492,7 @@ export async function calculatePendingPreviousCashClosingStats(
       endIso: currentPeriodStart.toISOString(),
       select: ORDER_SELECT_WITHOUT_PAYMENT_BREAKDOWN,
       label: 'La consulta de ventas pendientes',
+      signal,
       paidOnly: true,
     });
   }
@@ -522,11 +501,8 @@ export async function calculatePendingPreviousCashClosingStats(
   const orderRows: any[] = ordersResult.data || [];
   if (!orderRows.length) return null;
 
-  const closedOrderIds = await getClosedOrderIds(
-    supabase,
-    tenantId,
-    orderRows.map((order: any) => order.id).filter(Boolean)
-  );
+  // The anti-join above already excluded orders linked to a closing.
+  const closedOrderIds = new Set<string>();
   const pendingOrders = orderRows.filter((order: any) => {
     return isPendingPreviousCashClosingOrder(order, currentPeriodStart, closedOrderIds);
   });
@@ -551,10 +527,10 @@ export async function calculatePendingPreviousCashClosingStats(
     operationalCloseTime: currentPeriod.operationalCloseTime,
   };
 
-  const billPayments = await getOpenBillPayments(supabase, tenantId, period.periodStart, period.periodEnd);
+  const billPayments = await getOpenBillPayments(supabase, tenantId, period.periodStart, period.periodEnd, signal);
   const stats = statsFromOrders(period, oldestPendingPeriod.periodOrders, billPayments);
 
-  if (await hasMatchingCashClosingSummary(supabase, tenantId, oldestPendingPeriod.periodStart, stats)) {
+  if (await hasMatchingCashClosingSummary(supabase, tenantId, oldestPendingPeriod.periodStart, stats, signal)) {
     return null;
   }
 
@@ -564,11 +540,14 @@ export async function calculatePendingPreviousCashClosingStats(
 export async function calculateCashClosingStatsByMode(
   supabase: SupabaseServiceClient,
   tenantId: string,
-  mode: CashClosingMode
+  mode: CashClosingMode,
+  requestSignal?: AbortSignal
 ) {
+  const deadline = AbortSignal.timeout(20_000);
+  const signal = requestSignal ? AbortSignal.any([deadline, requestSignal]) : deadline;
   return mode === 'pending'
-    ? calculatePendingPreviousCashClosingStats(supabase, tenantId)
-    : calculateCurrentCashClosingStats(supabase, tenantId);
+    ? calculatePendingPreviousCashClosingStats(supabase, tenantId, signal)
+    : calculateCurrentCashClosingStats(supabase, tenantId, signal);
 }
 
 export async function saveCashClosingWithServiceClient(

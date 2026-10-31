@@ -11,6 +11,7 @@ import { EditSaleButton } from '@/components/admin/EditSaleButton'
 import { SalesAutoRefresh } from '@/components/admin/SalesAutoRefresh'
 import { ProductSalesReport } from '@/components/admin/ProductSalesReport'
 import { salesInPeriod } from '@/lib/sales-period'
+import { fetchSalesHistoryTotals } from '@/lib/sales-history-server'
 import {
   addRestaurantLocalDays,
   formatRestaurantDateTime,
@@ -48,6 +49,7 @@ async function fetchOrdersPage(
       .abortSignal(signal)
       .eq('tenant_id', tenantId)
       .order('created_at', { ascending: false })
+      .order('id', { ascending: false })
 
     if (options.gte) query = query.gte('created_at', options.gte)
     if (options.lt) query = query.lt('created_at', options.lt)
@@ -113,20 +115,22 @@ export default async function VentasPage({ params }: Props) {
   const startOfLastMonth = getRestaurantLocalDateStartUtc(lastMonthStartKey, restaurantTimeZone)?.toISOString() || new Date(now.getFullYear(), now.getMonth() - 1, 1).toISOString()
   const startOf7Days = getRestaurantLocalDateStartUtc(chartDateKeys[0], restaurantTimeZone)?.toISOString() || new Date(now.getTime() - 6 * 24 * 60 * 60 * 1000).toISOString()
 
-  const [allHistoryOrders, monthOrders] = await Promise.all([
-    fetchOrdersPage(supabase, tenantId, 'id, order_number, total, payment_status, payment_method, status, created_at'),
+  const recentStart = startOfLastMonth < startOf7Days ? startOfLastMonth : startOf7Days
+  const [allOrders, monthOrders, recentOrders, historyTotals] = await Promise.all([
+    fetchOrdersPage(supabase, tenantId, 'id, order_number, total, payment_status, payment_method, status, created_at', { limit: 100 }),
     fetchOrdersPage(supabase, tenantId, 'id, total, status, payment_status, created_at, items', { gte: startOfMonth }),
+    fetchOrdersPage(supabase, tenantId, 'id, total, status, payment_status, created_at', { gte: recentStart, lt: startOfMonth }),
+    fetchSalesHistoryTotals(supabase, tenantId),
   ])
 
-  const allOrders = allHistoryOrders.slice(0, 100)
-  const allPaidSales = allHistoryOrders.filter(isValidPaidSale)
   const monthPaidSales = monthOrders.filter(isValidPaidSale)
-  const lastMonthPaidSales = salesInPeriod(allPaidSales, startOfLastMonth, startOfMonth)
-  const weekPaidSales = salesInPeriod(allPaidSales, startOf7Days)
+  const recentPaidSales = [...recentOrders.filter(isValidPaidSale), ...monthPaidSales]
+  const lastMonthPaidSales = salesInPeriod(recentPaidSales, startOfLastMonth, startOfMonth)
+  const weekPaidSales = salesInPeriod(recentPaidSales, startOf7Days)
   const monthRevenue = monthPaidSales.reduce((s, o) => s + orderTotal(o), 0)
   const lastMonthRevenue = lastMonthPaidSales.reduce((s, o) => s + orderTotal(o), 0)
   const weekRevenue = weekPaidSales.reduce((s, o) => s + orderTotal(o), 0)
-  const totalRevenue = allPaidSales.reduce((s, o) => s + orderTotal(o), 0)
+  const totalRevenue = historyTotals.revenue
   const monthCount = monthPaidSales.length
   const weekCount = weekPaidSales.length
   const avgTicket = monthCount > 0 ? monthRevenue / monthCount : 0
@@ -192,10 +196,10 @@ export default async function VentasPage({ params }: Props) {
 
       <ProductSalesReport tenantId={tenantId} today={todayKey} currency={currencyInfo.code} locale={currencyInfo.locale} updatedAt={now.getTime()} />
 
-      {allPaidSales.length > 0 && monthCount === 0 && (
+      {historyTotals.count > 0 && monthCount === 0 && (
         <div className="admin-panel mb-5 flex flex-col gap-2 border-amber-200 bg-amber-50/80 p-4 text-amber-900 md:flex-row md:items-center md:justify-between">
           <p className="text-sm font-black">Hay ventas registradas, pero ninguna cae dentro del mes actual.</p>
-          <p className="text-xs font-bold">Historico: {allPaidSales.length} ventas - {money(totalRevenue)}</p>
+          <p className="text-xs font-bold">Historico: {historyTotals.count} ventas - {money(totalRevenue)}</p>
         </div>
       )}
 
@@ -205,7 +209,7 @@ export default async function VentasPage({ params }: Props) {
           { label: 'Pedidos del mes', value: monthCount.toLocaleString('es-CO'), icon: ShoppingBag, helper: 'Ventas cobradas no canceladas' },
           { label: 'Ticket promedio', value: money(avgTicket), icon: ReceiptText, helper: 'Ingreso medio por pedido' },
           { label: 'Ultimos 7 dias', value: money(weekRevenue), icon: TrendingUp, helper: `${weekCount} pedidos` },
-          { label: 'Ventas registradas', value: money(totalRevenue), icon: BarChart3, helper: `${allPaidSales.length} ventas en historial` },
+          { label: 'Ventas registradas', value: money(totalRevenue), icon: BarChart3, helper: `${historyTotals.count} ventas en historial` },
         ].map(({ label, value, icon: Icon, helper }) => (
           <article key={label} className="admin-card p-5">
             <div className="flex items-center justify-between">

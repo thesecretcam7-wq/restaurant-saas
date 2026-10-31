@@ -273,24 +273,36 @@ function buildPaymentBreakdown(method: PaymentMethod, total: number, cashAmount?
   ];
 }
 
-async function fetchPendingCashClosingStats(tenantId: string): Promise<CashClosingStats | null> {
-  const response = await fetch(`/api/pos/cash-closing?tenantId=${encodeURIComponent(tenantId)}&mode=pending`, {
-    cache: 'no-store',
-  });
+async function fetchPendingCashClosingStats(tenantId: string, signal?: AbortSignal): Promise<CashClosingStats | null> {
+  const controller = new AbortController();
+  const abort = () => controller.abort();
+  if (signal?.aborted) abort();
+  signal?.addEventListener('abort', abort, { once: true });
+  const timeout = setTimeout(abort, 25_000);
+  try {
+    const response = await fetch(`/api/pos/cash-closing?tenantId=${encodeURIComponent(tenantId)}&mode=pending`, {
+      cache: 'no-store',
+      signal: controller.signal,
+    });
 
-  if (!response.ok) {
-    const payload = await response.json().catch(() => ({}));
-    throw new Error(payload.error || 'No se pudo consultar el cierre pendiente');
+    if (!response.ok) {
+      const payload = await response.json().catch(() => ({}));
+      throw new Error(payload.error || 'No se pudo consultar el cierre pendiente');
+    }
+
+    const payload = await response.json();
+    return payload.stats || null;
+  } finally {
+    clearTimeout(timeout);
+    signal?.removeEventListener('abort', abort);
   }
-
-  const payload = await response.json();
-  return payload.stats || null;
 }
 
 // ─── Timer Hook ───────────────────────────────────────────────────────────────
 async function fetchCurrentCashClosingStats(tenantId: string): Promise<CashClosingStats> {
   const response = await fetch(`/api/pos/cash-closing?tenantId=${encodeURIComponent(tenantId)}&mode=current`, {
     cache: 'no-store',
+    signal: AbortSignal.timeout(25_000),
   });
 
   if (!response.ok) {
@@ -668,6 +680,7 @@ export function POSTerminal({
   const quickActionsRef = useRef<HTMLDivElement>(null);
   const offlineBootstrapToastShownRef = useRef(false);
   const lastBootstrapFailureAtRef = useRef(0);
+  const lastBootstrapSuccessAtRef = useRef(0);
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('cash');
   const [printReceiptAfterPayment, setPrintReceiptAfterPayment] = useState(() => {
     if (typeof window === 'undefined') return true;
@@ -787,6 +800,7 @@ export function POSTerminal({
   });
   const menuDataFetchInFlightRef = useRef(false);
   const incomingOrdersFetchInFlightRef = useRef(false);
+  const dineInPanelVisibleRef = useRef(showDineInPanel);
   const dineInOrdersFetchInFlightRef = useRef(false);
   const mutedDineInOrderIdsRef = useRef(new Set<string>());
   const mutedDineInTablesUntilRef = useRef(new Map<number, number>());
@@ -804,6 +818,8 @@ export function POSTerminal({
   const warmedReceiptPrinterIdRef = useRef<string | null>(null);
   const pendingCashClosingFetchInFlightRef = useRef(false);
   const pendingCashClosingRequestSeqRef = useRef(0);
+  const pendingCashClosingAbortRef = useRef<AbortController | null>(null);
+  const pendingCashClosingNextRefreshRef = useRef(0);
   const reservationsFetchInFlightRef = useRef(false);
   const offlineSyncInFlightRef = useRef(false);
   const canRegisterInPreviousPeriod =
@@ -1064,24 +1080,43 @@ export function POSTerminal({
   }, [cart.length, fetchReceiptPrinterSettings, printReceiptAfterPayment, tenantId]);
 
   const refreshPendingCashClosing = useCallback(async (force = false) => {
-    if (!isOnline || (pendingCashClosingFetchInFlightRef.current && !force)) return;
+    if (!isOnline) return;
+    if (!force && (document.visibilityState !== 'visible' || pendingCashClosingFetchInFlightRef.current || Date.now() < pendingCashClosingNextRefreshRef.current)) return;
+
+    // A forced refresh after saving a closing supersedes the previous read.
+    pendingCashClosingAbortRef.current?.abort();
+    const controller = new AbortController();
+    pendingCashClosingAbortRef.current = controller;
 
     const requestSeq = ++pendingCashClosingRequestSeqRef.current;
 
     try {
       pendingCashClosingFetchInFlightRef.current = true;
-      const stats = await fetchPendingCashClosingStats(tenantId);
+      const stats = await fetchPendingCashClosingStats(tenantId, controller.signal);
       if (requestSeq === pendingCashClosingRequestSeqRef.current) {
         setPendingCashClosingStats(stats);
+        pendingCashClosingNextRefreshRef.current = Date.now() + 30_000;
       }
     } catch (error) {
-      console.error('Error checking pending cash closing:', error);
+      if (!controller.signal.aborted) {
+        pendingCashClosingNextRefreshRef.current = Date.now() + 60_000;
+        console.error('Error checking pending cash closing:', error);
+      }
     } finally {
       if (requestSeq === pendingCashClosingRequestSeqRef.current) {
         pendingCashClosingFetchInFlightRef.current = false;
       }
     }
   }, [isOnline, tenantId]);
+
+  useEffect(() => {
+    pendingCashClosingNextRefreshRef.current = 0;
+    return () => {
+      pendingCashClosingRequestSeqRef.current++;
+      pendingCashClosingAbortRef.current?.abort();
+      pendingCashClosingFetchInFlightRef.current = false;
+    };
+  }, [tenantId]);
 
   const refreshOpenCashClosingStats = useCallback(async () => {
     if (!isOnline || !showCashClosing || cashClosingRefreshInFlightRef.current) return;
@@ -1118,7 +1153,7 @@ export function POSTerminal({
   }, [tenantId]);
 
   const refreshTodayReservations = useCallback(async () => {
-    if (!isOnline || reservationsFetchInFlightRef.current) return;
+    if (!isOnline || document.visibilityState !== 'visible' || reservationsFetchInFlightRef.current) return;
 
     try {
       reservationsFetchInFlightRef.current = true;
@@ -1129,7 +1164,9 @@ export function POSTerminal({
         .eq('tenant_id', tenantId)
         .eq('reservation_date', today)
         .in('status', ['pending', 'confirmed'])
-        .order('reservation_time', { ascending: true });
+        .order('reservation_time', { ascending: true })
+        .retry(false)
+        .abortSignal(AbortSignal.timeout(8_000));
 
       if (error) throw error;
       setTodayReservations((data || []) as ReservationSummary[]);
@@ -1169,6 +1206,7 @@ export function POSTerminal({
     if (!isOnline || !showCashClosing || !hasCashClosingStats) return;
 
     const refreshVisibleClosing = () => {
+      if (document.visibilityState !== 'visible') return;
       void refreshOpenCashClosingStats();
     };
     const refreshWhenVisible = () => {
@@ -1345,6 +1383,7 @@ export function POSTerminal({
 
     let refreshTimer: number | null = null;
     const scheduleMenuRefresh = () => {
+      if (document.visibilityState !== 'visible') return;
       if (lastBootstrapFailureAtRef.current && Date.now() - lastBootstrapFailureAtRef.current < POS_BOOTSTRAP_FAILURE_BACKOFF_MS) {
         return;
       }
@@ -1356,6 +1395,7 @@ export function POSTerminal({
 
     const refreshWhenVisible = () => {
       if (document.visibilityState !== 'visible') return;
+      if (Date.now() - lastBootstrapSuccessAtRef.current < 30_000) return;
       scheduleMenuRefresh();
     };
 
@@ -2228,6 +2268,10 @@ export function POSTerminal({
     taxRate,
   ]);
 
+  useEffect(() => {
+    dineInPanelVisibleRef.current = showDineInPanel;
+  }, [showDineInPanel]);
+
   // Real-time subscription for incoming orders (delivery/pickup)
   useEffect(() => {
     if (!tenantId || !isOnline) return;
@@ -2292,20 +2336,20 @@ export function POSTerminal({
     fetchIncomingOrders();
     void fetchDineInOrders({ notify: false });
 
-    const polling = window.setInterval(() => {
-      fetchIncomingOrders();
-      if (showDineInPanel || selectedTableNumber || billingOrderIds.length > 0) {
-        fetchDineInOrders({ notify: true });
-      }
-    }, POS_ORDERS_REFRESH_FALLBACK_MS);
-
-    const refreshWhenVisible = () => {
+    let nextBackgroundRefreshAt = 0;
+    const refreshOrdersWhenVisible = (includeTables: boolean) => {
       if (document.visibilityState !== 'visible') return;
+      // Browsers commonly emit both focus and visibilitychange together.
+      if (Date.now() < nextBackgroundRefreshAt) return;
+      nextBackgroundRefreshAt = Date.now() + 5_000;
       fetchIncomingOrders();
-      if (showDineInPanel || selectedTableNumber || billingOrderIds.length > 0) {
-        fetchDineInOrders({ notify: true });
-      }
+      if (includeTables) fetchDineInOrders({ notify: true });
     };
+    const refreshWhenVisible = () => refreshOrdersWhenVisible(true);
+    const polling = window.setInterval(() => {
+      const state = latestTableSyncStateRef.current;
+      refreshOrdersWhenVisible(dineInPanelVisibleRef.current || state.selectedTableNumber !== null || state.billingOrderIds.length > 0);
+    }, POS_ORDERS_REFRESH_FALLBACK_MS);
     document.addEventListener('visibilitychange', refreshWhenVisible);
     window.addEventListener('focus', refreshWhenVisible);
 
@@ -2315,10 +2359,10 @@ export function POSTerminal({
       window.removeEventListener('focus', refreshWhenVisible);
       subscription.unsubscribe();
     };
-  }, [billingOrderIds.length, isOnline, playNewOrderSound, selectedTableNumber, showDineInPanel, tenantId]);
+  }, [isOnline, playNewOrderSound, tenantId]);
 
   async function fetchIncomingOrders() {
-    if (!isOnline || incomingOrdersFetchInFlightRef.current) return;
+    if (!isOnline || document.visibilityState !== 'visible' || incomingOrdersFetchInFlightRef.current) return;
 
     try {
       incomingOrdersFetchInFlightRef.current = true;
@@ -2330,7 +2374,9 @@ export function POSTerminal({
         .not('status', 'in', '("delivered","cancelled")')
         .or('payment_status.is.null,payment_status.neq.paid')
         .order('created_at', { ascending: false })
-        .limit(20);
+        .limit(20)
+        .retry(false)
+        .abortSignal(AbortSignal.timeout(8_000));
 
       if (!error && data) {
         const mapped = data.map((o: any) => ({
@@ -2391,7 +2437,7 @@ export function POSTerminal({
   }
 
   async function fetchDineInOrders(options: { notify?: boolean } = {}) {
-    if (!isOnline || dineInOrdersFetchInFlightRef.current) return;
+    if (!isOnline || document.visibilityState !== 'visible' || dineInOrdersFetchInFlightRef.current) return;
 
     try {
       dineInOrdersFetchInFlightRef.current = true;
@@ -2404,7 +2450,9 @@ export function POSTerminal({
         .neq('status', 'cancelled')
         .eq('waiter_name', DEFAULT_POS_WAITER_NAME)
         .order('created_at', { ascending: false })
-        .limit(60);
+        .limit(60)
+        .retry(false)
+        .abortSignal(AbortSignal.timeout(8_000));
 
       if (!error && data) {
         const mapped = filterLocallyClosedDineInOrders(
@@ -2763,6 +2811,7 @@ export function POSTerminal({
       const data = await response.json();
       const currentMenu = applyPOSBootstrapData(data);
       lastBootstrapFailureAtRef.current = 0;
+      lastBootstrapSuccessAtRef.current = Date.now();
       setIsOnline(true);
       await getOfflineStorage().cachePOSBootstrap(tenantId, {
         categories: data.categories || [],
