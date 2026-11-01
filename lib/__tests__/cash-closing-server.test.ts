@@ -44,6 +44,33 @@ describe('cash closing bounded reads', () => {
     expect(fetcher).toHaveBeenCalledTimes(2)
   })
 
+  it('keeps an explicit late sale pending after a previous closing, without changing that closing', async () => {
+    const old = new Date(Date.now() - 2 * 86400000).toISOString()
+    const fetcher = vi.fn<typeof fetch>()
+      .mockResolvedValueOnce(Response.json(settings))
+      .mockResolvedValueOnce(Response.json([sale('late-sale', old, { notes: 'Venta del día 2026-10-31 registrada desde TPV el 2026-11-01T16:00:00Z' })]))
+      .mockResolvedValueOnce(Response.json([]))
+    const stats = await calculatePendingPreviousCashClosingStats(clientFor(fetcher), 'tenant')
+    expect(stats?.closingOrders.map(order => order.id)).toEqual(['late-sale'])
+    expect(stats?.totalSales).toBe(10)
+    expect(fetcher).toHaveBeenCalledTimes(3)
+    expect(fetcher.mock.calls.every(([, options]) => options?.method === 'GET')).toBe(true)
+  })
+
+  it('does not confuse a new pending sale with an already linked closing of the same value', async () => {
+    const old = new Date(Date.now() - 2 * 86400000).toISOString()
+    const fetcher = vi.fn<typeof fetch>(async input => {
+      const url = new URL(String(input))
+      if (url.pathname.endsWith('/restaurant_settings')) return Response.json(settings)
+      if (url.pathname.endsWith('/orders')) return Response.json([sale('late-sale', old)])
+      if (url.pathname.endsWith('/cash_bill_payments')) return Response.json([])
+      expect(url.searchParams.get('cash_closing_items')).toBe('is.null')
+      expect(url.searchParams.get('cash_closing_items.tenant_id')).toBe('eq.tenant')
+      return Response.json([])
+    })
+    expect((await calculatePendingPreviousCashClosingStats(clientFor(fetcher), 'tenant'))?.totalSales).toBe(10)
+  })
+
   it('keeps the oldest unclosed period and excludes later pending sales from that closing', async () => {
     const old = new Date(Date.now() - 4 * 86400000).toISOString()
     const newer = new Date(Date.now() - 2 * 86400000).toISOString()

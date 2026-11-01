@@ -12,6 +12,7 @@ import { deriveBrandPalette } from '@/lib/brand-colors'
 import { getRestaurantBusinessPeriod, getRestaurantLocale, getRestaurantTimeZone } from '@/lib/restaurant-time'
 import { buildOrderItemRows } from '@/lib/order-item-routing'
 import { sendServiceReadyPushNotifications } from '@/lib/push-server'
+import { POSBusinessDateError, validatePreviousPOSSaleDate } from '@/lib/pos-business-date'
 
 type OfflineOrderInsertLockResult = {
   orderId: string
@@ -228,7 +229,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { tenantId: tenantParam, tenantSlug, items, customerInfo, deliveryType, deliveryAddress, notes, paymentMethod, paymentBreakdown, tableNumber, tableId, tableQrCode, waiterName, amountPaid, source, deliveryFee: requestedDeliveryFee, deliveryZoneId, businessDateMode, skipOrderItems, offlineClientId } = body
+    const { tenantId: tenantParam, tenantSlug, items, customerInfo, deliveryType, deliveryAddress, notes, paymentMethod, paymentBreakdown, tableNumber, tableId, tableQrCode, waiterName, amountPaid, source, deliveryFee: requestedDeliveryFee, deliveryZoneId, businessDateMode, businessDate, skipOrderItems, offlineClientId } = body
 
     if (!tenantParam) {
       return NextResponse.json({ error: 'tenantId is required' }, { status: 400 })
@@ -431,20 +432,24 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: orderCheck.reason, limitReached: true, used: orderCheck.used, limit: orderCheck.limit }, { status: 403 })
     }
 
-    const { data: settings } = await supabase
+    const { data: settings, error: settingsError } = await supabase
       .from('restaurant_settings')
       .select('tax_rate, delivery_fee, delivery_zones, delivery_min_order, delivery_enabled, cash_payment_enabled, kds_enabled, operating_hours, timezone, country')
       .eq('tenant_id', tenantId)
       .single()
 
-    const registeringPreviousOpenPeriod = businessDateMode === 'previous_open_period'
+    const registeringPreviousOpenPeriod = businessDateMode === 'previous_open_period' || businessDateMode === 'previous_day'
     let previousOpenPeriodCreatedAt: string | null = null
+    let previousDayAuditNote: string | null = null
 
     if (businessDateMode && !registeringPreviousOpenPeriod) {
       return NextResponse.json({ error: 'Modo de fecha no permitido.' }, { status: 400 })
     }
 
     if (registeringPreviousOpenPeriod) {
+      if (settingsError) {
+        return NextResponse.json({ error: 'No se pudo comprobar la zona horaria del restaurante. La venta no se ha guardado.' }, { status: 503 })
+      }
       if (source !== 'pos') {
         return NextResponse.json({ error: 'Solo el TPV puede registrar ventas en turno anterior.' }, { status: 403 })
       }
@@ -453,25 +458,37 @@ export async function POST(request: NextRequest) {
         timezone: settings?.timezone,
         settingsCountry: settings?.country,
       })
-      const locale = getRestaurantLocale(settings?.country)
-      const currentPeriod = getRestaurantBusinessPeriod({
-        operatingHours: settings?.operating_hours,
-        timeZone,
-        locale,
-      })
-      const previousClosingStillOpen = await hasPendingPreviousCashClosing(supabase, tenantId, currentPeriod.periodStart)
+      if (businessDateMode === 'previous_day') {
+        try {
+          const selectedDate = validatePreviousPOSSaleDate(source, businessDate, timeZone)
+          previousOpenPeriodCreatedAt = selectedDate.createdAt
+          previousDayAuditNote = `Venta del día ${selectedDate.dateKey} registrada desde TPV el ${new Date().toISOString()}`
+        } catch (error) {
+          if (error instanceof POSBusinessDateError) return NextResponse.json({ error: error.message }, { status: error.status })
+          throw error
+        }
+      } else {
+        // Keep the old contract for TPVs that have not loaded the new version.
+        const locale = getRestaurantLocale(settings?.country)
+        const currentPeriod = getRestaurantBusinessPeriod({
+          operatingHours: settings?.operating_hours,
+          timeZone,
+          locale,
+        })
+        const previousClosingStillOpen = await hasPendingPreviousCashClosing(supabase, tenantId, currentPeriod.periodStart)
 
-      if (!previousClosingStillOpen) {
-        return NextResponse.json(
-          { error: 'No hay una caja anterior pendiente. No se puede registrar la venta en el dia anterior.' },
-          { status: 400 }
+        if (!previousClosingStillOpen) {
+          return NextResponse.json(
+            { error: 'No hay una caja anterior pendiente. No se puede registrar la venta en el dia anterior.' },
+            { status: 400 }
+          )
+        }
+
+        previousOpenPeriodCreatedAt = getPreviousOpenPeriodCreatedAt(
+          currentPeriod.periodStart,
+          currentPeriod.operationalCloseTime
         )
       }
-
-      previousOpenPeriodCreatedAt = getPreviousOpenPeriodCreatedAt(
-        currentPeriod.periodStart,
-        currentPeriod.operationalCloseTime
-      )
     }
 
     const subtotal = sanitizedItems.reduce((sum: number, i: any) => sum + i.price * i.qty, 0)
@@ -572,7 +589,7 @@ export async function POST(request: NextRequest) {
     const orderNotes = [
       normalizedNotes || null,
       safeOfflineClientId ? `ID offline ${safeOfflineClientId}` : null,
-      registeringPreviousOpenPeriod ? 'Venta registrada manualmente en turno anterior desde TPV' : null,
+      previousDayAuditNote || (registeringPreviousOpenPeriod ? 'Venta registrada manualmente en turno anterior desde TPV' : null),
     ].filter(Boolean).join(' | ') || null
 
     const isImmediatePaidPOSOrder = (source === 'pos' || source === 'pos-offline') && Boolean(normalizedPaymentMethod)
@@ -630,7 +647,7 @@ export async function POST(request: NextRequest) {
 
     if (previousOpenPeriodCreatedAt) {
       orderData.created_at = previousOpenPeriodCreatedAt
-      orderData.updated_at = previousOpenPeriodCreatedAt
+      orderData.updated_at = businessDateMode === 'previous_day' ? new Date().toISOString() : previousOpenPeriodCreatedAt
     }
 
     const insertOrder = (payload: Record<string, any>) => supabase
@@ -806,7 +823,7 @@ export async function POST(request: NextRequest) {
       }
     })
 
-    return NextResponse.json({ orderId: order.id, orderNumber, displayNumber })
+    return NextResponse.json({ orderId: order.id, orderNumber, displayNumber, ...(previousOpenPeriodCreatedAt ? { createdAt: previousOpenPeriodCreatedAt } : {}) })
   } catch (err) {
     if (err instanceof Error && err.message === 'INVALID_MANUAL_ITEM') {
       return NextResponse.json(

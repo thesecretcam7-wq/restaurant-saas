@@ -26,6 +26,8 @@ import { useWakeLock } from '@/lib/hooks/useWakeLock';
 import { reconcileSavedDineInOrder } from '@/lib/pos-dine-in-orders';
 import { canReachPOSCloud, fetchPOSBootstrapWithTimeout } from '@/lib/pos-cloud-connectivity';
 import { fetchPOSPayment, fetchPOSSecurityToken, POSPaymentConfirmationError } from '@/lib/pos-payment-request';
+import { getPreviousPOSSaleDate } from '@/lib/pos-business-date';
+import { getRestaurantTimeZone } from '@/lib/restaurant-time';
 
 interface MenuItem {
   id: string;
@@ -696,6 +698,8 @@ export function POSTerminal({
   const [deliveryZones, setDeliveryZones] = useState<DeliveryZone[]>([]);
   const [selectedDeliveryZoneId, setSelectedDeliveryZoneId] = useState<string | null>(null);
   const [restaurantName, setRestaurantName] = useState('Restaurante');
+  const [restaurantTimeZone, setRestaurantTimeZone] = useState(() => getRestaurantTimeZone({ tenantCountry: country }));
+  const [saleDateClock, setSaleDateClock] = useState(() => Date.now());
   const [restaurantPhone, setRestaurantPhone] = useState<string | null>(null);
   const [restaurantLogo, setRestaurantLogo] = useState<string | undefined>();
 
@@ -733,6 +737,14 @@ export function POSTerminal({
   const [closingLoading, setClosingLoading] = useState(false);
   const hasCashClosingStats = Boolean(cashClosingStats);
   const [registerInPreviousPeriod, setRegisterInPreviousPeriod] = useState(false);
+  const [selectedPreviousSaleDate, setSelectedPreviousSaleDate] = useState('');
+  const previousSaleDate = useMemo(() => {
+    try { return getPreviousPOSSaleDate(restaurantTimeZone, new Date(saleDateClock)); }
+    catch { return null; }
+  }, [restaurantTimeZone, saleDateClock]);
+  const previousSaleDateLabel = selectedPreviousSaleDate && registerInPreviousPeriod
+    ? selectedPreviousSaleDate.split('-').reverse().join('/')
+    : previousSaleDate?.label || 'Fecha no disponible';
   const [todayReservations, setTodayReservations] = useState<ReservationSummary[]>([]);
 
   // Incoming Orders for delivery/pickup
@@ -824,7 +836,7 @@ export function POSTerminal({
   const reservationsFetchInFlightRef = useRef(false);
   const offlineSyncInFlightRef = useRef(false);
   const canRegisterInPreviousPeriod =
-    Boolean(pendingCashClosingStats) && !loadedOrderId && billingOrderIds.length === 0 && !selectedTableId;
+    Boolean(previousSaleDate) && !loadedOrderId && billingOrderIds.length === 0 && !selectedTableId && !splitBillMode;
 
   const enqueueCartRemoteSync = useCallback((operation: () => Promise<unknown>) => {
     const run = cartRemoteSyncQueueRef.current
@@ -1193,6 +1205,20 @@ export function POSTerminal({
       setRegisterInPreviousPeriod(false);
     }
   }, [canRegisterInPreviousPeriod, registerInPreviousPeriod]);
+
+  useEffect(() => {
+    const refreshDate = () => {
+      if (document.visibilityState === 'visible') setSaleDateClock(Date.now());
+    };
+    const timer = window.setInterval(refreshDate, 60_000);
+    window.addEventListener('focus', refreshDate);
+    document.addEventListener('visibilitychange', refreshDate);
+    return () => {
+      window.clearInterval(timer);
+      window.removeEventListener('focus', refreshDate);
+      document.removeEventListener('visibilitychange', refreshDate);
+    };
+  }, []);
 
   useEffect(() => {
     if (!isOnline || !showCashClosing || !hasCashClosingStats) return;
@@ -2748,6 +2774,7 @@ export function POSTerminal({
       if (data.tenant.logo_url) setRestaurantLogo(data.tenant.logo_url);
     }
     if (data.settings) {
+      setRestaurantTimeZone(getRestaurantTimeZone({ timezone: data.settings.timezone, settingsCountry: data.settings.country, tenantCountry: country }));
       setTaxRate(Number(data.settings.tax_rate || 0));
       setDeliveryEnabled(data.settings.delivery_enabled === true);
       setDeliveryFee(Number(data.settings.delivery_fee || 0));
@@ -3770,8 +3797,18 @@ export function POSTerminal({
     }
 
     if (registerInPreviousPeriod && !canRegisterInPreviousPeriod) {
-      setToast({ message: 'Solo puedes usar turno anterior cuando hay caja anterior pendiente', type: 'error' });
+      setToast({ message: 'La fecha anterior solo se puede usar en ventas nuevas, sin una mesa o un recibo cargado.', type: 'error' });
       setRegisterInPreviousPeriod(false);
+      return;
+    }
+    if (registerInPreviousPeriod && selectedPreviousSaleDate !== getPreviousPOSSaleDate(restaurantTimeZone).dateKey) {
+      setToast({ message: 'El día cambió. Selecciona de nuevo la fecha del día anterior antes de cobrar.', type: 'error' });
+      setRegisterInPreviousPeriod(false);
+      setSaleDateClock(Date.now());
+      return;
+    }
+    if (registerInPreviousPeriod && !isOnline) {
+      setToast({ message: 'Necesitas conexión para registrar una venta con fecha anterior. El carrito se conserva.', type: 'error' });
       return;
     }
 
@@ -4032,6 +4069,7 @@ export function POSTerminal({
       setProcessingPayment(true);
       let receiptOrderId: string | null = null;
       let receiptOrderNumber: string | null = null;
+      let receiptTimestamp = new Date().toISOString();
       let savedOfflineSale = false;
       let keepSplitTableOpen = false;
       let splitRemainingOrders: DineInOrder[] = [];
@@ -4358,7 +4396,8 @@ export function POSTerminal({
           notes: discount > 0 ? `Descuento: $${discount.toFixed(2)}` : null,
           amountPaid: paymentMethod === 'cash' || paymentMethod === 'mixed' ? amountPaid : null,
           source: 'pos',
-          businessDateMode: registerInPreviousPeriod ? 'previous_open_period' : undefined,
+          businessDateMode: registerInPreviousPeriod ? 'previous_day' : undefined,
+          businessDate: registerInPreviousPeriod ? selectedPreviousSaleDate : undefined,
         };
 
         const saveSaleOffline = async () => {
@@ -4425,6 +4464,7 @@ export function POSTerminal({
             if (createdOrder?.orderId) {
               receiptOrderId = createdOrder.orderId;
               receiptOrderNumber = createdOrder.orderNumber || null;
+              if (registerInPreviousPeriod && typeof createdOrder.createdAt === 'string') receiptTimestamp = createdOrder.createdAt;
             }
           } catch (orderError) {
             // A lost response is not proof of a failed insert. Creating another
@@ -4438,6 +4478,7 @@ export function POSTerminal({
 
       const receiptSnapshot = {
         orderId: receiptOrderId,
+        timestamp: receiptTimestamp,
         orderNumber: receiptOrderNumber || 'POS',
         items: receiptItems,
         subtotal: receiptSubtotal,
@@ -4478,7 +4519,7 @@ export function POSTerminal({
           paymentMethod: receiptSnapshot.paymentMethod,
           paymentBreakdown: receiptSnapshot.paymentBreakdown,
           currencyInfo: receiptSnapshot.currencyInfo,
-          timestamp: new Date().toISOString(),
+          timestamp: receiptSnapshot.timestamp,
           waiterName: receiptSnapshot.waiterName,
           tableNumber: receiptSnapshot.tableNumber,
           notes: receiptSnapshot.notes,
@@ -4546,6 +4587,7 @@ export function POSTerminal({
 
               await printReceipt(tenantId, settings.default_receipt_printer_id, {
                 orderId: receiptSnapshot.orderId,
+                timestamp: receiptSnapshot.timestamp,
                 orderNumber: receiptSnapshot.orderNumber,
                 restaurantName: settings?.display_name || restaurantName,
                 restaurantPhone: settings?.phone || restaurantPhone,
@@ -6556,8 +6598,17 @@ export function POSTerminal({
                   </div>
                 ) : (
                   <>
-                    {canRegisterInPreviousPeriod && (
-                      <label className={`mb-2 flex w-full cursor-pointer items-center justify-between gap-2 rounded-lg border px-3 py-2 transition ${
+                      <button
+                        type="button"
+                        aria-pressed={registerInPreviousPeriod}
+                        aria-label={`Venta del día anterior ${previousSaleDateLabel}`}
+                        disabled={processingPayment || !canRegisterInPreviousPeriod || (!isOnline && !registerInPreviousPeriod)}
+                        onClick={() => {
+                          setSaleDateClock(Date.now());
+                          setSelectedPreviousSaleDate(getPreviousPOSSaleDate(restaurantTimeZone).dateKey);
+                          setRegisterInPreviousPeriod((current) => !current);
+                        }}
+                        className={`mb-2 flex w-full cursor-pointer items-center justify-between gap-2 rounded-lg border px-3 py-2 text-left transition disabled:cursor-not-allowed disabled:opacity-50 ${
                         registerInPreviousPeriod
                           ? 'border-amber-300 bg-amber-300/18 text-amber-50'
                           : 'border-white/10 bg-black/20 text-slate-200 hover:border-amber-300/45'
@@ -6572,22 +6623,16 @@ export function POSTerminal({
                           </span>
                           <CalendarDays className="h-4 w-4 shrink-0" />
                           <span className="min-w-0">
-                            <span className="block truncate text-xs font-black">Venta del turno anterior</span>
-                            <span className="block truncate text-[11px] font-semibold opacity-75">Caja anterior pendiente</span>
+                            <span className="block text-xs font-black">Venta del día anterior · {previousSaleDateLabel}</span>
+                            <span className="block text-[11px] font-semibold opacity-75">
+                              {!previousSaleDate ? 'No se pudo comprobar la zona horaria del restaurante' : !canRegisterInPreviousPeriod ? 'Solo ventas nuevas, sin mesa ni recibo cargado' : registerInPreviousPeriod ? `Se guardará con fecha ${previousSaleDateLabel}` : !isOnline ? 'Necesita conexión para cambiar la fecha' : 'Disponible aunque ya hayas cerrado la caja'}
+                            </span>
                           </span>
                         </span>
-                        <input
-                          type="checkbox"
-                          className="sr-only"
-                          checked={registerInPreviousPeriod}
-                          onChange={(event) => setRegisterInPreviousPeriod(event.target.checked)}
-                          disabled={processingPayment}
-                        />
                         <span className="shrink-0 rounded-full border border-current/25 px-2 py-1 text-[10px] font-black uppercase">
                           {registerInPreviousPeriod ? 'Activo' : 'Hoy'}
                         </span>
-                      </label>
-                    )}
+                      </button>
                     <POSPayment
                       key={paymentResetKey}
                       total={paymentBaseTotal}

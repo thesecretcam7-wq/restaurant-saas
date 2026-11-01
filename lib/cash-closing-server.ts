@@ -61,8 +61,8 @@ type CashClosingPeriod = {
   operationalCloseTime: string;
 };
 
-const ORDER_SELECT = 'id, order_number, total, tax, delivery_fee, delivery_type, payment_method, payment_breakdown, payment_status, status, created_at';
-const ORDER_SELECT_WITHOUT_PAYMENT_BREAKDOWN = 'id, order_number, total, tax, delivery_fee, delivery_type, payment_method, payment_status, status, created_at';
+const ORDER_SELECT = 'id, order_number, total, tax, delivery_fee, delivery_type, payment_method, payment_breakdown, payment_status, status, created_at, notes';
+const ORDER_SELECT_WITHOUT_PAYMENT_BREAKDOWN = 'id, order_number, total, tax, delivery_fee, delivery_type, payment_method, payment_status, status, created_at, notes';
 const CASH_CLOSING_QUERY_TIMEOUT_MS = 8_000;
 const CASH_CLOSING_ORDER_PAGE_SIZE = 1000;
 const ONE_DAY_MS = 24 * 60 * 60 * 1000;
@@ -331,8 +331,12 @@ async function hasMatchingCashClosingSummary(
   const { data, error } = await runCashClosingQuery<{ data: any[] | null; error: any }>(
     supabase
       .from('cash_closings')
-      .select('id, total_sales, transaction_count, closed_at')
+      // Only legacy closings with no order links need the summary fallback.
+      // A later sale can legitimately match a completed closing's amount.
+      .select('id, total_sales, transaction_count, closed_at, cash_closing_items()')
       .eq('tenant_id', tenantId)
+      .eq('cash_closing_items.tenant_id', tenantId)
+      .is('cash_closing_items', null)
       .gte('closed_at', closedAfter.toISOString())
       .order('closed_at', { ascending: false })
       .limit(20),
@@ -530,7 +534,12 @@ export async function calculatePendingPreviousCashClosingStats(
   const billPayments = await getOpenBillPayments(supabase, tenantId, period.periodStart, period.periodEnd, signal);
   const stats = statsFromOrders(period, oldestPendingPeriod.periodOrders, billPayments);
 
-  if (await hasMatchingCashClosingSummary(supabase, tenantId, oldestPendingPeriod.periodStart, stats, signal)) {
+  // Explicit late registrations must remain pending even if a historical,
+  // unlinked legacy closing happens to have exactly the same amount/count.
+  const hasExplicitLateSale = oldestPendingPeriod.periodOrders.some((order: any) =>
+    /Venta del día \d{4}-\d{2}-\d{2} registrada desde TPV el /.test(String(order.notes || ''))
+  );
+  if (!hasExplicitLateSale && await hasMatchingCashClosingSummary(supabase, tenantId, oldestPendingPeriod.periodStart, stats, signal)) {
     return null;
   }
 
