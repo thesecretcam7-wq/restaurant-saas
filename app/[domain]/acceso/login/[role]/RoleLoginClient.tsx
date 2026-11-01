@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, ChefHat, CreditCard, Delete, Lock, ShieldCheck, UtensilsCrossed } from 'lucide-react';
-import { clearStaffSession, saveStaffSession } from '@/lib/staff-session-client';
+import { saveStaffSession } from '@/lib/staff-session-client';
 
 interface StaffMember {
   id: string;
@@ -87,7 +87,6 @@ export function RoleLoginClient({
   const [error, setError] = useState('');
   const [phase, setPhase] = useState<'select' | 'pin'>('select');
   const pinInputRef = useRef<HTMLInputElement | null>(null);
-  const sessionResetPromiseRef = useRef<Promise<void> | null>(null);
   const config = ROLE_CONFIG[role];
   const RoleIcon = config.icon;
 
@@ -102,12 +101,8 @@ export function RoleLoginClient({
   const appName = branding.appName || tenantName;
   const accessPath = `/${tenantSlug}/acceso`;
 
-  useEffect(() => {
-    clearStaffSession();
-    sessionResetPromiseRef.current = fetch('/api/staff/session', { method: 'DELETE' })
-      .catch(() => {})
-      .then(() => {});
-  }, []);
+  // Merely opening this page must not sign out a TPV in another tab. The
+  // session is replaced by POST /api/staff/session only after a valid PIN.
 
   async function handleStaffSelect(selectedId: string) {
     const selected = staffMembers.find((staff) => staff.id === selectedId);
@@ -142,8 +137,6 @@ export function RoleLoginClient({
     let keepLoader = false;
 
     try {
-      await sessionResetPromiseRef.current;
-
       const res = await fetchWithTimeout('/api/staff/auth', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

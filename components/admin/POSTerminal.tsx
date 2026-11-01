@@ -25,6 +25,7 @@ import { getOfflineStorage } from '@/lib/offline/storage';
 import { useWakeLock } from '@/lib/hooks/useWakeLock';
 import { reconcileSavedDineInOrder } from '@/lib/pos-dine-in-orders';
 import { canReachPOSCloud, fetchPOSBootstrapWithTimeout } from '@/lib/pos-cloud-connectivity';
+import { fetchPOSPayment, fetchPOSSecurityToken, POSPaymentConfirmationError } from '@/lib/pos-payment-request';
 
 interface MenuItem {
   id: string;
@@ -718,7 +719,7 @@ export function POSTerminal({
     amountPaid?: number;
   } | null>(null);
   const [paymentResetKey, setPaymentResetKey] = useState(0);
-  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error'; duration?: number } | null>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [installPromptEvent, setInstallPromptEvent] = useState<BeforeInstallPromptEvent | null>(null);
   const posRootRef = useRef<HTMLDivElement>(null);
@@ -887,16 +888,7 @@ export function POSTerminal({
       return csrfTokenRef.current;
     }
 
-    const csrfResponse = await fetch('/api/csrf-token', {
-      credentials: 'include',
-      cache: 'no-store',
-    });
-    const csrfData = await csrfResponse.json().catch(() => null);
-    if (!csrfResponse.ok || !csrfData?.token) {
-      throw new Error('No se pudo preparar la seguridad del pago. Recarga el TPV e intenta de nuevo.');
-    }
-
-    csrfTokenRef.current = csrfData.token;
+    csrfTokenRef.current = await fetchPOSSecurityToken();
     return csrfTokenRef.current;
   }, []);
 
@@ -4094,7 +4086,7 @@ export function POSTerminal({
 
         // Existing orders can be charged or edited from the same cart.
         const csrfToken = await getPaymentCSRFToken();
-        const response = await fetch(`/api/orders/${loadedOrderId}`, {
+        const response = await fetchPOSPayment(`/api/orders/${loadedOrderId}`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json', 'x-csrf-token': csrfToken },
           credentials: 'include',
@@ -4149,7 +4141,7 @@ export function POSTerminal({
           notes: item.notes || null,
         }));
         const splitPaymentBreakdown = buildPaymentBreakdown(paymentMethod, receiptTotal, amountPaid);
-        const splitResponse = await fetch('/api/orders', {
+        const splitResponse = await fetchPOSPayment('/api/orders', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'x-csrf-token': csrfToken },
           credentials: 'include',
@@ -4212,7 +4204,7 @@ export function POSTerminal({
           const nextTotal = nextSubtotal + (taxIncluded ? 0 : nextTax);
           const isEmptyOrder = nextItems.length === 0;
 
-          const updateResponse = await fetch(`/api/orders/${orderId}`, {
+          const updateResponse = await fetchPOSPayment(`/api/orders/${orderId}`, {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json', 'x-csrf-token': csrfToken },
             credentials: 'include',
@@ -4304,7 +4296,7 @@ export function POSTerminal({
             : 0;
           remainingTableCash = Math.round((remainingTableCash - orderCash) * 100) / 100;
 
-          const paidResponse = await fetch(`/api/orders/${orderId}`, {
+          const paidResponse = await fetchPOSPayment(`/api/orders/${orderId}`, {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json', 'x-csrf-token': await getPaymentCSRFToken() },
             credentials: 'include',
@@ -4417,7 +4409,7 @@ export function POSTerminal({
           await saveSaleOffline();
         } else {
           try {
-            const response = await fetch('/api/orders', {
+            const response = await fetchPOSPayment('/api/orders', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json', 'x-csrf-token': await getPaymentCSRFToken() },
               credentials: 'include',
@@ -4435,6 +4427,9 @@ export function POSTerminal({
               receiptOrderNumber = createdOrder.orderNumber || null;
             }
           } catch (orderError) {
+            // A lost response is not proof of a failed insert. Creating another
+            // offline order here could charge the same sale twice on recovery.
+            if (orderError instanceof POSPaymentConfirmationError) throw orderError;
             if (!isNetworkPaymentError(orderError)) throw orderError;
             await saveSaleOffline();
           }
@@ -4691,6 +4686,7 @@ export function POSTerminal({
       setToast({
         message: 'Error al procesar el pago: ' + (error instanceof Error ? error.message : 'Error desconocido'),
         type: 'error',
+        duration: error instanceof POSPaymentConfirmationError ? 20_000 : undefined,
       });
     } finally {
       setProcessingPayment(false);
@@ -6749,7 +6745,7 @@ export function POSTerminal({
         <Toast
           message={toast.message}
           type={toast.type}
-          duration={3000}
+          duration={toast.duration ?? 3000}
           onClose={() => setToast(null)}
         />
       )}
