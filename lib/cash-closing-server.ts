@@ -537,7 +537,7 @@ export async function calculatePendingPreviousCashClosingStats(
   // Explicit late registrations must remain pending even if a historical,
   // unlinked legacy closing happens to have exactly the same amount/count.
   const hasExplicitLateSale = oldestPendingPeriod.periodOrders.some((order: any) =>
-    /Venta del día \d{4}-\d{2}-\d{2} registrada desde TPV el /.test(String(order.notes || ''))
+    /Venta del día \d{4}-\d{2}-\d{2} registrada desde TPV el |Venta local del .+ sincronizada desde TPV el /.test(String(order.notes || ''))
   );
   if (!hasExplicitLateSale && await hasMatchingCashClosingSummary(supabase, tenantId, oldestPendingPeriod.periodStart, stats, signal)) {
     return null;

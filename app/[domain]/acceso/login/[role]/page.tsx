@@ -91,7 +91,7 @@ export default async function RoleLoginPage({ params }: Props) {
     ? await withSupabaseTimeout(
         (signal) => (supabase
           .from('tenant_branding')
-          .select('app_name, primary_color, secondary_color, accent_color, background_color, button_primary_color, button_secondary_color, text_primary_color, text_secondary_color, border_color, logo_url, metadata')
+          .select('app_name, primary_color, secondary_color, accent_color, background_color, button_primary_color, button_secondary_color, text_primary_color, text_secondary_color, border_color, metadata')
           .eq('tenant_id', tenant.id)
           .maybeSingle() as any).abortSignal(signal),
         1200
@@ -144,7 +144,7 @@ export default async function RoleLoginPage({ params }: Props) {
       tenantId={tenant.id}
       tenantName={tenant.organization_name}
       tenantSlug={tenant.slug || slug}
-      logoUrl={branding?.logo_url || tenant.logo_url}
+      logoUrl={branding?.metadata?.logo_url || tenant.logo_url}
       role={role as 'cocinero' | 'camarero' | 'cajero' | 'admin'}
       staffMembers={staffMembers || []}
       branding={{

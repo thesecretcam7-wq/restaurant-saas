@@ -1,4 +1,4 @@
-import { createClient } from '@supabase/supabase-js';
+import { createClient } from '@/lib/supabase/database';
 import { NextRequest, NextResponse } from 'next/server';
 import { buildOrderItemRows } from '@/lib/order-item-routing';
 import { sendServiceReadyPushNotifications } from '@/lib/push-server';

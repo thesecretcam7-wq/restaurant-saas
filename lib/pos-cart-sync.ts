@@ -159,7 +159,7 @@ export async function loadCartFromSupabase(
 }
 
 // Mark cart as abandoned (when payment is completed)
-// Abandons ALL active carts for the tenant so the customer display resets correctly
+// Clear only this browser's carts; another terminal may still be serving a sale.
 export async function abandonCart(
   tenantId: string,
   supabase: any
@@ -167,10 +167,13 @@ export async function abandonCart(
   try {
     if (!tenantId) return false;
 
+    const sessionId = getCartSessionId();
+    if (!sessionId) return false;
     const { error } = await supabase
       .from('pos_carts')
       .update({ abandoned_at: new Date().toISOString() })
       .eq('tenant_id', tenantId)
+      .eq('cart_session_id', sessionId)
       .is('abandoned_at', null);
 
     return !error;

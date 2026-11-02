@@ -2,6 +2,8 @@ import { createServiceClient } from '@/lib/supabase/server'
 import { NextRequest, NextResponse } from 'next/server'
 import { checkRateLimit, getClientIp } from '@/lib/ratelimit'
 import { getAnalyticsLimiter } from '@/lib/rate-limit'
+import { requireTenantAccess, tenantAuthErrorResponse } from '@/lib/tenant-api-auth'
+import { fetchAnalyticsRows } from '@/lib/analytics-rows'
 
 const analyticsLimiter = getAnalyticsLimiter()
 
@@ -30,15 +32,18 @@ export async function GET(request: NextRequest) {
     const supabase = createServiceClient()
 
     // Get tenant ID
-    const { data: tenant } = await supabase
+    const { data: tenant, error: tenantError } = await supabase
       .from('tenants')
       .select('id')
       .eq('slug', domain)
       .single()
 
+    if (tenantError) throw tenantError
+
     if (!tenant) {
       return NextResponse.json({ error: 'Tenant not found' }, { status: 404 })
     }
+    await requireTenantAccess(tenant.id, { staffRoles: ['admin'], requireAdminPermission: true })
 
     // Calculate date range
     const now = new Date()
@@ -48,16 +53,15 @@ export async function GET(request: NextRequest) {
     else startDate.setFullYear(now.getFullYear() - 1)
 
     // Get all orders
-    const { data: allOrders } = await supabase
-      .from('orders')
-      .select('*')
-      .eq('tenant_id', tenant.id)
-      .order('created_at', { ascending: false })
-
-    const orders = allOrders || []
+    // Historical KPIs need only small scalar fields. Download item payloads
+    // solely for the requested period, never for the entire sales history.
+    const [orders, periodOrders] = await Promise.all([
+      fetchAnalyticsRows(supabase, tenant.id, 'orders', 'id, total, payment_status, created_at', undefined, request.signal),
+      fetchAnalyticsRows(supabase, tenant.id, 'orders', 'id, items, total, payment_status, created_at', { start: startDate.toISOString(), end: now.toISOString() }, request.signal),
+    ])
 
     // Get orders in period
-    const ordersInPeriod = orders.filter(
+    const ordersInPeriod = periodOrders.filter(
       o => new Date(o.created_at) >= startDate && new Date(o.created_at) <= now
     )
 
@@ -121,6 +125,7 @@ export async function GET(request: NextRequest) {
       topProducts,
     })
   } catch (err) {
+    if (err instanceof Error && ['Unauthorized', 'Forbidden'].includes(err.message)) return tenantAuthErrorResponse(err)
     console.error('Analytics error:', err)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }

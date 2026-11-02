@@ -4,6 +4,7 @@ import { getLockedTenantBrandingColors } from './brand-colors'
 
 type CacheEntry<T> = { value: T; expiresAt: number }
 const cache = new Map<string, CacheEntry<unknown>>()
+const pending = new Map<string, Promise<unknown>>()
 const CACHE_TTL = 30_000
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
 const BRANDING_PUBLIC_COLUMNS = [
@@ -33,9 +34,15 @@ async function cached<T>(key: string, fetcher: () => Promise<T>): Promise<T> {
   const entry = cache.get(key) as CacheEntry<T> | undefined
   if (entry && entry.expiresAt > Date.now()) return entry.value
 
-  const value = await fetcher()
-  cache.set(key, { value, expiresAt: Date.now() + CACHE_TTL })
-  return value
+  const existing = pending.get(key)
+  if (existing) return existing as Promise<T>
+  const request = fetcher().then(value => {
+    // An unavailable database must not cache "restaurant not found".
+    if (value !== null && value !== undefined) cache.set(key, { value, expiresAt: Date.now() + CACHE_TTL })
+    return value
+  }).finally(() => pending.delete(key))
+  pending.set(key, request)
+  return request
 }
 
 export async function getTenantByDomain(domain: string) {

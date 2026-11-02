@@ -115,8 +115,7 @@ export async function saveOfflinePOSOrder(input: POSOfflineOrderInput) {
     createdAt: now.toISOString(),
   }
 
-  await storage.saveOrder(order)
-  await storage.addPendingOperation({
+  await storage.savePOSOrder(order, {
     id: `pos-order-${localId}`,
     type: 'create',
     table: 'pos_orders',
@@ -164,6 +163,7 @@ async function runOfflinePOSOrderSync(tenantId: string, csrfToken?: string): Pro
         body: JSON.stringify({
           tenantId,
           offlineClientId: offlineOrder.id,
+          offlineCreatedAt: offlineOrder.createdAt,
           customerInfo: offlineOrder.customerInfo || {
             name: 'POS Counter',
             email: null,
@@ -208,8 +208,7 @@ async function runOfflinePOSOrderSync(tenantId: string, csrfToken?: string): Pro
         throw new Error('La nube no confirmo la venta. La venta queda guardada localmente.')
       }
 
-      await storage.markOrderSynced(offlineOrder.id)
-      await storage.removePendingOperation(`pos-order-${offlineOrder.id}`)
+      await storage.confirmPOSOrderSynced(offlineOrder.id)
       synced++
     } catch (error) {
       const aborted = error instanceof Error && error.name === 'AbortError'
@@ -231,7 +230,15 @@ export function syncOfflinePOSOrders(tenantId: string, csrfToken?: string) {
   const existingSync = syncInFlight.get(tenantId)
   if (existingSync) return existingSync
 
-  const sync = runOfflinePOSOrderSync(tenantId, csrfToken).finally(() => {
+  // Browser locks serialize uploads across tabs sharing the same local queue.
+  // The server idempotency key remains the fallback on unsupported browsers.
+  const run = async (): Promise<POSOfflineSyncResult> => {
+    if (typeof navigator !== 'undefined' && navigator.locks?.request) {
+      return await navigator.locks.request(`eccofood-pos-sync:${tenantId}`, () => runOfflinePOSOrderSync(tenantId, csrfToken))
+    }
+    return runOfflinePOSOrderSync(tenantId, csrfToken)
+  }
+  const sync = run().finally(() => {
     syncInFlight.delete(tenantId)
   })
   syncInFlight.set(tenantId, sync)

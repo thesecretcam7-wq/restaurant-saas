@@ -1,6 +1,7 @@
 import { cookies } from 'next/headers'
 import { NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
+import { getVerifiedUser, isAuthConnectionError } from '@/lib/supabase/network'
 
 export interface TenantAccess {
   type: 'owner' | 'staff'
@@ -60,15 +61,23 @@ export async function requireTenantAccess(
   }
 
   const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  let user
+  try {
+    user = await getVerifiedUser(supabase)
+  } catch (error) {
+    if (isAuthConnectionError(error)) throw new TenantAuthError('Unauthorized', 503)
+    throw error
+  }
   if (!user) throw new TenantAuthError('Unauthorized', 401)
 
   const serviceSupabase = createServiceClient()
-  const { data: tenant } = await serviceSupabase
+  const { data: tenant, error: tenantError } = await serviceSupabase
     .from('tenants')
     .select('id, owner_id')
     .eq('id', tenantId)
-    .single()
+    .maybeSingle()
+
+  if (tenantError) throw new TenantAuthError('Forbidden', 503)
 
   if (!tenant || tenant.owner_id !== user.id) {
     throw new TenantAuthError('Forbidden', 403)
@@ -79,7 +88,7 @@ export async function requireTenantAccess(
 
 export function tenantAuthErrorResponse(error: unknown) {
   if (error instanceof TenantAuthError) {
-    return NextResponse.json({ error: error.message }, { status: error.status })
+    return NextResponse.json({ error: error.status >= 500 ? 'No se pudo verificar el acceso. El servicio no responde; intenta de nuevo en unos segundos.' : error.message }, { status: error.status })
   }
   return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
 }

@@ -72,7 +72,15 @@ export default async function HomePage({ params }: HomePageProps) {
   const themeMode = appearance.theme_mode
 
   const supabase = await createClient()
-  const { data: orders } = await supabase.from('orders').select('items').eq('tenant_id', tenant.id)
+  // Featured products need a recent sample, not the full sales history per visit.
+  const { data: orders } = await supabase.from('orders').select('items')
+    .eq('tenant_id', tenant.id)
+    .eq('payment_status', 'paid')
+    .gte('created_at', new Date(Date.now() - 30 * 86400000).toISOString())
+    .order('created_at', { ascending: false })
+    .limit(500)
+    .retry(false)
+    .abortSignal(AbortSignal.timeout(5_000))
 
   const itemCounts: Record<string, number> = {}
   orders?.forEach(order => {

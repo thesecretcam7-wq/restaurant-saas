@@ -44,11 +44,11 @@ describe('cash closing bounded reads', () => {
     expect(fetcher).toHaveBeenCalledTimes(2)
   })
 
-  it('keeps an explicit late sale pending after a previous closing, without changing that closing', async () => {
+  it.each(['Venta del día 2026-10-31 registrada desde TPV el 2026-11-01T16:00:00Z', 'Venta local del 2026-10-31T23:00:00Z sincronizada desde TPV el 2026-11-01T16:00:00Z'])('keeps an explicit late sale pending after a previous closing: %s', async notes => {
     const old = new Date(Date.now() - 2 * 86400000).toISOString()
     const fetcher = vi.fn<typeof fetch>()
       .mockResolvedValueOnce(Response.json(settings))
-      .mockResolvedValueOnce(Response.json([sale('late-sale', old, { notes: 'Venta del día 2026-10-31 registrada desde TPV el 2026-11-01T16:00:00Z' })]))
+      .mockResolvedValueOnce(Response.json([sale('late-sale', old, { notes })]))
       .mockResolvedValueOnce(Response.json([]))
     const stats = await calculatePendingPreviousCashClosingStats(clientFor(fetcher), 'tenant')
     expect(stats?.closingOrders.map(order => order.id)).toEqual(['late-sale'])

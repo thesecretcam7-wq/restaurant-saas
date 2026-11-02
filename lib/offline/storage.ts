@@ -175,7 +175,7 @@ export class OfflineStorage {
       })
     } catch (error) {
       console.error('Error getting orders:', error)
-      return []
+      throw error
     }
   }
 
@@ -186,6 +186,33 @@ ed orders
   async getUnsyncedOrders(): Promise<OfflineOrder[]> {
     const orders = await this.getOrders()
     return orders.filter(o => !o.syncedAt)
+  }
+
+  async savePOSOrder(order: OfflineOrder, operation: PendingOperation): Promise<void> {
+    const db = await this.getDB()
+    const transaction = db.transaction([STORES.ORDERS, STORES.PENDING_OPERATIONS], 'readwrite')
+    return new Promise((resolve, reject) => {
+      transaction.oncomplete = () => resolve()
+      transaction.onabort = transaction.onerror = () => reject(transaction.error || new Error('No se pudo guardar la venta localmente.'))
+      transaction.objectStore(STORES.ORDERS).put(order)
+      transaction.objectStore(STORES.PENDING_OPERATIONS).put(operation)
+    })
+  }
+
+  async confirmPOSOrderSynced(orderId: string): Promise<void> {
+    const db = await this.getDB()
+    const transaction = db.transaction([STORES.ORDERS, STORES.PENDING_OPERATIONS], 'readwrite')
+    return new Promise((resolve, reject) => {
+      transaction.oncomplete = () => resolve()
+      transaction.onabort = transaction.onerror = () => reject(transaction.error || new Error('No se pudo confirmar la sincronizacion local.'))
+      const store = transaction.objectStore(STORES.ORDERS)
+      const request = store.get(orderId)
+      request.onsuccess = () => {
+        if (!request.result) { transaction.abort(); return }
+        store.put({ ...request.result, syncedAt: new Date().toISOString() })
+        transaction.objectStore(STORES.PENDING_OPERATIONS).delete(`pos-order-${orderId}`)
+      }
+    })
   }
 
   /**

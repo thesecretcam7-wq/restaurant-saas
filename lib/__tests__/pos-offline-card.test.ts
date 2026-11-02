@@ -4,11 +4,9 @@ import { saveOfflinePOSOrder, syncOfflinePOSOrders } from '../offline/pos-sync'
 
 const mocks = vi.hoisted(() => ({ rows: [] as OfflineOrder[], save:vi.fn(), mark:vi.fn(), remove:vi.fn(), pending:vi.fn(), fetch:vi.fn<typeof fetch>() }))
 vi.mock('../offline/storage',()=>({getOfflineStorage:()=>({
-  saveOrder:async (order:OfflineOrder)=>{mocks.save(order);mocks.rows.push(order)},
-  addPendingOperation:mocks.pending,
+  savePOSOrder:async (order:OfflineOrder, operation:unknown)=>{mocks.save(order);mocks.pending(operation);mocks.rows.push(order)},
   getUnsyncedOrders:async()=>mocks.rows.filter(row=>!row.syncedAt),
-  markOrderSynced:async(id:string)=>{mocks.mark(id);mocks.rows.find(row=>row.id===id)!.syncedAt=new Date().toISOString()},
-  removePendingOperation:mocks.remove,
+  confirmPOSOrderSynced:async(id:string)=>{mocks.mark(id);mocks.remove(`pos-order-${id}`);mocks.rows.find(row=>row.id===id)!.syncedAt=new Date().toISOString()},
 })}))
 
 beforeEach(()=>{

@@ -229,7 +229,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { tenantId: tenantParam, tenantSlug, items, customerInfo, deliveryType, deliveryAddress, notes, paymentMethod, paymentBreakdown, tableNumber, tableId, tableQrCode, waiterName, amountPaid, source, deliveryFee: requestedDeliveryFee, deliveryZoneId, businessDateMode, businessDate, skipOrderItems, offlineClientId } = body
+    const { tenantId: tenantParam, tenantSlug, items, customerInfo, deliveryType, deliveryAddress, notes, paymentMethod, paymentBreakdown, tableNumber, tableId, tableQrCode, waiterName, amountPaid, source, deliveryFee: requestedDeliveryFee, deliveryZoneId, businessDateMode, businessDate, skipOrderItems, offlineClientId, offlineCreatedAt } = body
 
     if (!tenantParam) {
       return NextResponse.json({ error: 'tenantId is required' }, { status: 400 })
@@ -562,6 +562,14 @@ export async function POST(request: NextRequest) {
     const safeOfflineClientId = source === 'pos-offline' && typeof offlineClientId === 'string'
       ? offlineClientId.trim().slice(0, 80)
       : ''
+    let offlineSaleCreatedAt: string | null = null
+    if (source === 'pos-offline' && offlineCreatedAt !== undefined) {
+      const timestamp = typeof offlineCreatedAt === 'string' ? Date.parse(offlineCreatedAt) : NaN
+      if (!safeOfflineClientId || !Number.isFinite(timestamp) || timestamp < Date.UTC(2020, 0, 1) || timestamp > Date.now() + 5 * 60_000) {
+        return NextResponse.json({ error: 'Fecha de venta local invalida. La venta se conserva pendiente; revisa la fecha del equipo.' }, { status: 400 })
+      }
+      offlineSaleCreatedAt = new Date(timestamp).toISOString()
+    }
     const offlineLockKey = safeOfflineClientId ? `${tenantId}:${safeOfflineClientId}` : ''
     const existingOfflineInsert = offlineLockKey ? offlineOrderInsertLocks.get(offlineLockKey) : null
 
@@ -590,6 +598,7 @@ export async function POST(request: NextRequest) {
       normalizedNotes || null,
       safeOfflineClientId ? `ID offline ${safeOfflineClientId}` : null,
       previousDayAuditNote || (registeringPreviousOpenPeriod ? 'Venta registrada manualmente en turno anterior desde TPV' : null),
+      offlineSaleCreatedAt ? `Venta local del ${offlineSaleCreatedAt} sincronizada desde TPV el ${new Date().toISOString()}` : null,
     ].filter(Boolean).join(' | ') || null
 
     const isImmediatePaidPOSOrder = (source === 'pos' || source === 'pos-offline') && Boolean(normalizedPaymentMethod)
@@ -648,6 +657,10 @@ export async function POST(request: NextRequest) {
     if (previousOpenPeriodCreatedAt) {
       orderData.created_at = previousOpenPeriodCreatedAt
       orderData.updated_at = businessDateMode === 'previous_day' ? new Date().toISOString() : previousOpenPeriodCreatedAt
+    }
+    if (offlineSaleCreatedAt) {
+      orderData.created_at = offlineSaleCreatedAt
+      orderData.updated_at = new Date().toISOString()
     }
 
     const insertOrder = (payload: Record<string, any>) => supabase

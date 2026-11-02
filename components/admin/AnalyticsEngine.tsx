@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { TrendingUp, Users, Clock, DollarSign } from 'lucide-react';
+import { fetchAnalyticsRows } from '@/lib/analytics-rows';
 
 const supabase = createClient();
 
@@ -24,10 +25,12 @@ export function AnalyticsEngine({ tenantId }: { tenantId: string }) {
   const [dateRange, setDateRange] = useState<'today' | 'week' | 'month'>('month');
 
   useEffect(() => {
-    fetchAnalytics();
+    const controller = new AbortController();
+    void fetchAnalytics(controller.signal);
+    return () => controller.abort();
   }, [tenantId, dateRange]);
 
-  async function fetchAnalytics() {
+  async function fetchAnalytics(signal: AbortSignal) {
     setLoading(true);
     try {
       let startDate = new Date();
@@ -41,18 +44,12 @@ export function AnalyticsEngine({ tenantId }: { tenantId: string }) {
       }
 
       // Fetch orders
-      const { data: orders } = await supabase
-        .from('orders')
-        .select('*')
-        .eq('tenant_id', tenantId)
-        .gte('created_at', startDate.toISOString())
-        .order('created_at', { ascending: false });
-
-      if (!orders) return;
+      const bounds = { start: startDate.toISOString(), end: new Date().toISOString() };
+      const orders = await fetchAnalyticsRows(supabase, tenantId, 'orders', 'id, total, payment_method, created_at', bounds, signal);
 
       // Calculate metrics
       const totalSales = orders.reduce((sum, o) => sum + Number(o.total), 0);
-      const avgOrderValue = totalSales / orders.length;
+      const avgOrderValue = orders.length > 0 ? totalSales / orders.length : 0;
 
       // Payment methods breakdown
       const paymentMethods = orders.reduce((acc: any, order: any) => {
@@ -80,11 +77,7 @@ export function AnalyticsEngine({ tenantId }: { tenantId: string }) {
       }, []);
 
       // Fetch order items for detailed analytics
-      const { data: orderItems } = await supabase
-        .from('order_items')
-        .select('*')
-        .eq('tenant_id', tenantId)
-        .gte('created_at', startDate.toISOString());
+      const orderItems = await fetchAnalyticsRows(supabase, tenantId, 'order_items', 'id, name, quantity, price, started_at, completed_at, created_at', bounds, signal);
 
       // Top products
       const topProducts = orderItems
@@ -107,7 +100,7 @@ export function AnalyticsEngine({ tenantId }: { tenantId: string }) {
         : [];
 
       // Average prep time
-      const avgPrepTime = orderItems
+      const avgPrepTime = orderItems.some((item: any) => item.started_at && item.completed_at)
         ? Math.round(
             orderItems
               .filter((item: any) => item.started_at && item.completed_at)
@@ -121,12 +114,15 @@ export function AnalyticsEngine({ tenantId }: { tenantId: string }) {
         : 0;
 
       // Top customers
-      const { data: customers } = await supabase
+      const { data: customers, error: customersError } = await supabase
         .from('customers')
-        .select('*')
+        .select('id, name, total_orders, total_spent')
         .eq('tenant_id', tenantId)
         .order('total_spent', { ascending: false })
-        .limit(5);
+        .limit(5)
+        .retry(false)
+        .abortSignal(AbortSignal.any([signal, AbortSignal.timeout(8_000)]));
+      if (customersError) throw customersError;
 
       // Orders trend: daily count + revenue for selected range
       const days = dateRange === 'today' ? 1 : dateRange === 'week' ? 7 : 30
@@ -145,6 +141,7 @@ export function AnalyticsEngine({ tenantId }: { tenantId: string }) {
         }
       })
 
+      if (signal.aborted) return;
       setAnalytics({
         totalSales,
         totalOrders: orders.length,
@@ -157,9 +154,11 @@ export function AnalyticsEngine({ tenantId }: { tenantId: string }) {
         ordersTrend,
       });
     } catch (error) {
+      if (signal.aborted) return;
+      setAnalytics(null);
       console.error('Error fetching analytics:', error);
     } finally {
-      setLoading(false);
+      if (!signal.aborted) setLoading(false);
     }
   }
 

@@ -76,4 +76,16 @@ describe('previous-day order registration', () => {
     expect(row.created_at).toBeUndefined()
     expect(row.notes).toBeNull()
   })
+  it('keeps the original local sale time when uploading after an outage', async () => {
+    const originalTime = '2026-10-31T23:00:00.000Z'
+    const response = await POST(request({ source:'pos-offline', offlineClientId:'local-fixture', offlineCreatedAt:originalTime, businessDateMode:undefined, businessDate:undefined }))
+    expect(response.status).toBe(200)
+    const row = mocks.inserts.mock.calls.find(([table])=>table==='orders')?.[1]
+    expect(row).toMatchObject({created_at:originalTime,updated_at:'2026-11-01T16:00:00.000Z',payment_status:'paid',offline_client_id:'local-fixture'})
+    expect(row.notes).toContain(`Venta local del ${originalTime} sincronizada desde TPV el `)
+  })
+  it.each(['invalid','2030-01-01T00:00:00Z'])('does not insert an offline sale with an invalid date %s', async offlineCreatedAt => {
+    expect((await POST(request({source:'pos-offline',offlineClientId:'local-fixture',offlineCreatedAt,businessDateMode:undefined,businessDate:undefined}))).status).toBe(400)
+    expect(mocks.inserts).not.toHaveBeenCalled()
+  })
 })

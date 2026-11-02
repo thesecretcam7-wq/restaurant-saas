@@ -1,4 +1,4 @@
-import { createClient } from '@supabase/supabase-js'
+import { createClient } from './supabase/database'
 import { PLANS, getPlanLimits, type PlanId } from './plans'
 import { getTenantAccessInfo } from './tenant-access'
 
@@ -25,11 +25,13 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 export async function getTenantPlanInfo(tenantIdOrSlug: string): Promise<TenantPlanInfo> {
   const supabase = serviceClient()
   const column = UUID_RE.test(tenantIdOrSlug) ? 'id' : 'slug'
-  const { data: tenant } = await supabase
+  const { data: tenant, error } = await supabase
     .from('tenants')
     .select('subscription_plan, status, created_at, trial_ends_at, subscription_stripe_id, subscription_expires_at')
     .eq(column, tenantIdOrSlug)
     .single()
+
+  if (error) throw error
 
   const rawPlan = (tenant?.subscription_plan || 'basic') as PlanId
   const status = tenant?.status || 'trial'
@@ -60,22 +62,21 @@ export async function getMonthlyOrderCount(tenantId: string): Promise<number> {
   const now = new Date()
   const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString()
 
-  const { count } = await supabase
+  const { count, error } = await supabase
     .from('orders')
     .select('id', { count: 'exact', head: true })
     .eq('tenant_id', tenantId)
     .gte('created_at', startOfMonth)
     .neq('status', 'cancelled')
 
+  if (error) throw error
+
   return count || 0
 }
 
 /** Check if tenant can create another order this month */
 export async function canCreateOrder(tenantId: string): Promise<{ allowed: boolean; reason?: string; used?: number; limit?: number }> {
-  const [planInfo, used] = await Promise.all([
-    getTenantPlanInfo(tenantId),
-    getMonthlyOrderCount(tenantId),
-  ])
+  const planInfo = await getTenantPlanInfo(tenantId)
 
   if (!planInfo.isActive) {
     return {
@@ -83,12 +84,12 @@ export async function canCreateOrder(tenantId: string): Promise<{ allowed: boole
       reason: planInfo.isTrial
         ? 'La prueba gratuita de 30 dias ha vencido. Activa un plan para seguir recibiendo pedidos.'
         : 'La suscripcion esta vencida. Renueva el plan para seguir recibiendo pedidos.',
-      used,
     }
   }
 
   const limit = planInfo.limits.orders_per_month
-  if (limit === Infinity) return { allowed: true, used, limit }
+  if (limit === Infinity) return { allowed: true, limit }
+  const used = await getMonthlyOrderCount(tenantId)
 
   if (used >= limit) {
     return {

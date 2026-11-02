@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { loadCartFromSupabase, saveCartToSupabase } from '../pos-cart-sync';
+import { abandonCart, loadCartFromSupabase, saveCartToSupabase } from '../pos-cart-sync';
 
 const cartData = {
   items: [{ menu_item_id: 'item-1', name: 'Cafe', price: 2, quantity: 2 }],
@@ -25,6 +25,14 @@ describe('POS cart synchronization', () => {
 
   afterEach(() => {
     vi.unstubAllGlobals();
+  });
+
+  it('clears only this terminal cart after payment', async () => {
+    const query = { eq: vi.fn().mockReturnThis(), is: vi.fn().mockResolvedValue({ error: null }) };
+    const client = { from: () => ({ update: () => query }) };
+    expect(await abandonCart('tenant-1', client)).toBe(true);
+    expect(query.eq).toHaveBeenCalledWith('tenant_id', 'tenant-1');
+    expect(query.eq).toHaveBeenCalledWith('cart_session_id', 'session-1');
   });
 
   it('updates only the latest active cart without reactivating it', async () => {

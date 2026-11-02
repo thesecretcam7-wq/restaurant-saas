@@ -7,7 +7,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import { createClient } from '@/lib/supabase/database';
 import { requireTenantAccess, tenantAuthErrorResponse } from '@/lib/tenant-api-auth';
 import { writeAuditLog } from '@/lib/audit-log';
 

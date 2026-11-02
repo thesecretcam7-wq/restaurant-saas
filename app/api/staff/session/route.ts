@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
-import { createClient } from '@supabase/supabase-js'
+import { createClient } from '@/lib/supabase/database'
 import { randomUUID } from 'crypto'
 import { verifyStaffAuthProof } from '@/lib/staff-auth-proof'
 
@@ -66,19 +66,22 @@ export async function POST(request: NextRequest) {
       .eq('tenant_id', tenantId)
       .eq('role', role)
       .eq('is_active', true)
-      .single()
+      .maybeSingle()
 
-    if (staffError || !staff) {
+    if (staffError) return NextResponse.json({ error: 'El sistema no responde. Intenta de nuevo en unos segundos.' }, { status: 503 })
+    if (!staff) {
       return NextResponse.json({ error: 'Staff session not allowed' }, { status: 403 })
     }
 
     // Fetch permissions for the role
     let permissions: string[] = []
     if (role) {
-      const { data: rolePerms } = await supabase
+      const { data: rolePerms, error: permissionsError } = await supabase
         .from('staff_role_permissions')
         .select('admin_permissions(key)')
         .eq('role', role)
+
+      if (permissionsError) return NextResponse.json({ error: 'No se pudieron comprobar los permisos. Intenta de nuevo.' }, { status: 503 })
 
       if (rolePerms) {
         permissions = rolePerms
@@ -91,11 +94,12 @@ export async function POST(request: NextRequest) {
     const sessionToken = randomUUID()
     const isAdminSession = permissions.some(p => p.startsWith('admin_'))
     if (staffId && isAdminSession) {
-      await supabase.from('active_sessions').upsert({
+      const { error: sessionError } = await supabase.from('active_sessions').upsert({
         user_key: `staff:${staffId}`,
         tenant_id: tenantId,
         session_token: sessionToken,
       }, { onConflict: 'user_key' })
+      if (sessionError) return NextResponse.json({ error: 'No se pudo confirmar la sesion. Intenta de nuevo.' }, { status: 503 })
     }
 
     const sessionData = {

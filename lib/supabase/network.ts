@@ -1,4 +1,5 @@
 import type { SupabaseClient, User } from '@supabase/supabase-js'
+import { createDatabaseFetch } from './database-network'
 
 const AUTH_TIMEOUT_MS = 8_000
 const AUTH_COOLDOWN_MS = 60_000
@@ -30,12 +31,13 @@ function unavailable() {
 
 export function createSupabaseFetch(fetcher: typeof fetch = (...args) => fetch(...args)): typeof fetch {
   const blockedUntil = new Map<string, number>()
+  const databaseFetch = createDatabaseFetch(fetcher)
 
   return async (input, init) => {
     const url = new URL(typeof input === 'string' ? input : input instanceof URL ? input.href : input.url)
     const isSessionRequest = url.pathname === '/auth/v1/user'
       || (url.pathname === '/auth/v1/token' && url.searchParams.get('grant_type') === 'refresh_token')
-    if (!isSessionRequest) return fetcher(input, init)
+    if (!isSessionRequest) return databaseFetch(input, init)
 
     if ((typeof navigator !== 'undefined' && navigator.onLine === false)
       || (blockedUntil.get(url.origin) || 0) > Date.now()) return unavailable()

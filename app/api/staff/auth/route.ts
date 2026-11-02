@@ -1,4 +1,4 @@
-import { createClient } from '@supabase/supabase-js'
+import { createClient } from '@/lib/supabase/database'
 import { NextRequest, NextResponse } from 'next/server'
 import { logSecurityEvent } from '@/lib/error-handler'
 import { createStaffAuthProof } from '@/lib/staff-auth-proof'
@@ -32,12 +32,14 @@ export async function POST(request: NextRequest) {
 
     // ── Rate limiting: max 10 failed attempts per IP per domain in 5 min ──
     const windowStart = new Date(Date.now() - RATE_LIMIT_WINDOW_MINUTES * 60 * 1000).toISOString()
-    const { count } = await supabase
+    const { count, error: rateError } = await supabase
       .from('pin_auth_rate_limits')
       .select('*', { count: 'exact', head: true })
       .eq('ip', clientIP)
       .eq('domain', domain)
       .gte('attempted_at', windowStart)
+
+    if (rateError) return NextResponse.json({ error: 'El sistema no responde. Intenta de nuevo en unos segundos.' }, { status: 503 })
 
     if ((count ?? 0) >= RATE_LIMIT_MAX) {
       logSecurityEvent('staff_auth_rate_limited', { domain, ip: clientIP }, 'high')
@@ -61,9 +63,10 @@ export async function POST(request: NextRequest) {
       .from('tenants')
       .select('id')
       .eq(isUUID ? 'id' : 'slug', domain)
-      .single()
+      .maybeSingle()
 
-    if (tenantError || !tenant) {
+    if (tenantError) return NextResponse.json({ error: 'El sistema no responde. Intenta de nuevo en unos segundos.' }, { status: 503 })
+    if (!tenant) {
       logSecurityEvent('staff_auth_tenant_not_found', { domain, role, ip: clientIP }, 'low')
       return NextResponse.json({ error: 'Datos incorrecto' }, { status: 401 })
     }
@@ -76,9 +79,10 @@ export async function POST(request: NextRequest) {
       .eq('pin', pin)
       .eq('role', role)
       .eq('is_active', true)
-      .single()
+      .maybeSingle()
 
-    if (staffError || !staff) {
+    if (staffError) return NextResponse.json({ error: 'El sistema no responde. La clave no se ha podido comprobar.' }, { status: 503 })
+    if (!staff) {
       // Record failed attempt for rate limiting
       await supabase
         .from('pin_auth_rate_limits')

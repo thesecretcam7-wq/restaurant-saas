@@ -1,5 +1,5 @@
 import { createServerClient } from '@supabase/ssr'
-import { createClient as createSupabaseClient } from '@supabase/supabase-js'
+import { createClient as createSupabaseClient } from './database'
 import { cookies } from 'next/headers'
 import { supabaseFetch } from './network'
 
