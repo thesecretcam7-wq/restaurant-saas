@@ -25,6 +25,7 @@ import { getOfflineStorage } from '@/lib/offline/storage';
 import { useWakeLock } from '@/lib/hooks/useWakeLock';
 import { reconcileSavedDineInOrder } from '@/lib/pos-dine-in-orders';
 import { canReachPOSCloud, fetchPOSBootstrapWithTimeout } from '@/lib/pos-cloud-connectivity';
+import { createPOSBackgroundRetry } from '@/lib/pos-background-retry';
 import { fetchPOSPayment, fetchPOSSecurityToken, POSPaymentConfirmationError } from '@/lib/pos-payment-request';
 import { getPreviousPOSSaleDate } from '@/lib/pos-business-date';
 import { getRestaurantTimeZone } from '@/lib/restaurant-time';
@@ -835,6 +836,7 @@ export function POSTerminal({
   const pendingCashClosingNextRefreshRef = useRef(0);
   const reservationsFetchInFlightRef = useRef(false);
   const offlineSyncInFlightRef = useRef(false);
+  const offlineSyncRetry = useMemo(() => createPOSBackgroundRetry(), [tenantId]);
   const canRegisterInPreviousPeriod =
     Boolean(previousSaleDate) && !loadedOrderId && billingOrderIds.length === 0 && !selectedTableId && !splitBillMode;
 
@@ -1292,26 +1294,30 @@ export function POSTerminal({
   }, [deliveryEnabled, deliveryOptions, posOrderType, selectedDeliveryZoneId]);
 
   const syncOfflineSales = useCallback(async (showToast = false) => {
-    if (offlineSyncInFlightRef.current) return;
+    if (offlineSyncInFlightRef.current || !offlineSyncRetry.begin(showToast)) return;
 
     offlineSyncInFlightRef.current = true;
     setSyncingOffline(true);
-    if (!(await canReachPOSCloud(tenantId))) {
-      setIsOnline(false);
-      offlineSyncInFlightRef.current = false;
-      setSyncingOffline(false);
-      if (showToast) setToast({ message: 'El servidor sigue sin responder. Las ventas locales se conservan.', type: 'error' });
-      return;
-    }
-
-    setIsOnline(true);
-    if (showToast) void fetchMenuData();
-
+    let success = false;
     try {
+      // Checking an empty queue needs no cloud, security token or catalog read.
+      const remaining = await countPendingPOSOrders(tenantId);
+      setOfflinePendingCount(remaining);
+      if (remaining === 0) {
+        success = true;
+        return;
+      }
+      if (!(await canReachPOSCloud(tenantId, { force: showToast }))) {
+        setIsOnline(false);
+        if (showToast) setToast({ message: 'El servidor sigue sin responder. Las ventas locales se conservan.', type: 'error' });
+        return;
+      }
+      setIsOnline(true);
       const csrfToken = await getFreshCSRFToken();
 
       const result = await syncOfflinePOSOrders(tenantId, csrfToken);
       setOfflinePendingCount(result.remaining);
+      success = result.errors.length === 0;
 
       if (showToast && result.synced > 0) {
         setToast({
@@ -1333,10 +1339,11 @@ export function POSTerminal({
         });
       }
     } finally {
+      offlineSyncRetry.complete(success);
       setSyncingOffline(false);
       offlineSyncInFlightRef.current = false;
     }
-  }, [tenantId, getFreshCSRFToken]);
+  }, [tenantId, getFreshCSRFToken, offlineSyncRetry]);
 
   // Initialize audio — called on first user interaction to satisfy autoplay policy
   const initAudio = useCallback(() => {
@@ -1519,13 +1526,18 @@ export function POSTerminal({
         const reachable = await canReachPOSCloud(tenantId);
         if (cancelled) return;
 
+        const wasOnline = connectivityStateRef.current.isOnline;
         setIsOnline(reachable);
         if (!reachable) return;
 
+        // A pending upload is not a reconnect. Do not reload six catalog
+        // tables and closing statistics on every retry of the same sale.
         await Promise.all([
-          fetchMenuData(),
-          connectivityStateRef.current.refreshTodayReservations(),
-          connectivityStateRef.current.refreshPendingCashClosing(),
+          ...(!wasOnline ? [
+            fetchMenuData(),
+            connectivityStateRef.current.refreshTodayReservations(),
+            connectivityStateRef.current.refreshPendingCashClosing(),
+          ] : []),
           connectivityStateRef.current.syncOfflineSales(showToast),
         ]);
       } finally {
@@ -2250,7 +2262,12 @@ export function POSTerminal({
         if (cartRemoteSyncVersionRef.current !== syncVersion) return;
 
         if (cartData.items.length > 0) {
-          void enqueueCartRemoteSync(() => saveCartToSupabase(tenantId, cartData, supabase)).catch((err) => {
+          void enqueueCartRemoteSync(() => {
+            // The queue may have waited behind a stalled write. Only the
+            // latest snapshot can still be sent when it reaches the front.
+            if (cartRemoteSyncVersionRef.current !== syncVersion) return Promise.resolve();
+            return saveCartToSupabase(tenantId, cartData, supabase);
+          }).catch((err) => {
             console.error('Background cart sync failed (will use localStorage):', err);
           });
         } else {
@@ -4709,7 +4726,9 @@ export function POSTerminal({
       });
       startPrintInBackground();
       void (async () => {
-        await enqueueCartRemoteSync(() => abandonCart(tenantId, supabase)).catch((cartError) => {
+        // Cart housekeeping can stall independently of the orders API.
+        // A saved local sale must still be uploaded while that write waits.
+        void enqueueCartRemoteSync(() => abandonCart(tenantId, supabase)).catch((cartError) => {
           console.warn('POS cart cleanup failed:', cartError);
         });
         if (savedOfflineSale && typeof navigator !== 'undefined' && navigator.onLine) {

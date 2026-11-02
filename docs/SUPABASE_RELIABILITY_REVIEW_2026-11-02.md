@@ -4,7 +4,7 @@
 
 Se ha revisado la integración de acceso, clientes SDK, consultas, actualizaciones en tiempo real, carritos, ventas locales y sincronización. El inventario estático inicial recorrió 456 archivos de `app`, `lib` y `components`, identificando 497 cadenas de consulta y 80 selecciones literales de `*`. Este inventario es una herramienta de selección: incluye algunas escrituras con retorno y no significa que todas esas consultas sean problemáticas ni que se haya demostrado una causa raíz.
 
-La caída de infraestructura sigue sin diagnóstico concluyente. Al comenzar esta revisión fallaban las consultas SQL y el endpoint de métricas con timeout, mientras el plano de control mostraba `ACTIVE_HEALTHY`. No se ha reiniciado ni pausado el proyecto, cambiado el plan, enviado mensajes a terceros o modificado datos de negocio.
+La caída de infraestructura sigue sin diagnóstico concluyente. Al comenzar esta revisión fallaban las consultas SQL y el endpoint de métricas con timeout, mientras el plano de control mostraba `ACTIVE_HEALTHY`. La recuperación posterior se realizó desde el navegador autorizado mediante reinicio del proyecto; el nuevo inicio de PostgreSQL es `2026-11-02 16:14:53.319204+00`. No se cambió el plan ni se modificaron datos de negocio durante la recuperación. No se enviaron mensajes a terceros.
 
 ## Fallos confirmados y cambios
 
@@ -48,4 +48,29 @@ La aplicación está endurecida frente a fallos, pero ello no garantiza que un h
 
 Para identificar el origen de las caídas faltan las métricas históricas del host durante la interrupción: RAM/OOM, IO/latencia de disco, CPU, conexiones por proceso y replicación. Cuando la base responda, deben capturarse actividad/esperas y estadísticas de consultas antes de reiniciar contadores. El fallo inicial del 2 de noviembre se observa alrededor de 13:53–13:58 UTC, con errores posteriores 522/524 y pérdida del pool.
 
-No se han cambiado parámetros de memoria, pools, índices, RLS ni publicaciones Realtime sin poder revisar su estado efectivo y sus planes de consulta. La recuperación productiva y la causa recurrente siguen pendientes de comprobación; el estado saludable del plano de control no se toma como prueba de disponibilidad.
+No se han cambiado parámetros de memoria, pools, índices, RLS ni publicaciones Realtime sin poder revisar su estado efectivo y sus planes de consulta. El estado saludable del plano de control no se toma como prueba de disponibilidad.
+
+## Investigación posterior a la recuperación
+
+- A las 16:33 UTC había 7 conexiones PostgREST ociosas y ninguna evidencia de espera por bloqueo. Dos slots Realtime estaban activos con unos 16 MiB retenidos cada uno, sin acumulación descontrolada visible en ese momento. Solo `orders` y `order_items` están en la publicación Realtime.
+- En el intervalo 13:50–13:55 UTC se registraron unas 100 peticiones HTTP, no una avalancha de miles de solicitudes. Los primeros errores internos afectan a la consulta de catálogo `pg_publication_tables` del gestor de suscripciones, seguida de pérdida del pool y timeouts. Esto documenta la secuencia, pero no prueba que Realtime iniciara el fallo.
+- El panel Infraestructura mostró un mínimo de saldo de IO del 0 % en su ventana de siete días. El informe de las últimas 24 horas mostraba un saldo medio del 68 %, memoria de intercambio en uso y compromiso de memoria marcado como severo. Un mínimo de siete días no permite fechar por sí solo el agotamiento exactamente a las 13:53 UTC ni demostrar OOM. Las cuotas de almacenamiento y el máximo de conexiones no estaban agotados.
+- Una consulta de diagnóstico de pendientes sobre El Cruce, con `EXPLAIN ANALYZE`, devolvió una fila en unos 12 ms, sin lecturas de disco ni archivos temporales en su ejecución. No es una medición de todas las consultas de producción ni del rendimiento durante la caída. Los índices relevantes ya existían; no se añadieron índices ni se modificaron políticas o parámetros de memoria a ciegas.
+- No hay extensión `pg_cron` instalada ni tabla `cron.job`: la presencia del proceso lanzador no demuestra que exista una tarea programada de la aplicación.
+- A las 21:46 UTC PostgreSQL conservaba el mismo inicio de las 16:14 UTC, tenía 7 conexiones cliente y cero esperas por bloqueo. Los accesos de ambos negocios y sus comprobaciones de nube respondían correctamente. Esto comprueba recuperación sostenida durante esa ventana, sin garantizar disponibilidad futura.
+
+### Patrones adicionales corregidos
+
+1. **Reintentar una venta pendiente recargaba el catálogo completo**: el bucle de conectividad ejecutaba de nuevo bootstrap (seis tablas), reservas y pendientes aunque la conexión ya estuviera disponible. Ahora esos datos se recuperan al reconectar; el bucle de subida solo trata la cola. Se mantienen el refresco propio del menú, su recuperación al volver a la pantalla y la actualización tras crear productos.
+2. **Una limpieza remota del carrito podía detener la subida de ventas**: el trabajo posterior al cobro esperaba `abandonCart` antes de sincronizar. Ahora ambas operaciones son independientes. No se reintenta automáticamente una escritura de cobro ambiguo ni se elimina una venta local sin confirmación.
+3. **Cada nueva venta podía reintentar inmediatamente una cola fallida**: la subida automática espera 15, 30, 60 y hasta 120 segundos tras fallos consecutivos. El botón de sincronización permite un intento explícito, conservando la exclusión de subidas simultáneas. Una cola vacía no consulta nube ni solicita token.
+4. **Las comprobaciones fallidas no tenían pausa en el navegador**: ahora comparten consulta en curso y esperan 15/30/60 segundos tras fallar. La pausa se aplica por negocio y puede saltarse al solicitar una sincronización manual. No se interpreta un fallo como cierre de sesión.
+5. **Una instantánea de carrito obsoleta podía esperar detrás de una escritura lenta**: se comprueba su versión también al llegar al frente de la cola, evitando enviar estados descartados por una edición o un cobro posterior.
+
+### Verificación de esta ampliación
+
+- 251 pruebas en 41 archivos pasan; comprobación de tipos y compilación de producción completadas.
+- Componente real del TPV en navegador aislado: con la escritura de limpieza del carrito detenida indefinidamente, una venta con tarjeta se sube una sola vez y queda confirmada localmente.
+- Se repitieron las pruebas de IndexedDB y dos pestañas: diez ventas ficticias, diez subidas únicas, métodos de pago y fechas originales conservados, ambas colas en cero.
+- Se repitió el cobro local con servidor caído y con internet cortado: la venta con tarjeta queda guardada y el carrito se libera.
+- Las pruebas no crean ventas reales ni acceden a la cola del navegador del bar. Las correcciones reducen trabajo redundante y eliminan bloqueos demostrables de la aplicación. La atribución definitiva del fallo del host requiere correlación de métricas de IO, swap y procesos durante la incidencia; no se presenta una mitigación como garantía de que el servidor nunca pueda caer.

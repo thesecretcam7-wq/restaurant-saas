@@ -21,7 +21,7 @@ describe('POS cloud connectivity', () => {
       .mockResolvedValueOnce(Response.json({ ok: true }))
     const check = createPOSCloudProbe(fetcher, () => true)
     expect(await check('tenant')).toBe(false)
-    expect(await check('tenant')).toBe(true)
+    expect(await check('tenant', { force: true })).toBe(true)
   })
   it('accepts a slow healthy response and shares simultaneous checks', async () => {
     vi.useFakeTimers()
@@ -44,11 +44,15 @@ describe('POS cloud connectivity', () => {
   })
 
   it('recovers after failure without reloading or losing local state', async () => {
+    vi.useFakeTimers()
     const fetcher = vi.fn<typeof fetch>()
       .mockResolvedValueOnce(Response.json({ ok: false }, { status: 503 }))
       .mockResolvedValueOnce(Response.json({ ok: true }))
     const check = createPOSCloudProbe(fetcher, () => true)
     expect(await check('tenant')).toBe(false)
+    expect(await check('tenant')).toBe(false)
+    expect(fetcher).toHaveBeenCalledTimes(1)
+    await vi.advanceTimersByTimeAsync(15_000)
     expect(await check('tenant')).toBe(true)
   })
 
@@ -74,7 +78,26 @@ describe('POS cloud connectivity', () => {
     expect(await first).toBe(false)
     expect(fetcher.mock.calls[0][1]?.signal?.aborted).toBe(true)
     fetcher.mockResolvedValueOnce(Response.json({ ok: true }))
+    await vi.advanceTimersByTimeAsync(15_000)
     expect(await check('tenant')).toBe(true)
+  })
+
+  it('backs off repeated failures per tenant while allowing an explicit shared retry', async () => {
+    vi.useFakeTimers()
+    const fetcher = vi.fn<typeof fetch>().mockImplementation(async () => Response.json({ ok: false }, { status: 503 }))
+    const check = createPOSCloudProbe(fetcher, () => true)
+    for (const delay of [15_000, 30_000, 60_000, 60_000]) {
+      expect(await check('tenant')).toBe(false)
+      const calls = fetcher.mock.calls.length
+      for (let i = 0; i < 20; i++) expect(await check('tenant')).toBe(false)
+      expect(fetcher).toHaveBeenCalledTimes(calls)
+      await vi.advanceTimersByTimeAsync(delay)
+    }
+    expect(await check('another-tenant')).toBe(false)
+    fetcher.mockImplementation(async () => Response.json({ ok: true }))
+    const retry = check('tenant', { force: true })
+    expect(check('tenant', { force: true })).toBe(retry)
+    expect(await retry).toBe(true)
   })
 
   it.each([
