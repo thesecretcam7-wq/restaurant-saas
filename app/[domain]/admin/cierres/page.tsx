@@ -922,7 +922,7 @@ export default function CashClosingsPage() {
   }
 
   return (
-    <div className="admin-page">
+    <div className="admin-page cash-closings-page">
       <div className="admin-page-header">
         <div>
           <p className="admin-eyebrow">Caja</p>
@@ -1288,7 +1288,11 @@ export default function CashClosingsPage() {
           <div className="admin-empty m-5">No hay cierres de caja aun</div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-sm">
+            <div className="border-b border-black/8 p-5">
+              <h2 className="text-xl font-black">Historial de cierres de caja</h2>
+              <p className="mt-1 text-sm font-semibold">Cada cierre resume las ventas del turno, las facturas pagadas y el efectivo contado.</p>
+            </div>
+            <table className="cash-closings-table w-full text-sm" aria-label="Historial de cierres de caja">
               <thead className="bg-white/50">
                 <tr>
                   <th className="px-5 py-3 text-left">Fecha</th>
@@ -1308,27 +1312,27 @@ export default function CashClosingsPage() {
               <tbody className="divide-y divide-black/8">
                 {closings.map(closing => (
                   <tr key={closing.id} className="transition hover:bg-white/70">
-                    <td className="px-5 py-4 font-bold text-black/58">{new Date(closing.closed_at).toLocaleString('es-CO', { dateStyle: 'short', timeStyle: 'short' })}</td>
-                    <td className="px-5 py-4 font-black text-[#15130f]">{closing.staff_name}</td>
-                    <td className="px-5 py-4 text-right font-black text-[#15130f]">{formatPriceWithCurrency(Number(closing.total_sales) || 0, currencyInfo.code, currencyInfo.locale)}</td>
-                    <td className="px-5 py-4 text-right font-bold text-black/64">{formatPriceWithCurrency(Number(closing.cash_sales) || 0, currencyInfo.code, currencyInfo.locale)}</td>
-                    <td className="px-5 py-4 text-right font-bold text-sky-800">{formatPriceWithCurrency(Number(closing.card_sales) || 0, currencyInfo.code, currencyInfo.locale)}</td>
-                    <td className="px-5 py-4 text-right font-bold text-red-700">
+                    <td data-label="Fecha del cierre" className="px-5 py-4 font-bold text-black/58">{new Date(closing.closed_at).toLocaleString('es-CO', { dateStyle: 'short', timeStyle: 'short' })}</td>
+                    <td data-label="Personal" className="px-5 py-4 font-black text-[#15130f]">{closing.staff_name}</td>
+                    <td data-label="Total vendido" className="px-5 py-4 text-right font-black text-[#15130f]">{formatPriceWithCurrency(Number(closing.total_sales) || 0, currencyInfo.code, currencyInfo.locale)}</td>
+                    <td data-label="Ventas efectivo" className="px-5 py-4 text-right font-bold text-black/64">{formatPriceWithCurrency(Number(closing.cash_sales) || 0, currencyInfo.code, currencyInfo.locale)}</td>
+                    <td data-label="Ventas tarjeta" className="px-5 py-4 text-right font-bold text-sky-800">{formatPriceWithCurrency(Number(closing.card_sales) || 0, currencyInfo.code, currencyInfo.locale)}</td>
+                    <td data-label="Facturas pagadas" className="px-5 py-4 text-right font-bold text-red-700">
                       {formatPriceWithCurrency(Number(closing.bill_payments_total) || 0, currencyInfo.code, currencyInfo.locale)}
                       <span className="ml-1 text-black/42">({Number(closing.bill_payments_count) || 0})</span>
                     </td>
-                    <td className="px-5 py-4 text-right font-bold text-black/64">{formatPriceWithCurrency(closing.actual_cash_count, currencyInfo.code, currencyInfo.locale)}</td>
-                    <td className="px-5 py-4 text-right font-bold text-black/64">{formatPriceWithCurrency(closing.expected_total, currencyInfo.code, currencyInfo.locale)}</td>
-                    <td className="px-5 py-4 text-right font-bold text-black/64">{formatPriceWithCurrency(Number(closing.total_delivery_fees) || 0, currencyInfo.code, currencyInfo.locale)} ({Number(closing.delivery_order_count) || 0})</td>
-                    <td className={`px-5 py-4 text-right font-black ${Math.abs(closing.difference) < 0.01 ? 'text-[#1c8b5f]' : 'text-red-600'}`}>{formatPriceWithCurrency(Math.abs(closing.difference), currencyInfo.code, currencyInfo.locale)}</td>
-                    <td className="px-5 py-4 text-center">
+                    <td data-label="Efectivo contado" className="px-5 py-4 text-right font-bold text-black/64">{formatPriceWithCurrency(closing.actual_cash_count, currencyInfo.code, currencyInfo.locale)}</td>
+                    <td data-label="Efectivo esperado" className="px-5 py-4 text-right font-bold text-black/64">{formatPriceWithCurrency(closing.expected_total, currencyInfo.code, currencyInfo.locale)}</td>
+                    <td data-label="Domicilios" className="px-5 py-4 text-right font-bold text-black/64">{formatPriceWithCurrency(Number(closing.total_delivery_fees) || 0, currencyInfo.code, currencyInfo.locale)} ({Number(closing.delivery_order_count) || 0})</td>
+                    <td data-label="Diferencia" className={`px-5 py-4 text-right font-black ${Math.abs(closing.difference) < 0.01 ? 'text-[#1c8b5f]' : 'text-red-600'}`}>{formatPriceWithCurrency(Math.abs(closing.difference), currencyInfo.code, currencyInfo.locale)}</td>
+                    <td data-label="Estado" className="px-5 py-4 text-center">
                       <span className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs font-black ${closing.is_balanced ? 'border-green-200 bg-green-50 text-green-700' : 'border-amber-200 bg-amber-50 text-amber-700'}`}>
                         {closing.is_balanced ? <Check className="size-3.5" /> : <AlertCircle className="size-3.5" />}
                         {closing.is_balanced ? 'Balanceado' : 'Diferencia'}
                       </span>
                     </td>
-                    <td className="px-5 py-4 text-right">
-                      <div className="inline-flex items-center justify-end gap-3">
+                    <td data-label="Acciones" className="px-5 py-4 text-right">
+                      <div className="inline-flex flex-wrap items-center justify-end gap-3">
                       <button
                         onClick={() => openCorrectionModal(closing)}
                         className="inline-flex items-center gap-1.5 text-sm font-black text-[#1c8b5f]"

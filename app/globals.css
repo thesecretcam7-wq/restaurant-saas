@@ -2383,6 +2383,81 @@ body:has(.admin-app-shell) {
   box-shadow: 0 8px 22px rgba(15, 23, 42, 0.18);
 }
 
+/* Keep closing amounts readable; only the table itself scrolls on desktop. */
+.cash-closings-page table {
+  min-width: 640px;
+}
+
+.cash-closings-page th,
+.cash-closings-page td {
+  overflow-wrap: normal;
+}
+
+.cash-closings-page td.text-right {
+  white-space: nowrap;
+}
+
+@media screen and (max-width: 767px) {
+  .cash-closings-page .cash-closings-table {
+    display: block;
+    min-width: 0;
+  }
+
+  .cash-closings-table thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+  }
+
+  .cash-closings-table tbody {
+    display: grid;
+    gap: 1rem;
+    padding: 0.75rem;
+  }
+
+  .cash-closings-table tbody tr {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    border: 1px solid rgba(128, 128, 128, 0.3);
+    border-radius: 0.75rem;
+    padding: 0.75rem;
+    gap: 1rem 0.75rem;
+  }
+
+  .cash-closings-page .cash-closings-table td {
+    display: block;
+    min-width: 0;
+    padding: 0;
+    text-align: left;
+    white-space: normal;
+    overflow-wrap: break-word;
+  }
+
+  .cash-closings-table td::before {
+    content: attr(data-label);
+    display: block;
+    margin-bottom: 0.3rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    opacity: 0.75;
+  }
+
+  .cash-closings-table td:first-child,
+  .cash-closings-table td:last-child {
+    grid-column: 1 / -1;
+  }
+
+  .cash-closings-table td:last-child > div {
+    justify-content: flex-start;
+  }
+
+  .cash-closings-table td button {
+    min-height: 44px;
+  }
+}
+
 /* Stable POS product cards. The TPV grid can be narrow on desktop split
    layouts, so product text must never rely on tiny auto columns. */
 .pos-premium .pos-product-card-no-image,
