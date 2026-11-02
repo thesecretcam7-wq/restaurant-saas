@@ -57,7 +57,7 @@ function isMissingBillPaymentsTable(error: any) {
   return text.includes('cash_bill_payments') || error?.code === '42P01' || error?.code === 'PGRST205'
 }
 
-async function fetchMonthOrders(supabase: any, tenantId: string, monthStartIso: string) {
+async function fetchMonthOrders(supabase: any, tenantId: string, monthStartIso: string, monthEndIso: string) {
   const rows: any[] = []
   let from = 0
   let totalCount = 0
@@ -68,7 +68,9 @@ async function fetchMonthOrders(supabase: any, tenantId: string, monthStartIso: 
       .select('id, total, created_at, payment_method, payment_breakdown, payment_status, status', { count: from === 0 ? 'exact' : undefined })
       .eq('tenant_id', tenantId)
       .gte('created_at', monthStartIso)
+      .lt('created_at', monthEndIso)
       .order('created_at', { ascending: false })
+      .order('id')
       .range(from, from + MONTH_ORDERS_PAGE_SIZE - 1)
 
     if (error) return { data: null, error }
@@ -82,7 +84,7 @@ async function fetchMonthOrders(supabase: any, tenantId: string, monthStartIso: 
   return { data: rows, error: null }
 }
 
-async function fetchMonthBillPayments(supabase: any, tenantId: string, monthStartIso: string) {
+async function fetchMonthBillPayments(supabase: any, tenantId: string, monthStartIso: string, monthEndIso: string) {
   const rows: BillPaymentRow[] = []
   let from = 0
   let totalCount = 0
@@ -94,7 +96,9 @@ async function fetchMonthBillPayments(supabase: any, tenantId: string, monthStar
       .eq('tenant_id', tenantId)
       .eq('status', 'active')
       .gte('paid_at', monthStartIso)
+      .lt('paid_at', monthEndIso)
       .order('paid_at', { ascending: false })
+      .order('id')
       .range(from, from + MONTH_ORDERS_PAGE_SIZE - 1)
 
     if (error) {
@@ -111,7 +115,7 @@ async function fetchMonthBillPayments(supabase: any, tenantId: string, monthStar
   return { data: rows, error: null, setupRequired: false }
 }
 
-async function getRestaurantPeriodStarts(supabase: any, tenantId: string) {
+async function getRestaurantPeriodStarts(supabase: any, tenantId: string, requestedMonth: string | null) {
   const now = new Date()
   const [tenantRes, settingsRes] = await Promise.all([
     supabase.from('tenants').select('country').eq('id', tenantId).maybeSingle(),
@@ -127,11 +131,18 @@ async function getRestaurantPeriodStarts(supabase: any, tenantId: string) {
     tenantCountry: tenantRes.data?.country,
   })
   const todayKey = getRestaurantLocalDateKey(now, timeZone)
-  const [year, month] = todayKey.split('-').map(Number)
+  const selectedMonth = requestedMonth || todayKey.slice(0, 7)
+  const [year, month] = selectedMonth.split('-').map(Number)
   const monthStartKey = `${String(year).padStart(4, '0')}-${String(month).padStart(2, '0')}-01`
+  const nextMonthKey = `${month === 12 ? year + 1 : year}-${String(month === 12 ? 1 : month + 1).padStart(2, '0')}-01`
+  const lastDay = new Date(Date.UTC(year, month, 0)).getUTCDate()
+  const monthLastKey = `${selectedMonth}-${String(lastDay).padStart(2, '0')}`
 
   return {
     monthStartIso: getRestaurantLocalDateStartUtc(monthStartKey, timeZone)?.toISOString() || fallbackMonthStartIso(now),
+    monthEndIso: getRestaurantLocalDateStartUtc(nextMonthKey, timeZone)!.toISOString(),
+    periodLastKey: selectedMonth === todayKey.slice(0, 7) ? todayKey : monthLastKey,
+    selectedMonth,
     monthStartKey,
     todayKey,
     timeZone,
@@ -145,15 +156,19 @@ export async function GET(request: NextRequest) {
   )
   const { searchParams } = new URL(request.url)
   const tenantId = searchParams.get('tenantId')
+  const requestedMonth = searchParams.get('month')
 
   if (!tenantId) {
     return NextResponse.json({ error: 'Missing tenantId' }, { status: 400 })
+  }
+  if (requestedMonth !== null && !/^(20\d{2})-(0[1-9]|1[0-2])$/.test(requestedMonth)) {
+    return NextResponse.json({ error: 'Selecciona un mes valido (AAAA-MM).' }, { status: 400 })
   }
 
   try {
     await requireTenantAccess(tenantId, { staffRoles: ['admin'], requireAdminPermission: true })
 
-    const { monthStartIso, monthStartKey, todayKey, timeZone } = await getRestaurantPeriodStarts(supabase, tenantId)
+    const { monthStartIso, monthEndIso, monthStartKey, periodLastKey, selectedMonth, todayKey, timeZone } = await getRestaurantPeriodStarts(supabase, tenantId, requestedMonth)
 
     const [
       { data: invoices, error },
@@ -188,9 +203,9 @@ export async function GET(request: NextRequest) {
       .order('invoice_date', { ascending: false })
       .order('created_at', { ascending: false })
       .limit(80),
-      fetchMonthOrders(supabase, tenantId, monthStartIso),
-      fetchMonthBillPayments(supabase, tenantId, monthStartIso),
-      fetchClosedMonthOrderIds(supabase, tenantId, monthStartIso),
+      fetchMonthOrders(supabase, tenantId, monthStartIso, monthEndIso),
+      fetchMonthBillPayments(supabase, tenantId, monthStartIso, monthEndIso),
+      fetchClosedMonthOrderIds(supabase, tenantId, monthStartIso, monthEndIso),
     ])
 
     if (error) throw error
@@ -200,7 +215,7 @@ export async function GET(request: NextRequest) {
     const paidOrders = (monthOrders || []).filter((order) => {
       if (!isActivePaidOrder(order) || !order.created_at) return false
       const localDate = getRestaurantLocalDateKey(order.created_at, timeZone)
-      return localDate >= monthStartKey && localDate <= todayKey
+      return localDate >= monthStartKey && localDate <= periodLastKey
     })
     const salesThisMonth = paidOrders.reduce((sum, order) => sum + Number(order.total || 0), 0)
     const normalizedBillPayments = ((billPayments || []) as BillPaymentRow[])
@@ -217,7 +232,7 @@ export async function GET(request: NextRequest) {
         cash_closing_id: payment.cash_closing_id,
         local_date: payment.paid_at ? getRestaurantLocalDateKey(payment.paid_at, timeZone) : null,
       }))
-      .filter((payment) => payment.local_date && payment.local_date >= monthStartKey && payment.local_date <= todayKey)
+      .filter((payment) => payment.local_date && payment.local_date >= monthStartKey && payment.local_date <= periodLastKey)
     const billPaymentsToday = normalizedBillPayments.filter((payment) => payment.local_date === todayKey)
     const sumPayments = (payments: typeof normalizedBillPayments, method?: string) =>
       payments
@@ -229,11 +244,12 @@ export async function GET(request: NextRequest) {
       billPayments: normalizedBillPayments,
       timeZone,
       monthStartKey,
-      todayKey,
+      todayKey: periodLastKey,
     })
     const todayFinance = dailyFinance.find((day) => day.date === todayKey)
 
     return NextResponse.json({
+      period: { month: selectedMonth, timeZone },
       invoices: invoices || [],
       dailyFinance,
       salesSummary: {

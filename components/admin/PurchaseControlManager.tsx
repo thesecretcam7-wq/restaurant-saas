@@ -227,6 +227,29 @@ async function imageFileToDataUrl(file: File) {
 }
 
 export function PurchaseControlManager({ tenantId }: { tenantId: string }) {
+  const [selectedMonth, setSelectedMonth] = useState('')
+  const [resolvedMonth, setResolvedMonth] = useState('')
+  return (
+    <div className="space-y-5">
+      <section className="admin-panel flex flex-wrap items-end gap-3 p-4" aria-label="Mes de ventas y facturas">
+        <label className="flex min-w-0 flex-col gap-2 font-bold">
+          <span>Mes de ventas y facturas pagadas</span>
+          <input type="month" value={selectedMonth || resolvedMonth} onChange={(event) => setSelectedMonth(event.target.value)} className="min-h-11 max-w-full rounded-lg border border-black/15 px-3 py-2" />
+        </label>
+        <button type="button" onClick={() => setSelectedMonth('')} className="admin-button-secondary">Mes actual</button>
+        <p className="w-full text-sm font-semibold">Selecciona un mes y abre un día en el control diario para ver las facturas pagadas.</p>
+      </section>
+      <PurchaseControlContent key={`${tenantId}:${selectedMonth}`} tenantId={tenantId} selectedMonth={selectedMonth} onPeriodLoaded={setResolvedMonth} />
+    </div>
+  )
+}
+
+function PurchaseControlContent({ tenantId, selectedMonth, onPeriodLoaded }: {
+  tenantId: string
+  selectedMonth: string
+  onPeriodLoaded: (month: string) => void
+}) {
+  const [reportMonth, setReportMonth] = useState(selectedMonth)
   const [invoices, setInvoices] = useState<PurchaseInvoice[]>([])
   const [inventory, setInventory] = useState<InventoryOption[]>([])
   const [salesSummary, setSalesSummary] = useState<SalesSummary>({
@@ -301,7 +324,7 @@ export function PurchaseControlManager({ tenantId }: { tenantId: string }) {
       activeRequest.current = null
       refreshGate.current.complete(false)
     }
-  }, [tenantId])
+  }, [tenantId, selectedMonth, onPeriodLoaded])
 
   async function fetchData(force = true) {
     if (activeRequest.current) {
@@ -324,7 +347,7 @@ export function PurchaseControlManager({ tenantId }: { tenantId: string }) {
     setError('')
     try {
       const [purchaseResponse, inventoryResponse] = await Promise.all([
-        fetchWithTimeout(`/api/purchase-invoices?tenantId=${tenantId}`, { credentials: 'include', cache: 'no-store', signal: controller.signal }),
+        fetchWithTimeout(`/api/purchase-invoices?tenantId=${tenantId}${selectedMonth ? `&month=${encodeURIComponent(selectedMonth)}` : ''}`, { credentials: 'include', cache: 'no-store', signal: controller.signal }),
         fetchWithTimeout(`/api/inventory?tenantId=${tenantId}`, { credentials: 'include', cache: 'no-store', signal: controller.signal }),
       ])
 
@@ -337,6 +360,10 @@ export function PurchaseControlManager({ tenantId }: { tenantId: string }) {
       }
       if (!purchaseResponse.ok) throw new Error(purchaseData.error || 'No se pudieron cargar las compras')
       if (!inventoryResponse.ok) throw new Error(inventoryData.error || 'No se pudo cargar inventario')
+      if (purchaseData.period?.month) {
+        setReportMonth(purchaseData.period.month)
+        onPeriodLoaded(purchaseData.period.month)
+      }
 
       setInvoices(Array.isArray(purchaseData.invoices) ? purchaseData.invoices : [])
       setSalesSummary({
@@ -725,7 +752,7 @@ export function PurchaseControlManager({ tenantId }: { tenantId: string }) {
 
   const draftTotal = lines.reduce((sum, line) => sum + parseAmount(line.lineTotal), 0)
   const paymentDraftTotal = parseAmount(paymentAmount)
-  const monthInvoices = invoices.filter((invoice) => invoice.invoice_date?.slice(0, 7) === new Date().toISOString().slice(0, 7))
+  const monthInvoices = invoices.filter((invoice) => invoice.invoice_date?.slice(0, 7) === reportMonth)
   const monthTotal = monthInvoices
     .reduce((sum, invoice) => sum + parseAmount(invoice.total), 0)
   const paidBillsTotal = billPaymentsSummary.paidThisMonth
