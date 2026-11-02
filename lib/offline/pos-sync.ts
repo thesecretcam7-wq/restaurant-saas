@@ -177,7 +177,7 @@ async function runOfflinePOSOrderSync(tenantId: string, csrfToken?: string): Pro
             qty: item.qty ?? item.quantity,
             notes: item.notes || null,
           })),
-          paymentMethod: offlineOrder.paymentMethod === 'stripe' ? 'cash' : offlineOrder.paymentMethod,
+          paymentMethod: offlineOrder.paymentMethod,
           deliveryType: offlineOrder.deliveryType || 'takeaway',
           deliveryFee: offlineOrder.deliveryFee ?? null,
           deliveryZoneId: offlineOrder.deliveryZoneId || null,

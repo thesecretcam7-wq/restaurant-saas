@@ -4405,9 +4405,6 @@ export function POSTerminal({
             throw new Error('Para registrar una venta en turno anterior necesitas internet.');
           }
 
-          if (paymentMethod === 'stripe') {
-            throw new Error('Stripe necesita internet. Para cobrar sin internet usa efectivo o datafono externo y marca la venta en caja.');
-          }
           if (paymentMethod === 'mixed') {
             throw new Error('El pago mixto necesita internet para quedar dividido correctamente en el cierre.');
           }
@@ -4439,7 +4436,7 @@ export function POSTerminal({
 
         const canUseLocalFirstCheckout =
           !registerInPreviousPeriod &&
-          paymentMethod === 'cash' &&
+          (paymentMethod === 'cash' || paymentMethod === 'stripe') &&
           !selectedTableId &&
           billingOrderIds.length === 0 &&
           !loadedOrderId;
