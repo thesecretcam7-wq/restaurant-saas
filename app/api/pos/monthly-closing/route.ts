@@ -15,12 +15,15 @@ const COUNTRY_TIMEZONE: Record<string, string> = {
 const MONTHLY_ORDERS_PAGE_SIZE = 1000;
 
 type MonthlyBillPayment = {
+  id?: string;
   supplier_name?: string | null;
   concept?: string | null;
   invoice_number?: string | null;
   amount: number;
   paid_at?: string | null;
   payment_method?: string | null;
+  notes?: string | null;
+  staff_name?: string | null;
 };
 
 function getZonedParts(date: Date, timeZone: string) {
@@ -120,31 +123,42 @@ async function fetchMonthlyBillPayments(
   tenantId: string,
   bounds: { start: string; end: string }
 ) {
-  const { data, error } = await supabase
-    .from('cash_bill_payments')
-    .select('supplier_name, concept, invoice_number, amount, paid_at, payment_method')
-    .eq('tenant_id', tenantId)
-    .eq('status', 'active')
-    .gte('paid_at', bounds.start)
-    .lt('paid_at', bounds.end)
-    .order('paid_at', { ascending: true })
-    .limit(2000);
+  const data: MonthlyBillPayment[] = [];
+  const signal = AbortSignal.timeout(20_000);
+  for (let from = 0; ; from += MONTHLY_ORDERS_PAGE_SIZE) {
+    const result = await supabase
+      .from('cash_bill_payments')
+      .select('id, supplier_name, concept, invoice_number, amount, paid_at, payment_method, notes, staff_name')
+      .eq('tenant_id', tenantId)
+      .eq('status', 'active')
+      .gte('paid_at', bounds.start)
+      .lt('paid_at', bounds.end)
+      .order('paid_at', { ascending: true })
+      .order('id')
+      .range(from, from + MONTHLY_ORDERS_PAGE_SIZE - 1)
+      .retry(false)
+      .abortSignal(signal);
 
-  if (error) {
-    const text = `${error.message || ''} ${error.details || ''} ${error.hint || ''}`;
-    if (text.includes('cash_bill_payments') || error.code === '42P01' || error.code === 'PGRST205') {
-      return { data: [] as MonthlyBillPayment[], error: null };
+    if (result.error) {
+      if (result.error.code === '42P01' || result.error.code === 'PGRST205') {
+        return { data: [] as MonthlyBillPayment[], error: null };
+      }
+      return { data: null, error: result.error };
     }
-    return { data: null, error };
+    data.push(...(result.data || []).map(payment => ({ ...payment, amount: Number(payment.amount) || 0 })));
+    if (!result.data || result.data.length < MONTHLY_ORDERS_PAGE_SIZE) break;
   }
 
   const payments = (data || []).map((payment) => ({
+    id: payment.id,
     supplier_name: payment.supplier_name,
     concept: payment.concept,
     invoice_number: payment.invoice_number,
     amount: Number(payment.amount) || 0,
     paid_at: payment.paid_at,
     payment_method: payment.payment_method,
+    notes: payment.notes,
+    staff_name: payment.staff_name,
   }));
 
   return { data: payments, error: null };
@@ -484,6 +498,7 @@ async function getMonthlyStats(tenantId: string, monthParam: string | null) {
     supabase,
     settings,
     locale,
+    timeZone,
     stats: applyMonthlyBillPaymentStats(stats, billPayments || []),
   };
 }
@@ -519,6 +534,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({
       stats: result.stats,
+      timeZone: result.timeZone,
       restaurant: {
         displayName: result.settings?.display_name || 'Restaurante',
         phone: result.settings?.phone || null,

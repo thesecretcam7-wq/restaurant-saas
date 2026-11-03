@@ -1,12 +1,15 @@
 'use client'
 
 import { useParams } from 'next/navigation'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useTenantResolver } from '@/lib/hooks/useTenantResolver'
-import { AlertCircle, CalendarDays, Check, Eye, PencilLine, Printer, RefreshCw, WalletCards } from 'lucide-react'
+import { AlertCircle, Check, Eye, PencilLine, Printer, RefreshCw, WalletCards } from 'lucide-react'
 import { formatPriceWithCurrency, getCurrencyByCountry } from '@/lib/currency'
 import { printCashClosingReceipt, printMonthlyClosingReceipt } from '@/lib/pos-printer'
+import { fetchMonthCashClosings } from '@/lib/cash-closing-history'
+import { getRestaurantTimeZone } from '@/lib/restaurant-time'
+import { PaidInvoicesByDay } from '@/components/admin/PaidInvoicesByDay'
 
 interface CashClosing {
   id: string
@@ -74,12 +77,15 @@ interface MonthlyDailySale {
 }
 
 interface MonthlyBillPayment {
+  id?: string
   supplier_name?: string | null
   concept?: string | null
   invoice_number?: string | null
   amount: number
   paid_at?: string | null
   payment_method?: string | null
+  notes?: string | null
+  staff_name?: string | null
 }
 
 interface MonthlyPeakHour {
@@ -226,6 +232,8 @@ export default function CashClosingsPage() {
   const [selectedClosing, setSelectedClosing] = useState<CashClosing | null>(null)
   const [monthInput, setMonthInput] = useState(getCurrentMonthInput)
   const [monthlyStats, setMonthlyStats] = useState<MonthlyStats | null>(null)
+  const [monthlyTimeZone, setMonthlyTimeZone] = useState('')
+  const monthlyRequestRef = useRef<AbortController | null>(null)
   const [monthlyClosings, setMonthlyClosings] = useState<MonthlyClosing[]>([])
   const [monthlyRestaurant, setMonthlyRestaurant] = useState<{
     displayName: string
@@ -365,19 +373,22 @@ export default function CashClosingsPage() {
   }
 
   useEffect(() => {
-    if (!tenantId) return
+    const matchesMonth = monthlyStats && `${monthlyStats.periodYear}-${String(monthlyStats.periodMonth).padStart(2, '0')}` === monthInput
+    if (!tenantId || !matchesMonth || !monthlyStats) {
+      setClosings([])
+      setLoading(false)
+      return
+    }
+    let cancelled = false
+    const controller = new AbortController()
+    const timeout = window.setTimeout(() => controller.abort(), 20_000)
+    setLoading(true)
+    setClosings([])
     async function loadData() {
       try {
         const supabase = createClient()
-        const { data, error } = await supabase
-          .from('cash_closings')
-          .select('*')
-          .eq('tenant_id', tenantId)
-          .order('closed_at', { ascending: false })
-          .limit(50)
-
-        if (!error && data) {
-          const closingRows = data as CashClosing[]
+        const closingRows = await fetchMonthCashClosings<CashClosing>(supabase, tenantId!, monthlyStats!.periodStart, monthlyStats!.periodEnd, controller.signal)
+        if (closingRows) {
           const [deliverySummaries, billPaymentSummaries] = await Promise.all([
             getDeliverySummariesForClosings(closingRows, supabase),
             getBillPaymentSummariesForClosings(closingRows, supabase),
@@ -399,6 +410,7 @@ export default function CashClosingsPage() {
             staffById = new Map(((staffRows || []) as { id: string; name: string }[]).map(staff => [staff.id, staff.name]))
           }
 
+          if (cancelled || controller.signal.aborted) return
           setClosings(closingRows.map(closing => ({
             ...closing,
             staff_name: closing.staff_name || (closing.staff_id ? staffById.get(closing.staff_id) : '') || 'Sin asignar',
@@ -408,28 +420,28 @@ export default function CashClosingsPage() {
             bill_payments_count: billPaymentSummaries.get(closing.id)?.billPaymentsCount || 0,
           })))
         }
+      } catch (error) {
+        if (!cancelled) setMessage({ type: 'error', text: `No se pudo cargar el historial de cierres: ${error instanceof Error ? error.message : 'Intenta de nuevo.'}` })
       } finally {
-        setLoading(false)
+        window.clearTimeout(timeout)
+        if (!cancelled) setLoading(false)
       }
     }
-    loadData()
-  }, [tenantId])
+    void loadData()
+    return () => { cancelled = true; controller.abort(); window.clearTimeout(timeout) }
+  }, [tenantId, monthInput, monthlyStats?.periodStart, monthlyStats?.periodEnd])
 
   useEffect(() => {
     if (!tenantId) return
-    loadMonthlyData()
+    void loadMonthlyData()
+    return () => {
+      const request = monthlyRequestRef.current
+      monthlyRequestRef.current = null
+      request?.abort()
+    }
   }, [tenantId, monthInput])
 
-  if (loading) return <div className="admin-empty">Cargando cierres de caja...</div>
-
   const currencyInfo = getCurrencyByCountry(country)
-  const totalSales = closings.reduce((sum, closing) => sum + closing.total_sales, 0)
-  const totalCashSales = closings.reduce((sum, closing) => sum + (Number(closing.cash_sales) || 0), 0)
-  const totalCardSales = closings.reduce((sum, closing) => sum + (Number(closing.card_sales) || 0), 0)
-  const totalBillPayments = closings.reduce((sum, closing) => sum + (Number(closing.bill_payments_total) || 0), 0)
-  const totalBillPaymentCount = closings.reduce((sum, closing) => sum + (Number(closing.bill_payments_count) || 0), 0)
-  const totalDeliveryFees = closings.reduce((sum, closing) => sum + (Number(closing.total_delivery_fees) || 0), 0)
-  const totalDeliveryOrderCount = closings.reduce((sum, closing) => sum + (Number(closing.delivery_order_count) || 0), 0)
   const balancedCount = closings.filter(closing => closing.is_balanced).length
   const avgDifference = closings.length ? closings.reduce((sum, closing) => sum + Math.abs(closing.difference), 0) / closings.length : 0
 
@@ -550,22 +562,35 @@ export default function CashClosingsPage() {
 
   async function loadMonthlyData() {
     if (!tenantId) return
+    monthlyRequestRef.current?.abort()
+    const controller = new AbortController()
+    monthlyRequestRef.current = controller
+    const timeout = window.setTimeout(() => controller.abort(), 20_000)
     setMonthlyLoading(true)
+    setMonthlyStats(null)
+    setClosings([])
     try {
-      const response = await fetch(`/api/pos/monthly-closing?tenantId=${encodeURIComponent(tenantId)}&month=${encodeURIComponent(monthInput)}`)
+      const response = await fetch(`/api/pos/monthly-closing?tenantId=${encodeURIComponent(tenantId)}&month=${encodeURIComponent(monthInput)}`, { signal: controller.signal, cache: 'no-store' })
       const payload = await response.json()
+      if (controller.signal.aborted || monthlyRequestRef.current !== controller) return
       if (!response.ok) throw new Error(payload?.error || 'No se pudo calcular el cierre mensual.')
       setMonthlyStats(payload.stats || null)
+      setMonthlyTimeZone(payload.timeZone || getRestaurantTimeZone({ tenantCountry: country }))
       setMonthlyClosings(payload.closings || [])
       setMonthlyRestaurant(payload.restaurant || null)
       setMonthlyNeedsMigration(Boolean(payload.needsMigration))
     } catch (error) {
+      if (monthlyRequestRef.current !== controller) return
       setMessage({
         type: 'error',
         text: `No se pudo cargar el cierre mensual: ${error instanceof Error ? error.message : String(error)}`,
       })
     } finally {
-      setMonthlyLoading(false)
+      window.clearTimeout(timeout)
+      if (monthlyRequestRef.current === controller) {
+        monthlyRequestRef.current = null
+        setMonthlyLoading(false)
+      }
     }
   }
 
@@ -934,25 +959,54 @@ export default function CashClosingsPage() {
         </span>
       </div>
 
-      {closings.length > 0 && (
-        <div className="mb-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-6">
+      <section className="admin-panel mb-5 space-y-3 p-4 sm:p-5" aria-label="Mes del resumen y las facturas">
+        <div className="flex min-w-0 flex-wrap items-end gap-3">
+          <label className="min-w-0 text-sm font-black">
+            <span className="mb-2 block">Mes del resumen y las facturas</span>
+            <input type="month" value={monthInput} onChange={event => {
+              const next = event.target.value
+              if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(next)) return
+              monthlyRequestRef.current?.abort()
+              monthlyRequestRef.current = null
+              setMonthlyStats(null)
+              setClosings([])
+              setMonthInput(next)
+            }} className="admin-input min-w-0 max-w-full" />
+          </label>
+          <button type="button" onClick={() => void loadMonthlyData()} disabled={monthlyLoading} className="admin-button-secondary inline-flex items-center justify-center gap-2 disabled:opacity-50">
+            <RefreshCw className={`size-4 ${monthlyLoading ? 'animate-spin' : ''}`} />Recalcular
+          </button>
+          <a href="#facturas-del-mes" className="admin-button-secondary">Ver facturas pagadas por día</a>
+        </div>
+        <p className="text-sm font-semibold text-black/55">Las ventas y las facturas corresponden al mes elegido. El historial muestra los cierres realizados en ese mes.</p>
+      </section>
+
+      {monthlyLoading && <p className="admin-empty mb-5" role="status">Calculando el mes seleccionado...</p>}
+      {monthlyStats && !monthlyLoading && (
+        <section className="mb-5" aria-label="Resumen del mes seleccionado">
+          <h2 className="mb-3 text-xl font-black">Resumen de {monthlyStats.monthLabel}</h2>
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
           {[
-            ['Total de cierres', closings.length.toString()],
-            ['Balanceados', balancedCount.toString()],
-            ['Ventas registradas', formatPriceWithCurrency(totalSales, currencyInfo.code, currencyInfo.locale)],
-            ['Efectivo vendido', formatPriceWithCurrency(totalCashSales, currencyInfo.code, currencyInfo.locale)],
-            ['Tarjeta', formatPriceWithCurrency(totalCardSales, currencyInfo.code, currencyInfo.locale)],
-            ['Facturas caja', `${formatPriceWithCurrency(totalBillPayments, currencyInfo.code, currencyInfo.locale)} (${totalBillPaymentCount})`],
-            ['Domicilios', `${formatPriceWithCurrency(totalDeliveryFees, currencyInfo.code, currencyInfo.locale)} (${totalDeliveryOrderCount})`],
-            ['Diferencia promedio', formatPriceWithCurrency(avgDifference, currencyInfo.code, currencyInfo.locale)],
+            ['Cierres del mes', loading ? 'Cargando...' : closings.length.toString()],
+            ['Balanceados', loading ? 'Cargando...' : balancedCount.toString()],
+            ['Ventas del mes', formatPriceWithCurrency(monthlyStats.totalSales, currencyInfo.code, currencyInfo.locale)],
+            ['Efectivo vendido', formatPriceWithCurrency(monthlyStats.cashSales, currencyInfo.code, currencyInfo.locale)],
+            ['Tarjeta', formatPriceWithCurrency(monthlyStats.cardSales, currencyInfo.code, currencyInfo.locale)],
+            ['Facturas caja', formatPriceWithCurrency(monthlyStats.billPaymentsCashTotal, currencyInfo.code, currencyInfo.locale)],
+            ['Facturas por aparte', formatPriceWithCurrency(monthlyStats.billPaymentsExternalTotal, currencyInfo.code, currencyInfo.locale)],
+            ['Domicilios', `${formatPriceWithCurrency(monthlyStats.totalDeliveryFees, currencyInfo.code, currencyInfo.locale)} (${monthlyStats.deliveryOrderCount})`],
+            ['Diferencia promedio de cierres', loading ? 'Cargando...' : formatPriceWithCurrency(avgDifference, currencyInfo.code, currencyInfo.locale)],
           ].map(([label, value]) => (
             <article key={label} className="admin-card p-5">
               <p className="text-xs font-black uppercase text-black/42">{label}</p>
               <p className="mt-4 text-2xl font-black text-[#15130f]">{value}</p>
             </article>
           ))}
-        </div>
+          </div>
+        </section>
       )}
+
+      {monthlyStats && !monthlyLoading && <PaidInvoicesByDay key={`${tenantId}:${monthInput}`} payments={monthlyStats.billPayments} monthLabel={monthlyStats.monthLabel} timeZone={monthlyTimeZone || getRestaurantTimeZone({ tenantCountry: country })} currency={currencyInfo.code} locale={currencyInfo.locale} />}
 
       <section className="admin-panel mb-5 overflow-hidden">
         <div className="border-b border-black/8 p-5">
@@ -961,25 +1015,6 @@ export default function CashClosingsPage() {
               <p className="admin-eyebrow">Cierre de mes</p>
               <h2 className="text-2xl font-black text-[#15130f]">Cierre mensual</h2>
               <p className="mt-1 text-sm font-semibold text-black/55">Calcula las ventas pagadas del mes, guarda el cierre e imprime el ticket.</p>
-            </div>
-            <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-              <label className="flex items-center gap-2 rounded-xl border border-black/10 bg-white px-3 py-2 text-sm font-black text-[#15130f]">
-                <CalendarDays className="size-4 text-[#e43d30]" />
-                <input
-                  type="month"
-                  value={monthInput}
-                  onChange={(event) => setMonthInput(event.target.value)}
-                  className="bg-transparent outline-none"
-                />
-              </label>
-              <button
-                onClick={loadMonthlyData}
-                disabled={monthlyLoading}
-                className="admin-button-secondary inline-flex items-center justify-center gap-2 disabled:opacity-50"
-              >
-                <RefreshCw className={`size-4 ${monthlyLoading ? 'animate-spin' : ''}`} />
-                Recalcular
-              </button>
             </div>
           </div>
         </div>
@@ -1123,71 +1158,6 @@ export default function CashClosingsPage() {
             <div className="mt-4 rounded-xl border border-black/10 bg-white/70 p-4">
               <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
                 <div>
-                  <h3 className="font-black text-[#15130f]">Facturas pagadas</h3>
-                  <p className="mt-1 text-sm font-semibold text-black/55">
-                    Incluye las facturas descontadas de caja y las pagadas por aparte dentro del mes.
-                  </p>
-                </div>
-                <p className="text-sm font-black text-[#15130f]">
-                  Queda {formatPriceWithCurrency(monthlyStats.netSalesAfterBillPayments, currencyInfo.code, currencyInfo.locale)}
-                </p>
-              </div>
-
-              <div className="mt-4 grid gap-3 sm:grid-cols-4">
-                {[
-                  ['Caja', formatPriceWithCurrency(monthlyStats.billPaymentsCashTotal, currencyInfo.code, currencyInfo.locale)],
-                  ['Por aparte', formatPriceWithCurrency(monthlyStats.billPaymentsExternalTotal, currencyInfo.code, currencyInfo.locale)],
-                  ['Total facturas', formatPriceWithCurrency(monthlyStats.billPaymentsTotal, currencyInfo.code, currencyInfo.locale)],
-                  ['Queda efectivo', formatPriceWithCurrency(monthlyStats.netCashAfterBillPayments, currencyInfo.code, currencyInfo.locale)],
-                ].map(([label, value]) => (
-                  <div key={label} className="rounded-xl border border-black/8 bg-white/65 p-3">
-                    <p className="text-xs font-black uppercase text-black/42">{label}</p>
-                    <p className="mt-2 text-lg font-black text-[#15130f]">{value}</p>
-                  </div>
-                ))}
-              </div>
-
-              {monthlyStats.billPayments.length > 0 ? (
-                <div className="mt-4 max-h-64 overflow-y-auto rounded-xl border border-black/8">
-                  <table className="w-full text-sm">
-                    <thead className="sticky top-0 bg-white">
-                      <tr>
-                        <th className="px-4 py-3 text-left">Factura</th>
-                        <th className="px-4 py-3 text-left">Metodo</th>
-                        <th className="px-4 py-3 text-right">Importe</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-black/8">
-                      {monthlyStats.billPayments.map((payment, index) => {
-                        const methodLabel = String(payment.payment_method || 'cash').toLowerCase() === 'external'
-                          ? 'Por aparte'
-                          : 'Caja'
-                        return (
-                          <tr key={`${payment.paid_at || index}-${payment.supplier_name || payment.concept || index}`}>
-                            <td className="px-4 py-3">
-                              <p className="font-black text-[#15130f]">{payment.supplier_name || payment.concept || payment.invoice_number || 'Factura'}</p>
-                              {(payment.invoice_number || payment.concept) && (
-                                <p className="mt-1 text-xs font-bold text-black/45">{payment.invoice_number || payment.concept}</p>
-                              )}
-                            </td>
-                            <td className="px-4 py-3 font-bold text-black/58">{methodLabel}</td>
-                            <td className="px-4 py-3 text-right font-black text-[#15130f]">
-                              {formatPriceWithCurrency(Number(payment.amount) || 0, currencyInfo.code, currencyInfo.locale)}
-                            </td>
-                          </tr>
-                        )
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              ) : (
-                <div className="admin-empty mt-4">No hay facturas pagadas en este mes.</div>
-              )}
-            </div>
-
-            <div className="mt-4 rounded-xl border border-black/10 bg-white/70 p-4">
-              <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
-                <div>
                   <h3 className="font-black text-[#15130f]">Productos vendidos</h3>
                   <p className="mt-1 text-sm font-semibold text-black/55">
                     Cada producto vendido en el mes con unidades, pedidos donde aparecio y valor generado.
@@ -1284,12 +1254,14 @@ export default function CashClosingsPage() {
             {message.text}
           </div>
         )}
-        {closings.length === 0 ? (
-          <div className="admin-empty m-5">No hay cierres de caja aun</div>
+        {loading || monthlyLoading ? (
+          <div className="admin-empty m-5">Cargando cierres del mes...</div>
+        ) : closings.length === 0 ? (
+          <div className="admin-empty m-5">No hay cierres de caja en el mes seleccionado.</div>
         ) : (
           <div className="overflow-x-auto">
             <div className="border-b border-black/8 p-5">
-              <h2 className="text-xl font-black">Historial de cierres de caja</h2>
+              <h2 className="text-xl font-black">Cierres de caja de {monthlyStats?.monthLabel || monthInput}</h2>
               <p className="mt-1 text-sm font-semibold">Cada cierre resume las ventas del turno, las facturas pagadas y el efectivo contado.</p>
             </div>
             <table className="cash-closings-table w-full text-sm" aria-label="Historial de cierres de caja">
