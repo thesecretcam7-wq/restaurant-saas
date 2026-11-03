@@ -5494,13 +5494,14 @@ export function POSTerminal({
                 <button
                   type="button"
                   onClick={() => setQuickActionsOpen((value) => !value)}
-                  className={`pos-action-ghost ${quickActionsOpen ? 'border-cyan-300/45 bg-cyan-300/12 text-cyan-50' : ''}`}
-                  title="Acciones rapidas"
-                  aria-label="Acciones rapidas"
+                  className={`pos-action-ghost ${registerInPreviousPeriod ? 'border-amber-300/45 bg-amber-300/12 text-amber-50' : quickActionsOpen ? 'border-cyan-300/45 bg-cyan-300/12 text-cyan-50' : ''}`}
+                  title={registerInPreviousPeriod ? `Venta del día anterior activa: ${previousSaleDateLabel}` : 'Acciones rapidas'}
+                  aria-label={registerInPreviousPeriod ? `Acciones rapidas. Venta del día anterior activa: ${previousSaleDateLabel}` : 'Acciones rapidas'}
                   aria-expanded={quickActionsOpen}
                 >
                   <Plus className="w-5 h-5" />
-                  <span className="hidden xl:inline">Mas</span>
+                  <span className="hidden xl:inline">Más</span>
+                  {registerInPreviousPeriod && <span className="rounded-full bg-amber-300 px-1.5 py-0.5 text-[10px] font-black text-slate-950">Ayer</span>}
                 </button>
                 {quickActionsOpen && (
                   <div className="absolute left-0 top-[calc(100%+0.35rem)] z-[120] w-[min(280px,calc(100vw-1rem))] max-h-[65vh] overflow-y-auto rounded-xl border border-cyan-200/25 bg-slate-950/98 p-1.5 text-xs text-white shadow-2xl shadow-black/55 backdrop-blur-xl [scrollbar-width:thin]">
@@ -5515,6 +5516,28 @@ export function POSTerminal({
                     <button type="button" onClick={() => { setQuickActionsOpen(false); setShowNewProduct(true); }}
                       className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left font-black text-emerald-100 transition hover:bg-white/10">
                       <Plus className="h-4 w-4" />Nuevo producto
+                    </button>
+                    <button
+                      type="button"
+                      aria-pressed={registerInPreviousPeriod}
+                      aria-label={`Venta del día anterior ${previousSaleDateLabel}`}
+                      disabled={processingPayment || !canRegisterInPreviousPeriod || (!isOnline && !registerInPreviousPeriod)}
+                      onClick={() => {
+                        setSaleDateClock(Date.now());
+                        setSelectedPreviousSaleDate(getPreviousPOSSaleDate(restaurantTimeZone).dateKey);
+                        setRegisterInPreviousPeriod((current) => !current);
+                        setQuickActionsOpen(false);
+                      }}
+                      className={`my-1 flex min-h-11 w-full items-center gap-2 rounded-lg border px-2.5 py-2 text-left transition disabled:cursor-not-allowed disabled:opacity-50 ${registerInPreviousPeriod ? 'border-amber-300/45 bg-amber-300/12 text-amber-50' : 'border-white/10 text-cyan-50 hover:bg-white/10'}`}
+                    >
+                      <CalendarDays className="h-4 w-4 shrink-0" />
+                      <span className="min-w-0 flex-1">
+                        <span className="block font-black">Venta del día anterior</span>
+                        <span className="block text-[11px] font-semibold opacity-75">
+                          {!previousSaleDate ? 'No se pudo comprobar la zona horaria del restaurante' : !canRegisterInPreviousPeriod ? 'Solo ventas nuevas, sin mesa ni recibo cargado' : registerInPreviousPeriod ? `Activa: ${previousSaleDateLabel}. Toca para volver a hoy.` : !isOnline ? 'Necesita conexión para cambiar la fecha' : previousSaleDateLabel}
+                        </span>
+                      </span>
+                      {registerInPreviousPeriod && <Check className="h-4 w-4 shrink-0" />}
                     </button>
                     <button
                       type="button"
@@ -6614,41 +6637,6 @@ export function POSTerminal({
                   </div>
                 ) : (
                   <>
-                      <button
-                        type="button"
-                        aria-pressed={registerInPreviousPeriod}
-                        aria-label={`Venta del día anterior ${previousSaleDateLabel}`}
-                        disabled={processingPayment || !canRegisterInPreviousPeriod || (!isOnline && !registerInPreviousPeriod)}
-                        onClick={() => {
-                          setSaleDateClock(Date.now());
-                          setSelectedPreviousSaleDate(getPreviousPOSSaleDate(restaurantTimeZone).dateKey);
-                          setRegisterInPreviousPeriod((current) => !current);
-                        }}
-                        className={`mb-2 flex w-full cursor-pointer items-center justify-between gap-2 rounded-lg border px-3 py-2 text-left transition disabled:cursor-not-allowed disabled:opacity-50 ${
-                        registerInPreviousPeriod
-                          ? 'border-amber-300 bg-amber-300/18 text-amber-50'
-                          : 'border-white/10 bg-black/20 text-slate-200 hover:border-amber-300/45'
-                      }`}>
-                        <span className="flex min-w-0 items-center gap-2">
-                          <span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded border ${
-                            registerInPreviousPeriod
-                              ? 'border-amber-200 bg-amber-300 text-slate-950'
-                              : 'border-white/25 bg-white/5'
-                          }`}>
-                            {registerInPreviousPeriod && <Check className="h-3.5 w-3.5" />}
-                          </span>
-                          <CalendarDays className="h-4 w-4 shrink-0" />
-                          <span className="min-w-0">
-                            <span className="block text-xs font-black">Venta del día anterior · {previousSaleDateLabel}</span>
-                            <span className="block text-[11px] font-semibold opacity-75">
-                              {!previousSaleDate ? 'No se pudo comprobar la zona horaria del restaurante' : !canRegisterInPreviousPeriod ? 'Solo ventas nuevas, sin mesa ni recibo cargado' : registerInPreviousPeriod ? `Se guardará con fecha ${previousSaleDateLabel}` : !isOnline ? 'Necesita conexión para cambiar la fecha' : 'Disponible aunque ya hayas cerrado la caja'}
-                            </span>
-                          </span>
-                        </span>
-                        <span className="shrink-0 rounded-full border border-current/25 px-2 py-1 text-[10px] font-black uppercase">
-                          {registerInPreviousPeriod ? 'Activo' : 'Hoy'}
-                        </span>
-                      </button>
                     <POSPayment
                       key={paymentResetKey}
                       total={paymentBaseTotal}
