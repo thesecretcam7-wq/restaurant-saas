@@ -237,6 +237,10 @@ export function PurchaseControlManager({ tenantId }: { tenantId: string }) {
           <input type="month" value={selectedMonth || resolvedMonth} onChange={(event) => setSelectedMonth(event.target.value)} className="min-h-11 max-w-full rounded-lg border border-black/15 px-3 py-2" />
         </label>
         <button type="button" onClick={() => setSelectedMonth('')} className="admin-button-secondary">Mes actual</button>
+        <a href="#pagos-facturas" className="admin-button-secondary">
+          <ReceiptText className="size-4 shrink-0" />
+          Ver facturas pagadas por día
+        </a>
         <p className="w-full text-sm font-semibold">Selecciona un mes y abre un día en el control diario para ver las facturas pagadas.</p>
       </section>
       <PurchaseControlContent key={`${tenantId}:${selectedMonth}`} tenantId={tenantId} selectedMonth={selectedMonth} onPeriodLoaded={setResolvedMonth} />
@@ -271,6 +275,8 @@ function PurchaseControlContent({ tenantId, selectedMonth, onPeriodLoaded }: {
   })
   const [dailyFinance, setDailyFinance] = useState<DailyFinanceDay[]>([])
   const [expandedDay, setExpandedDay] = useState<string | null>(null)
+  const [paymentDay, setPaymentDay] = useState('')
+  const [paymentSearch, setPaymentSearch] = useState('')
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [savingPayment, setSavingPayment] = useState(false)
@@ -781,6 +787,25 @@ function PurchaseControlContent({ tenantId, selectedMonth, onPeriodLoaded }: {
     })
     return groups
   }, [billPaymentsSummary.payments])
+  const paymentDays = useMemo(
+    () => Array.from(billPaymentsByDate.keys()).sort((a, b) => b.localeCompare(a)),
+    [billPaymentsByDate]
+  )
+  const visiblePaymentGroups = useMemo(() => {
+    const normalize = (value: string) => value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLocaleLowerCase('es-ES')
+    const query = normalize(paymentSearch.trim())
+    return paymentDays
+      .filter((date) => !paymentDay || date === paymentDay)
+      .map((date) => {
+        const payments = (billPaymentsByDate.get(date) || []).filter((payment) => !query || normalize([
+          payment.supplier_name, payment.concept, payment.invoice_number, payment.notes, payment.staff_name,
+        ].filter(Boolean).join(' ')).includes(query))
+        return { date, payments, total: payments.reduce((sum, payment) => sum + payment.amount, 0) }
+      })
+      .filter((group) => group.payments.length > 0)
+  }, [billPaymentsByDate, paymentDays, paymentDay, paymentSearch])
+  const visiblePaymentCount = visiblePaymentGroups.reduce((sum, group) => sum + group.payments.length, 0)
+  const visiblePaymentTotal = visiblePaymentGroups.reduce((sum, group) => sum + group.total, 0)
   const invoicesByDate = useMemo(() => {
     const groups = new Map<string, PurchaseInvoice[]>()
     for (const invoice of invoices) {
@@ -927,7 +952,10 @@ function PurchaseControlContent({ tenantId, selectedMonth, onPeriodLoaded }: {
                             </p>
                           </div>
                         </div>
-                        {isExpanded ? <ChevronUp className="size-5 shrink-0 text-black/42" /> : <ChevronDown className="size-5 shrink-0 text-black/42" />}
+                        <span className="flex shrink-0 items-center gap-1 text-xs font-black">
+                          {isExpanded ? 'Ocultar detalle' : 'Ver facturas'}
+                          {isExpanded ? <ChevronUp className="size-5 shrink-0 text-black/42" /> : <ChevronDown className="size-5 shrink-0 text-black/42" />}
+                        </span>
                       </div>
                       <div className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2 text-sm sm:grid-cols-3 xl:grid-cols-6">
                         <div>
@@ -985,9 +1013,11 @@ function PurchaseControlContent({ tenantId, selectedMonth, onPeriodLoaded }: {
                               const detail = [payment.invoice_number, payment.concept].filter(Boolean).join(' - ')
                               return (
                                 <div key={payment.id} className="grid gap-2 py-3 sm:grid-cols-[1fr_auto_auto] sm:items-center sm:gap-4">
-                                  <div className="min-w-0">
+                                  <div className="min-w-0 break-words">
                                     <p className="font-black text-[#15130f]">{title}</p>
                                     {detail && <p className="mt-0.5 text-xs font-bold text-black/45">{detail}</p>}
+                                    {payment.notes && <p className="mt-1 whitespace-pre-wrap text-sm font-semibold text-black/52">{payment.notes}</p>}
+                                    {payment.staff_name && <p className="mt-1 text-xs font-bold text-black/42">Registrado por: {payment.staff_name}</p>}
                                   </div>
                                   <span className={`w-fit rounded-full border px-2.5 py-1 text-xs font-black ${isExternal ? 'border-sky-200 bg-sky-50 text-sky-700' : 'border-orange-200 bg-orange-50 text-orange-700'}`}>
                                     {isExternal ? 'Por aparte' : 'Caja'}
@@ -1010,14 +1040,14 @@ function PurchaseControlContent({ tenantId, selectedMonth, onPeriodLoaded }: {
         )}
       </section>
 
-      <section id="pagos-facturas" className="admin-panel scroll-mt-4 overflow-hidden">
+      <section id="pagos-facturas" className="admin-panel scroll-mt-28 overflow-hidden" aria-label="Facturas pagadas por día">
         <div className="border-b border-black/10 p-4">
           <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
             <div>
               <p className="admin-eyebrow">Pagos de facturas</p>
-              <h2 className="text-xl font-black text-[#15130f]">Caja y pagos por aparte</h2>
+              <h2 className="text-xl font-black text-[#15130f]">Facturas pagadas por día</h2>
               <p className="mt-1 text-sm font-semibold text-black/52">
-                Los pagos desde caja salen del TPV. Los pagos por aparte se registran aqui y no afectan el corte de caja.
+                Todas las facturas del mes seleccionado, de caja y por aparte. Aquí puedes ver a quién se pagó, el concepto y el importe de cada pago.
               </p>
             </div>
             {showPaymentForm && <button
@@ -1132,56 +1162,83 @@ function PurchaseControlContent({ tenantId, selectedMonth, onPeriodLoaded }: {
             <p className="mt-1 text-sm">Los pagos desde caja apareceran aqui automaticamente.</p>
           </div>
         ) : (
-          <div className="divide-y divide-black/8">
-            {billPaymentsSummary.payments.slice(0, 10).map((payment) => {
-              const paidAt = payment.paid_at ? new Date(payment.paid_at) : null
-              const validPaidAt = paidAt && !Number.isNaN(paidAt.getTime())
-              const isExternal = payment.payment_method === 'external'
-              const title = payment.supplier_name || payment.concept || 'Factura pagada'
-              const detail = [payment.invoice_number, payment.concept].filter(Boolean).join(' - ')
-
-              return (
-                <div key={payment.id} className="grid gap-3 p-4 md:grid-cols-[1fr_auto_auto] md:items-center">
-                  <div className="min-w-0">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <ReceiptText className="size-4 text-black/40" />
-                      <p className="font-black text-[#15130f]">{title}</p>
-                      <span className={`rounded-full border px-2.5 py-1 text-xs font-black ${
-                        isExternal
-                          ? 'border-sky-200 bg-sky-50 text-sky-700'
-                          : 'border-orange-200 bg-orange-50 text-orange-700'
-                      }`}>
-                        {isExternal ? 'Por aparte' : 'Caja'}
-                      </span>
-                    </div>
-                    {detail && <p className="mt-1 text-sm font-semibold text-black/52">{detail}</p>}
-                    <p className="mt-1 text-xs font-bold text-black/42">
-                      {validPaidAt ? paidAt.toLocaleDateString('es-ES') : 'Sin fecha'}
-                      {payment.staff_name ? ` - ${payment.staff_name}` : ''}
-                    </p>
-                    {payment.notes && (
-                      <p className="mt-2 rounded-lg bg-black/[0.025] px-3 py-2 text-xs font-semibold text-black/52">
-                        {payment.notes}
-                      </p>
-                    )}
-                  </div>
-                  <p className="text-xl font-black text-red-700">-{money(payment.amount)}</p>
-                  {isExternal ? (
-                    <button
-                      type="button"
-                      onClick={() => void voidExternalPayment(payment)}
-                      className="inline-flex h-10 items-center justify-center rounded-lg border border-red-200 bg-red-50 px-3 text-red-700 transition hover:bg-red-100"
-                      aria-label="Anular pago por aparte"
-                      title="Anular pago por aparte"
-                    >
-                      <Trash2 className="size-4" />
-                    </button>
-                  ) : (
-                    <span className="text-xs font-bold text-black/35 md:text-right">Registrado en TPV</span>
-                  )}
+          <div>
+            <div className="space-y-3 border-b border-black/10 p-4">
+              <div className="grid min-w-0 gap-3 sm:grid-cols-2">
+                <div className="min-w-0 text-sm font-bold">
+                  <label htmlFor="paid-bill-day" className="mb-2 block">Día de pago</label>
+                  <select id="paid-bill-day" value={paymentDay} onChange={(event) => setPaymentDay(event.target.value)} className="admin-input w-full min-w-0">
+                    <option value="">Todos los días del mes</option>
+                    {paymentDays.map((date) => <option key={date} value={date}>{formatDate(date)} · {billPaymentsByDate.get(date)?.length} factura(s)</option>)}
+                  </select>
                 </div>
-              )
-            })}
+                <label className="min-w-0 text-sm font-bold">
+                  <span className="mb-2 block">Buscar factura pagada</span>
+                  <input type="search" value={paymentSearch} onChange={(event) => setPaymentSearch(event.target.value)} className="admin-input w-full min-w-0" placeholder="Proveedor, concepto, número o notas" />
+                </label>
+              </div>
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <p className="text-sm font-bold" aria-live="polite">{visiblePaymentCount} factura{visiblePaymentCount === 1 ? '' : 's'} · Total mostrado: {money(visiblePaymentTotal)}</p>
+                {(paymentDay || paymentSearch) && <button type="button" className="admin-button-secondary" onClick={() => { setPaymentDay(''); setPaymentSearch('') }}>Ver todo el mes</button>}
+              </div>
+            </div>
+            {visiblePaymentGroups.length === 0 && <p className="admin-empty m-5">No hay facturas con estos filtros.</p>}
+            {visiblePaymentGroups.map((group) => (
+              <div key={group.date} className="border-b border-black/10 last:border-b-0" role="group" aria-label={`Facturas del ${formatDate(group.date)}`}>
+                <div className="flex flex-wrap items-center justify-between gap-2 bg-black/[0.025] px-4 py-3">
+                  <h3 className="flex items-center gap-2 font-black"><CalendarDays className="size-4 shrink-0" />{formatDate(group.date)}</h3>
+                  <p className="text-sm font-bold">{group.payments.length} factura{group.payments.length === 1 ? '' : 's'} · {money(group.total)}</p>
+                </div>
+                <div className="divide-y divide-black/8">
+                  {group.payments.map((payment) => {
+                    const isExternal = payment.payment_method === 'external'
+                    const title = payment.supplier_name || payment.concept || 'Factura pagada'
+                    const detail = [payment.invoice_number, payment.concept].filter(Boolean).join(' - ')
+
+                    return (
+                      <div key={payment.id} className="grid min-w-0 gap-3 p-4 md:grid-cols-[minmax(0,1fr)_auto_auto] md:items-center">
+                        <div className="min-w-0 break-words">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <ReceiptText className="size-4 text-black/40" />
+                            <p className="min-w-0 break-words font-black text-[#15130f]">{title}</p>
+                            <span className={`rounded-full border px-2.5 py-1 text-xs font-black ${
+                              isExternal
+                                ? 'border-sky-200 bg-sky-50 text-sky-700'
+                                : 'border-orange-200 bg-orange-50 text-orange-700'
+                            }`}>
+                              {isExternal ? 'Por aparte' : 'Caja'}
+                            </span>
+                          </div>
+                          {detail && <p className="mt-1 text-sm font-semibold text-black/52">{detail}</p>}
+                          <p className="mt-1 text-xs font-bold text-black/42">
+                            {payment.staff_name ? `Registrado por: ${payment.staff_name}` : 'Sin empleado asignado'}
+                          </p>
+                          {payment.notes && (
+                            <p className="mt-2 whitespace-pre-wrap rounded-lg bg-black/[0.025] px-3 py-2 text-sm font-semibold text-black/52">
+                              {payment.notes}
+                            </p>
+                          )}
+                        </div>
+                        <p className="text-xl font-black text-red-700">-{money(payment.amount)}</p>
+                        {isExternal ? (
+                          <button
+                            type="button"
+                            onClick={() => void voidExternalPayment(payment)}
+                            className="inline-flex h-10 items-center justify-center rounded-lg border border-red-200 bg-red-50 px-3 text-red-700 transition hover:bg-red-100"
+                            aria-label="Anular pago por aparte"
+                            title="Anular pago por aparte"
+                          >
+                            <Trash2 className="size-4" />
+                          </button>
+                        ) : (
+                          <span className="text-xs font-bold text-black/35 md:text-right">Registrado en TPV</span>
+                        )}
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            ))}
           </div>
         )}
       </section>
