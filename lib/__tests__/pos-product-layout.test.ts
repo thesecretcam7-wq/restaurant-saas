@@ -20,6 +20,12 @@ describe('adaptive POS product layout', () => {
     expect(getPOSProductLayout(980, 350).columns).toBe(6)
   })
 
+  it.each([140, 190, 260])('fits full rows with %i px needed for long names and prices', contentHeight => {
+    const layout = getPOSProductLayout(980, 525, true, contentHeight)
+    expect(layout.rowHeight).toBeGreaterThanOrEqual(contentHeight)
+    expect(layout.rows * layout.rowHeight + (layout.rows - 1) * layout.gap).toBeCloseTo(525)
+  })
+
   it('keeps a usable card size when the viewport is temporarily hidden or too short', () => {
     expect(getPOSProductLayout(0, 0)).toMatchObject({ columns: 1, rows: 1, rowHeight: 112 })
     expect(getPOSProductLayout(400, 60).rowHeight).toBe(112)

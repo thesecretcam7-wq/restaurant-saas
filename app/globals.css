@@ -2508,10 +2508,9 @@ body:has(.admin-app-shell) {
 }
 
 .pos-product-grid .pos-product-card-label {
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
-  overflow: hidden;
+  display: block;
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 
 /* Final finance assistant contrast pass. This block intentionally lives at EOF:
