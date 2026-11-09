@@ -24,8 +24,8 @@ export default async function AdminTVMenuPage({ params }: Props) {
       <div className="admin-page-header">
         <div>
           <p className="admin-eyebrow">Pantalla TV</p>
-          <h1 className="admin-title">Menu diario para televisor</h1>
-          <p className="admin-subtitle">Carga productos manuales con fotos y muestra una pantalla estilo cadena de comida.</p>
+          <h1 className="admin-title">Publicidad para el televisor</h1>
+          <p className="admin-subtitle">Una imagen completa cada vez, con la hora grande encima. Si hay varias, cambian automáticamente cada 12 segundos.</p>
         </div>
         <span className="hidden size-12 items-center justify-center rounded-xl bg-[#15130f] text-white sm:flex">
           <Monitor className="size-5" />

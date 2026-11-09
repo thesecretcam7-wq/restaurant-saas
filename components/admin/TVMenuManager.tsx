@@ -16,15 +16,6 @@ interface TVMenuItem {
   sort_order: number
 }
 
-const categories = ['Menu del dia', 'Combos', 'Platos', 'Bebidas', 'Postres', 'Ofertas']
-
-function money(value: unknown) {
-  const parsed = Number(String(value || 0).replace(',', '.'))
-  return Number.isFinite(parsed)
-    ? parsed.toLocaleString('es-ES', { style: 'currency', currency: 'EUR' })
-    : '0,00 €'
-}
-
 function emptyForm() {
   return {
     id: '',
@@ -96,6 +87,10 @@ export function TVMenuManager({ tenantId, tenantSlug }: { tenantId: string; tena
 
   async function saveItem(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
+    if (!form.imageUrl) {
+      setError('Sube una imagen para mostrar en el televisor')
+      return
+    }
     setSaving(true)
     setError('')
     try {
@@ -118,7 +113,7 @@ export function TVMenuManager({ tenantId, tenantSlug }: { tenantId: string; tena
   }
 
   async function deleteItem(id: string) {
-    if (!confirm('Borrar este producto del menu TV?')) return
+    if (!confirm('¿Borrar esta imagen del televisor?')) return
     setError('')
     try {
       const response = await fetch(`/api/tv-menu?tenantId=${tenantId}&id=${id}`, {
@@ -149,7 +144,7 @@ export function TVMenuManager({ tenantId, tenantSlug }: { tenantId: string; tena
     setShowForm(true)
   }
 
-  const activeCount = useMemo(() => items.filter((item) => item.active).length, [items])
+  const activeCount = useMemo(() => items.filter((item) => item.active && item.image_url?.trim()).length, [items])
 
   if (loading) return <div className="admin-empty">Cargando menu TV...</div>
 
@@ -159,7 +154,7 @@ export function TVMenuManager({ tenantId, tenantSlug }: { tenantId: string; tena
 
       <div className="grid gap-3 md:grid-cols-[1fr_1fr_auto]">
         <div className="admin-card rounded-lg border p-5">
-          <p className="text-xs font-black uppercase text-black/45">Productos TV</p>
+          <p className="text-xs font-black uppercase text-black/45">Imágenes TV</p>
           <p className="mt-2 text-2xl font-black text-[#15130f]">{items.length}</p>
         </div>
         <div className="admin-card rounded-lg border p-5">
@@ -167,13 +162,13 @@ export function TVMenuManager({ tenantId, tenantSlug }: { tenantId: string; tena
           <p className="mt-2 text-2xl font-black text-[#15130f]">{activeCount}</p>
         </div>
         <div className="grid gap-2">
-          <a href={`/${tenantSlug}/menu-tv`} target="_blank" className="admin-button-ghost min-h-12 justify-center">
+          <a href={`/${tenantSlug}/menu-tv`} target="_blank" rel="noopener noreferrer" className="admin-button-ghost min-h-12 justify-center">
             <Eye className="size-5" />
             Ver en TV
           </a>
           <button type="button" onClick={() => { setForm(emptyForm()); setShowForm(true) }} className="admin-button-primary min-h-12 justify-center">
             <Plus className="size-5" />
-            Nuevo producto
+            Nueva imagen
           </button>
         </div>
       </div>
@@ -182,37 +177,34 @@ export function TVMenuManager({ tenantId, tenantSlug }: { tenantId: string; tena
         {items.length === 0 ? (
           <div className="admin-empty m-5">
             <Monitor className="mb-3 size-9 text-black/30" />
-            <p className="font-black">Todavia no hay productos para el televisor</p>
-            <p className="mt-1 text-sm">Agrega fotos, precios y platos del menu diario.</p>
+            <p className="font-black">Todavía no hay imágenes para el televisor</p>
+            <p className="mt-1 text-sm">Sube tus carteles de publicidad. Se verán completos, sin divisiones.</p>
           </div>
         ) : (
           <div className="grid gap-4 p-4 md:grid-cols-2 xl:grid-cols-3">
             {items.map((item) => (
               <article key={item.id} className="overflow-hidden rounded-xl border border-black/10 bg-white shadow-sm">
-                <div className="relative aspect-[16/10] bg-[#111827]">
+                <div className="relative aspect-video bg-black">
                   {item.image_url ? (
-                    <img src={item.image_url} alt="" className="h-full w-full object-cover" />
+                    <img src={item.image_url} alt={item.name} className="h-full w-full object-contain" />
                   ) : (
                     <div className="flex h-full items-center justify-center text-5xl font-black text-white/24">TV</div>
                   )}
-                  <div className="absolute left-3 top-3 rounded-full bg-black/70 px-3 py-1 text-xs font-black text-white">{item.category}</div>
-                  <div className="absolute right-3 top-3 rounded-full bg-[#f5c542] px-3 py-1 text-xs font-black text-black">{item.featured ? 'Derecha grande' : 'Izquierda'}</div>
                   {!item.active && <div className="absolute bottom-3 right-3 rounded-full bg-red-600 px-3 py-1 text-xs font-black text-white">Oculto</div>}
                 </div>
                 <div className="p-4">
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
                       <p className="truncate text-lg font-black text-[#15130f]">{item.name}</p>
-                      {item.description && <p className="mt-1 line-clamp-2 text-sm font-semibold text-black/55">{item.description}</p>}
+                      <p className="mt-1 text-sm font-semibold text-black/55">Orden: {item.sort_order}</p>
                     </div>
-                    <p className="shrink-0 text-xl font-black text-[#e43d30]">{money(item.price)}</p>
                   </div>
                   <div className="mt-4 flex gap-2">
                     <button type="button" onClick={() => editItem(item)} className="admin-button-ghost min-h-10 flex-1">
                       <Pencil className="size-4" />
                       Editar
                     </button>
-                    <button type="button" onClick={() => void deleteItem(item.id)} className="inline-flex min-h-10 items-center justify-center rounded-lg border border-red-200 bg-red-50 px-3 font-black text-red-700">
+                    <button type="button" onClick={() => void deleteItem(item.id)} aria-label={`Eliminar ${item.name}`} className="inline-flex min-h-10 items-center justify-center rounded-lg border border-red-200 bg-red-50 px-3 font-black text-red-700">
                       <Trash2 className="size-4" />
                     </button>
                   </div>
@@ -229,18 +221,18 @@ export function TVMenuManager({ tenantId, tenantSlug }: { tenantId: string; tena
             <div className="flex items-start justify-between border-b border-black/10 px-5 py-4">
               <div>
                 <p className="admin-eyebrow">Menu TV</p>
-                <h2 className="text-2xl font-black text-[#15130f]">{form.id ? 'Editar producto' : 'Nuevo producto'}</h2>
+                <h2 className="text-2xl font-black text-[#15130f]">{form.id ? 'Editar imagen' : 'Nueva imagen'}</h2>
               </div>
-              <button type="button" onClick={() => setShowForm(false)} className="rounded-lg p-2 text-black/45 hover:bg-black/5">
+              <button type="button" onClick={() => setShowForm(false)} aria-label="Cerrar formulario" className="rounded-lg p-2 text-black/45 hover:bg-black/5">
                 <X className="size-5" />
               </button>
             </div>
             <div className="grid gap-5 p-5 lg:grid-cols-[0.9fr_1.1fr]">
               <div>
                 <div className="overflow-hidden rounded-xl border border-black/10 bg-black/[0.03]">
-                  <div className="aspect-[16/11] bg-[#111827]">
+                  <div className="aspect-video bg-black">
                     {form.imageUrl ? (
-                      <img src={form.imageUrl} alt="" className="h-full w-full object-cover" />
+                      <img src={form.imageUrl} alt="Vista previa de la imagen" className="h-full w-full object-contain" />
                     ) : (
                       <div className="flex h-full items-center justify-center text-white/35">
                         <ImagePlus className="size-12" />
@@ -253,69 +245,17 @@ export function TVMenuManager({ tenantId, tenantSlug }: { tenantId: string; tena
                   </button>
                   <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={(event) => void uploadImage(event.target.files?.[0])} />
                 </div>
+                <p className="mt-3 text-sm text-black/55">Se muestra la imagen entera, sin recortar ni deformar. Para llenar un televisor horizontal, usa un cartel de 1920 × 1080 píxeles (16:9).</p>
               </div>
               <div className="space-y-4">
                 <div>
-                  <label className="mb-2 block text-xs font-black uppercase text-black/45">Nombre *</label>
-                  <input value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} required className="admin-input" placeholder="Ej. Menu pollo crispy" />
-                </div>
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <div>
-                    <label className="mb-2 block text-xs font-black uppercase text-black/45">Precio</label>
-                    <input value={form.price} onChange={(event) => setForm({ ...form, price: event.target.value })} className="admin-input" inputMode="decimal" placeholder="9,90" />
-                  </div>
-                  <div>
-                    <label className="mb-2 block text-xs font-black uppercase text-black/45">Orden</label>
-                    <input value={form.sortOrder} onChange={(event) => setForm({ ...form, sortOrder: event.target.value })} className="admin-input" inputMode="numeric" />
-                  </div>
-                </div>
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <div>
-                    <label className="mb-2 block text-xs font-black uppercase text-black/45">Categoria</label>
-                    <input
-                      value={form.category}
-                      onChange={(event) => setForm({ ...form, category: event.target.value })}
-                      className="admin-input"
-                      list="tv-menu-categories"
-                      placeholder="Menu del dia, Fin de semana..."
-                    />
-                    <datalist id="tv-menu-categories">
-                      {categories.map((category) => <option key={category} value={category} />)}
-                    </datalist>
-                  </div>
-                  <div>
-                    <label className="mb-2 block text-xs font-black uppercase text-black/45">Etiqueta</label>
-                    <input value={form.badge} onChange={(event) => setForm({ ...form, badge: event.target.value })} className="admin-input" placeholder="Nuevo, Oferta, Casero..." />
-                  </div>
+                  <label htmlFor="tv-image-name" className="mb-2 block text-xs font-black uppercase text-black/45">Título *</label>
+                  <input id="tv-image-name" value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} required className="admin-input" placeholder="Ej. Oferta de desayunos" />
+                  <p className="mt-2 text-xs text-black/55">El título sirve para identificar la imagen aquí; en el televisor solo se verá el cartel y la hora.</p>
                 </div>
                 <div>
-                  <label className="mb-2 block text-xs font-black uppercase text-black/45">Descripcion</label>
-                  <textarea value={form.description} onChange={(event) => setForm({ ...form, description: event.target.value })} className="admin-input min-h-24" placeholder="Incluye patatas y bebida..." />
-                </div>
-                <div>
-                  <label className="mb-2 block text-xs font-black uppercase text-black/45">Ubicacion en pantalla</label>
-                  <div className="grid gap-3 sm:grid-cols-2">
-                    <button
-                      type="button"
-                      onClick={() => setForm({ ...form, featured: false })}
-                      className={`rounded-lg border p-3 text-left text-sm font-black transition ${
-                        !form.featured ? 'border-[#e43d30] bg-[#fff4f1] text-[#15130f]' : 'border-black/10 bg-white text-black/55 hover:bg-black/[0.03]'
-                      }`}
-                    >
-                      Panel izquierdo
-                      <span className="mt-1 block text-xs font-bold text-black/45">Lista pequena con el nombre de categoria que escribas.</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setForm({ ...form, featured: true })}
-                      className={`rounded-lg border p-3 text-left text-sm font-black transition ${
-                        form.featured ? 'border-[#e43d30] bg-[#fff4f1] text-[#15130f]' : 'border-black/10 bg-white text-black/55 hover:bg-black/[0.03]'
-                      }`}
-                    >
-                      Recuadro grande derecha
-                      <span className="mt-1 block text-xs font-bold text-black/45">Producto con foto grande en carrusel automatico.</span>
-                    </button>
-                  </div>
+                  <label htmlFor="tv-image-order" className="mb-2 block text-xs font-black uppercase text-black/45">Orden de las imágenes</label>
+                  <input id="tv-image-order" value={form.sortOrder} onChange={(event) => setForm({ ...form, sortOrder: event.target.value })} className="admin-input" inputMode="numeric" />
                 </div>
                 <div>
                   <label className="flex items-center gap-3 rounded-lg border border-black/10 p-3 text-sm font-black text-[#15130f]">
@@ -328,7 +268,7 @@ export function TVMenuManager({ tenantId, tenantSlug }: { tenantId: string; tena
             <div className="flex flex-col gap-3 border-t border-black/10 p-5 sm:flex-row sm:justify-end">
               <button type="button" onClick={() => setShowForm(false)} className="admin-button-ghost sm:w-auto">Cancelar</button>
               <button type="submit" disabled={saving || uploading} className="admin-button-primary sm:w-auto disabled:opacity-50">
-                {saving ? 'Guardando...' : 'Guardar producto'}
+                {saving ? 'Guardando...' : 'Guardar imagen'}
               </button>
             </div>
           </form>
