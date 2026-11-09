@@ -1,5 +1,7 @@
 'use client';
 
+import NavigationPending from '@/components/NavigationPending';
+
 import { useEffect, useState } from 'react';
 import { Grid3x3 } from 'lucide-react';
 
@@ -52,17 +54,7 @@ export function POSTableSelector({
     }
   };
 
-  if (loading) {
-    return (
-      <div className="bg-card rounded-lg p-2 border border-border">
-        <label className="flex items-center gap-1 text-xs font-medium text-muted-foreground mb-1">
-          <Grid3x3 className="w-3 h-3" />
-          {required ? 'Mesa *' : 'Mesa'}
-        </label>
-        <div className="text-gray-500 text-xs">Cargando mesas...</div>
-      </div>
-    );
-  }
+  if (loading) return <NavigationPending />;
 
   return (
     <div className="bg-card rounded-lg p-2 border border-border">

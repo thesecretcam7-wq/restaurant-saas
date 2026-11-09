@@ -1,5 +1,7 @@
 'use client';
 
+import NavigationPending from '@/components/NavigationPending';
+
 import { useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { Gift, Plus, Copy, Trash2, Calendar } from 'lucide-react';
@@ -140,9 +142,7 @@ export function PromotionsManager({ tenantId }: { tenantId: string }) {
     }
   };
 
-  if (loading) {
-    return <div className="p-8 text-center">Cargando promociones...</div>;
-  }
+  if (loading) return <NavigationPending />;
 
   return (
     <div className="p-8 bg-gray-50 min-h-screen">

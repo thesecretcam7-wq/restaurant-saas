@@ -1,182 +1,63 @@
-'use client';
+'use client'
 
-import { useEffect, useRef, useState } from 'react';
-import { usePathname } from 'next/navigation';
-import EccofoodPageLoader from '@/components/EccofoodPageLoader';
-
-const APP_SECTIONS = new Set([
-  'acceso',
-  'admin',
-  'staff',
-  'kitchen',
-  'cocina',
-  'pantalla',
-  'pos-display',
-  'menu-tv',
-  'kiosko',
-]);
-
-const ROOT_APP_ROUTES = new Set([
-  '',
-  'admin',
-  'login',
-  'register',
-  'planes',
-  'gestionar-cuentas',
-  'owner-dashboard',
-  'owner-login',
-  'soporte',
-  'unauthorized',
-]);
-
-function isTenantSubdomainHost() {
-  if (typeof window === 'undefined') return false;
-  const host = window.location.hostname;
-  if (host === 'localhost' || host === '127.0.0.1') return false;
-  if (host === 'eccofoodapp.com' || host === 'www.eccofoodapp.com') return false;
-  if (host === 'eccofood.vercel.app') return false;
-  return host.endsWith('.eccofoodapp.com') || host.endsWith('.vercel.app');
-}
-
-function isCustomDomainHost() {
-  if (typeof window === 'undefined') return false;
-  const host = window.location.hostname;
-  if (host === 'localhost' || host === '127.0.0.1') return false;
-  if (host === 'eccofoodapp.com' || host === 'www.eccofoodapp.com') return false;
-  if (host === 'eccofood.vercel.app') return false;
-  if (host.endsWith('.eccofoodapp.com') || host.endsWith('.vercel.app')) return false;
-  return host.includes('.');
-}
-
-function isStoreRoute(pathname: string) {
-  const parts = pathname.split('/').filter(Boolean);
-  if (parts[0] === 'api' || parts[0] === '_next') return false;
-
-  if (isTenantSubdomainHost() || isCustomDomainHost()) {
-    return !APP_SECTIONS.has(parts[0] || '');
-  }
-
-  const first = parts[0] || '';
-  if (ROOT_APP_ROUTES.has(first) || first.includes('.')) return false;
-  const section = parts[1] || '';
-  return !APP_SECTIONS.has(section);
-}
-
-function getLoadingLabel(pathname: string) {
-  if (pathname.includes('/acceso')) return 'Cargando acceso';
-  if (pathname.includes('/admin/pos') || pathname.includes('/staff/pos')) return 'Abriendo TPV';
-  if (pathname.includes('/kds') || pathname.includes('/cocina')) return 'Preparando cocina';
-  if (pathname.includes('/kitchen')) return 'Abriendo comandero';
-  if (pathname.includes('/kiosko')) return 'Preparando kiosko';
-  if (pathname.includes('/pantalla') || pathname.includes('/pos-display') || pathname.includes('/menu-tv')) return 'Activando pantalla';
-  if (pathname.includes('/admin')) return 'Abriendo panel';
-  return 'Cargando Eccofood';
-}
-
-function isInternalNavigation(anchor: HTMLAnchorElement) {
-  if (anchor.target && anchor.target !== '_self') return false;
-  if (anchor.hasAttribute('download')) return false;
-
-  const href = anchor.getAttribute('href');
-  if (!href || href.startsWith('#') || href.startsWith('mailto:') || href.startsWith('tel:')) return false;
-
-  try {
-    const url = new URL(anchor.href, window.location.href);
-    if (url.origin !== window.location.origin) return false;
-    const current = new URL(window.location.href);
-    return url.pathname !== current.pathname || url.search !== current.search;
-  } catch {
-    return false;
-  }
-}
+import { useEffect, useState } from 'react'
+import { usePathname, useSearchParams } from 'next/navigation'
+import { createPortal } from 'react-dom'
+import EccofoodPageLoader from '@/components/EccofoodPageLoader'
+import { beginNavigationLoading, finishNavigationLoading, useNavigationLoading } from '@/lib/navigation-loading'
+import { getOverlayTarget } from '@/lib/overlay-target'
 
 export default function GlobalNavigationLoader() {
-  const pathname = usePathname();
-  const [visible, setVisible] = useState(false);
-  const [label, setLabel] = useState('Cargando Eccofood');
-  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const showTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pathname = usePathname()
+  const search = useSearchParams().toString()
+  const pending = useNavigationLoading()
+  const [visible, setVisible] = useState(false)
+
+  useEffect(() => { finishNavigationLoading() }, [pathname, search])
+  useEffect(() => {
+    // Fast transitions need no flash. A short handoff avoids route/data flicker.
+    const timer = setTimeout(() => setVisible(pending), pending ? 180 : 120)
+    return () => clearTimeout(timer)
+  }, [pending])
 
   useEffect(() => {
-    setVisible(false);
-    if (timeoutRef.current) clearTimeout(timeoutRef.current);
-  }, [pathname]);
-
-  useEffect(() => {
-    function show(nextPathname: string, fallbackLabel = 'Procesando solicitud') {
-      if (isStoreRoute(window.location.pathname) || (nextPathname && isStoreRoute(nextPathname))) return;
-      if (showTimerRef.current) clearTimeout(showTimerRef.current);
-      showTimerRef.current = setTimeout(() => {
-        setLabel(nextPathname ? getLoadingLabel(nextPathname) : fallbackLabel);
-        setVisible(true);
-        if (timeoutRef.current) clearTimeout(timeoutRef.current);
-        timeoutRef.current = setTimeout(() => setVisible(false), 12000);
-      }, 0);
+    function onClick(event: MouseEvent) {
+      if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return
+      const anchor = event.target instanceof Element ? event.target.closest<HTMLAnchorElement>('a[href]') : null
+      if (!anchor || (anchor.target && anchor.target !== '_self') || anchor.hasAttribute('download')) return
+      const url = new URL(anchor.href, location.href)
+      if (url.origin !== location.origin || !['http:', 'https:'].includes(url.protocol)) return
+      if (url.pathname === location.pathname && url.search === location.search) return
+      beginNavigationLoading()
     }
-
-    function handleClick(event: MouseEvent) {
-      if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
-      const target = event.target as Element | null;
-      const anchor = target?.closest('a[href]') as HTMLAnchorElement | null;
-      if (!anchor || !isInternalNavigation(anchor)) return;
-      const url = new URL(anchor.href, window.location.href);
-      if (isStoreRoute(window.location.pathname) || isStoreRoute(url.pathname)) return;
-      show(url.pathname);
+    function onSubmit(event: SubmitEvent) {
+      const form = event.target
+      if (event.defaultPrevented || !(form instanceof HTMLFormElement) || form.method.toLowerCase() !== 'get') return
+      if (new URL(form.action, location.href).origin === location.origin) beginNavigationLoading()
     }
-
-    function handleSubmit(event: SubmitEvent) {
-      if (event.defaultPrevented) return;
-      const form = event.target as HTMLFormElement | null;
-      if (!form || form.method.toLowerCase() !== 'get') return;
-      const action = form.action ? new URL(form.action, window.location.href) : new URL(window.location.href);
-      if (action.origin !== window.location.origin) return;
-      if (isStoreRoute(window.location.pathname) || isStoreRoute(action.pathname)) return;
-      show(action.pathname, 'Procesando solicitud');
-    }
-
-    function handleBeforeUnload() {
-      if (isStoreRoute(window.location.pathname)) return;
-      show(window.location.pathname, 'Cargando Eccofood');
-    }
-
-    function handleProgrammaticNavigation(event: Event) {
-      const detail = (event as CustomEvent<{ pathname?: string; label?: string }>).detail;
-      const nextPathname = detail?.pathname || window.location.pathname;
-      show(nextPathname, detail?.label || 'Cargando Eccofood');
-    }
-
-    document.addEventListener('click', handleClick, true);
-    document.addEventListener('submit', handleSubmit);
-    window.addEventListener('beforeunload', handleBeforeUnload);
-    window.addEventListener('eccofood:navigation-start', handleProgrammaticNavigation);
-
+    document.addEventListener('click', onClick, true)
+    document.addEventListener('submit', onSubmit)
+    window.addEventListener('eccofood:navigation-start', beginNavigationLoading)
+    window.addEventListener('store:navigation-start', beginNavigationLoading)
+    window.addEventListener('popstate', finishNavigationLoading)
+    window.addEventListener('pageshow', finishNavigationLoading)
     return () => {
-      document.removeEventListener('click', handleClick, true);
-      document.removeEventListener('submit', handleSubmit);
-      window.removeEventListener('beforeunload', handleBeforeUnload);
-      window.removeEventListener('eccofood:navigation-start', handleProgrammaticNavigation);
-      if (showTimerRef.current) clearTimeout(showTimerRef.current);
-      if (timeoutRef.current) clearTimeout(timeoutRef.current);
-    };
-  }, []);
+      document.removeEventListener('click', onClick, true)
+      document.removeEventListener('submit', onSubmit)
+      window.removeEventListener('eccofood:navigation-start', beginNavigationLoading)
+      window.removeEventListener('store:navigation-start', beginNavigationLoading)
+      window.removeEventListener('popstate', finishNavigationLoading)
+      window.removeEventListener('pageshow', finishNavigationLoading)
+      finishNavigationLoading()
+    }
+  }, [])
 
-  if (!visible) return null;
-
-  const isAdminArea = pathname.includes('/admin');
-
-  return (
-    <div
-      className={`pointer-events-none fixed z-[10000] w-full max-w-[380px] ${
-        isAdminArea
-          ? 'left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 md:left-[calc(16rem+(100vw-16rem)/2)]'
-          : 'left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2'
-      }`}
-    >
-      <EccofoodPageLoader
-        label={label}
-        detail="Preparando una experiencia rapida y segura."
-        mode="card"
-      />
-    </div>
-  );
+  const target = getOverlayTarget()
+  if (!visible || !target) return null
+  return createPortal(
+    <div role="status" aria-live="polite" aria-label="Cargando Eccofood" data-navigation-loader
+      className="pointer-events-none fixed left-1/2 top-1/2 z-[10000] w-full max-w-[380px] -translate-x-1/2 -translate-y-1/2">
+      <EccofoodPageLoader label="Cargando Eccofood" detail="Un momento, por favor." mode="card" />
+    </div>, target,
+  )
 }

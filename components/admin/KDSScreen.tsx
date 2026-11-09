@@ -1,5 +1,7 @@
 'use client';
 
+import NavigationPending from '@/components/NavigationPending';
+
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import {
@@ -966,23 +968,7 @@ export function KDSScreen({ tenantId }: { tenantId: string }) {
       )
     : 0;
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-screen bg-slate-950 text-white">
-        <div className="text-center space-y-6">
-          <div className="flex justify-center">
-            <div className="relative w-20 h-20">
-              <ChefHat className="w-20 h-20 text-cyan-300 animate-bounce" />
-            </div>
-          </div>
-          <div>
-            <p className="text-2xl font-black tracking-wider mb-2 text-white">{tr('common.loading')}</p>
-            <p className="text-slate-400 text-sm">{tr('display.active')}</p>
-          </div>
-        </div>
-      </div>
-    );
-  }
+  if (loading) return <NavigationPending />;
 
   return (
     // Clicking anywhere inits audio (required by iOS/Safari)

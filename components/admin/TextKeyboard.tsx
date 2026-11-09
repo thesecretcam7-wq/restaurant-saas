@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Check, Delete, Space, X } from 'lucide-react';
+import { getOverlayTarget } from '@/lib/overlay-target';
 
 interface TextKeyboardProps {
   isOpen: boolean;
@@ -34,7 +35,7 @@ export function TextKeyboard({
   onCancel,
   maxLength = 80,
   multiline = false,
-  compact = false,
+  compact = true,
   extraCharacters = false,
 }: TextKeyboardProps) {
   const [mounted, setMounted] = useState(false);
@@ -64,7 +65,8 @@ export function TextKeyboard({
 
   if (!isOpen || !mounted) return null;
 
-  const portalTarget = document.fullscreenElement ?? document.body;
+  const portalTarget = getOverlayTarget();
+  if (!portalTarget) return null;
   const appendText = (text: string) => {
     onChange((value + text).slice(0, maxLength));
   };
@@ -73,7 +75,7 @@ export function TextKeyboard({
     'min-h-12 rounded-xl border border-slate-200 bg-white px-2 text-lg font-black text-slate-950 shadow-[0_8px_18px_rgba(15,23,42,0.08)] transition hover:border-sky-300 hover:bg-sky-50 active:scale-95';
 
   return createPortal(
-    <div className="fixed inset-0 z-[9999] flex items-end justify-center bg-black/20 p-3 sm:items-center">
+    <div role="dialog" aria-modal="true" aria-label={`Teclado de texto: ${title}`} className="fixed inset-0 z-[10010] flex items-end justify-center bg-black/20 p-3 sm:items-center">
       <div className={`w-full max-w-4xl rounded-[1.5rem] border border-slate-200 bg-white text-slate-950 shadow-[0_28px_90px_rgba(15,23,42,0.24)] ${compact ? 'max-h-[94dvh] overflow-y-auto' : 'overflow-hidden'}`}>
         <div className={`flex items-center justify-between border-b border-slate-200 bg-white px-5 ${compact ? 'py-3' : 'py-4'}`}>
           <div>

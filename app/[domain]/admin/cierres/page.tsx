@@ -1,4 +1,5 @@
 'use client'
+import NavigationPending from '@/components/NavigationPending'
 
 import { useParams } from 'next/navigation'
 import { useEffect, useRef, useState } from 'react'
@@ -1255,7 +1256,7 @@ export default function CashClosingsPage() {
           </div>
         )}
         {loading || monthlyLoading ? (
-          <div className="admin-empty m-5">Cargando cierres del mes...</div>
+          <NavigationPending />
         ) : closings.length === 0 ? (
           <div className="admin-empty m-5">No hay cierres de caja en el mes seleccionado.</div>
         ) : (

@@ -1,5 +1,7 @@
 'use client';
 
+import NavigationPending from '@/components/NavigationPending';
+
 import { useEffect, useState } from 'react';
 import { Users } from 'lucide-react';
 
@@ -62,17 +64,7 @@ export function POSStaffSelector({
   const label = required ? 'Camarero *' : 'Camarero';
   const selectedStaffStillAllowed = !selectedStaffId || staff.some((member) => member.id === selectedStaffId);
 
-  if (loading) {
-    return (
-      <div className="rounded-xl border border-slate-200 bg-white p-2">
-        <label className="mb-1 flex items-center gap-1 text-xs font-black text-slate-950">
-          <Users className="h-3.5 w-3.5 text-orange-600" />
-          {label}
-        </label>
-        <div className="text-xs font-semibold text-slate-500">Cargando camareros...</div>
-      </div>
-    );
-  }
+  if (loading) return <NavigationPending />;
 
   return (
     <div className="rounded-xl border border-slate-200 bg-white p-2">

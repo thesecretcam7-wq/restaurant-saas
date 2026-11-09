@@ -1,4 +1,5 @@
 'use client';
+import NavigationPending from '@/components/NavigationPending';
 
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
@@ -171,7 +172,7 @@ export default function MesasPage() {
 
       {/* List */}
       {loading ? (
-        <div className="text-gray-400 text-sm py-8 text-center">Cargando...</div>
+        <NavigationPending />
       ) : tables.length === 0 ? (
         <div className="bg-white border rounded-2xl p-12 text-center">
           <p className="text-4xl mb-3">🪑</p>

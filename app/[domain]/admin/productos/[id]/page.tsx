@@ -1,5 +1,7 @@
 'use client'
 
+import NavigationPending from '@/components/NavigationPending';
+
 import { useState, useEffect, use } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
@@ -209,11 +211,7 @@ export default function EditProductoPage({ params }: Props) {
     router.push(productsReturnHref(form.category_id || searchParams.get('categoria'), false))
   }
 
-  if (loading) return (
-    <div className="flex items-center justify-center py-20">
-      <div className="w-8 h-8 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin" />
-    </div>
-  )
+  if (loading) return <NavigationPending />;
 
   if (notFound) return (
     <div className="text-center py-20">

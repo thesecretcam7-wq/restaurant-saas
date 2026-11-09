@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Check, Delete, X } from 'lucide-react';
+import { getOverlayTarget } from '@/lib/overlay-target';
 
 interface NumericKeyboardProps {
   isOpen: boolean;
@@ -23,7 +24,7 @@ export function NumericKeyboard({
   initialValue = 0,
   allowDecimal = true,
   maxLength = 10,
-  compact = false,
+  compact = true,
 }: NumericKeyboardProps) {
   const [input, setInput] = useState<string>(initialValue.toString());
   const [mounted, setMounted] = useState(false);
@@ -101,17 +102,18 @@ export function NumericKeyboard({
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, allowDecimal, onCancel]);
+  }, [isOpen, allowDecimal, maxLength, input, onCancel, onConfirm]);
 
   if (!isOpen || !mounted) return null;
 
-  const portalTarget = document.fullscreenElement ?? document.body;
+  const portalTarget = getOverlayTarget();
+  if (!portalTarget) return null;
 
   const numberButtonClass =
     `rounded-2xl border border-slate-200 bg-white ${compact ? 'min-h-12 py-2 text-2xl' : 'py-5 text-4xl'} font-black tabular-nums text-slate-950 shadow-[0_10px_22px_rgba(15,23,42,0.08)] transition hover:border-orange-300 hover:bg-orange-50 active:scale-95`;
 
   return createPortal(
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/10 p-4">
+    <div role="dialog" aria-modal="true" aria-label={`Teclado numérico: ${title}`} className="fixed inset-0 z-[10010] flex items-center justify-center bg-black/10 p-4">
       <div className={`w-full max-w-sm rounded-[1.75rem] border border-slate-200 bg-white text-slate-950 shadow-[0_28px_90px_rgba(15,23,42,0.18)] ${compact ? 'max-h-[94dvh] overflow-y-auto' : 'overflow-hidden'}`}>
         <div className={`flex items-center justify-between border-b border-slate-200 bg-white ${compact ? 'px-4 py-2' : 'px-6 py-5'}`}>
           <div>

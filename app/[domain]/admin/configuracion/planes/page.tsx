@@ -1,5 +1,7 @@
 'use client'
 
+import NavigationPending from '@/components/NavigationPending';
+
 import { use } from 'react'
 import { useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
@@ -156,7 +158,7 @@ export default function PlanesPage({ params }: Props) {
     dedicated_support: (value) => value === true ? 'Sí' : 'No'
   }
 
-  if (loading) return <div className="admin-panel flex h-48 items-center justify-center"><div className="h-7 w-7 animate-spin rounded-full border-4 border-black/10 border-t-[#e43d30]" /></div>
+  if (loading) return <NavigationPending />;
 
   return (
     <div className="max-w-6xl space-y-6">

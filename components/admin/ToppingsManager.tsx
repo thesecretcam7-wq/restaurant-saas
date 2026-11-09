@@ -1,5 +1,7 @@
 'use client'
 
+import NavigationPending from '@/components/NavigationPending';
+
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import toast from 'react-hot-toast'
@@ -102,15 +104,7 @@ export default function ToppingsManager({ menuItemId, tenantId }: Props) {
     }
   }
 
-  if (loading) {
-    return (
-      <div className="bg-white sm:rounded-xl sm:border p-4">
-        <div className="flex items-center justify-center py-8">
-          <div className="w-6 h-6 border-3 border-blue-200 border-t-blue-600 rounded-full animate-spin" />
-        </div>
-      </div>
-    )
-  }
+  if (loading) return <NavigationPending />;
 
   return (
     <div className="bg-white sm:rounded-xl sm:border">

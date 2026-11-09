@@ -1,5 +1,7 @@
 'use client'
 
+import NavigationPending from '@/components/NavigationPending';
+
 import { FormEvent, useEffect, useMemo, useRef, useState } from 'react'
 import { Eye, ImagePlus, Monitor, Pencil, Plus, Trash2, X } from 'lucide-react'
 
@@ -146,7 +148,7 @@ export function TVMenuManager({ tenantId, tenantSlug }: { tenantId: string; tena
 
   const activeCount = useMemo(() => items.filter((item) => item.active && item.image_url?.trim()).length, [items])
 
-  if (loading) return <div className="admin-empty">Cargando menu TV...</div>
+  if (loading) return <NavigationPending />;
 
   return (
     <div className="space-y-5">

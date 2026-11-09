@@ -7,6 +7,7 @@ import { createClient } from '@/lib/supabase/client';
 import { generateCashClosingReceiptESCPOS, generateKitchenTicketESCPOS, generateMonthlyClosingReceiptESCPOS, generateReceiptESCPOS, generateTableQrESCPOS, generateTestReceiptESCPOS } from './thermal-receipt';
 import type { CashClosingReceiptData, KitchenTicketData, MonthlyClosingReceiptData, ReceiptData, PrinterDevice, TableQrReceiptData } from '@/types/printer';
 import { formatPriceWithCurrency } from '@/lib/currency';
+import { printBrowserDocument } from './browser-print';
 
 // WebUSB API type declarations
 declare global {
@@ -792,31 +793,7 @@ async function printViaWebUSB(printer: PrinterDevice, data: Uint8Array): Promise
 function printViaBrowserAPI(data: ReceiptData): void {
   try {
     const html = generateReceiptHTML(data);
-    const iframe = document.createElement('iframe');
-    iframe.style.position = 'fixed';
-    iframe.style.right = '0';
-    iframe.style.bottom = '0';
-    iframe.style.width = '0';
-    iframe.style.height = '0';
-    iframe.style.border = '0';
-    document.body.appendChild(iframe);
-
-    const frameWindow = iframe.contentWindow;
-    const frameDocument = iframe.contentDocument || frameWindow?.document;
-    if (!frameWindow || !frameDocument) {
-      throw new Error('No se pudo preparar la impresion del navegador');
-    }
-
-    frameDocument.open();
-    frameDocument.write(html);
-    frameDocument.close();
-    frameDocument.title = `Recibo ${data.orderNumber}`;
-
-    setTimeout(() => {
-      frameWindow.focus();
-      frameWindow.print();
-      setTimeout(() => iframe.remove(), 1000);
-    }, 250);
+    printBrowserDocument(html, `Recibo ${data.orderNumber}`);
   } catch (error) {
     console.error('Browser print failed:', error);
   }
@@ -892,16 +869,11 @@ function printCashClosingViaBrowserAPI(data: CashClosingReceiptData): void {
             ${billPaymentsHtml}
             <div class="line total"><span>Total ventas</span><strong>${money(data.totalSales)}</strong></div>
           </div>
-          <script>window.onload=()=>{window.print();setTimeout(()=>window.close(),500)}</script>
         </body>
       </html>
     `;
 
-    const popup = window.open('', '_blank', 'width=420,height=720');
-    if (!popup) throw new Error('El navegador bloqueo la ventana de impresion');
-    popup.document.open();
-    popup.document.write(html);
-    popup.document.close();
+    printBrowserDocument(html, 'Cierre de caja');
   } catch (error) {
     console.error('Browser cash closing print failed:', error);
   }

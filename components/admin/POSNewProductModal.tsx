@@ -74,7 +74,7 @@ export function POSNewProductModal({ tenantId, categories, initialCategoryId, cu
   const fieldClass = 'flex min-h-12 w-full items-center justify-between gap-3 rounded-lg border border-white/20 bg-black/20 px-3 py-3 text-left text-base font-semibold text-white disabled:opacity-50'
   return <>
     {createPortal(
-      <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/65 p-3">
+      <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/65 p-3">
         <section role="dialog" aria-modal="true" aria-labelledby={titleId} aria-busy={saving}
           className="flex max-h-[94dvh] w-full max-w-md flex-col overflow-hidden rounded-lg border border-white/20 bg-[#171c28] text-white shadow-2xl">
           <header className="flex shrink-0 items-center justify-between gap-3 border-b border-white/10 p-4">

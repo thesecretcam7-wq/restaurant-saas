@@ -1,5 +1,7 @@
 'use client';
 
+import NavigationPending from '@/components/NavigationPending';
+
 import { useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { AlertTriangle, Plus, Minus, PackagePlus, X, History, ReceiptText, Search, Pencil, Trash2 } from 'lucide-react';
@@ -229,9 +231,7 @@ export function InventoryManager({ tenantId }: { tenantId: string }) {
     return { status: 'OK', color: 'bg-green-100 text-green-900' };
   };
 
-  if (loading) {
-    return <div className="admin-empty">Cargando inventario...</div>;
-  }
+  if (loading) return <NavigationPending />;
 
   const lowStockItems = inventory.filter((item) => item.current_stock <= item.min_stock);
   const outOfStockItems = inventory.filter((item) => item.current_stock <= 0);

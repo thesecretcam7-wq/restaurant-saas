@@ -2,6 +2,8 @@
 
 import { useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import { createPortal } from 'react-dom';
+import NavigationPending from '@/components/NavigationPending';
+import { getOverlayTarget } from '@/lib/overlay-target';
 import { createClient } from '@/lib/supabase/client';
 import { ShoppingCart, Plus, Minus, Trash2, Search, DollarSign, CreditCard, Maximize2, Minimize2, Calculator, Lock, Unlock, GripVertical, Clock, Truck, Store, UtensilsCrossed, Archive, Monitor, Printer, CalendarDays, Download, PencilLine, X, Check, ReceiptText } from 'lucide-react';
 import { TableMap } from './TableMap';
@@ -1583,7 +1585,7 @@ export function POSTerminal({
     const handleFullscreenChange = () => {
       const isNowFullscreen = !!document.fullscreenElement;
       setIsFullscreen(isNowFullscreen);
-      if (isNowFullscreen && document.fullscreenElement === posRootRef.current) {
+      if (isNowFullscreen && document.fullscreenElement === document.documentElement) {
         document.documentElement.setAttribute('data-pos-fullscreen', 'true');
       } else {
         document.documentElement.removeAttribute('data-pos-fullscreen');
@@ -1613,8 +1615,8 @@ export function POSTerminal({
 
   async function toggleFullscreen() {
     try {
-      if (!isFullscreen && posRootRef.current?.requestFullscreen) {
-        await posRootRef.current.requestFullscreen();
+      if (!isFullscreen && document.documentElement.requestFullscreen) {
+        await document.documentElement.requestFullscreen();
       } else if (isFullscreen && document.fullscreenElement) {
         await document.exitFullscreen();
       }
@@ -4941,7 +4943,7 @@ export function POSTerminal({
     };
 
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (showNewProduct) return;
+      if (showNewProduct || document.querySelector('[role="dialog"], [role="alertdialog"]')) return;
       const key = event.key.toLowerCase();
       const editable = isEditableTarget(event.target);
 
@@ -5035,19 +5037,10 @@ export function POSTerminal({
 
   const nextReservationTime = todayReservations[0]?.reservation_time?.slice(0, 5) || null;
   const compactPOSLayout = true;
-  const heldAccountsPortalTarget =
-    typeof document !== 'undefined'
-      ? (isFullscreen && posRootRef.current ? posRootRef.current : document.body)
-      : null;
+  const heldAccountsPortalTarget = getOverlayTarget();
 
   if (loading) {
-    return (
-      <div className="pos-premium flex h-screen items-center justify-center">
-        <div className="pos-panel rounded-2xl px-6 py-4 text-sm font-black text-cyan-100">
-          Cargando TPV...
-        </div>
-      </div>
-    );
+    return <NavigationPending />;
   }
 
   return (

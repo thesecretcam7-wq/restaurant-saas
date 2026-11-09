@@ -1,5 +1,7 @@
 'use client'
 
+import NavigationPending from '@/components/NavigationPending';
+
 import { FormEvent, useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { createRefreshGate } from '@/lib/refresh-gate'
@@ -823,13 +825,7 @@ function PurchaseControlContent({ tenantId, selectedMonth, onPeriodLoaded }: {
       .sort((a, b) => b.date.localeCompare(a.date))
   }, [invoices])
 
-  if (loading) {
-    return (
-      <div className="admin-empty">
-        <p>Cargando control de compras...</p>
-      </div>
-    )
-  }
+  if (loading) return <NavigationPending />;
 
   return (
     <div className="w-full max-w-full space-y-5 overflow-hidden pb-24">

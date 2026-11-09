@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import PWARegister from "@/components/PWARegister";
 import GlobalNavigationLoader from "@/components/GlobalNavigationLoader";
+import { Suspense } from 'react';
 
 // EccoFood - Restaurant SaaS Platform
 
@@ -51,7 +52,7 @@ export default function RootLayout({
       </head>
       <body className="min-h-full flex flex-col bg-[#f7f5f0] text-gray-900 relative overflow-x-hidden">
         <PWARegister />
-        <GlobalNavigationLoader />
+        <Suspense fallback={null}><GlobalNavigationLoader /></Suspense>
         {children}
       </body>
     </html>

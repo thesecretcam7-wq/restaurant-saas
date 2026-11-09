@@ -1,5 +1,7 @@
 'use client';
 
+import NavigationPending from '@/components/NavigationPending';
+
 import { useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { Users, Plus, Calendar, Clock, Trash2 } from 'lucide-react';
@@ -164,9 +166,7 @@ export function StaffScheduler({ tenantId }: { tenantId: string }) {
     }
   }
 
-  if (loading) {
-    return <div className="admin-empty">Cargando personal...</div>;
-  }
+  if (loading) return <NavigationPending />;
 
   return (
     <div>

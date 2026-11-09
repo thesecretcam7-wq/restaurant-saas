@@ -1,6 +1,5 @@
 import { getTenantContext } from '@/lib/tenant'
 import ClientToaster from '@/components/ClientToaster'
-import StoreNavigationLoader from '@/components/store/StoreNavigationLoader'
 import StoreBrandingMemory from '@/components/store/StoreBrandingMemory'
 import TenantPwaManifestLink from '@/components/TenantPwaManifestLink'
 import TenantAccessGuard from '@/components/TenantAccessGuard'
@@ -355,7 +354,6 @@ export default async function TenantLayout({
         </TenantAccessGuard>
         <TenantPwaManifestLink tenantSlug={context.tenant.slug} restaurantName={restaurantName} />
         <StoreBrandingMemory appName={restaurantName} logoUrl={logoUrl} primaryColor={primaryColor} themeMode={themeMode} />
-        <StoreNavigationLoader color={primaryColor} logoUrl={logoUrl} themeMode={themeMode} />
         <ClientToaster position="bottom-right" />
       </div>
     </>

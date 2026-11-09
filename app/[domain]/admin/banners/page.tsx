@@ -1,5 +1,7 @@
 'use client'
 
+import NavigationPending from '@/components/NavigationPending';
+
 import { useState, useEffect, use } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useTenantResolver } from '@/lib/hooks/useTenantResolver'
@@ -202,7 +204,7 @@ export default function BannersPage({ params }: Props) {
     loadData()
   }
 
-  if (resolvingTenant || loading) return <div className="p-8 text-gray-500">Cargando...</div>
+  if (resolvingTenant || loading) return <NavigationPending />;
 
   return (
     <div className="mx-auto max-w-5xl p-8">

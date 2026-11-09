@@ -1,5 +1,7 @@
 'use client';
 
+import NavigationPending from '@/components/NavigationPending';
+
 import { useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { FileText, Download, Check, Clock, AlertCircle } from 'lucide-react';
@@ -117,9 +119,7 @@ export function InvoicesManager({ tenantId }: { tenantId: string }) {
     }
   };
 
-  if (loading) {
-    return <div className="p-8 text-center">Cargando facturas...</div>;
-  }
+  if (loading) return <NavigationPending />;
 
   return (
     <div className="p-8 bg-gray-50 min-h-screen">

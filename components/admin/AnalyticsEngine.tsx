@@ -1,5 +1,7 @@
 'use client';
 
+import NavigationPending from '@/components/NavigationPending';
+
 import { useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { TrendingUp, Users, Clock, DollarSign } from 'lucide-react';
@@ -162,9 +164,7 @@ export function AnalyticsEngine({ tenantId }: { tenantId: string }) {
     }
   }
 
-  if (loading) {
-    return <div className="p-8 text-center">Cargando analítica...</div>;
-  }
+  if (loading) return <NavigationPending />;
 
   if (!analytics) {
     return <div className="p-8 text-center text-red-600">Error al cargar datos</div>;

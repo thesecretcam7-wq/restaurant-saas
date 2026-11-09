@@ -1,5 +1,7 @@
 'use client';
 
+import NavigationPending from '@/components/NavigationPending';
+
 import { useEffect, useState } from 'react';
 import { POSTerminal } from '@/components/admin/POSTerminal';
 import { getOfflineStorage, type POSBootstrapCache } from '@/lib/offline/storage';
@@ -37,15 +39,7 @@ export function StaffPOSOfflineFallback({ tenantSlug }: StaffPOSOfflineFallbackP
     };
   }, [tenantSlug]);
 
-  if (loading) {
-    return (
-      <div className="grid min-h-screen place-items-center bg-[#020617] px-4 text-center text-white">
-        <div className="rounded-2xl border border-cyan-300/20 bg-slate-900 px-6 py-5 text-sm font-black">
-          Abriendo TPV con datos guardados...
-        </div>
-      </div>
-    );
-  }
+  if (loading) return <NavigationPending />;
 
   if (!bootstrap?.tenantId) {
     return (

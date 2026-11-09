@@ -1,5 +1,7 @@
 'use client';
 
+import NavigationPending from '@/components/NavigationPending';
+
 import { useEffect, useState, useMemo } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { DollarSign, Users } from 'lucide-react';
@@ -53,9 +55,7 @@ export function TableMap({ tenantId, occupiedTableNumbers, selectedTableNumber, 
       });
   }, [tenantId, supabase]);
 
-  if (loading) {
-    return <div className="flex items-center justify-center h-32 text-gray-500 text-sm">Cargando mesas...</div>;
-  }
+  if (loading) return <NavigationPending />;
 
   if (tables.length === 0) {
     return (

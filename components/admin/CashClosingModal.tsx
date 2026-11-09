@@ -5,6 +5,7 @@ import { X, Check, AlertCircle, Calculator } from 'lucide-react';
 import { getCurrencyByCountry, formatPriceWithCurrency } from '@/lib/currency';
 import { useTouchDevice } from '@/lib/hooks/useTouchDevice';
 import { NumericKeyboard } from './NumericKeyboard';
+import { TextKeyboard } from './TextKeyboard';
 
 interface CashClosingData {
   cashSales: number;
@@ -60,6 +61,10 @@ export function CashClosingModal({
   const [notes, setNotes] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showCashKeyboard, setShowCashKeyboard] = useState(false);
+  const [showNotesKeyboard, setShowNotesKeyboard] = useState(false);
+  const [notesDraft, setNotesDraft] = useState('');
+  const [confirming, setConfirming] = useState(false);
+  const [error, setError] = useState('');
   const isTouchDevice = useTouchDevice();
 
   const currencyInfo = getCurrencyByCountry(country);
@@ -78,18 +83,12 @@ export function CashClosingModal({
     'w-full rounded-2xl border border-slate-200 bg-white py-3 text-lg font-black text-slate-950 outline-none placeholder:text-slate-400 focus:border-orange-500 focus:ring-4 focus:ring-orange-100 disabled:opacity-50';
 
   const handleConfirm = async () => {
-    if (!actualCash) {
-      alert('Por favor ingresa el monto de efectivo contado');
-      return;
-    }
-    const confirmed = window.confirm(
-      'Esto guardara un cierre definitivo y esas ventas ya no volveran a salir en el corte actual. Si solo querias mirar como van las ventas, pulsa Cancelar.'
-    );
-    if (!confirmed) return;
-
+    if (isBusy) return;
     setIsSubmitting(true);
     try {
       await onConfirm(Number(actualCash), notes);
+    } catch {
+      setError('No se pudo guardar el cierre. Revisa la conexión e inténtalo de nuevo.');
     } finally {
       setIsSubmitting(false);
     }
@@ -98,7 +97,7 @@ export function CashClosingModal({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/45 p-4 backdrop-blur-md">
+    <div role="dialog" aria-modal="true" aria-label={isPendingClosing ? 'Cierre pendiente' : 'Corte de caja'} className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/45 p-4 backdrop-blur-md">
       <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-[1.75rem] border border-slate-200 bg-white text-slate-950 shadow-[0_28px_90px_rgba(15,23,42,0.22)]">
         <div className="sticky top-0 z-10 flex items-center justify-between border-b border-slate-200 bg-white p-6 backdrop-blur-xl">
           <div>
@@ -390,11 +389,26 @@ export function CashClosingModal({
               placeholder="Explica cualquier diferencia u observacion importante..."
               disabled={isBusy}
               rows={3}
+              readOnly
+              inputMode="none"
+              onClick={() => { setNotesDraft(notes); setShowNotesKeyboard(true); }}
+              aria-label="Notas del cierre"
               className={`${fieldClass} resize-none px-4`}
             />
           </section>
         </div>
 
+        {error && <p role="alert" className="px-6 py-2 font-bold text-red-700">{error}</p>}
+        {confirming && (
+          <section role="alertdialog" aria-modal="true" aria-label="Confirmar cierre de caja" className="mx-6 mb-3 rounded-xl border border-orange-300 bg-orange-50 p-4 text-slate-950">
+            <p className="font-black">¿Guardar el cierre definitivo?</p>
+            <p className="mt-2 text-sm">Estas ventas dejarán de aparecer en el corte actual. Si solo quieres consultar las ventas, pulsa «Seguir revisando».</p>
+            <div className="mt-4 flex gap-3">
+              <button type="button" disabled={isBusy} onClick={() => setConfirming(false)} className="min-h-11 flex-1 rounded-xl border border-slate-300 px-3 font-bold">Seguir revisando</button>
+              <button type="button" disabled={isBusy} onClick={() => void handleConfirm()} className="min-h-11 flex-1 rounded-xl bg-orange-500 px-3 font-bold text-white">{isSubmitting ? 'Guardando...' : 'Confirmar cierre'}</button>
+            </div>
+          </section>
+        )}
         <div className="sticky bottom-0 flex gap-3 border-t border-slate-200 bg-white p-6 backdrop-blur-xl">
           <button
             onClick={onClose}
@@ -404,7 +418,14 @@ export function CashClosingModal({
             Solo mirar
           </button>
           <button
-            onClick={handleConfirm}
+            onClick={() => {
+              if (!actualCash || !Number.isFinite(Number(actualCash)) || Number(actualCash) < 0) {
+                setError('Introduce un importe de efectivo contado válido.');
+                return;
+              }
+              setError('');
+              setConfirming(true);
+            }}
             disabled={isBusy || !actualCash}
             className="flex-1 rounded-2xl bg-orange-500 px-4 py-3 font-black text-white shadow-[0_16px_35px_rgba(249,115,22,0.24)] transition hover:bg-orange-600 disabled:opacity-50"
           >
@@ -424,6 +445,9 @@ export function CashClosingModal({
         onCancel={() => setShowCashKeyboard(false)}
         allowDecimal
       />
+      <TextKeyboard isOpen={showNotesKeyboard} title="Notas del cierre" value={notesDraft} onChange={setNotesDraft}
+        onConfirm={() => { setNotes(notesDraft); setShowNotesKeyboard(false); }}
+        onCancel={() => setShowNotesKeyboard(false)} multiline maxLength={500} />
     </div>
   );
 }

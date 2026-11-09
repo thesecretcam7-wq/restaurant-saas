@@ -1,5 +1,7 @@
 'use client'
 
+import NavigationPending from '@/components/NavigationPending';
+
 import { useEffect, useState } from 'react'
 import { Bike, Plus, Save, Trash2 } from 'lucide-react'
 
@@ -126,9 +128,7 @@ export default function DeliveryForm({ tenantId }: Props) {
     }))
   }
 
-  if (loading) {
-    return <div className="admin-empty min-h-48">Cargando configuracion de delivery...</div>
-  }
+  if (loading) return <NavigationPending />;
 
   return (
     <div className="admin-page">

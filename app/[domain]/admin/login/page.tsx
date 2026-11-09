@@ -1,4 +1,5 @@
 'use client'
+import NavigationPending from '@/components/NavigationPending'
 
 import { Suspense, use, useState, useEffect } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
@@ -17,11 +18,7 @@ export default function AdminLoginPage({ params }: Props) {
 }
 
 function AdminLoginLoading() {
-  return (
-    <div className="min-h-screen grid place-items-center bg-white">
-      <div className="w-8 h-8 rounded-full border-4 border-gray-200 border-t-gray-900 animate-spin" />
-    </div>
-  )
+  return <NavigationPending />
 }
 
 function AdminLoginContent({ params }: Props) {

@@ -1,5 +1,7 @@
 'use client'
 
+import NavigationPending from '@/components/NavigationPending';
+
 import { useEffect, useState, use } from 'react'
 import { CalendarDays, Check, Clock3, Copy, Save } from 'lucide-react'
 
@@ -193,9 +195,7 @@ export default function HorariosPage({ params }: Props) {
     }
   }
 
-  if (loading) {
-    return <div className="flex h-48 items-center justify-center"><div className="h-7 w-7 animate-spin rounded-full border-4 border-blue-200 border-t-blue-600" /></div>
-  }
+  if (loading) return <NavigationPending />;
 
   return (
     <div className="overflow-hidden rounded-xl border bg-white shadow-md">

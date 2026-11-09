@@ -1,5 +1,7 @@
 'use client';
 
+import NavigationPending from '@/components/NavigationPending';
+
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
@@ -274,13 +276,7 @@ export default function QRCodesPage() {
     }
   }
 
-  if (resolvingTenant || loading) {
-    return (
-      <div className="admin-panel p-6">
-        <p className="text-sm font-bold text-slate-500">Cargando codigos QR...</p>
-      </div>
-    );
-  }
+  if (resolvingTenant || loading) return <NavigationPending />;
 
   return (
     <div className="space-y-6">

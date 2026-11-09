@@ -1,5 +1,7 @@
 'use client'
 
+import NavigationPending from '@/components/NavigationPending';
+
 import { use, useEffect, useState } from 'react'
 import { useTenantResolver } from '@/lib/hooks/useTenantResolver'
 import toast from 'react-hot-toast'
@@ -100,7 +102,7 @@ export default function RestauranteConfigPage({ params }: Props) {
       toast.error('Error al guardar')
     }
   }
-  if (resolvingTenant || loading) return <div className="flex items-center justify-center h-64 text-gray-400">Cargando...</div>
+  if (resolvingTenant || loading) return <NavigationPending />;
 
   const field = (label: string, key: keyof typeof form, type = 'text', placeholder = '') => (
     <div>

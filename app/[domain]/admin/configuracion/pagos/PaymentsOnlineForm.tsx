@@ -1,5 +1,7 @@
 'use client'
 
+import NavigationPending from '@/components/NavigationPending';
+
 import { useEffect, useState } from 'react'
 import { CreditCard, ReceiptText, Save, ShieldCheck } from 'lucide-react'
 import { getCurrencyByCountry } from '@/lib/currency'
@@ -116,9 +118,7 @@ export function PaymentsOnlineForm({ tenantId, mode = 'full' }: Props) {
     }
   }
 
-  if (loading) {
-    return <div className="admin-empty min-h-48">Cargando pagos online...</div>
-  }
+  if (loading) return <NavigationPending />;
 
   return (
     <form id={isWompiMode ? 'wompi-configuracion' : 'pagos-online-form'} method="post" onSubmit={handleSave} className="admin-panel scroll-mt-32 overflow-hidden">

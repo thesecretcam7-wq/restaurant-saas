@@ -1,5 +1,7 @@
 'use client';
 
+import NavigationPending from '@/components/NavigationPending';
+
 import { useCallback, useEffect, useRef, useState } from 'react';
 import dynamic from 'next/dynamic';
 import { createRefreshGate } from '@/lib/refresh-gate';
@@ -132,9 +134,7 @@ export function AIInsights({ tenantId }: { tenantId: string }) {
     .sort((a, b) => b.predictedOrders - a.predictedOrders)
     .slice(0, 6);
 
-  if (loading) {
-    return <div className="admin-empty m-6">Analizando ventas reales...</div>;
-  }
+  if (loading) return <NavigationPending />;
 
   return (
     <div className="admin-page">

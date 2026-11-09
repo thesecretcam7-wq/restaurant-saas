@@ -1,5 +1,7 @@
 'use client'
 
+import NavigationPending from '@/components/NavigationPending';
+
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
@@ -345,13 +347,7 @@ export default function PageBuilderPage() {
     markDirty()
   }
 
-  if (loading) {
-    return (
-      <div className="admin-panel flex h-64 items-center justify-center">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-black/10 border-t-[#e43d30]" />
-      </div>
-    )
-  }
+  if (loading) return <NavigationPending />;
 
   return (
     <div className="space-y-5">

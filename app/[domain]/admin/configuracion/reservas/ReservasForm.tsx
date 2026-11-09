@@ -1,5 +1,7 @@
 'use client'
 
+import NavigationPending from '@/components/NavigationPending';
+
 import { useEffect, useState } from 'react'
 
 interface Props { tenantId: string }
@@ -68,13 +70,7 @@ export default function ReservasForm({ tenantId }: Props) {
     }
   }
 
-  if (loading) {
-    return (
-      <div className="flex h-48 items-center justify-center">
-        <div className="h-7 w-7 animate-spin rounded-full border-4 border-blue-200 border-t-blue-600" />
-      </div>
-    )
-  }
+  if (loading) return <NavigationPending />;
 
   const capacity = Number(form.total_tables) * Number(form.seats_per_table)
 
