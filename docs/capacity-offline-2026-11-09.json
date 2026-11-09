@@ -1,0 +1,16 @@
+{
+  "at": "2026-11-09T18:53:40.249Z",
+  "scope": "Real browser offline module with simulated API, not Supabase capacity",
+  "businesses": 20,
+  "tabs": 40,
+  "sales": 200,
+  "cardSales": 100,
+  "cashSales": 100,
+  "outagePreservedAllSales": true,
+  "missingConfirmationPreservedAllSales": true,
+  "twoTabsNoDuplicateUploads": true,
+  "tenantIsolation": true,
+  "allQueuesEmpty": true,
+  "maxSimultaneousMockRequests": 20,
+  "elapsedSeconds": 5.6
+}

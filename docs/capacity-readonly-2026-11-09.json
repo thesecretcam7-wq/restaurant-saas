@@ -1,0 +1,264 @@
+{
+  "at": "2026-11-09T18:51:52.759Z",
+  "config": {
+    "sessions": [
+      5,
+      10,
+      20,
+      40
+    ],
+    "secondsPerStage": 30,
+    "requestIntervalMs": 5000,
+    "maxConcurrentRequests": 8,
+    "requestTimeoutMs": 5000,
+    "p95LimitMs": 2000,
+    "consecutiveSlowLimitMs": 2500,
+    "minAvailableMemoryMB": 64
+  },
+  "scope": {
+    "realDatabase": true,
+    "methods": [
+      "GET"
+    ],
+    "tenantsTested": 1,
+    "cachedWorkingSet": true,
+    "writesTested": false,
+    "authFlowTested": false,
+    "fullBusinessCapacityEstablished": false
+  },
+  "warmup": [
+    {
+      "name": "pos-bootstrap",
+      "ok": true,
+      "ms": 907.4545,
+      "serviceMs": 907.2093,
+      "bytes": 40942,
+      "status": 200
+    },
+    {
+      "name": "tv-public",
+      "ok": true,
+      "ms": 328.84699999999987,
+      "serviceMs": 328.8447,
+      "bytes": 385,
+      "status": 200
+    },
+    {
+      "name": "pos-open-orders",
+      "ok": true,
+      "ms": 364.6917000000001,
+      "serviceMs": 364.69079999999985,
+      "bytes": 956,
+      "status": 200
+    },
+    {
+      "name": "monthly-sales-page",
+      "ok": true,
+      "ms": 454.6369999999997,
+      "serviceMs": 454.6360000000002,
+      "bytes": 424131,
+      "status": 200
+    },
+    {
+      "name": "paid-bills-page",
+      "ok": true,
+      "ms": 135.8753999999999,
+      "serviceMs": 135.87300000000005,
+      "bytes": 23220,
+      "status": 200
+    },
+    {
+      "name": "cloud-health",
+      "ok": true,
+      "ms": 515.4459999999999,
+      "serviceMs": 515.4446000000003,
+      "bytes": 11,
+      "status": 200
+    }
+  ],
+  "stages": [
+    {
+      "sessions": 5,
+      "targetRequestsPerSecond": 1,
+      "planned": 30,
+      "completed": 30,
+      "elapsedSeconds": 29.2,
+      "failures": 0,
+      "p50Ms": 214.3,
+      "p95Ms": 763.1,
+      "maxMs": 844,
+      "maxInFlight": 1,
+      "passed": true,
+      "resources": {
+        "cpuBusyPercent": null,
+        "ioWaitPercent": null,
+        "memoryAvailableMB": 201,
+        "swapUsedMB": 343,
+        "swapInPages": 0,
+        "swapOutPages": 0
+      },
+      "byWorkload": [
+        {
+          "name": "pos-bootstrap",
+          "requests": 5,
+          "failures": 0,
+          "p95Ms": 843.7
+        },
+        {
+          "name": "tv-public",
+          "requests": 5,
+          "failures": 0,
+          "p95Ms": 531.9
+        },
+        {
+          "name": "pos-open-orders",
+          "requests": 5,
+          "failures": 0,
+          "p95Ms": 338.5
+        },
+        {
+          "name": "monthly-sales-page",
+          "requests": 5,
+          "failures": 0,
+          "p95Ms": 292.3
+        },
+        {
+          "name": "paid-bills-page",
+          "requests": 5,
+          "failures": 0,
+          "p95Ms": 133.1
+        },
+        {
+          "name": "cloud-health",
+          "requests": 5,
+          "failures": 0,
+          "p95Ms": 571.5
+        }
+      ],
+      "errors": []
+    },
+    {
+      "sessions": 10,
+      "targetRequestsPerSecond": 2,
+      "planned": 60,
+      "completed": 60,
+      "elapsedSeconds": 29.7,
+      "failures": 0,
+      "p50Ms": 185.5,
+      "p95Ms": 659.3,
+      "maxMs": 795,
+      "maxInFlight": 2,
+      "passed": true,
+      "resources": {
+        "cpuBusyPercent": 3,
+        "ioWaitPercent": 7.1,
+        "memoryAvailableMB": 220,
+        "swapUsedMB": 360,
+        "swapInPages": 18249,
+        "swapOutPages": 21768
+      },
+      "byWorkload": [
+        {
+          "name": "pos-bootstrap",
+          "requests": 10,
+          "failures": 0,
+          "p95Ms": 755.5
+        },
+        {
+          "name": "tv-public",
+          "requests": 10,
+          "failures": 0,
+          "p95Ms": 794.8
+        },
+        {
+          "name": "pos-open-orders",
+          "requests": 10,
+          "failures": 0,
+          "p95Ms": 191.7
+        },
+        {
+          "name": "monthly-sales-page",
+          "requests": 10,
+          "failures": 0,
+          "p95Ms": 306.8
+        },
+        {
+          "name": "paid-bills-page",
+          "requests": 10,
+          "failures": 0,
+          "p95Ms": 105.2
+        },
+        {
+          "name": "cloud-health",
+          "requests": 10,
+          "failures": 0,
+          "p95Ms": 534.3
+        }
+      ],
+      "errors": []
+    },
+    {
+      "sessions": 20,
+      "targetRequestsPerSecond": 4,
+      "planned": 120,
+      "completed": 120,
+      "elapsedSeconds": 29.9,
+      "failures": 0,
+      "p50Ms": 176.5,
+      "p95Ms": 670.1,
+      "maxMs": 1216,
+      "maxInFlight": 3,
+      "passed": true,
+      "resources": {
+        "cpuBusyPercent": null,
+        "ioWaitPercent": null,
+        "memoryAvailableMB": 220,
+        "swapUsedMB": 360,
+        "swapInPages": 0,
+        "swapOutPages": 0
+      },
+      "byWorkload": [
+        {
+          "name": "pos-bootstrap",
+          "requests": 20,
+          "failures": 0,
+          "p95Ms": 887.9
+        },
+        {
+          "name": "tv-public",
+          "requests": 20,
+          "failures": 0,
+          "p95Ms": 617.4
+        },
+        {
+          "name": "pos-open-orders",
+          "requests": 20,
+          "failures": 0,
+          "p95Ms": 120.7
+        },
+        {
+          "name": "monthly-sales-page",
+          "requests": 20,
+          "failures": 0,
+          "p95Ms": 207.6
+        },
+        {
+          "name": "paid-bills-page",
+          "requests": 20,
+          "failures": 0,
+          "p95Ms": 140.8
+        },
+        {
+          "name": "cloud-health",
+          "requests": 20,
+          "failures": 0,
+          "p95Ms": 329.8
+        }
+      ],
+      "errors": []
+    }
+  ],
+  "stopped": "Stopped on pos-bootstrap: Deadline/stop",
+  "maximumPassedReadSessions": 20,
+  "finishedAt": "2026-11-09T18:54:17.602Z"
+}

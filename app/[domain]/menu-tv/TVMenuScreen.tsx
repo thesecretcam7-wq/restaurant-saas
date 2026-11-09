@@ -184,7 +184,7 @@ export function TVMenuScreen({ tenantId, restaurantName, items }: TVMenuScreenPr
         </div>
       )}
 
-      <div className="pointer-events-none absolute inset-x-0 top-4 z-10 text-center sm:top-6">
+      <div className="pointer-events-none absolute bottom-4 right-4 z-10 text-right sm:bottom-6 sm:right-6">
         <time
           dateTime={time?.toISOString()}
           aria-label="Hora actual"
@@ -194,7 +194,7 @@ export function TVMenuScreen({ tenantId, restaurantName, items }: TVMenuScreenPr
         </time>
       </div>
 
-      <div className={`absolute bottom-4 right-4 z-20 transition-opacity duration-300 has-[:focus-visible]:pointer-events-auto has-[:focus-visible]:opacity-100 ${controlsVisible ? 'opacity-100' : 'pointer-events-none opacity-0'}`}>
+      <div className={`absolute top-4 left-4 z-20 transition-opacity duration-300 has-[:focus-visible]:pointer-events-auto has-[:focus-visible]:opacity-100 ${controlsVisible ? 'opacity-100' : 'pointer-events-none opacity-0'}`}>
         <button
           type="button"
           onClick={isFullscreen ? exitDisplayMode : enterDisplayMode}
