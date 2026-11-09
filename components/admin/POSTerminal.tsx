@@ -24,6 +24,7 @@ import { countPendingPOSOrders, isNetworkPaymentError, saveOfflinePOSOrder, sync
 import { getOfflineStorage } from '@/lib/offline/storage';
 import { useWakeLock } from '@/lib/hooks/useWakeLock';
 import { reconcileSavedDineInOrder } from '@/lib/pos-dine-in-orders';
+import { getPOSCartLineKey, getPOSItemQuantities, getPOSTableItemKey as getOrderItemKey, mergePOSTableOrdersToCart as mergeOrdersToCart, takePOSItemQuantities } from '@/lib/pos-table-items';
 import { canReachPOSCloud, fetchPOSBootstrapWithTimeout } from '@/lib/pos-cloud-connectivity';
 import { createPOSBackgroundRetry } from '@/lib/pos-background-retry';
 import { fetchPOSPayment, fetchPOSSecurityToken, POSPaymentConfirmationError } from '@/lib/pos-payment-request';
@@ -217,14 +218,6 @@ interface ReservationSummary {
 
 function getOrderItemQty(item: { qty?: number; quantity?: number }) {
   return Number(item.qty ?? item.quantity ?? 1);
-}
-
-function getOrderItemKey(item: { item_id?: string | null; menu_item_id?: string | null; name?: string }) {
-  return String(item.item_id || item.menu_item_id || item.name || '').trim();
-}
-
-function isManualOrderItem(item: { item_id?: string | null; menu_item_id?: string | null; is_manual?: boolean }) {
-  return item.is_manual === true || !(item.item_id || item.menu_item_id);
 }
 
 function getOrderItemsTotal(items: Array<{ price: number; qty?: number; quantity?: number }> = []) {
@@ -2743,7 +2736,7 @@ export function POSTerminal({
   }
 
   function updateSplitSelection(itemId: string, nextQty: number) {
-    const item = cart.find((cartItem) => cartItem.menu_item_id === itemId);
+    const item = cart.find((cartItem) => getPOSCartLineKey(cartItem) === itemId);
     if (!item) return;
 
     const clampedQty = Math.max(0, Math.min(item.quantity, nextQty));
@@ -2892,9 +2885,10 @@ export function POSTerminal({
       return;
     }
 
-    const existing = cart.find((c) => c.menu_item_id === item.id);
+    const itemKey = getOrderItemKey({ menu_item_id: item.id, name: item.name, price: item.price });
+    const existing = cart.find((c) => getOrderItemKey(c) === itemKey);
     const nextCart = existing
-      ? cart.map((c) => (c.menu_item_id === item.id ? { ...c, quantity: c.quantity + 1 } : c))
+      ? cart.map((c) => (c === existing ? { ...c, quantity: c.quantity + 1 } : c))
       : [
           ...cart,
           {
@@ -2973,10 +2967,7 @@ export function POSTerminal({
     const previousDineInOrders = activeDineInOrders;
     const previousBillingOrderIds = [...activeBillingOrderIds];
     const previousLoadedTableBaseCart = tableSyncState.loadedTableBaseCart ? cloneCartItems(tableSyncState.loadedTableBaseCart) : null;
-    const desiredQuantities = new Map<string, number>();
-    nextCart.forEach((item) => {
-      desiredQuantities.set(item.menu_item_id, (desiredQuantities.get(item.menu_item_id) || 0) + Number(item.quantity || 0));
-    });
+    const desiredQuantities = getPOSItemQuantities(nextCart);
 
     let nextTableOrders: DineInOrder[] = [];
     const nextBillingOrderIds: string[] = [];
@@ -3013,12 +3004,7 @@ export function POSTerminal({
       }
     }
 
-    const extraItems = nextCart
-      .map((item) => {
-        const extraQty = Math.max(0, desiredQuantities.get(item.menu_item_id) || 0);
-        return extraQty > 0 ? { ...item, quantity: extraQty } : null;
-      })
-      .filter((item): item is CartItem => Boolean(item));
+    const extraItems = takePOSItemQuantities(nextCart, desiredQuantities);
 
     if (extraItems.length > 0 && activeBillingOrderIds.length > 0) {
       const primaryOrderId = nextBillingOrderIds[0] || activeBillingOrderIds[0];
@@ -3027,7 +3013,8 @@ export function POSTerminal({
         activeDineInOrders.find((order) => order.id === primaryOrderId);
 
       if (primaryOrder) {
-        const mergedItems = mergeExtraItemsIntoOrderItems(primaryOrder.items || [], extraItems);
+        const keptItems = nextTableOrders.find((order) => order.id === primaryOrderId)?.items || [];
+        const mergedItems = mergeExtraItemsIntoOrderItems(keptItems, extraItems);
         const mergedSubtotal = getOrderItemsTotal(mergedItems);
         const mergedTax = calculateTaxAmount(mergedSubtotal, taxRate, taxIncluded);
         const mergedTotal = mergedSubtotal + (taxIncluded ? 0 : mergedTax);
@@ -3272,13 +3259,13 @@ export function POSTerminal({
   }
 
   function removeFromCart(itemId: string) {
-    const nextCart = cart.filter((c) => c.menu_item_id !== itemId);
+    const nextCart = cart.filter((c) => getPOSCartLineKey(c) !== itemId);
     updateCartAndLoadedTable(nextCart, '');
   }
 
   function updateNotes(itemId: string, notes: string) {
     setCart((prev) =>
-      prev.map((c) => (c.menu_item_id === itemId ? { ...c, notes } : c))
+      prev.map((c) => (getPOSCartLineKey(c) === itemId ? { ...c, notes } : c))
     );
   }
 
@@ -3286,7 +3273,7 @@ export function POSTerminal({
     if (quantity <= 0) {
       removeFromCart(itemId);
     } else {
-      const nextCart = cart.map((c) => (c.menu_item_id === itemId ? { ...c, quantity } : c));
+      const nextCart = cart.map((c) => (getPOSCartLineKey(c) === itemId ? { ...c, quantity } : c));
       updateCartAndLoadedTable(nextCart, '');
     }
   }
@@ -3308,7 +3295,7 @@ export function POSTerminal({
     }
 
     const nextCart = cart.map((current) =>
-      current.menu_item_id === item.menu_item_id ? { ...current, name: trimmedName } : current
+      getPOSCartLineKey(current) === getPOSCartLineKey(item) ? { ...current, name: trimmedName } : current
     );
     updateCartAndLoadedTable(nextCart, '');
   }
@@ -3448,30 +3435,6 @@ export function POSTerminal({
     return merged;
   }
 
-  function mergeOrdersToCart(tableOrders: DineInOrder[]) {
-    const mergedMap = new Map<string, CartItem>();
-    tableOrders.forEach(order => {
-      (order.items || []).forEach(item => {
-        const key = getOrderItemKey(item);
-        const quantity = getOrderItemQty(item);
-        if (mergedMap.has(key)) {
-          const existing = mergedMap.get(key)!;
-          mergedMap.set(key, { ...existing, quantity: existing.quantity + quantity });
-        } else {
-          mergedMap.set(key, {
-            menu_item_id: key,
-            name: item.name,
-            price: item.price,
-            quantity,
-            is_manual: isManualOrderItem(item),
-            notes: (item as any).notes || undefined,
-          });
-        }
-      });
-    });
-    return Array.from(mergedMap.values());
-  }
-
   function applyOptimisticTableCart(
     nextCart: CartItem[],
     tableNumber: number | null,
@@ -3484,10 +3447,7 @@ export function POSTerminal({
     optimisticTableOrderIdsRef.current.set(tableNumber, optimisticOrderId);
 
     setDineInOrders((current) => {
-      const desiredQuantities = new Map<string, number>();
-      nextCart.forEach((item) => {
-        desiredQuantities.set(item.menu_item_id, (desiredQuantities.get(item.menu_item_id) || 0) + Number(item.quantity || 0));
-      });
+      const desiredQuantities = getPOSItemQuantities(nextCart);
 
       const nextOrders = current
         .filter((order) => order.id !== optimisticOrderId)
@@ -3513,11 +3473,7 @@ export function POSTerminal({
         })
         .filter((order) => !activeBillingOrderIds.includes(order.id) || (order.items || []).some((item) => getOrderItemQty(item) > 0));
 
-      const extraItems = nextCart
-        .flatMap((item) => {
-          const extraQty = Math.max(0, desiredQuantities.get(item.menu_item_id) || 0);
-          return extraQty > 0 ? [{ ...item, quantity: extraQty }] : [];
-        });
+      const extraItems = takePOSItemQuantities(nextCart, desiredQuantities);
 
       if (extraItems.length === 0) return nextOrders;
 
@@ -3562,15 +3518,13 @@ export function POSTerminal({
   function getLoadedTableAdditions() {
     if (!loadedTableBaseCart || billingOrderIds.length === 0) return [];
 
-    const baseQuantities = new Map<string, number>();
-    loadedTableBaseCart.forEach((item) => {
-      const key = item.menu_item_id;
-      baseQuantities.set(key, (baseQuantities.get(key) || 0) + Number(item.quantity || 0));
-    });
+    const baseQuantities = getPOSItemQuantities(loadedTableBaseCart);
 
     return cart
       .map((item) => {
-        const baseQty = baseQuantities.get(item.menu_item_id) || 0;
+        const key = getOrderItemKey(item);
+        const baseQty = baseQuantities.get(key) || 0;
+        baseQuantities.set(key, Math.max(0, baseQty - Number(item.quantity || 0)));
         const extraQty = Number(item.quantity || 0) - baseQty;
         return extraQty > 0 ? { ...item, quantity: extraQty } : null;
       })
@@ -4227,9 +4181,7 @@ export function POSTerminal({
         }
 
         const splitCreatedOrder = await splitResponse.json().catch(() => ({}));
-        const remainingSelections = new Map(
-          splitPaymentItems.map((item) => [item.menu_item_id, item.quantity])
-        );
+        const remainingSelections = getPOSItemQuantities(splitPaymentItems);
         const remainingBillingOrderIds: string[] = [];
         const nextTableOrders: DineInOrder[] = [];
         const closedSplitOrderIds: string[] = [];
@@ -4859,7 +4811,7 @@ export function POSTerminal({
 
     return cart
       .map((item) => {
-        const selectedQty = Math.min(item.quantity, Math.max(0, Number(splitSelections[item.menu_item_id] || 0)));
+        const selectedQty = Math.min(item.quantity, Math.max(0, Number(splitSelections[getPOSCartLineKey(item)] || 0)));
         return selectedQty > 0 ? { ...item, quantity: selectedQty } : null;
       })
       .filter((item): item is CartItem => Boolean(item));
@@ -4930,7 +4882,7 @@ export function POSTerminal({
 
   const cartQuantityMap = useMemo(() => {
     const map = new Map<string, number>();
-    cart.forEach(item => map.set(item.menu_item_id, item.quantity));
+    cart.forEach(item => map.set(item.menu_item_id, (map.get(item.menu_item_id) || 0) + item.quantity));
     return map;
   }, [cart]);
   const savedAccountButtonDisabled = cart.length > 0 && (processingPayment || !!loadedOrderId || billingOrderIds.length > 0);
@@ -6294,10 +6246,11 @@ export function POSTerminal({
             ) : (
               <div className={`${compactPOSLayout ? 'space-y-1 p-1.5 pb-3' : 'p-2 space-y-1'}`}>
                 {cart.map((item) => {
-                  const splitQty = Math.min(item.quantity, Math.max(0, Number(splitSelections[item.menu_item_id] || 0)));
+                  const lineKey = getPOSCartLineKey(item);
+                  const splitQty = Math.min(item.quantity, Math.max(0, Number(splitSelections[lineKey] || 0)));
                   const isSplitSelected = splitBillMode && splitQty > 0;
                   return (
-                  <div key={item.menu_item_id} className={`pos-card flex items-center gap-2 rounded-xl px-2 ${compactPOSLayout ? 'py-1' : 'py-1.5'} ${isSplitSelected ? 'border-amber-300/45 bg-amber-300/10' : ''}`}>
+                  <div key={lineKey} className={`pos-card flex items-center gap-2 rounded-xl px-2 ${compactPOSLayout ? 'py-1' : 'py-1.5'} ${isSplitSelected ? 'border-amber-300/45 bg-amber-300/10' : ''}`}>
                     <div className="flex-1 min-w-0">
                       <div className="flex min-w-0 items-center gap-1.5">
                         <p className="min-w-0 truncate text-xs font-semibold text-white">
@@ -6326,8 +6279,8 @@ export function POSTerminal({
                     <div className="flex items-center gap-1 shrink-0">
                       <button
                         onClick={() => splitBillMode
-                          ? updateSplitSelection(item.menu_item_id, splitQty - 1)
-                          : updateQuantity(item.menu_item_id, item.quantity - 1)}
+                          ? updateSplitSelection(lineKey, splitQty - 1)
+                          : updateQuantity(lineKey, item.quantity - 1)}
                         className="w-6 h-6 rounded-lg bg-white/10 hover:bg-white/16 text-white font-black text-sm flex items-center justify-center transition active:scale-90"
                       >
                         −
@@ -6335,15 +6288,15 @@ export function POSTerminal({
                       <span className="text-white font-bold text-xs w-5 text-center">{splitBillMode ? splitQty : item.quantity}</span>
                       <button
                         onClick={() => splitBillMode
-                          ? updateSplitSelection(item.menu_item_id, splitQty + 1)
-                          : updateQuantity(item.menu_item_id, item.quantity + 1)}
+                          ? updateSplitSelection(lineKey, splitQty + 1)
+                          : updateQuantity(lineKey, item.quantity + 1)}
                         className="w-6 h-6 rounded-lg bg-white/10 hover:bg-white/16 text-white font-black text-sm flex items-center justify-center transition active:scale-90"
                       >
                         +
                       </button>
                       {!splitBillMode && (
                         <button
-                          onClick={() => removeFromCart(item.menu_item_id)}
+                          onClick={() => removeFromCart(lineKey)}
                           className="w-6 h-6 rounded-lg bg-red-500/16 hover:bg-red-500/26 text-red-300 hover:text-white font-black text-xs flex items-center justify-center transition active:scale-90 ml-0.5"
                         >
                           ✕
