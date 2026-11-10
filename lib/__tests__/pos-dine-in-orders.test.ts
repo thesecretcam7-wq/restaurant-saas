@@ -1,5 +1,26 @@
 import { describe, expect, it } from 'vitest';
-import { reconcileSavedDineInOrder } from '../pos-dine-in-orders';
+import { reconcileSavedDineInOrder, uniqueDineInOrders } from '../pos-dine-in-orders';
+import { mergePOSTableOrdersToCart } from '../pos-table-items';
+
+describe('real table account identity', () => {
+  it('keeps two separate identical commands and their combined amount', () => {
+    const items = [{ menu_item_id: 'coffee', name: 'Café', price: 3, qty: 2 }];
+    const orders = [{ id: 'first', items }, { id: 'second', items }];
+    const unique = uniqueDineInOrders(orders);
+    expect(unique.map(order => order.id)).toEqual(['first', 'second']);
+    const cart = mergePOSTableOrdersToCart(unique);
+    expect(cart[0].quantity).toBe(4);
+    expect(cart.reduce((total, item) => total + item.quantity * item.price, 0)).toBe(12);
+  });
+
+  it('removes repeated deliveries of the same saved ID without modifying input', () => {
+    const order = { id: 'same', total: 6 };
+    const orders = [order, { ...order }, { id: 'other', total: 6 }];
+    expect(uniqueDineInOrders(orders)).toEqual([order, orders[2]]);
+    expect(orders).toHaveLength(3);
+    expect(uniqueDineInOrders(orders)[0]).toBe(order);
+  });
+});
 
 describe('reconcileSavedDineInOrder', () => {
   it('keeps the server order when realtime delivered it before the POST response', () => {

@@ -24,3 +24,16 @@ This is a display and account-selection correction. It does not automatically ca
 - Old-only table shows free today; previous products remain visible; an unsaved €3 cart is preserved when trying to review another account. Checked at 1024×600 and 1366×768.
 - Existing browser regressions passed for multiple manual prices, catalog products at different prices, renaming a manual line, split payment, and final collection.
 - Browser data and payments were simulated; production inspection was read-only.
+
+## Follow-up: different amount when retrieving a table
+
+The user reported another discrepancy and explained that table 1 is used to hold pending accounts. They could not recall the before/after amounts. The latest account inspected had €11.80 in stored line items and €11.80 in its order total; the edit audit also reported €11.80 before and after. This does not identify the exact reported discrepancy.
+
+Two independent bugs were reproduced in the real POS using simulated data before changing the code:
+
+1. Two distinct commands with identical products (two coffees at €3 in each command) were deduplicated by content. The database held €12, but the POS loaded €6 and would leave the other command pending. Deduplication now uses saved order identity, while the existing reconciliation still removes temporary/server aliases after a save.
+2. A €2 tip set on a previous draft carried over when loading a saved €6 table, showing €8 to collect. Loading a table now clears the previous draft's payment adjustments, payment entry, receipt/delivery context, and previous-day registration, and invalidates outstanding cart restores before restoring the saved products.
+
+Table switching/retrieval is also guarded during an outstanding send, table edit, or payment. The internal split-payment continuation explicitly retains its existing ability to restore the remaining account.
+
+Validation: 278 unit tests and the TypeScript check passed. Browser flows verified both identical accounts are collected for €12; two sequential €6 sends also load and collect €12; retrieval is disabled during a delayed save; a previous €2 draft tip no longer changes a saved €6 table. Existing manual-price, catalog-price, split-payment, renamed-line, and previous-day account browser scenarios passed again. No real financial records were changed. Multiple commands sent to the same table still accumulate; the existing **Guardar** flow remains available for independent held accounts.

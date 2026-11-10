@@ -3,6 +3,17 @@ type ReconciliableDineInOrder = {
   order_number?: string | null;
 };
 
+// Identical products can belong to separate, real commands. Only a repeated ID
+// represents the same account; temporary/server aliases are reconciled on save.
+export function uniqueDineInOrders<T extends { id: string }>(orders: T[]): T[] {
+  const seen = new Set<string>();
+  return orders.filter(order => {
+    if (seen.has(order.id)) return false;
+    seen.add(order.id);
+    return true;
+  });
+}
+
 export function reconcileSavedDineInOrder<T extends ReconciliableDineInOrder>(
   orders: T[],
   optimisticOrderIds: Array<string | null | undefined>,

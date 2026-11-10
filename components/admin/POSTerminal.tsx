@@ -25,7 +25,7 @@ import { preloadPrinterForPrint, printCashClosingReceipt, printKitchenTicket, pr
 import { countPendingPOSOrders, isNetworkPaymentError, saveOfflinePOSOrder, syncOfflinePOSOrders } from '@/lib/offline/pos-sync';
 import { getOfflineStorage } from '@/lib/offline/storage';
 import { useWakeLock } from '@/lib/hooks/useWakeLock';
-import { reconcileSavedDineInOrder } from '@/lib/pos-dine-in-orders';
+import { reconcileSavedDineInOrder, uniqueDineInOrders } from '@/lib/pos-dine-in-orders';
 import { getPOSCartLineKey, getPOSItemQuantities, getPOSTableItemKey as getOrderItemKey, mergePOSTableOrdersToCart as mergeOrdersToCart, takePOSItemQuantities } from '@/lib/pos-table-items';
 import { canReachPOSCloud, fetchPOSBootstrapWithTimeout } from '@/lib/pos-cloud-connectivity';
 import { createPOSBackgroundRetry } from '@/lib/pos-background-retry';
@@ -225,24 +225,6 @@ function getOrderItemQty(item: { qty?: number; quantity?: number }) {
 
 function getOrderItemsTotal(items: Array<{ price: number; qty?: number; quantity?: number }> = []) {
   return items.reduce((sum, item) => sum + Number(item.price || 0) * getOrderItemQty(item), 0);
-}
-
-function getDineInOrderContentSignature(order: DineInOrder) {
-  const items = (order.items || [])
-    .map((item) => ({
-      key: getOrderItemKey(item),
-      name: String(item.name || '').trim().toLowerCase(),
-      price: Math.round((Number(item.price) || 0) * 100),
-      qty: getOrderItemQty(item),
-      notes: String((item as any).notes || '').trim().toLowerCase(),
-    }))
-    .sort((a, b) => `${a.key}:${a.name}:${a.price}:${a.notes}`.localeCompare(`${b.key}:${b.name}:${b.price}:${b.notes}`));
-
-  return JSON.stringify({
-    table: order.table_number || null,
-    total: Math.round(getOrderItemsTotal(order.items || []) * 100),
-    items,
-  });
 }
 
 function getHeldAccountItemCount(account: HeldPOSAccount) {
@@ -2711,22 +2693,38 @@ export function POSTerminal({
   }
 
     */
-  function loadTableToCart(tableOrders: DineInOrder[]) {
-    const mergedItems = mergeOrdersToCart(tableOrders);
+  function loadTableToCart(tableOrders: DineInOrder[], options?: { afterSplitPayment?: boolean }) {
+    if (!tableOrders.length) return;
+    if (sendToTableInFlightRef.current || tableCartSyncInFlightRef.current || pendingTableCartSyncRef.current ||
+        (paymentInFlightRef.current && !options?.afterSplitPayment)) {
+      setToast({ message: 'Espera a que termine de guardarse o cobrarse la cuenta.', type: 'error' });
+      return;
+    }
+    const savedTableOrders = uniqueDineInOrders(tableOrders);
+    const mergedItems = mergeOrdersToCart(savedTableOrders);
+    invalidatePendingCartSync();
+    clearDraftCartForTableSwitch();
+    setLoadedOrderId(null);
+    setLoadedOrderContext(null);
+    setLoadedOrderIds([]);
+    setSelectedDeliveryZoneId(null);
+    setRegisterInPreviousPeriod(false);
+    setPosOrderType('takeaway');
     setCart(mergedItems);
     setLoadedTableBaseCart(cloneCartItems(mergedItems));
     setSplitBillMode(false);
     setSplitSelections({});
     setPosMode('table');
     setSelectedTableId(null);
-    const first = tableOrders[0];
-    if (first.table_number) setSelectedTableNumber(first.table_number);
+    const first = savedTableOrders[0];
+    setSelectedTableNumber(first.table_number);
     setSelectedStaffId(null);
     setSelectedStaffName(first.waiter_name || '');
-    setBillingOrderIds(tableOrders.map(o => o.id));
+    setBillingOrderIds(savedTableOrders.map(o => o.id));
     setExpandedTable(null);
     setShowDineInPanel(false);
     setShowIncomingPanel(false);
+    setShowFindPayPanel(false);
   }
 
   function reviewPreviousTableOrder(order: DineInOrder) {
@@ -3709,6 +3707,10 @@ export function POSTerminal({
   }
 
   function handleTableShortcutClick(tableId: string, tableNumber: number, tableOrders?: DineInOrder[]) {
+    if (sendToTableInFlightRef.current || tableCartSyncInFlightRef.current || pendingTableCartSyncRef.current || paymentInFlightRef.current) {
+      setToast({ message: 'Espera a que termine de guardarse o cobrarse la cuenta.', type: 'error' });
+      return;
+    }
     const additions = getLoadedTableAdditions();
     const isSameSelectedTable = selectedTableNumber === tableNumber;
 
@@ -4655,7 +4657,7 @@ export function POSTerminal({
       };
 
       if (keepSplitTableOpen && splitRemainingOrders.length > 0) {
-        loadTableToCart(splitRemainingOrders);
+        loadTableToCart(splitRemainingOrders, { afterSplitPayment: true });
         setDiscount(0);
         setDiscountCode('');
         setTip(0);
@@ -4884,13 +4886,9 @@ export function POSTerminal({
 
   const tableGroups = useMemo((): TableGroup[] => {
     const groups = new Map<number, DineInOrder[]>();
-    const seenOrderSignatures = new Set<string>();
 
-    currentTableOrders.forEach(order => {
+    uniqueDineInOrders(currentTableOrders).forEach(order => {
       if (!(order.items || []).some((item) => getOrderItemQty(item) > 0)) return;
-      const signature = getDineInOrderContentSignature(order);
-      if (seenOrderSignatures.has(signature)) return;
-      seenOrderSignatures.add(signature);
 
       const tableNum = order.table_number ?? 0;
       if (!groups.has(tableNum)) groups.set(tableNum, []);
@@ -5979,6 +5977,7 @@ export function POSTerminal({
                   return (
                     <button
                       key={table.id}
+                      disabled={sendingToTable || tableCartSaving || processingPayment}
                       onClick={() => {
                         handleTableShortcutClick(table.id, table.table_number, group?.orders);
                       }}
