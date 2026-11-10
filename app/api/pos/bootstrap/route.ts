@@ -51,7 +51,7 @@ export async function GET(request: NextRequest) {
           .maybeSingle(), controller.signal),
         withAbort(supabase
           .from('restaurant_settings')
-          .select('tax_rate, display_name, phone, delivery_enabled, delivery_fee, delivery_zones, country, timezone, printer_auto_print')
+          .select('tax_rate, display_name, phone, delivery_enabled, delivery_fee, delivery_zones, country, timezone, operating_hours, printer_auto_print')
           .eq('tenant_id', tenantId)
           .maybeSingle(), controller.signal),
         withAbort(supabase

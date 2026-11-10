@@ -32,6 +32,7 @@ import { createPOSBackgroundRetry } from '@/lib/pos-background-retry';
 import { fetchPOSPayment, fetchPOSSecurityToken, POSPaymentConfirmationError } from '@/lib/pos-payment-request';
 import { getPreviousPOSSaleDate } from '@/lib/pos-business-date';
 import { getRestaurantTimeZone } from '@/lib/restaurant-time';
+import { partitionPOSTableOrders } from '@/lib/pos-table-period';
 
 interface MenuItem {
   id: string;
@@ -695,6 +696,7 @@ export function POSTerminal({
   const [selectedDeliveryZoneId, setSelectedDeliveryZoneId] = useState<string | null>(null);
   const [restaurantName, setRestaurantName] = useState('Restaurante');
   const [restaurantTimeZone, setRestaurantTimeZone] = useState(() => getRestaurantTimeZone({ tenantCountry: country }));
+  const [restaurantOperatingHours, setRestaurantOperatingHours] = useState<unknown>(null);
   const [saleDateClock, setSaleDateClock] = useState(() => Date.now());
   const [restaurantPhone, setRestaurantPhone] = useState<string | null>(null);
   const [restaurantLogo, setRestaurantLogo] = useState<string | undefined>();
@@ -757,6 +759,13 @@ export function POSTerminal({
   const [loadedOrderContext, setLoadedOrderContext] = useState<LoadedOrderContext | null>(null);
   const [loadedOrderIds, setLoadedOrderIds] = useState<string[]>([]);
   const [billingOrderIds, setBillingOrderIds] = useState<string[]>([]);
+  const { current: currentTableOrders, previous: previousTableOrders } = useMemo(() =>
+    partitionPOSTableOrders(dineInOrders, {
+      timeZone: restaurantTimeZone,
+      operatingHours: restaurantOperatingHours,
+      now: new Date(saleDateClock),
+    }), [dineInOrders, restaurantTimeZone, restaurantOperatingHours, saleDateClock]);
+  const loadedPreviousTableOrder = previousTableOrders.find(order => billingOrderIds.includes(order.id));
   const [loadedTableBaseCart, setLoadedTableBaseCart] = useState<CartItem[] | null>(null);
   const [expandedTable, setExpandedTable] = useState<number | null>(null);
   const [tip, setTip] = useState(0);
@@ -769,7 +778,7 @@ export function POSTerminal({
   const [showHeldAccountsPanel, setShowHeldAccountsPanel] = useState(false);
   const [splitBillMode, setSplitBillMode] = useState(false);
   const [splitSelections, setSplitSelections] = useState<SplitSelection>({});
-  const [mesasView, setMesasView] = useState<'list' | 'map'>('map');
+  const [mesasView, setMesasView] = useState<'list' | 'map' | 'previous'>('map');
   const lastSaleReceiptStorageKey = `eccofood-pos-last-sale-receipt-${tenantId}`;
   const [allTables, setAllTables] = useState<RestaurantTable[]>([]);
   const [androidTapToPayAvailable, setAndroidTapToPayAvailable] = useState(false);
@@ -2709,6 +2718,7 @@ export function POSTerminal({
     setSplitBillMode(false);
     setSplitSelections({});
     setPosMode('table');
+    setSelectedTableId(null);
     const first = tableOrders[0];
     if (first.table_number) setSelectedTableNumber(first.table_number);
     setSelectedStaffId(null);
@@ -2717,6 +2727,22 @@ export function POSTerminal({
     setExpandedTable(null);
     setShowDineInPanel(false);
     setShowIncomingPanel(false);
+  }
+
+  function reviewPreviousTableOrder(order: DineInOrder) {
+    if (processingPayment || tableCartSaving || sendingToTable) return;
+    if (cart.length > 0 && !billingOrderIds.includes(order.id)) {
+      setToast({ message: 'Primero guarda o descarga la cuenta del carrito para revisar otra cuenta.', type: 'error' });
+      return;
+    }
+    loadTableToCart([order]);
+  }
+
+  function formatTableAccountDate(order: DineInOrder) {
+    const date = new Date(order.created_at);
+    return Number.isFinite(date.getTime())
+      ? date.toLocaleString(currencyInfo.locale, { timeZone: restaurantTimeZone, dateStyle: 'short', timeStyle: 'short' })
+      : 'Fecha por revisar';
   }
 
   function handleAndroidTapToPayTable() {
@@ -2787,6 +2813,7 @@ export function POSTerminal({
     }
     if (data.settings) {
       setRestaurantTimeZone(getRestaurantTimeZone({ timezone: data.settings.timezone, settingsCountry: data.settings.country, tenantCountry: country }));
+      setRestaurantOperatingHours(data.settings.operating_hours || null);
       setTaxRate(Number(data.settings.tax_rate || 0));
       setDeliveryEnabled(data.settings.delivery_enabled === true);
       setDeliveryFee(Number(data.settings.delivery_fee || 0));
@@ -3480,7 +3507,7 @@ export function POSTerminal({
       if (extraItems.length === 0) return nextOrders;
 
       const primaryOrderIndex = nextOrders.findIndex((order) => activeBillingOrderIds.includes(order.id));
-      const existingTableOrder = current.find((order) => order.table_number === tableNumber);
+      const existingTableOrder = current.find((order) => activeBillingOrderIds.includes(order.id));
 
       if (primaryOrderIndex >= 0) {
         const primaryOrder = nextOrders[primaryOrderIndex];
@@ -3686,6 +3713,10 @@ export function POSTerminal({
     const isSameSelectedTable = selectedTableNumber === tableNumber;
 
     if (billingOrderIds.length > 0 && additions.length > 0 && isSameSelectedTable) {
+      if (loadedPreviousTableOrder) {
+        void syncLoadedTableCart(cart, 'Cuenta anterior actualizada');
+        return;
+      }
       void handleSendCartToTable({ tableNumber, items: additions });
       return;
     }
@@ -4855,7 +4886,7 @@ export function POSTerminal({
     const groups = new Map<number, DineInOrder[]>();
     const seenOrderSignatures = new Set<string>();
 
-    dineInOrders.forEach(order => {
+    currentTableOrders.forEach(order => {
       if (!(order.items || []).some((item) => getOrderItemQty(item) > 0)) return;
       const signature = getDineInOrderContentSignature(order);
       if (seenOrderSignatures.has(signature)) return;
@@ -4880,7 +4911,7 @@ export function POSTerminal({
       ),
       allItems: orders.flatMap(o => o.items || []),
     }));
-  }, [dineInOrders, taxIncluded, taxRate]);
+  }, [currentTableOrders, taxIncluded, taxRate]);
 
   const cartQuantityMap = useMemo(() => {
     const map = new Map<string, number>();
@@ -5929,14 +5960,22 @@ export function POSTerminal({
           {/* Tables Bottom Strip */}
           {allTables.length > 0 && (
             <div className="pos-panel border-x-0 border-b-0 px-3 py-2 shrink-0 bg-white/95">
-              <p className="text-slate-800 text-xs font-black mb-2 uppercase">Mesas</p>
+              <div className="mb-2 flex items-center justify-between gap-2">
+                <p className="text-slate-800 text-xs font-black uppercase">Mesas</p>
+                {previousTableOrders.length > 0 && (
+                  <button type="button" className="rounded-lg border border-amber-400/50 bg-amber-400/15 px-2 py-1 text-xs font-bold text-amber-700"
+                    onClick={() => { setShowDineInPanel(true); setShowIncomingPanel(false); setShowFindPayPanel(false); setMesasView('previous'); }}>
+                    Cuentas anteriores ({previousTableOrders.length})
+                  </button>
+                )}
+              </div>
               <div className="flex gap-2 overflow-x-auto scrollbar-none pb-1">
                 {allTables.map(table => {
                   const group = tableGroups.find(g => g.tableNumber === table.table_number);
                   const minutes = group
                     ? Math.floor((Date.now() - new Date(group.oldestOrder.created_at).getTime()) / 60000)
                     : 0;
-                  const isSelected = selectedTableNumber === table.table_number;
+                  const isSelected = selectedTableNumber === table.table_number && !loadedPreviousTableOrder;
                   return (
                     <button
                       key={table.id}
@@ -6060,7 +6099,42 @@ export function POSTerminal({
                 >
                   📋 Comandas {tableGroups.length > 0 && `(${tableGroups.length})`}
                 </button>
+                {(previousTableOrders.length > 0 || mesasView === 'previous') && (
+                  <button type="button" onClick={() => setMesasView('previous')}
+                    className={`flex-1 py-2 text-xs font-black transition ${mesasView === 'previous' ? 'text-amber-200 bg-amber-300/14' : 'text-slate-400 hover:text-white'}`}>
+                    Anteriores ({previousTableOrders.length})
+                  </button>
+                )}
               </div>
+
+              {mesasView === 'previous' && (
+                <div className="flex-1 overflow-y-auto p-3 space-y-3">
+                  <p className="text-xs text-amber-200">Cuentas pendientes de otras jornadas. Revisa si ya se cobraron antes de volver a cobrar. Se conservan separadas de las mesas actuales.</p>
+                  {previousTableOrders.length === 0 && <p className="text-sm text-slate-400">Sin cuentas anteriores pendientes</p>}
+                  {previousTableOrders.map(order => (
+                    <div key={order.id} className="rounded-xl border border-amber-300/25 bg-amber-300/5 p-3 space-y-2">
+                      <div className="flex justify-between gap-2 text-sm font-bold">
+                        <span>Mesa {order.table_number ?? 'sin asignar'}</span>
+                        <span>{formatPriceWithCurrency(order.total, currencyInfo.code, currencyInfo.locale)}</span>
+                      </div>
+                      <p className="text-xs text-amber-200">{formatTableAccountDate(order)}</p>
+                      <p className="text-xs text-slate-400 break-all">{order.order_number}</p>
+                      <ul className="space-y-1 text-xs text-slate-200">
+                        {(order.items || []).map((item, index) => (
+                          <li key={index} className="flex justify-between gap-2">
+                            <span>{getOrderItemQty(item)} × {item.name}</span>
+                            <span className="shrink-0">{formatPriceWithCurrency(item.price * getOrderItemQty(item), currencyInfo.code, currencyInfo.locale)}</span>
+                          </li>
+                        ))}
+                      </ul>
+                      <button type="button" onClick={() => reviewPreviousTableOrder(order)} disabled={processingPayment || tableCartSaving || sendingToTable}
+                        className="w-full rounded-lg border border-amber-300/40 px-3 py-2 text-sm font-bold text-amber-100 disabled:opacity-50">
+                        Revisar cuenta
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
 
               {/* Vista Mapa */}
               {mesasView === 'map' && (
@@ -6068,7 +6142,7 @@ export function POSTerminal({
                   <TableMap
                     tenantId={tenantId}
                     occupiedTableNumbers={tableGroups.map(g => g.tableNumber)}
-                    selectedTableNumber={selectedTableNumber}
+                    selectedTableNumber={loadedPreviousTableOrder ? null : selectedTableNumber}
                     onBillTable={(tableNumber) => {
                       const group = tableGroups.find(g => g.tableNumber === tableNumber);
                       if (!group) return;
@@ -6184,7 +6258,9 @@ export function POSTerminal({
               <UtensilsCrossed className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
               <div className="flex-1 min-w-0">
                 <p className="text-emerald-300 font-bold text-xs">Cobrando Mesa {selectedTableNumber}</p>
-                <p className="text-emerald-400/70 text-xs">Cuenta de mesa acumulada</p>
+                <p className={`text-xs ${loadedPreviousTableOrder ? 'text-amber-200' : 'text-emerald-400/70'}`}>
+                  {loadedPreviousTableOrder ? `Cuenta anterior · ${formatTableAccountDate(loadedPreviousTableOrder)}` : 'Cuenta de mesa acumulada'}
+                </p>
               </div>
               {androidTapToPayAvailable && (
                 <button
