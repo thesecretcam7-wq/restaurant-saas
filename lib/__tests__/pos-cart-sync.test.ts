@@ -54,7 +54,8 @@ describe('POS cart synchronization', () => {
     };
     const supabase = { from: vi.fn().mockReturnValue(table) };
 
-    await expect(saveCartToSupabase('tenant-1', cartData, supabase)).resolves.toBe(true);
+    await expect(saveCartToSupabase('tenant-1', { ...cartData, billingOrderIds: ['first', 'second'] }, supabase)).resolves.toBe(true);
+    expect(table.update).toHaveBeenCalledWith(expect.objectContaining({ cart_context: { version: 1, billingOrderIds: ['first', 'second'], loadedOrderId: null } }));
 
     expect(selectQuery.is).toHaveBeenCalledWith('abandoned_at', null);
     expect(selectQuery.order).toHaveBeenCalledWith('updated_at', { ascending: false });
@@ -76,6 +77,7 @@ describe('POS cart synchronization', () => {
           discount: 0,
           payment_method: 'cash',
           pos_mode: 'simple',
+          cart_context: { version: 1, billingOrderIds: ['first', 'second'] },
         },
         error: null,
       }),
@@ -87,6 +89,7 @@ describe('POS cart synchronization', () => {
     await expect(loadCartFromSupabase('tenant-1', supabase)).resolves.toMatchObject({
       items: cartData.items,
       paymentMethod: 'cash',
+      billingOrderIds: ['first', 'second'],
     });
 
     expect(selectQuery.is).toHaveBeenCalledWith('abandoned_at', null);

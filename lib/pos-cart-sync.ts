@@ -1,6 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 
-interface CartData {
+export interface CartData {
   items: Array<{
     menu_item_id: string;
     name: string;
@@ -21,6 +21,7 @@ interface CartData {
   taxRate?: number;
   readonly?: boolean;
   loadedOrderId?: string;
+  billingOrderIds?: string[];
 }
 
 // Get or create a unique session ID for this device/browser
@@ -85,6 +86,7 @@ export async function saveCartToSupabase(
           selected_staff_name: cartData.selectedStaffName || null,
           selected_table_id: cartData.selectedTableId || null,
           selected_table_number: cartData.selectedTableNumber || null,
+          cart_context: { version: 1, billingOrderIds: cartData.billingOrderIds || [], loadedOrderId: cartData.loadedOrderId || null },
         })
         .eq('id', existingCart.id)
         .is('abandoned_at', null);
@@ -108,6 +110,7 @@ export async function saveCartToSupabase(
           selected_staff_name: cartData.selectedStaffName || null,
           selected_table_id: cartData.selectedTableId || null,
           selected_table_number: cartData.selectedTableNumber || null,
+          cart_context: { version: 1, billingOrderIds: cartData.billingOrderIds || [], loadedOrderId: cartData.loadedOrderId || null },
         });
 
       return !error;
@@ -150,7 +153,10 @@ export async function loadCartFromSupabase(
       selectedTableId: cart.selected_table_id || null,
       selectedTableNumber: cart.selected_table_number || null,
       readonly: cart.readonly || false,
-      loadedOrderId: cart.loaded_order_id || undefined,
+      loadedOrderId: cart.cart_context?.loadedOrderId || cart.loaded_order_id || undefined,
+      billingOrderIds: Array.isArray(cart.cart_context?.billingOrderIds)
+        ? cart.cart_context.billingOrderIds.filter((id: unknown): id is string => typeof id === 'string' && id.length > 0)
+        : undefined,
     };
   } catch (error) {
     console.error('Error loading cart from Supabase:', error);

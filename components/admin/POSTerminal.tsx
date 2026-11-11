@@ -33,6 +33,8 @@ import { fetchPOSPayment, fetchPOSSecurityToken, POSPaymentConfirmationError } f
 import { getPreviousPOSSaleDate } from '@/lib/pos-business-date';
 import { getRestaurantTimeZone } from '@/lib/restaurant-time';
 import { partitionPOSTableOrders } from '@/lib/pos-table-period';
+import { decodePOSCartState, encodePOSCartState } from '@/lib/pos-cart-state';
+import type { CartData } from '@/lib/pos-cart-sync';
 
 interface MenuItem {
   id: string;
@@ -694,6 +696,7 @@ export function POSTerminal({
   const [printingPreBill, setPrintingPreBill] = useState(false);
   const [sendingToTable, setSendingToTable] = useState(false);
   const [tableCartSaving, setTableCartSaving] = useState(false);
+  const [cartRecoveryRequired, setCartRecoveryRequired] = useState(false);
   const [isOnline, setIsOnline] = useState(true);
   const [offlinePendingCount, setOfflinePendingCount] = useState(0);
   const [syncingOffline, setSyncingOffline] = useState(false);
@@ -802,6 +805,8 @@ export function POSTerminal({
   const incomingOrdersFetchInFlightRef = useRef(false);
   const dineInPanelVisibleRef = useRef(showDineInPanel);
   const dineInOrdersFetchInFlightRef = useRef(false);
+  const dineInMutationVersionRef = useRef(0);
+  const dineInRefreshRequestedRef = useRef(false);
   const mutedDineInOrderIdsRef = useRef(new Set<string>());
   const mutedDineInTablesUntilRef = useRef(new Map<number, number>());
   const locallyClosedDineInOrderIdsRef = useRef(new Map<string, number>());
@@ -842,6 +847,7 @@ export function POSTerminal({
     cartRestoreVersionRef.current += 1;
     if (typeof window !== 'undefined') {
       localStorage.setItem(`pos-cart-cleared-${tenantId}`, String(Date.now()));
+      localStorage.removeItem(`pos-cart-state-${tenantId}`);
     }
     if (typeof window !== 'undefined' && cartRemoteSyncTimerRef.current !== null) {
       window.clearTimeout(cartRemoteSyncTimerRef.current);
@@ -1463,6 +1469,7 @@ export function POSTerminal({
         setSelectedStaffId(null);
         setSelectedStaffName('');
         setPosMode('simple');
+        localStorage.removeItem(`pos-cart-state-${tenantId}`);
         localStorage.removeItem(`pos-cart-${tenantId}`);
         localStorage.removeItem(`pos-discount-${tenantId}`);
         localStorage.removeItem(`pos-discount-code-${tenantId}`);
@@ -1889,6 +1896,7 @@ export function POSTerminal({
   }
 
   async function handleOrderSelected(order: any) {
+    setCartRecoveryRequired(false);
     try {
       const isPaidReceipt = order.payment_status === 'paid';
       const normalizedPaymentMethod = normalizePOSPaymentMethod(order.payment_method);
@@ -2134,59 +2142,78 @@ export function POSTerminal({
     return updatedOrder;
   }
 
+  async function restoreLinkedTableCart(saved: CartData, restoreVersion: number) {
+    const ids = [...new Set(saved.billingOrderIds || [])];
+    setCart(saved.items);
+    setBillingOrderIds(ids);
+    setSelectedTableNumber(saved.selectedTableNumber);
+    setPosMode('table');
+    setCartRecoveryRequired(true);
+    if (!ids.length) return;
+    try {
+      const { data, error } = await supabase.from('orders')
+        .select('id, order_number, table_number, waiter_name, notes, total, payment_status, status, created_at, items')
+        .eq('tenant_id', tenantId).in('id', ids).retry(false).abortSignal(AbortSignal.timeout(8000));
+      if (cartRestoreVersionRef.current !== restoreVersion) return;
+      if (error || !data || data.length !== ids.length) throw new Error('No se pudo verificar la cuenta de mesa. Reintenta con conexión.');
+      const pending = (data as DineInOrder[]).filter(order => order.payment_status === 'pending' && order.status !== 'cancelled');
+      if (pending.length === 0) {
+        resetCurrentCartForNextCustomer();
+        setToast({ message: 'Esta cuenta ya está cobrada o anulada. No se vuelve a cargar.', type: 'success' });
+        return;
+      }
+      setDineInOrders(current => [...pending, ...current.filter(order => !ids.includes(order.id))]);
+      loadTableToCart(pending);
+      setToast({ message: 'Cuenta de mesa recuperada y verificada', type: 'success' });
+    } catch (error) {
+      if (cartRestoreVersionRef.current === restoreVersion) setToast({ message: error instanceof Error ? error.message : 'Revisa la conexión para recuperar la mesa', type: 'error' });
+    }
+  }
+
   async function restoreCart() {
     const restoreVersion = cartRestoreVersionRef.current;
-
     try {
-      let restoredLocalCart = false;
-
-      if (typeof window !== 'undefined') {
-        const savedCart = localStorage.getItem(`pos-cart-${tenantId}`);
-        const savedDiscount = localStorage.getItem(`pos-discount-${tenantId}`);
-        const savedDiscountCode = localStorage.getItem(`pos-discount-code-${tenantId}`);
-        const cartWasExplicitlyCleared = Boolean(localStorage.getItem(`pos-cart-cleared-${tenantId}`));
-
-        if (savedCart) {
-          try {
-            const parsedCart: unknown = JSON.parse(savedCart);
-            if (Array.isArray(parsedCart) && parsedCart.length > 0) {
-              setCart(parsedCart as CartItem[]);
-              localStorage.removeItem(`pos-cart-cleared-${tenantId}`);
-              restoredLocalCart = true;
-            }
-          } catch (error) {
-            console.error('Error restoring cart from localStorage:', error);
-          }
+      const savedState = decodePOSCartState(localStorage.getItem(`pos-cart-state-${tenantId}`));
+      const legacyCart = localStorage.getItem(`pos-cart-${tenantId}`);
+      const explicitlyCleared = Boolean(localStorage.getItem(`pos-cart-cleared-${tenantId}`));
+      if (savedState?.items.length) {
+        if (savedState.billingOrderIds?.length || savedState.posMode === 'table') {
+          await restoreLinkedTableCart(savedState, restoreVersion);
+        } else {
+          setCart(savedState.items);
+          setDiscount(savedState.discount || 0);
+          setDiscountCode(savedState.discountCode || '');
+          setPaymentMethod(normalizePOSPaymentMethod(savedState.paymentMethod));
+          setTip(savedState.tip || 0);
+          // A saved receipt must be selected again rather than become a new sale.
+          setCartRecoveryRequired(Boolean(savedState.loadedOrderId));
         }
-        if (restoredLocalCart && savedDiscount) {
-          try {
-            setDiscount(parseFloat(savedDiscount));
-          } catch (error) {
-            console.error('Error restoring discount:', error);
-          }
-        }
-        if (restoredLocalCart && savedDiscountCode) {
-          setDiscountCode(savedDiscountCode);
-        }
-        if (restoredLocalCart || cartWasExplicitlyCleared) return;
+        return;
       }
-
-      const supabaseCart = await loadCartFromSupabase(tenantId, supabase);
-      if (!supabaseCart || cartRestoreVersionRef.current !== restoreVersion) return;
-
-      setCart(supabaseCart.items);
-      setDiscount(supabaseCart.discount);
-      setDiscountCode(supabaseCart.discountCode);
-      setPaymentMethod(normalizePOSPaymentMethod(supabaseCart.paymentMethod));
-      setPosMode(supabaseCart.posMode);
-      const loggedStaff = getLoggedStaffFromBrowser(tenantId);
-      setSelectedStaffId(loggedStaff.staffId || supabaseCart.selectedStaffId);
-      setSelectedStaffName(loggedStaff.staffName || supabaseCart.selectedStaffName);
-      setSelectedTableId(supabaseCart.selectedTableId);
-      setSelectedTableNumber(supabaseCart.selectedTableNumber);
-      if (supabaseCart.loadedOrderId) {
-        setLoadedOrderId(supabaseCart.loadedOrderId);
+      if (legacyCart) {
+        try {
+          const items = JSON.parse(legacyCart);
+          if (Array.isArray(items) && items.length) {
+            setCart(items);
+            // Old versions saved products without account identity. Never guess
+            // that these are a new sale or automatically send them to a table.
+            setCartRecoveryRequired(true);
+            return;
+          }
+        } catch { /* Preserve malformed legacy data for manual recovery. */ }
       }
+      if (explicitlyCleared) return;
+      const remote = await loadCartFromSupabase(tenantId, supabase);
+      if (!remote || cartRestoreVersionRef.current !== restoreVersion) return;
+      if (remote.billingOrderIds?.length || remote.posMode === 'table') {
+        await restoreLinkedTableCart(remote, restoreVersion);
+        return;
+      }
+      setCart(remote.items);
+      setDiscount(remote.discount);
+      setDiscountCode(remote.discountCode);
+      setPaymentMethod(normalizePOSPaymentMethod(remote.paymentMethod));
+      setCartRecoveryRequired(Boolean(remote.loadedOrderId) || remote.billingOrderIds === undefined);
     } finally {
       cartRestoredRef.current = true;
     }
@@ -2201,6 +2228,8 @@ export function POSTerminal({
 
     const syncVersion = ++cartRemoteSyncVersionRef.current;
 
+    if (cartRecoveryRequired) return;
+
     if (!cartRestoredRef.current) {
       if (cart.length > 0) {
         cartRestoreVersionRef.current += 1;
@@ -2212,11 +2241,17 @@ export function POSTerminal({
     if (typeof window !== 'undefined') {
       // Save to localStorage (quick)
       if (cart.length > 0) {
+        localStorage.setItem(`pos-cart-state-${tenantId}`, encodePOSCartState({
+          items: cart, discount, discountCode, paymentMethod, posMode, selectedStaffId,
+          selectedStaffName, selectedTableId, selectedTableNumber, tip, taxRate,
+          billingOrderIds, loadedOrderId: loadedOrderId || undefined,
+        }));
         localStorage.setItem(`pos-cart-${tenantId}`, JSON.stringify(cart));
         localStorage.setItem(`pos-discount-${tenantId}`, discount.toString());
         localStorage.setItem(`pos-discount-code-${tenantId}`, discountCode);
         localStorage.removeItem(`pos-cart-cleared-${tenantId}`);
       } else {
+        localStorage.removeItem(`pos-cart-state-${tenantId}`);
         localStorage.removeItem(`pos-cart-${tenantId}`);
         localStorage.removeItem(`pos-discount-${tenantId}`);
         localStorage.removeItem(`pos-discount-code-${tenantId}`);
@@ -2231,6 +2266,8 @@ export function POSTerminal({
     if (tenantId && isOnline && (cart.length > 0 || shouldAbandonRemoteCart)) {
       const cartData = {
         items: cart,
+        billingOrderIds,
+        loadedOrderId: loadedOrderId || undefined,
         discount,
         discountCode,
         paymentMethod,
@@ -2273,6 +2310,9 @@ export function POSTerminal({
     };
   }, [
     cart,
+    billingOrderIds,
+    loadedOrderId,
+    cartRecoveryRequired,
     discount,
     discountCode,
     enqueueCartRemoteSync,
@@ -2458,7 +2498,13 @@ export function POSTerminal({
   }
 
   async function fetchDineInOrders(options: { notify?: boolean } = {}) {
-    if (!isOnline || document.visibilityState !== 'visible' || dineInOrdersFetchInFlightRef.current) return;
+    if (!isOnline || document.visibilityState !== 'visible') return;
+    if (dineInOrdersFetchInFlightRef.current || tableCartSyncInFlightRef.current || sendToTableInFlightRef.current || paymentInFlightRef.current) {
+      dineInRefreshRequestedRef.current = true;
+      return;
+    }
+    const readVersion = dineInMutationVersionRef.current;
+    dineInRefreshRequestedRef.current = false;
 
     try {
       dineInOrdersFetchInFlightRef.current = true;
@@ -2475,6 +2521,10 @@ export function POSTerminal({
         .retry(false)
         .abortSignal(AbortSignal.timeout(8_000));
 
+      if (readVersion !== dineInMutationVersionRef.current) {
+        dineInRefreshRequestedRef.current = true;
+        return;
+      }
       if (!error && data) {
         const mapped = filterLocallyClosedDineInOrders(
           (data as DineInOrder[]).filter((order) =>
@@ -2526,6 +2576,10 @@ export function POSTerminal({
       console.error('Error fetching dine-in orders:', error);
     } finally {
       dineInOrdersFetchInFlightRef.current = false;
+      if (dineInRefreshRequestedRef.current && !tableCartSyncInFlightRef.current && !sendToTableInFlightRef.current && !paymentInFlightRef.current) {
+        dineInRefreshRequestedRef.current = false;
+        queueMicrotask(() => { void fetchDineInOrders({ notify: false }); });
+      }
     }
   }
 
@@ -2648,6 +2702,7 @@ export function POSTerminal({
 
       const data = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(data.error || 'No se pudo anular el item');
+      if (isEmptyOrder) rememberLocallyClosedDineInOrders([orderId]);
 
       setToast({
         message: isEmptyOrder ? 'Comanda vacia anulada' : 'Item anulado',
@@ -2695,11 +2750,12 @@ export function POSTerminal({
     */
   function loadTableToCart(tableOrders: DineInOrder[], options?: { afterSplitPayment?: boolean }) {
     if (!tableOrders.length) return;
-    if (sendToTableInFlightRef.current || tableCartSyncInFlightRef.current || pendingTableCartSyncRef.current ||
+    if (tableCartSaving || sendToTableInFlightRef.current || tableCartSyncInFlightRef.current || pendingTableCartSyncRef.current ||
         (paymentInFlightRef.current && !options?.afterSplitPayment)) {
       setToast({ message: 'Espera a que termine de guardarse o cobrarse la cuenta.', type: 'error' });
       return;
     }
+    setCartRecoveryRequired(false);
     const savedTableOrders = uniqueDineInOrders(tableOrders);
     const mergedItems = mergeOrdersToCart(savedTableOrders);
     invalidatePendingCartSync();
@@ -2957,9 +3013,10 @@ export function POSTerminal({
     setShowManualItemPriceKeyboard(true);
   }
 
-  async function syncLoadedTableCart(nextCart: CartItem[], successMessage: string) {
+  async function syncLoadedTableCart(nextCart: CartItem[], successMessage: string, persistedState?: typeof latestTableSyncStateRef.current) {
     const tableSyncVersion = tableCartSyncVersionRef.current;
-    const tableSyncState = latestTableSyncStateRef.current;
+    const tableSyncState = persistedState || latestTableSyncStateRef.current;
+    let queuedSyncSource = tableSyncState;
     const activeBillingOrderIds = [...tableSyncState.billingOrderIds];
     const activeDineInOrders = tableSyncState.dineInOrders;
     const activeSelectedTableNumber = tableSyncState.selectedTableNumber;
@@ -3067,6 +3124,7 @@ export function POSTerminal({
 
     try {
       tableCartSyncInFlightRef.current = true;
+      dineInMutationVersionRef.current += 1;
       setTableCartSaving(true);
       setCart(nextCart);
       applyOptimisticTableCart(nextCart, activeSelectedTableNumber, activeBillingOrderIds);
@@ -3225,6 +3283,17 @@ export function POSTerminal({
 
       if (tableCartSyncVersionRef.current !== tableSyncVersion) return;
 
+      // A fast final X can remove an order from optimistic UI state while the
+      // previous PATCH is still running. The next write must use this confirmed
+      // account baseline, not the now-empty display, or it will skip the PATCH.
+      queuedSyncSource = {
+        cart: cloneCartItems(nextCart),
+        dineInOrders: [...nextTableOrders, ...activeDineInOrders.filter(order => !activeBillingOrderIds.includes(order.id))],
+        billingOrderIds: [...nextBillingOrderIds],
+        loadedTableBaseCart: cloneCartItems(nextCart),
+        selectedTableNumber: activeSelectedTableNumber,
+      };
+      rememberLocallyClosedDineInOrders(activeBillingOrderIds.filter(id => !nextBillingOrderIds.includes(id)));
       if (successMessage) {
         setToast({ message: successMessage, type: 'success' });
       }
@@ -3256,21 +3325,27 @@ export function POSTerminal({
       });
     } finally {
       tableCartSyncInFlightRef.current = false;
+      dineInMutationVersionRef.current += 1;
       const pendingSync = pendingTableCartSyncRef.current;
       if (pendingSync && pendingSync.version === tableCartSyncVersionRef.current) {
         pendingTableCartSyncRef.current = null;
         window.setTimeout(() => {
           if (tableCartSyncVersionRef.current !== pendingSync.version) return;
-          void syncLoadedTableCart(pendingSync.nextCart, pendingSync.successMessage);
+          void syncLoadedTableCart(pendingSync.nextCart, pendingSync.successMessage, queuedSyncSource);
         }, 0);
       } else {
         pendingTableCartSyncRef.current = null;
         setTableCartSaving(false);
+        void fetchDineInOrders({ notify: false });
       }
     }
   }
 
   function updateCartAndLoadedTable(nextCart: CartItem[], successMessage: string) {
+    if (cartRecoveryRequired) {
+      setToast({ message: 'Primero verifica si el carrito recuperado corresponde a una mesa.', type: 'error' });
+      return;
+    }
     const shouldSyncSelectedTable =
       posMode === 'table' &&
       Boolean(selectedTableNumber) &&
@@ -3365,6 +3440,7 @@ export function POSTerminal({
   }
 
   function resetCurrentCartForNextCustomer() {
+    setCartRecoveryRequired(false);
     invalidatePendingCartSync();
     invalidatePendingTableCartSync();
     setCart([]);
@@ -3566,6 +3642,10 @@ export function POSTerminal({
   }
 
   function handleHoldCurrentAccount() {
+    if (cartRecoveryRequired) {
+      setToast({ message: 'Identifica primero si el carrito recuperado pertenece a una mesa.', type: 'error' });
+      return;
+    }
     if (cart.length === 0) {
       setToast({ message: 'Agrega productos antes de guardar la cuenta', type: 'error' });
       return;
@@ -3707,6 +3787,11 @@ export function POSTerminal({
   }
 
   function handleTableShortcutClick(tableId: string, tableNumber: number, tableOrders?: DineInOrder[]) {
+    if (cartRecoveryRequired && billingOrderIds.length === 0) {
+      if (tableOrders?.length) loadTableToCart(tableOrders);
+      else setToast({ message: 'No hay una cuenta pendiente en esta mesa. Revisa el carrito recuperado.', type: 'error' });
+      return;
+    }
     if (sendToTableInFlightRef.current || tableCartSyncInFlightRef.current || pendingTableCartSyncRef.current || paymentInFlightRef.current) {
       setToast({ message: 'Espera a que termine de guardarse o cobrarse la cuenta.', type: 'error' });
       return;
@@ -3794,6 +3879,11 @@ export function POSTerminal({
 
   function handleShowReceipt(amountPaid?: number, printReceipt = printReceiptAfterPayment) {
     if (paymentInFlightRef.current || processingPayment) {
+      return;
+    }
+
+    if (cartRecoveryRequired) {
+      setToast({ message: 'Verifica la cuenta recuperada antes de cobrar.', type: 'error' });
       return;
     }
 
@@ -3957,6 +4047,7 @@ export function POSTerminal({
 
     try {
       sendToTableInFlightRef.current = true;
+      dineInMutationVersionRef.current += 1;
       setSendingToTable(true);
       mutedDineInOrderIdsRef.current.add(optimisticOrderId);
       mutedDineInTablesUntilRef.current.set(tableNumber, Date.now() + POS_DINE_IN_MUTE_MS);
@@ -3982,6 +4073,7 @@ export function POSTerminal({
       setPosMode('simple');
 
       if (typeof window !== 'undefined') {
+        localStorage.removeItem(`pos-cart-state-${tenantId}`);
         localStorage.removeItem(`pos-cart-${tenantId}`);
         localStorage.removeItem(`pos-discount-${tenantId}`);
         localStorage.removeItem(`pos-discount-code-${tenantId}`);
@@ -4059,16 +4151,19 @@ export function POSTerminal({
     } finally {
       setSendingToTable(false);
       sendToTableInFlightRef.current = false;
+      dineInMutationVersionRef.current += 1;
+      void fetchDineInOrders({ notify: false });
     }
   }
 
   async function processPaymentAfterReceipt(amountPaid?: number, printCustomerReceipt = printReceiptAfterPayment) {
-    if (paymentInFlightRef.current) return;
+    if (cartRecoveryRequired || paymentInFlightRef.current) return;
     if (!loadedOrderId && !selectedTableId && posOrderType === 'delivery' && deliveryEnabled && !selectedDeliveryZone) {
       setToast({ message: 'Selecciona el valor del domicilio antes de terminar la venta', type: 'error' });
       return;
     }
     paymentInFlightRef.current = true;
+    if (billingOrderIds.length > 0) dineInMutationVersionRef.current += 1;
     let releasePaymentLockDelay = 0;
 
     try {
@@ -4737,6 +4832,10 @@ export function POSTerminal({
       setProcessingPayment(false);
       window.setTimeout(() => {
         paymentInFlightRef.current = false;
+        if (billingOrderIds.length > 0) {
+          dineInMutationVersionRef.current += 1;
+          void fetchDineInOrders({ notify: false });
+        }
       }, releasePaymentLockDelay);
     }
   }
@@ -6251,6 +6350,21 @@ export function POSTerminal({
                 </div>
               )}
 
+              {cartRecoveryRequired && (
+                <div className="m-2 rounded-xl border border-amber-300/40 bg-amber-300/10 p-3 text-xs text-amber-100 space-y-2">
+                  <p className="font-bold">Verifica la cuenta recuperada antes de cobrar</p>
+                  <p>{billingOrderIds.length ? 'Conservamos la referencia a la mesa. Necesitamos conexión para comprobar que sigue pendiente.' : 'Este carrito antiguo no indica si pertenece a una mesa. Carga la cuenta desde Salón o confirma que es una venta nueva.'}</p>
+                  {billingOrderIds.length > 0 ? (
+                    <button type="button" onClick={() => { void restoreCart(); }} className="rounded-lg border border-amber-300/40 px-3 py-2 font-bold">Reintentar verificación</button>
+                  ) : (
+                    <div className="flex flex-wrap gap-2">
+                      <button type="button" onClick={() => { setShowDineInPanel(true); setMesasView('list'); }} className="rounded-lg border border-amber-300/40 px-3 py-2 font-bold">Cargar desde Salón</button>
+                      <button type="button" onClick={() => { setCartRecoveryRequired(false); setBillingOrderIds([]); setSelectedTableId(null); setSelectedTableNumber(null); setPosMode('simple'); }} className="rounded-lg border border-white/20 px-3 py-2 font-bold">Es una venta nueva</button>
+                    </div>
+                  )}
+                </div>
+              )}
+
               {/* Mesa billing indicator */}
           {billingOrderIds.length > 0 && selectedTableNumber && (
               <div className="mx-2 mt-2 pos-total-band rounded-xl px-3 py-2 flex items-center gap-2">
@@ -6672,7 +6786,7 @@ export function POSTerminal({
                         cart.length === 0 ||
                         (splitBillMode && splitPaymentItems.length === 0) ||
                         !hasRequiredDeliveryZone ||
-                        tableCartSaving
+                        tableCartSaving || cartRecoveryRequired
                       }
                       loading={processingPayment}
                       country={country}
