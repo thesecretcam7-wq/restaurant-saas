@@ -1,6 +1,7 @@
 'use client'
 
 import NavigationPending from '@/components/NavigationPending';
+import { NumericKeyboard } from './NumericKeyboard'
 
 import { FormEvent, useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
@@ -17,6 +18,7 @@ import {
   ClipboardList,
   Crown,
   Plus,
+  Pencil,
   ReceiptText,
   RefreshCw,
   Search,
@@ -282,6 +284,9 @@ function PurchaseControlContent({ tenantId, selectedMonth, onPeriodLoaded }: {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [savingPayment, setSavingPayment] = useState(false)
+  const [editingPayment, setEditingPayment] = useState<BillPayment | null>(null)
+  const [changingPaymentId, setChangingPaymentId] = useState<string | null>(null)
+  const paymentChangeInFlight = useRef(false)
   const [showForm, setShowForm] = useState(false)
   const [showPaymentForm, setShowPaymentForm] = useState(false)
   const paymentFormRef = useRef<HTMLFormElement>(null)
@@ -514,13 +519,16 @@ function PurchaseControlContent({ tenantId, selectedMonth, onPeriodLoaded }: {
     }
   }
 
-  async function voidExternalPayment(payment: BillPayment) {
-    if (payment.payment_method !== 'external') return
+  async function voidPayment(payment: BillPayment) {
+    if (paymentChangeInFlight.current) return
+    if (payment.payment_method === 'cash' && payment.cash_closing_id) return
     const label = payment.invoice_number
       ? `${payment.supplier_name || 'Factura'} (${payment.invoice_number})`
       : payment.supplier_name || payment.concept || 'este pago'
-    if (!window.confirm(`Anular el pago por aparte de ${label}?`)) return
+    if (!window.confirm(`¿Anular el pago ${payment.payment_method === 'cash' ? 'de caja' : 'por aparte'} de ${label} (${money(payment.amount)})? Dejará de descontarse y se conservará el registro de la anulación.`)) return
 
+    paymentChangeInFlight.current = true
+    setChangingPaymentId(payment.id)
     setError('')
     try {
       const response = await fetch(`/api/purchase-invoices/payments?tenantId=${encodeURIComponent(tenantId)}&id=${encodeURIComponent(payment.id)}`, {
@@ -532,7 +540,54 @@ function PurchaseControlContent({ tenantId, selectedMonth, onPeriodLoaded }: {
       await fetchData()
     } catch (deleteError) {
       setError(deleteError instanceof Error ? deleteError.message : 'No se pudo anular el pago')
+    } finally {
+      paymentChangeInFlight.current = false
+      setChangingPaymentId(null)
     }
+  }
+
+  async function correctPaymentAmount(payment: BillPayment, amount: number) {
+    if (paymentChangeInFlight.current) return
+    if (!Number.isFinite(amount) || amount <= 0) {
+      setError('El importe debe ser mayor que cero. Para quitar el pago, utiliza Anular.')
+      return
+    }
+    paymentChangeInFlight.current = true
+    setChangingPaymentId(payment.id)
+    setError('')
+    try {
+      const response = await fetch('/api/purchase-invoices/payments', {
+        method: 'PATCH', headers: { 'Content-Type': 'application/json' }, credentials: 'include',
+        body: JSON.stringify({ tenantId, id: payment.id, amount }),
+      })
+      const data = await response.json().catch(() => ({}))
+      if (!response.ok) throw new Error(data.error || 'No se pudo corregir el importe')
+      await fetchData()
+    } catch (changeError) {
+      setError(changeError instanceof Error ? changeError.message : 'No se pudo corregir el importe')
+    } finally {
+      paymentChangeInFlight.current = false
+      setChangingPaymentId(null)
+    }
+  }
+
+  function renderPaymentActions(payment: BillPayment) {
+    if (payment.payment_method === 'cash' && payment.cash_closing_id) {
+      return <span className="text-xs font-bold text-black/45">Incluida en cierre</span>
+    }
+    const label = payment.supplier_name || payment.concept || 'factura'
+    return (
+      <div className="flex flex-wrap items-center gap-2">
+        <button type="button" disabled={Boolean(changingPaymentId)} onClick={() => setEditingPayment(payment)}
+          aria-label={`Corregir importe de ${label}`} className="inline-flex min-h-10 items-center gap-1.5 rounded-lg border border-sky-200 bg-sky-50 px-3 text-xs font-black text-sky-800 disabled:opacity-50">
+          <Pencil className="size-4" />Corregir importe
+        </button>
+        <button type="button" disabled={Boolean(changingPaymentId)} onClick={() => { void voidPayment(payment) }}
+          aria-label={`Anular pago de ${label}`} className="inline-flex min-h-10 items-center gap-1.5 rounded-lg border border-red-200 bg-red-50 px-3 text-xs font-black text-red-700 disabled:opacity-50">
+          <Trash2 className="size-4" />{changingPaymentId === payment.id ? 'Guardando...' : 'Anular'}
+        </button>
+      </div>
+    )
   }
 
   async function saveInvoice(event: FormEvent<HTMLFormElement>) {
@@ -1018,7 +1073,7 @@ function PurchaseControlContent({ tenantId, selectedMonth, onPeriodLoaded }: {
                                   <span className={`w-fit rounded-full border px-2.5 py-1 text-xs font-black ${isExternal ? 'border-sky-200 bg-sky-50 text-sky-700' : 'border-orange-200 bg-orange-50 text-orange-700'}`}>
                                     {isExternal ? 'Por aparte' : 'Caja'}
                                   </span>
-                                  <p className="font-black text-red-700 sm:text-right">{money(-payment.amount)}</p>
+                                  <div className="space-y-2"><p className="font-black text-red-700 sm:text-right">{money(-payment.amount)}</p>{renderPaymentActions(payment)}</div>
                                 </div>
                               )
                             })}
@@ -1216,19 +1271,7 @@ function PurchaseControlContent({ tenantId, selectedMonth, onPeriodLoaded }: {
                           )}
                         </div>
                         <p className="text-xl font-black text-red-700">-{money(payment.amount)}</p>
-                        {isExternal ? (
-                          <button
-                            type="button"
-                            onClick={() => void voidExternalPayment(payment)}
-                            className="inline-flex h-10 items-center justify-center rounded-lg border border-red-200 bg-red-50 px-3 text-red-700 transition hover:bg-red-100"
-                            aria-label="Anular pago por aparte"
-                            title="Anular pago por aparte"
-                          >
-                            <Trash2 className="size-4" />
-                          </button>
-                        ) : (
-                          <span className="text-xs font-bold text-black/35 md:text-right">Registrado en TPV</span>
-                        )}
+                        {renderPaymentActions(payment)}
                       </div>
                     )
                   })}
@@ -1692,6 +1735,11 @@ function PurchaseControlContent({ tenantId, selectedMonth, onPeriodLoaded }: {
             </form>
           </div>
         </div>
+      )}
+      {editingPayment && (
+        <NumericKeyboard isOpen title={`Corregir importe: ${editingPayment.supplier_name || editingPayment.concept || 'factura'} (antes ${money(editingPayment.amount)})`}
+          initialValue={editingPayment.amount} onCancel={() => setEditingPayment(null)}
+          onConfirm={(amount) => { const payment = editingPayment; setEditingPayment(null); void correctPaymentAmount(payment, amount) }} />
       )}
     </div>
   )
