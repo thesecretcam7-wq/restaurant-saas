@@ -12,10 +12,10 @@ function worker(online: boolean, fetcher = vi.fn<typeof fetch>().mockResolvedVal
   })
   return {
     fetcher, cacheMatch,
-    async request(mode: string) {
+    async request(mode: string, path='/cafebarelcruce/admin/dashboard') {
       let response: Promise<Response> | undefined
       listeners.get('fetch')!({
-        request: { url: 'https://app.test/cafebarelcruce/admin/dashboard', mode, method: 'GET' },
+        request: { url: 'https://app.test'+path, mode, method: 'GET' },
         respondWith: (value: Promise<Response>) => { response = value },
       })
       return response!
@@ -24,6 +24,12 @@ function worker(online: boolean, fetcher = vi.fn<typeof fetch>().mockResolvedVal
 }
 
 describe('private admin pages in the service worker', () => {
+  it.each(['/cafebarelcruce/acceso','/cafebarelcruce/acceso/login/cajero','/cafebarelcruce/admin/login','/owner-login'])('does not replace the real authentication response with cached HTML or a short timeout: %s',async path=>{
+    const sw=worker(true)
+    expect(await sw.request('navigate',path)).toBeUndefined()
+    expect(sw.fetcher).not.toHaveBeenCalled()
+    expect(sw.cacheMatch).not.toHaveBeenCalled()
+  })
   it('does not restore a cached dashboard or contact the server offline', async () => {
     const sw = worker(false)
     const response = await sw.request('navigate')

@@ -33,6 +33,7 @@ const server=createServer(async(req,res)=>{
   json(res,200,{cart:state.cart});return
  }
  if(url.pathname.startsWith('/icons/')||url.pathname==='/favicon.ico'){res.writeHead(404);res.end();return}
+ if(url.pathname.endsWith('/acceso/login/cajero')){await new Promise(resolve=>setTimeout(resolve,4200));res.writeHead(200,{'Content-Type':'text/html'});res.end('<html><body>Fresh cashier login</body></html>');return}
  res.writeHead(200,{'Content-Type':'text/html'});res.end('<html><body><div id="fixture"></div></body></html>')
 })
 await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve))
@@ -76,8 +77,10 @@ try{
  check(patch?.body?.tenantId===tid&&patch.body.sessionId===session,'Legacy write lost tenant/session scope')
  await legacy.clearCookies()
  const denied=await old.evaluate(async tid=>(await fetch('https://csdooyggiuhzovehykna.supabase.co/rest/v1/pos_carts?tenant_id=eq.'+tid+'&cart_session_id=eq.session-fixture')).status,tid)
- check(denied===401,'Legacy bridge allowed an anonymous browser');await legacy.close()
+ check(denied===401,'Legacy bridge allowed an anonymous browser')
+ const login=await old.goto(origin+'/fixture/acceso/login/cajero');check(login.status()===200,'Slow login was replaced with false offline page');await old.getByText('Fresh cashier login',{exact:true}).waitFor();await legacy.close()
  console.log('PASS actual SW bridge: existing read/ID-only update, same-origin cookies, anonymous denied; no Supabase requests')
+ console.log('PASS installed app: successful login response after 4.2 seconds is not cut off by worker timeout')
  const unpaired=await browser.newContext(),screen=await unpaired.newPage();state.paired=false
  await screen.goto(origin+'/?tid='+tid);await screen.evaluate(()=>{window.topics=[];window.eventTypes=[];window.removed=0});await screen.addScriptTag({url:origin+'/bundle.js'})
  await screen.getByRole('alert').waitFor();check((await screen.getByRole('alert').innerText()).includes('vincularla'),'Missing pairing instructions')

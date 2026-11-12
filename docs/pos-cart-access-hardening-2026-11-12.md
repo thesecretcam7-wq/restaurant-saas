@@ -12,7 +12,7 @@ Las actualizaciones de pantalla usan avisos sin datos por un canal opaco de Broa
 
 ## Conservación y compatibilidad
 
-La operación interna `mutate_pos_cart` mantiene una sola cuenta activa cuando se repite una creación y serializa por restaurante y terminal. Las actualizaciones exigen el ID activo esperado; un mensaje antiguo no reactiva un carrito cerrado. Cerrar una cuenta conserva las filas históricas. Solo `service_role` puede ejecutar esta función, con `SECURITY INVOKER` y búsqueda fija `pg_catalog`.
+La operación interna `mutate_pos_cart` mantiene una sola cuenta activa cuando se repite una creación y serializa por restaurante y terminal. Las actualizaciones exigen el ID activo esperado; una actualización antigua no reactiva un carrito cerrado. Cerrar una cuenta conserva las filas históricas. Solo `service_role` puede ejecutar esta función, con `SECURITY INVOKER` y búsqueda fija `pg_catalog`.
 
 También se corrigió la recuperación que escribía `readonly` y `loaded_order_id`, columnas inexistentes: esos datos se guardan en `cart_context`, sin añadir columnas ni perder el vínculo con la orden. La copia visual del carrito respeta el IVA incluido para no añadirlo por segunda vez; no cambia los cálculos ni registros de órdenes o cierres.
 
@@ -22,11 +22,11 @@ Las pantallas del cliente abiertas en otro dispositivo mediante el enlace antigu
 
 ## Verificación
 
-- 355 pruebas unitarias correctas en 54 archivos, comprobación de tipos y compilación de producción.
+- 359 pruebas unitarias en 54 archivos, comprobación de tipos y compilación de producción. Las cuatro últimas regresiones comprueban que las páginas de selección de rol y acceso no se sustituyen por respuestas antiguas ni por el límite corto del service worker.
 - Casos de sesión falsificada, firma alterada, sesión caducada, actualización de sesión antigua, permisos y nombre canónicos del servidor, propietario válido y restaurante ajeno.
 - API: límites de restaurante y terminal, autorización antes de consultar, rechazo de cargas alteradas y de orígenes externos, confirmación de actualización y contexto de cuentas recuperadas.
 - Pantalla: enlace válido, caducado, alterado o con restaurante/terminal sustituidos; un enlace de lectura no puede autorizar escrituras.
-- `scripts/verify-pos-cart-security.mjs`: pantalla real y service worker real con servidor HTTP aislado. Conservación de la última cuenta durante fallos, recuperación, limpieza de canales, compatibilidad con lecturas y actualizaciones antiguas y rechazo de navegador anónimo.
+- `scripts/verify-pos-cart-security.mjs`: pantalla real y service worker real con servidor HTTP aislado. Conservación de la última cuenta durante fallos, recuperación, limpieza de canales, compatibilidad con lecturas y actualizaciones antiguas, rechazo de navegador anónimo y acceso correcto cuando el formulario de PIN tarda 4,2 segundos.
 - Regresiones del TPV: seis escenarios de mesas y recuperación offline, y cierre de caja en escritorio, pantalla completa y móvil.
 - Función real de PostgreSQL: ocho verificaciones de creación repetida, ID incorrecto, terminal ajeno, actualización y cierre. Ejecutadas en una transacción revertida, sin dejar cuentas de prueba ni tocar órdenes, pagos o cierres.
 
@@ -37,4 +37,10 @@ Las pantallas del cliente abiertas en otro dispositivo mediante el enlace antigu
 3. Tras comprobar esa publicación, limitar las cuatro políticas de `pos_carts` a `service_role`, conservando RLS y todos los registros. Verificar que `anon` y `authenticated` ya no ven carritos directamente y que la función interna no es pública.
 4. Comparar recuentos y huellas de órdenes, productos, pagos, cierres y carritos; documentar cualquier actividad legítima del negocio que ocurra entre las capturas.
 
-Estado de la publicación y del cierre de políticas: se registrará al completar el paso 3. No ejecutar primero la restricción en un entorno que todavía sirva solo el cliente antiguo.
+Publicación verificada: `6c97e7a`, API y compatibilidad disponibles antes de cerrar la tabla. Restricción aplicada después como `20261112204542_restrict_public_pos_carts`: las cuatro políticas se limitan a `service_role` y RLS sigue habilitado. El acceso anónimo real no devuelve filas; tanto el intento de insertar en un restaurante inexistente como el de ejecutar la función interna fueron rechazados con `42501`. No se creó ningún registro en esas comprobaciones.
+
+La comprobación como propietario autenticado confirmó cero carritos accesibles directamente y conservó sus 9.950 órdenes, 383 pagos de facturas y 117 cierres visibles. La API del servidor conserva el acceso legítimo por restaurante y terminal, cubierto por las pruebas de autorización.
+
+Los recuentos y huellas antes y después del cierre coincidieron exactamente: 11.792 carritos (uno activo), 12.915 órdenes, 17.947 productos de orden, 279 cierres, 12.796 vínculos y 383 pagos de facturas. Se contrastaron todos los campos de carritos, productos, cierres, vínculos y facturas, y los importes y campos de pago de las órdenes. No se eliminaron datos ni se cambiaron cantidades históricas.
+
+No ejecutar primero la restricción en un entorno que todavía sirva solo el cliente antiguo. Para recibir todos los cambios visuales, recargar el TPV al terminar la cuenta actual. Si una pantalla externa conserva un enlace antiguo sin sesión, volver a abrirla con el enlace generado por «Cliente».

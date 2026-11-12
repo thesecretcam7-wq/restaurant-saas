@@ -205,6 +205,10 @@ self.addEventListener('fetch', (event) => {
 
   const isAuthRoute =
     url.pathname.startsWith('/api/auth/') ||
+    url.pathname.endsWith('/acceso') ||
+    url.pathname.includes('/acceso/') ||
+    url.pathname.endsWith('/admin/login') ||
+    url.pathname === '/owner-login' ||
     url.pathname === '/login' ||
     url.pathname === '/register';
 
