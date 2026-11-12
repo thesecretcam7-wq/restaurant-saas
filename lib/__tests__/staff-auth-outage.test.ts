@@ -1,4 +1,4 @@
-import {beforeEach,describe,expect,it,vi} from 'vitest'
+import {afterEach,beforeEach,describe,expect,it,vi} from 'vitest'
 import {NextRequest} from 'next/server'
 import {POST as login} from '@/app/api/staff/auth/route'
 import {POST as session} from '@/app/api/staff/session/route'
@@ -16,7 +16,8 @@ vi.mock('../supabase/database',()=>({createClient:()=>({from(table:string){
 }})}))
 const loginRequest=()=>new NextRequest('https://example.com/api/staff/auth',{method:'POST',body:JSON.stringify({domain:'fixture',role:'cajero',pin:'test-pin'})})
 const sessionRequest=()=>new NextRequest('https://example.com/api/staff/session',{method:'POST',body:JSON.stringify({tenantId:'tenant',staffId:'cashier',staffName:'Fixture',role:'cajero'})})
-beforeEach(()=>{vi.clearAllMocks();mocks.errors={};mocks.staffMissing=false})
+beforeEach(()=>{vi.clearAllMocks();vi.stubEnv('CSRF_SECRET','fixture-signing-secret');mocks.errors={};mocks.staffMissing=false})
+afterEach(()=>vi.unstubAllEnvs())
 describe('staff login and session during database failures',()=>{
  it.each(['pin_auth_rate_limits','tenants','staff_members'])('reports %s failure as 503, without recording a bad PIN',async table=>{
   mocks.errors[table]={message:'Database unavailable'}

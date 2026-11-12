@@ -42,21 +42,23 @@ export default function PWARegister() {
       return
     }
 
+    let stopped = false
+    let updateTimer: ReturnType<typeof setInterval> | undefined
     // Register service worker
     navigator.serviceWorker
       .register('/sw.js', { scope: '/' })
       .then((registration) => {
+        if (stopped) return
         console.log('Service Worker registered successfully:', registration)
         setSwRegistration(registration)
 
         // Check for updates periodically
-        const interval = setInterval(() => {
+        updateTimer = setInterval(() => {
           registration.update().catch((error) => {
             console.warn('Service Worker update skipped:', error)
           })
         }, 60000) // Check every minute
 
-        return () => clearInterval(interval)
       })
       .catch((error) => {
         console.error('Service Worker registration failed:', error)
@@ -73,6 +75,8 @@ export default function PWARegister() {
     navigator.serviceWorker.addEventListener('controllerchange', handleControllerChange)
 
     return () => {
+      stopped = true
+      clearInterval(updateTimer)
       navigator.serviceWorker.removeEventListener('controllerchange', handleControllerChange)
     }
   }, [])
@@ -88,27 +92,39 @@ export default function PWARegister() {
       }
     }
 
-    swRegistration.addEventListener('updatefound', () => {
+    const workers = new Map<ServiceWorker, () => void>()
+    const timers = new Set<ReturnType<typeof setTimeout>>()
+    const onUpdateFound = () => {
       const newWorker = swRegistration.installing
       if (newWorker) {
-        newWorker.addEventListener('statechange', () => {
+        const onStateChange = () => {
           if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
             setWaitingWorker(newWorker)
-            toast.success('📦 Nueva versión disponible. Recargando...', {
+            toast.success('Nueva versión disponible. Recarga al terminar la venta.', {
               icon: '🔄',
               duration: 5000,
             })
             // Auto-update after a delay
-            setTimeout(() => {
+            const timer = setTimeout(() => {
+              timers.delete(timer)
               newWorker.postMessage({ type: 'SKIP_WAITING' })
               setWaitingWorker(null)
             }, 1000)
+            timers.add(timer)
           }
-        })
+        }
+        workers.set(newWorker, onStateChange)
+        newWorker.addEventListener('statechange', onStateChange)
       }
-    })
+    }
+    swRegistration.addEventListener('updatefound', onUpdateFound)
 
     handleSWUpdate(swRegistration)
+    return () => {
+      swRegistration.removeEventListener('updatefound', onUpdateFound)
+      workers.forEach((listener, worker) => worker.removeEventListener('statechange', listener))
+      timers.forEach(clearTimeout)
+    }
   }, [swRegistration])
 
   return null

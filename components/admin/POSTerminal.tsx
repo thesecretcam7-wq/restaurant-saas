@@ -16,7 +16,8 @@ import { CashClosingModal } from './CashClosingModal';
 import { BillPaymentModal } from './BillPaymentModal';
 import { Toast } from './Toast';
 import { POSOrderLookup } from './POSOrderLookup';
-import { saveCartToSupabase, loadCartFromSupabase, abandonCart, abandonCurrentCartSession, loadOrderToCart } from '@/lib/pos-cart-sync';
+import { saveCartToSupabase, loadCartFromSupabase, abandonCart, abandonCurrentCartSession, loadOrderToCart, getCartSessionId } from '@/lib/pos-cart-sync';
+import { createPOSCartClient } from '@/lib/pos-cart-api-client';
 import type { CashClosingStats } from '@/lib/cash-closing';
 import type { ReceiptData } from '@/types/printer';
 import { getCurrencyByCountry, formatPriceWithCurrency } from '@/lib/currency';
@@ -645,6 +646,13 @@ export function POSTerminal({
 
   // Initialize Supabase client once inside component for proper type compatibility
   const supabase = useMemo(() => createClient(), []);
+  const cartClient = useMemo(() => createPOSCartClient(), []);
+  const [cartAuthRequired, setCartAuthRequired] = useState(false);
+  useEffect(() => {
+    const required = () => setCartAuthRequired(true);
+    window.addEventListener('eccofood:cart-auth-required', required);
+    return () => window.removeEventListener('eccofood:cart-auth-required', required);
+  }, []);
   const printReceiptPreferenceStorageKey = `eccofood-pos-print-receipt-${tenantId}`;
 
   const [menu, setMenu] = useState<MenuItem[]>([]);
@@ -1474,7 +1482,7 @@ export function POSTerminal({
         localStorage.removeItem(`pos-cart-${tenantId}`);
         localStorage.removeItem(`pos-discount-${tenantId}`);
         localStorage.removeItem(`pos-discount-code-${tenantId}`);
-        void enqueueCartRemoteSync(() => abandonCart(tenantId, supabase)).catch((cartError) => {
+        void enqueueCartRemoteSync(() => abandonCart(tenantId, cartClient)).catch((cartError) => {
           console.warn('POS cart cleanup after Tap to Pay failed:', cartError);
         });
         fetchDineInOrders();
@@ -1492,7 +1500,7 @@ export function POSTerminal({
       window.removeEventListener('eccofood-android-ready', checkBridge);
       window.removeEventListener('eccofood-tap-to-pay-result', handleTapToPayResult as EventListener);
     };
-  }, [enqueueCartRemoteSync, invalidatePendingCartSync, invalidatePendingTableCartSync, supabase, tenantId]);
+  }, [enqueueCartRemoteSync, invalidatePendingCartSync, invalidatePendingTableCartSync, cartClient, tenantId]);
 
   useEffect(() => {
     if (!isOnline) return;
@@ -2208,7 +2216,7 @@ export function POSTerminal({
         } catch { /* Preserve malformed legacy data for manual recovery. */ }
       }
       if (explicitlyCleared) return;
-      const remote = await loadCartFromSupabase(tenantId, supabase);
+      const remote = await loadCartFromSupabase(tenantId, cartClient);
       if (!remote || cartRestoreVersionRef.current !== restoreVersion) return;
       if (remote.billingOrderIds?.length || remote.posMode === 'table') {
         await restoreLinkedTableCart(remote, restoreVersion);
@@ -2283,6 +2291,7 @@ export function POSTerminal({
         selectedTableNumber,
         tip,
         taxRate,
+        taxIncluded,
       };
 
       cartRemoteSyncTimerRef.current = window.setTimeout(() => {
@@ -2294,12 +2303,12 @@ export function POSTerminal({
             // The queue may have waited behind a stalled write. Only the
             // latest snapshot can still be sent when it reaches the front.
             if (cartRemoteSyncVersionRef.current !== syncVersion) return Promise.resolve();
-            return saveCartToSupabase(tenantId, cartData, supabase);
+            return saveCartToSupabase(tenantId, cartData, cartClient);
           }).catch((err) => {
             console.error('Background cart sync failed (will use localStorage):', err);
           });
         } else {
-          void enqueueCartRemoteSync(() => abandonCurrentCartSession(tenantId, supabase)).catch((err) => {
+          void enqueueCartRemoteSync(() => abandonCurrentCartSession(tenantId, cartClient)).catch((err) => {
             console.error('Background cart cleanup failed:', err);
           });
         }
@@ -2328,10 +2337,11 @@ export function POSTerminal({
     selectedStaffName,
     selectedTableId,
     selectedTableNumber,
-    supabase,
+    cartClient,
     tenantId,
     tip,
     taxRate,
+    taxIncluded,
   ]);
 
   useEffect(() => {
@@ -4129,7 +4139,7 @@ export function POSTerminal({
       }
 
       setToast({ message: `Productos enviados a Mesa ${tableNumber}`, type: 'success' });
-      void enqueueCartRemoteSync(() => abandonCart(tenantId, supabase)).catch((cartError) => {
+      void enqueueCartRemoteSync(() => abandonCart(tenantId, cartClient)).catch((cartError) => {
         console.warn('POS cart cleanup after table send failed:', cartError);
       });
     } catch (error) {
@@ -4815,7 +4825,7 @@ export function POSTerminal({
       void (async () => {
         // Cart housekeeping can stall independently of the orders API.
         // A saved local sale must still be uploaded while that write waits.
-        void enqueueCartRemoteSync(() => abandonCart(tenantId, supabase)).catch((cartError) => {
+        void enqueueCartRemoteSync(() => abandonCart(tenantId, cartClient)).catch((cartError) => {
           console.warn('POS cart cleanup failed:', cartError);
         });
         if (savedOfflineSale && typeof navigator !== 'undefined' && navigator.onLine) {
@@ -5184,6 +5194,7 @@ export function POSTerminal({
           ? 'h-[100dvh] max-h-[100dvh] w-full overflow-hidden bg-[#020617]'
           : 'min-h-[100dvh]'
     } text-white flex flex-col`}>
+      {cartAuthRequired && <div role="alert" className="shrink-0 bg-amber-950 px-3 py-2 text-sm text-amber-100">Confirma tu PIN para sincronizar el carrito. Tu cuenta se conserva en este equipo. <a className="font-bold underline" href={`/${tenantSlug || tenantId}/acceso/login/cajero`}>Confirmar PIN</a></div>}
       {/* Compact Header - Logo and Controls - TPV Header with Eccofood Brand */}
       {isFullscreen && !compactPOSLayout && (
         <div className="pos-panel border-x-0 border-t-0 px-6 py-4 flex items-center justify-between gap-4">
@@ -5877,8 +5888,14 @@ export function POSTerminal({
                   )}
                 </button>
                 <button
-                  onClick={() => {
-                    window.location.href = `/${tenantSlug || tenantId}/pos-display?tid=${tenantId}&country=${country}`;
+                  onClick={async () => {
+                    try {
+                      const sessionId = getCartSessionId();
+                      const response = await fetch('/api/pos/cart/display', { method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({tenantId,sessionId}),signal:AbortSignal.timeout(8000) });
+                      const result = await response.json();
+                      if (!response.ok || !result.token) throw new Error(result.error || 'No se pudo vincular la pantalla');
+                      window.location.href = `/${tenantSlug || tenantId}/pos-display?tid=${tenantId}&sid=${encodeURIComponent(sessionId)}&country=${country}#access=${encodeURIComponent(result.token)}`;
+                    } catch { setToast({type:'error',message:'No se pudo vincular la pantalla. Comprueba la conexión y vuelve a intentarlo.'}); }
                   }}
                   className="pos-action-ghost"
                   title="Abrir pantalla de cliente"

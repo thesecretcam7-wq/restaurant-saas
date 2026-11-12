@@ -3,6 +3,7 @@ import { cookies } from 'next/headers'
 import { createClient } from '@/lib/supabase/database'
 import { randomUUID } from 'crypto'
 import { verifyStaffAuthProof } from '@/lib/staff-auth-proof'
+import { signServerValue } from '@/lib/server-signed-token'
 
 function parseStaffSession(value?: string | null) {
   if (!value) return null
@@ -114,13 +115,16 @@ export async function POST(request: NextRequest) {
 
     const maxAge = staff.role === 'admin' ? 28800 : 604800
 
-    cookieStore.set('staff_session', JSON.stringify(sessionData), {
+    const sessionJson = JSON.stringify(sessionData)
+    const sessionSignature = signServerValue('staff-session-v1', sessionJson)
+    cookieStore.set('staff_session', sessionJson, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'strict',
       maxAge,
       path: '/',
     })
+    cookieStore.set('staff_session_signature', sessionSignature, { httpOnly: true, secure: process.env.NODE_ENV === 'production', sameSite: 'strict', maxAge, path: '/' })
     cookieStore.delete('staff_auth_proof')
 
     return NextResponse.json({ success: true, permissions })
@@ -137,6 +141,7 @@ export async function DELETE() {
   const cookieStore = await cookies()
   cookieStore.delete('staff_session')
   cookieStore.delete('staff_auth_proof')
+  cookieStore.delete('staff_session_signature')
 
   return NextResponse.json({ success: true })
 }

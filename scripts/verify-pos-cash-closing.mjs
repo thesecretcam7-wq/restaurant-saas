@@ -2,6 +2,7 @@
 // ECCOFOOD_BROWSER_PACKAGE resolves Playwright/esbuild; the optional
 // ECCOFOOD_BROWSER_EXECUTABLE selects an installed Chromium. No real closings.
 import {createRequire} from 'node:module'
+import {posCartFixture} from './fixtures/pos-cart-api.mjs'
 import path from 'node:path'
 import {readFile,mkdir} from 'node:fs/promises'
 const root=process.cwd(),local=createRequire(path.join(root,'package.json'))
@@ -32,6 +33,7 @@ try{
     }
     return route.fulfill({json:{stats:url.searchParams.get('mode')==='pending'?null:stats}})
    }
+   if(await posCartFixture(route,state))return
    if(req.method()!=='GET')throw Error('Unexpected mutation '+url.pathname)
    return route.fulfill({json:{stats:null,orders:[]}})
   })

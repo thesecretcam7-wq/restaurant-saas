@@ -34,7 +34,7 @@ interface DisplayBranding {
 }
 
 type WakeLockSentinel = { release: () => Promise<void>; addEventListener?: (event: string, cb: () => void) => void } | null;
-const CART_POLL_FALLBACK_MS = 15_000;
+const CART_POLL_FALLBACK_MS = 60_000;
 
 export default function CustomerDisplayPage() {
   return (
@@ -55,11 +55,15 @@ function CustomerDisplayLoading() {
 function CustomerDisplayContent() {
   const searchParams = useSearchParams();
   const tenantId = searchParams.get('tid');
+  const sessionId = searchParams.get('sid') || '';
+  const [accessToken] = useState(() => typeof window === 'undefined' ? '' : new URLSearchParams(window.location.hash.slice(1)).get('access') || '');
   const country = searchParams.get('country') || 'CO';
   const currencyInfo = getCurrencyByCountry(country);
   const taxIncluded = isTaxIncludedCountry(country);
 
   const [cart, setCart] = useState<PosCart | null>(null);
+  const [displayError, setDisplayError] = useState('');
+  const [topic, setTopic] = useState<string | null>(null);
   const [branding, setBranding] = useState<DisplayBranding | null>(null);
   const [taxRate, setTaxRate] = useState(0);
   const [time, setTime] = useState(new Date());
@@ -68,7 +72,7 @@ function CustomerDisplayContent() {
   const [wakeLockSupported, setWakeLockSupported] = useState(true);
   const [displayMode, setDisplayMode] = useState(false);
   const wakeLockRef = useRef<WakeLockSentinel>(null);
-  const cartFetchInFlightRef = useRef(false);
+  const cartFetchInFlightRef = useRef<AbortController | null>(null);
 
   const supabase = useMemo(() => createClient(), []);
 
@@ -192,25 +196,31 @@ function CustomerDisplayContent() {
 
     async function fetchCart() {
       if (cartFetchInFlightRef.current) return;
-      cartFetchInFlightRef.current = true;
+      const controller = new AbortController();
+      cartFetchInFlightRef.current = controller;
 
       try {
-        const { data } = await supabase
-          .from('pos_carts')
-          .select('items, subtotal, total, discount, updated_at')
-          .eq('tenant_id', tenantId)
-          .is('abandoned_at', null)
-          .order('updated_at', { ascending: false })
-          .limit(1)
-          .maybeSingle();
-
+        const params = new URLSearchParams({ tenantId: tenantId! });
+        if (sessionId) params.set('sessionId', sessionId);
+        const response = await fetch(`/api/pos/cart/display?${params}`, {cache:'no-store',credentials:'same-origin',headers:accessToken?{Authorization:`Bearer ${accessToken}`}:{},signal:AbortSignal.any([controller.signal,AbortSignal.timeout(8000)])});
+        if (!response.ok) {
+          if (response.status === 401 || response.status === 403) { setCart(null);setTopic(null);setDisplayError('Abre esta pantalla desde el botón «Cliente» del TPV para vincularla.');return; }
+          throw new Error('Display unavailable');
+        }
+        const result = await response.json();
+        if (controller.signal.aborted) return;
+        const data = result.cart;
+        setTopic(result.topic || null);
+        setDisplayError('');
         if (data && data.items && data.items.length > 0) {
           setCart(data as PosCart);
         } else {
           setCart(null);
         }
+      } catch {
+        if (!controller.signal.aborted) setDisplayError('No se pudo actualizar la cuenta. Comprueba la conexión.');
       } finally {
-        cartFetchInFlightRef.current = false;
+        if (cartFetchInFlightRef.current === controller) cartFetchInFlightRef.current = null;
       }
     }
 
@@ -219,25 +229,20 @@ function CustomerDisplayContent() {
       if (document.visibilityState === 'visible') fetchCart();
     }, CART_POLL_FALLBACK_MS);
 
-    const channel = supabase
-      .channel(`customer-display:${tenantId}`)
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'pos_carts',
-          filter: `tenant_id=eq.${tenantId}`,
-        },
-        fetchCart
-      )
-      .subscribe();
+    const local = typeof BroadcastChannel !== 'undefined' && sessionId ? new BroadcastChannel(`eccofood-cart:${tenantId}:${sessionId}`) : null;
+    if (local) local.onmessage = () => { if (document.visibilityState === 'visible') void fetchCart(); };
+    const channel = topic ? supabase.channel(topic).on('broadcast',{event:'cart-change'},() => { if(document.visibilityState==='visible')void fetchCart(); }).subscribe() : null;
+    const visible = () => { if(document.visibilityState==='visible')void fetchCart(); };
+    document.addEventListener('visibilitychange',visible);
 
     return () => {
       clearInterval(poll);
-      channel.unsubscribe();
+      cartFetchInFlightRef.current?.abort(); cartFetchInFlightRef.current = null;
+      local?.close();
+      if(channel)void supabase.removeChannel(channel);
+      document.removeEventListener('visibilitychange',visible);
     };
-  }, [tenantId, supabase]);
+  }, [tenantId, sessionId, accessToken, topic, supabase]);
 
   const hasItems = !!cart?.items?.length;
   const itemCount = cart?.items.reduce((sum, item) => sum + item.quantity, 0) || 0;
@@ -253,6 +258,7 @@ function CustomerDisplayContent() {
       style={{ backgroundColor: background, color: pageText, fontFamily: 'Inter, system-ui, sans-serif' }}
     >
       <div className="flex h-full flex-col">
+        {displayError && <div role="alert" className="shrink-0 bg-amber-100 px-4 py-3 text-center font-bold text-amber-950">{displayError}</div>}
         <header className="flex shrink-0 items-center justify-between gap-4 border-b px-6 py-4 lg:px-10" style={{ borderColor: palette.border, backgroundColor: palette.surface }}>
           <div className="flex items-center gap-4">
             <div className="grid h-16 w-24 place-items-center overflow-visible">

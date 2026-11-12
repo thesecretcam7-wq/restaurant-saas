@@ -1,4 +1,4 @@
-import { createClient } from '@supabase/supabase-js';
+import type { createClient } from '@supabase/supabase-js';
 
 export interface CartData {
   items: Array<{
@@ -19,6 +19,7 @@ export interface CartData {
   selectedTableNumber: number | null;
   tip?: number;
   taxRate?: number;
+  taxIncluded?: boolean;
   readonly?: boolean;
   loadedOrderId?: string;
   billingOrderIds?: string[];
@@ -43,7 +44,9 @@ export function getCartSessionId(): string {
   let sessionId = localStorage.getItem(key);
   
   if (!sessionId) {
-    sessionId = `session-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    const random = typeof crypto.randomUUID === 'function' ? crypto.randomUUID()
+      : Array.from(crypto.getRandomValues(new Uint8Array(16)), byte => byte.toString(16).padStart(2,'0')).join('');
+    sessionId = `session-${random}`;
     localStorage.setItem(key, sessionId);
   }
   
@@ -70,7 +73,7 @@ export async function saveCartToSupabase(
     };
     const subtotal = cartData.items.reduce((sum, item) => sum + item.price * item.quantity, 0);
     const taxableSubtotal = Math.max(0, subtotal - cartData.discount);
-    const tax = cartData.taxRate && cartData.taxRate > 0 ? taxableSubtotal * (cartData.taxRate / 100) : 0;
+    const tax = !cartData.taxIncluded && cartData.taxRate && cartData.taxRate > 0 ? taxableSubtotal * (cartData.taxRate / 100) : 0;
     const total = taxableSubtotal + tax + (cartData.tip ?? 0);
 
     // Only reuse the latest active cart. Historical rows stay abandoned.
@@ -177,7 +180,7 @@ export async function loadCartFromSupabase(
       selectedStaffName: cart.selected_staff_name || '',
       selectedTableId: cart.selected_table_id || null,
       selectedTableNumber: cart.selected_table_number || null,
-      readonly: cart.readonly || false,
+      readonly: cart.cart_context?.readonly || cart.readonly || false,
       loadedOrderId: cart.cart_context?.loadedOrderId || cart.loaded_order_id || undefined,
       billingOrderIds: Array.isArray(cart.cart_context?.billingOrderIds)
         ? cart.cart_context.billingOrderIds.filter((id: unknown): id is string => typeof id === 'string' && id.length > 0)
@@ -326,8 +329,7 @@ export async function loadOrderToCart(
       selected_staff_name: null,
       selected_table_id: null,
       selected_table_number: null,
-      readonly: true, // Mark as readonly
-      loaded_order_id: orderId,
+      cart_context: {version:1,readonly:true,loadedOrderId:orderId,billingOrderIds:[orderId]},
       abandoned_at: null,
     };
 

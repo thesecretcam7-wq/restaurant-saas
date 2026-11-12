@@ -1,6 +1,50 @@
-const CACHE_NAME = 'eccofood-v22';
+const CACHE_NAME = 'eccofood-v23';
 const CACHE_PREFIX = 'eccofood-';
 const NETWORK_TIMEOUT_MS = 3500;
+
+// Compatibility for already-open terminals: intercept their former anonymous
+// cart calls and use the same authenticated API as the updated application.
+const legacyCartScopes = new Map();
+async function bridgeLegacyCart(request) {
+  const url = new URL(request.url);
+  const eq = key => { const value = url.searchParams.get(key) || ''; return value.startsWith('eq.') ? value.slice(3) : ''; };
+  const id = eq('id');
+  const remembered = id && legacyCartScopes.get(id);
+  let tenantId = eq('tenant_id') || (remembered && remembered.tenantId);
+  let sessionId = eq('cart_session_id') || (remembered && remembered.sessionId);
+  let payload;
+  if (!['GET','HEAD','POST','PATCH'].includes(request.method)) return Response.json({code:'42501',message:'Operación no permitida'},{status:403});
+  try {
+    if (request.method === 'POST' || request.method === 'PATCH') {
+      payload = await request.clone().json();
+      if (Array.isArray(payload)) { if (payload.length !== 1) throw new Error('Invalid cart'); payload = payload[0]; }
+      tenantId = tenantId || payload.tenant_id;
+      sessionId = sessionId || payload.cart_session_id;
+    }
+    if (!tenantId || ((request.method !== 'GET' && request.method !== 'HEAD') && !sessionId)) return Response.json({code:'42501',message:'Recarga el TPV para actualizar el carrito. La cuenta local se conserva.'},{status:409});
+    const display = !sessionId && (request.method === 'GET' || request.method === 'HEAD');
+    const params = new URLSearchParams({tenantId});
+    if (sessionId) params.set('sessionId',sessionId);
+    const reading = request.method === 'GET' || request.method === 'HEAD';
+    const endpoint = '/api/pos/cart' + (display ? '/display' : '') + (reading ? '?' + params : '');
+    const response = await fetch(new URL(endpoint,location.origin), {
+      method: reading ? 'GET' : request.method,credentials:'same-origin',cache:'no-store',signal:request.signal,
+      ...(!reading ? {headers:{'Content-Type':'application/json'},body:JSON.stringify({tenantId,sessionId,cartId:id||undefined,action:payload.abandoned_at?'clear':'save',cart:payload})} : {}),
+    });
+    const result = await response.json();
+    if (!response.ok) return Response.json({code:response.status===401||response.status===403?'42501':'CART_UNAVAILABLE',message:result.error || 'No se pudo sincronizar el carrito'}, {status:response.status});
+    let cart = result.cart;
+    if (cart && cart.id && tenantId && sessionId) {
+      legacyCartScopes.set(cart.id,{tenantId,sessionId});
+      if (legacyCartScopes.size>256) legacyCartScopes.delete(legacyCartScopes.keys().next().value);
+    }
+    if (request.method==='HEAD' || (!reading && !(request.headers.get('prefer')||'').includes('return=representation'))) return new Response(null,{status:request.method==='HEAD'?200:204});
+    const select=url.searchParams.get('select');
+    if(cart && select && select!=='*')cart=Object.fromEntries(select.split(',').filter(key=>Object.hasOwn(cart,key)).map(key=>[key,cart[key]]));
+    const single=(request.headers.get('accept')||'').includes('vnd.pgrst.object');
+    return Response.json(single?cart:cart?[cart]:[],{headers:{'Cache-Control':'private, no-store'}});
+  } catch { return Response.json({code:'CART_UNAVAILABLE',message:'Sin conexión. La cuenta local se conserva.'},{status:503}); }
+}
 const STATIC_ASSETS = [
   '/favicon.ico',
   '/icons/icon.svg',
@@ -132,7 +176,7 @@ self.addEventListener('activate', (event) => {
     caches.keys().then((keys) =>
       Promise.all(
         keys
-          .filter((key) => key.indexOf(CACHE_PREFIX) === 0 && key !== CACHE_NAME)
+          .filter((key) => key.indexOf(CACHE_PREFIX) === 0 && key !== CACHE_NAME && key !== 'eccofood-v22')
           .map((key) => caches.delete(key))
       )
     )
@@ -144,6 +188,10 @@ self.addEventListener('fetch', (event) => {
   const { request } = event;
   const url = new URL(request.url);
 
+  if (url.origin === 'https://csdooyggiuhzovehykna.supabase.co' && url.pathname === '/rest/v1/pos_carts') {
+    event.respondWith(bridgeLegacyCart(request));
+    return;
+  }
   if (url.origin !== location.origin) return;
 
   const isLocalDevelopment =

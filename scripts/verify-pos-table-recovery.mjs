@@ -1,4 +1,5 @@
 import {createRequire} from 'node:module'
+import {posCartFixture} from './fixtures/pos-cart-api.mjs'
 import path from 'node:path'
 import {readFile,mkdir} from 'node:fs/promises'
 // Isolated browser regression: all network calls and payments are simulated.
@@ -39,6 +40,7 @@ async function fixture(initial,menu){
    if(state.holdNextPatch){state.holdNextPatch=false;await new Promise(resolve=>state.releasePatch=resolve)}
    const body=req.postDataJSON(),row=state.orders.find(o=>o.id===url.pathname.split('/').at(-1));if(!row)throw Error('Unknown order');Object.assign(row,body);state.writes.push({method:'PATCH',body});return route.fulfill({json:{order:row,success:true}})
   }
+  if(await posCartFixture(route,state))return
   if(req.method()!=='GET')throw Error('Unexpected mutation '+url.pathname)
   return route.fulfill({json:{stats:null,orders:[]}})
  })
