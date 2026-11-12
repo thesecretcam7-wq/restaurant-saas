@@ -19,6 +19,8 @@ La fotografía inicial no mostraba una caída en curso: siete conexiones de clie
 
 No se encontró evidencia de un trabajador autónomo de cocina consultando los 4.429 pendientes de forma permanente. Esos pendientes prueban acumulación, no que todos causen I/O en cada venta. En los registros disponibles de las últimas 24 horas solo aparecían seis lecturas HTTP de `order_items`; no sería correcto atribuirles por sí solas las caídas diarias.
 
+La revisión ampliada de todas las consultas acumuladas también detectó una operación interna de Realtime con unas 1.029.124 llamadas y 6.116 segundos totales. Visitó unos 1.590 millones de bloques en caché y solo seis bloques físicos. Ese trabajo merece seguirse, pero no demuestra por sí solo consumo excesivo de disco ni un proceso de cocina. No se modificaron funciones internas de Supabase ni se desactivó Realtime globalmente; se retiraron las suscripciones de aplicación innecesarias en los flujos intervenidos.
+
 ## Cambios implementados
 
 - Dos funciones de lectura para pendientes de cierre e IDs ya cerrados. Usan `NOT EXISTS` / `EXISTS`, filtros explícitos `tenant_id`, límites de fecha, orden estable y páginas de hasta 1.000. La aplicación mantiene sus cálculos de pagos mixtos, anulaciones, impuestos y gastos. Un fallo no se convierte en un balance cero ni en resultados parciales.
@@ -75,7 +77,7 @@ Además existe un problema de aislamiento anterior a este trabajo: `pos_carts` t
 ## Verificación
 
 - Comprobación de tipos y compilación de producción.
-- Batería completa, incluidas las nuevas de fechas, paginación, configuración, autorización por tenant, carrito y sincronización. Primera fase: 318 pruebas en 50 archivos; ampliación: **320 pruebas correctas en 50 archivos**, incluyendo el guardado concurrente y recuperación de carritos. Tipos y compilación de producción correctos.
+- Batería completa, incluidas las nuevas de fechas, paginación, configuración, autorización por tenant, carrito y sincronización. Primera fase: 318 pruebas en 50 archivos; ampliación: 320 pruebas, incluyendo el guardado concurrente y recuperación de carritos; cierre final: **321 pruebas correctas en 50 archivos**, con la regresión de navegación de primera respuesta lenta. Tipos y compilación de producción correctos.
 - API real de Supabase: ambas funciones devolvieron HTTP 200 con el cliente del servidor; el intento anónimo fue rechazado por permisos (`42501`). Solo se imprimieron recuentos y códigos, sin credenciales ni datos de ventas.
 - `scripts/verify-kitchen-workflow.mjs`: componente KDS real, apagado sin solicitudes/suscripciones; pagado todavía pendiente; historia sin polling; desactivación remota, errores visibles, reintento y limpieza al desmontar.
 - `scripts/verify-pos-table-recovery.mjs`: recuperación de mesa, eliminación rápida y respuestas antiguas, mesa ya pagada, carrito legado y recuperación tras desconexión.
@@ -85,6 +87,10 @@ Además existe un problema de aislamiento anterior a este trabajo: `pos_carts` t
 Las pruebas de navegador interceptan las peticiones y no crean datos en producción. No se ejecutó una prueba de estrés contra la base de datos que está atendiendo al bar.
 
 ## Despliegue y comprobación posterior
+
+La comprobación inmediatamente posterior al segundo despliegue detectó cinco respuestas 503 en páginas del restaurante; consultas posteriores volvieron a 200 sin revertir RLS ni reiniciar Supabase. La consulta de actividad de PostgreSQL mostraba una sola conexión activa. Los registros de Supabase del intervalo no mostraron 5xx en `/rest/v1/tenants`. Los registros de ejecución de Vercel no estuvieron disponibles: el conector respondió 403 y la herramienta local carecía de sesión; se canceló su solicitud de inicio de sesión. No se atribuye el incidente con certeza a una causa sin esos registros.
+
+La inspección identificó un fallo reproducible en el router: la primera búsqueda del restaurante tenía un límite de solo tres segundos. En una prueba con respuesta correcta a los 4,5 segundos, tres páginas simultáneas recibían 503 aunque compartían una sola petición. Se ajustó el límite a ocho segundos, igual al presupuesto de lectura ya usado en otras consultas. La prueba pasa sin añadir consultas, reintentos ni utilizar datos de otro restaurante. Las peticiones que se quedan bloqueadas siguen terminando con 503, y las verificaciones de propietario, rol y sesión permanecen intactas. Esto elimina un caso demostrado de falso aviso de desconexión; no demuestra por sí solo la causa de todos los incidentes históricos.
 
 Ya están aplicadas las migraciones `20261112191915_optimize_cash_closing_reads` y `20261112192159_optimize_cash_closing_custom_plans`. Añaden/sustituyen funciones de lectura; no cambian tablas financieras ni políticas. Son necesarias antes de publicar el código que las utiliza. No es necesario pausar Supabase ni cambiar el plan.
 

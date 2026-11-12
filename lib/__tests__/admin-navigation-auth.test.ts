@@ -81,7 +81,7 @@ describe('admin navigation session protection', () => {
       init.signal.addEventListener('abort', () => reject(new Error('Request timed out')))
     }))
     const pending = proxy(request())
-    await vi.advanceTimersByTimeAsync(3001)
+    await vi.advanceTimersByTimeAsync(8001)
     const response = await pending
     expect(response.status).toBe(503)
     expect(response.headers.get('location')).toBeNull()
@@ -94,6 +94,18 @@ describe('admin navigation session protection', () => {
     const second = proxy(request(false, '/cafe/admin/compras'))
     resolve(Response.json([{ id: 'tenant-1', slug: 'cafe' }]))
     expect((await Promise.all([first, second])).map(response => response.status)).toEqual([200, 200])
+    expect(mocks.fetch).toHaveBeenCalledTimes(1)
+  })
+
+  it('accepts a slow but successful first tenant lookup without failing all concurrent pages',async()=>{
+    vi.useFakeTimers()
+    mocks.fetch.mockImplementationOnce((_url,init)=>new Promise((resolve,reject)=>{
+      const timer=setTimeout(()=>resolve(Response.json([{id:'tenant-1',slug:'cafe'}])),4500)
+      init.signal.addEventListener('abort',()=>{clearTimeout(timer);reject(new Error('Request timed out'))})
+    }))
+    const pending=Promise.all(['dashboard','compras','finanzas'].map(section=>proxy(request(false,`/cafe/admin/${section}`))))
+    await vi.advanceTimersByTimeAsync(4501)
+    expect((await pending).map(r=>r.status)).toEqual([200,200,200])
     expect(mocks.fetch).toHaveBeenCalledTimes(1)
   })
 

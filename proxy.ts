@@ -46,7 +46,9 @@ type StaffSession = {
 const tenantCache = new Map<string, { value: TenantRoute | null; expiresAt: number }>()
 const tenantLookups = new Map<string, Promise<TenantRoute | null>>()
 const TENANT_CACHE_TTL = 60_000
-const TENANT_LOOKUP_TIMEOUT_MS = 3000
+// Allow the same bounded read budget as other database reads. A slower first
+// response is not a missing restaurant or a failed login.
+const TENANT_LOOKUP_TIMEOUT_MS = 8_000
 const TENANT_SEGMENT_REGEX = /^[a-zA-Z0-9-]{2,64}$/
 const EARLY_NEXT_PATH_PREFIXES = ['/api/', '/_next/', '/favicon']
 const PROBE_PATH_REGEX = /\.(?:php|txt|xml|json|asp|aspx|cgi|env|git|bak|old|sql|zip|tar|gz)$/i
