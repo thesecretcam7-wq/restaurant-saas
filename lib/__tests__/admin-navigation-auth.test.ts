@@ -1,10 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { NextRequest } from 'next/server'
+import { signServerValue } from '../server-signed-token'
 
 const mocks = vi.hoisted(() => ({
   verifiedUser: vi.fn(), serverClient: vi.fn(), from: vi.fn(), fetch: vi.fn(),
-  ownership: { data: { id: 'tenant-1' }, error: null } as { data: { id: string } | null; error: unknown },
-  active: { data: { session_token: 'valid-token' }, error: null } as { data: { session_token: string } | null; error: unknown },
+  ownership: { data: { id: '11111111-1111-4111-8111-111111111111' }, error: null } as { data: { id: string } | null; error: unknown },
+  active: { data: { session_token: '33333333-3333-4333-8333-333333333333' }, error: null } as { data: { session_token: string } | null; error: unknown },
 }))
 vi.mock('@supabase/supabase-js', () => ({ createClient: () => ({ from: mocks.from }) }))
 vi.mock('@supabase/ssr', () => ({ createServerClient: mocks.serverClient }))
@@ -13,28 +14,36 @@ vi.mock('@/lib/supabase/network', async importOriginal => ({
 }))
 
 let proxy: typeof import('../../proxy').proxy
-const request = (staff = false, path = '/cafe/admin/dashboard') => new NextRequest(`https://www.eccofoodapp.com${path}`, {
-  headers: {
-    host: 'www.eccofoodapp.com',
-    cookie: staff ? `staff_session=${encodeURIComponent(JSON.stringify({
-      tenantId: 'tenant-1', staffId: 'staff-1', role: 'admin', permissions: ['admin_dashboard'], sessionToken: 'valid-token',
-    }))}` : 'sb-project-auth-token=existing-owner-session',
-  },
-})
+const request = (staff = false, path = '/cafe/admin/dashboard') => {
+  const raw = JSON.stringify({
+    tenantId: '11111111-1111-4111-8111-111111111111', staffId: '22222222-2222-4222-8222-222222222222',
+    role: 'admin', permissions: ['admin_dashboard'], sessionToken: '33333333-3333-4333-8333-333333333333',
+    createdAt: new Date().toISOString(),
+  })
+  return new NextRequest(`https://www.eccofoodapp.com${path}`, {
+    headers: {
+      host: 'www.eccofoodapp.com',
+      cookie: staff
+        ? `staff_session=${encodeURIComponent(raw)}; staff_session_signature=${signServerValue('staff-session-v1', raw)}`
+        : 'sb-project-auth-token=existing-owner-session',
+    },
+  })
+}
 
 beforeEach(async () => {
   vi.resetModules()
   vi.clearAllMocks()
+  vi.stubEnv('CSRF_SECRET', 'navigation-test-secret')
   vi.stubEnv('NEXT_PUBLIC_SUPABASE_URL', 'https://project.supabase.co')
   vi.stubEnv('NEXT_PUBLIC_SUPABASE_ANON_KEY', 'test-anon')
   vi.stubEnv('SUPABASE_SERVICE_ROLE_KEY', 'test-service')
   vi.stubEnv('UPSTASH_REDIS_REST_URL', '')
   vi.stubEnv('NEXT_PUBLIC_BASE_DOMAIN', 'eccofoodapp.com')
-  mocks.ownership = { data: { id: 'tenant-1' }, error: null }
-  mocks.active = { data: { session_token: 'valid-token' }, error: null }
+  mocks.ownership = { data: { id: '11111111-1111-4111-8111-111111111111' }, error: null }
+  mocks.active = { data: { session_token: '33333333-3333-4333-8333-333333333333' }, error: null }
   mocks.verifiedUser.mockResolvedValue({ id: 'owner-1', email: 'owner@example.com' })
   mocks.serverClient.mockImplementation((_url, _key, options) => ({ options }))
-  mocks.fetch.mockImplementation(async () => Response.json([{ id: 'tenant-1', slug: 'cafe' }]))
+  mocks.fetch.mockImplementation(async () => Response.json([{ id: '11111111-1111-4111-8111-111111111111', slug: 'cafe' }]))
   vi.stubGlobal('fetch', mocks.fetch)
   vi.spyOn(console, 'warn').mockImplementation(() => {})
   mocks.from.mockImplementation((table: string) => {
@@ -56,6 +65,28 @@ afterEach(() => {
 })
 
 describe('admin navigation session protection', () => {
+  it('rejects forged staff JSON for operational and admin routes', async () => {
+    mocks.verifiedUser.mockResolvedValue(null)
+    for (const path of ['/cafe/staff/pos','/cafe/admin/dashboard']) {
+      const forged = request(true,path)
+      forged.cookies.set('staff_session_signature','forged')
+      const response = await proxy(forged)
+      expect(response.status).toBe(307)
+      expect(response.headers.get('location')).toMatch(/\/acceso\/login\/|\/admin\/login/)
+      expect(response.cookies.get('staff_session')).toBeUndefined()
+    }
+  })
+
+  it('admits a signed cashier to the TPV without owner Auth or active-session polling', async () => {
+    const req = request(true,'/cafe/staff/pos')
+    const raw = JSON.stringify({...JSON.parse(req.cookies.get('staff_session')!.value),role:'cajero'})
+    req.cookies.set('staff_session',raw)
+    req.cookies.set('staff_session_signature',signServerValue('staff-session-v1',raw))
+    expect((await proxy(req)).status).toBe(200)
+    expect(mocks.verifiedUser).not.toHaveBeenCalled()
+    expect(mocks.from).not.toHaveBeenCalled()
+  })
+
   it('allows valid owner navigation between menu entries', async () => {
     for (const section of ['dashboard', 'compras', 'finanzas', 'ai-insights']) {
       const response = await proxy(request(false, `/cafe/admin/${section}`))
@@ -92,7 +123,7 @@ describe('admin navigation session protection', () => {
     mocks.fetch.mockImplementationOnce(() => new Promise<Response>(done => { resolve = done }))
     const first = proxy(request())
     const second = proxy(request(false, '/cafe/admin/compras'))
-    resolve(Response.json([{ id: 'tenant-1', slug: 'cafe' }]))
+    resolve(Response.json([{ id: '11111111-1111-4111-8111-111111111111', slug: 'cafe' }]))
     expect((await Promise.all([first, second])).map(response => response.status)).toEqual([200, 200])
     expect(mocks.fetch).toHaveBeenCalledTimes(1)
   })
@@ -100,7 +131,7 @@ describe('admin navigation session protection', () => {
   it('accepts a slow but successful first tenant lookup without failing all concurrent pages',async()=>{
     vi.useFakeTimers()
     mocks.fetch.mockImplementationOnce((_url,init)=>new Promise((resolve,reject)=>{
-      const timer=setTimeout(()=>resolve(Response.json([{id:'tenant-1',slug:'cafe'}])),4500)
+      const timer=setTimeout(()=>resolve(Response.json([{id:'11111111-1111-4111-8111-111111111111',slug:'cafe'}])),4500)
       init.signal.addEventListener('abort',()=>{clearTimeout(timer);reject(new Error('Request timed out'))})
     }))
     const pending=Promise.all(['dashboard','compras','finanzas'].map(section=>proxy(request(false,`/cafe/admin/${section}`))))

@@ -4,23 +4,20 @@ import { createClient } from '@/lib/supabase/database'
 import { randomUUID } from 'crypto'
 import { verifyStaffAuthProof } from '@/lib/staff-auth-proof'
 import { signServerValue } from '@/lib/server-signed-token'
-
-function parseStaffSession(value?: string | null) {
-  if (!value) return null
-  try {
-    const raw = value.trim().startsWith('{') ? value : decodeURIComponent(value)
-    return JSON.parse(raw)
-  } catch {
-    return null
-  }
-}
+import { getVerifiedStaffSession } from '@/lib/staff-session'
+import { tenantAuthErrorResponse } from '@/lib/tenant-auth-error'
 
 export async function GET() {
   const cookieStore = await cookies()
-  const session = parseStaffSession(cookieStore.get('staff_session')?.value)
+  let session
+  try {
+    session = await getVerifiedStaffSession(cookieStore, { upgrade: true })
+  } catch (error) {
+    return tenantAuthErrorResponse(error)
+  }
 
   if (!session?.tenantId || !session?.staffId || !session?.role) {
-    return NextResponse.json({ authenticated: false }, { status: 401 })
+    return NextResponse.json({ authenticated: false }, { status: 401, headers: { 'Cache-Control': 'private, no-store' } })
   }
 
   return NextResponse.json({
@@ -31,7 +28,7 @@ export async function GET() {
     role: session.role,
     permissions: session.permissions || [],
     createdAt: session.createdAt,
-  })
+  }, { headers: { 'Cache-Control': 'private, no-store' } })
 }
 
 export async function POST(request: NextRequest) {

@@ -4,6 +4,8 @@ import { createServerClient } from '@supabase/ssr'
 import { Ratelimit } from '@upstash/ratelimit'
 import { Redis } from '@upstash/redis'
 import { AuthConnectionError, getVerifiedUser, isAuthConnectionError, supabaseFetch } from '@/lib/supabase/network'
+import { getVerifiedStaffSession, getSignedStaffSession } from '@/lib/staff-session'
+import { TenantAuthError } from '@/lib/tenant-auth-error'
 
 const BASE_DOMAIN = process.env.NEXT_PUBLIC_BASE_DOMAIN || 'eccofoodapp.com'
 const SLUG_PATH_REGEX = /^\/([a-zA-Z0-9-]+)(?:\/|$)/
@@ -100,14 +102,12 @@ function getClientIp(request: NextRequest): string {
   )
 }
 
-function getStaffSession(request: NextRequest): StaffSession | null {
-  const raw = request.cookies.get('staff_session')?.value
-  if (!raw) return null
+async function getStaffSession(request: NextRequest): Promise<StaffSession | null> {
   try {
-    const value = raw.trim().startsWith('{') ? raw : decodeURIComponent(raw)
-    return JSON.parse(value) as StaffSession
-  } catch {
-    return null
+    return await getVerifiedStaffSession(request.cookies)
+  } catch (error) {
+    if (error instanceof TenantAuthError && error.status < 500) return null
+    throw new AuthConnectionError()
   }
 }
 
@@ -142,7 +142,8 @@ function isVercelPreviewHost(hostname: string) {
 }
 
 function getWaiterRootRedirect(request: NextRequest, tenant: TenantRoute, targetPathname: string) {
-  const staffSession = getStaffSession(request)
+  let staffSession: StaffSession | null = null
+  try { staffSession = getSignedStaffSession(request.cookies) } catch { return null }
   if (staffCanAccessTenant(staffSession, tenant.id) && staffSession?.role === 'camarero') {
     const redirectUrl = request.nextUrl.clone()
     redirectUrl.pathname = targetPathname
@@ -366,7 +367,7 @@ async function routeRequest(request: NextRequest) {
       return NextResponse.redirect(new URL(`/${operationalAccess.slug}/acceso`, request.url))
     }
 
-    const staffSession = getStaffSession(request)
+    const staffSession = await getStaffSession(request)
     if (
       staffCanAccessTenant(staffSession, tenant.id) &&
       staffHasAnyRole(staffSession, operationalAccess.roles)
@@ -440,7 +441,7 @@ async function routeRequest(request: NextRequest) {
     )
 
     // VÍA 1: staff_session cookie (staff con PIN)
-    const staffSession = getStaffSession(request)
+    const staffSession = await getStaffSession(request)
     if (staffSession) {
       try {
         const permissions: string[] = staffSession.permissions || []
@@ -452,12 +453,14 @@ async function routeRequest(request: NextRequest) {
               .from('active_sessions')
               .select('session_token')
               .eq('user_key', `staff:${staffSession.staffId}`)
+              .eq('tenant_id', routeTenant.id)
               .abortSignal(AbortSignal.timeout(8_000)).maybeSingle().retry(false)
             if (sessionError) return authUnavailableResponse()
             if (!active || active.session_token !== staffSession.sessionToken) {
               const loginUrl = new URL(`/${slug}/admin/login?reason=otra_sesion`, request.url)
               const res = NextResponse.redirect(loginUrl)
               res.cookies.delete('staff_session')
+              res.cookies.delete('staff_session_signature')
               return res
             }
           }

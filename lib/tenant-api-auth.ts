@@ -1,7 +1,9 @@
 import { cookies } from 'next/headers'
-import { NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { getVerifiedUser, isAuthConnectionError } from '@/lib/supabase/network'
+import { getVerifiedStaffSession } from './staff-session'
+import { TenantAuthError } from './tenant-auth-error'
+export { TenantAuthError, tenantAuthErrorResponse } from './tenant-auth-error'
 
 export interface TenantAccess {
   type: 'owner' | 'staff'
@@ -13,38 +15,19 @@ export interface TenantAccess {
 
 const STAFF_ROLES = ['admin', 'cajero', 'camarero', 'cocinero']
 
-export class TenantAuthError extends Error {
-  status: number
-
-  constructor(message: string, status: number) {
-    super(message)
-    this.status = status
-  }
-}
-
-function parseStaffSession(value?: string | null) {
-  if (!value) return null
-  try {
-    const raw = value.trim().startsWith('{') ? value : decodeURIComponent(value)
-    const session = JSON.parse(raw)
-    if (!session?.tenantId || !session?.staffId || !session?.role) return null
-    return session as {
-      tenantId: string
-      staffId: string
-      role: string
-      permissions?: string[]
-    }
-  } catch {
-    return null
-  }
-}
-
 export async function requireTenantAccess(
   tenantId: string,
   options: { staffRoles?: string[]; requireAdminPermission?: boolean } = {}
 ): Promise<TenantAccess> {
   const cookieStore = await cookies()
-  const staffSession = parseStaffSession(cookieStore.get('staff_session')?.value)
+  let staffSession
+  try {
+    staffSession = await getVerifiedStaffSession(cookieStore, { tenantId, upgrade: true })
+  } catch (error) {
+    if (!(error instanceof TenantAuthError) || error.status >= 500) throw error
+    // A stale/invalid PIN cookie must not block an independently verified owner.
+    staffSession = null
+  }
   const allowedRoles = options.staffRoles || STAFF_ROLES
 
   if (staffSession?.tenantId === tenantId) {
@@ -75,6 +58,8 @@ export async function requireTenantAccess(
     .from('tenants')
     .select('id, owner_id')
     .eq('id', tenantId)
+    .retry(false)
+    .abortSignal(AbortSignal.timeout(8000))
     .maybeSingle()
 
   if (tenantError) throw new TenantAuthError('Forbidden', 503)
@@ -84,11 +69,4 @@ export async function requireTenantAccess(
   }
 
   return { type: 'owner', userId: user.id }
-}
-
-export function tenantAuthErrorResponse(error: unknown) {
-  if (error instanceof TenantAuthError) {
-    return NextResponse.json({ error: error.status >= 500 ? 'No se pudo verificar el acceso. El servicio no responde; intenta de nuevo en unos segundos.' : error.message }, { status: error.status })
-  }
-  return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
 }

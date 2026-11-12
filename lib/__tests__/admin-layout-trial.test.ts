@@ -6,10 +6,12 @@ import { AdminContent } from '@/app/[domain]/admin/AdminContent'
 const mocks = vi.hoisted(() => ({
   tenant: { id: 'tenant', slug: 'cafe', organization_name: 'Cafe', status: 'active', subscription_plan: 'premium', trial_ends_at: '2026-01-01T00:00:00Z' },
 }))
-vi.mock('@/lib/supabase/server', () => ({ createClient: async () => ({
-  from: () => ({ select() { return this }, retry() { return this }, abortSignal() { return this }, eq() { return this }, single: async () => ({ data: mocks.tenant, error: null }) }),
+vi.mock('@/lib/admin-access', () => ({ resolveAdminAccess: async () => ({
+  tenant: mocks.tenant, user: null, ownerClient: null,
+  staffSession: { tenantId: 'tenant', role: 'admin', permissions: ['admin_dashboard'] },
+  isOwner: false, isStaffAdmin: true,
 }) }))
-vi.mock('next/headers', () => ({ cookies: async () => ({ get: () => ({ value: JSON.stringify({ tenantId: 'tenant', role: 'admin', permissions: ['admin_dashboard'] }) }) }) }))
+vi.mock('next/headers', () => ({ cookies: async () => ({ get: () => undefined }) }))
 vi.mock('next/navigation', () => ({ redirect: (path: string) => { throw new Error(`redirect:${path}`) } }))
 vi.mock('@/lib/supabase/network', () => ({ getVerifiedUser: async () => null, isAuthConnectionError: () => false }))
 vi.mock('@/lib/tenant', () => ({ getTenantContext: async () => ({ branding: {}, tenant: {} }) }))

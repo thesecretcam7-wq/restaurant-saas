@@ -2,6 +2,7 @@ import { createServerClient } from '@supabase/ssr'
 import { createClient } from '@/lib/supabase/database'
 import { cookies } from 'next/headers'
 import { NextResponse } from 'next/server'
+import { getVerifiedStaffSession } from '@/lib/staff-session'
 
 export async function POST(request: Request) {
   const cookieStore = await cookies()
@@ -35,20 +36,19 @@ export async function POST(request: Request) {
     await serviceClient.from('active_sessions').delete().eq('user_key', `owner:${user.id}`)
   }
 
-  const staffSession = cookieStore.get('staff_session')?.value
-  if (staffSession) {
-    try {
-      const { staffId } = JSON.parse(staffSession)
-      if (staffId) {
-        const serviceClient = createClient(
-          process.env.NEXT_PUBLIC_SUPABASE_URL!,
-          process.env.SUPABASE_SERVICE_ROLE_KEY!,
-          { auth: { autoRefreshToken: false, persistSession: false } }
-        )
-        await serviceClient.from('active_sessions').delete().eq('user_key', `staff:${staffId}`)
-      }
-    } catch {}
-  }
+  try {
+    const session = await getVerifiedStaffSession(cookieStore)
+    if (session) {
+      const serviceClient = createClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.SUPABASE_SERVICE_ROLE_KEY!,
+        { auth: { autoRefreshToken: false, persistSession: false } }
+      )
+      await serviceClient.from('active_sessions').delete().eq('user_key', `staff:${session.staffId}`)
+        .eq('tenant_id', session.tenantId).eq('session_token', session.sessionToken)
+        .retry(false).abortSignal(AbortSignal.timeout(8000))
+    }
+  } catch { /* An unverifiable cookie must never revoke another employee's session. */ }
 
   const requestUrl = new URL(request.url)
   if (requestUrl.hostname === '0.0.0.0') {
@@ -59,5 +59,6 @@ export async function POST(request: Request) {
   const response = NextResponse.redirect(new URL(redirectPath, requestUrl), { status: 303 })
   response.cookies.delete('admin_session_token')
   response.cookies.delete('staff_session')
+  response.cookies.delete('staff_session_signature')
   return response
 }

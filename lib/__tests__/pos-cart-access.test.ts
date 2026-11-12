@@ -9,7 +9,7 @@ vi.mock('../supabase/server',()=>({createClient:async()=>({}),createServiceClien
 const payload=(extra={})=>({tenantId:tid,staffId:sid,staffName:'Client name',role:'cajero',permissions:['admin_fake'],sessionToken:token,createdAt:new Date().toISOString(),...extra})
 beforeEach(()=>{
  vi.clearAllMocks();vi.stubEnv('CSRF_SECRET','cart-test-secret');m.cookies.clear();m.activeToken=token;m.error=null;m.owner=false;m.user.mockResolvedValue(null)
- m.from.mockImplementation((table:string)=>{const q:any=new Proxy({},{get(_t,k){if(k==='then')return (resolve:any)=>Promise.resolve(resolve({data:table==='active_sessions'?{session_token:m.activeToken}:table==='staff_members'?{id:sid,name:'Server name',role:'cajero',is_active:true}:table==='staff_role_permissions'?[{admin_permissions:{key:'admin_dashboard'}}]:m.owner?{id:tid}:null,error:m.error}));return()=>q}});return q})
+ m.from.mockImplementation((table:string)=>{const q:any=new Proxy({},{get(_t,k){if(k==='then')return (resolve:any)=>Promise.resolve(resolve({data:table==='active_sessions'?{session_token:m.activeToken}:table==='staff_members'?{id:sid,name:'Server name',role:'cajero',is_active:true}:table==='staff_role_permissions'?[{admin_permissions:{key:'admin_dashboard'}}]:m.owner?{id:tid,owner_id:'owner'}:null,error:m.error}));return()=>q}});return q})
 })
 afterEach(()=>vi.unstubAllEnvs())
 describe('private POS cart access',()=>{
