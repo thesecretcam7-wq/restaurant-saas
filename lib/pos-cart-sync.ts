@@ -91,7 +91,7 @@ export async function saveCartToSupabase(
 
     if (existingCart) {
       // Update existing cart
-      const { error } = await supabase
+      const { data: updatedCart, error } = await supabase
         .from('pos_carts')
         .update({
           items: cartData.items,
@@ -108,10 +108,14 @@ export async function saveCartToSupabase(
           cart_context: { version: 1, billingOrderIds: cartData.billingOrderIds || [], loadedOrderId: cartData.loadedOrderId || null },
         })
         .eq('id', existingCart.id)
-        .is('abandoned_at', null);
+        .eq('tenant_id', tenantId)
+        .eq('cart_session_id', sessionId)
+        .is('abandoned_at', null)
+        .select('id')
+        .maybeSingle();
 
-      if (!error) rememberWrite();
-      return !error;
+      if (!error && updatedCart?.id === existingCart.id) { rememberWrite(); return true; }
+      return false;
     } else {
       // Create new cart
       const { error } = await supabase
@@ -277,6 +281,9 @@ export async function loadOrderToCart(
     if (!tenantId || !orderId) return false;
 
     const sessionId = getCartSessionId();
+    const state = cartWriteState(supabase, `${tenantId}:${sessionId}`);
+    state.generation += 1;
+    delete state.signature;
 
     // Convert order items to cart format
     const items = (order.items || []).map((item: any) => ({
@@ -326,13 +333,17 @@ export async function loadOrderToCart(
 
     if (existingCart) {
       // Update existing cart
-      const { error } = await supabase
+      const { data: updatedCart, error } = await supabase
         .from('pos_carts')
         .update(cartData)
         .eq('id', existingCart.id)
-        .is('abandoned_at', null);
+        .eq('tenant_id', tenantId)
+        .eq('cart_session_id', sessionId)
+        .is('abandoned_at', null)
+        .select('id')
+        .maybeSingle();
 
-      return !error;
+      return !error && updatedCart?.id === existingCart.id;
     } else {
       // Create new cart
       const { error } = await supabase

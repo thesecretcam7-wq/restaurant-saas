@@ -1,5 +1,6 @@
--- REVIEW ONLY: not applied. Production approval is required.
--- Kept outside supabase/migrations so a deploy cannot apply this implicitly.
+-- Historical review copy. Approved and applied on 2026-11-12.
+-- Canonical migration: supabase/migrations/20261112195157_optimize_hot_rls_and_kds_default.sql
+-- The user authorized completing the pending proposal after reviewing its scope.
 begin;
 set local lock_timeout = '3s';
 

@@ -56,7 +56,7 @@ Entre las capturas de 19:17 y 19:39 UTC se mantuvieron los mismos recuentos y la
 | Cierres completos | 279 | `d781d699956896a107765546d68dfde8` |
 | Vínculos de cierres completos | 12.796 | `2bb8725c6ce5b4b284c133d15cc02b62` |
 
-Las 22 políticas inspeccionadas de las siete tablas principales quedaron exactamente iguales. Las pruebas de lectura con roles de propietario solo veían sus propias órdenes y productos. No se utilizaron credenciales de sesiones de usuarios ni se realizaron cobros, cierres o ventas reales de prueba.
+En la primera fase, las 22 políticas inspeccionadas quedaron exactamente iguales. Tras la autorización posterior del usuario, se optimizaron 21 sin cambiar su significado; la política de servicio restante se conservó. La comparación normalizada confirmó los mismos comandos, roles, condiciones de lectura y escritura, y RLS sigue activado en todas las tablas. No se utilizaron credenciales de sesiones de usuarios ni se realizaron cobros, cierres o ventas reales de prueba.
 
 ## Índices y RLS pendientes de revisión
 
@@ -64,14 +64,18 @@ No se añadieron ni eliminaron índices. Los planes ya aprovechan los índices e
 
 Hay tres pares de índices duplicados exactos en `order_items` (orden, restaurante y fecha), unos 1,06 MiB redundantes que también se actualizan al escribir. Su eliminación queda pendiente de autorización expresa; no se adjunta ninguna eliminación automática.
 
-El asesor también señaló evaluaciones repetidas de `auth.uid()` y políticas permisivas múltiples. Se preparó `docs/sql-proposals/20261112_hot_rls_and_kds_default.sql`: convierte únicamente `auth.uid()` en `(select auth.uid())`, conserva comandos, roles y predicados y propone cambiar el valor predeterminado de KDS a `false`. **No está aplicado y está fuera de las migraciones automáticas.** La revisión automática exigió confirmación explícita antes de cambiar estas políticas en producción. La aplicación ya establece el valor `false` en el alta normal, independientemente del valor predeterminado de la columna.
+El asesor señaló evaluaciones repetidas de `auth.uid()` y políticas permisivas múltiples. La propuesta fue autorizada posteriormente por el usuario y aplicada como `20261112195157_optimize_hot_rls_and_kds_default`: convierte únicamente `auth.uid()` en `(select auth.uid())`, conserva comandos, roles y predicados y cambia el valor predeterminado SQL de KDS a `false`. La aplicación también escribe `false` en el alta normal. Los valores de configuración de los ocho restaurantes existentes se conservaron.
 
-Además existe un problema de aislamiento anterior a este trabajo: `pos_carts` tiene políticas públicas de lectura/escritura sin filtro de restaurante. No se ha ampliado ese acceso. Debe endurecerse en una intervención separada que adapte la autenticación PIN y la pantalla del cliente; cerrar esas políticas sin adaptar ambos flujos podría bloquear los TPV. No se declara auditada ni garantizada la seguridad completa de todas las tablas.
+La advertencia `auth_rls_initplan` bajó de **68 a 47 hallazgos**: desaparecieron los 21 de las siete tablas intervenidas. Las advertencias de otras tablas no se dan por resueltas ni se cambian únicamente para limpiar el panel del asesor. Los planes posteriores muestran `InitPlan`; una muestra aislada antes/después no se utiliza para anunciar otro porcentaje de mejora.
+
+Se comparó la visibilidad real de ocho propietarios y de una identidad sin restaurante sobre órdenes, productos, cierres, vínculos, gastos y configuración: las nueve comparaciones coincidieron. La identidad ajena vio cero filas. Una segunda comprobación de integridad, incluyendo ahora los 383 pagos de facturas y todos los campos de los productos, dio los mismos recuentos y huellas antes y después de aplicar RLS.
+
+Además existe un problema de aislamiento anterior a este trabajo: `pos_carts` tiene políticas públicas de lectura/escritura sin filtro de restaurante. No se ha ampliado ese acceso. Se reforzaron las actualizaciones del cliente con restaurante, sesión, ID y condición de carrito activo; solo se confirman si el servidor devuelve la fila realmente actualizada. Recuperar una orden invalida los recuerdos de guardados anteriores. **Estas defensas no sustituyen el endurecimiento pendiente de RLS de carritos.** Este requiere sustituir de forma compatible el acceso directo de los TPV abiertos y la pantalla del cliente, que actualmente usa consultas y Realtime anónimos. Cambiar esos permisos antes de adaptar ambos flujos bloquearía terminales existentes. No se declara auditada ni garantizada la seguridad completa de todas las tablas.
 
 ## Verificación
 
 - Comprobación de tipos y compilación de producción.
-- Batería completa: **318 pruebas correctas en 50 archivos**, incluidas las nuevas de fechas, paginación, configuración, autorización por tenant, carrito y sincronización.
+- Batería completa, incluidas las nuevas de fechas, paginación, configuración, autorización por tenant, carrito y sincronización. Primera fase: 318 pruebas en 50 archivos; ampliación: **320 pruebas correctas en 50 archivos**, incluyendo el guardado concurrente y recuperación de carritos. Tipos y compilación de producción correctos.
 - API real de Supabase: ambas funciones devolvieron HTTP 200 con el cliente del servidor; el intento anónimo fue rechazado por permisos (`42501`). Solo se imprimieron recuentos y códigos, sin credenciales ni datos de ventas.
 - `scripts/verify-kitchen-workflow.mjs`: componente KDS real, apagado sin solicitudes/suscripciones; pagado todavía pendiente; historia sin polling; desactivación remota, errores visibles, reintento y limpieza al desmontar.
 - `scripts/verify-pos-table-recovery.mjs`: recuperación de mesa, eliminación rápida y respuestas antiguas, mesa ya pagada, carrito legado y recuperación tras desconexión.
@@ -84,7 +88,7 @@ Las pruebas de navegador interceptan las peticiones y no crean datos en producci
 
 Ya están aplicadas las migraciones `20261112191915_optimize_cash_closing_reads` y `20261112192159_optimize_cash_closing_custom_plans`. Añaden/sustituyen funciones de lectura; no cambian tablas financieras ni políticas. Son necesarias antes de publicar el código que las utiliza. No es necesario pausar Supabase ni cambiar el plan.
 
-El cambio de RLS y del valor predeterminado SQL está pendiente de aprobación. No ejecutar el SQL de `docs/sql-proposals` como parte del despliegue normal.
+También está aplicada `20261112195157_optimize_hot_rls_and_kds_default`, autorizada en la segunda fase. El archivo de `docs/sql-proposals` queda como copia histórica de la revisión; no se utiliza como mecanismo de despliegue. No se eliminaron índices ni datos.
 
 Tras publicar el código seguro, conviene contrastar en un intervalo comparable de actividad normal las llamadas y tiempos medios de las funciones nuevas y el descenso de las consultas anteriores, junto con IOPS/latencia de disco, presupuesto de I/O, CPU y memoria de Supabase. No reiniciar `pg_stat_statements`, no vaciar datos y no confundir visitas a caché con lecturas físicas. El cliente debe recargar una vez para sustituir el código antiguo; las ventas offline pendientes deben sincronizarse normalmente.
 

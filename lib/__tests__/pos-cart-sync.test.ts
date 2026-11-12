@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { abandonCart, loadCartFromSupabase, saveCartToSupabase } from '../pos-cart-sync';
+import { abandonCart, loadCartFromSupabase, saveCartToSupabase, loadOrderToCart } from '../pos-cart-sync';
 
 const cartData = {
   items: [{ menu_item_id: 'item-1', name: 'Cafe', price: 2, quantity: 2 }],
@@ -87,7 +87,9 @@ describe('POS cart synchronization', () => {
     };
     const updateQuery = {
       eq: vi.fn().mockReturnThis(),
-      is: vi.fn().mockResolvedValue({ error: null }),
+      is: vi.fn().mockReturnThis(),
+      select: vi.fn().mockReturnThis(),
+      maybeSingle: vi.fn().mockResolvedValue({data:{id:'active-cart'},error:null}),
     };
     const table = {
       select: vi.fn().mockReturnValue(selectQuery),
@@ -104,7 +106,30 @@ describe('POS cart synchronization', () => {
     expect(selectQuery.limit).toHaveBeenCalledWith(1);
     expect(table.update).toHaveBeenCalledWith(expect.not.objectContaining({ abandoned_at: null }));
     expect(updateQuery.is).toHaveBeenCalledWith('abandoned_at', null);
+    expect(updateQuery.eq).toHaveBeenCalledWith('tenant_id','tenant-1');
+    expect(updateQuery.eq).toHaveBeenCalledWith('cart_session_id','session-1');
     expect(table.insert).not.toHaveBeenCalled();
+  });
+
+  it('does not confirm or cache a cart that was closed between the read and update',async()=>{
+    const read:any={eq:()=>read,is:()=>read,order:()=>read,limit:()=>read,maybeSingle:async()=>({data:{id:'old-cart'},error:null})};
+    const update:any={eq:vi.fn().mockReturnThis(),is:()=>update,select:()=>update,maybeSingle:vi.fn().mockResolvedValue({data:null,error:null})};
+    const write=vi.fn(()=>update);const client={from:()=>({select:()=>read,update:write})};
+    expect(await saveCartToSupabase('tenant',cartData,client)).toBe(false);
+    expect(await saveCartToSupabase('tenant',cartData,client)).toBe(false);
+    expect(write).toHaveBeenCalledTimes(2);
+    expect(update.eq).toHaveBeenCalledWith('tenant_id','tenant');
+    expect(update.eq).toHaveBeenCalledWith('cart_session_id','session-1');
+  });
+
+  it('invalidates an acknowledged snapshot when an existing order replaces the remote cart',async()=>{
+    const read:any={eq:()=>read,is:()=>read,order:()=>read,limit:()=>read,maybeSingle:async()=>({data:{id:'cart'},error:null})};
+    const update:any={eq:()=>update,is:()=>update,select:()=>update,maybeSingle:async()=>({data:{id:'cart'},error:null})};
+    const write=vi.fn(()=>update);const client={from:()=>({select:()=>read,update:write})};
+    expect(await saveCartToSupabase('tenant',cartData,client)).toBe(true);
+    expect(await loadOrderToCart('tenant','order',{items:[{name:'Tea',price:3,quantity:1}]},client)).toBe(true);
+    expect(await saveCartToSupabase('tenant',cartData,client)).toBe(true);
+    expect(write).toHaveBeenCalledTimes(3);
   });
 
   it('loads only the latest active cart for the browser session', async () => {
