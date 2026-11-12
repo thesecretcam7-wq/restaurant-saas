@@ -25,5 +25,7 @@ export default async function StaffKDSPage({ params }: Props) {
     )
   }
 
-  return <KDSScreen tenantId={tenant.id} />
+  const { data: settings, error } = await supabase.from('restaurant_settings').select('kds_enabled').eq('tenant_id', tenant.id).maybeSingle()
+  if (error) throw error
+  return <KDSScreen tenantId={tenant.id} initialEnabled={settings?.kds_enabled === true} />
 }

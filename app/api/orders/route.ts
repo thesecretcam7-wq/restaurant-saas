@@ -767,7 +767,7 @@ export async function POST(request: NextRequest) {
           }
         }
 
-        if (source !== 'pos') {
+        if (source !== 'pos' && source !== 'pos-offline') {
           const [{ data: branding }, { data: tenantRow }, { data: settings2 }] = await Promise.all([
             supabase
               .from('tenant_branding')

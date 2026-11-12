@@ -52,11 +52,13 @@ describe('purchase month selection', () => {
 
   it('bounds orders, payments and closed-order links to the selected month, including DST', async () => {
     await GET(request())
-    for(const [table,column] of [['orders','created_at'],['cash_bill_payments','paid_at'],['cash_closing_items','orders.created_at']]) {
+    for(const [table,column] of [['orders','created_at'],['cash_bill_payments','paid_at']]) {
       const url = mocks.fetch.mock.calls.map(([u])=>new URL(String(u))).find(u=>u.pathname.endsWith('/'+table))!
       expect(url.searchParams.getAll(column)).toEqual(['gte.2026-09-30T22:00:00.000Z','lt.2026-10-31T23:00:00.000Z'])
       expect(url.searchParams.get('tenant_id')).toBe('eq.tenant')
     }
+    const rpc=mocks.fetch.mock.calls.find(([u])=>String(u).includes('/rpc/get_closed_cash_order_ids'))!
+    expect(JSON.parse(String(rpc[1]?.body))).toMatchObject({p_tenant_id:'tenant',p_start:'2026-09-30T22:00:00.000Z',p_end:'2026-10-31T23:00:00.000Z'})
   })
 
   it('keeps current month as default and limits days to today', async () => {

@@ -1,6 +1,7 @@
 'use client';
 
 import NavigationPending from '@/components/NavigationPending';
+import { fetchKitchenItems } from '@/lib/kitchen-workflow';
 
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { createClient } from '@/lib/supabase/client';
@@ -697,16 +698,19 @@ function KDSColumn({
 }
 
 // Main KDSScreen Component
-export function KDSScreen({ tenantId }: { tenantId: string }) {
+export function KDSScreen({ tenantId, initialEnabled = false }: { tenantId: string; initialEnabled?: boolean }) {
+  const [kdsEnabled, setKdsEnabled] = useState(initialEnabled);
+  const [selectedDay, setSelectedDay] = useState('');
   const { tr } = useI18n();
   const [items, setItems] = useState<OrderItemWithOrder[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
   const [updatingOrderIds, setUpdatingOrderIds] = useState<Set<string>>(new Set());
   const [isFullscreen, setIsFullscreen] = useState(false);
   const { wakeLockActive, activateWakeLock } = useWakeLock();
   const delayedAlertedOrders = useRef(new Map<string, number>());
   const pendingStatusByItemId = useRef(new Map<string, KDSItemStatus>());
-  const fetchInFlightRef = useRef(false);
+  const fetchAbortRef = useRef<AbortController | null>(null);
   const {
     soundEnabled,
     setSoundEnabled,
@@ -752,6 +756,7 @@ export function KDSScreen({ tenantId }: { tenantId: string }) {
 
   // Delayed Order Alerts: pending orders not confirmed after 10 minutes.
   useEffect(() => {
+    if (!kdsEnabled || selectedDay) return;
     const checkDelayedOrders = () => {
       const activeItems = items.filter(
         (i) => i.status !== 'delivered' && i.status !== 'cancelled'
@@ -779,19 +784,19 @@ export function KDSScreen({ tenantId }: { tenantId: string }) {
     checkDelayedOrders();
     const interval = setInterval(checkDelayedOrders, 30000); // Check every 30 seconds
     return () => clearInterval(interval);
-  }, [items, playDelayedAlert]);
+  }, [items, playDelayedAlert, kdsEnabled, selectedDay]);
 
   // Fetch
   const fetchOrderItems = useCallback(async () => {
-    if (fetchInFlightRef.current) return;
-    fetchInFlightRef.current = true;
-
+    if (!kdsEnabled || document.visibilityState !== 'visible' || fetchAbortRef.current) return;
+    const controller = new AbortController();
+    fetchAbortRef.current = controller;
     try {
-      const res = await fetch(
-        `/api/order-items?tenantId=${tenantId}&status=pending,confirmed,preparing,ready&requiresKitchen=true`
-      );
-      if (!res.ok) throw new Error('Failed to fetch');
-      const data: OrderItemWithOrder[] = await res.json();
+      const result = await fetchKitchenItems<OrderItemWithOrder>(tenantId, selectedDay, AbortSignal.any([controller.signal, AbortSignal.timeout(8000)]));
+      if (controller.signal.aborted) return;
+      if (!result.enabled) { setKdsEnabled(false); setItems([]); return; }
+      const data = result.items;
+      setLoadError('');
 
       // Detect new orders and play sound
       const newOrderIds = new Set<string>();
@@ -803,23 +808,27 @@ export function KDSScreen({ tenantId }: { tenantId: string }) {
       });
 
       // Play sound if new orders detected
-      if (newOrderIds.size > 0) {
+      if (!selectedDay && newOrderIds.size > 0) {
         console.log('[KDS] New orders detected via polling:', newOrderIds.size);
         playNewOrder();
       }
 
       setItems(applyPendingStatuses(data, pendingStatusByItemId.current));
     } catch (err) {
-      console.error('KDS fetch error:', err);
+      if (!controller.signal.aborted) {
+        console.error('KDS fetch error:', err);
+        setLoadError('No se pudo actualizar la cocina. Los pedidos mostrados pueden estar desactualizados.');
+      }
     } finally {
-      fetchInFlightRef.current = false;
-      setLoading(false);
+      if (fetchAbortRef.current === controller) { fetchAbortRef.current = null; setLoading(false); }
     }
-  }, [tenantId, playNewOrder]);
+  }, [tenantId, playNewOrder, kdsEnabled, selectedDay]);
 
   // Realtime
   useEffect(() => {
-    fetchOrderItems();
+    if (!kdsEnabled) return;
+    void fetchOrderItems();
+    if (selectedDay) return () => { fetchAbortRef.current?.abort(); fetchAbortRef.current = null; };
 
     const subscription = supabase
       .channel(`kds-order-items:${tenantId}`)
@@ -829,6 +838,7 @@ export function KDSScreen({ tenantId }: { tenantId: string }) {
         async (payload) => {
           console.log('[KDS] REALTIME EVENT RECEIVED - New order item:', payload.new);
           const newItem = payload.new as OrderItemWithOrder;
+          if (newItem.requires_kitchen === false || !visibleKdsStatuses.has(newItem.status)) return;
           const isNewOrder = !knownOrderIds.current.has(newItem.order_id);
           console.log(`[KDS] Is new order? ${isNewOrder} | Order ID: ${newItem.order_id}`);
           if (isNewOrder) {
@@ -881,17 +891,19 @@ export function KDSScreen({ tenantId }: { tenantId: string }) {
 
     return () => {
       console.log('[KDS] Unsubscribing from realtime');
-      subscription.unsubscribe();
+      fetchAbortRef.current?.abort(); fetchAbortRef.current = null;
+      void supabase.removeChannel(subscription);
     };
-  }, [tenantId, fetchOrderItems, playNewOrder]);
+  }, [tenantId, fetchOrderItems, playNewOrder, kdsEnabled, selectedDay]);
 
   // Realtime is primary; polling only recovers missed events.
   useEffect(() => {
+    if (!kdsEnabled || selectedDay) return;
     const interval = setInterval(() => {
       if (document.visibilityState === 'visible') fetchOrderItems();
     }, KDS_POLL_FALLBACK_MS);
     return () => clearInterval(interval);
-  }, [fetchOrderItems]);
+  }, [fetchOrderItems, kdsEnabled, selectedDay]);
 
   // Update all items in an order
   async function updateOrderStatus(order: KDSOrder, targetStatus: KDSItemStatus) {
@@ -930,6 +942,7 @@ export function KDSScreen({ tenantId }: { tenantId: string }) {
           orderId: order.orderId,
           itemIds: activeItemIds,
           status: targetStatus,
+          kitchenOnly: true,
         }),
       });
 
@@ -968,6 +981,14 @@ export function KDSScreen({ tenantId }: { tenantId: string }) {
       )
     : 0;
 
+  if (!kdsEnabled) return (
+    <div className="flex min-h-[60vh] flex-col items-center justify-center gap-4 p-6 text-center">
+      <ChefHat className="h-12 w-12 text-slate-400" />
+      <h1 className="text-xl font-bold">La cocina está desactivada</h1>
+      <p className="max-w-lg text-sm text-slate-500">Un administrador puede activarla en Configuración del restaurante cuando quiera utilizarla.</p>
+      <button type="button" onClick={() => window.location.reload()} className="rounded-xl border px-4 py-3 font-bold">Volver a comprobar</button>
+    </div>
+  );
   if (loading) return <NavigationPending />;
 
   return (
@@ -994,6 +1015,10 @@ export function KDSScreen({ tenantId }: { tenantId: string }) {
 
           {/* Right Section - Controls */}
           <div className="flex items-center gap-2 overflow-x-auto scrollbar-hide">
+            <label className="shrink-0 text-xs text-slate-300">Día de cocina
+              <input type="date" aria-label="Día de cocina" value={selectedDay} onChange={e => { setItems([]); knownOrderIds.current.clear(); setLoading(true); setSelectedDay(e.target.value); }} className="ml-2 rounded-lg bg-slate-800 p-2 text-white" />
+            </label>
+            {selectedDay ? <button type="button" onClick={() => { setItems([]); knownOrderIds.current.clear(); setLoading(true); setSelectedDay(''); }} className="shrink-0 rounded-lg bg-cyan-400/20 px-3 py-2 text-xs font-bold">Jornada actual</button> : <span className="shrink-0 text-xs text-slate-400">Jornada actual</span>}
             <LanguageSwitcher compact className="border-white/15 bg-white/10 text-white [&_select]:text-white" />
             {/* Sound Toggle */}
             <button
@@ -1036,6 +1061,7 @@ export function KDSScreen({ tenantId }: { tenantId: string }) {
         </div>
       </div>
 
+      {loadError && <div role="alert" className="shrink-0 bg-amber-950 px-4 py-3 text-sm text-amber-100">{loadError} <button type="button" className="ml-2 font-bold underline" onClick={() => void fetchOrderItems()}>Reintentar</button></div>}
       {/* Permission banners */}
       {!soundPermissionGranted && (
         <div className="bg-red-950/90 border-b border-red-400/20 px-3 py-2.5 flex flex-col gap-2.5 shrink-0 sm:flex-row sm:items-center sm:justify-between sm:px-5 sm:py-3">

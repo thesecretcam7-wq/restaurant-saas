@@ -331,7 +331,7 @@ export function ServiceDeliveryScreen({
 
     return () => {
       window.clearInterval(interval);
-      subscription.unsubscribe();
+      void supabase.removeChannel(subscription);
     };
   }, [fetchItems, tenantId]);
 
@@ -538,7 +538,7 @@ export function ServiceDeliveryWidget({
     return () => {
       window.clearTimeout(loaderTimer);
       window.clearInterval(interval);
-      subscription.unsubscribe();
+      void supabase.removeChannel(subscription);
     };
   }, [fetchItems, tenantId]);
 

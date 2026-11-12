@@ -24,6 +24,17 @@ export interface CartData {
   billingOrderIds?: string[];
 }
 
+// Short-lived acknowledgements only. Never cache a failed or ambiguous write,
+// or carry an acknowledgement across a payment/cart abandonment.
+const cartWriteAcks = new WeakMap<object, Map<string, { generation: number; signature?: string; until?: number }>>();
+function cartWriteState(client: object, key: string) {
+  let states = cartWriteAcks.get(client);
+  if (!states) { states = new Map(); cartWriteAcks.set(client, states); }
+  let state = states.get(key);
+  if (!state) { state = { generation: 0 }; states.set(key, state); }
+  return state;
+}
+
 // Get or create a unique session ID for this device/browser
 export function getCartSessionId(): string {
   if (typeof window === 'undefined') return '';
@@ -49,6 +60,14 @@ export async function saveCartToSupabase(
     if (!tenantId) return false;
 
     const sessionId = getCartSessionId();
+    const state = cartWriteState(supabase, `${tenantId}:${sessionId}`);
+    const signature = JSON.stringify(cartData);
+    if (state.signature === signature && (state.until || 0) > Date.now()) return true;
+    const generation = ++state.generation;
+    delete state.signature;
+    const rememberWrite = () => {
+      if (state.generation === generation) { state.signature = signature; state.until = Date.now() + 15_000; }
+    };
     const subtotal = cartData.items.reduce((sum, item) => sum + item.price * item.quantity, 0);
     const taxableSubtotal = Math.max(0, subtotal - cartData.discount);
     const tax = cartData.taxRate && cartData.taxRate > 0 ? taxableSubtotal * (cartData.taxRate / 100) : 0;
@@ -91,6 +110,7 @@ export async function saveCartToSupabase(
         .eq('id', existingCart.id)
         .is('abandoned_at', null);
 
+      if (!error) rememberWrite();
       return !error;
     } else {
       // Create new cart
@@ -113,6 +133,7 @@ export async function saveCartToSupabase(
           cart_context: { version: 1, billingOrderIds: cartData.billingOrderIds || [], loadedOrderId: cartData.loadedOrderId || null },
         });
 
+      if (!error) rememberWrite();
       return !error;
     }
   } catch (error) {
@@ -175,6 +196,9 @@ export async function abandonCart(
 
     const sessionId = getCartSessionId();
     if (!sessionId) return false;
+    const state = cartWriteState(supabase, `${tenantId}:${sessionId}`);
+    state.generation += 1;
+    delete state.signature;
     const { error } = await supabase
       .from('pos_carts')
       .update({ abandoned_at: new Date().toISOString() })
@@ -199,6 +223,9 @@ export async function abandonCurrentCartSession(
 
     const sessionId = getCartSessionId();
     if (!sessionId) return false;
+    const state = cartWriteState(supabase, `${tenantId}:${sessionId}`);
+    state.generation += 1;
+    delete state.signature;
 
     const { error } = await supabase
       .from('pos_carts')

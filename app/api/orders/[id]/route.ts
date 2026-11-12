@@ -362,25 +362,24 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
         .eq('tenant_id', order.tenant_id)
         .maybeSingle()
 
-      const { count } = await supabase
-        .from('order_items')
-        .select('*', { count: 'exact', head: true })
-        .eq('order_id', orderId)
+      const orderItemsData = buildOrderItemRows({
+        orderId,
+        tenantId: order.tenant_id,
+        items: order.items,
+        includeKitchenItems: settings?.kds_enabled === true,
+      })
 
-      if ((count ?? 0) === 0) {
-        const orderItemsData = buildOrderItemRows({
-          orderId,
-          tenantId: order.tenant_id,
-          items: order.items,
-          includeKitchenItems: settings?.kds_enabled === true,
-        })
+      if (orderItemsData.length > 0) {
+        const { count, error: countError } = await supabase
+          .from('order_items')
+          .select('*', { count: 'exact', head: true })
+          .eq('order_id', orderId)
+          .eq('tenant_id', order.tenant_id)
 
-        if (orderItemsData.length === 0) {
-          return NextResponse.json({ order })
+        if (!countError && count === 0) {
+          const { error: itemsError } = await supabase.from('order_items').insert(orderItemsData)
+          if (itemsError) console.error('[orders PATCH] order_items creation error:', itemsError.message)
         }
-
-        const { error: itemsError } = await supabase.from('order_items').insert(orderItemsData)
-        if (itemsError) console.error('[orders PATCH] order_items creation error:', itemsError.message)
       }
     }
 

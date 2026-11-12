@@ -411,6 +411,7 @@ export async function POST(request: NextRequest) {
       .insert({
         tenant_id: tenantData.id,
         display_name: restaurantName,
+        kds_enabled: false,
         country: restaurantCountry,
         timezone: restaurantTimezone,
         online_payment_provider: restaurantCountry === 'CO' ? 'wompi' : 'stripe',

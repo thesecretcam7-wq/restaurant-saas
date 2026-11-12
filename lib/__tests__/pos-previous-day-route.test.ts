@@ -83,6 +83,12 @@ describe('previous-day order registration', () => {
     const row = mocks.inserts.mock.calls.find(([table])=>table==='orders')?.[1]
     expect(row).toMatchObject({created_at:originalTime,updated_at:'2026-11-01T16:00:00.000Z',payment_status:'paid',offline_client_id:'local-fixture'})
     expect(row.notes).toContain(`Venta local del ${originalTime} sincronizada desde TPV el `)
+    mocks.tables.mockClear()
+    for (const callback of mocks.after) await callback()
+    expect(mocks.tables).not.toHaveBeenCalledWith('tenant_branding')
+    expect(mocks.tables).not.toHaveBeenCalledWith('tenants')
+    expect(mocks.tables).not.toHaveBeenCalledWith('restaurant_settings')
+    expect(mocks.inserts).toHaveBeenCalledWith('order_items',expect.arrayContaining([expect.objectContaining({tenant_id:'tenant',status:'pending'})]))
   })
   it.each(['invalid','2030-01-01T00:00:00Z'])('does not insert an offline sale with an invalid date %s', async offlineCreatedAt => {
     expect((await POST(request({source:'pos-offline',offlineClientId:'local-fixture',offlineCreatedAt,businessDateMode:undefined,businessDate:undefined}))).status).toBe(400)

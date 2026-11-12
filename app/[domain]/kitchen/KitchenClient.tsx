@@ -165,7 +165,7 @@ export function KitchenClient({ tenantId, tenantSlug, tenantName, country, brand
     serviceFetchInFlightRef.current = true;
 
     try {
-      const res = await fetch(`/api/order-items?tenantId=${tenantId}&status=ready`, {
+      const res = await fetch(`/api/order-items?tenantId=${tenantId}&status=ready&today=1`, {
         cache: 'no-store',
       });
       if (!res.ok) {
@@ -220,7 +220,7 @@ export function KitchenClient({ tenantId, tenantSlug, tenantName, country, brand
 
     return () => {
       window.clearInterval(interval);
-      subscription.unsubscribe();
+      void supabase.removeChannel(subscription);
     };
   }, [fetchServiceDeliveries, tenantId]);
 

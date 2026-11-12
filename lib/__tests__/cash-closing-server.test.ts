@@ -13,17 +13,14 @@ afterEach(() => { vi.useRealTimers(); vi.restoreAllMocks() })
 
 describe('cash closing bounded reads', () => {
   it('uses a tenant-scoped anti-join, preserves split payments and open bills', async () => {
-    const fetcher = vi.fn<typeof fetch>(async input => {
+    const fetcher = vi.fn<typeof fetch>(async (input, options) => {
       const url = new URL(String(input))
-      expect(url.searchParams.get('tenant_id')).toBe('eq.tenant')
+      if (!url.pathname.includes('/rpc/')) expect(url.searchParams.get('tenant_id')).toBe('eq.tenant')
       if (url.pathname.endsWith('/restaurant_settings')) return Response.json(settings)
       if (url.pathname.endsWith('/cash_closings')) return Response.json(null)
       if (url.pathname.endsWith('/cash_bill_payments')) return Response.json([{ id: 'bill', amount: 2 }])
-      expect(url.pathname).toBe('/rest/v1/orders')
-      expect(url.searchParams.get('select')).toContain('cash_closing_items()')
-      expect(url.searchParams.get('cash_closing_items')).toBe('is.null')
-      expect(url.searchParams.get('cash_closing_items.tenant_id')).toBe('eq.tenant')
-      expect(url.searchParams.get('order')).toBe('created_at.asc,id.asc')
+      expect(url.pathname).toBe('/rest/v1/rpc/get_unclosed_cash_orders')
+      expect(JSON.parse(String(options?.body))).toMatchObject({p_tenant_id:'tenant',p_paid_only:false,p_offset:0,p_limit:1000})
       return Response.json([
         sale('mixed', new Date().toISOString(), { payment_breakdown: [{ method: 'cash', amount: 4 }, { method: 'stripe', amount: 6 }] }),
         sale('cancelled', new Date().toISOString(), { status: 'cancelled' }),
@@ -54,7 +51,7 @@ describe('cash closing bounded reads', () => {
     expect(stats?.closingOrders.map(order => order.id)).toEqual(['late-sale'])
     expect(stats?.totalSales).toBe(10)
     expect(fetcher).toHaveBeenCalledTimes(3)
-    expect(fetcher.mock.calls.every(([, options]) => options?.method === 'GET')).toBe(true)
+    expect(fetcher.mock.calls.every(([url, options]) => options?.method === (String(url).includes('/rpc/') ? 'POST' : 'GET'))).toBe(true)
   })
 
   it('does not confuse a new pending sale with an already linked closing of the same value', async () => {
@@ -62,7 +59,7 @@ describe('cash closing bounded reads', () => {
     const fetcher = vi.fn<typeof fetch>(async input => {
       const url = new URL(String(input))
       if (url.pathname.endsWith('/restaurant_settings')) return Response.json(settings)
-      if (url.pathname.endsWith('/orders')) return Response.json([sale('late-sale', old)])
+      if (url.pathname.endsWith('/get_unclosed_cash_orders')) return Response.json([sale('late-sale', old)])
       if (url.pathname.endsWith('/cash_bill_payments')) return Response.json([])
       expect(url.searchParams.get('cash_closing_items')).toBe('is.null')
       expect(url.searchParams.get('cash_closing_items.tenant_id')).toBe('eq.tenant')
@@ -96,7 +93,7 @@ describe('cash closing bounded reads', () => {
     const stats = await calculateCurrentCashClosingStats(clientFor(fetcher), 'tenant')
     expect(stats.transactionCount).toBe(1001)
     expect(stats.totalSales).toBe(10010)
-    expect(new URL(String(fetcher.mock.calls[3][0])).searchParams.get('offset')).toBe('1000')
+    expect(JSON.parse(String(fetcher.mock.calls[3][1]?.body)).p_offset).toBe(1000)
     fetcher.mockReset()
       .mockResolvedValueOnce(Response.json(settings))
       .mockResolvedValueOnce(Response.json(null))

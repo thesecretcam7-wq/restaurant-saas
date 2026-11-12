@@ -4,6 +4,8 @@ import { requireTenantAccess, tenantAuthErrorResponse } from '@/lib/tenant-api-a
 import { syncOrderStatusFromItems } from '@/lib/order-status-sync';
 import { sendServiceReadyPushNotifications } from '@/lib/push-server';
 import { getRestaurantBusinessPeriod, getRestaurantLocale, getRestaurantTimeZone } from '@/lib/restaurant-time';
+import { kitchenBusinessPeriod } from '@/lib/kitchen-workflow';
+import { buildOrderItemRows } from '@/lib/order-item-routing';
 
 const validStatuses = ['pending', 'confirmed', 'preparing', 'ready', 'delivered', 'cancelled'];
 
@@ -18,6 +20,8 @@ export async function GET(request: NextRequest) {
   const status = searchParams.get('status');
   const requiresKitchen = searchParams.get('requiresKitchen');
   const todayOnly = searchParams.get('today') === '1';
+  const kitchenDate = searchParams.get('date');
+  const kitchenOnly = requiresKitchen === 'true';
 
   if (!tenantId) {
     return NextResponse.json({ error: 'Missing tenantId' }, { status: 400 });
@@ -25,34 +29,45 @@ export async function GET(request: NextRequest) {
 
   try {
     await requireTenantAccess(tenantId, { staffRoles: ['admin', 'cajero', 'camarero', 'cocinero'] });
+    const signal = AbortSignal.timeout(8000);
 
     let todayPeriod: ReturnType<typeof getRestaurantBusinessPeriod> | null = null;
-    if (todayOnly) {
+    if (todayOnly || kitchenDate || kitchenOnly) {
       const { data: settings, error: settingsError } = await supabase
         .from('restaurant_settings')
-        .select('operating_hours, timezone, country')
+        .select('kds_enabled, operating_hours, timezone, country')
         .eq('tenant_id', tenantId)
+        .retry(false).abortSignal(signal)
         .maybeSingle();
 
       if (settingsError) {
         return NextResponse.json({ error: settingsError.message }, { status: 500 });
       }
 
-      todayPeriod = getRestaurantBusinessPeriod({
-        operatingHours: settings?.operating_hours,
-        timeZone: getRestaurantTimeZone({
-          timezone: settings?.timezone,
-          settingsCountry: settings?.country,
-        }),
-        locale: getRestaurantLocale(settings?.country),
-      });
+      if (kitchenOnly && settings?.kds_enabled !== true) {
+        return NextResponse.json([], { headers: { 'x-kds-enabled': 'false' } });
+      }
+      if (kitchenDate) {
+        try { todayPeriod = kitchenBusinessPeriod(settings || {}, kitchenDate); }
+        catch { return NextResponse.json({ error: 'Fecha de cocina inválida' }, { status: 400 }); }
+      } else if (todayOnly || (kitchenOnly && !orderId)) {
+
+        todayPeriod = getRestaurantBusinessPeriod({
+          operatingHours: settings?.operating_hours,
+          timeZone: getRestaurantTimeZone({
+            timezone: settings?.timezone,
+            settingsCountry: settings?.country,
+          }),
+          locale: getRestaurantLocale(settings?.country),
+        });
+      }
     }
 
     let query = supabase
       .from('order_items')
       .select(`
         *,
-        ${todayOnly ? 'orders!inner' : 'orders'} (
+        ${todayPeriod ? 'orders!inner' : 'orders'} (
           order_number,
           display_number,
           table_number,
@@ -64,7 +79,8 @@ export async function GET(request: NextRequest) {
           customer_phone
         )
       `)
-      .eq('tenant_id', tenantId);
+      .eq('tenant_id', tenantId)
+      .eq('orders.tenant_id', tenantId);
 
     if (todayPeriod) {
       query = query
@@ -90,7 +106,12 @@ export async function GET(request: NextRequest) {
       query = query.eq('requires_kitchen', requiresKitchen === 'true');
     }
 
-    const { data, error } = await query.order('created_at', { ascending: true });
+    if (searchParams.has('limit')) {
+      const limit = Math.max(1, Math.min(500, Math.trunc(Number(searchParams.get('limit'))) || 500));
+      const offset = Math.max(0, Math.trunc(Number(searchParams.get('offset'))) || 0);
+      query = query.range(offset, offset + limit - 1);
+    }
+    const { data, error } = await query.order('created_at', { ascending: true }).order('id').retry(false).abortSignal(signal);
 
     if (error) throw error;
 
@@ -133,17 +154,10 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Order not found' }, { status: 404 });
     }
 
-    // Create order items
-    const orderItems = items.map((item: any) => ({
-      order_id: orderId,
-      tenant_id: tenantId,
-      menu_item_id: item.menu_item_id || item.item_id || null,
-      name: item.name,
-      quantity: item.qty ?? item.quantity ?? 1,
-      price: item.price,
-      notes: item.notes || null,
-      status: 'pending',
-    }));
+    const { data: settings, error: settingsError } = await supabase.from('restaurant_settings').select('kds_enabled').eq('tenant_id', tenantId).maybeSingle();
+    if (settingsError) throw settingsError;
+    const orderItems = buildOrderItemRows({ orderId, tenantId, items, includeKitchenItems: settings?.kds_enabled === true });
+    if (!orderItems.length) return NextResponse.json([], { status: 201 });
 
     const { data, error } = await supabase
       .from('order_items')
@@ -194,6 +208,12 @@ export async function PATCH(request: NextRequest) {
     }
 
     await requireTenantAccess(tenantId, { staffRoles: ['admin', 'cajero', 'camarero', 'cocinero'] });
+
+    if (body.kitchenOnly === true) {
+      const { data: settings, error } = await supabase.from('restaurant_settings').select('kds_enabled').eq('tenant_id', tenantId).maybeSingle();
+      if (error) throw error;
+      if (settings?.kds_enabled !== true) return NextResponse.json({ error: 'La cocina está desactivada' }, { status: 409 });
+    }
 
     if (status === 'delivered' && deliveryConfirmation !== true) {
       return NextResponse.json(

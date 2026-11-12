@@ -119,22 +119,10 @@ async function fetchCashClosingOrders(
   const rows: any[] = [];
 
   while (true) {
-    let query = supabase
-      .from('orders')
-      // Filter closed orders in Postgres instead of downloading a month and
-      // making one extra request for every 100 order IDs.
-      .select(`${args.select}, cash_closing_items()`)
-      .eq('tenant_id', args.tenantId)
-      .eq('cash_closing_items.tenant_id', args.tenantId)
-      .is('cash_closing_items', null)
-      .gte('created_at', args.startIso)
-      .lt('created_at', args.endIso)
-      .not('payment_method', 'is', null)
-      .order('created_at', { ascending: true })
-      .order('id', { ascending: true })
-      .range(from, from + CASH_CLOSING_ORDER_PAGE_SIZE - 1);
-
-    if (args.paidOnly) query = query.eq('payment_status', 'paid');
+    const query = supabase.rpc('get_unclosed_cash_orders', {
+      p_tenant_id: args.tenantId, p_start: args.startIso, p_end: args.endIso,
+      p_paid_only: args.paidOnly === true, p_limit: CASH_CLOSING_ORDER_PAGE_SIZE, p_offset: from,
+    }).select(args.select);
 
     const result = await runCashClosingQuery<{ data: any[] | null; error: any; count?: number | null }>(
       query,

@@ -25,6 +25,48 @@ describe('POS cart synchronization', () => {
 
   afterEach(() => {
     vi.unstubAllGlobals();
+    vi.useRealTimers();
+  });
+
+  it('skips only acknowledged unchanged payloads, scoped by tenant, and invalidates after payment', async () => {
+    vi.useFakeTimers();vi.setSystemTime(new Date('2026-11-12T20:00Z'));
+    const q:any={eq:vi.fn().mockReturnThis(),is:vi.fn().mockReturnThis(),order:vi.fn().mockReturnThis(),limit:vi.fn().mockReturnThis(),maybeSingle:vi.fn().mockResolvedValue({data:null,error:null}),then:(resolve:any)=>Promise.resolve(resolve({error:null}))};
+    const table={select:vi.fn(()=>q),insert:vi.fn().mockResolvedValue({error:null}),update:vi.fn(()=>q)};
+    const client={from:()=>table};
+    expect(await saveCartToSupabase('a',cartData,client)).toBe(true);
+    expect(await saveCartToSupabase('a',{...cartData},client)).toBe(true);
+    expect(table.insert).toHaveBeenCalledTimes(1);
+    await saveCartToSupabase('b',cartData,client);
+    expect(table.insert).toHaveBeenCalledTimes(2);
+    await saveCartToSupabase('a',{...cartData,items:[{...cartData.items[0],quantity:3}]},client);
+    expect(table.insert).toHaveBeenCalledTimes(3);
+    await abandonCart('a',client);
+    await saveCartToSupabase('a',{...cartData,items:[{...cartData.items[0],quantity:3}]},client);
+    expect(table.insert).toHaveBeenCalledTimes(4);
+    vi.advanceTimersByTime(15001);
+    await saveCartToSupabase('a',{...cartData,items:[{...cartData.items[0],quantity:3}]},client);
+    expect(table.insert).toHaveBeenCalledTimes(5);
+  });
+
+  it('retries a failed write rather than caching success', async () => {
+    const q:any={eq:()=>q,is:()=>q,order:()=>q,limit:()=>q,maybeSingle:async()=>({data:null,error:null})};
+    const insert=vi.fn().mockResolvedValueOnce({error:{message:'Unavailable'}}).mockResolvedValueOnce({error:null});
+    const client={from:()=>({select:()=>q,insert})};
+    expect(await saveCartToSupabase('a',cartData,client)).toBe(false);
+    expect(await saveCartToSupabase('a',cartData,client)).toBe(true);
+    expect(insert).toHaveBeenCalledTimes(2);
+  });
+
+  it('does not acknowledge an in-flight save after payment abandoned the session', async () => {
+    let release!:(value:unknown)=>void;
+    const q:any={eq:()=>q,is:()=>q,order:()=>q,limit:()=>q,maybeSingle:async()=>({data:null,error:null}),then:(resolve:any)=>Promise.resolve(resolve({error:null}))};
+    const insert=vi.fn().mockImplementationOnce(()=>new Promise(resolve=>{release=resolve})).mockResolvedValue({error:null});
+    const client={from:()=>({select:()=>q,insert,update:()=>q})};
+    const saving=saveCartToSupabase('a',cartData,client);
+    await vi.waitFor(()=>expect(insert).toHaveBeenCalledTimes(1));
+    await abandonCart('a',client);release({error:null});await saving;
+    await saveCartToSupabase('a',cartData,client);
+    expect(insert).toHaveBeenCalledTimes(2);
   });
 
   it('clears only this terminal cart after payment', async () => {

@@ -12,16 +12,11 @@ export async function fetchClosedMonthOrderIds(
   const pageSize = 1000
 
   for (let from = 0; ; from += pageSize) {
-    let query = supabase
-      .from('cash_closing_items')
-      .select('order_id, orders!inner(created_at)')
-      .eq('tenant_id', tenantId)
-      .eq('orders.tenant_id', tenantId)
-      .gte('orders.created_at', monthStartIso)
-    if (monthEndIso) query = query.lt('orders.created_at', monthEndIso)
+    const query = supabase.rpc('get_closed_cash_order_ids', {
+      p_tenant_id: tenantId, p_start: monthStartIso, p_end: monthEndIso || null,
+      p_limit: pageSize, p_offset: from,
+    })
     const { data, error } = await query
-      .order('id')
-      .range(from, from + pageSize - 1)
       .retry(false)
       .abortSignal(signal)
 
