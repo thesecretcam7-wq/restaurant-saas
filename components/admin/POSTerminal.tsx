@@ -311,6 +311,7 @@ async function saveCashClosingViaApi(args: {
     headers: { 'Content-Type': 'application/json' },
     credentials: 'include',
     body: JSON.stringify(args),
+    signal: AbortSignal.timeout(30_000),
   });
 
   const payload = await response.json().catch(() => ({}));
@@ -1892,6 +1893,10 @@ export function POSTerminal({
     } catch (error) {
       console.error('Error saving cash closing:', error);
       setToast({ message: 'Error al guardar el cierre de caja', type: 'error' });
+      if (error instanceof Error && (error.name === 'TimeoutError' || error.name === 'AbortError')) {
+        throw new Error('No se recibió confirmación del cierre. Revisa Cierres de caja antes de volver a guardarlo.');
+      }
+      throw error;
     }
   }
 

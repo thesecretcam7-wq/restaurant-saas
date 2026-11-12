@@ -1,6 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
+import { getOverlayTarget } from '@/lib/overlay-target';
 import { X, Check, AlertCircle, Calculator } from 'lucide-react';
 import { getCurrencyByCountry, formatPriceWithCurrency } from '@/lib/currency';
 import { useTouchDevice } from '@/lib/hooks/useTouchDevice';
@@ -63,7 +65,7 @@ export function CashClosingModal({
   const [showCashKeyboard, setShowCashKeyboard] = useState(false);
   const [showNotesKeyboard, setShowNotesKeyboard] = useState(false);
   const [notesDraft, setNotesDraft] = useState('');
-  const [confirming, setConfirming] = useState(false);
+  const submittingRef = useRef(false);
   const [error, setError] = useState('');
   const isTouchDevice = useTouchDevice();
 
@@ -83,21 +85,30 @@ export function CashClosingModal({
     'w-full rounded-2xl border border-slate-200 bg-white py-3 text-lg font-black text-slate-950 outline-none placeholder:text-slate-400 focus:border-orange-500 focus:ring-4 focus:ring-orange-100 disabled:opacity-50';
 
   const handleConfirm = async () => {
-    if (isBusy) return;
+    if (isBusy || submittingRef.current) return;
+    if (!actualCash.trim() || !Number.isFinite(Number(actualCash)) || Number(actualCash) < 0) {
+      setError('Introduce un importe de efectivo contado válido.');
+      return;
+    }
+    submittingRef.current = true;
+    setError('');
     setIsSubmitting(true);
     try {
       await onConfirm(Number(actualCash), notes);
-    } catch {
-      setError('No se pudo guardar el cierre. Revisa la conexión e inténtalo de nuevo.');
+    } catch (saveError) {
+      setError(saveError instanceof Error ? saveError.message : 'No se pudo guardar el cierre. Revisa la conexión.');
     } finally {
+      submittingRef.current = false;
       setIsSubmitting(false);
     }
   };
 
   if (!isOpen) return null;
+  const portalTarget = getOverlayTarget();
+  if (!portalTarget) return null;
 
-  return (
-    <div role="dialog" aria-modal="true" aria-label={isPendingClosing ? 'Cierre pendiente' : 'Corte de caja'} className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/45 p-4 backdrop-blur-md">
+  return createPortal(
+    <div role="dialog" aria-modal="true" aria-label={isPendingClosing ? 'Cierre pendiente' : 'Corte de caja'} className="fixed inset-0 z-[10000] flex items-center justify-center bg-slate-950/45 p-4 backdrop-blur-md">
       <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-[1.75rem] border border-slate-200 bg-white text-slate-950 shadow-[0_28px_90px_rgba(15,23,42,0.22)]">
         <div className="sticky top-0 z-10 flex items-center justify-between border-b border-slate-200 bg-white p-6 backdrop-blur-xl">
           <div>
@@ -110,6 +121,7 @@ export function CashClosingModal({
             </p>
           </div>
           <button
+            type="button"
             onClick={onClose}
             disabled={isBusy}
             className="grid h-11 w-11 place-items-center rounded-2xl border border-slate-200 bg-white text-slate-600 transition hover:border-orange-300 hover:text-orange-700 disabled:opacity-50"
@@ -301,7 +313,7 @@ export function CashClosingModal({
           </section>
 
           <section>
-            <label className="mb-2 block text-sm font-black uppercase tracking-[0.14em] text-orange-700">
+            <label htmlFor="cash-closing-counted-amount" className="mb-2 block text-sm font-black uppercase tracking-[0.14em] text-orange-700">
               Monto real contado en caja
             </label>
             <div className="grid gap-2 sm:grid-cols-[1fr_auto]">
@@ -310,6 +322,7 @@ export function CashClosingModal({
                   {currencyInfo.symbol}
                 </span>
                 <input
+                  id="cash-closing-counted-amount"
                   type="number"
                   inputMode={isTouchDevice ? 'none' : 'decimal'}
                   step="0.01"
@@ -323,7 +336,7 @@ export function CashClosingModal({
                   onFocus={() => {
                     if (isTouchDevice) setShowCashKeyboard(true);
                   }}
-                  onChange={(e) => setActualCash(e.target.value)}
+                  onChange={(e) => { setActualCash(e.target.value); setError(''); }}
                   placeholder="0.00"
                   disabled={isBusy}
                   className={`${fieldClass} pl-10 pr-4`}
@@ -354,14 +367,14 @@ export function CashClosingModal({
             >
               <div className="flex items-start gap-3">
                 {isBalanced ? (
-                  <Check className="mt-0.5 h-5 w-5 flex-shrink-0 text-[#70f7c2]" />
+                  <Check className="mt-0.5 h-5 w-5 flex-shrink-0 text-emerald-700" />
                 ) : (
-                  <AlertCircle className="mt-0.5 h-5 w-5 flex-shrink-0 text-[#ff8f8f]" />
+                  <AlertCircle className="mt-0.5 h-5 w-5 flex-shrink-0 text-red-700" />
                 )}
                 <div className="flex-1">
                   <p
                     className={`text-sm font-black ${
-                      isBalanced ? 'text-[#70f7c2]' : isDifferenceSignificant ? 'text-[#ff8f8f]' : 'text-[#ffd66b]'
+                      isBalanced ? 'text-emerald-700' : isDifferenceSignificant ? 'text-red-700' : 'text-amber-800'
                     }`}
                   >
                     {isBalanced
@@ -399,18 +412,11 @@ export function CashClosingModal({
         </div>
 
         {error && <p role="alert" className="px-6 py-2 font-bold text-red-700">{error}</p>}
-        {confirming && (
-          <section role="alertdialog" aria-modal="true" aria-label="Confirmar cierre de caja" className="mx-6 mb-3 rounded-xl border border-orange-300 bg-orange-50 p-4 text-slate-950">
-            <p className="font-black">¿Guardar el cierre definitivo?</p>
-            <p className="mt-2 text-sm">Estas ventas dejarán de aparecer en el corte actual. Si solo quieres consultar las ventas, pulsa «Seguir revisando».</p>
-            <div className="mt-4 flex gap-3">
-              <button type="button" disabled={isBusy} onClick={() => setConfirming(false)} className="min-h-11 flex-1 rounded-xl border border-slate-300 px-3 font-bold">Seguir revisando</button>
-              <button type="button" disabled={isBusy} onClick={() => void handleConfirm()} className="min-h-11 flex-1 rounded-xl bg-orange-500 px-3 font-bold text-white">{isSubmitting ? 'Guardando...' : 'Confirmar cierre'}</button>
-            </div>
-          </section>
-        )}
-        <div className="sticky bottom-0 flex gap-3 border-t border-slate-200 bg-white p-6 backdrop-blur-xl">
+        <div className="sticky bottom-0 z-10 border-t border-slate-200 bg-white p-4 sm:p-6">
+          <p className="mb-3 text-xs font-semibold text-slate-600">Guardar cierre registra el cierre definitivo. Estas ventas dejarán de aparecer en el corte actual.</p>
+          <div data-cash-closing-actions className="flex gap-3">
           <button
+            type="button"
             onClick={onClose}
             disabled={isBusy}
             className="flex-1 rounded-2xl border border-slate-200 bg-white px-4 py-3 font-black text-slate-700 transition hover:border-slate-300 hover:bg-slate-50 disabled:opacity-50"
@@ -418,19 +424,14 @@ export function CashClosingModal({
             Solo mirar
           </button>
           <button
-            onClick={() => {
-              if (!actualCash || !Number.isFinite(Number(actualCash)) || Number(actualCash) < 0) {
-                setError('Introduce un importe de efectivo contado válido.');
-                return;
-              }
-              setError('');
-              setConfirming(true);
-            }}
-            disabled={isBusy || !actualCash}
+            type="button"
+            onClick={() => { void handleConfirm(); }}
+            disabled={isBusy}
             className="flex-1 rounded-2xl bg-orange-500 px-4 py-3 font-black text-white shadow-[0_16px_35px_rgba(249,115,22,0.24)] transition hover:bg-orange-600 disabled:opacity-50"
           >
-            {isSubmitting ? 'Guardando...' : 'Guardar cierre definitivo'}
+            {isSubmitting ? 'Guardando...' : 'Guardar cierre'}
           </button>
+          </div>
         </div>
       </div>
 
@@ -440,6 +441,7 @@ export function CashClosingModal({
         initialValue={actualCash ? Number(actualCash) : 0}
         onConfirm={(value) => {
           setActualCash(value.toString());
+          setError('');
           setShowCashKeyboard(false);
         }}
         onCancel={() => setShowCashKeyboard(false)}
@@ -448,6 +450,6 @@ export function CashClosingModal({
       <TextKeyboard isOpen={showNotesKeyboard} title="Notas del cierre" value={notesDraft} onChange={setNotesDraft}
         onConfirm={() => { setNotes(notesDraft); setShowNotesKeyboard(false); }}
         onCancel={() => setShowNotesKeyboard(false)} multiline maxLength={500} />
-    </div>
+    </div>, portalTarget
   );
 }
