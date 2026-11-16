@@ -1,130 +1,71 @@
-import { createClient } from '@/lib/supabase/database';
-import { NextRequest, NextResponse } from 'next/server';
-import { requireTenantAccess, tenantAuthErrorResponse } from '@/lib/tenant-api-auth';
+import { randomUUID } from 'node:crypto'
+import { NextRequest, NextResponse } from 'next/server'
+import { createServiceClient } from '@/lib/supabase/server'
+import { requireTenantAccess, TenantAuthError, tenantAuthErrorResponse } from '@/lib/tenant-api-auth'
+import { normalizeInventoryItem, UUID_PATTERN, validateInventoryFields } from '@/lib/inventory-workflow'
 
-function toNumber(value: unknown, fallback = 0) {
-  if (value === undefined || value === null || value === '') return fallback;
-  const parsed = Number(String(value).replace(',', '.'));
-  return Number.isFinite(parsed) ? parsed : NaN;
-}
-
+const headers = { 'Cache-Control': 'private, no-store' }
 export async function GET(request: NextRequest) {
-  const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-  );
-  const { searchParams } = new URL(request.url);
-  const tenantId = searchParams.get('tenantId');
-  const includeAlerts = searchParams.get('includeAlerts') === 'true';
-
-  if (!tenantId) {
-    return NextResponse.json({ error: 'Missing tenantId' }, { status: 400 });
-  }
-
+  const tenantId = request.nextUrl.searchParams.get('tenantId')
+  const details = request.nextUrl.searchParams.get('includeDetails') === 'true'
+  const includeAlerts = request.nextUrl.searchParams.get('includeAlerts') === 'true'
+  if (!tenantId || !UUID_PATTERN.test(tenantId)) return NextResponse.json({error:'Restaurante no válido'},{status:400,headers})
   try {
-    await requireTenantAccess(tenantId, { staffRoles: ['admin'], requireAdminPermission: true });
-
-    const inventoryRequest = supabase
-      .from('inventory')
-      .select('*')
-      .eq('tenant_id', tenantId)
-      .order('product_name');
-
-    const alertsRequest = includeAlerts
-      ? supabase
-          .from('stock_alerts')
-          .select('*')
-          .eq('tenant_id', tenantId)
-          .eq('is_resolved', false)
-      : Promise.resolve({ data: null, error: null });
-
-    const [{ data: inventory, error }, { data: alerts, error: alertsError }] = await Promise.all([
-      inventoryRequest,
-      alertsRequest,
-    ]);
-
-    if (error) throw error;
-    if (alertsError) throw alertsError;
-
+    await requireTenantAccess(tenantId,{staffRoles:['admin'],requireAdminPermission:true})
+    const db = createServiceClient(), signal = AbortSignal.timeout(8000)
+    const inventory = []
+    for (let offset=0; ; offset+=500) {
+      let query=db.from('inventory').select(details?'*, recipe_links:product_recipes(count)':'*').eq('tenant_id',tenantId)
+      if (details) query=query.eq('recipe_links.tenant_id',tenantId)
+      const result=await query.order('product_name').order('id').range(offset,offset+499).retry(false).abortSignal(signal)
+      if (result.error) throw result.error
+      for (const row of result.data || []) {
+        const {recipe_links,...item}=row as any
+        inventory.push(normalizeInventoryItem({...item,...(details?{recipe_count:recipe_links?.[0]?.count || 0}:{})}))
+      }
+      if ((result.data || []).length<500) break
+      if (offset>=19500) throw Error('Inventory too large')
+    }
+    if (details) {
+      const {data,error}=await db.from('tenants').select('country').eq('id',tenantId).retry(false).abortSignal(signal).maybeSingle()
+      if (error) throw error
+      return NextResponse.json({inventory,country:data?.country || 'ES'},{headers})
+    }
     if (includeAlerts) {
-      return NextResponse.json({ inventory, alerts });
+      const {data:alerts,error}=await db.from('stock_alerts').select('*').eq('tenant_id',tenantId).eq('is_resolved',false)
+        .limit(200).retry(false).abortSignal(signal)
+      if (error) throw error
+      return NextResponse.json({inventory,alerts},{headers})
     }
-
-    return NextResponse.json(inventory);
-  } catch (error) {
-    if (error instanceof Error && ['Unauthorized', 'Forbidden'].includes(error.message)) {
-      return tenantAuthErrorResponse(error);
-    }
-    console.error('Error fetching inventory:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    return NextResponse.json(inventory,{headers})
+  } catch(error) {
+    if (error instanceof TenantAuthError) return tenantAuthErrorResponse(error)
+    return NextResponse.json({error:'No se pudo cargar el inventario. Intenta de nuevo.'},{status:503,headers})
   }
 }
 
 export async function POST(request: NextRequest) {
-  const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-  );
   try {
-    const body = await request.json();
-    const { tenantId, productName, sku, minStock, maxStock, initialStock, costPerUnit, supplier } = body;
-    const normalizedName = String(productName || '').trim();
-    const normalizedSku = String(sku || '').trim();
-    const parsedMinStock = Math.max(0, Math.trunc(toNumber(minStock, 5)));
-    const parsedMaxStock = Math.max(0, Math.trunc(toNumber(maxStock, 100)));
-    const parsedInitialStock = Math.max(0, Math.trunc(toNumber(initialStock, 0)));
-    const parsedCost = toNumber(costPerUnit);
-
-    if (!tenantId || !normalizedName || !Number.isFinite(parsedCost) || parsedCost < 0) {
-      return NextResponse.json(
-        { error: 'Completa producto y costo unitario con valores validos' },
-        { status: 400 }
-      );
+    const body=await request.json()
+    if (!UUID_PATTERN.test(body.tenantId || '') || (body.requestId && !UUID_PATTERN.test(body.requestId))) {
+      return NextResponse.json({error:'Restaurante o solicitud no válidos'},{status:400,headers})
     }
-    await requireTenantAccess(tenantId, { staffRoles: ['admin'], requireAdminPermission: true });
-
-    if (normalizedSku) {
-      const { data: existingSku, error: skuError } = await supabase
-        .from('inventory')
-        .select('id')
-        .eq('tenant_id', tenantId)
-        .eq('sku', normalizedSku)
-        .maybeSingle();
-
-      if (skuError) throw skuError;
-      if (existingSku?.id) {
-        return NextResponse.json({ error: 'Ese SKU ya existe en el inventario' }, { status: 409 });
-      }
-    }
-
-    const { data, error } = await supabase
-      .from('inventory')
-      .insert([
-        {
-          tenant_id: tenantId,
-          product_name: normalizedName,
-          sku: normalizedSku || null,
-          min_stock: parsedMinStock,
-          max_stock: parsedMaxStock,
-          cost_per_unit: parsedCost,
-          supplier: String(supplier || '').trim() || null,
-          current_stock: parsedInitialStock,
-        },
-      ])
-      .select()
-      .single();
-
+    let values
+    try {values=validateInventoryFields(body)}
+    catch(error) {return NextResponse.json({error:(error as Error).message},{status:400,headers})}
+    const access=await requireTenantAccess(body.tenantId,{staffRoles:['admin'],requireAdminPermission:true})
+    const {data,error}=await createServiceClient().rpc('create_inventory_item',{
+      p_tenant_id:body.tenantId,p_item_id:body.requestId || randomUUID(),p_values:values,
+      p_created_by:access.staffId || access.userId || 'admin',
+    }).retry(false).abortSignal(AbortSignal.timeout(8000))
     if (error) {
-      console.error('Inventory insert error:', error);
-      return NextResponse.json({ error: error.message || 'No se pudo guardar en inventario' }, { status: 500 });
+      if (error.code==='23505') return NextResponse.json({error:'Ese código ya existe. Busca el artículo antes de crear otro.'},{status:409,headers})
+      if (error.code==='22023') return NextResponse.json({error:'Revisa los datos del artículo.'},{status:400,headers})
+      throw error
     }
-
-    return NextResponse.json(data, { status: 201 });
-  } catch (error) {
-    if (error instanceof Error && ['Unauthorized', 'Forbidden'].includes(error.message)) {
-      return tenantAuthErrorResponse(error);
-    }
-    console.error('Error creating inventory item:', error);
-    return NextResponse.json({ error: error instanceof Error ? error.message : 'No se pudo guardar en inventario' }, { status: 500 });
+    return NextResponse.json(normalizeInventoryItem(data),{status:201,headers})
+  } catch(error) {
+    if (error instanceof TenantAuthError) return tenantAuthErrorResponse(error)
+    return NextResponse.json({error:'No se recibió confirmación. Comprueba o reintenta la misma operación.'},{status:503,headers})
   }
 }
