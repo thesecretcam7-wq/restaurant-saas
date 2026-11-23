@@ -1,9 +1,10 @@
 import { createServiceClient } from '@/lib/supabase/server'
-import { NextRequest, NextResponse } from 'next/server'
+import { after, NextRequest, NextResponse } from 'next/server'
 import { sendOrderStatusUpdate } from '@/lib/email'
 import { sendWhatsAppOrderStatus } from '@/lib/whatsapp'
 import { requireTenantAccess, tenantAuthErrorResponse } from '@/lib/tenant-api-auth'
 import { writeAuditLog } from '@/lib/audit-log'
+import { recordOrderActor } from '@/lib/order-actor-audit'
 import { applyRecipeStockMovement } from '@/lib/inventory-recipes'
 import { deriveBrandPalette } from '@/lib/brand-colors'
 import { buildOrderItemRows } from '@/lib/order-item-routing'
@@ -343,6 +344,10 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 })
+    }
+
+    if (payment_status === 'paid' && order.payment_status === 'paid') {
+      after(() => recordOrderActor(supabase, { tenantId: order.tenant_id, orderId, actor: access, stage: 'paid' }))
     }
 
     if (status === 'cancelled' && existingOrder.payment_status === 'paid') {

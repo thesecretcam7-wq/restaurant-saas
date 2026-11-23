@@ -9,6 +9,7 @@ export interface TenantAccess {
   type: 'owner' | 'staff'
   userId?: string
   staffId?: string
+  staffName?: string
   role?: string
   permissions?: string[]
 }
@@ -37,6 +38,7 @@ export async function requireTenantAccess(
       return {
         type: 'staff',
         staffId: staffSession.staffId,
+        ...(staffSession.staffName ? { staffName: staffSession.staffName } : {}),
         role: staffSession.role,
         permissions: staffSession.permissions || [],
       }

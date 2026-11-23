@@ -5,7 +5,8 @@ import { verifyCSRFToken, sendCSRFErrorResponse } from '@/lib/csrf'
 import { sendOrderConfirmation, sendNewOrderNotification } from '@/lib/email'
 import { sendWhatsAppOrderConfirmation } from '@/lib/whatsapp'
 import { orderLimiter, checkRateLimit, getClientIp } from '@/lib/ratelimit'
-import { requireTenantAccess, tenantAuthErrorResponse } from '@/lib/tenant-api-auth'
+import { requireTenantAccess, tenantAuthErrorResponse, type TenantAccess } from '@/lib/tenant-api-auth'
+import { recordOrderActor } from '@/lib/order-actor-audit'
 import { calculateOrderTotals } from '@/lib/order-totals'
 import { syncCustomerFromOrder } from '@/lib/customer-sync'
 import { deriveBrandPalette } from '@/lib/brand-colors'
@@ -296,8 +297,9 @@ export async function POST(request: NextRequest) {
       comandero: ['admin', 'camarero'],
       kiosk: ['admin', 'cajero', 'camarero', 'cocinero'],
     }
+    let orderActor: TenantAccess | undefined
     if (source && protectedSourceRoles[source]) {
-      await requireTenantAccess(tenantId, { staffRoles: protectedSourceRoles[source] })
+      orderActor = await requireTenantAccess(tenantId, { staffRoles: protectedSourceRoles[source] })
     }
 
     if (source === 'table-qr') {
@@ -720,6 +722,9 @@ export async function POST(request: NextRequest) {
     if (offlineLockKey) {
       setTimeout(() => offlineOrderInsertLocks.delete(offlineLockKey), 5000)
     }
+
+    after(() => recordOrderActor(supabase, { tenantId, orderId: order.id, actor: orderActor,
+      stage: isImmediatePaidPOSOrder ? 'registered_paid' : 'registered', source }))
 
     after(async () => {
       try {

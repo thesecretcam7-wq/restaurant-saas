@@ -1,6 +1,10 @@
 import { createServiceClient } from '@/lib/supabase/server'
 import { getTenantPlanInfo } from '@/lib/checkPlan'
-import { getTenantIdFromSlug } from '@/lib/tenant'
+import { cookies } from 'next/headers'
+import { redirect } from 'next/navigation'
+import Link from 'next/link'
+import { resolveAdminAccess } from '@/lib/admin-access'
+import { SalesTicketReview } from '@/components/admin/SalesTicketReview'
 import type { Order } from '@/lib/types'
 import UpgradeGate from '@/components/admin/UpgradeGate'
 import { BarChart3, PackageOpen, ReceiptText, ShoppingBag, TrendingUp, Wallet } from 'lucide-react'
@@ -23,6 +27,7 @@ import {
 
 interface Props {
   params: Promise<{ domain: string }>
+  searchParams?: Promise<{ vista?: string | string[] }>
 }
 
 export const dynamic = 'force-dynamic'
@@ -78,16 +83,26 @@ function orderTotal(order: { total?: number | string | null }) {
   return Number.isFinite(parsed) ? parsed : 0
 }
 
-export default async function VentasPage({ params }: Props) {
+export default async function VentasPage({ params, searchParams }: Props) {
   const { domain: slug } = await params
-  const tenantId = await getTenantIdFromSlug(slug)
-  if (!tenantId) {
-    return <div className="admin-empty">Restaurante no encontrado</div>
-  }
+  const access = await resolveAdminAccess(slug, await cookies())
+  if (!access.tenant || (!access.isOwner && !access.isStaffAdmin)) redirect(`/${slug}/admin/login`)
+  const tenantId = access.tenant.id
+  const planInfo = await getTenantPlanInfo(tenantId)
+  const view = (await searchParams)?.vista
+  if (view !== 'resumen') return (
+    <UpgradeGate tenantId={tenantId} feature="Analíticas de ventas" requiredPlan="pro" currentPlan={planInfo.planId}>
+      <div className="admin-page">
+        <div className="admin-page-header"><div><p className="admin-eyebrow">Control diario</p><h1 className="admin-title">Ventas y tickets</h1><p className="admin-subtitle">Revisa los productos de cada cuenta y quién ha registrado el cobro.</p></div>
+          <Link href={`/${slug}/admin/ventas?vista=resumen`} prefetch={false} className="admin-button-ghost">Productos y resumen de ventas</Link>
+        </div>
+        <SalesTicketReview tenantId={tenantId} updatedAt={Date.now()} />
+      </div>
+    </UpgradeGate>
+  )
 
   const supabase = createServiceClient()
-  const [planInfo, tenantRes, settingsRes] = await Promise.all([
-    getTenantPlanInfo(tenantId),
+  const [tenantRes, settingsRes] = await Promise.all([
     supabase.from('tenants').select('country').eq('id', tenantId).maybeSingle(),
     supabase.from('restaurant_settings').select('country, timezone, operating_hours').eq('tenant_id', tenantId).maybeSingle(),
   ])
@@ -192,6 +207,7 @@ export default async function VentasPage({ params }: Props) {
           <h1 className="admin-title">Ventas</h1>
           <p className="admin-subtitle">Ingresos, ticket promedio, productos top e historial comercial del restaurante.</p>
         </div>
+        <Link href={`/${slug}/admin/ventas`} prefetch={false} className="admin-button-primary">Ver cada ticket</Link>
       </div>
 
       <ProductSalesReport tenantId={tenantId} today={todayKey} currency={currencyInfo.code} locale={currencyInfo.locale} updatedAt={now.getTime()} />

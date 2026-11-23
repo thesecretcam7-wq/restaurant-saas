@@ -245,6 +245,20 @@ export function getRestaurantBusinessPeriod({
   }
 }
 
+export function getRestaurantBusinessPeriodForDate(dateKey: string, args: {
+  operatingHours?: any; timeZone: string; locale?: string
+}): RestaurantBusinessPeriod | null {
+  const parts = parseLocalDateKey(dateKey)
+  if (!parts || getRestaurantLocalDateKey(new Date(Date.UTC(parts.year, parts.month - 1, parts.day, 12)), 'UTC') !== dateKey) return null
+  const minutes = findOperationalCloseMinutes(args.operatingHours)
+  const local = { ...parts, hour: Math.floor(minutes / 60), minute: minutes % 60 }
+  const start = zonedLocalToUtc(local, args.timeZone)
+  const next = parseLocalDateKey(addRestaurantLocalDays(dateKey, 1))!
+  const end = zonedLocalToUtc({ ...next, hour: local.hour, minute: local.minute }, args.timeZone)
+  return { periodStart: start.toISOString(), periodEnd: end.toISOString(), operationalCloseTime: formatMinutes(minutes),
+    businessDateLabel: start.toLocaleDateString(args.locale || 'es-ES', { timeZone: args.timeZone, day: '2-digit', month: 'long', year: 'numeric' }) }
+}
+
 export function formatRestaurantDateTime(
   value: string | number | Date,
   args: Intl.DateTimeFormatOptions & {
