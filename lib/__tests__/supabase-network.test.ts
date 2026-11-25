@@ -65,6 +65,30 @@ describe('Supabase session network protection', () => {
     expect((await guardedFetch(refreshUrl)).status).toBe(200)
   })
 
+  it('aborts a stalled password attempt and permits an explicit retry', async () => {
+    vi.useFakeTimers()
+    const fetcher = vi.fn<typeof fetch>().mockImplementationOnce((_input, init) => new Promise((_resolve, reject) => {
+      init?.signal?.addEventListener('abort', () => reject(new DOMException('Aborted', 'AbortError')), { once: true })
+    })).mockImplementation(async () => Response.json({ ok: true }))
+    const guardedFetch = createSupabaseFetch(fetcher)
+    const url = 'https://project.supabase.co/auth/v1/token?grant_type=password'
+    const attempt = guardedFetch(url, { method: 'POST', body: '{}' })
+    await vi.advanceTimersByTimeAsync(8000)
+    expect((await attempt).status).toBe(503)
+    expect(await (await guardedFetch(url, { method: 'POST', body: '{}' })).json()).toEqual({ ok: true })
+    expect(fetcher).toHaveBeenCalledTimes(2)
+  })
+
+  it('keeps the Auth deadline active while a response body is stalled', async () => {
+    vi.useFakeTimers()
+    const fetcher = vi.fn<typeof fetch>().mockImplementation(async (_input, init) => new Response(new ReadableStream({
+      start(stream) { init?.signal?.addEventListener('abort', () => stream.error(new DOMException('Aborted', 'AbortError')), { once: true }) },
+    })))
+    const attempt = createSupabaseFetch(fetcher)(refreshUrl)
+    await vi.advanceTimersByTimeAsync(8000)
+    expect((await attempt).status).toBe(503)
+  })
+
   it('distinguishes unavailable Auth from invalid credentials', async () => {
     const unavailableClient = { auth: { getUser: async () => ({ data: { user: null }, error: { status: 503 } }) } }
     const invalidClient = { auth: { getUser: async () => ({ data: { user: null }, error: { status: 401 } }) } }

@@ -5,17 +5,23 @@ import { NextRequest, NextResponse } from 'next/server'
 import { randomUUID } from 'crypto'
 import { getAuthLimiter, getClientIp, applyRateLimit } from '@/lib/rate-limit'
 import { isOwnerEmail } from '@/lib/owner-auth'
+import { isAuthConnectionError, supabaseFetch } from '@/lib/supabase/network'
 
 export const maxDuration = 30
 
 const AUTH_TIMEOUT_MS = 15000
 const DATA_TIMEOUT_MS = 7000
 
-function timeoutResult<T>(promise: PromiseLike<T>, timeoutMs: number, label: string): Promise<T> {
-  return Promise.race([
-    Promise.resolve(promise),
-    new Promise<never>((_, reject) => setTimeout(() => reject(new Error(`${label} timeout`)), timeoutMs)),
-  ])
+async function timeoutResult<T>(promise: PromiseLike<T>, timeoutMs: number, label: string): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined
+  try {
+    return await Promise.race([
+      Promise.resolve(promise),
+      new Promise<never>((_, reject) => { timer = setTimeout(() => reject(new Error(`${label} timeout`)), timeoutMs) }),
+    ])
+  } finally {
+    clearTimeout(timer)
+  }
 }
 
 export async function POST(request: NextRequest) {
@@ -66,6 +72,7 @@ export async function POST(request: NextRequest) {
       url,
       anonKey,
       {
+        global: { fetch: supabaseFetch },
         cookies: {
           getAll() { return cookieStore.getAll() },
           setAll(cookiesToSet) {
@@ -87,6 +94,10 @@ export async function POST(request: NextRequest) {
 
     if (error) {
       console.error('[Login] Supabase auth error:', error.message)
+      if (isAuthConnectionError(error)) {
+        return NextResponse.json({ error: 'El servicio de acceso está tardando en responder. Espera unos segundos e intenta de nuevo.' },
+          { status: 503, headers: { 'Cache-Control': 'no-store', 'Retry-After': '15' } })
+      }
       return NextResponse.json({ error: 'Credenciales incorrectas' }, { status: 401 })
     }
 
@@ -94,16 +105,21 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: true, tenant: null, redirectUrl: '/owner-dashboard' })
     }
 
-    const { data: tenant } = await timeoutResult(
+    const { data: tenant, error: tenantError } = await timeoutResult(
       supabase
         .from('tenants')
         .select('id, slug, primary_domain, status')
         .eq('owner_id', data.user.id)
+        .retry(false)
+        .abortSignal(AbortSignal.timeout(DATA_TIMEOUT_MS))
         .single(),
       DATA_TIMEOUT_MS,
       'Tenant lookup'
     )
 
+    if (tenantError && tenantError.code !== 'PGRST116') {
+      return NextResponse.json({ error: 'No se pudo cargar tu restaurante. Intenta entrar de nuevo en unos segundos.' }, { status: 503 })
+    }
     if (!tenant) {
       return NextResponse.json({ error: 'No se encontro un restaurante asociado' }, { status: 404 })
     }
@@ -120,15 +136,16 @@ export async function POST(request: NextRequest) {
     )
     let sessionTokenSaved = true
     try {
-      await timeoutResult(
+      const result = await timeoutResult(
         serviceClient.from('active_sessions').upsert({
           user_key: `owner:${data.user.id}`,
           tenant_id: tenant.id,
           session_token: sessionToken,
-        }, { onConflict: 'user_key' }),
+        }, { onConflict: 'user_key' }).retry(false).abortSignal(AbortSignal.timeout(DATA_TIMEOUT_MS)),
         DATA_TIMEOUT_MS,
         'Session upsert'
       )
+      if (result.error) sessionTokenSaved = false
     } catch (sessionError) {
       sessionTokenSaved = false
       console.warn('[Login] Session upsert skipped:', sessionError instanceof Error ? sessionError.message : sessionError)

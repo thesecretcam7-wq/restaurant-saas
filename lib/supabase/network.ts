@@ -37,13 +37,16 @@ export function createSupabaseFetch(fetcher: typeof fetch = (...args) => fetch(.
     const url = new URL(typeof input === 'string' ? input : input instanceof URL ? input.href : input.url)
     const isSessionRequest = url.pathname === '/auth/v1/user'
       || (url.pathname === '/auth/v1/token' && url.searchParams.get('grant_type') === 'refresh_token')
-    if (!isSessionRequest) return databaseFetch(input, init)
+    const isPasswordRequest = url.pathname === '/auth/v1/token' && url.searchParams.get('grant_type') === 'password'
+    if (!isSessionRequest && !isPasswordRequest) return databaseFetch(input, init)
+
+    const callerSignal = init?.signal || (input instanceof Request ? input.signal : undefined)
+    callerSignal?.throwIfAborted()
 
     if ((typeof navigator !== 'undefined' && navigator.onLine === false)
-      || (blockedUntil.get(url.origin) || 0) > Date.now()) return unavailable()
+      || (isSessionRequest && (blockedUntil.get(url.origin) || 0) > Date.now())) return unavailable()
 
     const controller = new AbortController()
-    const callerSignal = init?.signal || (input instanceof Request ? input.signal : undefined)
     const abort = () => controller.abort()
     if (callerSignal?.aborted) abort()
     else callerSignal?.addEventListener('abort', abort, { once: true })
@@ -52,13 +55,17 @@ export function createSupabaseFetch(fetcher: typeof fetch = (...args) => fetch(.
     try {
       const response = await fetcher(input, { ...init, signal: controller.signal })
       if (response.status === 429 || response.status >= 500) {
-        blockedUntil.set(url.origin, Date.now() + AUTH_COOLDOWN_MS)
+        void response.body?.cancel().catch(() => {})
+        if (isSessionRequest) blockedUntil.set(url.origin, Date.now() + AUTH_COOLDOWN_MS)
         return unavailable()
       }
-      return response
+      // Keep the deadline until the payload is received, not just its headers.
+      const body = await response.arrayBuffer()
+      return new Response(body.byteLength ? body : null, { status: response.status, statusText: response.statusText, headers: response.headers })
     } catch (error) {
       if (callerSignal?.aborted) throw error
-      blockedUntil.set(url.origin, Date.now() + AUTH_COOLDOWN_MS)
+      // Explicit password attempts stay independent from background refresh cooldowns.
+      if (isSessionRequest) blockedUntil.set(url.origin, Date.now() + AUTH_COOLDOWN_MS)
       return unavailable()
     } finally {
       clearTimeout(timeout)
