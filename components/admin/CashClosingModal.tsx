@@ -8,6 +8,7 @@ import { getCurrencyByCountry, formatPriceWithCurrency } from '@/lib/currency';
 import { useTouchDevice } from '@/lib/hooks/useTouchDevice';
 import { NumericKeyboard } from './NumericKeyboard';
 import { TextKeyboard } from './TextKeyboard';
+import type { OfflineCashClosingPreview } from '@/lib/offline/cash-closing';
 
 interface CashClosingData {
   cashSales: number;
@@ -48,6 +49,8 @@ interface CashClosingModalProps {
   country?: string;
   isLoading?: boolean;
   mode?: 'current' | 'pending';
+  offlinePreview?: OfflineCashClosingPreview;
+  readOnlyReason?: string;
 }
 
 export function CashClosingModal({
@@ -58,6 +61,8 @@ export function CashClosingModal({
   country = 'CO',
   isLoading = false,
   mode = 'current',
+  offlinePreview,
+  readOnlyReason,
 }: CashClosingModalProps) {
   const [actualCash, setActualCash] = useState<string>('');
   const [notes, setNotes] = useState('');
@@ -78,6 +83,8 @@ export function CashClosingModal({
   const isBusy = isSubmitting || isLoading;
   const isPendingClosing = mode === 'pending';
   const billPayments = Array.isArray(data.billPayments) ? data.billPayments : [];
+  const localOnly = offlinePreview?.source === 'local';
+  const readOnly = Boolean(offlinePreview || readOnlyReason);
 
   const statCard =
     'rounded-2xl border border-slate-200 bg-white p-4 shadow-[0_10px_24px_rgba(15,23,42,0.06)]';
@@ -85,7 +92,7 @@ export function CashClosingModal({
     'w-full rounded-2xl border border-slate-200 bg-white py-3 text-lg font-black text-slate-950 outline-none placeholder:text-slate-400 focus:border-orange-500 focus:ring-4 focus:ring-orange-100 disabled:opacity-50';
 
   const handleConfirm = async () => {
-    if (isBusy || submittingRef.current) return;
+    if (readOnly || isBusy || submittingRef.current) return;
     if (!actualCash.trim() || !Number.isFinite(Number(actualCash)) || Number(actualCash) < 0) {
       setError('Introduce un importe de efectivo contado válido.');
       return;
@@ -132,6 +139,21 @@ export function CashClosingModal({
         </div>
 
         <div className="space-y-6 p-6">
+          {readOnly && <section role="status" aria-label="Consulta local del corte" className="rounded-2xl border border-amber-300 bg-amber-50 p-4 text-amber-950">
+            <h3 className="font-black">Consulta local provisional</h3>
+            <p className="mt-2 text-sm font-semibold">{readOnlyReason || 'Los datos disponibles en este TPV pueden estar incompletos.'}</p>
+            {offlinePreview && <>
+              <p className="mt-2 text-sm">{offlinePreview.cachedAt
+                ? `Última lectura del servidor: ${new Date(offlinePreview.cachedAt).toLocaleString('es-ES', { dateStyle: 'short', timeStyle: 'short', timeZone: offlinePreview.timeZone })}.`
+                : 'No hay una lectura del servidor guardada para esta jornada. Solo se muestran las ventas locales pendientes de este TPV; faltan las ventas sincronizadas y las facturas de caja.'}</p>
+              {offlinePreview.source === 'cached' && <div className="mt-3 rounded-xl border border-amber-200 bg-white p-3" aria-label="Ventas locales pendientes">
+                <p className="font-black">{offlinePreview.localSales.count} ventas locales pendientes</p>
+                <p>Efectivo: {formatPriceWithCurrency(offlinePreview.localSales.cash, currencyInfo.code, currencyInfo.locale)} · Tarjeta: {formatPriceWithCurrency(offlinePreview.localSales.card, currencyInfo.code, currencyInfo.locale)}</p>
+                <p>Total local: {formatPriceWithCurrency(offlinePreview.localSales.total, currencyInfo.code, currencyInfo.locale)}</p>
+              </div>}
+              {offlinePreview.source === 'cached' && <details className="mt-2 text-xs font-semibold"><summary className="cursor-pointer">Datos que pueden faltar y cómo leer estos importes</summary><p className="mt-2">Pueden faltar ventas y facturas posteriores o de otros TPV. Las ventas locales se muestran por separado: alguna podría estar recibida en el servidor y pendiente de confirmación aquí. No se suman los dos resúmenes.</p></details>}
+            </>}
+          </section>}
           <div className="rounded-2xl border border-orange-200 bg-orange-50 p-4">
             <p className="text-xs font-black uppercase tracking-[0.2em] text-orange-700">Dia operativo</p>
             <div className="mt-2 flex flex-wrap items-center gap-2">
@@ -156,7 +178,7 @@ export function CashClosingModal({
           </div>
 
           <section>
-            <h3 className="mb-4 text-lg font-black text-slate-950">Resumen de Ventas</h3>
+            <h3 className="mb-4 text-lg font-black text-slate-950">{localOnly ? 'Ventas locales pendientes de sincronizar' : offlinePreview ? 'Último resumen guardado del servidor' : 'Resumen de Ventas'}</h3>
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div className={statCard}>
                 <p className="text-sm font-black text-[#ff6b35]">Ventas en Efectivo</p>
@@ -252,7 +274,7 @@ export function CashClosingModal({
                   </p>
                 </div>
               </div>
-              <div className="rounded-2xl border border-sky-200 bg-sky-50 p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] sm:col-span-2">
+              {!localOnly && <div className="rounded-2xl border border-sky-200 bg-sky-50 p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] sm:col-span-2">
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
                   <div>
                     <p className="text-sm font-black uppercase tracking-[0.16em] text-sky-800">
@@ -266,19 +288,19 @@ export function CashClosingModal({
                     {formatPriceWithCurrency(data.totalDeliveryFees || 0, currencyInfo.code, currencyInfo.locale)}
                   </p>
                 </div>
-              </div>
-              <div className={statCard}>
+              </div>}
+              {!localOnly && <div className={statCard}>
                 <p className="text-sm font-black text-violet-700">Impuestos</p>
                 <p className="mt-2 text-2xl font-black text-violet-800">
                   {formatPriceWithCurrency(data.totalTax, currencyInfo.code, currencyInfo.locale)}
                 </p>
-              </div>
-              <div className={statCard}>
+              </div>}
+              {!localOnly && <div className={statCard}>
                 <p className="text-sm font-black text-red-700">Descuentos</p>
                 <p className="mt-2 text-2xl font-black text-red-800">
                   {formatPriceWithCurrency(-data.totalDiscount, currencyInfo.code, currencyInfo.locale)}
                 </p>
-              </div>
+              </div>}
             </div>
           </section>
 
@@ -289,10 +311,10 @@ export function CashClosingModal({
                 <p className="font-semibold text-slate-600">Ventas cobradas</p>
                 <p className="mt-1 text-lg font-black text-slate-950">{data.transactionCount}</p>
               </div>
-              <div>
+              {!localOnly && <div>
                 <p className="font-semibold text-slate-600">Ordenes canceladas</p>
                 <p className="mt-1 text-lg font-black text-slate-950">{data.ordersCancelled}</p>
-              </div>
+              </div>}
               <div>
                 <p className="font-semibold text-slate-600">Personal</p>
                 <p className="mt-1 text-lg font-black text-slate-950">{data.staffName}</p>
@@ -301,7 +323,7 @@ export function CashClosingModal({
           </section>
 
           <section className="rounded-2xl border border-orange-200 bg-orange-50 p-4">
-            <p className="text-sm font-black uppercase tracking-[0.16em] text-orange-700">Monto esperado en efectivo</p>
+            <p className="text-sm font-black uppercase tracking-[0.16em] text-orange-700">{readOnly ? 'Efectivo del resumen mostrado' : 'Monto esperado en efectivo'}</p>
             {(data.billPaymentsTotal || 0) > 0 && (
               <p className="mt-1 text-xs font-bold text-slate-600">
                 Efectivo vendido menos facturas pagadas desde caja
@@ -312,7 +334,7 @@ export function CashClosingModal({
             </p>
           </section>
 
-          <section>
+          {!readOnly && <><section>
             <label htmlFor="cash-closing-counted-amount" className="mb-2 block text-sm font-black uppercase tracking-[0.14em] text-orange-700">
               Monto real contado en caja
             </label>
@@ -408,12 +430,12 @@ export function CashClosingModal({
               aria-label="Notas del cierre"
               className={`${fieldClass} resize-none px-4`}
             />
-          </section>
+          </section></>}
         </div>
 
         {error && <p role="alert" className="px-6 py-2 font-bold text-red-700">{error}</p>}
         <div className="sticky bottom-0 z-10 border-t border-slate-200 bg-white p-4 sm:p-6">
-          <p className="mb-3 text-xs font-semibold text-slate-600">Guardar cierre registra el cierre definitivo. Estas ventas dejarán de aparecer en el corte actual.</p>
+          <p className="mb-3 text-xs font-semibold text-slate-600">{readOnly ? 'Puedes consultar y salir. Para guardar el cierre definitivo, conecta el TPV, sincroniza las ventas y vuelve a abrir Corte.' : 'Guardar cierre registra el cierre definitivo. Estas ventas dejarán de aparecer en el corte actual.'}</p>
           <div data-cash-closing-actions className="flex gap-3">
           <button
             type="button"
@@ -426,7 +448,7 @@ export function CashClosingModal({
           <button
             type="button"
             onClick={() => { void handleConfirm(); }}
-            disabled={isBusy}
+            disabled={isBusy || readOnly}
             className="flex-1 rounded-2xl bg-orange-500 px-4 py-3 font-black text-white shadow-[0_16px_35px_rgba(249,115,22,0.24)] transition hover:bg-orange-600 disabled:opacity-50"
           >
             {isSubmitting ? 'Guardando...' : 'Guardar cierre'}

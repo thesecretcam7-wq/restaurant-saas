@@ -25,6 +25,7 @@ import { calculateTaxAmount, isTaxIncludedCountry } from '@/lib/order-totals';
 import { preloadPrinterForPrint, printCashClosingReceipt, printKitchenTicket, printReceipt, savePrinterLog, openCashDrawer } from '@/lib/pos-printer';
 import { countPendingPOSOrders, isNetworkPaymentError, saveOfflinePOSOrder, syncOfflinePOSOrders } from '@/lib/offline/pos-sync';
 import { getOfflineStorage } from '@/lib/offline/storage';
+import { buildOfflineCashClosing, type OfflineCashClosingPreview } from '@/lib/offline/cash-closing';
 import { useWakeLock } from '@/lib/hooks/useWakeLock';
 import { reconcileSavedDineInOrder, uniqueDineInOrders } from '@/lib/pos-dine-in-orders';
 import { getPOSCartLineKey, getPOSItemQuantities, getPOSTableItemKey as getOrderItemKey, mergePOSTableOrdersToCart as mergeOrdersToCart, takePOSItemQuantities } from '@/lib/pos-table-items';
@@ -259,6 +260,7 @@ function buildPaymentBreakdown(method: PaymentMethod, total: number, cashAmount?
 }
 
 async function fetchPendingCashClosingStats(tenantId: string, signal?: AbortSignal): Promise<CashClosingStats | null> {
+  const requestedAt = Date.now();
   const controller = new AbortController();
   const abort = () => controller.abort();
   if (signal?.aborted) abort();
@@ -276,7 +278,9 @@ async function fetchPendingCashClosingStats(tenantId: string, signal?: AbortSign
     }
 
     const payload = await response.json();
-    return payload.stats || null;
+    const stats = payload.stats || null;
+    await getOfflineStorage().cachePOSCashClosing(tenantId, 'pending', stats, requestedAt).catch(() => console.warn('No se pudo guardar la consulta local del corte pendiente'));
+    return stats;
   } finally {
     clearTimeout(timeout);
     signal?.removeEventListener('abort', abort);
@@ -285,9 +289,10 @@ async function fetchPendingCashClosingStats(tenantId: string, signal?: AbortSign
 
 // ─── Timer Hook ───────────────────────────────────────────────────────────────
 async function fetchCurrentCashClosingStats(tenantId: string): Promise<CashClosingStats> {
+  const requestedAt = Date.now();
   const response = await fetch(`/api/pos/cash-closing?tenantId=${encodeURIComponent(tenantId)}&mode=current`, {
     cache: 'no-store',
-    signal: AbortSignal.timeout(25_000),
+    signal: AbortSignal.timeout(8_000),
   });
 
   if (!response.ok) {
@@ -296,6 +301,8 @@ async function fetchCurrentCashClosingStats(tenantId: string): Promise<CashClosi
   }
 
   const payload = await response.json();
+  if (!payload.stats) throw new Error('El servidor no confirmó los datos del corte');
+  await getOfflineStorage().cachePOSCashClosing(tenantId, 'current', payload.stats, requestedAt).catch(() => console.warn('No se pudo guardar la consulta local del corte'));
   return payload.stats;
 }
 
@@ -724,6 +731,13 @@ export function POSTerminal({
   const [showBillPayment, setShowBillPayment] = useState(false);
   const [billPaymentMethod, setBillPaymentMethod] = useState<BillPaymentMethod>('cash');
   const [cashClosingStats, setCashClosingStats] = useState<CashClosingStats | null>(null);
+  const [offlineClosingPreview, setOfflineClosingPreview] = useState<OfflineCashClosingPreview | null>(null);
+  const closingCacheWarmRef = useRef<{ tenantId: string; at: number } | null>(null);
+  const closingTenantRef = useRef(tenantId);
+  closingTenantRef.current = tenantId;
+  useEffect(() => {
+    setShowCashClosing(false); setCashClosingStats(null); setCashClosingMode(null); setOfflineClosingPreview(null);
+  }, [tenantId]);
   const [cashClosingMode, setCashClosingMode] = useState<CashClosingMode | null>(null);
   const [pendingCashClosingStats, setPendingCashClosingStats] = useState<CashClosingStats | null>(null);
   const [closingLoading, setClosingLoading] = useState(false);
@@ -1126,7 +1140,7 @@ export function POSTerminal({
   }, [tenantId]);
 
   const refreshOpenCashClosingStats = useCallback(async () => {
-    if (!isOnline || !showCashClosing || cashClosingRefreshInFlightRef.current) return;
+    if (!isOnline || !showCashClosing || offlineClosingPreview || cashClosingRefreshInFlightRef.current) return;
 
     cashClosingRefreshInFlightRef.current = true;
     try {
@@ -1134,6 +1148,7 @@ export function POSTerminal({
         ? await fetchPendingCashClosingStats(tenantId)
         : await fetchCurrentCashClosingStats(tenantId);
 
+      if (closingTenantRef.current !== tenantId) return;
       if (nextStats) {
         setCashClosingStats((currentStats) => currentStats ? nextStats : currentStats);
         if (cashClosingMode === 'pending') setPendingCashClosingStats(nextStats);
@@ -1149,7 +1164,15 @@ export function POSTerminal({
     } finally {
       cashClosingRefreshInFlightRef.current = false;
     }
-  }, [cashClosingMode, isOnline, showCashClosing, tenantId]);
+  }, [cashClosingMode, isOnline, offlineClosingPreview, showCashClosing, tenantId]);
+
+  // One bounded snapshot when opening/reconnecting the TPV, never one read per sale.
+  useEffect(() => {
+    if (loading || !isOnline || !navigator.onLine) return;
+    if (closingCacheWarmRef.current?.tenantId === tenantId && Date.now() - closingCacheWarmRef.current.at < 60_000) return;
+    closingCacheWarmRef.current = { tenantId, at: Date.now() };
+    void fetchCurrentCashClosingStats(tenantId).catch(() => {});
+  }, [loading, isOnline, tenantId]);
 
   const refreshOfflinePendingCount = useCallback(async () => {
     try {
@@ -1693,19 +1716,39 @@ export function POSTerminal({
     downloadPOSShortcut();
   }
 
+  async function openLocalCashClosing(mode: CashClosingMode) {
+    const storage = getOfflineStorage();
+    const [cache, orders] = await Promise.all([storage.getPOSCashClosing(tenantId, mode), storage.getOrders()]);
+    const { stats, preview } = buildOfflineCashClosing({ tenantId, mode, cache, orders,
+      timeZone: restaurantTimeZone, operatingHours: restaurantOperatingHours, country });
+    if (closingTenantRef.current !== tenantId) return;
+    setCashClosingStats(stats);
+    setOfflineClosingPreview(preview);
+    setCashClosingMode(mode);
+    setShowCashClosing(true);
+  }
+
   async function handleOpenCashClosing() {
+    if (closingLoading) return;
     setClosingLoading(true);
     try {
       const loggedStaff = getLoggedStaffFromBrowser(tenantId);
       if (loggedStaff.staffId && !selectedStaffId) setSelectedStaffId(loggedStaff.staffId);
       if (loggedStaff.staffName && !selectedStaffName) setSelectedStaffName(loggedStaff.staffName);
+      if (!isOnline || !navigator.onLine) {
+        await openLocalCashClosing('current');
+        return;
+      }
       const stats = await fetchCurrentCashClosingStats(tenantId);
+      if (closingTenantRef.current !== tenantId) return;
       setCashClosingStats(stats);
+      setOfflineClosingPreview(null);
       setCashClosingMode('current');
       setShowCashClosing(true);
     } catch (error) {
       console.error('Error calculating closing stats:', error);
-      setToast({ message: 'Error al calcular estadísticas', type: 'error' });
+      try { await openLocalCashClosing('current'); }
+      catch { setToast({ message: 'No se pudo leer el corte guardado en este TPV. Conserva las ventas y vuelve a intentar.', type: 'error' }); }
     } finally {
       setClosingLoading(false);
     }
@@ -1717,7 +1760,10 @@ export function POSTerminal({
       const loggedStaff = getLoggedStaffFromBrowser(tenantId);
       if (loggedStaff.staffId && !selectedStaffId) setSelectedStaffId(loggedStaff.staffId);
       if (loggedStaff.staffName && !selectedStaffName) setSelectedStaffName(loggedStaff.staffName);
+      if (!isOnline || !navigator.onLine) { await openLocalCashClosing('pending'); return; }
       const stats = await fetchPendingCashClosingStats(tenantId);
+
+      if (closingTenantRef.current !== tenantId) return;
 
       if (!stats) {
         setToast({ message: 'No hay cierres pendientes anteriores', type: 'success' });
@@ -1726,11 +1772,13 @@ export function POSTerminal({
       }
 
       setCashClosingStats(stats);
+      setOfflineClosingPreview(null);
       setCashClosingMode('pending');
       setShowCashClosing(true);
     } catch (error) {
       console.error('Error opening pending closing stats:', error);
-      setToast({ message: 'Error al cargar el cierre pendiente', type: 'error' });
+      try { await openLocalCashClosing('pending'); }
+      catch (localError) { setToast({ message: localError instanceof Error ? localError.message : 'No hay un corte pendiente guardado en este TPV.', type: 'error' }); }
     } finally {
       setClosingLoading(false);
     }
@@ -1799,6 +1847,9 @@ export function POSTerminal({
 
   async function handleSaveCashClosing(actualCash: number, notes: string) {
     if (!cashClosingStats) return;
+    if (!isOnline || !navigator.onLine || offlineClosingPreview || await countPendingPOSOrders(tenantId) > 0) {
+      throw new Error('Conecta el TPV y sincroniza las ventas locales antes de guardar el cierre definitivo.');
+    }
 
     try {
       const loggedStaff = getLoggedStaffFromBrowser(tenantId);
@@ -1829,6 +1880,9 @@ export function POSTerminal({
       });
 
       setCashClosingStats(savedStats);
+
+      await getOfflineStorage().clearPOSCashClosing(tenantId).catch(() => console.warn('No se pudo limpiar la consulta local del corte guardado'));
+      void fetchCurrentCashClosingStats(tenantId).catch(() => {});
 
       setToast({ message: '✓ Caja cerrada exitosamente', type: 'success' });
       if (cashClosingMode === 'pending') {
@@ -6964,6 +7018,7 @@ export function POSTerminal({
             setShowCashClosing(false);
             setCashClosingStats(null);
             setCashClosingMode(null);
+            setOfflineClosingPreview(null);
           }}
           onConfirm={handleSaveCashClosing}
           data={{
@@ -6973,6 +7028,10 @@ export function POSTerminal({
           country={country}
           isLoading={closingLoading}
           mode={cashClosingMode || 'current'}
+          offlinePreview={offlineClosingPreview || undefined}
+          readOnlyReason={offlineClosingPreview ? 'Datos disponibles en este TPV. El cierre definitivo necesita conexión y sincronización.'
+            : !isOnline ? 'Sin conexión: esta es la última consulta cargada. Conecta el TPV antes de guardar el cierre.'
+            : offlinePendingCount > 0 ? 'Hay ventas locales pendientes de sincronizar. Espera a que se sincronicen antes de guardar el cierre.' : undefined}
         />
       )}
 

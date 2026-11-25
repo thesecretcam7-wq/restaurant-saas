@@ -3,6 +3,8 @@
  * Handles local data persistence and sync management
  */
 
+import type { CashClosingStats } from '../cash-closing'
+
 const DB_NAME = 'eccofood-offline'
 const DB_VERSION = 2
 const STORES = {
@@ -74,6 +76,13 @@ export interface POSBootstrapCache {
   tenant: any | null
   settings: any | null
   branding: any | null
+  cachedAt: string
+}
+
+export interface POSCashClosingCache {
+  tenantId: string
+  mode: 'current' | 'pending'
+  stats: CashClosingStats
   cachedAt: string
 }
 
@@ -347,6 +356,47 @@ ed orders
       console.error('Error getting POS bootstrap:', error)
       return null
     }
+  }
+
+  async cachePOSCashClosing(tenantId: string, mode: 'current' | 'pending', stats: CashClosingStats | null, requestedAt = Date.now()): Promise<void> {
+    const db = await this.getDB()
+    const transaction = db.transaction([STORES.TENANT_CONFIG], 'readwrite')
+    const store = transaction.objectStore(STORES.TENANT_CONFIG)
+    const key = `pos-closing-${tenantId}-${mode}`
+    const marker = store.get(`pos-closing-${tenantId}-reset`)
+    marker.onsuccess = () => {
+      // A read started before a confirmed closing cannot restore its old totals.
+      if (Number(marker.result?.at || 0) > requestedAt) return
+      if (stats) store.put({ key, tenantId, mode, stats, cachedAt: new Date().toISOString() })
+      else store.delete(key)
+    }
+    return new Promise((resolve, reject) => {
+      transaction.oncomplete = () => resolve()
+      transaction.onabort = transaction.onerror = () => reject(transaction.error || new Error('No se pudo guardar la consulta local del corte.'))
+    })
+  }
+
+  async getPOSCashClosing(tenantId: string, mode: 'current' | 'pending'): Promise<POSCashClosingCache | null> {
+    const db = await this.getDB()
+    const transaction = db.transaction([STORES.TENANT_CONFIG], 'readonly')
+    const request = transaction.objectStore(STORES.TENANT_CONFIG).get(`pos-closing-${tenantId}-${mode}`)
+    return new Promise((resolve, reject) => {
+      transaction.oncomplete = () => resolve(request.result?.tenantId === tenantId && request.result?.mode === mode ? request.result : null)
+      transaction.onabort = transaction.onerror = () => reject(transaction.error || new Error('No se pudo leer la consulta local del corte.'))
+    })
+  }
+
+  async clearPOSCashClosing(tenantId: string): Promise<void> {
+    const db = await this.getDB()
+    const transaction = db.transaction([STORES.TENANT_CONFIG], 'readwrite')
+    const store = transaction.objectStore(STORES.TENANT_CONFIG)
+    store.put({ key: `pos-closing-${tenantId}-reset`, at: Date.now() })
+    store.delete(`pos-closing-${tenantId}-current`)
+    store.delete(`pos-closing-${tenantId}-pending`)
+    return new Promise((resolve, reject) => {
+      transaction.oncomplete = () => resolve()
+      transaction.onabort = transaction.onerror = () => reject(transaction.error || new Error('No se pudo renovar la consulta local del corte.'))
+    })
   }
 
   async getLatestPOSBootstrap(): Promise<POSBootstrapCache | null> {
